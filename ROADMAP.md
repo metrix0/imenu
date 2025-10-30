@@ -48,6 +48,22 @@
 
 ### UX
 - Prototype everything based in all features on Figma
+- Refine the list based on iFood (+All PTBR)
+  - / (landing page)
+  - /register 
+  - /login 
+  - /settings (conta)
+  - /onboard
+  - /id-do-cardapio/dashboard
+  - /id-do-cardapio/dashboard/orders?
+  - /activation (setup cardapio 1st time/onboard)
+  - /id-do-cardapio 
+  - /id-do-cardapio/settings 
+  - /id-do-cardapio/settings/integrations
+  - /^/order-id (cart?)
+  - /^/order-id/success (includes further tracking)
+  - /help
+
 
 ### Back-End
 | Feature                         | Status   | Description / Purpose                                                                                                                                                                                                                                |
