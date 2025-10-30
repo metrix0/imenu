@@ -4,7 +4,7 @@
 - [To Do](#to-do)
 - [Feature List](#feature-list)
 
-
+#### Macro
 - [Funnels & User Stories](#funnels--user-stories)
 - [Roadmap](#roadmap)
 - [Product Positioning](#product-positioning)
