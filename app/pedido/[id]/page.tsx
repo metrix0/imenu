@@ -4,7 +4,7 @@ import { use, useEffect, useState } from "react";
 import { supabase } from "../../../lib/supabaseClient";
 
 export default function PedidoPage({ params }: { params: Promise<{ id: string }> }) {
-    const { id } = use(params); // ✅ unwrap the Promise safely
+    const { id } = use(params); // ✅ unwrap the Promise
 
     const [status, setStatus] = useState<string>("pending_payment");
 
@@ -23,7 +23,10 @@ export default function PedidoPage({ params }: { params: Promise<{ id: string }>
 
         fetch(`/api/orders/${id}`)
             .then((r) => r.json())
-            .then((d) => setStatus(d.status));
+            .then((d) => {
+                if (d?.status) setStatus(d.status);
+            })
+            .catch(() => {});
 
         return () => {
             supabase.removeChannel(channel);

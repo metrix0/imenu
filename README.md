@@ -1,16 +1,22 @@
-## Summary
+# Summary
 
 > We must be better in every single aspect
 
 - [Tech Stack](#tech-stack)
 - [MVP Roadmap](#mvp-roadmap)
+- [Folder Structure](#folder-structure)
+- [Database, Pool, Realtime and Auth](#database-pool-realtime-and-auth)
+
 - [Inspiration](#inspiration)
-- [Credentials](#credentials)
 - [For AI](#for-AI)
 
 
 
-## Tech Stack
+<br>
+
+---
+
+# Tech Stack
 
 | Area              | Choice                           |
 |-------------------|----------------------------------|
@@ -31,7 +37,7 @@
 | UX Prototyping    | **Figma**                        |
 | UI Prototyping    | **Photoshop** (or Figma, if fine)|
 
-### Future Additions: (Ignore)
+## Future Additions: (Ignore)
 
 | Deferred component                     | When to add                              | Trigger / signal                                     | Migration notes                                              |
 | -------------------------------------- |------------------------------------------| ---------------------------------------------------- | ------------------------------------------------------------ |
@@ -49,9 +55,13 @@
 
 
 
-## MVP Roadmap
+<br>
 
-### 🍔 Customer Side (the public “menu” app)
+---
+
+# MVP Roadmap
+
+## 🍔 Customer Side (the public “menu” app)
 
 | Feature                                                         | Interaction with Stack                                                                                                                                                                                  |
 | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -65,7 +75,7 @@
 
 
 
-### 🏪 Restaurant Admin Dashboard
+## 🏪 Restaurant Admin Dashboard
 
 | Feature                                              | Interaction with Stack                                                                                                                |
 | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
@@ -78,7 +88,7 @@
 | **Profile management (info, fees, logo, banner)**    | CRUD via API; images stored in **S3**; text data in **Supabase**.                                                                     |
 
 
-### ⚙️ System / Backend Functions
+## ⚙️ System / Backend Functions
 
 | Function                                                   | Interaction with Stack                                                                                     |
 | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
@@ -93,14 +103,99 @@
 | **Database migrations & backups (manual / Supabase)**      | Schema created & managed through **Supabase SQL Editor**; Supabase handles **automatic daily backups**.    |
 
 
-### Inspiration
+
+
+<br>
+
+---
+
+# Folder Structure
+
+Each folder has a README, and for each one of the files inside the folder (including other folders) it has:
+- **What it does:** What the file/folder does
+- **How:** How does he achieve that
+- **Usage:** How can we use it (mostly used in lib README)
+
+
+> Frequent files may be ignored or only explained once.
+
+## Root Folder Explanation
+### /app
+The app universal root.
+### /lib
+Centralized reusable code. Includes a README explaining how to use it all.
+
+
+
+
+
+<br>
+
+---
+
+# Database, Pool, Realtime and Auth
+## 1. Database
+All database connections are done via **Pool, Auth or Realtime**. Through ```lib/sql.ts``` and ```lib/supabaseClient.ts``` usage.
+
+
+## 2. Pool (for Back-end)
+Pooling is the action of grouping multiple requests to the Database in a single line, called Pool.
+
+### What it does:
+**Talks to the Database**, if and only if you are in Back-end.
+
+### How:
+```lib/sql.ts``` has a **Helper Function** used by all files to do any Database Requests by the Back-end.
+
+### Usage:
+```lib/README.md``` explains how to use Pool.
+
+## 3. Realtime (for Front-end)
+Realtime is when a variable is directly connected to a Table in the Database. If that Table updates, the variable updates in Real Time.
+
+> This connection is one-way only: **Database** → **Updates Front-end Variables**.
+
+### What it does:
+**Quickly talks to the Database**, for short requests. If and only if you are in Front-end.
+
+### How:
+```lib/supabaseClient.ts``` has a **Helper Function** used by all files to do any Realtime Requests.
+
+### Usage:
+```lib/README.md``` explains how to use Realtime.
+
+## 3. Auth (for Front-end)
+
+> This connection doesn't use the Database (Postgres), it's a Supabase service.
+
+### What it does:
+**Stores and validate user accounts**. If and only if you are in Front-end.
+
+### How:
+```lib/supabaseClient.ts``` has a **Helper Function** used by all files to do Auth Requests.
+
+### Usage:
+```lib/README.md``` explains how to use Auth.
+
+
+
+<br>
+
+---
+
+# Inspiration
 
 - Layout: iFood
 	- Lesser Friction
 - Functionalities (future): https://www.mydigimenu.com/
 
 
-## For AI
+
+<br>
+
+---
+
+# For AI
 
 Follow those rules:
 
@@ -110,18 +205,8 @@ Follow those rules:
 - Always preserve everything from the original files, except for what is being updated.
 - Write code in full with no placeholders. If you get cut off, I’ll say “continue”
 - DO NOT add any extras do the code, only what was requested.
+- IMPORTANT: These files are going to be merged constantly, so DO NOT change variable names. Always check the current code the update/change it.
 
-# To Do (AI Ignore from here)
+<br>
 
-### Priority
-- Finish Testing #6 MP Webhook
-- Pass through all folders and files and learn what they do. Including the code inside them.
-
-### Backlog
-- Move all this stuff to a proper To Do + Roadmap APP
-- Add unitary tests (there are some Py scripts)
-
-### On Deploy
-
-Switch Authentication > URL Configuration > Site URL (https://supabase.com/dashboard/project/mjogdsnxbwhbqcoijrwt/auth/url-configuration
-change .env stuff
+---
