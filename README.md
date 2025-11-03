@@ -6,6 +6,7 @@
 - [Folder Structure](#folder-structure)
 - [Database, Pool, Realtime and Auth](#database-pool-realtime-and-auth)
 - [Mering & Jest](#merging--jest)
+- [Credentials](#credentials)
 
 - [Inspiration](#inspiration)
 - [For AI](#for-AI)
@@ -139,7 +140,15 @@ Realtime is when a variable is directly connected to a Table in the Database. If
 
 Done via GitHub Actions
 
+<br>
 
+---
+# Credentials
+## iFood
+```
+joaovralmeida@hotmail.com
+iMenu2025#
+```
 
 <br>
 
