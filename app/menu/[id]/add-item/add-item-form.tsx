@@ -119,48 +119,36 @@ export default function AddItemForm({ menuId, restaurantId, categories: initialC
 
         setSaving(true);
         try {
-            // 1) Insert item
-            const { data: itemData, error: itemErr } = await supabase
-                .from("items")
-                .insert([
-                    {
-                        restaurant_id: restaurantId,
-                        category_id: categoryId,
-                        name,
-                        description: description || null,
-                        price_cents: priceCents,
-                        is_available: isAvailable,
-                        image_path: imageBase64 || null // <-- salva imagem no items também
-                    }
-                ])
-                .select("id")
-                .single();
+            const payload = {
+                menuId,
+                restaurantId,
+                categoryId,
+                name: name.trim(),
+                description: description.trim() || null,
+                price_cents: priceCents,
+                is_available: isAvailable,
+                imageBase64: imageBase64 ?? null,
+            };
 
+            const res = await fetch("/api/menu/insert-item", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            });
 
-            if (itemErr) throw itemErr;
-
-            const itemId = itemData.id;
-
-            // 2) Link item to menu
-            await supabase.from("menu_items").insert([
-                { menu_id: menuId, item_id: itemId }
-            ]);
-
-            // 3) Save image Base64 in item_media (if exists)
-            if (imageBase64) {
-                await supabase.from("item_media").insert([
-                    {
-                        item_id: itemId,
-                        media_type: "image",
-                        url: imageBase64
-                    }
-                ]);
+            const json = await res.json();
+            if (!res.ok || json.error) {
+                console.error("Erro ao inserir item (server):", json);
+                alert("Erro ao salvar item. Veja console.");
+                setSaving(false);
+                return;
             }
 
+            // sucesso: redirecionar para o menu
             router.push(`/menu/${menuId}`);
         } catch (err) {
-            console.error(err);
-            alert("Erro ao salvar item");
+            console.error("Erro inesperado ao salvar item:", err);
+            alert("Erro inesperado ao salvar item. Veja console.");
         } finally {
             setSaving(false);
         }
