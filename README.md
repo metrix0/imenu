@@ -3,9 +3,9 @@
 > We must be better in every single aspect
 
 - [Tech Stack](#tech-stack)
-- [MVP Roadmap](#mvp-roadmap)
 - [Folder Structure](#folder-structure)
 - [Database, Pool, Realtime and Auth](#database-pool-realtime-and-auth)
+- [Mering & Jest](#merging--jest)
 
 - [Inspiration](#inspiration)
 - [For AI](#for-AI)
@@ -54,53 +54,6 @@
 | **CI/CD extras** (lint, tests matrix)  | As team grows                            | PR churn, regressions                                | Start with lint + a few integration tests                    |
 
 
-
-<br>
-
----
-
-# MVP Roadmap
-
-## 🍔 Customer Side (the public “menu” app)
-
-| Feature                                                         | Interaction with Stack                                                                                                                                                                                  |
-| --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Menu page (categories, items, images, prices, availability)** | **React (Next.js)** fetches menu data via **API from NestJS**, which queries **Supabase (PostgreSQL)** directly using **pg**. Images are stored in **AWS S3**, and their URLs are returned via the API. |
-| **Cart (add/remove/edit items, dynamic pricing)**               | Handled by **Zustand** on the client (React state). Prices fetched from DB; totals calculated locally; persisted temporarily in browser storage.                                                        |
-| **Checkout flow (address, payment, confirmation)**              | **React form** → submits to **NestJS API** → creates `order` in **Supabase** + calls **Stripe/Mercado Pago API** for payment → webhook confirms success → updates order status in DB.                   |
-| **Real-time order status (preparing → delivering → done)**      | Frontend subscribes to **Supabase Realtime** or **WebSocket (NestJS + Socket.IO)** channels for order status changes.                                                                                   |
-| **Login / signup (optional for guests)**                        | **Supabase Auth** manages session tokens; Next.js fetches current user via cookie/session.                                                                                                              |
-| **Language toggle (pt/en)**                                     | **next-intl** or **next-translate** switches text keys and loads translation JSONs.                                                                                                                     |
-| **Responsive design (mobile-first)**                            | Built with **TailwindCSS** breakpoints and Next.js responsive layout components.                                                                                                                        |
-
-
-
-## 🏪 Restaurant Admin Dashboard
-
-| Feature                                              | Interaction with Stack                                                                                                                |
-| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| **Authentication / restaurant login**                | Uses **Supabase Auth** (role = restaurant). Backend validates JWT tokens in NestJS middleware.                                        |
-| **Menu management (add/edit/delete, upload photos)** | Dashboard (React) sends CRUD requests to **NestJS API** → backend executes **SQL via pg** on **Supabase** → image files go to **S3**. |
-| **Category management (e.g., Burgers, Drinks)**      | Similar CRUD flow: React → NestJS → SQL via **pg** → Supabase.                                                                        |
-| **Order management (view/update status)**            | **NestJS API** exposes endpoints + **WebSocket/Supabase Realtime** for instant updates to open orders.                                |
-| **Schedule management (open/closed)**                | Stored as flags in restaurant table; toggled through API → used by frontend to show “closed” banner or disable checkout.              |
-| **Analytics dashboard (sales, best items)**          | Next.js calls **NestJS analytics endpoints**, which run **raw SQL aggregations** via **pg** on Supabase.                              |
-| **Profile management (info, fees, logo, banner)**    | CRUD via API; images stored in **S3**; text data in **Supabase**.                                                                     |
-
-
-## ⚙️ System / Backend Functions
-
-| Function                                                   | Interaction with Stack                                                                                     |
-| ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| **User authentication (JWT / Supabase Auth)**              | Supabase handles sign-in & tokens; NestJS verifies JWT in each request middleware.                         |
-| **CRUD APIs (restaurants, menus, orders, users)**          | Implemented in **NestJS** controllers + raw SQL queries (via **pg** pool) against Supabase PostgreSQL.     |
-| **Payment integration (MP / Stripe webhook handling)**     | **NestJS** routes receive payment confirmations from gateway webhooks; update `orders` in Supabase.        |
-| **File uploads (menu images → S3)**                        | Frontend gets pre-signed upload URL from NestJS → uploads directly to **AWS S3** → URL saved in DB.        |
-| **Real-time order status (Socket.IO / Supabase Realtime)** | **NestJS Gateway** (WebSocket) or Supabase triggers notify connected clients instantly.                    |
-| **Notifications (email, push, in-app)**                    | **NestJS background service** (e.g., BullMQ queue) + providers like Resend / FCM / Socket events.          |
-| **Error logging (Sentry)**                                 | Integrated in both **Next.js** and **NestJS**; automatically captures exceptions and sends them to Sentry. |
-| **Translations (i18n setup)**                              | **next-intl** for frontend; **nestjs-i18n** for backend; share translation keys or JSONs.                  |
-| **Database migrations & backups (manual / Supabase)**      | Schema created & managed through **Supabase SQL Editor**; Supabase handles **automatic daily backups**.    |
 
 
 
@@ -176,6 +129,14 @@ Realtime is when a variable is directly connected to a Table in the Database. If
 
 ### Usage:
 ```lib/README.md``` explains how to use Auth.
+
+<br>
+
+---
+
+# Merging & Jest
+
+
 
 
 

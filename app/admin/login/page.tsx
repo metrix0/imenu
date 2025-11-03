@@ -2,6 +2,8 @@
 import { supabase } from "@/lib/supabaseClient";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { icons } from "@/lib/fontawesome";
 
 export default function AdminLogin() {
     const [email, setEmail] = useState("");
@@ -20,8 +22,9 @@ export default function AdminLogin() {
         <main className="min-h-screen flex items-center justify-center p-4">
             <img src="https://mjogdsnxbwhbqcoijrwt.supabase.co/storage/v1/object/public/menu-images/menu-images/download%20(4).png" alt="Product" />
 
+
             <form onSubmit={onSubmit} className="w-full max-w-sm space-y-3">
-                <h1 className="text-2xl font-bold">Admin</h1>
+                <h1 className="text-2xl font-bold">Admin <FontAwesomeIcon icon={icons.faPlus} className="text-green-600" /></h1>
                 {err && <p className="text-red-600">{err}</p>}
                 <input className="border p-2 w-full" placeholder="Email" value={email} onChange={e=>setEmail(e.target.value)} />
                 <input className="border p-2 w-full" placeholder="Senha" type="password" value={password} onChange={e=>setPassword(e.target.value)} />

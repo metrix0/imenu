@@ -1,0 +1,2 @@
+process.env.DATABASE_URL = "postgres://user:pass@localhost:5432/testdb";
+process.env.MERCADO_PAGO_ACCESS_TOKEN="APP_USR-1860591203554676-102819-74910af6b0a19168f250543b2b79c5e4-1799722894"
