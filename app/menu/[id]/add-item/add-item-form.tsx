@@ -1,8 +1,7 @@
 "use client";
-
-import React, { useState, useEffect } from "react";
-import { createClient } from "@supabase/supabase-js";
+import React, { useState } from "react";
 import { useRouter } from "next/navigation";
+import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -10,63 +9,61 @@ const supabase = createClient(
 );
 
 type Category = { id: string; name: string };
+
 type Props = {
     menuId: string;
     restaurantId: string;
     categories: Category[];
 };
 
-export default function AddItemForm({ menuId, restaurantId, categories: initialCategories }: Props) {
+export default function AddItemForm({
+    menuId,
+    restaurantId,
+    categories: initialCategories
+}: Props) {
     const router = useRouter();
 
     const [name, setName] = useState("");
     const [description, setDescription] = useState("");
     const [price, setPrice] = useState("");
-    const [categoryId, setCategoryId] = useState(initialCategories[0]?.id);
+    const [categoryId, setCategoryId] = useState(initialCategories[0]?.id ?? "");
     const [isAvailable, setIsAvailable] = useState(true);
 
-    // imagem base64
-    const [file, setFile] = useState<File | null>(null);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const [imageBase64, setImageBase64] = useState<string | null>(null);
 
     const [categories, setCategories] = useState(initialCategories);
     const [showNewCategory, setShowNewCategory] = useState(false);
     const [newCategoryName, setNewCategoryName] = useState("");
-    const [saving, setSaving] = useState(false);
     const [creatingCategory, setCreatingCategory] = useState(false);
+    const [saving, setSaving] = useState(false);
 
-    useEffect(() => {
-        setCategories(initialCategories);
-        if (!categoryId && initialCategories[0]) setCategoryId(initialCategories[0].id);
-    }, [initialCategories]);
-
-    async function fileToBase64(file: File) {
+    function fileToBase64(file: File) {
         return new Promise<string>((resolve, reject) => {
             const reader = new FileReader();
             reader.onload = () => resolve(reader.result as string);
             reader.onerror = reject;
-            reader.readAsDataURL(file); // encode to base64
+            reader.readAsDataURL(file);
         });
     }
 
-    function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-        const f = e.target.files?.[0] ?? null;
-        setFile(f);
-
-        if (!f) {
+    async function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+        const file = e.target.files?.[0];
+        if (!file) {
             setPreviewUrl(null);
             setImageBase64(null);
             return;
         }
 
-        const url = URL.createObjectURL(f);
+        const url = URL.createObjectURL(file);
         setPreviewUrl(url);
 
-        fileToBase64(f).then(setImageBase64).catch(() => {
+        try {
+            setImageBase64(await fileToBase64(file));
+        } catch {
             alert("Erro ao processar imagem");
             setImageBase64(null);
-        });
+        }
     }
 
     function onPriceChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -80,22 +77,30 @@ export default function AddItemForm({ menuId, restaurantId, categories: initialC
         if (!isNaN(num)) setPrice(num.toFixed(2));
     }
 
-    function priceIsValid(p: string) {
-        return /^\d+(\.\d{2})$/.test(p);
+    function parsePriceToCents(v: string) {
+        const num = Number(v);
+        return isNaN(num) ? null : Math.round(num * 100);
     }
 
+    // ✅ Criar categoria direto pelo Supabase (igual editar item)
     async function handleCreateCategory() {
-        const nameTrim = newCategoryName.trim();
-        if (!nameTrim) return alert("Nome inválido");
+        const trimmed = newCategoryName.trim();
+        if (!trimmed) return alert("Nome inválido");
+
         setCreatingCategory(true);
 
         const { data, error } = await supabase
             .from("categories")
-            .insert([{ restaurant_id: restaurantId, name: nameTrim }])
+            .insert([{ restaurant_id: restaurantId, name: trimmed }])
             .select("id, name")
             .single();
 
-        if (error) return alert("Erro ao criar categoria");
+        if (error) {
+            console.error("Erro ao criar categoria:", error);
+            alert("Erro ao criar categoria.");
+            setCreatingCategory(false);
+            return;
+        }
 
         setCategories((prev) => [...prev, data]);
         setCategoryId(data.id);
@@ -104,54 +109,40 @@ export default function AddItemForm({ menuId, restaurantId, categories: initialC
         setCreatingCategory(false);
     }
 
-    function parsePriceToCents(v: string) {
-        const num = Number(v);
-        return isNaN(num) ? null : Math.round(num * 100);
-    }
-
     async function handleSave() {
         if (!name.trim()) return alert("Nome obrigatório");
-        if (!price || !priceIsValid(price)) return alert("Preço inválido");
-        if (!categoryId) return alert("Selecione categoria");
+        if (!price) return alert("Preço inválido");
 
-        const priceCents = parsePriceToCents(price);
-        if (priceCents === null) return alert("Erro no preço");
+        const cents = parsePriceToCents(price);
+        if (!cents) return alert("Preço inválido");
+        if (!categoryId) return alert("Selecione uma categoria");
 
         setSaving(true);
-        try {
-            const payload = {
+
+        const res = await fetch("/api/menu/insert-item", {
+            method: "POST",
+            body: JSON.stringify({
                 menuId,
                 restaurantId,
                 categoryId,
-                name: name.trim(),
-                description: description.trim() || null,
-                price_cents: priceCents,
+                name,
+                description,
+                price_cents: cents,
                 is_available: isAvailable,
-                imageBase64: imageBase64 ?? null,
-            };
+                imageBase64
+            })
+        });
 
-            const res = await fetch("/api/menu/insert-item", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload),
-            });
+        const json = await res.json();
 
-            const json = await res.json();
-            if (!res.ok || json.error) {
-                console.error("Erro ao inserir item (server):", json);
-                alert("Erro ao salvar item. Veja console.");
-                setSaving(false);
-                return;
-            }
-
-            // sucesso: redirecionar para o menu
-            router.push(`/menu/${menuId}`);
-        } catch (err) {
-            console.error("Erro inesperado ao salvar item:", err);
-            alert("Erro inesperado ao salvar item. Veja console.");
-        } finally {
+        if (!res.ok) {
+            console.error("Erro ao salvar item:", json);
+            alert("Erro ao salvar item");
             setSaving(false);
+            return;
         }
+
+        router.push(`/menu/${menuId}`);
     }
 
     return (
@@ -159,21 +150,38 @@ export default function AddItemForm({ menuId, restaurantId, categories: initialC
             <div className="bg-white p-6 rounded-lg shadow border">
 
                 <label className="block mb-2 font-semibold">Nome</label>
-                <input className="w-full border rounded px-3 py-2 mb-4"
+                <input
+                    className="w-full border rounded px-3 py-2 mb-4"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                 />
 
-                <label className="block mb-2 font-semibold">Categoria</label>
-                <select className="w-full border rounded px-3 py-2 mb-4"
+                <div className="flex items-center justify-between mb-2">
+                    <label className="font-semibold">Categoria</label>
+                    <button
+                        type="button"
+                        onClick={() => setShowNewCategory(true)}
+                        className="text-sm text-blue-600 underline"
+                    >
+                        + Nova categoria
+                    </button>
+                </div>
+
+                <select
                     value={categoryId}
                     onChange={(e) => setCategoryId(e.target.value)}
+                    className="w-full border rounded px-3 py-2 mb-4"
                 >
-                    {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    {categories.map((c) => (
+                        <option key={c.id} value={c.id}>
+                            {c.name}
+                        </option>
+                    ))}
                 </select>
 
                 <label className="block mb-2 font-semibold">Descrição</label>
-                <textarea className="w-full border rounded px-3 py-2 mb-4"
+                <textarea
+                    className="w-full border rounded px-3 py-2 mb-4"
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                 />
@@ -187,24 +195,65 @@ export default function AddItemForm({ menuId, restaurantId, categories: initialC
                     placeholder="25.50"
                 />
 
-                <label className="block mb-2 font-semibold">Imagem (opcional)</label>
+                <label className="block mb-2 font-semibold">Imagem</label>
                 <input type="file" accept="image/*" onChange={onFileChange} />
-                {previewUrl && <img src={previewUrl} className="w-32 h-32 mt-2 rounded object-cover" />}
+                {previewUrl && (
+                    <img src={previewUrl} className="w-32 h-32 mt-3 rounded object-cover" />
+                )}
 
                 <div className="mt-6 flex gap-3">
                     <button
                         onClick={handleSave}
                         disabled={saving}
-                        className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded"
+                        className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
                     >
                         {saving ? "Salvando..." : "Salvar"}
                     </button>
-                    <button onClick={() => router.push(`/menu/${menuId}`)} className="bg-gray-200 px-4 py-2 rounded">
+
+                    <button
+                        onClick={() => router.push(`/menu/${menuId}`)}
+                        className="bg-gray-200 px-4 py-2 rounded"
+                    >
                         Cancelar
                     </button>
                 </div>
-
             </div>
+
+            {showNewCategory && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+                    <div className="bg-white p-6 rounded shadow max-w-md w-full">
+                        <h3 className="text-lg font-semibold mb-4">Criar nova categoria</h3>
+
+                        <input
+                            value={newCategoryName}
+                            onChange={(e) => setNewCategoryName(e.target.value)}
+                            className="w-full border rounded px-3 py-2 mb-4"
+                            placeholder="Nome da categoria"
+                        />
+
+                        <div className="flex justify-end gap-3">
+                            <button
+                                onClick={() => {
+                                    setShowNewCategory(false);
+                                    setNewCategoryName("");
+                                }}
+                                className="px-3 py-1 rounded border"
+                                disabled={creatingCategory}
+                            >
+                                Cancelar
+                            </button>
+
+                            <button
+                                onClick={handleCreateCategory}
+                                className="px-3 py-1 rounded bg-blue-600 text-white"
+                                disabled={creatingCategory}
+                            >
+                                {creatingCategory ? "Criando..." : "Criar"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
