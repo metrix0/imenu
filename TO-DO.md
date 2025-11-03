@@ -18,6 +18,8 @@
 
 # RAFA
 
+- muda atualizando-email p/ novo-email e coloca na /configuracoes
+
 ## *Subscribe*
 já mandei no PV
 

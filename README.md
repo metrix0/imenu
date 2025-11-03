@@ -18,24 +18,25 @@
 
 # Tech Stack
 
-| Area              | Choice                           |
-|-------------------|----------------------------------|
-| Frontend & API    | **Next.js (React)** (TypeScript) |
-| Styling           | **Tailwind CSS**                 |
-| State (client)    | **Zustand**                      |
-| Database          | **Postgres (Supabase)**          |
-| Data Access       | **`pg`**                         |
-| Realtime/Status   | **Supabase Realtime**            |
-| Pooling           | **Supabase Pooler with pg**      |
-| Auth              | **Supabase Auth (admin only)**   |
-| Storage           | **Supabase Storage**             |
-| Migrations        | **Manual**                       |
-| Payments          | **Mercado Pago**                 |
-| Deployment        | **Vercel**                       |
-| Monitoring/Logs   | **Basic Vercel logs**            |
-| Language          | **Only PT-BR, no i18n**          |
-| UX Prototyping    | **Figma**                        |
-| UI Prototyping    | **Photoshop** (or Figma, if fine)|
+| Area            | Choice                            |
+|-----------------|-----------------------------------|
+| Frontend & API  | **Next.js (React)** (TypeScript)  |
+| Styling         | **Tailwind CSS**                  |
+| State (client)  | **Zustand**                       |
+| Database        | **Postgres (Supabase)**           |
+| Data Access     | **`pg`**                          |
+| Realtime/Status | **Supabase Realtime**             |
+| Pooling         | **Supabase Pooler with pg**       |
+| Auth            | **Supabase Auth (admin only)**    |
+| Storage         | **Supabase Storage**              |
+| Migrations      | **Manual**                        |
+| Payments        | **Mercado Pago**                  |
+| Deployment      | **Vercel**                        |
+| Monitoring/Logs | **Basic Vercel logs**             |
+| Language        | **Only PT-BR, no i18n**           |
+| UX Prototyping  | **Figma**                         |
+| UI Prototyping  | **Photoshop** (or Figma, if fine) |
+| Tests           | **Jest + Github Actions**         |
 
 ## Future Additions: (Ignore)
 
@@ -136,7 +137,7 @@ Realtime is when a variable is directly connected to a Table in the Database. If
 
 # Merging & Jest
 
-
+Done via GitHub Actions
 
 
 
