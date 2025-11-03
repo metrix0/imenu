@@ -142,7 +142,7 @@ export default function MenuAdminClient({
                                         </button>
 
                                         <Link
-                                            href={`/menu/${menuId}/item/${item.id}/edit`}
+                                            href={`/menu/${menuId}/item/${item.id}`}
                                             className="px-3 py-1 rounded border text-sm text-gray-700"
                                         >
                                             Editar
@@ -153,7 +153,7 @@ export default function MenuAdminClient({
                                             className="px-3 py-1 rounded border text-sm text-red-600"
                                             disabled={!!loadingIds[item.id]}
                                         >
-                                            {loadingIds[item.id] ? "..." : "Remover"}
+                                            {loadingIds[item.id] ? "..." : "Excluir"}
                                         </button>
                                     </div>
                                 </div>
@@ -168,7 +168,7 @@ export default function MenuAdminClient({
                                     </button>
 
                                     <Link
-                                        href={`/menu/${menuId}/item/${item.id}/edit`}
+                                        href={`/menu/${menuId}/item/${item.id}`}
                                         className="px-3 py-1 rounded border text-sm text-gray-700"
                                     >
                                         Editar
@@ -179,7 +179,7 @@ export default function MenuAdminClient({
                                         className="px-3 py-1 rounded border text-sm text-red-600"
                                         disabled={!!loadingIds[item.id]}
                                     >
-                                        {loadingIds[item.id] ? "..." : "Remover"}
+                                        {loadingIds[item.id] ? "..." : "Excluir"}
                                     </button>
                                 </div>
                             </div>
