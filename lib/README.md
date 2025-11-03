@@ -26,6 +26,37 @@ Set up **PostgreSQL connection pool using pg**
 - Creates a connection pool to avoid too many DB sessions
 - Exports pool so DB can be queried using pool
 
+# fontawesome.ts
+### What it does
+Exports a package of icons that we'll use often.
+
+### Usage
+
+To import, use:
+```
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { icons } from "@/lib/fontawesome";
+```
+- The first line imports the library
+- The second line imports our icon package
+
+Then, to use **icons in our package:**
+```
+<FontAwesomeIcon icon={icon.faPlus} />
+```
+> **Notice the usage of "icon."**
+
+> To check the icons in our package, enter fontawesome.ts. You may add more.
+
+To use **icons outside our package,** (not used often) import:
+```
+import { faPlus } from "@fortawesome/free-solid-svg-icons";
+```
+and use (without the "icons.")
+```
+<FontAwesomeIcon icon={faPlus} />
+```
+
 # sql.ts
 ### What it does
 Has a Helper Function for executing SQL queries when using the pool from db.ts

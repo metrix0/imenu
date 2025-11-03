@@ -1,6 +1,9 @@
 // app/layout.tsx
 import type { Metadata } from "next";
 import "./globals.css";
+import "@/lib/fontawesome"; // <- this initializes all icons globally
+
+
 
 export const metadata: Metadata = {
     title: "Digital Menu",

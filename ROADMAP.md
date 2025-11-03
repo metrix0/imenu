@@ -16,6 +16,7 @@
 
 # To Do
 
+- Research more into the pains about digital menu
 - Add Jest to the Tech Stack for Unit testing only
   - bring the Py scripts to here so you're able to run manual tests
     (solidify for future branch pulls, documentation for testing?)
@@ -51,20 +52,21 @@
 
 ### UX
 - Prototype everything based in all features on Figma | JOAO
-  - / (landing page)
-  - /registro
-  - /login
-  - /settings (conta)
-  - /id-do-cardapio/painel
-  - /id-do-cardapio/dashboard/orders?
-  - /restaurante/novo (setup cardapio 1st time/onboard)
-  - /id-do-cardapio
-  - /id-do-cardapio/settings
-  - /id-do-cardapio/settings/integrations
-  - /^/order-id (cart?)
-  - /^/order-id/checkout (includes further tracking)
-  - /^/order-id/success (includes further tracking)
-  - /help
+  - ~~/ (landing page)~~
+  - ~~/registro~~
+  - ~~/login~~
+  - ~~/settings (conta)~~
+  - ~~/id-do-cardapio/painel~~
+  - ~~/id-do-cardapio/dashboard/orders?~~
+  - ~~/restaurante/novo (setup cardapio 1st time/onboard)~~
+  - ~~/id-do-cardapio~~
+  - ~~/id-do-cardapio/settings~~
+  - ~~/id-do-cardapio/settings/integrations~~
+  - ~~/^/order-id (cart?)~~
+  - ~~/^/order-id/checkout (includes further tracking)~~
+  - ~~/^/order-id/success (includes further tracking)~~
+  - ~~/help~~
+  - **MOVIDO PARA O FIGMA**
 
 - Refine the list based on iFood (+All PTBR) | JOAO
 
@@ -105,7 +107,11 @@
 - change .env stuff
 - Explain and document for team about changing .envs and tunneling.
 
+### Tests
+- Test client side routing (no refresh on page changes)
+
 ## Feature List for Next Versions (Future)
+- melhorar sessões de usuários, cookies, etc
 - Create multiple accounts with different levels, like admin, counter, kitchen, etc
 - Add Motoboy location tracking
 - Add Upsell feature (just like iFood)
@@ -117,6 +123,8 @@
 - Checkout must pull information from browser and INTEGRATE with everything we can to make the transaction as smooth as possible
 - AI menu photo/pdf scanning to app
 - This should also Update periodically, so it's a forever-long sync. <- ifood sync
+- Marketplace: Be able to display all stores in a search with filters.
+- separate imenu.com and portal.imenu.com
 
 
 
