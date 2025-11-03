@@ -58,34 +58,30 @@ export default function MenuAdminClient({
         setLoadingIds((s) => ({ ...s, [itemId]: false }));
     }
 
-    // Remove APENAS a associação item <-> menu (menu_items)
-    async function removeFromMenu(itemId: string) {
-        if (!confirm("Remover este item do cardápio? Ele permanecerá no banco para histórico de pedidos.")) return;
+    async function deleteItemCompletely(itemId: string) {
+        if (!confirm("Tem certeza? Este item será apagado DEFINITIVAMENTE do banco e do storage.")) return;
+
         setLoadingIds((s) => ({ ...s, [itemId]: true }));
 
         try {
-            // Chama a RPC criada acima
-            const { data, error } = await supabase.rpc("delete_menu_item", {
-                p_menu_id: menuId,
-                p_item_id: itemId,
+            const resp = await fetch("/api/menu/delete-item", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ itemId }),
             });
 
-            if (error) {
-                console.error("Erro ao remover item do menu:", error);
-                alert("Erro ao remover item do cardápio. Veja console para detalhes.");
-            } else {
-                // data é jsonb com menu_items_removed
-                const removed = (data && (data as any).menu_items_removed) ?? 0;
-                if (removed > 0) {
-                    // atualizar UI local removendo o item da lista do cardápio
-                    setItems((prev) => prev.filter((it) => it.id !== itemId));
-                } else {
-                    alert("Nenhuma associação removida (item já não pertencia a este cardápio?)");
-                }
+            const json = await resp.json();
+            if (!resp.ok || json.error) {
+                console.error("Erro ao excluir item:", json);
+                alert("Erro ao excluir item. Veja console.");
+                return;
             }
+
+            setItems((prev) => prev.filter((it) => it.id !== itemId));
+            alert("Item excluído com sucesso.");
         } catch (err) {
-            console.error("Erro inesperado ao chamar RPC:", err);
-            alert("Erro inesperado ao remover item do cardápio.");
+            console.error("Erro inesperado ao deletar item:", err);
+            alert("Erro inesperado ao deletar item.");
         } finally {
             setLoadingIds((s) => ({ ...s, [itemId]: false }));
         }
@@ -96,7 +92,7 @@ export default function MenuAdminClient({
             <div className="flex items-center justify-between mb-6">
                 <h1 className="text-2xl font-bold">Cardápio: {menuName}</h1>
                 <Link
-                    href={`/menu/${menuId}/add`}
+                    href={`/menu/${menuId}/add-item`}
                     className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
                 >
                     + Adicionar item
@@ -153,7 +149,7 @@ export default function MenuAdminClient({
                                         </Link>
 
                                         <button
-                                            onClick={() => startTransition(() => removeFromMenu(item.id))}
+                                            onClick={() => startTransition(() => deleteItemCompletely(item.id))}
                                             className="px-3 py-1 rounded border text-sm text-red-600"
                                             disabled={!!loadingIds[item.id]}
                                         >
@@ -179,7 +175,7 @@ export default function MenuAdminClient({
                                     </Link>
 
                                     <button
-                                        onClick={() => startTransition(() => removeFromMenu(item.id))}
+                                        onClick={() => startTransition(() => deleteItemCompletely(item.id))}
                                         className="px-3 py-1 rounded border text-sm text-red-600"
                                         disabled={!!loadingIds[item.id]}
                                     >

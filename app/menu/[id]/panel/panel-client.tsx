@@ -11,13 +11,12 @@ const supabase = createClient(
 export default function PanelClient({
     menuName,
     orders,
-    orderItems = [], // fallback seguro
+    orderItems = [],
 }: any) {
     const [isPending, startTransition] = useTransition();
-
     const [formattedDates, setFormattedDates] = useState<Record<string, string>>({});
 
-    // Formata todas as datas após o hydrate
+    // Formatar datas
     useEffect(() => {
         const formatted = (orders || []).reduce((acc: any, order: any) => {
             acc[order.id] = new Date(order.created_at).toLocaleString("pt-BR", {
@@ -29,10 +28,7 @@ export default function PanelClient({
     }, [orders]);
 
     async function changeStatus(orderId: string, status: string) {
-        await supabase
-            .from("orders")
-            .update({ status })
-            .eq("id", orderId);
+        await supabase.from("orders").update({ status }).eq("id", orderId);
     }
 
     return (
@@ -41,7 +37,6 @@ export default function PanelClient({
 
             <div className="grid gap-4">
                 {(orders || []).map((order: any) => {
-                    // pegar todos os order_items pertencentes a este pedido
                     const items = (orderItems || []).filter((i: any) => i.order_id === order.id);
 
                     return (
@@ -51,11 +46,11 @@ export default function PanelClient({
 
                             <ul className="mt-3 text-sm">
                                 {items.length === 0 ? (
-                                    <li className="text-gray-500">— Nenhum item listado para este pedido —</li>
+                                    <li className="text-gray-500">— Nenhum item —</li>
                                 ) : (
                                     items.map((item: any) => (
                                         <li key={item.id}>
-                                            • {item.name} — {item.quantity}x
+                                            • {item.name} — {item.quantity}x — R$ {(item.price_cents / 100).toFixed(2)}
                                         </li>
                                     ))
                                 )}
