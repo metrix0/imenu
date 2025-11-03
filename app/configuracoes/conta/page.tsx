@@ -153,6 +153,20 @@ return (
         </form>
       </section>
 
+      {/* Change Password */}
+      <section className="space-y-4 rounded-lg border border-gray-200 p-6 shadow-sm">
+        <h2 className="text-lg font-semibold text-gray-900">Mudar Senha</h2>
+        <p className="text-sm text-gray-700">
+            Altere sua senha de acesso.
+        </p>
+        <button
+            onClick={() => router.push('/configuracoes/conta/nova-senha')}
+            className="rounded-md border border-gray-300 bg-white px-5 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2"
+        >
+            Definir Nova Senha
+        </button>
+      </section>
+
       {/* Disconect */}
       <section className="space-y-4 rounded-lg border border-gray-200 p-6 shadow-sm">
         <h2 className="text-lg font-semibold text-gray-900">Sair</h2>

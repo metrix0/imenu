@@ -21,7 +21,7 @@ export default function EmailChangeCallbackPage() {
         setMessage("E-mail atualizado com sucesso! Redirecionando para suas configurações...");
 
         setTimeout(() => {
-            router.push("/configuracoes");
+            router.push("/configuracoes/conta");
         }, 3000);
     };
 
@@ -37,13 +37,13 @@ export default function EmailChangeCallbackPage() {
             setIsHandled(true);
 
             setStatus("info");
-            setMessage("Confirmação inicial recebida. Por favor, verifique seu **novo** e-mail para concluir a alteração.");
+            setMessage("Confirmação inicial recebida. Por favor, verifique seu outro e-mail para concluir a alteração.");
             
-            // Limpa o hash para evitar reprocessamento
+            
             if (window.history.replaceState) {
                 window.history.replaceState(null, "", window.location.pathname);
             }
-            return; // Sai do useEffect
+            return; 
         }
 
         // ---
@@ -78,7 +78,7 @@ export default function EmailChangeCallbackPage() {
                 setStatus("error");
                 setMessage("Link de confirmação inválido ou expirado. Redirecionando...");
                 setTimeout(() => {
-                    router.push("/configuracoes");
+                    router.push("/configuracoes/conta");
                 }, 3000);
             }
         };

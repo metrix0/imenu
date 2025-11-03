@@ -23,20 +23,17 @@ export default function RegisterPage() {
       return;
     }
 
-    const redirectTo = `${location.origin}/restaurante/novo`;
+   
 
     const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: {
-        emailRedirectTo: redirectTo,
-      },
     });
 
     if (error) {
       setMessage(`Erro: ${error.message}`);
     } else {
-      router.push("/registro/confirmado");
+      router.push(`/restaurante/registrar/otp?email=${encodeURIComponent(email)}`);
     }
 
     setLoading(false);
