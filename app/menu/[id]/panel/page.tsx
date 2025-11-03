@@ -1,3 +1,4 @@
+// app/menu/[id]/page.tsx
 import { createClient } from '@supabase/supabase-js';
 import PanelClient from './panel-client';
 
@@ -23,33 +24,43 @@ export default async function PanelPage({ params }: Props) {
     if (menuError || !menu) return <div>Menu não encontrado</div>;
 
     // Buscar pedidos do restaurante deste menu
-    const { data: orders } = await supabase
+    const { data: orders, error: ordersErr } = await supabase
         .from('orders')
         .select('id, customer_name, status, created_at, total_cents')
         .eq('restaurant_id', menu.restaurant_id)
         .order('created_at', { ascending: false });
 
-    if (!orders) return <div>Nenhum pedido encontrado.</div>;
+    if (ordersErr) {
+        console.error(ordersErr);
+        return <div>Erro ao buscar pedidos</div>;
+    }
 
-    // Buscar os itens pertencentes ao menu
-    const { data: menuItems } = await supabase
-        .from('menu_items')
-        .select('item_id')
-        .eq('menu_id', menuId);
+    // Se não houver pedidos, passar array vazio para o client
+    if (!orders || orders.length === 0) {
+        return <PanelClient menuName={menu.name} orders={[]} orderItems={[]} />;
+    }
 
-    const menuItemIds = menuItems?.map(m => m.item_id) ?? [];
+    // Buscar todos os order_items referentes a esses pedidos (por order_id).
+    const orderIds = orders.map((o: any) => o.id);
 
-    // Buscar itens dos pedidos desse menu
-    const { data: orderItems } = await supabase
+    const { data: orderItems, error: orderItemsErr } = await supabase
         .from('order_items')
         .select('*')
-        .in('item_id', menuItemIds);
+        .in('order_id', orderIds);
 
+    if (orderItemsErr) {
+        console.error(orderItemsErr);
+        // mesmo que dê erro, passamos os pedidos (vazios) para UI evitar crash
+        return <PanelClient menuName={menu.name} orders={orders} orderItems={[]} />;
+    }
+
+    // Passar tudo para o client component (orderItems contém os itens do pedido,
+    // mesmo que esses items já não estejam mais associados ao menu)
     return (
         <PanelClient
             menuName={menu.name}
             orders={orders}
-            orderItems={orderItems}
+            orderItems={orderItems || []}
         />
     );
 }
