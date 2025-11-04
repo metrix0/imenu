@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
 import { useRouter } from "next/navigation";
+import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -40,6 +40,10 @@ export default function AddItemForm({
     const [newCategoryName, setNewCategoryName] = useState("");
     const [creatingCategory, setCreatingCategory] = useState(false);
     const [saving, setSaving] = useState(false);
+
+    // novo estado p/ modal de adicionar complementos
+    const [showAddComplementsModal, setShowAddComplementsModal] = useState(false);
+    const [createdItemId, setCreatedItemId] = useState<string | null>(null);
 
     useEffect(() => {
         setCategories(initialCategories);
@@ -101,7 +105,7 @@ export default function AddItemForm({
             alert("Erro ao processar imagem");
             setImageBase64(null);
         } finally {
-            // clear input value so same file can be picked again if needed
+            // clear input so same file can be picked again if needed
             if (fileInputRef.current) fileInputRef.current.value = "";
         }
     }
@@ -156,6 +160,7 @@ export default function AddItemForm({
         }
     }
 
+    // === handleSave: cria item e abre modal de complementar ===
     async function handleSave() {
         if (!name.trim()) return alert("Nome obrigatório");
         if (!price) return alert("Preço inválido");
@@ -169,6 +174,7 @@ export default function AddItemForm({
         try {
             const res = await fetch("/api/menu/insert-item", {
                 method: "POST",
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     menuId,
                     restaurantId,
@@ -182,19 +188,55 @@ export default function AddItemForm({
             });
 
             const json = await res.json();
-            if (!res.ok) {
+
+            if (!res.ok || json?.error) {
                 console.error("Erro ao salvar item:", json);
-                alert("Erro ao salvar item");
+                alert("Erro ao salvar item. Veja console.");
                 setSaving(false);
                 return;
             }
 
-            router.push(`/menu/${menuId}`);
+            // tenta extrair o id do item criado
+            const createdId =
+                json?.id ??
+                json?.data?.id ??
+                json?.itemId ??
+                json?.insertedId ??
+                json?.data?.item?.id ??
+                (Array.isArray(json) && json[0]?.id) ??
+                null;
+
+            // se não há id, apenas volta ao menu (não podemos abrir add-subcategory sem id)
+            if (!createdId) {
+                console.warn("Não foi possível obter item id da resposta do servidor. Voltando ao menu.");
+                router.push(`/menu/${menuId}`);
+                return;
+            }
+
+            // salva o id e abre o modal (não navegamos ainda)
+            setCreatedItemId(String(createdId));
+            setShowAddComplementsModal(true);
         } catch (err) {
             console.error("Erro ao salvar item:", err);
             alert("Erro ao salvar item");
+        } finally {
             setSaving(false);
         }
+    }
+
+    // ações do modal
+    function handleAddComplementsNow() {
+        if (!createdItemId) {
+            router.push(`/menu/${menuId}`);
+            return;
+        }
+        setShowAddComplementsModal(false);
+        router.push(`/menu/${menuId}/item/${createdItemId}/add-subcategory`);
+    }
+
+    function handleSkipComplements() {
+        setShowAddComplementsModal(false);
+        router.push(`/menu/${menuId}`);
     }
 
     return (
@@ -278,7 +320,7 @@ export default function AddItemForm({
                     placeholder="25.50"
                 />
 
-                {/* Disponibilidade same as EditItemForm */}
+                {/* Disponibilidade */}
                 <div className="mb-4">
                     <label className="block mb-2 font-semibold">Disponibilidade</label>
                     <label className="inline-flex items-center gap-2">
@@ -338,6 +380,39 @@ export default function AddItemForm({
                                 disabled={creatingCategory}
                             >
                                 {creatingCategory ? "Criando..." : "Criar"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal: Adicionar complementos? */}
+            {showAddComplementsModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+                    <div className="bg-white p-6 rounded shadow max-w-md w-full">
+                        <h3 className="text-lg font-semibold mb-4">Adicionar complementos?</h3>
+                        <p className="mb-4">
+                            Deseja adicionar subcategorias / subitens (complementos) para este item agora?
+                        </p>
+
+                        <div className="flex justify-end gap-3">
+                            <button
+                                onClick={() => {
+                                    // voltar ao menu sem adicionar complementos
+                                    handleSkipComplements();
+                                }}
+                                className="px-3 py-1 rounded border"
+                            >
+                                Não
+                            </button>
+
+                            <button
+                                onClick={() => {
+                                    handleAddComplementsNow();
+                                }}
+                                className="px-3 py-1 rounded bg-blue-600 text-white"
+                            >
+                                Sim
                             </button>
                         </div>
                     </div>

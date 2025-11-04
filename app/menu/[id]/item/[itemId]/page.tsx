@@ -75,6 +75,41 @@ export default async function Page({ params }: Props) {
         category_id: itemRow.category_id,
     };
 
+    // após buscar categorias, queremos também buscar subcategorias do item
+    const { data: subcatsRaw, error: subcatsErr } = await supabase
+        .from("item_subcategories")
+        .select("id, name, description, min_select, max_select, position")
+        .eq("item_id", itemId)
+        .order("position", { ascending: true });
+
+    if (subcatsErr) {
+        console.error("Erro ao buscar subcategorias:", subcatsErr);
+    }
+    const subcats = subcatsRaw ?? [];
+
+    // buscar subitens pertencentes às subcategorias (se existirem)
+    const subcatIds = (subcats || []).map((s: any) => s.id);
+    let subitems: any[] = [];
+    if (subcatIds.length > 0) {
+        const { data: subsRaw, error: subsErr } = await supabase
+            .from("subitems")
+            .select("id, item_subcategory_id, name, description, price_cents, is_available, position")
+            .in("item_subcategory_id", subcatIds)
+            .order("position", { ascending: true });
+
+        if (subsErr) {
+            console.error("Erro ao buscar subitens:", subsErr);
+        } else {
+            subitems = subsRaw ?? [];
+        }
+    }
+
+    // anexar subitems às subcats
+    const subcategories = (subcats || []).map((s: any) => ({
+        ...s,
+        subitems: subitems.filter(si => si.item_subcategory_id === s.id) ?? [],
+    }));
+
     return (
         <div className="p-6">
             <h1 className="text-2xl font-bold mb-4">Editar item</h1>
@@ -83,6 +118,7 @@ export default async function Page({ params }: Props) {
                 restaurantId={menu.restaurant_id}
                 item={item}
                 categories={categories ?? []}
+                subcategories={subcategories}
             />
         </div>
     );

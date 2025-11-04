@@ -1,4 +1,4 @@
-// app/menu/[id]/page.tsx
+// app/menu/[id]/panel/page.tsx
 import { createClient } from '@supabase/supabase-js';
 import PanelClient from './panel-client';
 
@@ -45,7 +45,7 @@ export default async function PanelPage({ params }: Props) {
 
     // Se não houver pedidos, passar array vazio para o client
     if (!orders || orders.length === 0) {
-        return <PanelClient menuName={menu.name} orders={[]} orderItems={[]} />;
+        return <PanelClient menuName={menu.name} orders={[]} orderItems={[]} orderItemSubitems={[]} />;
     }
 
     // Buscar todos os order_items referentes a esses pedidos
@@ -58,7 +58,23 @@ export default async function PanelPage({ params }: Props) {
 
     if (orderItemsErr) {
         console.error(orderItemsErr);
-        return <PanelClient menuName={menu.name} orders={orders} orderItems={[]} />;
+        return <PanelClient menuName={menu.name} orders={orders} orderItems={[]} orderItemSubitems={[]} />;
+    }
+
+    // --- NOVO: buscar order_item_subitems para os order_items recuperados ---
+    const orderItemIds = (orderItems || []).map((oi: any) => oi.id);
+    let orderItemSubitems: any[] = [];
+    if (orderItemIds.length > 0) {
+        const { data: oisData, error: oisErr } = await supabase
+            .from('order_item_subitems')
+            .select('*')
+            .in('order_item_id', orderItemIds);
+        if (oisErr) {
+            console.error('Erro ao buscar subitens de pedidos:', oisErr);
+            orderItemSubitems = [];
+        } else {
+            orderItemSubitems = oisData ?? [];
+        }
     }
 
     return (
@@ -66,6 +82,7 @@ export default async function PanelPage({ params }: Props) {
             menuName={menu.name}
             orders={orders}
             orderItems={orderItems || []}
+            orderItemSubitems={orderItemSubitems}
         />
     );
 }

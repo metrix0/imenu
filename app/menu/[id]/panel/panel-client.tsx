@@ -16,6 +16,16 @@ interface OrderItem {
     price_cents: number;
 }
 
+interface OrderItemSubitem {
+    id: string;
+    order_item_id: string;
+    subitem_id?: string | null;
+    name: string;
+    price_cents: number;
+    quantity: number;
+    created_at: string;
+}
+
 interface Order {
     id: string;
     customer_name: string;
@@ -30,10 +40,12 @@ export default function PanelClient({
     menuName,
     orders = [],
     orderItems = [],
+    orderItemSubitems = [], // novo prop
 }: {
     menuName: string;
     orders: Order[];
     orderItems: OrderItem[];
+    orderItemSubitems: OrderItemSubitem[]; // novo prop
 }) {
     const [isPending, startTransition] = useTransition();
     const [formatted, setFormatted] = useState<Record<string, string>>({});
@@ -99,7 +111,8 @@ export default function PanelClient({
 
                 <div className="grid gap-4">
                     {data.map((order) => {
-                        const items = orderItems.filter((i) => i.order_id === order.id);
+                        // obter order_items deste pedido (dados históricos já em orderItems)
+                        const items = (orderItems || []).filter((i) => i.order_id === order.id);
 
                         return (
                             <div
@@ -122,19 +135,43 @@ export default function PanelClient({
                                         {items.length === 0 ? (
                                             <p className="text-gray-500">— Nenhum item —</p>
                                         ) : (
-                                            items.map((item) => (
-                                                <div
-                                                    key={item.id}
-                                                    className="flex justify-between border-b border-gray-200 py-1"
-                                                >
-                                                    <span>
-                                                        {item.quantity}x {item.name}
-                                                    </span>
-                                                    <span>
-                                                        R$ {(item.price_cents / 100).toFixed(2)}
-                                                    </span>
-                                                </div>
-                                            ))
+                                            // Lista de itens principais e seus subitens (usando somente order_items + order_item_subitems)
+                                            items.map((item) => {
+                                                // subitens relativos a este order_item
+                                                const subs = (orderItemSubitems || []).filter(
+                                                    (s) => s.order_item_id === item.id
+                                                );
+
+                                                return (
+                                                    <div key={item.id} className="mb-3">
+                                                        {/* Item principal */}
+                                                        <div className="flex justify-between border-b border-gray-200 py-1">
+                                                            <span>
+                                                                {item.quantity}x {item.name}
+                                                            </span>
+                                                            <span>
+                                                                R$ {(item.price_cents / 100).toFixed(2)}
+                                                            </span>
+                                                        </div>
+
+                                                        {/* Subitens do item */}
+                                                        {subs.length > 0 && (
+                                                            <div className="mt-1 ml-4">
+                                                                {subs.map((s) => (
+                                                                    <div key={s.id} className="flex justify-between border-b border-gray-200 py-1 text-sm text-gray-700">
+                                                                        <span>
+                                                                            {s.quantity}x {s.name}
+                                                                        </span>
+                                                                        <span>
+                                                                            R$ {(s.price_cents / 100).toFixed(2)}
+                                                                        </span>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })
                                         )}
 
                                         <div className="flex justify-between border-b border-gray-300 py-1 mt-1">

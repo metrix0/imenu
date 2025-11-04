@@ -4,6 +4,7 @@
 import React, { useState, useTransition } from "react";
 import { createClient } from "@supabase/supabase-js";
 import Link from "next/link";
+import { useRouter } from "next/navigation"; // added
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -25,6 +26,24 @@ type Item = {
     position: number;
     category?: Category | null;
 };
+type Subitem = {
+    id: string;
+    item_subcategory_id: string;
+    name: string;
+    description?: string | null;
+    price_cents: number;
+    is_available: boolean;
+    position: number;
+};
+type SubcategoryLocal = {
+    id: string;
+    name: string;
+    description?: string | null;
+    min_select?: number;
+    max_select?: number;
+    position?: number;
+    subitems: Subitem[];
+};
 
 export default function MenuAdminClient({
     menuId,
@@ -39,6 +58,7 @@ export default function MenuAdminClient({
     categories: Category[];
     restaurantId: string;
 }) {
+    const router = useRouter(); // added
     const [items, setItems] = useState<Item[]>(initialItems);
     const [categories, setCategories] = useState<Category[]>(initialCategories);
     const [isPending, startTransition] = useTransition();
@@ -51,6 +71,11 @@ export default function MenuAdminClient({
     const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
     const [editingCategoryName, setEditingCategoryName] = useState("");
     const [editingCategoryLoading, setEditingCategoryLoading] = useState(false);
+
+    // New: expanded state and cached subcategories per item
+    const [expandedSet, setExpandedSet] = useState<Record<string, boolean>>({});
+    const [itemSubcats, setItemSubcats] = useState<Record<string, SubcategoryLocal[]>>({});
+    const [subitemLoadingIds, setSubitemLoadingIds] = useState<Record<string, boolean>>({});
 
     // Toggle availability (updates items.is_available)
     async function toggleAvailability(itemId: string, current: boolean) {
@@ -206,6 +231,134 @@ export default function MenuAdminClient({
         }
     }
 
+    // Toggle expansion: if not loaded, fetch subcats+subitems
+    async function toggleExpandItem(itemId: string) {
+        setExpandedSet(s => ({ ...s, [itemId]: !s[itemId] }));
+        if (itemSubcats[itemId]) return; // already loaded
+
+        try {
+            const { data: subcatsRaw, error: scErr } = await supabase
+                .from("item_subcategories")
+                .select("id, name, description, min_select, max_select, position")
+                .eq("item_id", itemId)
+                .order("position", { ascending: true });
+
+            if (scErr) {
+                console.error("Erro ao buscar subcategorias:", scErr);
+                setItemSubcats(prev => ({ ...prev, [itemId]: [] }));
+                return;
+            }
+            const subcats = subcatsRaw ?? [];
+
+            const subcatIds = (subcats || []).map((s: any) => s.id);
+            let subitems: Subitem[] = [];
+            if (subcatIds.length > 0) {
+                const { data: subsRaw, error: subsErr } = await supabase
+                    .from("subitems")
+                    .select("id, item_subcategory_id, name, description, price_cents, is_available, position")
+                    .in("item_subcategory_id", subcatIds)
+                    .order("position", { ascending: true });
+
+                if (subsErr) {
+                    console.error("Erro ao buscar subitens:", subsErr);
+                } else {
+                    subitems = subsRaw ?? [];
+                }
+            }
+
+            const organized: SubcategoryLocal[] = (subcats || []).map((sc: any) => ({
+                id: sc.id,
+                name: sc.name,
+                description: sc.description,
+                min_select: sc.min_select,
+                max_select: sc.max_select,
+                position: sc.position,
+                subitems: (subitems || []).filter(si => si.item_subcategory_id === sc.id),
+            }));
+
+            setItemSubcats(prev => ({ ...prev, [itemId]: organized }));
+        } catch (err) {
+            console.error("Erro ao carregar expansão:", err);
+            setItemSubcats(prev => ({ ...prev, [itemId]: [] }));
+        }
+    }
+
+    // Toggle availability for a subitem
+    async function toggleSubitemAvailability(itemId: string, siId: string, current: boolean) {
+        setSubitemLoadingIds(s => ({ ...s, [siId]: true }));
+        try {
+            const { error } = await supabase
+                .from("subitems")
+                .update({ is_available: !current })
+                .eq("id", siId);
+
+            if (error) {
+                console.error("Erro ao alternar disponibilidade do subitem:", error);
+                alert("Erro ao alterar disponibilidade. Veja console.");
+                return;
+            }
+
+            setItemSubcats(prev => {
+                const copy = { ...prev };
+                const arr = copy[itemId]?.map(sc => ({
+                    ...sc,
+                    subitems: sc.subitems.map(si => si.id === siId ? { ...si, is_available: !current } : si)
+                })) ?? [];
+                copy[itemId] = arr;
+                return copy;
+            });
+        } finally {
+            setSubitemLoadingIds(s => ({ ...s, [siId]: false }));
+        }
+    }
+
+    // Delete subitem but keep historical references: set order_item_subitems.subitem_id = null then delete subitem
+    async function deleteSubitem(itemId: string, siId: string) {
+        if (!confirm("Excluir este subitem? O histórico de pedidos manterá os dados (subitem_id ficará NULL).")) return;
+        setSubitemLoadingIds(s => ({ ...s, [siId]: true }));
+        try {
+            const { error: updErr } = await supabase
+                .from("order_item_subitems")
+                .update({ subitem_id: null })
+                .eq("subitem_id", siId);
+
+            if (updErr) {
+                console.error("Erro ao atualizar histórico de pedidos:", updErr);
+                alert("Erro ao atualizar histórico. Veja console.");
+                return;
+            }
+
+            const { error: delErr } = await supabase
+                .from("subitems")
+                .delete()
+                .eq("id", siId);
+
+            if (delErr) {
+                console.error("Erro ao deletar subitem:", delErr);
+                alert("Erro ao deletar subitem. Veja console.");
+                return;
+            }
+
+            // remove locally
+            setItemSubcats(prev => {
+                const copy = { ...prev };
+                if (!copy[itemId]) return copy;
+                copy[itemId] = copy[itemId].map(sc => ({
+                    ...sc,
+                    subitems: sc.subitems.filter(si => si.id !== siId)
+                }));
+                return copy;
+            });
+
+            alert("Subitem excluído.");
+        } catch (err) {
+            console.error("Erro ao excluir subitem:", err);
+            alert("Erro inesperado. Veja console.");
+        } finally {
+            setSubitemLoadingIds(s => ({ ...s, [siId]: false }));
+        }
+    }
+
     // Build items per category quickly
     const itemsByCategory = categories.reduce<Record<string, Item[]>>((acc, cat) => {
         acc[cat.id] = [];
@@ -279,43 +432,83 @@ export default function MenuAdminClient({
                         {/* items for this category */}
                         <div className="grid grid-cols-1 gap-4">
                             {(itemsByCategory[cat.id] || []).map((item) => (
-                                <a
-                                    key={item.id}
-                                    href={`/menu/${menuId}/item/${item.id}`}
-                                    className="flex flex-col md:flex-row items-start md:items-center gap-4 bg-white p-4 rounded-lg shadow border cursor-pointer no-underline"
-                                >
-                                    <div className="flex-shrink-0">
-                                        {item.image_path ? (
-                                            <img
-                                                src={item.image_path}
-                                                alt={item.name}
-                                                className="w-24 h-24 object-cover rounded-lg"
-                                                style={{ minWidth: 96, minHeight: 96 }}
-                                            />
-                                        ) : (
-                                            <div
-                                                className="w-24 h-24 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400"
-                                                style={{ minWidth: 96, minHeight: 96 }}
-                                            >
-                                                Sem imagem
-                                            </div>
-                                        )}
-                                    </div>
+                                <div key={item.id} className="flex flex-col gap-2">
+                                    <a
+                                        href={`/menu/${menuId}/item/${item.id}`}
+                                        className="flex flex-col md:flex-row items-start md:items-center gap-4 bg-white p-4 rounded-lg shadow border cursor-pointer no-underline"
+                                    >
+                                        <div className="flex-shrink-0">
+                                            {item.image_path ? (
+                                                <img
+                                                    src={item.image_path}
+                                                    alt={item.name}
+                                                    className="w-24 h-24 object-cover rounded-lg"
+                                                    style={{ minWidth: 96, minHeight: 96 }}
+                                                />
+                                            ) : (
+                                                <div
+                                                    className="w-24 h-24 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400"
+                                                    style={{ minWidth: 96, minHeight: 96 }}
+                                                >
+                                                    Sem imagem
+                                                </div>
+                                            )}
+                                        </div>
 
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex justify-between items-start">
-                                            <div className="truncate">
-                                                <h3 className="font-semibold text-lg truncate">{item.name}</h3>
-                                                <p className="mt-2 text-sm text-gray-700">{item.description}</p>
-                                                <p className="mt-2 font-semibold">R$ {(item.price_cents / 100).toFixed(2)}</p>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex justify-between items-start">
+                                                <div className="truncate">
+                                                    <h3 className="font-semibold text-lg truncate">{item.name}</h3>
+                                                    <p className="mt-2 text-sm text-gray-700">{item.description}</p>
+                                                    <p className="mt-2 font-semibold">R$ {(item.price_cents / 100).toFixed(2)}</p>
+                                                </div>
+
+                                                {/* actions - desktop */}
+                                                <div className="hidden md:flex md:flex-col md:items-end md:gap-2 ml-4">
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            e.preventDefault();
+                                                            startTransition(() => toggleAvailability(item.id, item.is_available));
+                                                        }}
+                                                        className={`px-3 py-1 rounded ${item.is_available ? "bg-green-600 text-white" : "bg-gray-200 text-gray-800"}`}
+                                                        disabled={!!loadingIds[item.id]}
+                                                    >
+                                                        {loadingIds[item.id] ? "..." : item.is_available ? "Disponível" : "Indisponível"}
+                                                    </button>
+
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            e.preventDefault();
+                                                            startTransition(() => { void deleteItemCompletely(item.id); });
+                                                        }}
+                                                        className="px-3 py-1 rounded border text-sm text-red-600"
+                                                        disabled={!!loadingIds[item.id]}
+                                                    >
+                                                        {loadingIds[item.id] ? "..." : "Excluir"}
+                                                    </button>
+
+                                                    {/* Expand button */}
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            e.preventDefault();
+                                                            void toggleExpandItem(item.id);
+                                                        }}
+                                                        className="px-3 py-1 rounded border text-sm"
+                                                    >
+                                                        {expandedSet[item.id] ? "Fechar" : "Expandir"}
+                                                    </button>
+                                                </div>
                                             </div>
 
-                                            {/* actions - desktop */}
-                                            <div className="hidden md:flex md:flex-col md:items-end md:gap-2 ml-4">
+                                            {/* actions - mobile */}
+                                            <div className="mt-3 flex flex-wrap gap-2 md:hidden">
                                                 <button
                                                     onClick={(e) => {
-                                                        e.stopPropagation();      // important: prevent anchor click
-                                                        e.preventDefault();       // extra safety
+                                                        e.stopPropagation();
+                                                        e.preventDefault();
                                                         startTransition(() => toggleAvailability(item.id, item.is_available));
                                                     }}
                                                     className={`px-3 py-1 rounded ${item.is_available ? "bg-green-600 text-white" : "bg-gray-200 text-gray-800"}`}
@@ -323,8 +516,6 @@ export default function MenuAdminClient({
                                                 >
                                                     {loadingIds[item.id] ? "..." : item.is_available ? "Disponível" : "Indisponível"}
                                                 </button>
-
-                                                {/* edit removed since whole card is the edit trigger */}
 
                                                 <button
                                                     onClick={(e) => {
@@ -337,37 +528,85 @@ export default function MenuAdminClient({
                                                 >
                                                     {loadingIds[item.id] ? "..." : "Excluir"}
                                                 </button>
+
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        e.preventDefault();
+                                                        void toggleExpandItem(item.id);
+                                                    }}
+                                                    className="px-3 py-1 rounded border text-sm"
+                                                >
+                                                    {expandedSet[item.id] ? "Fechar" : "Expandir"}
+                                                </button>
                                             </div>
                                         </div>
+                                    </a>
 
-                                        {/* actions - mobile */}
-                                        <div className="mt-3 flex flex-wrap gap-2 md:hidden">
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    e.preventDefault();
-                                                    startTransition(() => toggleAvailability(item.id, item.is_available));
-                                                }}
-                                                className={`px-3 py-1 rounded ${item.is_available ? "bg-green-600 text-white" : "bg-gray-200 text-gray-800"}`}
-                                                disabled={!!loadingIds[item.id]}
-                                            >
-                                                {loadingIds[item.id] ? "..." : item.is_available ? "Disponível" : "Indisponível"}
-                                            </button>
+                                    {/* Expanded panel: subcategories and subitems for this item */}
+                                    {expandedSet[item.id] && (
+                                        <div className="bg-white rounded-lg shadow border p-4">
+                                            <h4 className="font-semibold mb-3">Subcategorias / Subitens</h4>
 
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    e.preventDefault();
-                                                    startTransition(() => { void deleteItemCompletely(item.id); });
-                                                }}
-                                                className="px-3 py-1 rounded border text-sm text-red-600"
-                                                disabled={!!loadingIds[item.id]}
-                                            >
-                                                {loadingIds[item.id] ? "..." : "Excluir"}
-                                            </button>
+                                            {(itemSubcats[item.id] && itemSubcats[item.id].length > 0) ? (
+                                                <div className="space-y-3">
+                                                    {itemSubcats[item.id].map((sc) => (
+                                                        <div key={sc.id} className="border rounded p-3">
+                                                            <div className="flex items-center justify-between mb-2">
+                                                                <div>
+                                                                    <div className="font-medium">{sc.name}</div>
+                                                                    {sc.description && <div className="text-sm text-gray-600">{sc.description}</div>}
+                                                                </div>
+                                                            </div>
+
+                                                            <div className="mt-2 space-y-2">
+                                                                {sc.subitems.length === 0 ? (
+                                                                    <div className="text-sm text-gray-500">Nenhum subitem</div>
+                                                                ) : (
+                                                                    sc.subitems.map((si) => (
+                                                                        <div key={si.id} className="flex items-center justify-between rounded p-2 hover:bg-gray-50">
+                                                                            <div className="min-w-0">
+                                                                                <div className="font-medium truncate">{si.name}</div>
+                                                                                {si.description && <div className="text-sm text-gray-600 truncate">{si.description}</div>}
+                                                                                <div className="text-sm mt-1 font-semibold">R$ {(si.price_cents / 100).toFixed(2)}</div>
+                                                                            </div>
+
+                                                                            <div className="flex items-center gap-2 ml-4">
+                                                                                <button
+                                                                                    onClick={(e) => {
+                                                                                        e.stopPropagation();
+                                                                                        void toggleSubitemAvailability(item.id, si.id, si.is_available);
+                                                                                    }}
+                                                                                    className={`px-3 py-1 rounded text-sm ${si.is_available ? "bg-green-600 text-white" : "bg-gray-200 text-gray-800"}`}
+                                                                                    disabled={!!subitemLoadingIds[si.id]}
+                                                                                >
+                                                                                    {subitemLoadingIds[si.id] ? "..." : si.is_available ? "Disponível" : "Indisponível"}
+                                                                                </button>
+
+                                                                                <button
+                                                                                    onClick={(e) => {
+                                                                                        e.stopPropagation();
+                                                                                        void deleteSubitem(item.id, si.id);
+                                                                                    }}
+                                                                                    className="px-3 py-1 rounded border text-sm text-red-600"
+                                                                                    disabled={!!subitemLoadingIds[si.id]}
+                                                                                >
+                                                                                    {subitemLoadingIds[si.id] ? "..." : "Excluir"}
+                                                                                </button>
+                                                                            </div>
+                                                                        </div>
+                                                                    ))
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <div className="text-sm text-gray-500">Nenhuma subcategoria encontrada.</div>
+                                            )}
                                         </div>
-                                    </div>
-                                </a>
+                                    )}
+                                </div>
                             ))}
                         </div>
                     </section>
