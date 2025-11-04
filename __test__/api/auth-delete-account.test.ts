@@ -1,19 +1,25 @@
 import { POST } from "@/app/api/auth/delete-account/route";
 
-const mockGetUser = jest.fn();
-const mockDeleteUser = jest.fn();
-const mockCreateClient = jest.fn(() => ({
-  auth: {
-    getUser: mockGetUser,
-    admin: {
-      deleteUser: mockDeleteUser,
-    },
-  },
-}));
+let mockGetUser: jest.Mock;
+let mockDeleteUser: jest.Mock;
+let mockCreateClient: jest.Mock;
 
-jest.mock("@supabase/supabase-js", () => ({
-  createClient: mockCreateClient,
-}));
+jest.mock("@supabase/supabase-js", () => {
+  mockGetUser = jest.fn();
+  mockDeleteUser = jest.fn();
+  mockCreateClient = jest.fn(() => ({
+    auth: {
+      getUser: mockGetUser,
+      admin: {
+        deleteUser: mockDeleteUser,
+      },
+    },
+  }));
+
+  return {
+    createClient: mockCreateClient,
+  };
+});
 
 const originalSupabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const originalServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
