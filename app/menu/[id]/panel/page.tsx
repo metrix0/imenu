@@ -26,7 +26,15 @@ export default async function PanelPage({ params }: Props) {
     // Buscar pedidos do restaurante deste menu
     const { data: orders, error: ordersErr } = await supabase
         .from('orders')
-        .select('id, customer_name, status, created_at, total_cents')
+        .select(
+            `id, 
+            customer_name, 
+            customer_address,
+            delivery_cents,
+            status, 
+            created_at, 
+            total_cents`
+        )
         .eq('restaurant_id', menu.restaurant_id)
         .order('created_at', { ascending: false });
 
@@ -40,7 +48,7 @@ export default async function PanelPage({ params }: Props) {
         return <PanelClient menuName={menu.name} orders={[]} orderItems={[]} />;
     }
 
-    // Buscar todos os order_items referentes a esses pedidos (por order_id).
+    // Buscar todos os order_items referentes a esses pedidos
     const orderIds = orders.map((o: any) => o.id);
 
     const { data: orderItems, error: orderItemsErr } = await supabase
@@ -50,12 +58,9 @@ export default async function PanelPage({ params }: Props) {
 
     if (orderItemsErr) {
         console.error(orderItemsErr);
-        // mesmo que dê erro, passamos os pedidos (vazios) para UI evitar crash
         return <PanelClient menuName={menu.name} orders={orders} orderItems={[]} />;
     }
 
-    // Passar tudo para o client component (orderItems contém os itens do pedido,
-    // mesmo que esses items já não estejam mais associados ao menu)
     return (
         <PanelClient
             menuName={menu.name}
