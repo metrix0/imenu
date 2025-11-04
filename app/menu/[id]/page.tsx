@@ -14,7 +14,7 @@ export default async function MenuPage({ params }: Props) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
-  // buscar menu
+  // buscar menu (inclui restaurant_id)
   const { data: menu, error: menuError } = await supabase
     .from("menu")
     .select("id, name, restaurant_id")
@@ -29,6 +29,19 @@ export default async function MenuPage({ params }: Props) {
     return <div>Menu não encontrado</div>;
   }
 
+  // buscar categorias deste restaurante
+  const { data: categoriesRaw, error: catErr } = await supabase
+    .from("categories")
+    .select("id, name, position")
+    .eq("restaurant_id", menu.restaurant_id)
+    .order("position", { ascending: true });
+
+  if (catErr) {
+    console.error("Erro ao buscar categorias:", catErr);
+    // continua com array vazio
+  }
+  const categories = categoriesRaw ?? [];
+
   // buscar item_ids do menu
   const { data: miRows, error: miErr } = await supabase
     .from("menu_items")
@@ -42,7 +55,7 @@ export default async function MenuPage({ params }: Props) {
 
   const itemIds = (miRows || []).map((r: any) => r.item_id);
   if (itemIds.length === 0) {
-    return <MenuAdminClient menuId={menuId} menuName={menu.name} items={[]} />;
+    return <MenuAdminClient menuId={menuId} menuName={menu.name} items={[]} categories={categories} restaurantId={menu.restaurant_id} />;
   }
 
   // buscar detalhes dos itens (categoria possivelmente vem como array)
@@ -90,6 +103,8 @@ export default async function MenuPage({ params }: Props) {
       menuId={menuId}
       menuName={menu.name}
       items={normalizedItems}
+      categories={categories}
+      restaurantId={menu.restaurant_id}
     />
   );
 }
