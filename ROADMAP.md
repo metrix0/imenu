@@ -46,7 +46,7 @@
 ### Database
 | Feature              | Status  | Description / Purpose                                                                  |
 |----------------------|---------|----------------------------------------------------------------------------------------|
-| Database Structuring | JOAO    | Go through all Features and Re-structure the DB and Tables according to what's needed. |
+| Database Structuring | ✅       | Go through all Features and Re-structure the DB and Tables according to what's needed. |
 |                      | Waiting |                                                                                        |
 
 ### UX
@@ -67,7 +67,7 @@
   - ~~/help~~
   - **MOVIDO PARA O FIGMA**
 
-- Refine the list based on iFood (+All PTBR) | JOAO
+~~- Refine the list based on iFood (+All PTBR) | JOAO~~
 
 ### Back-End
 | Feature                         | Status  | Description / Purpose                                                                                                                                                                                                                                |
@@ -124,6 +124,7 @@
 - This should also Update periodically, so it's a forever-long sync. <- ifood sync
 - Marketplace: Be able to display all stores in a search with filters.
 - separate imenu.com and portal.imenu.com
+- integration tests
 
 
 
