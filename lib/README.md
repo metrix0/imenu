@@ -57,6 +57,52 @@ and use (without the "icons.")
 <FontAwesomeIcon icon={faPlus} />
 ```
 
+# popupStore.ts
+
+### What it does
+Has a Helper Function and Layout (components/Popup.tsx and /Toast.tsx) for Popup calling
+- Popup is a simple full screen popup
+- Toast is a quick top-right corner message
+
+### Usage (Popup)
+
+Add imports
+```
+import Popup from "@/components/Popup";
+```
+
+Add state management (under ```export default function```)
+```
+const [showPopup, setShowPopup] = useState(false);
+```
+
+Add the popup and button
+```
+<Popup open={showPopup} onClose={() => setShowPopup(false)}>
+  Whatever
+</Popup>
+
+<button onClick={() => setShowPopup(true)} className="px-4 py-2 bg-green-600 text-white rounded-md">Botão</button>
+```
+
+### Usage (Toast)
+Add imports
+```
+import Toast from "@/components/Toast";
+```
+
+Add state management (under ```export default function```)
+```
+const [showToast, setShowToast] = useState(false);
+```
+
+Add the button and toast
+```
+<button onClick={() => setShowToast(true)} className="px-4 py-2 bg-blue-600 text-white rounded-md">Botão Toast</button>
+
+{showToast && (<Toast message="Alterações salvas com sucesso!"  type="success" onClose={() => setShowToast(false)}/>)}
+```
+
 # sql.ts
 ### What it does
 Has a Helper Function for executing SQL queries when using the pool from db.ts
