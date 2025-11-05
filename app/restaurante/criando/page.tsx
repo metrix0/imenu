@@ -7,19 +7,19 @@ import { useRouter } from "next/navigation";
 export default function CriandoPage() {
     const router = useRouter();
 
-    // Este efeito simula um carregamento/preparação
+  
     useEffect(() => {
         const timer = setTimeout(() => {
             router.push('/setup/perfil');
-        }, 2500); // Aguarda 2.5 segundos
+        }, 2500); 
 
-        return () => clearTimeout(timer); // Limpa o timer
+        return () => clearTimeout(timer); 
     }, [router]);
 
     return (
         <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50 p-6 text-center">
             <div className="w-full max-w-lg space-y-4">
-                {/* Ícone de Loading (SVG) */}
+                {/* Loading icon */}
                 <svg 
                     className="mx-auto h-12 w-12 animate-spin text-black" 
                     xmlns="http://www.w3.org/2000/svg" 

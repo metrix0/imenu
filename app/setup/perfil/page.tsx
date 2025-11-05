@@ -3,8 +3,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-// === CAMINHO CORRIGIDO ===
-// Usando o caminho relativo correto de app/setup/perfil para a raiz
 import { supabase } from "../../../lib/supabaseClient";
 
 /**
@@ -92,14 +90,12 @@ export default function SetupPerfilPage() {
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState<{ type: 'error' | 'success', content: string } | null>(null);
 
-    // Estados do formulário (atualizados)
     const [name, setName] = useState("");
 
     const [description, setDescription] = useState("");
     const [phone, setPhone] = useState("");
     
-    // Estados de endereço separados
-    // const [cep, setCep] = useState(""); // Removido
+
     const [street, setStreet] = useState("");
 
     const [number, setNumber] = useState("");
@@ -134,10 +130,9 @@ export default function SetupPerfilPage() {
 
         // 3. Combine address fields into one string for the DB
 
-        // Atualizado para remover o CEP
         const fullAddress = `${street}, ${number} - ${neighborhood}, ${city} - ${state}`;
 
-        // 4. Insert into database
+  
         const { data, error } = await supabase
             .from("restaurants")
 
@@ -228,7 +223,7 @@ export default function SetupPerfilPage() {
                         <input
                             id="phone" type="tel"
                             value={phone} 
-                            onChange={(e) => setPhone(formatPhone(e.target.value))} // Aplica máscara
+                            onChange={(e) => setPhone(formatPhone(e.target.value))} 
 
                             required
                             placeholder="(XX) 9XXXX-XXXX"
@@ -238,7 +233,7 @@ export default function SetupPerfilPage() {
                         />
                     </div>
 
-                    {/* --- Seção de Endereço Separada --- */}
+                    {/* --- Address Section --- */}
 
                     <fieldset className="space-y-4 rounded-lg border border-gray-200 p-4">
                         <legend className="text-base font-medium text-gray-900">Endereço (Obrigatório)</legend>
@@ -265,10 +260,10 @@ export default function SetupPerfilPage() {
 
                                 <label htmlFor="number" className="block text-sm font-medium text-gray-700">Número</label>
                                 <input
-                                    id="number" type="text" // 'text' para permitir 'formatNumeric'
+                                    id="number" type="text" 
                                     value={number}
 
-                                    onChange={(e) => setNumber(formatNumeric(e.target.value))} // Apenas números
+                                    onChange={(e) => setNumber(formatNumeric(e.target.value))} 
                                     placeholder="123"
                                     required
                                     maxLength={10}
@@ -328,7 +323,7 @@ export default function SetupPerfilPage() {
                             </div>
                         </div>
                     </fieldset>
-                    {/* --- Fim da Seção de Endereço --- */}
+                   
 
 
 
