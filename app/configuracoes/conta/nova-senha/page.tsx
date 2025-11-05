@@ -39,7 +39,6 @@ export default function NewPasswordPage() {
             setMessage({ type: 'success', content: 'Senha atualizada com sucesso!' });
             setNewPassword("");
             setConfirmPassword("");
-            // Opcional: redirecionar de volta após um tempo
             setTimeout(() => {
                 router.push('/configuracoes/conta');
             }, 2000);
