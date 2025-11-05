@@ -93,7 +93,7 @@ export default function MenuSettingsPage() {
                     setRestaurant(data);
                     
 
-                    const url = `${window.location.origin}/menu/${data.url_slug}`; 
+                    const url = `${window.location.origin}/cardapio/${data.url_slug}`;
                     setShareableUrl(url);
 
         
@@ -121,12 +121,9 @@ export default function MenuSettingsPage() {
             }
         );
 
-
         return () => subscription.unsubscribe();
 
     }, [slugFromParams, router]);
-
-
 
 
     const handleDeleteRestaurant = async () => {
@@ -321,7 +318,7 @@ export default function MenuSettingsPage() {
                             className="flex w-full items-center justify-center gap-2 rounded-md border border-gray-300 bg-white px-5 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 sm:w-auto"
                         >
 
-                            {/* Ícone removido */}
+                            
                             {copySuccess ? copySuccess : "Copiar Link"}
                         </button>
 
@@ -331,7 +328,7 @@ export default function MenuSettingsPage() {
                         {qrCodeUrl ? (
 
                             <img
-                                src={qrCodeUrl} // Agora é um Data URL
+                                src={qrCodeUrl} 
                                 alt="QR Code do Cardápio"
 
                                 width={200}
