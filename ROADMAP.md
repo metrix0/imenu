@@ -16,14 +16,9 @@
 # To Do
 
 - Research more into the pains about digital menu
-- Add Jest to the Tech Stack for Unit testing only
-  - bring the Py scripts to here so you're able to run manual tests
-    (solidify for future branch pulls, documentation for testing?)
 
 ## Backlog
 - add localStorage on cartStore.ts to persist cart
-- Move all this stuff to a proper To Do + Roadmap APP
-- Add unitary tests (there are some Py scripts)
 - Change all tech infrastructure emails to only 1 centralized new gmail
 
 
@@ -46,7 +41,7 @@
 ### Database
 | Feature              | Status  | Description / Purpose                                                                  |
 |----------------------|---------|----------------------------------------------------------------------------------------|
-| Database Structuring | ✅       | Go through all Features and Re-structure the DB and Tables according to what's needed. |
+| Database Structuring | ✅J     | Go through all Features and Re-structure the DB and Tables according to what's needed. |
 |                      | Waiting |                                                                                        |
 
 ### UX
@@ -72,8 +67,8 @@
 ### Back-End
 | Feature                         | Status  | Description / Purpose                                                                                                                                                                                                                                |
 |---------------------------------|---------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Add Restaurant                  | RAFA    | add restaurant with working URL. also option to delete it                                                                                                                                                                                            |
-| iFood Sync & Update             | BRENDO  | Sync iFood to request their Menu (categories, items, prices, weight, etc).  If you need to update the Database, do so, and tell everyone. Run tests as well and fix what's needed. |
+| Add Restaurant                  | ✅R      | add restaurant with working URL. also option to delete it                                                                                                                                                                                            |
+| iFood Sync & Update             | ✅B      | Sync iFood to request their Menu (categories, items, prices, weight, etc).  If you need to update the Database, do so, and tell everyone. Run tests as well and fix what's needed. |
 | Average Estimated Delivery Time | Waiting | Automatic (or manual, restaurants can change), set this to DB, displays on user checkout or somewhere else (ifood)                                                                                                                                   |
 | withdraw $, show balance        | Waiting | Panel + Admin can withdraw (idk how that'll work)                                                                                                                                                                                                    |
 | METRICS                         | Waiting | Implement all metrics TRACKING within the CORE FUNNEL. There may be a smarter way than just adding all that to a Table, cuz the tables itself already are the data.                                                                                  |
@@ -85,8 +80,8 @@
 | Feature                    | Status  | Description / Purpose                                                                                                                                                                                                       |
 |----------------------------|---------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | Add all paths (folders)    | JOAO    | According to the screens that the app will have (use ifood)                                                                                                                                                                 |
-| Subscribe                  | RAFA    | Sign up, email confirmation, delete account, change email, account settings, etc                                                                                                                                            |
-| Menu Items                 | BRENDO  | Edit, add, change details, add categories, add images, add videos (if possible on supabase, if not, add to Next Versions Feature List)                                                                                      |
+| Subscribe                  | ✅R      | Sign up, email confirmation, delete account, change email, account settings, etc                                                                                                                                            |
+| Menu Items                 | ✅B      | Edit, add, change details, add categories, add images, add videos (if possible on supabase, if not, add to Next Versions Feature List)                                                                                      |
 | Share Menu                 | RAFA    | Generate QR Code, generate link (customizeable link name?)                                                                                                                                                                  |
 | Cart                       | *RAFA   | Add, remove, add quantity, etc                                                                                                                                                                                              |
 | User Registration/Checkout | Waiting | (Low friction) fills delivery/pickup details, completes checkout -> checkout must have payment options including Levar Maquininha                                                                                           |
@@ -95,6 +90,8 @@
 | Menu Dashboard             | Waiting | User can disable items quickly, change prices, etc (ideally this would be 100% synces with ifood, maybe he could disable and enable the ifood sync)                                                                         |
 | Customize Menu             | Waiting | Category order, add image, banner, etc (maybe this is the normal view for the Admin instead of making this another page, see ifood)                                                                                         |
 | Basic Dashboard            | Waiting | Sales, date filters, 1 graph                                                                                                                                                                                                |
+| Support ticket             | Waiting | Integrar algum sistema. (envolve mais escolher um do que integrar).                                                                                                                                                         |
+| Landing Pages              | Waiting | Pro dono de restaurante e (base pro app?)                                                                                                                                                                                   |
 |                            | Waiting |                                                                                                                                                                                                                             |
 
 ### UI (Photoshop) and Polish
@@ -369,6 +366,7 @@ Carlos:
 - (wonders) Whatsapp notification for delivery: Admin receiveis it when it's paid, user receives it when it's near them or ready
 - Checkout must pull information from browser and INTEGRATE with everything we can to make the transaction as smooth as possible
 - AI menu photo/pdf scanning to app
+- support via whatsapp (so we have their personal numbers)
 
 
 
