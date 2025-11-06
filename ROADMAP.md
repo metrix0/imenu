@@ -15,11 +15,12 @@
 
 # To Do
 
-- Research more into the pains about digital menu
+- Start waitlist acquisition | JOAO
+- mudar o email que o código é enviado supabase auth
+- (depois do Front/Back pronto) consolidar toda UX 
+
 
 ## Backlog
-- add localStorage on cartStore.ts to persist cart
-- Change all tech infrastructure emails to only 1 centralized new gmail
 
 
 
@@ -36,8 +37,6 @@
 - Mobile First for real
 - After finishing features, test them and make sure they work 100%.
 
-- Testes (Jest e py + documentação) e diretórios | JOAO
-
 ### Database
 | Feature              | Status  | Description / Purpose                                                                  |
 |----------------------|---------|----------------------------------------------------------------------------------------|
@@ -45,58 +44,46 @@
 |                      | Waiting |                                                                                        |
 
 ### UX
-- Prototype everything based in all features on Figma | JOAO
-  - ~~/ (landing page)~~
-  - ~~/registro~~
-  - ~~/login~~
-  - ~~/settings (conta)~~
-  - ~~/id-do-cardapio/painel~~
-  - ~~/id-do-cardapio/dashboard/orders?~~
-  - ~~/restaurante/novo (setup cardapio 1st time/onboard)~~
-  - ~~/id-do-cardapio~~
-  - ~~/id-do-cardapio/settings~~
-  - ~~/id-do-cardapio/settings/integrations~~
-  - ~~/^/order-id (cart?)~~
-  - ~~/^/order-id/checkout (includes further tracking)~~
-  - ~~/^/order-id/success (includes further tracking)~~
-  - ~~/help~~
-  - **MOVIDO PARA O FIGMA**
-
-~~- Refine the list based on iFood (+All PTBR) | JOAO~~
+- Finish ALL UX (end product flow) + folder paths | JOAO
+- ~~Update list based on UX iFood (+All PTBR)~~ | ✅J
+- ~~Testes (Jest e py + documentação) e diretórios~~ | ✅J
 
 ### Back-End
-| Feature                         | Status  | Description / Purpose                                                                                                                                                                                                                                |
-|---------------------------------|---------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Add Restaurant                  | ✅R      | add restaurant with working URL. also option to delete it                                                                                                                                                                                            |
-| iFood Sync & Update             | ✅B      | Sync iFood to request their Menu (categories, items, prices, weight, etc).  If you need to update the Database, do so, and tell everyone. Run tests as well and fix what's needed. |
-| Average Estimated Delivery Time | Waiting | Automatic (or manual, restaurants can change), set this to DB, displays on user checkout or somewhere else (ifood)                                                                                                                                   |
-| withdraw $, show balance        | Waiting | Panel + Admin can withdraw (idk how that'll work)                                                                                                                                                                                                    |
-| METRICS                         | Waiting | Implement all metrics TRACKING within the CORE FUNNEL. There may be a smarter way than just adding all that to a Table, cuz the tables itself already are the data.                                                                                  |
-|                                 | Waiting |                                                                                                                                                                                                                                                      |
+| Feature                         | Status  | Description / Purpose                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+|---------------------------------|---------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Add Restaurant                  | ✅R      | add restaurant with working URL. also option to delete it                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| iFood Sync & Update             | ✅B      | Sync iFood to request their Menu (categories, items, prices, weight, etc).  If you need to update the Database, do so, and tell everyone. Run tests as well and fix what's needed.                                                                                                                                                                                                                                                                                                              |
+| Average Estimated Delivery Time | Waiting | Automatic (or manual, restaurants can change), set this to DB, displays on user checkout or somewhere else (ifood)   (automatic based on the time they take)                                                                                                                                                                                                                                                                                                                                    |
+| withdraw $, show balance        | Waiting | withdrawal wil work with manual payments. Every monday (add it in a database so we know what to pay) ! Panel + Admin can withdraw (idk how that'll work)                                                                                                                                                                                                                                                                                                                                        |
+| METRICS                         | Waiting | Also involves testing it > We'll use POSTHOG, a tool that we implement in our code and we can add stuff like posthog.capture('event'), giving us the ability to capture all needed events. You should also implement the capture events in all CORE FUNNEL RELATED STUFF, if something is not ready yet, add here on TODO > Implement all metrics TRACKING within the CORE FUNNEL. There may be a smarter way than just adding all that to a Table, cuz the tables itself already are the data. |
+|                                 | Waiting |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 
 ### Front-End
 > Rough Creation of the features. No polishing (UI/UX).
 
-| Feature                    | Status  | Description / Purpose                                                                                                                                                                                                       |
-|----------------------------|---------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Add all paths (folders)    | JOAO    | According to the screens that the app will have (use ifood)                                                                                                                                                                 |
-| Subscribe                  | ✅R      | Sign up, email confirmation, delete account, change email, account settings, etc                                                                                                                                            |
-| Menu Items                 | ✅B      | Edit, add, change details, add categories, add images, add videos (if possible on supabase, if not, add to Next Versions Feature List)                                                                                      |
-| Share Menu                 | RAFA    | Generate QR Code, generate link (customizeable link name?)                                                                                                                                                                  |
-| Cart                       | *RAFA   | Add, remove, add quantity, etc                                                                                                                                                                                              |
-| User Registration/Checkout | Waiting | (Low friction) fills delivery/pickup details, completes checkout -> checkout must have payment options including Levar Maquininha                                                                                           |
-| Order Panel and Orders     | BRENDO  | For the Admin, he can receive orders, confirm it = preparing, and send it and also check as "done". This includes the order panel, with filters by date. Each order must also display the user's phone and name and details |
-| Delivery Fee System        | Waiting | The admin can add complex delivery fee systems (it can get very complex, see BeeFood and iFood as an example). The fee system for the user, is calculated based on his CEP                                                  |
-| Menu Dashboard             | Waiting | User can disable items quickly, change prices, etc (ideally this would be 100% synces with ifood, maybe he could disable and enable the ifood sync)                                                                         |
-| Customize Menu             | Waiting | Category order, add image, banner, etc (maybe this is the normal view for the Admin instead of making this another page, see ifood)                                                                                         |
-| Basic Dashboard            | Waiting | Sales, date filters, 1 graph                                                                                                                                                                                                |
-| Support ticket             | Waiting | Integrar algum sistema. (envolve mais escolher um do que integrar).                                                                                                                                                         |
-| Landing Pages              | Waiting | Pro dono de restaurante e (base pro app?)                                                                                                                                                                                   |
-|                            | Waiting |                                                                                                                                                                                                                             |
+| Feature                    | Status  | Description / Purpose                                                                                                                                                                                                                                                                    |
+|----------------------------|---------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Arrumar paths              | B R J   | de acordo UX                                                                                                                                                                                                                                                                             |
+| Add all paths (folders)    | JOAO    | According to the screens that the app will have (use ifood)                                                                                                                                                                                                                              |
+| Subscribe                  | ✅R      | Sign up, email confirmation, delete account, change email, account settings, etc                                                                                                                                                                                                         |
+| Menu Items                 | ✅B      | Edit, add, change details, add categories, add images, add videos (if possible on supabase, if not, add to Next Versions Feature List)                                                                                                                                                   |
+| Share Menu                 | ✅R      | Generate QR Code, generate link (customizeable link name?)                                                                                                                                                                                                                               |
+| Cart                       | ✅R      | Add, remove, add quantity, etc                                                                                                                                                                                                                                                           |
+| User Registration/Checkout | Waiting | (Low friction) fills delivery/pickup details, completes checkout -> checkout must have payment options including Levar Maquininha. ! usar Mercado Pago API <- mandar credenciais.txt com credenciais de teste                                                                            |
+| Order Panel and Orders     | ✅B      | For the Admin, he can receive orders, confirm it = preparing, and send it and also check as "done". This includes the order panel, with filters by date. Each order must also display the user's phone and name and details                                                              |
+| Delivery Fee System        | Waiting | The admin can add complex delivery fee systems (it can get very complex, see BeeFood and iFood as an example). The fee system for the user, is calculated based on his CEP       <- ver como é feito no ifood                                                                            |
+| Menu Dashboard             | Waiting | User can disable items quickly, change prices, etc (ideally this would be 100% synces with ifood, maybe he could disable and enable the ifood sync)                                                                                                                                      |
+| Customize Menu             | Waiting | Category order, add image, banner, etc (maybe this is the normal view for the Admin instead of making this another page, see ifood)                                                                                                                                                      |
+| Basic Dashboard            | Waiting | Sales, date filters, graph. Add a section with payouts:  semana 03/11/2025-10/11/2025 (segunda a segunda sempre)    R$ 250     ⏳ Pendendo (ou ✅ Pago)    < depende da função withdraw                                                                                                    |
+| Support                    | Waiting | Botão flutuante no canto inferior direito. No clique ele detecta o tipo de aparelho que ta abrindo, se for um celular, manda direito pro https://wa.me/${phone}?text=${message}, se for um PC, gera um QR code com https://wa.me/${phone}?text=${message}, mostrando o número de contato |
+| Landing Pages              | Waiting | Pro dono de restaurante e (base pro app?)                                                                                                                                                                                                                                                |
+|                            | Waiting |                                                                                                                                                                                                                                                                                          |
 
 ### UI (Photoshop) and Polish
+- Basic UI Concept | JOAO
 - When it's all done, add all the pages we have here. Each page is a task. Probably making layouts and the "base" animations, colors, etc we'll use comes before that.
 - *Separate tasks between UI (animations, fluf) and UX (confirmation messages, loading states, etc (user flow))
+- MOBILE RESPONSIVENESS
 
 ### Deploy
 - Switch Authentication > URL Configuration > Site URL (https://supabase.com/dashboard/project/mjogdsnxbwhbqcoijrwt/auth/url-configuration
