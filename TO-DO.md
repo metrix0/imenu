@@ -108,7 +108,61 @@ Botão flutuante no canto inferior direito. No clique ele detecta o tipo de apar
 
 
 ---
-OLD
+CREDENCIAIS
+
+
+===
+MERCADO PAGO
+===
+
+seller test user
+id
+1799722894
+user
+TESTUSER1997825101
+password
+FP3UcZior3
+
+buyer test user
+id
+2953516982
+user
+TESTUSER3587879496492241235
+password
+mYYHQ8jCv8
+
+*verificação de dois fatores normalmente é os ultimos 6 digitos do ID.
+
+
+CARTOES DE TESTE
+
+5031 4332 1540 6351
+123
+11/30
+
+4235 6477 2802 5682
+123
+11/30
+
+
+CUIDADO, se testar 10+ vezes vai dar timeout de horas.
+
+public key
+APP_USR-e39e610d-d02d-4170-8b09-5740164f295a
+
+access token
+APP_USR-1860591203554676-102819-74910af6b0a19168f250543b2b79c5e4-1799722894
+
+
+
+
+===
+IFOOD
+===
+
+joaovralmeida@hotmail.com
+iMenu2025#
+código chega no @unesp de vcs
 
 
 
@@ -118,62 +172,4 @@ OLD
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# BRENDO
-
-## *Sync iFood*
-* database já tem uma table de integrações*
-  /painel/integrações <- colocar dados de integração no campo e apertar "atualizar" pra integrar
-
-
-## *Menu Items*
-*usaremos /cardápio e não /[id], pois o usuário vai estar logado, então não é necessário o id do cardápio.
-/cardápio <- clicar no "Adicionar Item" dentro de cada categoria <- um item é adicionado (observar imagens no figma, como pode perceber, ao adicionar o item, os campos já são editáveis)
-/cardápio <- clicar no "..." do item <- editar
-
-
-## *Order Panel and Orders*
-/painel <- pedidos aparecem <- botão confirmar pedido torna ele em "preparando" e posteriormente em "enviando"
-
-
-
-# RAFA
-
-- muda atualizando-email p/ novo-email e coloca na /configuracoes
-
-## *Subscribe*
-já mandei no PV
-
-
-## *Add Restaurant*
-(usuário logado)
-/restaurante/criar <- cria o restaurante na database, ligada ao usuário (dar um jeito de pegar o user ID ou algo assim pelo Supabase Auth, pra coligar ao usuário)
-
-/setup/perfil <- colocar o nome e salvar <- vai gerar um /(slug) pro restaurante, tipo batata-quente, o /batata-quente deve ser acessável agora. (obs: ainda deve ter um id pro restaurante)
-
-
-## *Share Menu*
-*o link do restaurante já foi gerado no Add Restaurant
-/painel <- botão share gera um QR Code <- ve se isso fica mto lento, se sim, se vale a pena tentar guardar o QR Code na DB (usa a função de popup pro QR Code)
-
-
-## *Cart*
-/nome-do-restaurante/[id] <- gerar o id do pedido e tornar acessável, <- adicionar itens, aumentar, remover
-*img n°1 do produto quer dizer a que esta na table do item, e não as que estão na table item_images
 
