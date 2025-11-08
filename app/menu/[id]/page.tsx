@@ -14,10 +14,10 @@ export default async function MenuPage({ params }: Props) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
-  // buscar menu (inclui restaurant_id)
+  // buscar menu (inclui restaurant_id, banner_url e description)
   const { data: menu, error: menuError } = await supabase
     .from("menu")
-    .select("id, name, restaurant_id")
+    .select("id, name, restaurant_id, banner_url, description")
     .eq("id", menuId)
     .maybeSingle();
 
@@ -28,6 +28,29 @@ export default async function MenuPage({ params }: Props) {
   if (!menu) {
     return <div>Menu não encontrado</div>;
   }
+
+  // buscar dados do restaurante (owner + logo)
+  const { data: restaurantData, error: restErr } = await supabase
+    .from("restaurants")
+    .select("id, user_id, logo_url")
+    .eq("id", menu.restaurant_id)
+    .maybeSingle();
+
+  if (restErr) {
+    console.error("Erro ao buscar restaurante:", restErr);
+  }
+
+  const restaurantOwnerId = restaurantData?.user_id ?? null;
+  const restaurantLogoKey = restaurantData?.logo_url ?? null;
+
+  // gerar URLs públicas (se houver)
+  const menuBannerPublicUrl = menu.banner_url
+    ? supabase.storage.from("menu-banners").getPublicUrl(menu.banner_url).data?.publicUrl
+    : null;
+
+  const restaurantLogoPublicUrl = restaurantLogoKey
+    ? supabase.storage.from("restaurant-logos").getPublicUrl(restaurantLogoKey).data?.publicUrl
+    : null;
 
   // buscar categorias deste restaurante
   const { data: categoriesRaw, error: catErr } = await supabase
@@ -55,7 +78,19 @@ export default async function MenuPage({ params }: Props) {
 
   const itemIds = (miRows || []).map((r: any) => r.item_id);
   if (itemIds.length === 0) {
-    return <MenuAdminClient menuId={menuId} menuName={menu.name} items={[]} categories={categories} restaurantId={menu.restaurant_id} />;
+    return (
+      <MenuAdminClient
+        menuId={menuId}
+        menuName={menu.name}
+        items={[]}
+        categories={categories}
+        restaurantId={menu.restaurant_id}
+        restaurantOwnerId={restaurantOwnerId}
+        restaurantLogoUrl={restaurantLogoPublicUrl}
+        initialBannerUrl={menuBannerPublicUrl}
+        initialDescription={menu.description ?? null}
+      />
+    );
   }
 
   // buscar detalhes dos itens (categoria possivelmente vem como array)
@@ -105,6 +140,10 @@ export default async function MenuPage({ params }: Props) {
       items={normalizedItems}
       categories={categories}
       restaurantId={menu.restaurant_id}
+      restaurantOwnerId={restaurantOwnerId}
+      restaurantLogoUrl={restaurantLogoPublicUrl}
+      initialBannerUrl={menuBannerPublicUrl}
+      initialDescription={menu.description ?? null}
     />
   );
 }
