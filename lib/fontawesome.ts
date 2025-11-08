@@ -5,6 +5,7 @@ import {
     faEdit,
     faCheck,
     faTimes,
+    faGripLines,
 } from "@fortawesome/free-solid-svg-icons";
 
 import {
@@ -20,6 +21,7 @@ export const icons = {
     faEdit,
     faCheck,
     faTimes,
+    faGripLines,
     faWhatsapp,
     faInstagram,
     faFacebook,

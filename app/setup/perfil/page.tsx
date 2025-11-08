@@ -94,7 +94,7 @@ export default function SetupPerfilPage() {
 
     const [description, setDescription] = useState("");
     const [phone, setPhone] = useState("");
-    
+
 
     const [street, setStreet] = useState("");
 
@@ -132,12 +132,12 @@ export default function SetupPerfilPage() {
 
         const fullAddress = `${street}, ${number} - ${neighborhood}, ${city} - ${state}`;
 
-  
+
         const { data, error } = await supabase
             .from("restaurants")
 
             .insert({
-                user_id: user.id, 
+                user_id: user.id,
                 name,
                 url_slug,
 
@@ -151,7 +151,7 @@ export default function SetupPerfilPage() {
 
         if (error) {
 
-            if (error.code === '23505') { 
+            if (error.code === '23505') {
                 setMessage({ type: 'error', content: "Erro: Um restaurante com esse nome (e URL) já existe." });
             } else {
                 setMessage({ type: 'error', content: `Erro ao criar: ${error.message}` });
@@ -161,7 +161,7 @@ export default function SetupPerfilPage() {
         } else if (data) {
 
             // 5. Success: Redirect
-            router.push(`/menu/${data.url_slug}/configuracoes`);
+            router.push(`/restaurante/${data.id}/configuracoes`);
         }
     };
 
@@ -178,7 +178,7 @@ export default function SetupPerfilPage() {
                 </p>
 
                 <form onSubmit={handleCreateRestaurant} className="space-y-5">
-                    
+
 
                     <div>
                         <label htmlFor="name" className="block text-base font-medium text-gray-700">
@@ -187,7 +187,7 @@ export default function SetupPerfilPage() {
 
                         <input
                             id="name" type="text"
-                            value={name} 
+                            value={name}
                             onChange={(e) => setName(e.target.value)}
 
                             required
@@ -195,7 +195,7 @@ export default function SetupPerfilPage() {
                             className="mt-2 block w-full rounded-md border border-gray-300 px-4 py-3 text-base shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                         />
                     </div>
-                    
+
 
                     <div>
                         <label htmlFor="description" className="block text-base font-medium text-gray-700">
@@ -213,7 +213,7 @@ export default function SetupPerfilPage() {
                             className="mt-2 block w-full rounded-md border border-gray-300 px-4 py-3 text-base shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                         />
                     </div>
-                    
+
 
                     <div>
                         <label htmlFor="phone" className="block text-base font-medium text-gray-700">
@@ -222,8 +222,8 @@ export default function SetupPerfilPage() {
 
                         <input
                             id="phone" type="tel"
-                            value={phone} 
-                            onChange={(e) => setPhone(formatPhone(e.target.value))} 
+                            value={phone}
+                            onChange={(e) => setPhone(formatPhone(e.target.value))}
 
                             required
                             placeholder="(XX) 9XXXX-XXXX"
@@ -239,7 +239,7 @@ export default function SetupPerfilPage() {
                         <legend className="text-base font-medium text-gray-900">Endereço (Obrigatório)</legend>
 
                         <div className="grid grid-cols-1 gap-x-4 gap-y-5 md:grid-cols-3">
-                            
+
                             <div className="md:col-span-2">
 
                                 <label htmlFor="street" className="block text-sm font-medium text-gray-700">Rua</label>
@@ -260,10 +260,10 @@ export default function SetupPerfilPage() {
 
                                 <label htmlFor="number" className="block text-sm font-medium text-gray-700">Número</label>
                                 <input
-                                    id="number" type="text" 
+                                    id="number" type="text"
                                     value={number}
 
-                                    onChange={(e) => setNumber(formatNumeric(e.target.value))} 
+                                    onChange={(e) => setNumber(formatNumeric(e.target.value))}
                                     placeholder="123"
                                     required
                                     maxLength={10}
@@ -271,7 +271,7 @@ export default function SetupPerfilPage() {
                                     className="mt-1 block w-full rounded-md border border-gray-300 px-4 py-3 text-base shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                                 />
                             </div>
-                            
+
                             <div className="md:col-span-3">
 
                                 <label htmlFor="neighborhood" className="block text-sm font-medium text-gray-700">Bairro</label>
@@ -323,21 +323,20 @@ export default function SetupPerfilPage() {
                             </div>
                         </div>
                     </fieldset>
-                   
+
 
 
 
                     {message && (
                         <div
-                        className={`rounded-md p-3 text-sm font-medium ${
-                            message.type === "success"
+                            className={`rounded-md p-3 text-sm font-medium ${message.type === "success"
 
-                            ? "bg-green-100 text-green-800"
-                            : "bg-red-100 text-red-800"
-                        }`}
+                                    ? "bg-green-100 text-green-800"
+                                    : "bg-red-100 text-red-800"
+                                }`}
                         >
 
-                        {message.content}
+                            {message.content}
                         </div>
                     )}
 

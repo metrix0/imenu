@@ -1,10 +1,15 @@
 // app/menu/[id]/menu-admin-client.tsx
 "use client";
 
-import React, { useState, useTransition } from "react";
+import React, { useState, useTransition, useEffect, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
 import Link from "next/link";
 import { useRouter } from "next/navigation"; // added
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+
+import { icons } from "../../../lib/fontawesome";
+import { uploadBannerImage } from "../../../lib/uploadBannerImage";
+import { supabase as clientSupabase } from "../../../lib/supabaseClient"; // optional direct client if needed
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -51,12 +56,20 @@ export default function MenuAdminClient({
     items: initialItems,
     categories: initialCategories,
     restaurantId,
+    restaurantOwnerId,
+    restaurantLogoUrl,
+    initialBannerUrl,
+    initialDescription,
 }: {
     menuId: string;
     menuName: string;
     items: Item[];
     categories: Category[];
     restaurantId: string;
+    restaurantOwnerId?: string | null;
+    restaurantLogoUrl?: string | null;
+    initialBannerUrl?: string | null;
+    initialDescription?: string | null;
 }) {
     const router = useRouter(); // added
     const [items, setItems] = useState<Item[]>(initialItems);
@@ -76,6 +89,125 @@ export default function MenuAdminClient({
     const [expandedSet, setExpandedSet] = useState<Record<string, boolean>>({});
     const [itemSubcats, setItemSubcats] = useState<Record<string, SubcategoryLocal[]>>({});
     const [subitemLoadingIds, setSubitemLoadingIds] = useState<Record<string, boolean>>({});
+
+    // banner state & file input ref
+    const [bannerUrl, setBannerUrl] = useState<string | null>(initialBannerUrl ?? null);
+    const [bannerUploading, setBannerUploading] = useState(false);
+    const bannerInputRef = useRef<HTMLInputElement | null>(null);
+
+    // title/description inline editing
+    const [editingTitle, setEditingTitle] = useState(false);
+    const [tempTitle, setTempTitle] = useState(menuName ?? "");
+    const [editingDesc, setEditingDesc] = useState(false);
+    // temp editor value
+    const [tempDesc, setTempDesc] = useState<string>(initialDescription ?? "");
+    // displayed description (updated after save)
+    const [displayedDescription, setDisplayedDescription] = useState<string | null>(initialDescription ?? null);
+
+    // Reorder state for categories
+    const [showReorderCategories, setShowReorderCategories] = useState(false);
+    const [categoriesOrder, setCategoriesOrder] = useState<Category[]>(initialCategories);
+    const [draggingCatId, setDraggingCatId] = useState<string | null>(null);
+
+    // Reorder state for items
+    const [showReorderItemsForCategory, setShowReorderItemsForCategory] = useState<string | null>(null);
+    const [itemsOrderForCategory, setItemsOrderForCategory] = useState<Item[]>([]);
+    const [draggingItemId, setDraggingItemId] = useState<string | null>(null);
+
+    // keep categoriesOrder in sync when initialCategories changes (server updates)
+    useEffect(() => {
+        setCategoriesOrder(initialCategories);
+    }, [initialCategories]);
+
+    // DRAG HANDLERS (generic helpers)
+    function onDragStartCategory(e: React.DragEvent, catId: string) {
+        setDraggingCatId(catId);
+        e.dataTransfer.effectAllowed = "move";
+    }
+    function onDragOverCategory(e: React.DragEvent) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+    }
+    function onDropCategory(e: React.DragEvent, overCatId: string) {
+        e.preventDefault();
+        if (!draggingCatId || draggingCatId === overCatId) return;
+        const fromIndex = categoriesOrder.findIndex(c => c.id === draggingCatId);
+        const toIndex = categoriesOrder.findIndex(c => c.id === overCatId);
+        if (fromIndex === -1 || toIndex === -1) return;
+        const copy = [...categoriesOrder];
+        const [moved] = copy.splice(fromIndex, 1);
+        copy.splice(toIndex, 0, moved);
+        setCategoriesOrder(copy);
+        setDraggingCatId(null);
+    }
+
+    async function saveCategoryOrder() {
+        try {
+            // persist positions (0-based -> you may prefer 1-based)
+            await Promise.all(categoriesOrder.map((c, idx) =>
+                supabase.from("categories").update({ position: idx }).eq("id", c.id)
+            ));
+            setCategories(categoriesOrder); // update local state for UI
+            setShowReorderCategories(false);
+            alert("Ordem das categorias salva.");
+        } catch (err) {
+            console.error("Erro ao salvar ordem das categorias:", err);
+            alert("Erro ao salvar ordem das categorias. Veja console.");
+        }
+    }
+
+    // Items reorder handlers
+    function openReorderItemsModal(catId: string) {
+        const arr = (itemsByCategory[catId] || []).slice(); // copy
+        // sort by position just in case
+        arr.sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+        setItemsOrderForCategory(arr);
+        setShowReorderItemsForCategory(catId);
+    }
+
+    function onDragStartItem(e: React.DragEvent, itemId: string) {
+        setDraggingItemId(itemId);
+        e.dataTransfer.effectAllowed = "move";
+    }
+    function onDragOverItem(e: React.DragEvent) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+    }
+    function onDropItem(e: React.DragEvent, overItemId: string) {
+        e.preventDefault();
+        if (!draggingItemId || draggingItemId === overItemId) return;
+        const fromIndex = itemsOrderForCategory.findIndex(it => it.id === draggingItemId);
+        const toIndex = itemsOrderForCategory.findIndex(it => it.id === overItemId);
+        if (fromIndex === -1 || toIndex === -1) return;
+        const copy = [...itemsOrderForCategory];
+        const [moved] = copy.splice(fromIndex, 1);
+        copy.splice(toIndex, 0, moved);
+        setItemsOrderForCategory(copy);
+        setDraggingItemId(null);
+    }
+
+    async function saveItemOrder() {
+        if (!showReorderItemsForCategory) return;
+        try {
+            await Promise.all(itemsOrderForCategory.map((it, idx) =>
+                supabase.from("items").update({ position: idx }).eq("id", it.id)
+            ));
+            // update local items state to reflect new positions
+            setItems(prev => {
+                const map = new Map(prev.map(p => [p.id, p]));
+                itemsOrderForCategory.forEach((it, idx) => {
+                    const existing = map.get(it.id);
+                    if (existing) existing.position = idx;
+                });
+                return [...map.values()];
+            });
+            setShowReorderItemsForCategory(null);
+            alert("Ordem dos itens salva.");
+        } catch (err) {
+            console.error("Erro ao salvar ordem dos itens:", err);
+            alert("Erro ao salvar ordem dos itens. Veja console.");
+        }
+    }
 
     // Toggle availability (updates items.is_available)
     async function toggleAvailability(itemId: string, current: boolean) {
@@ -378,27 +510,243 @@ export default function MenuAdminClient({
         }
     });
 
+    // Auth: bloquear acesso se não for o dono do restaurante
+    useEffect(() => {
+        (async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) {
+                router.push("/admin/login");
+                return;
+            }
+            if (restaurantOwnerId && session.user.id !== restaurantOwnerId) {
+                // não autorizado
+                alert("Você não tem permissão para acessar este cardápio.");
+                router.push("/admin/login");
+                return;
+            }
+        })();
+    }, [restaurantOwnerId, router]);
+
+    // save title
+    async function saveTitle() {
+        const newTitle = tempTitle?.trim();
+        if (!newTitle) return alert("Título não pode ficar vazio");
+        const { error } = await supabase.from("menu").update({ name: newTitle }).eq("id", menuId);
+        if (error) {
+            console.error("Erro ao salvar título:", error);
+            alert("Erro ao salvar título. Veja console.");
+            return;
+        }
+        setEditingTitle(false);
+        // ideal atualizar algum estado global / revalidar, aqui atualizamos local heading
+    }
+
+    // save description
+    async function saveDescription() {
+        const newDesc = (tempDesc ?? "").trim() || null;
+        const { error } = await supabase.from("menu").update({ description: newDesc }).eq("id", menuId);
+        if (error) {
+            console.error("Erro ao salvar descrição:", error);
+            alert("Erro ao salvar descrição. Veja console.");
+            return;
+        }
+        setDisplayedDescription(newDesc);
+        setEditingDesc(false);
+    }
+
+    const triggerBannerUpload = () => bannerInputRef.current?.click();
+    const handleBannerFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setBannerUploading(true);
+        try {
+            const key = await uploadBannerImage(file);
+            const { error } = await supabase.from("menu").update({ banner_url: key }).eq("id", menuId);
+            if (error) throw error;
+            const publicUrl = supabase.storage.from("menu-banners").getPublicUrl(key).data?.publicUrl;
+            setBannerUrl(publicUrl ?? null);
+            alert("Banner atualizado.");
+        } catch (err) {
+            console.error("Erro no upload do banner:", err);
+            alert("Erro ao enviar banner. Veja console.");
+        } finally {
+            setBannerUploading(false);
+        }
+    };
+
+    const handleRemoveBanner = async () => {
+        if (!confirm("Remover banner do cardápio?")) return;
+        try {
+            // obter chave atual do menu (server pode ter chave diferente); aqui assumimos que initialBannerUrl correlaciona ao key armazenado
+            const { data: menuRow } = await supabase.from("menu").select("banner_url").eq("id", menuId).single();
+            const key = menuRow?.banner_url;
+            if (key) {
+                await supabase.storage.from("menu-banners").remove([key]);
+            }
+            const { error } = await supabase.from("menu").update({ banner_url: null }).eq("id", menuId);
+            if (error) {
+                console.error("Erro ao remover banner:", error);
+                alert("Erro ao remover banner. Veja console.");
+                return;
+            }
+            setBannerUrl(null);
+            alert("Banner removido.");
+        } catch (err) {
+            console.error("Erro ao remover banner:", err);
+            alert("Erro ao remover banner. Veja console.");
+        }
+    };
+
     return (
         <div className="p-6">
-            <div className="flex items-center justify-between mb-6">
-                <h1 className="text-2xl font-bold">Cardápio: {menuName}</h1>
-
-                <div className="flex gap-3">
-                    <Link
-                        href={`/menu/${menuId}/add-item`}
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
+            {/* Reorder categories modal toggle (next to add category button rendered later) */}
+         {/* BANNER AREA (topo, full width responsivo) */}
+         <div className="mb-6">
+                <div className="w-full overflow-hidden" style={{ maxHeight: 420 }}>
+                    <div
+                        className="relative w-full h-56 sm:h-96 cursor-pointer"
+                        onClick={triggerBannerUpload}
+                        title="Clique para trocar o banner"
                     >
-                        + Adicionar item
-                    </Link>
+                        {bannerUrl ? (
+                            <img src={bannerUrl} alt="Banner" className="w-full h-full object-cover" />
+                        ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-gray-200 text-gray-600">
+                                Clique para adicionar banner do cardápio
+                            </div>
+                        )}
+                        <div className="absolute right-4 top-4 flex gap-2">
+                            {bannerUrl && (
+                                <button onClick={(e) => { e.stopPropagation(); handleRemoveBanner(); }} className="bg-black bg-opacity-40 text-white p-2 rounded">
+                                    <FontAwesomeIcon icon={icons.faTrash} />
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                    <input ref={bannerInputRef} type="file" accept="image/*" onChange={handleBannerFile} className="hidden" />
+                </div>
 
-                    <button
-                        onClick={() => setShowCreateCategory(true)}
-                        className="bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded"
-                    >
-                        + Adicionar categoria
-                    </button>
+                <div className="flex items-center justify-between mt-4">
+                    <div className="flex items-center gap-4">
+                        {restaurantLogoUrl && <img src={restaurantLogoUrl} alt="Logo" className="w-16 h-16 rounded-full object-cover" />}
+                        <div>
+                            {/* title editable */}
+                            <div className="flex items-center gap-3">
+                                {editingTitle ? (
+                                    <>
+                                        <input value={tempTitle} onChange={(e) => setTempTitle(e.target.value)} className="border px-2 py-1 rounded" />
+                                        <button onClick={saveTitle} className="bg-indigo-600 text-white px-3 py-1 rounded">Salvar</button>
+                                        <button onClick={() => { setEditingTitle(false); setTempTitle(menuName); }} className="px-3 py-1 rounded border">Cancelar</button>
+                                    </>
+                                ) : (
+                                    <>
+                                        <h1 className="text-2xl font-bold">Cardápio: {menuName}</h1>
+                                        <button onClick={() => setEditingTitle(true)} className="text-sm text-gray-500">Editar</button>
+                                    </>
+                                )}
+                            </div>
+
+                            {/* description editable */}
+                            <div className="mt-2">
+                                {editingDesc ? (
+                                    <div>
+                                        <textarea value={tempDesc ?? ""} onChange={(e) => setTempDesc(e.target.value)} className="w-full border rounded p-2" rows={3} />
+                                        <div className="mt-2 flex gap-2">
+                                            <button onClick={saveDescription} className="bg-indigo-600 text-white px-3 py-1 rounded">Salvar</button>
+                                            <button onClick={() => { setEditingDesc(false); setTempDesc(displayedDescription ?? ""); }} className="px-3 py-1 rounded border">Cancelar</button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div>
+                                        <p className="text-gray-700">{displayedDescription ?? <span className="italic text-gray-400">Sem descrição</span>}</p>
+                                        <button onClick={() => setEditingDesc(true)} className="text-sm text-gray-500 mt-1">Editar descrição</button>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex gap-3">
+                        <Link
+                            href={`/menu/${menuId}/add-item`}
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
+                        >
+                            + Adicionar item
+                        </Link>
+
+                        <button
+                            onClick={() => setShowCreateCategory(true)}
+                            className="bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded"
+                        >
+                            + Adicionar categoria
+                        </button>
+
+                        <button
+                            onClick={() => setShowReorderCategories(true)}
+                            className="bg-gray-100 hover:bg-gray-200 px-4 py-2 rounded border text-sm flex items-center gap-2"
+                            title="Reordenar categorias"
+                        >
+                            <FontAwesomeIcon icon={icons.faGripLines} /> Reordenar categorias
+                        </button>
+                    </div>
                 </div>
             </div>
+
+            {/* Reorder Categories Modal */}
+            {showReorderCategories && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+                    <div className="bg-white p-6 rounded shadow max-w-md w-full">
+                        <h3 className="text-lg font-semibold mb-4">Reordenar categorias</h3>
+                        <div className="space-y-2">
+                            {categoriesOrder.map((cat) => (
+                                <div
+                                    key={cat.id}
+                                    draggable
+                                    onDragStart={(e) => onDragStartCategory(e, cat.id)}
+                                    onDragOver={onDragOverCategory}
+                                    onDrop={(e) => onDropCategory(e, cat.id)}
+                                    className="flex items-center gap-3 p-2 border rounded bg-gray-50"
+                                >
+                                    <div className="text-gray-500 cursor-move"><FontAwesomeIcon icon={icons.faGripLines} /></div>
+                                    <div className="flex-1">{cat.name}</div>
+                                </div>
+                            ))}
+                        </div>
+                        <div className="mt-4 flex justify-end gap-3">
+                            <button onClick={() => setShowReorderCategories(false)} className="px-3 py-1 rounded border">Cancelar</button>
+                            <button onClick={saveCategoryOrder} className="px-3 py-1 rounded bg-indigo-600 text-white">Salvar</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Reorder Items Modal */}
+            {showReorderItemsForCategory && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+                    <div className="bg-white p-6 rounded shadow max-w-md w-full">
+                        <h3 className="text-lg font-semibold mb-4">Reordenar itens</h3>
+                        <div className="space-y-2">
+                            {itemsOrderForCategory.map((it) => (
+                                <div
+                                    key={it.id}
+                                    draggable
+                                    onDragStart={(e) => onDragStartItem(e, it.id)}
+                                    onDragOver={onDragOverItem}
+                                    onDrop={(e) => onDropItem(e, it.id)}
+                                    className="flex items-center gap-3 p-2 border rounded bg-gray-50"
+                                >
+                                    <div className="text-gray-500 cursor-move"><FontAwesomeIcon icon={icons.faGripLines} /></div>
+                                    <div className="flex-1">{it.name}</div>
+                                </div>
+                            ))}
+                        </div>
+                        <div className="mt-4 flex justify-end gap-3">
+                            <button onClick={() => setShowReorderItemsForCategory(null)} className="px-3 py-1 rounded border">Cancelar</button>
+                            <button onClick={saveItemOrder} className="px-3 py-1 rounded bg-indigo-600 text-white">Salvar</button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* If no categories at all, show message + allow create */}
             {categories.length === 0 && (
@@ -425,6 +773,13 @@ export default function MenuAdminClient({
                                     className="px-3 py-1 rounded border text-sm text-red-600"
                                 >
                                     Excluir categoria e itens
+                                </button>
+                                <button
+                                    onClick={() => openReorderItemsModal(cat.id)}
+                                    className="px-3 py-1 rounded border text-sm"
+                                    title="Alterar ordens dos itens"
+                                >
+                                    <FontAwesomeIcon icon={icons.faGripLines} /> Alterar ordens dos itens
                                 </button>
                             </div>
                         </div>
