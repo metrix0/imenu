@@ -1,4 +1,3 @@
-// app/carrinho/[id]/page.tsx
 "use client";
 
 import { useCart } from "@/lib/cartStore";
@@ -7,13 +6,15 @@ import { useRouter, useParams } from "next/navigation";
 export default function CartPage() {
     const router = useRouter();
     const params = useParams();
-    
-    
+
+
     const slug = Array.isArray(params.id) ? params.id[0] : params.id;
 
+    // Nota: O tipo 'CartItem' do seu 'lib/cartStore' (que implementamos) 
+    // também deve incluir 'menuId' para referência futura, se necessário.
     const { items, remove, setQty, total_cents } = useCart();
-    
-  
+
+
     const formatPrice = (priceInCents: number) => {
         return (priceInCents / 100).toLocaleString("pt-BR", {
             style: "currency",
@@ -28,7 +29,9 @@ export default function CartPage() {
             <div className="mx-auto max-w-lg p-4">
                 <header className="my-6">
                     <button
-                        onClick={() => router.push(`/cardapio/${slug}`)} // Back to menu
+                        // **** CORREÇÃO AQUI ****
+                        // Alterado o caminho para incluir "/cliente"
+                        onClick={() => router.push(`/cliente/cardapio/${slug}`)} // Back to menu
                         className="text-sm text-indigo-600 hover:underline"
                     >
                         &larr; Continuar comprando
@@ -43,6 +46,7 @@ export default function CartPage() {
                         items.map((item) => (
                             <div key={item.itemId} className="flex items-center justify-between rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
                                 <div>
+                                    {/* O 'name' já deve ser descritivo (ex: "Açaí (Leite em pó)") */}
                                     <h2 className="font-semibold">{item.name}</h2>
                                     <p className="text-sm text-gray-700">{formatPrice(item.price_cents * item.qty)}</p>
                                 </div>
@@ -54,7 +58,7 @@ export default function CartPage() {
                                                 if (item.qty > 1) {
                                                     setQty(item.itemId, item.qty - 1);
                                                 } else {
-                                                    remove(item.itemId); 
+                                                    remove(item.itemId);
                                                 }
                                             }}
                                             className="px-3 py-1 text-lg font-medium text-gray-700 hover:bg-gray-100"

@@ -1,24 +1,53 @@
+// lib/cartStore.ts
+"use client";
+
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
+import { CartItem, CartStore } from "./types";
 
-type CartItem = { itemId: string; name: string; price_cents: number; qty: number };
-type CartState = {
-    items: CartItem[];
-    add: (it: Omit<CartItem, "qty">, qty?: number) => void;
-    remove: (itemId: string) => void;
-    setQty: (itemId: string, qty: number) => void;
-    total_cents: () => number;
-};
+// Criamos o cartStore com persistência no localStorage
+export const useCart = create<CartStore>()(
+    persist(
+        (set, get) => ({
+            items: [],
 
-export const useCart = create<CartState>((set, get) => ({
-    items: [],
-    add: (it, qty = 1) =>
-        set(s => {
-            const existing = s.items.find(x => x.itemId === it.itemId);
-            if (existing) existing.qty += qty;
-            else s.items.push({ ...it, qty });
-            return { items: [...s.items] };
+            // Adiciona um novo item configurado
+            // Nota: Esta lógica não tenta "mesclar" itens com a mesma base_item_id
+            // porque eles podem ter subitens diferentes. Cada 'add' cria uma nova linha.
+            add: (item) => {
+                set((state) => ({
+                    items: [...state.items, item],
+                }));
+            },
+
+            remove: (itemId) => {
+                set((state) => ({
+                    items: state.items.filter((item) => item.itemId !== itemId),
+                }));
+            },
+
+            setQty: (itemId, qty) => {
+                if (qty < 1) {
+                    get().remove(itemId);
+                    return;
+                }
+                set((state) => ({
+                    items: state.items.map((item) =>
+                        item.itemId === itemId ? { ...item, qty } : item
+                    ),
+                }));
+            },
+
+            total_cents: () => {
+                return get().items.reduce((total, item) => total + item.price_cents * item.qty, 0);
+            },
+
+            clearCart: () => {
+                set({ items: [] });
+            },
         }),
-    remove: (itemId) => set(s => ({ items: s.items.filter(x => x.itemId !== itemId) })),
-    setQty: (itemId, qty) => set(s => ({ items: s.items.map(x => x.itemId === itemId ? { ...x, qty } : x) })),
-    total_cents: () => get().items.reduce((sum, x) => sum + x.price_cents * x.qty, 0),
-}));
+        {
+            name: "digital-menu-cart-storage", // nome da chave no localStorage
+        }
+    )
+);
