@@ -6,6 +6,11 @@ import {
     faCheck,
     faTimes,
     faGripLines,
+    // Ícones adicionados
+    faChevronUp,
+    faChevronDown,
+    faArrowLeft,
+    faMinus,
 } from "@fortawesome/free-solid-svg-icons";
 
 import {
@@ -22,6 +27,12 @@ export const icons = {
     faCheck,
     faTimes,
     faGripLines,
+    // Ícones adicionados
+    faChevronUp,
+    faChevronDown,
+    faArrowLeft,
+    faMinus,
+    // Ícones de marcas
     faWhatsapp,
     faInstagram,
     faFacebook,
