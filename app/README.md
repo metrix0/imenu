@@ -21,6 +21,10 @@ Like, navbars and footers. It wraps all pages children inside this consistent la
 Holds all **Back-end API routes**. There is no APIs outside from here.
 
 
-# /pedido, page.tsx
+# /dev
+### What it does
+Everything dev-related.
+
+# /pedido, page.tsx, ...
 ### What it does
 Front-end React pages.

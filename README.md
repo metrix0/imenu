@@ -3,10 +3,9 @@
 > We must be better in every single aspect
 
 - [Tech Stack](#tech-stack)
-- [Folder Structure](#folder-structure)
+- [Folder Structure and Explanation](#folder-structure)
 - [Database, Pool, Realtime and Auth](#database-pool-realtime-and-auth)
 - [Mering & Jest](#merging--jest)
-- [Credentials](#credentials)
 
 - [Inspiration](#inspiration)
 - [For AI](#for-AI)
@@ -77,10 +76,17 @@ Each folder has a README, and for each one of the files inside the folder (inclu
 ## Root Folder Explanation
 ### /app
 The app universal root.
+
 ### /lib
-Centralized reusable code. Includes a README explaining how to use it all.
+Centralized reusable *code*. Includes a README explaining how to use it all.
 
+### /components
+Centralized reusable front-end components.
+#### /components/ui
+Reusable UI Components (buttons, inputs, etc). Full showcase at localhost:3000/dev/ui, implementation documentation at /components/ui/README.md
 
+### /public
+Images, fonts, etc used by the /app
 
 
 
@@ -139,16 +145,6 @@ Realtime is when a variable is directly connected to a Table in the Database. If
 # Merging & Jest
 
 Done via GitHub Actions
-
-<br>
-
----
-# Credentials
-## iFood
-```
-joaovralmeida@hotmail.com
-iMenu2025#
-```
 
 <br>
 

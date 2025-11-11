@@ -56,8 +56,8 @@
 | Average Estimated Delivery Time | BRENDO   | Automatic (or manual, restaurants can change), set this to DB, displays on user checkout or somewhere else (ifood)   (automatic based on the time they take)                                                                                                                                                                                                                                                                                                                                    |
 | withdraw $, show balance   | RAFAEL   | quanto tem $ quanto fez API / withdrawal wil work with manual payments. Every monday (add it in a database so we know what to pay) ! Panel + Admin can withdraw (idk how that'll work)                                                                                                                                                                                                                                                                                                          |
 | METRICS                    | BRENDO   | Also involves testing it > We'll use POSTHOG, a tool that we implement in our code and we can add stuff like posthog.capture('event'), giving us the ability to capture all needed events. You should also implement the capture events in all CORE FUNNEL RELATED STUFF, if something is not ready yet, add here on TODO > Implement all metrics TRACKING within the CORE FUNNEL. There may be a smarter way than just adding all that to a Table, cuz the tables itself already are the data. |
+| Error Logging             | Waiting  |      PostHog Error %/n  logging                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 |                            | Waiting  |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-
 ### Front-End
 > Rough Creation of the features. No polishing (UI/UX).
 
@@ -86,7 +86,7 @@
 - Basic UI Concept | JOAO
 - When it's all done, add all the pages we have here. Each page is a task. Probably making layouts and the "base" animations, colors, etc we'll use comes before that.
 - *Separate tasks between UI (animations, fluf) and UX (confirmation messages, loading states, etc (user flow))
-- MOBILE RESPONSIVENESS
+- MOBILE RESPONSIVENESS + mobile browsers responsiveness (bar color, hide, etc)
 
 ### Deploy
 - Switch Authentication > URL Configuration > Site URL (https://supabase.com/dashboard/project/mjogdsnxbwhbqcoijrwt/auth/url-configuration
