@@ -34,14 +34,13 @@ describe("POST /api/orders", () => {
         });
 
         const reqBody = {
-            restaurant_id: "test-restaurant-id",
-            subtotal_cents: 1000,
-            delivery_cents: 0,
-            total_cents: 1000,
+            restaurantId: "test-restaurant-id", 
+            items: [{ itemId: "item1", qty: 2 }],
             customer_name: "Rafa",
             customer_phone: "999999999",
             customer_address: "Rua Teste, 123",
-            items: [{ itemId: "item1", qty: 2 }],
+            delivery_fee_cents: 0, 
+            paymentMethod: "online", 
         };
 
         const req = new Request("http://localhost/api/orders", {
