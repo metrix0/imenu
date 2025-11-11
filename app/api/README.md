@@ -1,3 +1,7 @@
+# /auth
+### What it does
+Holds all routes related to menu Supabase Auth.
+
 # /menu
 ### What it does
 Holds all routes related to menu data:
