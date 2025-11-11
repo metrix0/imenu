@@ -814,7 +814,6 @@ export default function MenuAdminClient({
                                             <div className="flex justify-between items-start">
                                                 <div className="truncate">
                                                     <h3 className="font-semibold text-lg truncate">{item.name}</h3>
-                                                    <p className="mt-2 text-sm text-gray-700">{item.description}</p>
                                                     <p className="mt-2 font-semibold">R$ {(item.price_cents / 100).toFixed(2)}</p>
                                                 </div>
 
