@@ -4,18 +4,15 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useCreationStore } from "@/lib/creationStore";
-import { supabase } from "@/lib/supabaseClient"; // client-side
+import { supabase } from "@/lib/supabaseClient";
 
 export default function InfoPage() {
     const router = useRouter();
-    
-
-    const { restaurantId, email, clear: clearCreationStore } = useCreationStore();
+    const { restaurantId, email } = useCreationStore();
 
     const [nome, setNome] = useState("");
     const [telefone, setTelefone] = useState("");
     const [password, setPassword] = useState("");
-
     const [message, setMessage] = useState("");
     const [loading, setLoading] = useState(false);
 
@@ -31,31 +28,26 @@ export default function InfoPage() {
         setMessage("");
 
         try {
-            const response = await fetch("/api/auth/create-restaurant-user", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    email,
-                    password,
-                    nome,
-                    telefone,
-                    restaurantId
-                }),
+            const { error: authError } = await supabase.auth.signUp({
+                email: email,
+                password: password,
+                
+                options: {
+                    data: {
+                        phone: telefone,
+                        full_name: nome 
+                          
+                    }
+                }
             });
 
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.error || "Falha ao criar conta.");
+            if (authError) {
+                // Deal with errors (e.g.: "User already registered")
+                throw new Error(authError.message);
             }
 
-            if (data.session) {
-                await supabase.auth.setSession(data.session);
-            }
-
-            clearCreationStore();
-
-            router.push("/painel"); 
+            // 3. OTP
+            router.push(`/restaurante/criar/info/otp`);
 
         } catch (error) {
             setMessage((error as Error).message);
@@ -72,7 +64,6 @@ export default function InfoPage() {
                 <p className="text-center text-gray-600">
                     Falta só criar sua conta de acesso. Seu e-mail é <strong className="text-gray-900">{email || "..."}</strong>.
                 </p>
-
                 <form onSubmit={handleCreateAccount} className="space-y-5">
                     <div>
                         <label htmlFor="nome" className="block text-base font-medium text-gray-700">
@@ -110,15 +101,13 @@ export default function InfoPage() {
                             placeholder="••••••••"
                         />
                     </div>
-
                     <button
                         type="submit"
                         disabled={loading || !email}
-                        className="w-full rounded-md bg-black px-4 py-3 text-base font-semibold text-white shadow-md hover:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black disabled:opacity-60"
+                        className="w-full rounded-md bg-black px-4 py-3 text-base font-semibold text-white shadow-md hover:bg-gray-900 disabled:opacity-60"
                     >
-                        {loading ? "Criando conta..." : "CRIAR CONTA"}
+                        {loading ? "Enviando código..." : "CRIAR CONTA"}
                     </button>
-
                     {message && (
                         <p className="text-center text-sm text-red-600">{message}</p>
                     )}
