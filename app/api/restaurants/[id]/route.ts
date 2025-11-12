@@ -26,15 +26,18 @@ export async function PATCH(
 
     // --- DINAMIC UPDATE ---
 
+
     const allowedFields: { [key: string]: string } = {
-        name: "name",
+        email: "email",
         latitude: "latitude",
         longitude: "longitude",
-        avg_delivery_minutes: "avg_delivery_minutes",
+        address: "address", 
         delivery_fee_json: "delivery_fee_json",
-        // ADD OTHER FIELDS FROM SIGN IN FLOW...
-        // "availability_json": "availability_json", 
-        // "address": "address",
+        availability_json: "availability_json",
+        name: "owner_name",   
+        phone: "owner_phone", 
+        user_id: "user_id",           
+        
     };
 
     const fieldsToUpdate = []; // E.g.: ["name = $2", "latitude = $3"]
@@ -42,10 +45,14 @@ export async function PATCH(
 
     // dinamic query
     for (const key in body) {
-        if (Object.prototype.hasOwnProperty.call(body, key) && allowedFields[key]) {
-            values.push(body[key]); // add value
-            // add string (ex: "name = $2")
-            fieldsToUpdate.push(`${allowedFields[key]} = $${values.length}`);
+        const dbColumn = key === 'address_full' ? 'address' : allowedFields[key];
+        if (Object.prototype.hasOwnProperty.call(body, key) && dbColumn) {
+            let value = body[key];
+            if (dbColumn.includes("_json")) {
+                value = JSON.stringify(value);
+            }
+            values.push(value);
+            fieldsToUpdate.push(`${dbColumn} = $${values.length}`);
         }
     }
 
@@ -59,7 +66,7 @@ export async function PATCH(
 
     try {
         const updateQuery = `
-            UPDATE public.restaurantes
+            UPDATE public.restaurants
             SET 
                 ${fieldsToUpdate.join(", ")} 
             WHERE 

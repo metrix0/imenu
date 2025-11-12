@@ -1,4 +1,4 @@
-// Exemplo em: app/restaurante/[restauranteId]/dashboard/page.tsx
+// app/restaurante/[restauranteId]/dashboard/page.tsx
 import PayoutsDashboard from "@/components/PayoutsDashboard";
 import SalesDashboard from "@/components/SalesDashboard";
 
