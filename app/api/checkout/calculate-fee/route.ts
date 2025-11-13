@@ -2,16 +2,14 @@
 import { query } from "@/lib/sql";
 import { NextResponse } from "next/server";
 
-// json structure
+// (Tipo RadiusRule e helper getDistanceInKm permanecem os mesmos)
 type RadiusRule = {
     radius_km: number;
     time_minutes: number;
     fee_cents: number;
 };
-
-
 function getDistanceInKm(lat1: number, lon1: number, lat2: number, lon2: number) {
-    const R = 6371; // EARTH RADIUS
+    const R = 6371; // Raio da Terra
     const dLat = (lat2 - lat1) * (Math.PI / 180);
     const dLon = (lon2 - lon1) * (Math.PI / 180);
     const a =
@@ -19,38 +17,24 @@ function getDistanceInKm(lat1: number, lon1: number, lat2: number, lon2: number)
         Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
         Math.sin(dLon / 2) * Math.sin(dLon / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c; // DISTANCE IN KM
+    return R * c; // Distância em KM
 }
 
-
-async function getCoordsFromCep(cep: string): Promise<{ lat: number; lon: number } | null> {
-    try {
-        const cleanCep = cep.replace(/\D/g, "");
-        const response = await fetch(`https://brasilapi.com.br/api/cep/v1/${cleanCep}`);
-        if (!response.ok) return null;
-        const data = await response.json();
-        if (data.location && data.location.coordinates) {
-            return {
-                lat: data.location.coordinates.latitude,
-                lon: data.location.coordinates.longitude,
-            };
-        }
-        return null;
-    } catch (error) {
-        return null;
-    }
-}
+// --- REMOVEMOS O 'getCoordsFromCep' ---
+// (Não vamos mais adivinhar coordenadas a partir do CEP)
 
 export async function POST(request: Request) {
     try {
-        const { restaurantId, cep, subtotalCents } = await request.json();
+        // --- CORREÇÃO AQUI ---
+        // A API agora espera 'latitude' e 'longitude' do cliente, em vez de 'cep'
+        const { restaurantId, latitude: customerLat, longitude: customerLon } = await request.json();
 
-        if (!restaurantId || !cep) {
-            return NextResponse.json({ error: "Dados incompletos" }, { status: 400 });
+        if (!restaurantId || !customerLat || !customerLon) {
+            return NextResponse.json({ error: "Dados incompletos (ID do restaurante ou localização do cliente)" }, { status: 400 });
         }
+        // --- FIM DA CORREÇÃO ---
 
         // 1. SEARCH RESTAURANT DATA
-
         const { rows: restaurantRows } = await query(
             `
             SELECT latitude, longitude, delivery_fee_json
@@ -59,7 +43,6 @@ export async function POST(request: Request) {
             `,
             [restaurantId]
         );
-
         if (restaurantRows.length === 0) {
             return NextResponse.json({ error: "Restaurante não encontrado" }, { status: 404 });
         }
@@ -68,41 +51,36 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: "Restaurante não possui localização configurada." }, { status: 500 });
         }
 
-        // 2. SEARCH CUSTOMER COORDS
-        const customerCoords = await getCoordsFromCep(cep);
-        if (!customerCoords) {
-            return NextResponse.json({ error: "CEP não encontrado ou inválido" }, { status: 400 });
-        }
+        // 2. SEARCH CUSTOMER COORDS (Não é mais necessário)
 
         // 3. CALCULATE DISTANCE
         const distanceKm = getDistanceInKm(
-            restaurant.latitude,
-            restaurant.longitude,
-            customerCoords.lat,
-            customerCoords.lon
+            parseFloat(restaurant.latitude),
+            parseFloat(restaurant.longitude),
+            customerLat, // Usa a coordenada enviada pelo cliente
+            customerLon  // Usa a coordenada enviada pelo cliente
         );
 
-        // 4. PROCESS RULES
+        // 4. PROCESS RULES (Sem mudança)
         const rules: RadiusRule[] = (restaurant.delivery_fee_json || []).sort(
             (a: RadiusRule, b: RadiusRule) => a.radius_km - b.radius_km
         );
-
         let calculatedFee: number | null = null;
-        let calculatedTime: number | null = null; // <-- TIME VARIABLE
-
+        let calculatedTime: number | null = null;
         for (const rule of rules) {
             if (distanceKm <= rule.radius_km) {
                 calculatedFee = rule.fee_cents;
-                calculatedTime = rule.time_minutes; // <-- SAVES TIME RULE
+                calculatedTime = rule.time_minutes;
                 break; 
             }
         }
 
-        // 5. VERIFY IF ITS OUT OF DELIVERY REACH
+        // 5. VERIFY IF ITS OUT OF DELIVERY REACH (Sem mudança)
         if (calculatedFee === null) {
             return NextResponse.json({ error: "Fora da área de entrega" }, { status: 400 });
         }
 
+        // (Retorno - sem mudança)
         return NextResponse.json({
             delivery_fee_cents: calculatedFee,
             delivery_time_minutes: calculatedTime,

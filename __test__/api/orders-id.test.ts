@@ -21,8 +21,8 @@ describe("PATCH /api/orders/[id]", () => {
         expect(res.status).toBe(200);
         expect(json.ok).toBe(true);
         expect(sql.query).toHaveBeenCalledWith(
-            expect.stringContaining("UPDATE orders SET status"),
-            ["delivering", "abc"]
+            expect.stringContaining("UPDATE orders SET status = $2 WHERE id = $1"),
+            ["abc", "delivering"]
         );
     });
 });

@@ -1,53 +1,31 @@
 // lib/cartStore.ts
 "use client";
-
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
-import { CartItem, CartStore } from "./types";
+import { persist, createJSONStorage } from 'zustand/middleware';
 
-// Criamos o cartStore com persistência no localStorage
-export const useCart = create<CartStore>()(
+// O carrinho agora só armazena o ID do pedido ativo
+type CartState = {
+    orderId: string | null;
+    restaurantSlug: string | null; // Para saber a qual restaurante o pedido pertence
+    
+    // Armazena o ID do pedido e o slug do restaurante
+    setDraftOrder: (orderId: string, restaurantSlug: string) => void;
+    
+    // Limpa o carrinho (após o checkout)
+    clearCart: () => void;
+};
+
+export const useCart = create<CartState>()(
     persist(
-        (set, get) => ({
-            items: [],
-
-            // Adiciona um novo item configurado
-            // Nota: Esta lógica não tenta "mesclar" itens com a mesma base_item_id
-            // porque eles podem ter subitens diferentes. Cada 'add' cria uma nova linha.
-            add: (item) => {
-                set((state) => ({
-                    items: [...state.items, item],
-                }));
-            },
-
-            remove: (itemId) => {
-                set((state) => ({
-                    items: state.items.filter((item) => item.itemId !== itemId),
-                }));
-            },
-
-            setQty: (itemId, qty) => {
-                if (qty < 1) {
-                    get().remove(itemId);
-                    return;
-                }
-                set((state) => ({
-                    items: state.items.map((item) =>
-                        item.itemId === itemId ? { ...item, qty } : item
-                    ),
-                }));
-            },
-
-            total_cents: () => {
-                return get().items.reduce((total, item) => total + item.price_cents * item.qty, 0);
-            },
-
-            clearCart: () => {
-                set({ items: [] });
-            },
+        (set) => ({
+            orderId: null,
+            restaurantSlug: null,
+            setDraftOrder: (orderId, restaurantSlug) => set({ orderId, restaurantSlug }),
+            clearCart: () => set({ orderId: null, restaurantSlug: null }),
         }),
         {
-            name: "digital-menu-cart-storage", // nome da chave no localStorage
+            name: 'cart-storage', // A chave no localStorage
+            storage: createJSONStorage(() => localStorage),
         }
     )
 );
