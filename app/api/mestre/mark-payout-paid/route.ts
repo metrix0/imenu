@@ -25,7 +25,7 @@ export async function POST(request: Request) {
                 paid_at = now() -- DEFINE PAYMENT DATE AS NOW
             WHERE 
                 id = $1
-                AND status = 'pending' -- ONLY ATT WHERE PENDING
+                AND status = 'pending_payment' -- ONLY ATT WHERE PENDING
             RETURNING id;
         `,
             [payoutId]
