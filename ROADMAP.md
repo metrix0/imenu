@@ -11,20 +11,36 @@
 
 
 ---
-<br>
+<br>`
 
 # To Do
 
 - "este não é o qrcode para mesa" QR Code gen
 - termos de uso
 - ~~Start waitlist acquisition~~ | ✅J
+
+JOAO
 - mudar o email que o código é enviado supabase auth
 - (depois do Front/Back pronto) consolidar toda UX 
+- pedido minimo (no criar e no painel (em algum componente))
+- ver se tem como pacar pelo nosso side API mercado pago.
+- organizar pasta components
+- menu da esquerda ficanddo gigante
+- adicionar mais botões CTA landing page, email landing page.
+- corrigir o mercado pago pagando e deixando como "pago" na parada
+- ao inserir cep, automaticamente já calcuala a taxa (sem botão) (testar com autofill)
+- ao adicionar algo na sacola volta pro cardapio, não vai pra sacola.
+- ao voltar da sacola, tem que carregar tudo dnv? pq?
+- botão do whatsapp é só pra dono dde restaurante (nao no cardapio)
+- adicionar item vira uma rota, não uma página. Criar componente pra adicionar item
+- complemento (opcional) no cadastro endereço
+- Adicionar Nome do Cardápio na 4° parte cadastro restaurante
+- trocar ordem do grafico com pagamento no painel/financeiro
 
 
 ## Backlog
 
-
+`
 
 ---
 <br>
@@ -54,34 +70,34 @@
 | Feature                         | Status        | Description / Purpose                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 |---------------------------------|---------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | Add Restaurant                  | ✅R            | add restaurant with working URL. also option to delete it                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| iFood Sync & Update             | 🟨B-Postponed | Sync iFood to request their Menu (categories, items, prices, weight, etc).  If you need to update the Database, do so, and tell everyone. Run tests as well and fix what's needed.                                                                                                                                                                                                                                                                                                              |
-| Average Estimated Delivery Time | BRENDO        | Automatic (or manual, restaurants can change), set this to DB, displays on user checkout or somewhere else (ifood)   (automatic based on the time they take)                                                                                                                                                                                                                                                                                                                                    |
-| withdraw $, show balance        | RAFAEL        | quanto tem $ quanto fez API / withdrawal wil work with manual payments. Every monday (add it in a database so we know what to pay) ! Panel + Admin can withdraw (idk how that'll work)                                                                                                                                                                                                                                                                                                          |
+| iFood Sync & Update             | J🟨B-Postponed | Sync iFood to request their Menu (categories, items, prices, weight, etc).  If you need to update the Database, do so, and tell everyone. Run tests as well and fix what's needed.                                                                                                                                                                                                                                                                                                              |
+| Average Estimated Delivery Time | ✅B            | Automatic (or manual, restaurants can change), set this to DB, displays on user checkout or somewhere else (ifood)   (automatic based on the time they take)                                                                                                                                                                                                                                                                                                                                    |
+| withdraw $, show balance        | ✅R            | quanto tem $ quanto fez API / withdrawal wil work with manual payments. Every monday (add it in a database so we know what to pay) ! Panel + Admin can withdraw (idk how that'll work)                                                                                                                                                                                                                                                                                                          |
 | METRICS                         | BRENDO        | Also involves testing it > We'll use POSTHOG, a tool that we implement in our code and we can add stuff like posthog.capture('event'), giving us the ability to capture all needed events. You should also implement the capture events in all CORE FUNNEL RELATED STUFF, if something is not ready yet, add here on TODO > Implement all metrics TRACKING within the CORE FUNNEL. There may be a smarter way than just adding all that to a Table, cuz the tables itself already are the data. |
-| Error Logging                   | Waiting       |      PostHog Error %/n  logging                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Error Logging                   | JOAO          | PostHog Error %/n  logging                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 |                                 | Waiting       |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 ### Front-End
 > Rough Creation of the features. No polishing (UI/UX).
 
 
-| Feature                    | Status    | Description / Purpose                                                                                                                                                                                                                                                                       |
-|----------------------------|-----------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Arrumar paths              | B R J     | de acordo UX                                                                                                                                                                                                                                                                                |
-| Subscribe                  | ✅R        | Sign up, email confirmation, delete account, change email, account settings, etc                                                                                                                                                                                                            |
-| Menu Items                 | ✅B        | Edit, add, change details, add categories, add images, add videos (if possible on supabase, if not, add to Next Versions Feature List)                                                                                                                                                      |
-| Share Menu                 | ✅R        | Generate QR Code, generate link (customizeable link name?)                                                                                                                                                                                                                                  |
-| Cart                       | ✅R        | Add, remove, add quantity, etc                                                                                                                                                                                                                                                              |
-| User Registration/Checkout | RAFAEL    | (Low friction) fills delivery/pickup details, completes checkout -> checkout must have payment options including Levar Maquininha. ! usar Mercado Pago API <- mandar credenciais.txt com credenciais de teste      (idealmente, seria feito 100% no nosso site (tem como MP pagar por API?) |
-| Menu Items                 | BRENDO    | Menu pro user                                                                                                                                                                                                                                                                               |
-| Order Panel and Orders     | ✅B        | For the Admin, he can receive orders, confirm it = preparing, and send it and also check as "done". This includes the order panel, with filters by date. Each order must also display the user's phone and name and details                                                                 |
-| Delivery Fee System        | RAFAEL    | The admin can add complex delivery fee systems (it can get very complex, see BeeFood and iFood as an example). The fee system for the user, is calculated based on his CEP       <- ver como é feito no ifood                                                                               |
-| Menu Dashboard             | ✅B        | User can disable items quickly, change prices, etc (ideally this would be 100% synces with ifood, maybe he could disable and enable the ifood sync)                                                                                                                                         |
-| Customize/CREATE Menu      | BRENDO    | Category order, add image, banner, etc (maybe this is the normal view for the Admin instead of making this another page, see ifood)                                                                                                                                                         |
-| Basic Dashboard            | RAFAEL    | Sales, date filters, graph. Add a section with payouts:  semana 03/11/2025-10/11/2025 (segunda a segunda sempre)    R$ 250     ⏳ Pendendo (ou ✅ Pago)    < depende da função withdraw                                                                                                       |
-| Support                    | RAFAEL    | Botão flutuante no canto inferior direito. No clique ele detecta o tipo de aparelho que ta abrindo, se for um celular, manda direito pro https://wa.me/${phone}?text=${message}, se for um PC, gera um QR code com https://wa.me/${phone}?text=${message}, mostrando o número de contato    |
-| Landing Pages              | Waiting   | Pro dono de restaurante e (base pro app?)                                                                                                                                                                                                                                                   |
-| Menu para Carrinho         | RAFAEL    |                                                                                                                                                                                                                                                                                             |
-|                            | Waiting   |                                                                                                                                                                                                                                                                                             |
+| Feature                    | Status  | Description / Purpose                                                                                                                                                                                                                                                                       |
+|----------------------------|---------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Arrumar paths              | B R J   | de acordo UX                                                                                                                                                                                                                                                                                |
+| Subscribe                  | ✅R      | Sign up, email confirmation, delete account, change email, account settings, etc                                                                                                                                                                                                            |
+| Menu Items                 | ✅B      | Edit, add, change details, add categories, add images, add videos (if possible on supabase, if not, add to Next Versions Feature List)                                                                                                                                                      |
+| Share Menu                 | ✅R      | Generate QR Code, generate link (customizeable link name?)                                                                                                                                                                                                                                  |
+| Cart                       | ✅R      | Add, remove, add quantity, etc                                                                                                                                                                                                                                                              |
+| User Registration/Checkout | ✅R      | (Low friction) fills delivery/pickup details, completes checkout -> checkout must have payment options including Levar Maquininha. ! usar Mercado Pago API <- mandar credenciais.txt com credenciais de teste      (idealmente, seria feito 100% no nosso site (tem como MP pagar por API?) |
+| Menu Items                 | ✅B      | Menu pro user                                                                                                                                                                                                                                                                               |
+| Order Panel and Orders     | ✅B      | For the Admin, he can receive orders, confirm it = preparing, and send it and also check as "done". This includes the order panel, with filters by date. Each order must also display the user's phone and name and details                                                                 |
+| Delivery Fee System        | ✅R      | The admin can add complex delivery fee systems (it can get very complex, see BeeFood and iFood as an example). The fee system for the user, is calculated based on his CEP       <- ver como é feito no ifood                                                                               |
+| Menu Dashboard             | ✅B      | User can disable items quickly, change prices, etc (ideally this would be 100% synces with ifood, maybe he could disable and enable the ifood sync)                                                                                                                                         |
+| Customize/CREATE Menu      | ✅B      | Category order, add image, banner, etc (maybe this is the normal view for the Admin instead of making this another page, see ifood)                                                                                                                                                         |
+| Basic Dashboard            | ✅R      | Sales, date filters, graph. Add a section with payouts:  semana 03/11/2025-10/11/2025 (segunda a segunda sempre)    R$ 250     ⏳ Pendendo (ou ✅ Pago)    < depende da função withdraw                                                                                                       |
+| Support                    | ✅R      | Botão flutuante no canto inferior direito. No clique ele detecta o tipo de aparelho que ta abrindo, se for um celular, manda direito pro https://wa.me/${phone}?text=${message}, se for um PC, gera um QR code com https://wa.me/${phone}?text=${message}, mostrando o número de contato    |
+| Landing Pages              | Waiting | Pro dono de restaurante e (base pro app?)                                                                                                                                                                                                                                                   |
+| Menu para Carrinho         | ✅R      |                                                                                                                                                                                                                                                                                             |
+|                            | Waiting |                                                                                                                                                                                                                                                                                             |
 
 ### UI (Photoshop) and Polish
 - ~~Basic UI Concept~~ | ✅J
@@ -89,30 +105,30 @@
 - ~~Layouts + Components~~ | ✅J
 - Make sure UX is 10/10, before moving on
 
-| Page                                 | Status  | Details                                   |
-|--------------------------------------|---------|-------------------------------------------|
-| /restaurante/criar/localizacao       | Waiting | iFood + PC, no Mobile (usar components)   |
-| /restaurante/criar/tempo-e-taxa      | Waiting | iFood + PC, no Mobile                     |
-| /restaurante/criar/disponibilidade   | Waiting | iFood + PC, no Mobile                     |
-| /restaurante/criar/cardapio          | Waiting | iFood + PC, no Mobile                     |
-| /restaurante/criar/info              | Waiting | iFood + PC, no Mobile                     |
-| /restaurante/criar/info/OTP          | Waiting | iFood + PC, no Mobile                     |
-| /painel                              | Waiting | iFood + PC, no Mobile (usar components)   |
-| /painel/financeiro                   | Waiting | iFood + PC, no Mobile                     |
-| /painel/configurações                | Waiting | iFood + PC, no Mobile                     |
-| /painel/configurações/integrações    | Waiting | iFood + PC, no Mobile                     |
-| /painel/configurações/nova-senha     | Waiting | iFood + PC, no Mobile                     |
-| /painel/cardapio                     | Waiting | iFood + PC, no Mobile                     |
-| /painel/disponibilidade              | Waiting | iFood + PC, no Mobile                     |
-| /painel/tempo-e-taxa                 | Waiting | iFood + PC, no Mobile                     |
-| /painel/loja                         | Waiting | iFood + PC, no Mobile                     |
-| /(nome-do-restaurante)               | Waiting | iFood + Mobile > PC                       |
-| /(nome-do-restaurante)/[id]          | Waiting | iFood + Mobile > PC                       |
-| /(nome-do-restaurante)/[id]/info     | Waiting | iFood + Mobile > PC                       |
-| /(nome-do-restaurante)/[id]/checkout | Waiting | iFood + Mobile > PC                       |
+| Page                                 | Status | Details                                   |
+|--------------------------------------|--------|-------------------------------------------|
+| /restaurante/criar/localizacao       | R      | iFood + PC, no Mobile (usar components)   |
+| /restaurante/criar/tempo-e-taxa      | R      | iFood + PC, no Mobile                     |
+| /restaurante/criar/disponibilidade   | R      | iFood + PC, no Mobile                     |
+| /restaurante/criar/cardapio          | R      | iFood + PC, no Mobile                     |
+| /restaurante/criar/info              | R      | iFood + PC, no Mobile                     |
+| /restaurante/criar/info/OTP          | R      | iFood + PC, no Mobile                     |
+| /painel                              | R      | iFood + PC, no Mobile (usar components)   |
+| /painel/financeiro                   | R      | iFood + PC, no Mobile                     |
+| /painel/configurações                | R      | iFood + PC, no Mobile                     |
+| /painel/configurações/integrações    | J      | iFood + PC, no Mobile                     |
+| /painel/configurações/nova-senha     | R      | iFood + PC, no Mobile                     |
+| /painel/cardapio                     | B      | iFood + PC, no Mobile                     |
+| /painel/disponibilidade              | R      | iFood + PC, no Mobile                     |
+| /painel/tempo-e-taxa                 | R      | iFood + PC, no Mobile                     |
+| /painel/loja                         | B      | iFood + PC, no Mobile                     |
+| /(nome-do-restaurante)               | B      | iFood + Mobile > PC                       |
+| /(nome-do-restaurante)/[id]          | B      | iFood + Mobile > PC                       |
+| /(nome-do-restaurante)/[id]/info     | B      | iFood + Mobile > PC                       |
+| /(nome-do-restaurante)/[id]/checkout | B      | iFood + Mobile > PC                       |
 
-- Landing Page (Mobile & PC)
-- mobile error message for dashboard
+- Landing Page (Mobile & PC) + video | JOAO (mobile)
+- mobile error message for dashboard | JOAO (mobile)
 
 ### Deploy
 - Switch Authentication > URL Configuration > Site URL (https://supabase.com/dashboard/project/mjogdsnxbwhbqcoijrwt/auth/url-configuration
