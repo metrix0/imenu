@@ -10,6 +10,7 @@ import {
     faChevronUp,
     faChevronDown,
     faArrowLeft,
+    faChevronLeft,
     faMinus,
 } from "@fortawesome/free-solid-svg-icons";
 
@@ -28,6 +29,7 @@ export const icons = {
     faTimes,
     faGripLines,
     // Ícones adicionados
+    faChevronLeft,
     faChevronUp,
     faChevronDown,
     faArrowLeft,
