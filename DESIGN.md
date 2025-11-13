@@ -23,8 +23,19 @@
 # 2) Colors
 
 ## Brand
-`var(--color-brand)` (set in globals.css)  
+`var(--color-brand)` (set in globals.css) (eg: bg-brand)
 Used for: sidebar active item, icons, text highlights, borders on active states.
+
+## Text
+`var(--color-text)` (set in globals.css) (eg: bg-text)
+
+## Success, Green
+`var(--color-green)` (set in globals.css) (eg: bg-green)
+
+## Other colors
+`var(--color-red)` (set in globals.css) (eg: bg-red)
+`var(--color-orange)` (set in globals.css) (eg: bg-orange)
+
 
 ## Gray neutrals used:
 - **gray-100** → sidebar hover background

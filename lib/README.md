@@ -42,7 +42,7 @@ import { icons } from "@/lib/fontawesome";
 
 Then, to use **icons in our package:**
 ```
-<FontAwesomeIcon icon={icon.faPlus} />
+<FontAwesomeIcon icon={icons.faPlus} />
 ```
 > **Notice the usage of "icon."**
 

@@ -1,7 +1,11 @@
 @import "tailwindcss";
 
 @theme {
-    --color-brand: #ea4918;
+    --color-brand: #f14400;
+    --color-text: #1d1d1d;
+    --color-green: #179463;
+    --color-red: #be2626;
+    --color-orange: #ec8b1b;
 }
 
 @font-face {

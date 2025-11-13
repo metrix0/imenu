@@ -53,7 +53,7 @@ export default function SupportButton() {
             {/* 1. The floating button */}
             <button
                 onClick={handleClick}
-                className="fixed bottom-6 right-6 z-50 flex h-16 w-16 items-center justify-center rounded-full bg-green-500 text-white shadow-lg transition-transform duration-300 ease-in-out hover:scale-110 hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+                className="fixed cursor-pointer bottom-6 right-6 z-50 flex h-16 w-16 items-center justify-center rounded-full bg-green-500 text-white shadow-lg transition-transform duration-300 ease-in-out hover:scale-110 hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
                 aria-label="Suporte via WhatsApp"
             >
                 <FontAwesomeIcon icon={icons.faWhatsapp} size="2x" />

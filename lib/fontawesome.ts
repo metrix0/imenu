@@ -12,6 +12,7 @@ import {
     faArrowLeft,
     faChevronLeft,
     faMinus,
+    faXmark,
 } from "@fortawesome/free-solid-svg-icons";
 
 import {
@@ -30,6 +31,7 @@ export const icons = {
     faGripLines,
     // Ícones adicionados
     faChevronLeft,
+    faXmark,
     faChevronUp,
     faChevronDown,
     faArrowLeft,

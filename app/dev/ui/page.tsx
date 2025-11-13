@@ -8,6 +8,7 @@ import ToggleInput from "@/components/ui/ToggleInput";
 import Tabs from "@/components/ui/Tabs";
 import Loader from "@/components/ui/Loader";
 import ListLoader from "@/components/ui/ListLoader";
+import BonusButton from "@/components/ui/BonusButton";
 
 import { useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -150,6 +151,19 @@ import { faMagnifyingGlass } from "@fortawesome/free-solid-svg-icons";`}
                     <ListLoader lines={4} />
                 </div>
                 <CodeBlock code={`<ListLoader lines={4} />`} />
+            </ComponentBlock>
+
+            <ComponentBlock
+                title="components/ui/BonusButton.tsx — List Loader"
+                imports={`import BonusButton from "@/components/ui/BonusButton";`}
+            >
+                <div className="flex gap-5 mb-5">
+                    <BonusButton>Test</BonusButton> <BonusButton color={"bg-red-500"} shimmer={false}>Test</BonusButton>
+                </div>
+
+                <CodeBlock code={`<BonusButton>Test</BonusButton>
+<BonusButton color={"bg-red-500"} shimmer={false}>Test</BonusButton>
+`} />
             </ComponentBlock>
         </div>
     );
