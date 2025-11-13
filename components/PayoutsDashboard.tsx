@@ -10,7 +10,7 @@ interface Payout {
     start_date: string;
     end_date: string;
     amount_cents: number;
-    status: "pending" | "paid";
+    status: "pending_payment" | "paid";
     paid_at: string | null;
     order_count: number; // <-- CAMPO ADICIONADO
 }

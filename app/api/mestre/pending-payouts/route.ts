@@ -22,7 +22,7 @@ export async function GET(request: Request) {
             JOIN 
                 public.restaurants r ON p.restaurant_id = r.id
             WHERE 
-                p.status = 'pending' -- only pending
+                p.status = 'pending_payment' -- only pending
             ORDER BY 
                 p.start_date ASC -- oldest first
         `
