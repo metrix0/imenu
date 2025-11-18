@@ -98,11 +98,19 @@ export default function RestauranteConfiguracoesPage() {
                 if (!menuError && menuData) setMenu(menuData);
 
                 // Preferir link por menuId (quando o restaurante tem um menu criado)
-                const menuIdFromData = menuData?.id ?? null;
-                const url = menuIdFromData
-                    ? `${window.location.origin}/cardapio/${menuIdFromData}`
-                    : `${window.location.origin}/cardapio/${(await getRestaurantSlug(restaurantId)) ?? ""}`;
+                const slug = await getRestaurantSlug(restaurantId);
+
+                const url = `${window.location.origin}/${slug}`;
+
                 setShareableUrl(url);
+
+                loadScript("https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.1/qrcode.min.js", () => {
+                    if ((window as any).QRCode) {
+                        (window as any).QRCode.toDataURL(url, { width: 200, margin: 1 }, (err: any, dataUrl: string) => {
+                            if (!err) setQrCodeUrl(dataUrl);
+                        });
+                    }
+                });
 
                 loadScript("https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.1/qrcode.min.js", () => {
                     if ((window as any).QRCode) {
@@ -422,307 +430,307 @@ export default function RestauranteConfiguracoesPage() {
         }
     };
     // --------------------------------------------------
- 
-     if (loading) {
-         return (
-             <div className="flex min-h-screen items-center justify-center p-4">
-                 <p className="text-gray-600 text-lg">Carregando configurações...</p>
-             </div>
-         );
-     }
- 
-     if (!restaurant) {
-         return (
-             <div className="flex min-h-screen flex-col items-center justify-center p-4">
-                 <p className="text-red-600 text-lg">{message?.content || "Restaurante não encontrado."}</p>
-                 <button
-                     onClick={() => router.push("/restaurante/criar")}
-                     className="mt-3 rounded-md bg-indigo-600 px-5 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700"
-                 >
-                     Criar novo restaurante
-                 </button>
-             </div>
-         );
-     }
- 
-     // obter URL pública da logo (se houver)
-     const logoPublicUrl =
-         restaurant.logo_url &&
-         supabase.storage.from("restaurant-logos").getPublicUrl(restaurant.logo_url).data?.publicUrl;
- 
-     return (
-         <div className="flex min-h-screen flex-col items-center bg-gray-50 p-6">
-             <div className="w-full max-w-2xl space-y-8">
-                 {/* LOGO E CABEÇALHO */}
-                 <div className="flex flex-col items-center">
-                     <div
-                         className="relative w-28 h-28 rounded-full border-4 border-gray-300 overflow-hidden cursor-pointer group"
-                         onMouseEnter={() => setHoveringLogo(true)}
-                         onMouseLeave={() => setHoveringLogo(false)}
-                         onClick={handleLogoClick}
-                     >
-                         {logoPublicUrl ? (
-                             <img src={logoPublicUrl} alt="Logo do restaurante" className="w-full h-full object-cover" />
-                         ) : (
-                             <div className="flex items-center justify-center w-full h-full bg-gray-200 text-gray-500 text-sm">
-                                 Adicionar Logo
-                             </div>
-                         )}
-                         {hoveringLogo && restaurant.logo_url && (
-                             <button
-                                 onClick={(e) => {
-                                     e.stopPropagation();
-                                     handleLogoDelete();
-                                 }}
-                                 className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 text-white"
-                             >
-                                 <FontAwesomeIcon icon={icons.faTrash} className="text-lg" />
-                             </button>
-                         )}
-                         <input type="file" ref={fileInputRef} accept="image/*" onChange={handleFileChange} className="hidden" />
-                     </div>
- 
-                     <h1 className="mt-3 text-3xl font-bold text-gray-900">Configurações</h1>
-                     <p className="text-lg text-gray-600">
-                         Gerenciando: <span className="font-semibold">{restaurant.name}</span>
-                     </p>
-                 </div>
- 
-                 {message && (
-                     <div
-                         className={`rounded-md p-3 text-sm font-medium ${message.type === "success"
-                             ? "bg-green-100 text-green-800 border border-green-300"
-                             : "bg-red-100 text-red-800 border border-red-300"
-                             }`}
-                     >
-                         {message.content}
-                     </div>
-                 )}
- 
-                 {/* PERFIL */}
-                 <section className="space-y-4 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-                     <h2 className="text-lg font-semibold text-gray-900">Perfil da Loja</h2>
-                     <p className="text-sm text-gray-700">Edite o nome, descrição e endereço do seu restaurante.</p>
-                     <button
-                         disabled
-                         className="rounded-md border border-gray-300 bg-white px-5 py-2 text-sm font-medium text-gray-700 shadow-sm disabled:opacity-50"
-                     >
-                         <FontAwesomeIcon icon={icons.faEdit} /> Editar Perfil (Em breve)
-                     </button>
-                 </section>
- 
-                 {/* HORÁRIOS */}
-                 <section className="space-y-4 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-                     <h2 className="text-lg font-semibold text-gray-900">Horários</h2>
-                     <p className="text-sm text-gray-700">Defina quando sua loja está aberta para receber pedidos.</p>
-                     <button
-                         disabled
-                         className="rounded-md border border-gray-300 bg-white px-5 py-2 text-sm font-medium text-gray-700 shadow-sm disabled:opacity-50"
-                     >
-                         <FontAwesomeIcon icon={icons.faTimes} /> Definir Horários (Em breve)
-                     </button>
-                 </section>
- 
-                 {/* COMPARTILHAR */}
-                 <section className="space-y-4 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-                     <h2 className="text-lg font-semibold text-gray-900">Compartilhar Cardápio</h2>
-                     <p className="text-sm text-gray-700">Use o link direto ou QR Code para divulgar seu cardápio.</p>
- 
-                     <div className="flex flex-col gap-2 sm:flex-row">
-                         <input
-                             type="text"
-                             value={shareableUrl}
-                             readOnly
-                             className="flex-grow rounded-md border-gray-300 bg-gray-100 px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                         />
-                         <button
-                             onClick={handleCopyLink}
-                             className="flex items-center justify-center gap-2 rounded-md border border-gray-300 bg-white px-5 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 sm:w-auto"
-                         >
-                             {copySuccess || "Copiar Link"}
-                         </button>
-                     </div>
- 
-                     <div className="flex flex-col items-center justify-center gap-4 rounded-lg bg-gray-50 p-6">
-                         {qrCodeUrl ? (
-                             <img src={qrCodeUrl} alt="QR Code" width={200} height={200} className="rounded-md border border-gray-300" />
-                         ) : (
-                             <div className="flex h-[200px] w-[200px] items-center justify-center rounded-md border border-gray-300 bg-gray-100 text-sm text-gray-500">
-                                 Gerando QR Code...
-                             </div>
-                         )}
-                         <button
-                             onClick={handleDownloadQR}
-                             className="flex items-center justify-center gap-2 rounded-md border border-gray-300 bg-white px-5 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
-                         >
-                             <FontAwesomeIcon icon={icons.faCheck} /> Baixar QR Code
-                         </button>
-                     </div>
-                 </section>
- 
-                 {/* TEMPO MÉDIO DE PREPARO */}
-                 <section className="space-y-4 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-                     <h2 className="text-lg font-semibold text-gray-900">Tempo médio de preparo</h2>
-                     <p className="text-sm text-gray-700">
-                         Defina se deseja utilizar o cálculo automático (necessário ter pelo menos uma semana de uso) ou inserir um intervalo manualmente.
-                     </p>
- 
-                     <div className="flex flex-col gap-3 md:flex-row md:items-center">
-                         <div className="flex items-center gap-4">
-                             <label className="flex items-center gap-2">
-                                 <input
-                                     type="radio"
-                                     name="prep_mode"
-                                     value="auto"
-                                     checked={prepMode === "auto"}
-                                     onChange={() => setPrepMode("auto")}
-                                 />
-                                 <span className="text-sm">Automático</span>
-                             </label>
-                             <label className="flex items-center gap-2">
-                                 <input
-                                     type="radio"
-                                     name="prep_mode"
-                                     value="manual"
-                                     checked={prepMode === "manual"}
-                                     onChange={() => setPrepMode("manual")}
-                                 />
-                                 <span className="text-sm">Manual</span>
-                             </label>
-                         </div>
- 
-                         <div className="ml-auto flex gap-2">
-                             <button
-                                 onClick={handleComputeNow}
-                                 disabled={computing}
-                                 className="rounded-md bg-indigo-600 px-4 py-2 text-white text-sm hover:bg-indigo-700"
-                             >
-                                 {computing ? "Calculando..." : "Calcular agora"}
-                             </button>
-                             <button
-                                 onClick={handleSaveGeneral}
-                                 disabled={computing || updatingManual}
-                                 className="rounded-md bg-green-600 px-4 py-2 text-white text-sm hover:bg-green-700"
-                             >
-                                 Salvar
-                             </button>
-                         </div>
-                     </div>
- 
-                     {prepMode === "manual" && (
-                         <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 sm:items-end">
-                             <div>
-                                 <label className="block text-xs text-gray-600">Mínimo (minutos)</label>
-                                 <input
-                                     type="number"
-                                     value={manualMin as any}
-                                     onChange={(e) => setManualMin(e.target.value === "" ? "" : Number(e.target.value))}
-                                     className="w-full rounded-md border-gray-300 px-2 py-1"
-                                 />
-                             </div>
-                             <div>
-                                 <label className="block text-xs text-gray-600">Máximo (minutos)</label>
-                                 <input
-                                     type="number"
-                                     value={manualMax as any}
-                                     onChange={(e) => setManualMax(e.target.value === "" ? "" : Number(e.target.value))}
-                                     className="w-full rounded-md border-gray-300 px-2 py-1"
-                                 />
-                             </div>
-                             <div>
-                                 {/* Obs: botao de salvar manual agora é o salvar geral */}
-                                 <div className="text-xs text-gray-500">Clique em "Salvar" à direita para persistir manualmente.</div>
-                             </div>
-                             <p className="text-xs text-gray-500 sm:col-span-3">A diferença entre máximo e mínimo deve ser ao menos 20 minutos.</p>
-                             {restaurant.prep_time_computed_at && (
-                                 <p className="text-xs text-gray-500 sm:col-span-3">
-                                     Última atualização: {new Date(restaurant.prep_time_computed_at).toLocaleString()}
-                                 </p>
-                             )}
-                         </div>
-                     )}
- 
-                     {restaurant.prep_time_min_minutes !== null && restaurant.prep_time_max_minutes !== null && (
-                         <div className="mt-2 text-sm text-gray-700">
-                             Estimativa atual:{" "}
-                             <span className="font-semibold">
-                                 {restaurant.prep_time_min_minutes}–{restaurant.prep_time_max_minutes} minutos
-                             </span>
-                             <span className="ml-2 text-xs text-gray-500">
-                                 ({restaurant.prep_time_source === "manual" ? "definido manualmente" : "estimado automaticamente"})
-                             </span>
-                         </div>
-                     )}
- 
-                 </section>
- 
-                 {/* CARDÁPIO (novo card UI) */}
-                 <section className="space-y-4 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-                     <h2 className="text-lg font-semibold text-gray-900">Cardápio do Restaurante</h2>
-                     <p className="text-sm text-gray-700">Crie e gerencie o cardápio principal do seu restaurante.</p>
- 
-                     {menu ? (
-                         <div
-                             onClick={() => goToMenu(menu.id)}
-                             className="group relative flex items-start justify-between gap-4 rounded-md border p-4 hover:shadow cursor-pointer"
-                         >
-                             <div className="flex-1">
-                                 <h3 className="text-lg font-semibold text-gray-900">{menu.name}</h3>
-                             </div>
- 
-                             <div className="flex flex-col items-end gap-2">
-                                 <button
-                                     onClick={toggleMenuActive}
-                                     className={`px-3 py-1 rounded text-sm font-medium ${menu.is_active ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-700"}`}
-                                     title="Alternar disponibilidade do cardápio"
-                                 >
-                                     {menu.is_active ? "Disponível" : "Indisponível"}
-                                 </button>
- 
-                                 <button
-                                     onClick={handleDeleteMenu}
-                                     className="px-3 py-1 rounded bg-red-600 text-white text-sm"
-                                     title="Excluir cardápio"
-                                 >
-                                     <FontAwesomeIcon icon={icons.faTrash} />
-                                 </button>
-                             </div>
-                         </div>
-                     ) : (
-                         <button
-                             onClick={handleCreateMenu}
-                             className="flex items-center gap-2 rounded-md bg-indigo-600 px-5 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700"
-                         >
-                             <FontAwesomeIcon icon={icons.faPlus} /> Criar Cardápio
-                         </button>
-                     )}
-                 </section>
- 
-                 {/* ZONA DE PERIGO */}
-                 <section className="space-y-4 rounded-lg border border-red-300 bg-red-50 p-6 shadow-sm">
-                     <h2 className="text-lg font-semibold text-red-800">Zona de Perigo</h2>
-                     <p className="text-sm text-red-700">
-                         Exclui seu restaurante e todos os seus dados permanentemente. Isso inclui cardápios, pedidos e configurações.
-                     </p>
- 
-                     <button
-                         onClick={handleDeleteRestaurant}
-                         disabled={isDeleting}
-                         className="rounded-md bg-red-600 px-5 py-2 text-sm font-medium text-white shadow-sm hover:bg-red-700 disabled:opacity-50"
-                     >
-                         <FontAwesomeIcon icon={icons.faTrash} /> {isDeleting ? "Deletando..." : "Deletar Restaurante"}
-                     </button>
-                 </section>
-             </div>
-         </div>
-     );
- }
- 
- // Para o TypeScript reconhecer 'window.QRCode'
- declare global {
-     interface Window {
-         QRCode: {
-             toDataURL: (text: string, options: { width: number; margin: number }, callback: (err: any, dataUrl: string) => void) => void;
-         };
-     }
- }
+
+    if (loading) {
+        return (
+            <div className="flex min-h-screen items-center justify-center p-4">
+                <p className="text-gray-600 text-lg">Carregando configurações...</p>
+            </div>
+        );
+    }
+
+    if (!restaurant) {
+        return (
+            <div className="flex min-h-screen flex-col items-center justify-center p-4">
+                <p className="text-red-600 text-lg">{message?.content || "Restaurante não encontrado."}</p>
+                <button
+                    onClick={() => router.push("/restaurante/criar")}
+                    className="mt-3 rounded-md bg-indigo-600 px-5 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700"
+                >
+                    Criar novo restaurante
+                </button>
+            </div>
+        );
+    }
+
+    // obter URL pública da logo (se houver)
+    const logoPublicUrl =
+        restaurant.logo_url &&
+        supabase.storage.from("restaurant-logos").getPublicUrl(restaurant.logo_url).data?.publicUrl;
+
+    return (
+        <div className="flex min-h-screen flex-col items-center bg-gray-50 p-6">
+            <div className="w-full max-w-2xl space-y-8">
+                {/* LOGO E CABEÇALHO */}
+                <div className="flex flex-col items-center">
+                    <div
+                        className="relative w-28 h-28 rounded-full border-4 border-gray-300 overflow-hidden cursor-pointer group"
+                        onMouseEnter={() => setHoveringLogo(true)}
+                        onMouseLeave={() => setHoveringLogo(false)}
+                        onClick={handleLogoClick}
+                    >
+                        {logoPublicUrl ? (
+                            <img src={logoPublicUrl} alt="Logo do restaurante" className="w-full h-full object-cover" />
+                        ) : (
+                            <div className="flex items-center justify-center w-full h-full bg-gray-200 text-gray-500 text-sm">
+                                Adicionar Logo
+                            </div>
+                        )}
+                        {hoveringLogo && restaurant.logo_url && (
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleLogoDelete();
+                                }}
+                                className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 text-white"
+                            >
+                                <FontAwesomeIcon icon={icons.faTrash} className="text-lg" />
+                            </button>
+                        )}
+                        <input type="file" ref={fileInputRef} accept="image/*" onChange={handleFileChange} className="hidden" />
+                    </div>
+
+                    <h1 className="mt-3 text-3xl font-bold text-gray-900">Configurações</h1>
+                    <p className="text-lg text-gray-600">
+                        Gerenciando: <span className="font-semibold">{restaurant.name}</span>
+                    </p>
+                </div>
+
+                {message && (
+                    <div
+                        className={`rounded-md p-3 text-sm font-medium ${message.type === "success"
+                            ? "bg-green-100 text-green-800 border border-green-300"
+                            : "bg-red-100 text-red-800 border border-red-300"
+                            }`}
+                    >
+                        {message.content}
+                    </div>
+                )}
+
+                {/* PERFIL */}
+                <section className="space-y-4 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+                    <h2 className="text-lg font-semibold text-gray-900">Perfil da Loja</h2>
+                    <p className="text-sm text-gray-700">Edite o nome, descrição e endereço do seu restaurante.</p>
+                    <button
+                        disabled
+                        className="rounded-md border border-gray-300 bg-white px-5 py-2 text-sm font-medium text-gray-700 shadow-sm disabled:opacity-50"
+                    >
+                        <FontAwesomeIcon icon={icons.faEdit} /> Editar Perfil (Em breve)
+                    </button>
+                </section>
+
+                {/* HORÁRIOS */}
+                <section className="space-y-4 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+                    <h2 className="text-lg font-semibold text-gray-900">Horários</h2>
+                    <p className="text-sm text-gray-700">Defina quando sua loja está aberta para receber pedidos.</p>
+                    <button
+                        disabled
+                        className="rounded-md border border-gray-300 bg-white px-5 py-2 text-sm font-medium text-gray-700 shadow-sm disabled:opacity-50"
+                    >
+                        <FontAwesomeIcon icon={icons.faTimes} /> Definir Horários (Em breve)
+                    </button>
+                </section>
+
+                {/* COMPARTILHAR */}
+                <section className="space-y-4 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+                    <h2 className="text-lg font-semibold text-gray-900">Compartilhar Cardápio</h2>
+                    <p className="text-sm text-gray-700">Use o link direto ou QR Code para divulgar seu cardápio.</p>
+
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                        <input
+                            type="text"
+                            value={shareableUrl}
+                            readOnly
+                            className="flex-grow rounded-md border-gray-300 bg-gray-100 px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                        />
+                        <button
+                            onClick={handleCopyLink}
+                            className="flex items-center justify-center gap-2 rounded-md border border-gray-300 bg-white px-5 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 sm:w-auto"
+                        >
+                            {copySuccess || "Copiar Link"}
+                        </button>
+                    </div>
+
+                    <div className="flex flex-col items-center justify-center gap-4 rounded-lg bg-gray-50 p-6">
+                        {qrCodeUrl ? (
+                            <img src={qrCodeUrl} alt="QR Code" width={200} height={200} className="rounded-md border border-gray-300" />
+                        ) : (
+                            <div className="flex h-[200px] w-[200px] items-center justify-center rounded-md border border-gray-300 bg-gray-100 text-sm text-gray-500">
+                                Gerando QR Code...
+                            </div>
+                        )}
+                        <button
+                            onClick={handleDownloadQR}
+                            className="flex items-center justify-center gap-2 rounded-md border border-gray-300 bg-white px-5 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
+                        >
+                            <FontAwesomeIcon icon={icons.faCheck} /> Baixar QR Code
+                        </button>
+                    </div>
+                </section>
+
+                {/* TEMPO MÉDIO DE PREPARO */}
+                <section className="space-y-4 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+                    <h2 className="text-lg font-semibold text-gray-900">Tempo médio de preparo</h2>
+                    <p className="text-sm text-gray-700">
+                        Defina se deseja utilizar o cálculo automático (necessário ter pelo menos uma semana de uso) ou inserir um intervalo manualmente.
+                    </p>
+
+                    <div className="flex flex-col gap-3 md:flex-row md:items-center">
+                        <div className="flex items-center gap-4">
+                            <label className="flex items-center gap-2">
+                                <input
+                                    type="radio"
+                                    name="prep_mode"
+                                    value="auto"
+                                    checked={prepMode === "auto"}
+                                    onChange={() => setPrepMode("auto")}
+                                />
+                                <span className="text-sm">Automático</span>
+                            </label>
+                            <label className="flex items-center gap-2">
+                                <input
+                                    type="radio"
+                                    name="prep_mode"
+                                    value="manual"
+                                    checked={prepMode === "manual"}
+                                    onChange={() => setPrepMode("manual")}
+                                />
+                                <span className="text-sm">Manual</span>
+                            </label>
+                        </div>
+
+                        <div className="ml-auto flex gap-2">
+                            <button
+                                onClick={handleComputeNow}
+                                disabled={computing}
+                                className="rounded-md bg-indigo-600 px-4 py-2 text-white text-sm hover:bg-indigo-700"
+                            >
+                                {computing ? "Calculando..." : "Calcular agora"}
+                            </button>
+                            <button
+                                onClick={handleSaveGeneral}
+                                disabled={computing || updatingManual}
+                                className="rounded-md bg-green-600 px-4 py-2 text-white text-sm hover:bg-green-700"
+                            >
+                                Salvar
+                            </button>
+                        </div>
+                    </div>
+
+                    {prepMode === "manual" && (
+                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 sm:items-end">
+                            <div>
+                                <label className="block text-xs text-gray-600">Mínimo (minutos)</label>
+                                <input
+                                    type="number"
+                                    value={manualMin as any}
+                                    onChange={(e) => setManualMin(e.target.value === "" ? "" : Number(e.target.value))}
+                                    className="w-full rounded-md border-gray-300 px-2 py-1"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs text-gray-600">Máximo (minutos)</label>
+                                <input
+                                    type="number"
+                                    value={manualMax as any}
+                                    onChange={(e) => setManualMax(e.target.value === "" ? "" : Number(e.target.value))}
+                                    className="w-full rounded-md border-gray-300 px-2 py-1"
+                                />
+                            </div>
+                            <div>
+                                {/* Obs: botao de salvar manual agora é o salvar geral */}
+                                <div className="text-xs text-gray-500">Clique em "Salvar" à direita para persistir manualmente.</div>
+                            </div>
+                            <p className="text-xs text-gray-500 sm:col-span-3">A diferença entre máximo e mínimo deve ser ao menos 20 minutos.</p>
+                            {restaurant.prep_time_computed_at && (
+                                <p className="text-xs text-gray-500 sm:col-span-3">
+                                    Última atualização: {new Date(restaurant.prep_time_computed_at).toLocaleString()}
+                                </p>
+                            )}
+                        </div>
+                    )}
+
+                    {restaurant.prep_time_min_minutes !== null && restaurant.prep_time_max_minutes !== null && (
+                        <div className="mt-2 text-sm text-gray-700">
+                            Estimativa atual:{" "}
+                            <span className="font-semibold">
+                                {restaurant.prep_time_min_minutes}–{restaurant.prep_time_max_minutes} minutos
+                            </span>
+                            <span className="ml-2 text-xs text-gray-500">
+                                ({restaurant.prep_time_source === "manual" ? "definido manualmente" : "estimado automaticamente"})
+                            </span>
+                        </div>
+                    )}
+
+                </section>
+
+                {/* CARDÁPIO (novo card UI) */}
+                <section className="space-y-4 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+                    <h2 className="text-lg font-semibold text-gray-900">Cardápio do Restaurante</h2>
+                    <p className="text-sm text-gray-700">Crie e gerencie o cardápio principal do seu restaurante.</p>
+
+                    {menu ? (
+                        <div
+                            onClick={() => goToMenu(menu.id)}
+                            className="group relative flex items-start justify-between gap-4 rounded-md border p-4 hover:shadow cursor-pointer"
+                        >
+                            <div className="flex-1">
+                                <h3 className="text-lg font-semibold text-gray-900">{menu.name}</h3>
+                            </div>
+
+                            <div className="flex flex-col items-end gap-2">
+                                <button
+                                    onClick={toggleMenuActive}
+                                    className={`px-3 py-1 rounded text-sm font-medium ${menu.is_active ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-700"}`}
+                                    title="Alternar disponibilidade do cardápio"
+                                >
+                                    {menu.is_active ? "Disponível" : "Indisponível"}
+                                </button>
+
+                                <button
+                                    onClick={handleDeleteMenu}
+                                    className="px-3 py-1 rounded bg-red-600 text-white text-sm"
+                                    title="Excluir cardápio"
+                                >
+                                    <FontAwesomeIcon icon={icons.faTrash} />
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        <button
+                            onClick={handleCreateMenu}
+                            className="flex items-center gap-2 rounded-md bg-indigo-600 px-5 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700"
+                        >
+                            <FontAwesomeIcon icon={icons.faPlus} /> Criar Cardápio
+                        </button>
+                    )}
+                </section>
+
+                {/* ZONA DE PERIGO */}
+                <section className="space-y-4 rounded-lg border border-red-300 bg-red-50 p-6 shadow-sm">
+                    <h2 className="text-lg font-semibold text-red-800">Zona de Perigo</h2>
+                    <p className="text-sm text-red-700">
+                        Exclui seu restaurante e todos os seus dados permanentemente. Isso inclui cardápios, pedidos e configurações.
+                    </p>
+
+                    <button
+                        onClick={handleDeleteRestaurant}
+                        disabled={isDeleting}
+                        className="rounded-md bg-red-600 px-5 py-2 text-sm font-medium text-white shadow-sm hover:bg-red-700 disabled:opacity-50"
+                    >
+                        <FontAwesomeIcon icon={icons.faTrash} /> {isDeleting ? "Deletando..." : "Deletar Restaurante"}
+                    </button>
+                </section>
+            </div>
+        </div>
+    );
+}
+
+// Para o TypeScript reconhecer 'window.QRCode'
+declare global {
+    interface Window {
+        QRCode: {
+            toDataURL: (text: string, options: { width: number; margin: number }, callback: (err: any, dataUrl: string) => void) => void;
+        };
+    }
+}
