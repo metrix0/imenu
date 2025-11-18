@@ -8,7 +8,8 @@ import { Category, Item, ItemsByCategory, Subcategory } from "@/lib/types";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { icons } from "@/lib/fontawesome";
 // IMPORTA O NOVO COMPONENTE DE DETALHES
-import ItemDetails from "@/components/ItemDetails"; 
+import ItemDetails from "@/components/ItemDetails";
+import posthog from "posthog-js";
 
 // Definição de Props atualizada (não mudou da última vez)
 type MenuClientProps = {
@@ -56,6 +57,16 @@ export default function MenuClientPage({
     const [isLoadingDetails, setIsLoadingDetails] = useState(false);
     // --- FIM DOS NOVOS STATES ---
 
+    // EFEITO PARA RASTREAMENTO COM POSTHOG
+    useEffect(() => {
+        posthog.capture("menu_viewed", {
+            restaurantId: restaurant.id,
+            menuId: menu.id,
+        });
+    }, [restaurant.id, menu.id]);
+    // FIM DO EFEITO DE RASTREAMENTO
+
+    // Inicializa o estado de categorias expandidas (todas abertas por padrão)
     useEffect(() => {
         const initialState: Record<string, boolean> = {};
         categories.forEach((cat) => {
@@ -112,7 +123,7 @@ export default function MenuClientPage({
         // Adiciona 'overflow-hidden' ao body quando o modal está aberto
         // para impedir o scroll da página principal no mobile
         <div className={`min-h-screen bg-white pb-20 ${isModalOpen ? 'overflow-hidden' : ''}`}>
-            
+
             {/* ... (Todo o JSX do Cardápio: Banner, Logo, Infos, Destaques) ... */}
             {/* (O código do Brendo para a página principal permanece o mesmo) */}
             <div className="relative">
@@ -144,7 +155,7 @@ export default function MenuClientPage({
                     <span>Padrão</span>
                     <span className="text-gray-500">•</span>
                     {restaurant.prep_time_min_minutes && (
-                            <span>{restaurant.prep_time_min_minutes} - {restaurant.prep_time_max_minutes} min</span>
+                        <span>{restaurant.prep_time_min_minutes} - {restaurant.prep_time_max_minutes} min</span>
                     )}
                     {restaurant.min_order_cents && restaurant.min_order_cents > 0 && (
                         <>
@@ -220,12 +231,12 @@ export default function MenuClientPage({
 
             {/* --- [Elemento F] O Modal (Gaveta) --- */}
             {isModalOpen && (
-                <div 
+                <div
                     className="fixed inset-0 z-40 bg-[rgba(0,0,0,0.5)] transition-opacity" // Overlay
                     onClick={closeModal}
                     aria-hidden="true"
                 >
-                    <div 
+                    <div
                         className="fixed bottom-0 left-0 right-0 z-50 w-full max-w-4xl mx-auto" // A "Gaveta"
                         onClick={(e) => e.stopPropagation()} // Impede de fechar ao clicar na gaveta
                     >
@@ -235,7 +246,7 @@ export default function MenuClientPage({
                                 <p className="text-gray-500">Carregando detalhes do item...</p>
                             </div>
                         )}
-                        
+
                         {/* Conteúdo Carregado (O componente que criamos na Etapa 2) */}
                         {selectedItemData && (
                             <ItemDetails
