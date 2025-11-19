@@ -4,9 +4,13 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import { useCreationStore } from "@/lib/creationStore";
 
 export default function InfoPage() {
     const router = useRouter();
+
+    // Zustand store
+    const { setEmail: setStoreEmail, setRestaurantId } = useCreationStore();
 
     const [email, setEmail] = useState("");
     const [nome, setNome] = useState("");
@@ -21,6 +25,31 @@ export default function InfoPage() {
         setMessage("");
 
         try {
+            // -------------------------------------------------------------
+            // 1. Create restaurant FIRST
+            // -------------------------------------------------------------
+            const restaurantResponse = await fetch("/api/restaurants/create", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+            });
+
+            if (!restaurantResponse.ok) {
+                const err = await restaurantResponse.json();
+                throw new Error(err.error || "Erro ao criar restaurante.");
+            }
+
+            const { id: newRestaurantId } = await restaurantResponse.json();
+
+            if (!newRestaurantId) {
+                throw new Error("Restaurante não retornou um ID válido.");
+            }
+
+            // Save restaurantId in Zustand
+            setRestaurantId(newRestaurantId);
+
+            // -------------------------------------------------------------
+            // 2. Create Supabase user
+            // -------------------------------------------------------------
             const { error } = await supabase.auth.signUp({
                 email,
                 password,
@@ -28,13 +57,22 @@ export default function InfoPage() {
                     data: {
                         full_name: nome,
                         phone: telefone,
+                        restaurant_id: newRestaurantId, // OPTIONAL BUT USEFUL
                     },
                 },
             });
 
             if (error) throw new Error(error.message);
 
-            router.push("/restaurante/criar/localizacao");
+            // -------------------------------------------------------------
+            // 3. Save email for OTP page
+            // -------------------------------------------------------------
+            setStoreEmail(email);
+
+            // -------------------------------------------------------------
+            // 4. Redirect to OTP
+            // -------------------------------------------------------------
+            router.push("/restaurante/registrar/otp");
 
         } catch (err) {
             setMessage((err as Error).message);
@@ -50,6 +88,7 @@ export default function InfoPage() {
                 </h1>
 
                 <form onSubmit={handleCreateAccount} className="space-y-5">
+                    {/* EMAIL */}
                     <div>
                         <label className="block text-base font-medium text-gray-700">
                             Seu E-mail
@@ -64,6 +103,7 @@ export default function InfoPage() {
                         />
                     </div>
 
+                    {/* NOME */}
                     <div>
                         <label className="block text-base font-medium text-gray-700">
                             Seu Nome
@@ -78,6 +118,7 @@ export default function InfoPage() {
                         />
                     </div>
 
+                    {/* TELEFONE */}
                     <div>
                         <label className="block text-base font-medium text-gray-700">
                             Telefone (WhatsApp)
@@ -92,6 +133,7 @@ export default function InfoPage() {
                         />
                     </div>
 
+                    {/* SENHA */}
                     <div>
                         <label className="block text-base font-medium text-gray-700">
                             Senha
@@ -107,6 +149,7 @@ export default function InfoPage() {
                         />
                     </div>
 
+                    {/* BOTÃO */}
                     <button
                         type="submit"
                         disabled={loading}
