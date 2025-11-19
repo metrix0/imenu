@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useParams, usePathname } from "next/navigation";
+import SupportButton from "@/components/SupportButton";
 import {
     faBox,
     faMoneyBillWave,
@@ -78,6 +79,7 @@ export default function PainelLayout({
 
     return (
         <div className="flex min-h-screen bg-gray-50">
+            <SupportButton />
             {/* === SIDEBAR === */}
             <aside
                 className={`fixed h-full flex flex-col border-r border-gray-200 bg-white transition-all duration-300 ${

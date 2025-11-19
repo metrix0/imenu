@@ -1,9 +1,3 @@
-export default function PainelLayout({ children }: { children: React.ReactNode }) {
-    return (
-        <html lang="pt-BR">
-        <body className="min-h-screen bg-white text-gray-900">
-        {children}
-        </body>
-        </html>
-    );
+export default function Layout({ children }: { children: React.ReactNode }) {
+    return children; // NOTHING AROUND IT — this completely stops parent influence
 }

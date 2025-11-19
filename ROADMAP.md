@@ -28,20 +28,19 @@ JOAO
 - ~~menu da esquerda ficanddo gigante~~
 - ~~adicionar mais botões CTA landing page, email landing page.~~
 - ~~corrigir o mercado pago pagando e deixando como "pago" na parada~~
+- ~~botão do whatsapp é só pra dono dde restaurante (nao no cardapio)~~
+- login page lol
 
 RAF
 - ao inserir cep, automaticamente já calcuala a taxa (sem botão) (testar com autofill)
+- complemento (opcional) no cadastro endereço
+- trocar ordem do grafico com pagamento no painel/financeiro
 
 - BRE
 - ao adicionar algo na sacola volta pro cardapio, não vai pra sacola.
 - ao voltar da sacola, tem que carregar tudo dnv? pq?
+- adicionar item vira uma rota, não uma página. pra poder adicionar item na própria pagina que nem ifood
 
-- botão do whatsapp é só pra dono dde restaurante (nao no cardapio)
-- adicionar item vira uma rota, não uma página. Criar componente pra adicionar item
-- complemento (opcional) no cadastro endereço
-- Adicionar Nome do Cardápio na 4° parte cadastro restaurante
-- trocar ordem do grafico com pagamento no painel/financeiro
-- login page lol
 
 
 
@@ -148,7 +147,7 @@ RAF
 - Test client side routing (no refresh on page changes)
 
 ## Feature List for Next Versions (Future)
-- melhorar sessões de usuários, cookies, etc
+- melhorar sessões de usuários, cookies, zustand, etc
 - Create multiple accounts with different levels, like admin, counter, kitchen, etc
 - Add Motoboy location tracking
 - Add Upsell feature (just like iFood)
@@ -156,6 +155,7 @@ RAF
 - Instructions: Make it so the menu system itself give next instructions for it's admins, like "add a video to this best selling product to get ~15% more sales!" <- this step is very hard to implement, includes 1. WE gotta know what they have to do and 2. NOT filling them with multiple tasks, make it zero friction a the start and then keep adding new tasks
 - Delivery Fee BEFORE CEP -> currently it's after CEP, make it before, with location APIs.
 - Advanced Admin Dashboard
+- otimizar registro (só email) - make /restaurante -> /restaurante/registrar (apenas email) -> /restaurante/criar/... -> /criar/info
 - handle all payments on website only (no webhook, no other pages) using API.
 - All the Kitchen/Counter Staff user Stories + integration with FAX and printers (recibo, papelzinho do pedido na cozinha, etc) <- hard
 - (wonders) Whatsapp notification for delivery: Admin receiveis it when it's paid, user receives it when it's near them or ready

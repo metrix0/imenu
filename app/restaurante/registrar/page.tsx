@@ -3,13 +3,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useCreationStore } from "@/lib/creationStore";
 import { supabase } from "@/lib/supabaseClient";
 
 export default function InfoPage() {
     const router = useRouter();
-    const { restaurantId, email } = useCreationStore();
 
+    const [email, setEmail] = useState("");
     const [nome, setNome] = useState("");
     const [telefone, setTelefone] = useState("");
     const [password, setPassword] = useState("");
@@ -18,39 +17,27 @@ export default function InfoPage() {
 
     const handleCreateAccount = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
-        
-        if (!email || !restaurantId) {
-            setMessage("Erro: Sessão de criação expirada. Volte ao início.");
-            return;
-        }
-
         setLoading(true);
         setMessage("");
 
         try {
-            const { error: authError } = await supabase.auth.signUp({
-                email: email,
-                password: password,
-                
+            const { error } = await supabase.auth.signUp({
+                email,
+                password,
                 options: {
                     data: {
+                        full_name: nome,
                         phone: telefone,
-                        full_name: nome 
-                          
-                    }
-                }
+                    },
+                },
             });
 
-            if (authError) {
-                // Deal with errors (e.g.: "User already registered")
-                throw new Error(authError.message);
-            }
+            if (error) throw new Error(error.message);
 
-            // 3. OTP
-            router.push(`/restaurante/criar/info/otp`);
+            router.push("/restaurante/criar/localizacao");
 
-        } catch (error) {
-            setMessage((error as Error).message);
+        } catch (err) {
+            setMessage((err as Error).message);
             setLoading(false);
         }
     };
@@ -59,55 +46,75 @@ export default function InfoPage() {
         <main className="min-h-screen flex items-center justify-center p-6 bg-gray-50">
             <div className="w-full max-w-md space-y-6 rounded-lg border border-gray-200 bg-white p-8 shadow-lg">
                 <h1 className="text-3xl font-bold text-center text-gray-900">
-                    Tudo pronto!
+                    Crie sua conta
                 </h1>
-                <p className="text-center text-gray-600">
-                    Falta só criar sua conta de acesso. Seu e-mail é <strong className="text-gray-900">{email || "..."}</strong>.
-                </p>
+
                 <form onSubmit={handleCreateAccount} className="space-y-5">
                     <div>
-                        <label htmlFor="nome" className="block text-base font-medium text-gray-700">
+                        <label className="block text-base font-medium text-gray-700">
+                            Seu E-mail
+                        </label>
+                        <input
+                            type="email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            required
+                            className="mt-2 block w-full rounded-md border border-gray-300 px-4 py-3 text-base shadow-sm"
+                            placeholder="email@exemplo.com"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-base font-medium text-gray-700">
                             Seu Nome
                         </label>
                         <input
-                            id="nome" type="text" value={nome}
+                            type="text"
+                            value={nome}
                             onChange={(e) => setNome(e.target.value)}
                             required
                             className="mt-2 block w-full rounded-md border border-gray-300 px-4 py-3 text-base shadow-sm"
                             placeholder="João Vitor"
                         />
                     </div>
+
                     <div>
-                        <label htmlFor="telefone" className="block text-base font-medium text-gray-700">
+                        <label className="block text-base font-medium text-gray-700">
                             Telefone (WhatsApp)
                         </label>
                         <input
-                            id="telefone" type="tel" value={telefone}
+                            type="tel"
+                            value={telefone}
                             onChange={(e) => setTelefone(e.target.value)}
                             required
                             className="mt-2 block w-full rounded-md border border-gray-300 px-4 py-3 text-base shadow-sm"
                             placeholder="(19) 99999-8888"
                         />
                     </div>
+
                     <div>
-                        <label htmlFor="password" className="block text-base font-medium text-gray-700">
-                            Crie uma Senha
+                        <label className="block text-base font-medium text-gray-700">
+                            Senha
                         </label>
                         <input
-                            id="password" type="password" value={password}
+                            type="password"
+                            value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            required minLength={6}
+                            required
+                            minLength={6}
                             className="mt-2 block w-full rounded-md border border-gray-300 px-4 py-3 text-base shadow-sm"
                             placeholder="••••••••"
                         />
                     </div>
+
                     <button
                         type="submit"
-                        disabled={loading || !email}
+                        disabled={loading}
                         className="w-full rounded-md bg-black px-4 py-3 text-base font-semibold text-white shadow-md hover:bg-gray-900 disabled:opacity-60"
                     >
-                        {loading ? "Enviando código..." : "CRIAR CONTA"}
+                        {loading ? "Criando conta..." : "CRIAR CONTA"}
                     </button>
+
                     {message && (
                         <p className="text-center text-sm text-red-600">{message}</p>
                     )}

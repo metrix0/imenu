@@ -82,7 +82,7 @@ function OtpVerificationComponent() {
             // 3. Painel
             clearCreationStore();
             // redireciona para painel do restaurante criado
-            router.push(`/painel/${restaurantId}`);
+            router.push(`/criar/disponibilidade`);
 
         } catch (error) {
             setMessage((error as Error).message);
