@@ -23,14 +23,19 @@ JOAO
 - (depois do Front/Back pronto) consolidar toda UX 
 - ~~CORRIGIR PATHS~~
 - ~~pedido minimo (no criar e no painel (em algum componente))~~
-- ver se tem como pagar pelo nosso side API mercado pago.
+- ~~ver se tem como pagar pelo nosso side API mercado pago.~~
 - ~~organizar pasta components~~
-- menu da esquerda ficanddo gigante
-- adicionar mais botões CTA landing page, email landing page.
-- corrigir o mercado pago pagando e deixando como "pago" na parada
+- ~~menu da esquerda ficanddo gigante~~
+- ~~adicionar mais botões CTA landing page, email landing page.~~
+- ~~corrigir o mercado pago pagando e deixando como "pago" na parada~~
+
+RAF
 - ao inserir cep, automaticamente já calcuala a taxa (sem botão) (testar com autofill)
+
+- BRE
 - ao adicionar algo na sacola volta pro cardapio, não vai pra sacola.
 - ao voltar da sacola, tem que carregar tudo dnv? pq?
+
 - botão do whatsapp é só pra dono dde restaurante (nao no cardapio)
 - adicionar item vira uma rota, não uma página. Criar componente pra adicionar item
 - complemento (opcional) no cadastro endereço
@@ -151,6 +156,7 @@ JOAO
 - Instructions: Make it so the menu system itself give next instructions for it's admins, like "add a video to this best selling product to get ~15% more sales!" <- this step is very hard to implement, includes 1. WE gotta know what they have to do and 2. NOT filling them with multiple tasks, make it zero friction a the start and then keep adding new tasks
 - Delivery Fee BEFORE CEP -> currently it's after CEP, make it before, with location APIs.
 - Advanced Admin Dashboard
+- handle all payments on website only (no webhook, no other pages) using API.
 - All the Kitchen/Counter Staff user Stories + integration with FAX and printers (recibo, papelzinho do pedido na cozinha, etc) <- hard
 - (wonders) Whatsapp notification for delivery: Admin receiveis it when it's paid, user receives it when it's near them or ready
 - Checkout must pull information from browser and INTEGRATE with everything we can to make the transaction as smooth as possible

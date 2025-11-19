@@ -67,6 +67,7 @@ export default async function MenuPage({ params }: Props) {
         .eq("url_slug", slug) // Busca pelo slug
         .maybeSingle();
 
+
     if (restErr || !restaurantData) {
         console.error(`Erro ao buscar restaurante com slug: ${slug}.`, restErr);
         notFound();
