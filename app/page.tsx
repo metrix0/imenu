@@ -8,14 +8,15 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faUser } from "@fortawesome/free-solid-svg-icons";
 import { faClock } from "@fortawesome/free-solid-svg-icons";
 import { icons } from "@/lib/fontawesome";
-import {green} from "next/dist/lib/picocolors";
+import Tooltip from "@/components/ui/Tooltip";
+import Footer from "@/components/Footer";
 
 export default function LandingPage() {
     // SECTION 2 – troca de imagem
     const logos = [
-        { id: 1, name: "Logo 1", src: "/images/logo1-placeholder.png" },
-        { id: 2, name: "Logo 2", src: "/images/logo2-placeholder.png" },
-        { id: 3, name: "Logo 3", src: "/images/logo3-placeholder.png" },
+        { id: 1, name: "Logo 1", src: "/imenu.png", second_src:"/iMenu MENU.png" },
+        { id: 2, name: "Logo 2", src: "/imenu.png", second_src:"/iMenu MENU.png" },
+        { id: 3, name: "Logo 3", src: "/imenu.png", second_src:"/iMenu MENU.png" },
     ];
     const [selected, setSelected] = useState(1);
 
@@ -28,11 +29,11 @@ export default function LandingPage() {
                 <div className="flex items-center gap-2 text-xl font-bold text-brand">
                     {/* Logo placeholder */}
                     <Image
-                        src="/images/logo-imenu-placeholder.png"
+                        src="/logo-full.png"
                         alt="iMenu Logo"
                         width={120}
                         height={32}
-                        className="h-8 w-auto"
+                        className="h-6 w-auto ml-4 cursor-pointer"
                     />
                 </div>
 
@@ -40,7 +41,7 @@ export default function LandingPage() {
                 <nav className="flex items-center gap-8 text-sm font-medium">
                     <a href="#" className="hover:text-gray-500 transition">Home</a>
                     <a href="#" className="hover:text-gray-500 transition">Recursos</a>
-                    <BonusButton><span className="inline-block"><span className={"text-[0.8rem]"}>BÔNUS</span> <span className="font-light">para prox. 26 restaurantes</span></span></BonusButton>
+                    <Tooltip text={<span>Para os próximos 26 restaurantes que se cadastrarem: Consultoria grátis de 30 minutos com time que já assessorou 1M+/mês. <u className={"cursor-pointer"}>Saiba mais</u></span>} size={"medium"} padding={"p-4"} position={"bottom"}><BonusButton><span className="inline-block"><span className={"text-[0.8rem]"}>BÔNUS</span> <span className="font-light">para prox. 26 restaurantes</span></span></BonusButton></Tooltip>
 
 
                     <div className="w-[1px] h-6 bg-gray-300" />
@@ -57,18 +58,18 @@ export default function LandingPage() {
             </header>
 
             {/* ================= SECTION 1 ================= */}
-            <section className="mx-auto grid grid-cols-1 md:grid-cols-2 gap-10 px-15 py-20 h-[85vh]">
+            <section className="relative mx-auto grid grid-cols-1 md:grid-cols-2 gap-10 px-15 py-20 h-[89vh] ">
 
                 {/* Left – Text */}
                 <div className="flex flex-col justify-center">
-                    <h1 className="text-5xl font-extrabold mb-2 text-brand leading-tight ">
+                    <h1 className="text-5xl font-extrabold mb-2 -mt-4 text-brand leading-tight ">
                         O novo Cardápio Digital
                         <br/><span className={"text-text"}>de Alta Conversão</span>
                     </h1>
 
                     <p className="text-gray-500 leading-15">
                         Sem taxas, sem mensalidades, sem pegadinhas.{" "}
-                        <a className="underline cursor-pointer">Para sempre.</a>
+                        <a className="underline">Para sempre.</a>
                     </p>
                     <p className="text-gray-500">Seu cardápio online em 5 minutos.</p>
 
@@ -77,26 +78,28 @@ export default function LandingPage() {
                             Registrar Grátis
                         </Button>
 
-                        <BonusButton><span className="font-regular text-xs">BÔNUS</span></BonusButton>
+                        <Tooltip text={<span>Para os próximos 26 restaurantes que se cadastrarem: Consultoria grátis de 30 minutos com time que já assessorou 1M+/mês. <u className={"cursor-pointer"}>Saiba mais</u></span>} size={"medium"} padding={"p-4"} position={"right"}><BonusButton><span className="font-regular text-xs">BÔNUS</span></BonusButton></Tooltip>
                     </div>
                 </div>
-
                 {/* Right – Video placeholder (image) */}
                 <div className="flex items-center justify-center">
-                    <div className="relative w-full h-80 rounded-xl overflow-hidden bg-gray-200">
-                        <Image
-                            src="/images/hero-video-placeholder.png"
-                            alt="Prévia do vídeo do cardápio digital"
-                            fill
-                            className="object-cover"
+                    <div className="absolute h-[100%] w-100 overflow-hidden top-0">
+                        <video
+                            src="/renderr.webm"
+                            autoPlay
+                            loop
+                            muted
+                            playsInline
+                            className="absolute inset-0 w-full h-full object-cover"
                         />
                     </div>
+
                 </div>
             </section>
 
             {/* ================= SECTION 2 ================= */}
             <section className="py-15 px-8 h-[100vh]">
-                <h2 className="text-center text-4xl font-extrabold text-brand mb-15">
+                <h2 className="text-center text-4xl font-extrabold text-brand mb-16">
                     Totalmente Grátis<br/>
                     <span className={"text-text"}>sem taxas ou pegadinhas</span>
                 </h2>
@@ -104,56 +107,76 @@ export default function LandingPage() {
                 <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-12">
 
                     {/* LEFT – Logos + Image */}
-                    <div className="flex gap-6 items-start">
+                    <div className="flex gap-6 items-start h-[55vh]">
 
                         {/* Logos */}
-                        <div className="h-[80%] flex flex-col gap-5 pt-4 items-center justify-center">
+                        <div className="h-[100%] flex flex-col gap-5 pt-4 items-center justify-center">
                             {logos.map((l) => (
                                 <button
                                     key={l.id}
                                     onClick={() => setSelected(l.id)}
                                     className={`transition rounded-full p-1 ${
-                                        selected === l.id ? "scale-115 opacity-100" : "opacity-40"
+                                        selected === l.id ? "scale-115 opacity-100" : "opacity-30"
                                     }`}
                                 >
-                                    <div className="w-12 h-12 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center">
+                                    <div className="cursor-pointer w-12 h-12 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center">
                                         <Image
                                             src={l.src}
                                             alt={l.name}
-                                            width={48}
-                                            height={48}
-                                            className="w-full h-full object-cover"
-                                        />
+                                            width={50}
+                                            height={50}
+                                            className={`w-full h-full object-contain transition ${
+                                                selected === l.id ? "grayscale-0" : "grayscale"
+                                            }`}                                        />
                                     </div>
                                 </button>
                             ))}
                         </div>
 
                         {/* Main image */}
-                        <div className="flex-1 flex gap-6">
-                            <div className="relative w-[50%] h-90 bg-gray-200 rounded-xl mb-4 overflow-hidden">
+                        <div className="flex-1 flex gap-6 relative h-full">
+                            <div
+                                key={selected}
+                                className="
+            relative h-[100%] rounded-xl overflow-hidden
+            animate-fadeUp drop-shadow-[-5px_5px_5px_rgba(0,0,0,0.15)]
+        "
+                            >
                                 <Image
-                                    src="/images/section2-main-placeholder.png"
+                                    src={logos.find(l => l.id === selected)?.second_src || "/iMenu Menu.png"}
                                     alt="Preview do cardápio digital"
-                                    fill
-                                    className="object-cover"
+                                    width={1080}
+                                    height={1920}
+                                    className="h-full w-auto"
                                 />
                             </div>
-                            <div>
-                                <h3 className="text-xl font-bold mb-1">+30% Estatística</h3>
-                                <p className="text-gray-500">Em 1 mês com o cardápio digital.</p>
+                            <div className="flex flex-col gap-12 w-[50%] ml-3">
+                                <div>
+                                    <h3 className="text-xl font-bold mb-1">+30% Estatística</h3>
+                                    <p className="text-gray-500">Em 1 mês com o cardápio digital.</p>
+                                </div>
+                                <div>
+                                    <h3 className="text-xl font-bold mb-1">Criado em 5 minutos</h3>
+                                    <p className="text-gray-500">A Inteligência Artificial reconhece a foto do seu cardápio.</p>
+                                </div>
+
+                                <Button variant="primary" className="px-6 py-3 text-lg">
+                                    Registrar Grátis
+                                </Button>
+
                             </div>
                         </div>
                     </div>
 
                     {/* RIGHT – Big image */}
-                    <div className="flex items-center justify-center">
-                        <div className="relative w-full h-96 bg-gray-200 rounded-xl overflow-hidden">
+                    <div className="flex items-center justify-center relative h-[55vh]">
+                        <div className="relative h-full overflow-hidden">
                             <Image
-                                src="/images/section2-right-placeholder.png"
+                                src="/wip-monitor2.png"
                                 alt="Destaque do painel e resultados"
-                                fill
-                                className="object-cover"
+                                width={1080}
+                                height={1920}
+                                className="h-full w-auto"
                             />
                         </div>
                     </div>
@@ -161,12 +184,12 @@ export default function LandingPage() {
             </section>
 
             {/* ================= SECTION 3 ================= */}
-            <section className="max-w-6xl mx-auto px-8 py-24">
+            <section className="max-w-6xl mx-auto px-8 py-12">
                 <h2 className="text-4xl font-extrabold text-brand mb-3">
                     Em média, mais 30% pedidos
                     <br/><span className={"text-text"}>em 3 meses</span>
                 </h2>
-                <p className="text-gray-500 mb-10 max-w-xl">
+                <p className="text-gray-500 mb-18 max-w-xl">
                     Baseado em X restaurantes cadastrados.
                 </p>
 
@@ -209,7 +232,7 @@ export default function LandingPage() {
                         </tr>
                         <tr>
                             <td className="p-4 border-r border-gray-200">Suporte humanizado</td>
-                            <td className="p-4 border-r border-gray-200 text-center"><u>Todos os dias</u></td>
+                            <td className="p-4 border-r border-gray-200 text-center"><Tooltip size={"medium"} text={<span>Suporte <b>humanizado</b> em horário comercial via Whatsapp. Todos os dias.</span>}><u className={"cursor-pointer"}>Todos os dias</u></Tooltip></td>
                             <td className="p-4 text-center">Robô, fila ou e-mail</td>
                         </tr>
                         <tr>
@@ -229,7 +252,7 @@ export default function LandingPage() {
                         </tr>
                         <tr>
                             <td className="p-4 border-r border-gray-200">Taxa por Transação</td>
-                            <td className="p-4 border-r border-gray-200 text-center"><u>0.99%</u></td>
+                            <td className="p-4 border-r border-gray-200 text-center"><Tooltip text={<span>Taxa de transação bancária.</span>}><u className={"cursor-pointer"}>0.99%</u></Tooltip></td>
                             <td className="p-4 border-r border-gray-200 text-center">5%, 15%, 30%</td>
                         </tr>
 
@@ -303,27 +326,27 @@ export default function LandingPage() {
 
                         <tr>
                             <td className="p-4 border-r border-gray-200">QR Code na mesa</td>
-                            <td className="p-4 border-r border-gray-200 text-center"><FontAwesomeIcon icon={faClock} className={"text-orange"}/></td>
+                            <td className="p-4 border-r border-gray-200 text-center"><Tooltip text={<span>Funcionalidade em desenvolvimento.</span>} color={"bg-orange"}><FontAwesomeIcon icon={faClock}  className={"text-orange"}/></Tooltip></td>
                             <td className="p-4 text-center">Nem sempre disponível</td>
                         </tr>
                         <tr>
                             <td className="p-4 border-r border-gray-200">Cupons de desconto</td>
-                            <td className="p-4 border-r border-gray-200 text-center"><FontAwesomeIcon icon={faClock} className={"text-orange"}/></td>
+                            <td className="p-4 border-r border-gray-200 text-center"><Tooltip text={<span>Funcionalidade em desenvolvimento.</span>} color={"bg-orange"}><FontAwesomeIcon icon={faClock} className={"text-orange"}/></Tooltip></td>
                             <td className="p-4 text-center">Pouca customização</td>
                         </tr>
                         <tr>
                             <td className="p-4 border-r border-gray-200">Agendamento de pedido</td>
-                            <td className="p-4 border-r border-gray-200 text-center"><FontAwesomeIcon icon={faClock} className={"text-orange"}/></td>
+                            <td className="p-4 border-r border-gray-200 text-center"><Tooltip text={<span>Funcionalidade em desenvolvimento.</span>} color={"bg-orange"}><FontAwesomeIcon icon={faClock} className={"text-orange"}/></Tooltip></td>
                             <td className="p-4 text-center">Não</td>
                         </tr>
                         <tr>
                             <td className="p-4 border-r border-gray-200">Pedidos via Instagram / Facebook</td>
-                            <td className="p-4 border-r border-gray-200 text-center"><FontAwesomeIcon icon={faClock} className={"text-orange"}/></td>
+                            <td className="p-4 border-r border-gray-200 text-center"><Tooltip text={<span>Funcionalidade em desenvolvimento.</span>} color={"bg-orange"}><FontAwesomeIcon icon={faClock} className={"text-orange"}/></Tooltip></td>
                             <td className="p-4 text-center">Não</td>
                         </tr>
                         <tr>
                             <td className="p-4 border-r border-gray-200">Rastreio de Motoboy</td>
-                            <td className="p-4 border-r border-gray-200 text-center"><FontAwesomeIcon icon={faClock} className={"text-orange"}/></td>
+                            <td className="p-4 border-r border-gray-200 text-center"><Tooltip text={<span>Funcionalidade em desenvolvimento.</span>} color={"bg-orange"}><FontAwesomeIcon icon={faClock} className={"text-orange"}/></Tooltip></td>
                             <td className="p-4 text-center">Clientes ficam perdidos</td>
                         </tr>
                         <tr>
@@ -347,6 +370,8 @@ export default function LandingPage() {
                 </div>
 
             </section>
+
+            <Footer /> {/* ✅ FOOTER AQUI */}
 
         </div>
     );

@@ -11,7 +11,7 @@
 
 
 ---
-<br>`
+<br>
 
 # To Do
 
@@ -20,11 +20,11 @@
 - ~~Start waitlist acquisition~~ | ✅J
 
 JOAO
-- mudar o email que o código é enviado supabase auth
 - (depois do Front/Back pronto) consolidar toda UX 
-- pedido minimo (no criar e no painel (em algum componente))
-- ver se tem como pacar pelo nosso side API mercado pago.
-- organizar pasta components
+- ~~CORRIGIR PATHS~~
+- ~~pedido minimo (no criar e no painel (em algum componente))~~
+- ver se tem como pagar pelo nosso side API mercado pago.
+- ~~organizar pasta components~~
 - menu da esquerda ficanddo gigante
 - adicionar mais botões CTA landing page, email landing page.
 - corrigir o mercado pago pagando e deixando como "pago" na parada
@@ -36,6 +36,8 @@ JOAO
 - complemento (opcional) no cadastro endereço
 - Adicionar Nome do Cardápio na 4° parte cadastro restaurante
 - trocar ordem do grafico com pagamento no painel/financeiro
+- login page lol
+
 
 
 ## Backlog
@@ -74,7 +76,7 @@ JOAO
 | Average Estimated Delivery Time | ✅B            | Automatic (or manual, restaurants can change), set this to DB, displays on user checkout or somewhere else (ifood)   (automatic based on the time they take)                                                                                                                                                                                                                                                                                                                                    |
 | withdraw $, show balance        | ✅R            | quanto tem $ quanto fez API / withdrawal wil work with manual payments. Every monday (add it in a database so we know what to pay) ! Panel + Admin can withdraw (idk how that'll work)                                                                                                                                                                                                                                                                                                          |
 | METRICS                         | BRENDO        | Also involves testing it > We'll use POSTHOG, a tool that we implement in our code and we can add stuff like posthog.capture('event'), giving us the ability to capture all needed events. You should also implement the capture events in all CORE FUNNEL RELATED STUFF, if something is not ready yet, add here on TODO > Implement all metrics TRACKING within the CORE FUNNEL. There may be a smarter way than just adding all that to a Table, cuz the tables itself already are the data. |
-| Error Logging                   | JOAO          | PostHog Error %/n  logging                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Error Logging   XXX claritty?                 | JOAO          | PostHog Error %/n  logging                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 |                                 | Waiting       |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 ### Front-End
 > Rough Creation of the features. No polishing (UI/UX).
@@ -134,6 +136,8 @@ JOAO
 - Switch Authentication > URL Configuration > Site URL (https://supabase.com/dashboard/project/mjogdsnxbwhbqcoijrwt/auth/url-configuration
 - change .env stuff
 - Explain and document for team about changing .envs and tunneling.
+- mudar o email que o código é enviado supabase auth
+
 
 ### Tests
 - Test client side routing (no refresh on page changes)

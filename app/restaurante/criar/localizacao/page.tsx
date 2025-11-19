@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useCreationStore } from "@/lib/creationStore";
-import CreationStepper from "@/components/CreationStepper";
+import CreationStepper from "@/components/restaurante/configuracoes/CreationStepper";
 
 type CepData = {
     cep: string;

@@ -2,7 +2,7 @@
 "use client";
 
 import { useState } from "react";
-import Popup from "./Popup"; // Import the Popup component
+import Popup from "./ui/Popup"; // Import the Popup component
 import { icons } from "@/lib/fontawesome";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 

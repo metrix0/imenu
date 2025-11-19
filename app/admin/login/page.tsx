@@ -4,8 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { icons } from "@/lib/fontawesome";
-import Popup from "@/components/Popup";
-import Toast from "@/components/Toast";
+import Popup from "@/components/ui/Popup";
+import Toast from "@/components/ui/Toast";
 
 export default function AdminLogin() {
     const [email, setEmail] = useState("");
