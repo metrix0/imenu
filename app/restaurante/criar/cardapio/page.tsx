@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useCreationStore } from "@/lib/creationStore"; 
 import CreationStepper from "@/components/CreationStepper";
 import Link from "next/link";
+import posthog from "posthog-js";
 
 type Category = { id: string; name: string };
 type Item = { id: string; name: string; category?: Category | null };
@@ -23,6 +24,13 @@ export default function CriarCardapioPage() {
 
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        posthog.capture("admin_access_create_restaurant_menu_page", {
+            page: "/restaurante/criar/cardapio",
+            timestamp: new Date().toISOString(),
+        });
+    }, []);
 
     useEffect(() => {
         if (!restaurantId) {

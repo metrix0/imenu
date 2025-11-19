@@ -5,16 +5,24 @@ import { useState, useRef, useEffect, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useCreationStore } from "@/lib/creationStore";
+import posthog from "posthog-js";
 
 function OtpVerificationComponent() {
     const router = useRouter();
-    
+
     const { restaurantId, email, clear: clearCreationStore } = useCreationStore();
 
     const [otp, setOtp] = useState<string[]>(new Array(6).fill(""));
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState("");
     const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+    useEffect(() => {
+        posthog.capture("info_otp_page_access", {
+            page: "/restaurante/criar/info/otp",
+            timestamp: new Date().toISOString(),
+        });
+    }, []);
 
     useEffect(() => {
         inputRefs.current[0]?.focus();
@@ -65,7 +73,7 @@ function OtpVerificationComponent() {
             if (!verifyData.session || !verifyData.user) {
                 throw new Error("Falha ao verificar o OTP. Tente novamente.");
             }
-            
+
             const newUserId = verifyData.user.id;
 
             const response = await fetch(`/api/restaurants/${restaurantId}`, {
@@ -78,7 +86,7 @@ function OtpVerificationComponent() {
                 const errorData = await response.json();
                 throw new Error(errorData.error || "Conta verificada, mas falha ao linkar ao restaurante.");
             }
-            
+
             // 3. Painel
             clearCreationStore();
             // redireciona para painel do restaurante criado

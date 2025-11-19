@@ -1,10 +1,11 @@
 // app/restaurante/criar/info/page.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useCreationStore } from "@/lib/creationStore";
 import { supabase } from "@/lib/supabaseClient";
+import posthog from "posthog-js";
 
 export default function InfoPage() {
     const router = useRouter();
@@ -15,6 +16,13 @@ export default function InfoPage() {
     const [password, setPassword] = useState("");
     const [message, setMessage] = useState("");
     const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        posthog.capture("info_page_access", {
+            page: "/restaurante/criar/info",
+            timestamp: new Date().toISOString(),
+        });
+    }, []);
 
     const handleCreateAccount = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();

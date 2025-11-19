@@ -1,11 +1,12 @@
 // app/restaurante/criar/tempo-e-taxa/page.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { icons } from "@/lib/fontawesome";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useCreationStore } from "@/lib/creationStore";
+import posthog from "posthog-js";
 
 // JSON STRUCTURE 
 type RadiusRule = {
@@ -17,9 +18,14 @@ type RadiusRule = {
 export default function TempoETaxaPage() {
     const router = useRouter();
     const { restaurantId } = useCreationStore();
-    
 
-    
+    useEffect(() => {
+        posthog.capture("admin_access_create_restaurant_delivery_fee_page", {
+            page: "/restaurante/criar/tempo-e-taxa",
+            timestamp: new Date().toISOString(),
+        });
+    }, []);
+
     // RADIUS RULES
     const [rules, setRules] = useState<RadiusRule[]>([
         // STARTS WITH EXAMPLE RULES
@@ -30,8 +36,8 @@ export default function TempoETaxaPage() {
 
     // UPDATE LIST
     const handleRuleChange = (
-        index: number, 
-        field: 'radius_km' | 'time_minutes' | 'fee_cents', 
+        index: number,
+        field: 'radius_km' | 'time_minutes' | 'fee_cents',
         value: string
     ) => {
         const newValue = parseFloat(value) || 0; // CONVERTS TO NUMBER
@@ -58,13 +64,13 @@ export default function TempoETaxaPage() {
     // ADD BLANK RULE
     const handleAddRule = () => {
         const lastRule = rules.length > 0 ? rules[rules.length - 1] : { radius_km: 0, time_minutes: 40 };
-        
+
         setRules([
             ...rules,
-            { 
-                radius_km: lastRule.radius_km + 1, 
-                time_minutes: lastRule.time_minutes, 
-                fee_cents: 0 
+            {
+                radius_km: lastRule.radius_km + 1,
+                time_minutes: lastRule.time_minutes,
+                fee_cents: 0
             }
         ]);
     };
@@ -83,15 +89,15 @@ export default function TempoETaxaPage() {
             alert("Você deve adicionar pelo menos uma regra de taxa.");
             return;
         }
-        
+
         if (!restaurantId) {
             alert("Erro: ID do restaurante não encontrado. Volte para a etapa de localização.");
             return;
         }
 
-       
+
         const dataToSave = {
-            delivery_fee_json: sortedRules, 
+            delivery_fee_json: sortedRules,
         };
 
         try {
@@ -104,7 +110,7 @@ export default function TempoETaxaPage() {
             if (!response.ok) {
                 throw new Error("Falha ao salvar.");
             }
-            
+
             router.push(`/restaurante/criar/disponibilidade`);
 
         } catch (error) {
@@ -123,7 +129,7 @@ export default function TempoETaxaPage() {
 
             {/* --- FEE SECTION --- */}
             <div className="p-6 bg-white border border-gray-200 rounded-lg shadow-sm mb-8">
-                
+
                 {/* LIST HEADER */}
                 <div className="flex items-center gap-4 mb-2 px-2">
                     <span className="w-1/3 text-sm font-medium text-gray-500">Raio (km)</span>
@@ -163,7 +169,7 @@ export default function TempoETaxaPage() {
                                 <input
                                     type="number"
                                     step="0.5"
-                                    value={rule.fee_cents / 100} 
+                                    value={rule.fee_cents / 100}
                                     onChange={(e) => handleRuleChange(index, 'fee_cents', e.target.value)}
                                     className="block w-full rounded-md border-gray-300 shadow-sm"
                                     aria-label="Taxa em R$"
@@ -178,7 +184,7 @@ export default function TempoETaxaPage() {
                 </div>
 
                 {/* ADD BUTTON */}
-                <button 
+                <button
                     onClick={handleAddRule}
                     className="mt-6 w-full bg-indigo-50 text-indigo-700 py-2 px-4 rounded-md font-medium hover:bg-indigo-100 border border-indigo-200"
                 >

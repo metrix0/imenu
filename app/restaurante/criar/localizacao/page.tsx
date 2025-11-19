@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useCreationStore } from "@/lib/creationStore";
 import CreationStepper from "@/components/CreationStepper";
+import posthog from "posthog-js";
 
 type CepData = {
     cep: string;
@@ -23,6 +24,13 @@ type CepData = {
 export default function LocalizacaoPage() {
     const router = useRouter();
     const { restaurantId } = useCreationStore();
+
+    useEffect(() => {
+        posthog.capture("admin_access_create_restaurant_location_page", {
+            page: "/restaurante/criar/localizacao",
+            timestamp: new Date().toISOString(),
+        });
+    }, []);
 
     // Form state
     const [cep, setCep] = useState("");
