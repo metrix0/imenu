@@ -7,6 +7,7 @@ import { useCart } from "@/lib/cartStore";
 import { Item, Subcategory, Subitem } from "@/lib/types";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { icons } from "@/lib/fontawesome";
+import posthog from "posthog-js";
 
 // (Tipos e formatPrice permanecem os mesmos)
 // ...
@@ -106,10 +107,10 @@ export default function ItemDetails({ slug, item, subcategories, onClose }: Item
             alert("Por favor, verifique as opções:\n" + validationErrors.join("\n"));
             return;
         }
-        
+
         if (!isSameRestaurant) {
             if (confirm("Você tem itens de outro restaurante na sacola. Deseja limpar e adicionar este?")) {
-                clearCart(); 
+                clearCart();
                 alert("Sacola limpa. Por favor, adicione o item novamente.");
                 setIsAddingToCart(false);
                 return;
@@ -119,7 +120,7 @@ export default function ItemDetails({ slug, item, subcategories, onClose }: Item
         }
 
         setIsAddingToCart(true);
-        
+
         // (Lógica de descriptiveName, uniqueCartItemId, etc.)
         const selectedSubitemNames: string[] = [];
         for (const catId in subitemQuantities) {
@@ -158,7 +159,7 @@ export default function ItemDetails({ slug, item, subcategories, onClose }: Item
                     subitemsPriceCents: subitemsPriceCents,
                     descriptiveName: descriptiveName,
                     uniqueCartItemId: uniqueCartItemId,
-                    selectedSubitems: subitemQuantities 
+                    selectedSubitems: subitemQuantities
                 }),
             });
 
@@ -169,7 +170,22 @@ export default function ItemDetails({ slug, item, subcategories, onClose }: Item
 
             const data = await response.json();
             setDraftOrder(data.orderId, data.restaurantSlug);
-            
+
+            // ---- EVENTO POSTHOG ----
+            posthog.capture("item_added_to_cart", {
+                restaurant_slug: slug,
+                order_id: data.orderId,
+                item_id: item.id,
+                item_name: item.name,
+                quantity,
+                unit_price_cents: item.price_cents,
+                subitems_price_cents: subitemsPriceCents,
+                total_price_cents: totalCalculatedPriceCents,
+                selected_subitems: selectedSubitemNames, // lista de nomes com qty
+                unique_cart_item_id: uniqueCartItemId,
+            });
+            // -------------------------
+
             onClose(); // Fecha o modal
 
             // --- CORREÇÃO AQUI ---
@@ -268,9 +284,9 @@ export default function ItemDetails({ slug, item, subcategories, onClose }: Item
                             <FontAwesomeIcon icon={icons.faPlus} />
                         </button>
                     </div>
-                    <button 
-                        onClick={handleAddToCart} 
-                        disabled={validationErrors.length > 0 || isAddingToCart || !isSameRestaurant} 
+                    <button
+                        onClick={handleAddToCart}
+                        disabled={validationErrors.length > 0 || isAddingToCart || !isSameRestaurant}
                         className="flex-1 bg-black text-white px-6 py-3 rounded-lg font-bold text-lg shadow-md hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         {isAddingToCart ? "Adicionando..." : `Adicionar ${formatPrice(totalCalculatedPriceCents)}`}

@@ -1,13 +1,14 @@
 // app/[slug]/[id]/checkout/checkout-client.tsx
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useCart } from "@/lib/cartStore";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { icons } from "@/lib/fontawesome";
 // --- 1. Importar o Popup ---
 import Popup from "@/components/Popup"; // (Presumindo que está em @/components/Popup.tsx)
+import posthog from "posthog-js";
 
 // (Tipos 'Order', 'Restaurant' e 'formatPrice' - sem mudança)
 type Order = {
@@ -46,11 +47,24 @@ export default function CheckoutClientPage({
 }) {
     const router = useRouter();
     const { clearCart } = useCart();
-    
+
+    useEffect(() => {
+        if (!slug || !order?.id) return;
+
+        posthog.capture("checkout_page_viewed", {
+            restaurant_slug: slug,
+            order_id: order.id,
+            total_cents: order.total_cents,
+            delivery_cents: order.delivery_cents,
+            is_delivery: order.is_delivery,
+        });
+    }, [slug, order?.id]);
+
+
     const [paymentMethod, setPaymentMethod] = useState<"online" | "machine">("online");
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    
+
     // --- 2. State para o Popup ---
     const [isSuccessPopupOpen, setIsSuccessPopupOpen] = useState(false);
 
@@ -85,14 +99,14 @@ export default function CheckoutClientPage({
             }
 
             const data = await response.json();
-            clearCart(); 
+            clearCart();
 
             // --- 4. LÓGICA DE REDIRECIONAMENTO ATUALIZADA ---
             if (data.payment_type === "machine") {
                 // Caso 1: Maquininha -> MOSTRA O POPUP DE SUCESSO
                 setIsSuccessPopupOpen(true);
                 // (O 'handlePopupClose' cuidará do redirecionamento)
-                
+
             } else if (data.payment_type === "online" && data.init_point) {
                 // Caso 2: Online -> Redireciona para o Mercado Pago
                 window.location.href = data.init_point;
@@ -111,7 +125,7 @@ export default function CheckoutClientPage({
         // UI baseada no rascunho (Mobile First)
         <div className="min-h-screen bg-gray-50 pb-32">
             <div className="max-w-lg mx-auto bg-white shadow-sm min-h-screen">
-                
+
                 {/* (Header) */}
                 <div className="p-4 flex items-center gap-3 border-b">
                     {restaurant.logo_url && (
@@ -127,17 +141,17 @@ export default function CheckoutClientPage({
                     <h2 className="text-xl font-bold mb-4">Pagamento</h2>
                     <div className="space-y-3">
                         <label className="flex items-center p-4 border rounded-md has-[:checked]:bg-indigo-50 has-[:checked]:border-indigo-500">
-                            <input type="radio" name="paymentMethod" value="online" 
-                             checked={paymentMethod === "online"} onChange={e => setPaymentMethod(e.target.value as "online")}
-                             className="h-4 w-4 text-indigo-600 border-gray-300" />
+                            <input type="radio" name="paymentMethod" value="online"
+                                checked={paymentMethod === "online"} onChange={e => setPaymentMethod(e.target.value as "online")}
+                                className="h-4 w-4 text-indigo-600 border-gray-300" />
                             <span className="ml-3 block text-sm font-medium text-gray-700">
                                 Pagar Online (Pix ou Cartão)
                             </span>
                         </label>
                         <label className="flex items-center p-4 border rounded-md has-[:checked]:bg-indigo-50 has-[:checked]:border-indigo-500">
-                            <input type="radio" name="paymentMethod" value="machine" 
-                             checked={paymentMethod === "machine"} onChange={e => setPaymentMethod(e.target.value as "machine")}
-                             className="h-4 w-4 text-indigo-600 border-gray-300" />
+                            <input type="radio" name="paymentMethod" value="machine"
+                                checked={paymentMethod === "machine"} onChange={e => setPaymentMethod(e.target.value as "machine")}
+                                className="h-4 w-4 text-indigo-600 border-gray-300" />
                             <span className="ml-3 block text-sm font-medium text-gray-700">Pagar na Entrega (Maquininha)</span>
                         </label>
                     </div>
@@ -154,7 +168,7 @@ export default function CheckoutClientPage({
                         <div className="flex justify-between text-gray-700">
                             <span>Taxa de Entrega</span>
                             <span className={order.delivery_cents === 0 ? "text-green-600 font-medium" : ""}>
-                                {order.is_delivery ? 
+                                {order.is_delivery ?
                                     (order.delivery_cents === 0 ? "Grátis" : formatPrice(order.delivery_cents))
                                     : "Retirada na loja"
                                 }
@@ -188,7 +202,7 @@ export default function CheckoutClientPage({
                     </button>
                 </div>
             </div>
-            
+
             {/* --- 5. RENDERIZA O POPUP --- */}
             <Popup
                 open={isSuccessPopupOpen}
