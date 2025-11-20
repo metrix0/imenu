@@ -96,11 +96,10 @@ Images, fonts, etc used by the /app
 
 # Database, Pool, Realtime and Auth
 ## 1. Database
-All database connections are done via **Pool, Auth or Realtime**. Through ```lib/sql.ts``` and ```lib/supabaseClient.ts``` usage.
-
+All database connections are done via **Pool, Auth, Realtime or Normal Requests**. Through ```lib/sql.ts``` and ```lib/supabaseClient.ts``` usage.
 
 ## 2. Pool (for Back-end)
-Pooling is the action of grouping multiple requests to the Database in a single line, called Pool.
+Pooling is the action of grouping multiple requests to the Database in a single line, called Pool. The pooling is done every X seconds, so it's ideal if something refreshes every 30 seconds or so.
 
 ### What it does:
 **Talks to the Database**, if and only if you are in Back-end.
