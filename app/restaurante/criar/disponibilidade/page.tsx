@@ -1,12 +1,13 @@
 // app/restaurante/criar/disponibilidade/page.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useCreationStore } from "@/lib/creationStore";
 import CreationStepper from "@/components/restaurante/configuracoes/CreationStepper";
 import { icons } from "@/lib/fontawesome";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import posthog from "posthog-js";
 
 
 const DIAS_SEMANA = [
@@ -29,6 +30,13 @@ type Availability = Record<string, TimeSlot[]>;
 export default function DisponibilidadePage() {
     const router = useRouter();
     const { restaurantId } = useCreationStore();
+
+    useEffect(() => {
+        posthog.capture("admin_access_create_restaurant_availability_page", {
+            page: "/restaurante/criar/disponibilidade",
+            timestamp: new Date().toISOString(),
+        });
+    }, []);
 
     const [availability, setAvailability] = useState<Availability>({});
     const [isLoading, setIsLoading] = useState(false);
@@ -61,9 +69,9 @@ export default function DisponibilidadePage() {
     };
 
     const handleTimeChange = (
-        dayKey: string, 
-        slotIndex: number, 
-        type: 'open' | 'close', 
+        dayKey: string,
+        slotIndex: number,
+        type: 'open' | 'close',
         value: string
     ) => {
         setAvailability(prev => {
@@ -83,9 +91,9 @@ export default function DisponibilidadePage() {
             { open: "11:00", close: "15:00" },
             { open: "18:00", close: "23:00" }
         ];
-        
+
         for (let i = 0; i < 7; i++) {
-            recommended[i.toString()] = [...slots]; 
+            recommended[i.toString()] = [...slots];
         }
         setAvailability(recommended);
     };
@@ -95,7 +103,7 @@ export default function DisponibilidadePage() {
             setError("Erro: ID do restaurante não encontrado. Volte ao início.");
             return;
         }
-        
+
         setIsLoading(true);
         setError("");
 
@@ -123,7 +131,7 @@ export default function DisponibilidadePage() {
     return (
         <main className="min-h-screen flex flex-col items-center justify-start p-6 bg-white">
             <div className="w-full max-w-3xl mt-12">
-                
+
                 <CreationStepper currentStep={3} />
 
                 <div className="w-full max-w-2xl mx-auto">
@@ -155,9 +163,9 @@ export default function DisponibilidadePage() {
                                             />
                                             <span className="text-lg font-medium">{label}</span>
                                         </label>
-                                        
+
                                         {isDayOpen && (
-                                            <button 
+                                            <button
                                                 onClick={() => addSlot(key)}
                                                 className="text-sm font-medium text-indigo-600 hover:text-indigo-800"
                                             >
@@ -196,7 +204,7 @@ export default function DisponibilidadePage() {
                     </div>
 
                     {error && <p className="text-center text-sm text-red-600 mt-4">{error}</p>}
-                    
+
                     <button
                         type="button"
                         onClick={handleSaveAndContinue}

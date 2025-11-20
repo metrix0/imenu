@@ -1,15 +1,23 @@
 // app/restaurante/page.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useCreationStore } from "@/lib/creationStore"; 
+import { useCreationStore } from "@/lib/creationStore";
+import posthog from "posthog-js";
 
 export default function RestaurantLandingPage() {
-    const [email, setEmail] = useState(""); 
+    const [email, setEmail] = useState("");
     const [message, setMessage] = useState("");
     const [loading, setLoading] = useState(false);
     const router = useRouter();
+
+    useEffect(() => {
+        posthog.capture("admin_access_create_restaurant_page", {
+            page: "/restaurante",
+            timestamp: new Date().toISOString(),
+        });
+    }, []);
 
 
     const { setRestaurantId, setEmail: saveEmailToStore } = useCreationStore();
@@ -34,9 +42,9 @@ export default function RestaurantLandingPage() {
 
             const newId = data.id;
             setRestaurantId(newId);
-        
+
             saveEmailToStore(email);
-            
+
             router.push("/restaurante/criar/localizacao");
 
         } catch (error) {
@@ -48,7 +56,7 @@ export default function RestaurantLandingPage() {
     return (
         <main className="min-h-screen flex items-center justify-center p-6 bg-gray-50">
             <div className="flex flex-col md:flex-row items-center justify-center gap-8 max-w-4xl w-full">
-                
+
                 <div className="w-full max-w-md">
                     <h1 className="text-4xl font-bold text-gray-900">Seu cardápio digital.</h1>
                     <p className="mt-4 text-lg text-gray-600">

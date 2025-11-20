@@ -2,6 +2,9 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import "@/lib/fontawesome";
+import SupportButton from "@/components/SupportButton";
+import Footer from "@/components/Footer";
+import PosthogProvider from "@/components/PosthogProvider";
 
 export const metadata: Metadata = {
     title: "Digital Menu",
@@ -14,9 +17,13 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
     return (
         <html lang="pt-BR">
-        <body className="min-h-screen bg-white text-text">
-        {children}
-        </body>
+            <body className="min-h-screen bg-white text-gray-900">
+                <PosthogProvider>
+                    {children}
+                    <SupportButton />
+                    <Footer />
+                </PosthogProvider>
+            </body>
         </html>
     );
 }
