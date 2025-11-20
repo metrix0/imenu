@@ -8,8 +8,8 @@ import { Category, Item, ItemsByCategory, Subcategory } from "@/lib/types";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { icons } from "@/lib/fontawesome";
 // IMPORTA O NOVO COMPONENTE DE DETALHES
-import ItemDetails from "@/components/ItemDetails";
 import posthog from "posthog-js";
+import ItemDetails from "@/components/consumidor/ItemDetails";
 
 // Definição de Props atualizada (não mudou da última vez)
 type MenuClientProps = {

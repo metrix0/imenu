@@ -1,14 +1,14 @@
-// app/registro/otp/page.tsx
+// app/restaurante/criar/info/otp/page.tsx
 "use client";
 
 import { useState, useRef, useEffect, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { supabase } from "../../../../lib/supabaseClient";
+import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabaseClient";
+import { useCreationStore } from "@/lib/creationStore";
 
 function OtpVerificationComponent() {
     const router = useRouter();
-    const searchParams = useSearchParams();
-    const email = searchParams.get("email");
+    const { restaurantId, email, clear: clearCreationStore } = useCreationStore();
 
     const [otp, setOtp] = useState<string[]>(new Array(6).fill(""));
     const [loading, setLoading] = useState(false);
@@ -16,28 +16,23 @@ function OtpVerificationComponent() {
     const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
     useEffect(() => {
-       
         inputRefs.current[0]?.focus();
     }, []);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
         const { value } = e.target;
-
-        //Allow only numbers e limit by 1 value
         if (!/^[0-9]$/.test(value) && value !== "") return;
 
         const newOtp = [...otp];
         newOtp[index] = value;
         setOtp(newOtp);
 
-        // Go to next input
         if (value !== "" && index < 5) {
             inputRefs.current[index + 1]?.focus();
         }
     };
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, index: number) => {
-        // By backspacing goes to the previous input
         if (e.key === "Backspace" && otp[index] === "" && index > 0) {
             inputRefs.current[index - 1]?.focus();
         }
@@ -49,7 +44,13 @@ function OtpVerificationComponent() {
         setMessage("");
 
         if (!email) {
-            setMessage("E-mail não encontrado. Volte e tente novamente.");
+            setMessage("Sessão expirada: e-mail não encontrado.");
+            setLoading(false);
+            return;
+        }
+
+        if (!restaurantId) {
+            setMessage("Sessão expirada: restaurante não encontrado.");
             setLoading(false);
             return;
         }
@@ -61,21 +62,38 @@ function OtpVerificationComponent() {
             return;
         }
 
-        const { data, error } = await supabase.auth.verifyOtp({
-            email,
-            token,
-            type: "signup",
-        });
+        try {
+            // FIXED TYPE
+            const { data: verifyData, error: verifyError } = await supabase.auth.verifyOtp({
+                email,
+                token,
+                type: "email", // ← FIX 1
+            });
 
-        if (error) {
-            setMessage(`Erro: ${error.message}`);
-        } else if (data.session) {
-            router.push("/restaurante/criar");
-        } else {
-            setMessage("Falha ao verificar o OTP. Tente novamente.");
+            if (verifyError) throw new Error(verifyError.message);
+            if (!verifyData.session || !verifyData.user) {
+                throw new Error("Falha ao verificar o OTP.");
+            }
+
+            const newUserId = verifyData.user.id;
+
+            const response = await fetch(`/api/restaurants/${restaurantId}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ user_id: newUserId }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || "Conta verificada, mas falha ao linkar ao restaurante.");
+            }
+
+            router.push(`/restaurante/criar/localizacao`);
+        } catch (error) {
+            setMessage((error as Error).message);
+        } finally {
+            setLoading(false);
         }
-
-        setLoading(false);
     };
 
     const handleResend = async () => {
@@ -83,17 +101,17 @@ function OtpVerificationComponent() {
             setMessage("E-mail não encontrado.");
             return;
         }
-        
-        // Re-send OTP
+
+        // FIXED TYPE
         const { error } = await supabase.auth.resend({
-            type: "signup",
+            type: "email", // ← FIX 2
             email: email,
         });
 
         if (error) {
             setMessage(`Erro ao reenviar: ${error.message}`);
         } else {
-            setMessage("Um novo código foi enviado para o seu e-mail.");
+            setMessage("Novo código enviado!");
         }
     };
 
@@ -102,27 +120,25 @@ function OtpVerificationComponent() {
     return (
         <main className="min-h-screen flex items-center justify-center p-6 bg-gray-50">
             <div className="w-full max-w-md space-y-6 rounded-lg border border-gray-200 bg-white p-8 shadow-lg">
-                <h1 className="text-3xl font-bold text-center text-gray-900">
-                    Validação de e-mail
-                </h1>
+                <h1 className="text-3xl font-bold text-center text-gray-900">Validação de e-mail</h1>
+
                 <p className="text-center text-gray-600">
-                    Insira abaixo o código enviado para{" "}
+                    Insira o código enviado para{" "}
                     <strong className="text-gray-800">{email || "seu e-mail"}</strong>
                 </p>
 
                 <form onSubmit={handleSubmit} className="space-y-6">
-                    {/* OTP Inputs */}
                     <div className="flex justify-center gap-2">
                         {otp.map((digit, index) => (
                             <input
                                 key={index}
-                                ref={(el) => { inputRefs.current[index] = el; }}
-                                type="tel" // better for mobile
+                                ref={(el) => (inputRefs.current[index] = el)}
+                                type="tel"
                                 maxLength={1}
                                 value={digit}
                                 onChange={(e) => handleChange(e, index)}
                                 onKeyDown={(e) => handleKeyDown(e, index)}
-                                className="h-12 w-10 sm:w-12 rounded-md border border-gray-300 text-center text-2xl font-semibold shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                className="h-12 w-10 sm:w-12 rounded-md border border-gray-300 text-center text-2xl font-semibold shadow-sm"
                             />
                         ))}
                     </div>
@@ -130,43 +146,32 @@ function OtpVerificationComponent() {
                     <button
                         type="submit"
                         disabled={isButtonDisabled}
-                        className="w-full rounded-md bg-black px-4 py-3 text-base font-semibold text-white shadow-md hover:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black disabled:opacity-60"
+                        className="w-full rounded-md bg-black px-4 py-3 text-base font-semibold text-white shadow-md hover:bg-gray-900 disabled:opacity-60"
                     >
-                        {loading ? "Verificando..." : "Cadastrar"}
+                        {loading ? "Verificando..." : "Confirmar e Criar Conta"}
                     </button>
                 </form>
 
-                {message && (
-                    <p className="text-center text-sm text-red-600">{message}</p>
-                )}
+                {message && <p className="text-center text-sm text-red-600">{message}</p>}
 
                 <div className="text-center text-sm text-gray-600">
                     <p>
                         Não recebeu o código?{" "}
-                        <button
-                            onClick={handleResend}
-                            className="font-medium text-indigo-600 hover:underline"
-                        >
+                        <button onClick={handleResend} className="font-medium text-indigo-600 hover:underline">
                             Reenviar código
                         </button>
                     </p>
                     <p className="mt-2">
-                        Verifique também sua caixa de spam ou verificar se o email fornecido está correto.{" "}
-
-                    </p>
-                                            <button
-                            onClick={() => router.push("/restaurante/registrar")}
-                            className="font-medium text-indigo-600 hover:underline"
-                        >
+                        Verifique spam.{" "}
+                        <button onClick={() => router.push("/restaurante/criar/info")} className="font-medium text-indigo-600 hover:underline">
                             Voltar
                         </button>
-                        
+                    </p>
                 </div>
             </div>
         </main>
     );
 }
-
 
 export default function OtpPage() {
     return (
@@ -175,4 +180,3 @@ export default function OtpPage() {
         </Suspense>
     );
 }
-

@@ -13,6 +13,8 @@ import {
     faChevronLeft,
     faMinus,
     faXmark,
+    faCircleInfo,
+    faDollarSign
 } from "@fortawesome/free-solid-svg-icons";
 
 import {
@@ -40,4 +42,6 @@ export const icons = {
     faWhatsapp,
     faInstagram,
     faFacebook,
+    faCircleInfo,
+    faDollarSign
 };

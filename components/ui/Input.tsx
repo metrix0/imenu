@@ -6,26 +6,100 @@ type InputProps = Omit<
     "size"
 > & {
     label?: string;
-    icon?: React.ReactNode; // e.g. <FontAwesomeIcon ... />
+    icon?: React.ReactNode | string;
+    iconPosition?: "left" | "right";
+    numeric?: boolean; // integers
+    float?: boolean; // decimals with forced 0,00
 };
 
-export default function Input({ label, icon, className = "", ...props }: InputProps) {
+export default function Input({
+                                  label,
+                                  icon,
+                                  iconPosition = "left",
+                                  numeric = false,
+                                  float = false,
+                                  className = "",
+                                  ...props
+                              }: InputProps) {
     const withIcon = Boolean(icon);
+    const isLeft = iconPosition === "left";
+
+    const formatToFloat = (raw: string) => {
+        // Remove all non-digits
+        let digits = raw.replace(/\D/g, "");
+
+        if (digits.length === 0) return "0,00";
+
+        // Pad left if shorter than 3 digits
+        if (digits.length === 1) digits = "00" + digits;
+        if (digits.length === 2) digits = "0" + digits;
+
+        const intPart = digits.slice(0, digits.length - 2);
+        const decPart = digits.slice(digits.length - 2);
+
+        return `${intPart},${decPart}`;
+    };
+
+    const handleInput = (e: React.FormEvent<HTMLInputElement>) => {
+        if (!float) return;
+
+        const raw = e.currentTarget.value;
+        const formatted = formatToFloat(raw);
+        e.currentTarget.value = formatted;
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (!numeric && !float) return;
+
+        const key = e.key;
+
+        // Allow navigation
+        if (["Backspace", "Tab", "ArrowLeft", "ArrowRight"].includes(key)) return;
+
+        // Block letters and symbols
+        if (!/^[0-9]$/.test(key)) {
+            e.preventDefault();
+        }
+    };
+
+    // Force default value for float inputs
+    const defaultValue =
+        float &&
+        (props.defaultValue === undefined ||
+            props.defaultValue === null ||
+            props.defaultValue === "" ||
+            props.defaultValue === "0" ||
+            props.defaultValue === 0)
+            ? "0,00"
+            : props.defaultValue;
+
     return (
         <div className="flex flex-col gap-1">
             {label && <label className="text-sm font-medium">{label}</label>}
+
             <div className="relative">
                 {withIcon && (
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
+                    <span
+                        className={`absolute top-1/2 -translate-y-1/2 text-gray-500
+              ${isLeft ? "left-3" : "right-3"}`}
+                    >
             {icon}
           </span>
                 )}
+
                 <input
-                    className={`w-full border border-gray-300 rounded-md px-3 py-3 focus:ring-brand focus:border-brand  ${
-                        withIcon ? "pl-10" : ""
-                    } ${className}`}
-                    {...props}
+                    type="text"
+                    inputMode={numeric || float ? "numeric" : props.inputMode}
+                    onKeyDown={handleKeyDown}
+                    onInput={handleInput}
+                    {...props}            // <-- props FIRST
+                    defaultValue={defaultValue}   // <-- wins!
+                    className={`w-full border border-gray-300 rounded-md px-3 py-3
+    focus:ring-brand focus:border-brand
+    ${withIcon ? (isLeft ? "pl-10" : "pr-10") : ""}
+    ${className}`}
                 />
+
             </div>
         </div>
     );

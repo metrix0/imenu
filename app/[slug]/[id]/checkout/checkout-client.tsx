@@ -7,8 +7,8 @@ import { useCart } from "@/lib/cartStore";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { icons } from "@/lib/fontawesome";
 // --- 1. Importar o Popup ---
-import Popup from "@/components/Popup"; // (Presumindo que está em @/components/Popup.tsx)
 import posthog from "posthog-js";
+import Popup from "@/components/ui/Popup"; // (Presumindo que está em @/components/Popup.tsx)
 
 // (Tipos 'Order', 'Restaurant' e 'formatPrice' - sem mudança)
 type Order = {

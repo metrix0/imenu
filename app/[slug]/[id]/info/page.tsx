@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import CheckoutSummary from "@/components/CheckoutSummary";
+import CheckoutSummary from "@/components/consumidor/CheckoutSummary";
 import { icons } from "@/lib/fontawesome";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { createClient } from "@supabase/supabase-js";

@@ -3,8 +3,12 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useCreationStore } from "@/lib/creationStore";
+<<<<<<< HEAD
 import CreationStepper from "@/components/CreationStepper";
 import posthog from "posthog-js";
+=======
+import CreationStepper from "@/components/restaurante/configuracoes/CreationStepper";
+>>>>>>> main
 
 type CepData = {
     cep: string;

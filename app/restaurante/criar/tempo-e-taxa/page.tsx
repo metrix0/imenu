@@ -1,21 +1,23 @@
 // app/restaurante/criar/tempo-e-taxa/page.tsx
 "use client";
 
+<<<<<<< HEAD
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { icons } from "@/lib/fontawesome";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useCreationStore } from "@/lib/creationStore";
 import posthog from "posthog-js";
+=======
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabaseClient";
+>>>>>>> main
 
-// JSON STRUCTURE 
-type RadiusRule = {
-    radius_km: number;
-    time_minutes: number;
-    fee_cents: number;
-};
+import CreationStepper from "@/components/restaurante/configuracoes/CreationStepper";
+import DeliveryRules from "@/components/restaurante/configuracoes/TempoeTaxa";
 
 export default function TempoETaxaPage() {
+<<<<<<< HEAD
     const router = useRouter();
     const { restaurantId } = useCreationStore();
 
@@ -41,26 +43,32 @@ export default function TempoETaxaPage() {
         value: string
     ) => {
         const newValue = parseFloat(value) || 0; // CONVERTS TO NUMBER
+=======
+    const [restaurantId, setRestaurantId] = useState<string | null>(null);
 
-        const updatedRules = rules.map((rule, i) => {
-            if (i === index) {
-                if (field === 'radius_km') {
-                    return { ...rule, radius_km: newValue };
-                }
-                if (field === 'time_minutes') {
-                    return { ...rule, time_minutes: Math.round(newValue) }; // TIME IS AN INTEGER NUMBER
-                }
-                if (field === 'fee_cents') {
-                    // R$ TO CENTS
-                    return { ...rule, fee_cents: newValue * 100 };
-                }
+    // KEEPING THE WORKING LOGIC EXACTLY AS IT WAS
+    useEffect(() => {
+        const load = async () => {
+            console.log("➡️ load() starting…");
+
+            // Load session
+            const {
+                data: { session },
+                error: sessionError,
+            } = await supabase.auth.getSession();
+>>>>>>> main
+
+            console.log("📌 session =", session);
+            console.log("📌 sessionError =", sessionError);
+
+            if (!session?.user) {
+                console.log("❌ No logged user");
+                return;
             }
-            return rule;
-        });
 
-        setRules(updatedRules);
-    };
+            const user = session.user;
 
+<<<<<<< HEAD
     // ADD BLANK RULE
     const handleAddRule = () => {
         const lastRule = rules.length > 0 ? rules[rules.length - 1] : { radius_km: 0, time_minutes: 40 };
@@ -71,15 +79,26 @@ export default function TempoETaxaPage() {
                 radius_km: lastRule.radius_km + 1,
                 time_minutes: lastRule.time_minutes,
                 fee_cents: 0
+=======
+            // Get restaurant for this user
+            const { data: restaurant, error: restError } = await supabase
+                .from("restaurants")
+                .select("id, user_id, delivery_fee_json")
+                .eq("user_id", user.id)
+                .single();
+
+            console.log("🏪 restaurant =", restaurant);
+            console.log("🔴 restError =", restError);
+
+            if (!restaurant) {
+                console.log("❌ User has no restaurant yet");
+                return;
+>>>>>>> main
             }
-        ]);
-    };
 
-    // DELETE RULE
-    const handleDeleteRule = (index: number) => {
-        setRules(prev => prev.filter((_, i) => i !== index));
-    };
+            setRestaurantId(restaurant.id);
 
+<<<<<<< HEAD
     // REORDER LIST
     const sortAndSave = async () => {
         const sortedRules = [...rules].sort((a, b) => a.radius_km - b.radius_km);
@@ -98,35 +117,32 @@ export default function TempoETaxaPage() {
 
         const dataToSave = {
             delivery_fee_json: sortedRules,
+=======
+            console.log("✅ restaurantId =", restaurant.id);
+>>>>>>> main
         };
 
-        try {
-            const response = await fetch(`/api/restaurants/${restaurantId}`, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(dataToSave),
-            });
+        load();
+    }, []);
 
+<<<<<<< HEAD
             if (!response.ok) {
                 throw new Error("Falha ao salvar.");
             }
 
             router.push(`/restaurante/criar/disponibilidade`);
+=======
+    // DO NOT RETURN NULL → this was giving you a blank screen
+    if (!restaurantId) {
+        return <div>Carregando restaurante...</div>;
+    }
+>>>>>>> main
 
-        } catch (error) {
-            console.error(error);
-            alert((error as Error).message);
-        }
-    };
-
-    // --- JSX ---
     return (
-        <div className="max-w-2xl mx-auto p-8">
-            <h1 className="text-3xl font-bold mb-4">Tempo e Taxa de Entrega</h1>
-            <p className="text-gray-600 mb-8">
-                Defina as faixas de entrega por raio, o tempo e a taxa para cada uma.
-            </p>
+        <div className="max-w-3xl mx-auto py-10 px-6">
+            <CreationStepper currentStep={2} />
 
+<<<<<<< HEAD
             {/* --- FEE SECTION --- */}
             <div className="p-6 bg-white border border-gray-200 rounded-lg shadow-sm mb-8">
 
@@ -199,6 +215,13 @@ export default function TempoETaxaPage() {
             >
                 Salvar e Continuar
             </button>
+=======
+            {/* ✔ YOU COMMANDED THIS: isNew ALWAYS true */}
+            <DeliveryRules
+                restaurantId={restaurantId}
+                isNew={true}
+            />
+>>>>>>> main
         </div>
     );
 }

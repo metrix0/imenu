@@ -11,7 +11,7 @@
 
 
 ---
-<br>`
+<br>
 
 # To Do
 
@@ -20,22 +20,28 @@
 - ~~Start waitlist acquisition~~ | ✅J
 
 JOAO
-- mudar o email que o código é enviado supabase auth
 - (depois do Front/Back pronto) consolidar toda UX 
-- pedido minimo (no criar e no painel (em algum componente))
-- ver se tem como pacar pelo nosso side API mercado pago.
-- organizar pasta components
-- menu da esquerda ficanddo gigante
-- adicionar mais botões CTA landing page, email landing page.
-- corrigir o mercado pago pagando e deixando como "pago" na parada
+- ~~CORRIGIR PATHS~~
+- ~~pedido minimo (no criar e no painel (em algum componente))~~
+- ~~ver se tem como pagar pelo nosso side API mercado pago.~~
+- ~~organizar pasta components~~
+- ~~menu da esquerda ficanddo gigante~~
+- ~~adicionar mais botões CTA landing page, email landing page.~~
+- ~~corrigir o mercado pago pagando e deixando como "pago" na parada~~
+- ~~botão do whatsapp é só pra dono dde restaurante (nao no cardapio)~~
+- login page lol
+
+RAF
 - ao inserir cep, automaticamente já calcuala a taxa (sem botão) (testar com autofill)
+- complemento (opcional) no cadastro endereço
+- trocar ordem do grafico com pagamento no painel/financeiro
+
+- BRE
 - ao adicionar algo na sacola volta pro cardapio, não vai pra sacola.
 - ao voltar da sacola, tem que carregar tudo dnv? pq?
-- botão do whatsapp é só pra dono dde restaurante (nao no cardapio)
-- adicionar item vira uma rota, não uma página. Criar componente pra adicionar item
-- complemento (opcional) no cadastro endereço
-- Adicionar Nome do Cardápio na 4° parte cadastro restaurante
-- trocar ordem do grafico com pagamento no painel/financeiro
+- adicionar item vira uma rota, não uma página. pra poder adicionar item na própria pagina que nem ifood
+
+
 
 
 ## Backlog
@@ -74,7 +80,7 @@ JOAO
 | Average Estimated Delivery Time | ✅B            | Automatic (or manual, restaurants can change), set this to DB, displays on user checkout or somewhere else (ifood)   (automatic based on the time they take)                                                                                                                                                                                                                                                                                                                                    |
 | withdraw $, show balance        | ✅R            | quanto tem $ quanto fez API / withdrawal wil work with manual payments. Every monday (add it in a database so we know what to pay) ! Panel + Admin can withdraw (idk how that'll work)                                                                                                                                                                                                                                                                                                          |
 | METRICS                         | BRENDO        | Also involves testing it > We'll use POSTHOG, a tool that we implement in our code and we can add stuff like posthog.capture('event'), giving us the ability to capture all needed events. You should also implement the capture events in all CORE FUNNEL RELATED STUFF, if something is not ready yet, add here on TODO > Implement all metrics TRACKING within the CORE FUNNEL. There may be a smarter way than just adding all that to a Table, cuz the tables itself already are the data. |
-| Error Logging                   | JOAO          | PostHog Error %/n  logging                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Error Logging   XXX claritty?                 | JOAO          | PostHog Error %/n  logging                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 |                                 | Waiting       |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 ### Front-End
 > Rough Creation of the features. No polishing (UI/UX).
@@ -134,12 +140,14 @@ JOAO
 - Switch Authentication > URL Configuration > Site URL (https://supabase.com/dashboard/project/mjogdsnxbwhbqcoijrwt/auth/url-configuration
 - change .env stuff
 - Explain and document for team about changing .envs and tunneling.
+- mudar o email que o código é enviado supabase auth
+
 
 ### Tests
 - Test client side routing (no refresh on page changes)
 
 ## Feature List for Next Versions (Future)
-- melhorar sessões de usuários, cookies, etc
+- melhorar sessões de usuários, cookies, zustand, etc
 - Create multiple accounts with different levels, like admin, counter, kitchen, etc
 - Add Motoboy location tracking
 - Add Upsell feature (just like iFood)
@@ -147,6 +155,8 @@ JOAO
 - Instructions: Make it so the menu system itself give next instructions for it's admins, like "add a video to this best selling product to get ~15% more sales!" <- this step is very hard to implement, includes 1. WE gotta know what they have to do and 2. NOT filling them with multiple tasks, make it zero friction a the start and then keep adding new tasks
 - Delivery Fee BEFORE CEP -> currently it's after CEP, make it before, with location APIs.
 - Advanced Admin Dashboard
+- otimizar registro (só email) - make /restaurante -> /restaurante/registrar (apenas email) -> /restaurante/criar/... -> /criar/info
+- handle all payments on website only (no webhook, no other pages) using API.
 - All the Kitchen/Counter Staff user Stories + integration with FAX and printers (recibo, papelzinho do pedido na cozinha, etc) <- hard
 - (wonders) Whatsapp notification for delivery: Admin receiveis it when it's paid, user receives it when it's near them or ready
 - Checkout must pull information from browser and INTEGRATE with everything we can to make the transaction as smooth as possible

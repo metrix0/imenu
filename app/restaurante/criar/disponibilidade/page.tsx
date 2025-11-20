@@ -4,7 +4,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useCreationStore } from "@/lib/creationStore";
-import CreationStepper from "@/components/CreationStepper";
+import CreationStepper from "@/components/restaurante/configuracoes/CreationStepper";
 import { icons } from "@/lib/fontawesome";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import posthog from "posthog-js";
