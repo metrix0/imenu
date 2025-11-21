@@ -34,9 +34,11 @@ export async function PATCH(
         address: "address", 
         delivery_fee_json: "delivery_fee_json",
         availability_json: "availability_json",
-        name: "owner_name",   
+        name: "name",   
         phone: "owner_phone", 
-        user_id: "user_id",           
+        user_id: "user_id",
+        logo_url: "logo_url",
+        description: "description"           
         
     };
 

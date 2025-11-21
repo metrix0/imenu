@@ -1,99 +1,188 @@
-// app/restaurante/page.tsx
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useCreationStore } from "@/lib/creationStore"; 
+import { useCreationStore } from "@/lib/creationStore";
+import { supabase } from "@/lib/supabaseClient"; 
+import Card from "@/components/ui/Card";
+import Input from "@/components/ui/Input";
+import Button from "@/components/ui/Button";
 
-export default function RestaurantLandingPage() {
-    const [email, setEmail] = useState(""); 
-    const [message, setMessage] = useState("");
-    const [loading, setLoading] = useState(false);
-    const router = useRouter();
+export default function RestaurantRegistrationPage() {
+  const router = useRouter();
+  const { setRestaurantId, setEmail: saveEmailToStore } = useCreationStore();
 
+  const [email, setEmail] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
+  
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+  const [isPhoneFocused, setIsPhoneFocused] = useState(false);
 
-    const { setRestaurantId, setEmail: saveEmailToStore } = useCreationStore();
+  // Validações
+  const isValid = 
+    email.includes("@") && 
+    email.includes(".") && 
+    fullName.length > 3 && 
+    phone.length >= 14 && 
+    password.length >= 6;
 
-    const handleSubmitLead = async (e: React.FormEvent<HTMLFormElement>) => {
-        e.preventDefault();
-        setLoading(true);
-        setMessage("");
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value.replace(/\D/g, "");
+    if (value.length > 11) value = value.slice(0, 11);
+    
+    let formatted = "";
+    if (value.length > 0) formatted = "(" + value.slice(0, 2);
+    if (value.length > 2) formatted += ") " + value.slice(2, 7);
+    if (value.length > 7) formatted += "-" + value.slice(7);
 
-        try {
-            const response = await fetch("/api/restaurants/create", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ email }),
-            });
+    setPhone(formatted);
+  };
 
-            const data = await response.json();
+  const handleRegister = async () => {
+    if (!isValid) return;
+    setLoading(true);
+    setErrorMsg("");
 
-            if (!response.ok) {
-                throw new Error(data.error || "Falha ao enviar e-mail.");
-            }
+    // Salva e-mail no Zustand
+    saveEmailToStore(email);
 
-            const newId = data.id;
-            setRestaurantId(newId);
-        
-            saveEmailToStore(email);
+    try {
+      // 1. Criar o Usuário na Autenticação (Supabase Auth)
+      // IMPORTANTE: Para não enviar OTP, desabilite "Confirm Email" no painel do Supabase.
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: fullName,
+            phone: phone,
+          },
+        },
+      });
+
+      if (authError) throw authError;
+      
+      // Se "Confirm Email" estiver ligado, authData.user existe mas authData.session é null.
+      // Se estiver desligado (como você quer), ambos existem.
+      if (!authData.user) throw new Error("Erro ao criar usuário.");
+
+      const userId = authData.user.id;
+
+      // 2. Criar o Restaurante JÁ VINCULADO ao ID do Usuário
+      const res = await fetch("/api/restaurants/create", { 
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+              userId: userId,  // Enviamos o ID do Auth
+              phone: phone,    // Enviamos o telefone para salvar no banco também
+              email: email     // Enviamos o email (caso queira usar no futuro/logs)
+          })
+      });
+      
+      if (!res.ok) {
+          const errData = await res.json();
+          throw new Error(errData.error || "Falha ao criar restaurante.");
+      }
+      
+      const restaurantData = await res.json();
+      
+      // 3. Salva o novo ID do restaurante no Zustand
+      setRestaurantId(restaurantData.id);
+
+      // 4. Redireciona
+      router.push("/restaurante/criar/localizacao");
+
+    } catch (err) {
+      console.error(err);
+      setErrorMsg((err as Error).message || "Erro ao realizar cadastro.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex flex-col bg-white">
+      <header className="w-full border-b border-gray-200 px-2 py-7 flex items-center justify-between sticky top-0 bg-white z-10">
+        <div className="relative h-6 w-32 ml-4">
+            <Image src="/logo-full.png" alt="iMenu Logo" fill className="object-contain object-left" />
+        </div>
+      </header>
+
+      <main className="flex-1 flex flex-col items-center justify-start pt-8 px-4 pb-24 sm:pt-16">
+        <Card className="w-full max-w-2xl space-y-8 p-8 border border-gray-200 shadow-sm">
+          <div className="text-center space-y-2">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Crie seu Cardápio Digital</h1>
+            <p className="text-base text-gray-500">Preencha seus dados para começar de graça.</p>
+          </div>
+
+          <div className="space-y-6">
+            <Input 
+                label="E-mail*" 
+                placeholder="seu@email.com" 
+                type="email"
+                value={email} 
+                onChange={(e) => setEmail(e.target.value)} 
+            />
+
+            <Input 
+                label="Nome completo*" 
+                placeholder="Nome Sobrenome" 
+                value={fullName} 
+                onChange={(e) => setFullName(e.target.value)} 
+            />
             
-            router.push("/restaurante/criar/localizacao");
-
-        } catch (error) {
-            setMessage((error as Error).message);
-            setLoading(false);
-        }
-    };
-
-    return (
-        <main className="min-h-screen flex items-center justify-center p-6 bg-gray-50">
-            <div className="flex flex-col md:flex-row items-center justify-center gap-8 max-w-4xl w-full">
-                
-                <div className="w-full max-w-md">
-                    <h1 className="text-4xl font-bold text-gray-900">Seu cardápio digital.</h1>
-                    <p className="mt-4 text-lg text-gray-600">
-                        Comece de graça e configure seu restaurante em minutos.
-                    </p>
-                </div>
-
-                <div className="w-full max-w-md space-y-6 rounded-lg border border-gray-200 bg-white p-8 shadow-lg">
-                    <h2 className="text-3xl font-bold text-center text-gray-900">
-                        Comece agora
-                    </h2>
-
-                    <form onSubmit={handleSubmitLead} className="space-y-5">
-                        <div>
-                            <label
-                                htmlFor="email"
-                                className="block text-base font-medium text-gray-700"
-                            >
-                                Qual o seu e-mail?
-                            </label>
-                            <input
-                                id="email"
-                                type="email"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                required
-                                className="mt-2 block w-full rounded-md border border-gray-300 px-4 py-3 text-base shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                placeholder="exemplo@email.com"
-                            />
-                        </div>
-
-                        <button
-                            type="submit"
-                            disabled={loading}
-                            className="w-full rounded-md bg-black px-4 py-3 text-base font-semibold text-white shadow-md hover:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black disabled:opacity-60"
-                        >
-                            {loading ? "Criando..." : "Continuar"}
-                        </button>
-
-                        {message && (
-                            <p className="text-center text-sm text-red-600">{message}</p>
-                        )}
-                    </form>
-                </div>
+            <Input 
+                label="Celular (WhatsApp)*" 
+                placeholder={isPhoneFocused ? "(__) _____-____" : "(00) 00000-0000"} 
+                type="tel" 
+                value={phone} 
+                onChange={handlePhoneChange} 
+                onFocus={() => setIsPhoneFocused(true)} 
+                onBlur={() => setIsPhoneFocused(false)} 
+                maxLength={15} 
+            />
+            
+            <div>
+                <Input 
+                    label="Senha*" 
+                    placeholder="Crie uma senha segura" 
+                    type="password" 
+                    value={password} 
+                    onChange={(e) => setPassword(e.target.value)} 
+                />
+                <p className="text-xs text-gray-400 pt-1">Mínimo de 6 caracteres.</p>
             </div>
-        </main>
-    );
+            
+            {errorMsg && (
+                <div className="p-3 bg-red-50 border border-red-100 rounded-md text-sm text-red-600 text-center">
+                    {errorMsg}
+                </div>
+            )}
+          </div>
+        </Card>
+      </main>
+
+      <footer className="fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 px-6 py-4">
+        <div className="max-w-4xl mx-auto flex items-center justify-between">
+          <div className="flex-1"></div> 
+          
+          <div className={`w-auto ${!isValid ? "cursor-not-allowed" : ""}`}>
+            <Button
+                variant={!isValid ? "secondary" : "primary"}
+                loading={loading}
+                disabled={!isValid}
+                onClick={handleRegister}
+                className="min-w-[160px] disabled:pointer-events-none disabled:opacity-50"
+            >
+                {isValid ? "Criar Conta Grátis" : "Preencha os dados"}
+            </Button>
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
 }
