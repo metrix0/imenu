@@ -9,6 +9,7 @@ import ListLoader from "@/components/ui/ListLoader";
 import Button from "@/components/ui/Button";
 import RestaurantIdentity from "@/components/restaurante/configuracoes/RestaurantIdentity";
 import MenuOverview from "@/components/restaurante/configuracoes/MenuOverview";
+import posthog from "posthog-js";
 
 type Category = { id: string; name: string };
 type Item = { id: string; name: string; category?: Category | null };
@@ -32,6 +33,13 @@ export default function CriarCardapioPage() {
 
     useEffect(() => {
         // 1. Verificação de Segurança: Se não tem ID, volta pro início
+        posthog.capture("admin_access_create_restaurant_menu_page", {
+            page: "/restaurante/criar/cardapio",
+            timestamp: new Date().toISOString(),
+        });
+    }, []);
+
+    useEffect(() => {
         if (!restaurantId) {
             router.replace("/restaurante");
             return;

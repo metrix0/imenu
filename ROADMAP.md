@@ -29,7 +29,13 @@ JOAO
 - ~~adicionar mais botões CTA landing page, email landing page.~~
 - ~~corrigir o mercado pago pagando e deixando como "pago" na parada~~
 - ~~botão do whatsapp é só pra dono dde restaurante (nao no cardapio)~~
-- login page lol
+- ~~login page lol~~
+- ~~mobile error message for dashboard~~
+- ifood sync
+- ~~ao adicionar algo na sacola volta pro cardapio, não vai pra sacola.~~
+- ~~ao voltar da sacola, tem que carregar tudo dnv? pq?~~
+- separar database entre menu e restaurante (usuario e dono)
+- imagens do menu em base64 ao inves de uploadMenuImages
 
 RAF
 - ao inserir cep, automaticamente já calcuala a taxa (sem botão) (testar com autofill)
@@ -37,9 +43,8 @@ RAF
 - trocar ordem do grafico com pagamento no painel/financeiro
 
 - BRE
-- ao adicionar algo na sacola volta pro cardapio, não vai pra sacola.
-- ao voltar da sacola, tem que carregar tudo dnv? pq?
-- adicionar item vira uma rota, não uma página. pra poder adicionar item na própria pagina que nem ifood
+
+- painel: adicionar item vira uma rota, não uma página. pra poder adicionar item na própria pagina que nem ifood
 
 
 
@@ -134,7 +139,22 @@ RAF
 | /(nome-do-restaurante)/[id]/checkout | B      | iFood + Mobile > PC                       |
 
 - Landing Page (Mobile & PC) + video | JOAO (mobile)
-- mobile error message for dashboard | JOAO (mobile)
+- ~~mobile error message for dashboard~~ | JOAO (mobile)
+
+#### Stage 2 UX/UI/Polishing:
+- TESTING FLOWS (back and forth, up and down) *PC 1920x1080 & 1366x768, MOBILE (resolução do figma)
+  - Creation Flow (/restaurante) & going to Panel [Zustand + Pooling]
+  - Panel Flow 1 (/painel) [Zustand + Realtime]
+  - Panel Flow 2 (/painel) [Zustand + Realtime]
+  - Menu Flow (/[slug]) [Zustand (storing cart data) + Pooling]
+  
+*The step above must ensure: Zustand, Realtime and Pooling when it's the case.
+
+- FIX ALL BUGS (registered on TO DO)
+- Fill checklist
+  - Uses our UI components preferably (buttons, inputs, etc)
+  - Uses our lib preferably (supabaseClient, creationStore, etc)
+  - Is this ready for release? Make it ready!
 
 ### Deploy
 - Switch Authentication > URL Configuration > Site URL (https://supabase.com/dashboard/project/mjogdsnxbwhbqcoijrwt/auth/url-configuration

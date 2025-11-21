@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { useCreationStore } from "@/lib/creationStore";
 import { supabase } from "@/lib/supabaseClient";
 import Button from "@/components/ui/Button";
+import posthog from "posthog-js";
+
 
 // UPDATE IMPORT TO THE CLICK VERSION
 import WeeklyScheduleClick, { Availability, TimeSlot } from "@/components/restaurante/configuracoes/WeeklyScheduleClick";
@@ -13,6 +15,13 @@ import WeeklyScheduleClick, { Availability, TimeSlot } from "@/components/restau
 export default function DisponibilidadePage() {
     const router = useRouter();
     const { setRestaurantId } = useCreationStore();
+
+    useEffect(() => {
+        posthog.capture("admin_access_create_restaurant_availability_page", {
+            page: "/restaurante/criar/disponibilidade",
+            timestamp: new Date().toISOString(),
+        });
+    }, []);
 
     const [availability, setAvailability] = useState<Availability>({});
     const [isLoading, setIsLoading] = useState(false);

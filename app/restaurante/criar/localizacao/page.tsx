@@ -28,6 +28,68 @@ export default function LocalizacaoPage() {
                 if (restaurantId) {
                     setLocalRestaurantId(restaurantId);
                 }
+import CreationStepper from "@/components/CreationStepper";
+import posthog from "posthog-js";
+
+type CepData = {
+    cep: string;
+    state: string;
+    city: string;
+    neighborhood: string;
+    street: string;
+    location?: {
+        type: string;
+        coordinates: {
+            longitude: string;
+            latitude: string;
+        };
+    };
+};
+
+export default function LocalizacaoPage() {
+    const router = useRouter();
+    const { restaurantId } = useCreationStore();
+
+    useEffect(() => {
+        posthog.capture("admin_access_create_restaurant_location_page", {
+            page: "/restaurante/criar/localizacao",
+            timestamp: new Date().toISOString(),
+        });
+    }, []);
+
+    // Form state
+    const [cep, setCep] = useState("");
+    const [estado, setEstado] = useState("");
+    const [cidade, setCidade] = useState("");
+    const [bairro, setBairro] = useState("");
+    const [rua, setRua] = useState("");
+    const [numero, setNumero] = useState("");
+    const [complemento, setComplemento] = useState("");
+    const [latitude, setLatitude] = useState<number | null>(null);
+    const [longitude, setLongitude] = useState<number | null>(null);
+
+    const [isLoadingCep, setIsLoadingCep] = useState(false);
+    const [isLoadingSubmit, setIsLoadingSubmit] = useState(false);
+    const [error, setError] = useState("");
+   
+    const handleCepBlur = async () => {
+        const cleanCep = cep.replace(/\D/g, "");
+        if (cleanCep.length !== 8) return;
+
+        setIsLoadingCep(true);
+        setError("");
+
+        try {
+            const response = await fetch(`https://brasilapi.com.br/api/cep/v1/${cleanCep}`);
+            if (!response.ok) throw new Error("CEP não encontrado.");
+
+            const data: CepData = await response.json();
+
+            setEstado(data.state);
+            setCidade(data.city);
+            setBairro(data.neighborhood);
+            setRua(data.street);
+
 
                 let query = supabase
                     .from("restaurants")
