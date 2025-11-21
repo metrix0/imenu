@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, ReactNode } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { icons } from "@/lib/fontawesome";
 import { supabase } from "@/lib/supabaseClient";
@@ -12,7 +12,8 @@ interface CategorySectionProps {
     restaurantId: string;
     onRefresh: () => void;
     onEditCategory?: () => void;
-    onOpenItemDetails: (item: MenuItemType) => void; // <--- CONEXÃO VITAL
+    onOpenItemDetails: (item: MenuItemType) => void;
+    dragHandle?: ReactNode;
 }
 
 export default function CategorySection({ 
@@ -21,7 +22,8 @@ export default function CategorySection({
     restaurantId, 
     onRefresh, 
     onEditCategory,
-    onOpenItemDetails 
+    onOpenItemDetails,
+    dragHandle 
 }: CategorySectionProps) {
     const [isCreating, setIsCreating] = useState(false);
 
@@ -62,10 +64,42 @@ export default function CategorySection({
         onRefresh();
     };
 
+    // --- NOVA FUNÇÃO: DUPLICAR ---
+    const handleDuplicateItem = async (originalItem: MenuItemType) => {
+        // Copia os dados básicos
+        const { error } = await supabase.from("items").insert({
+            name: `${originalItem.name} (Cópia)`,
+            description: originalItem.description,
+            price_cents: originalItem.price_cents,
+            image_path: originalItem.image_path, // Reusa a mesma imagem
+            category_id: category.id,
+            restaurant_id: restaurantId,
+            is_available: false, // Começa pausado por segurança
+            position: items.length // Fim da lista
+        });
+
+        if (error) {
+            alert("Erro ao duplicar item.");
+            console.error(error);
+        } else {
+            onRefresh();
+        }
+        // Nota: Para duplicar os complementos (subitems), precisaríamos de uma query mais complexa
+        // ou uma procedure no banco. Por enquanto, duplicamos apenas o item base.
+    };
+
     return (
         <div className="mb-10 animate-fadeUp">
             <div className="flex items-center justify-between mb-3 px-1">
-                <h3 className="text-xl font-bold text-gray-800 tracking-tight">{category.name}</h3>
+                <div className="flex items-center gap-3">
+                    {dragHandle && (
+                        <div className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 p-1">
+                            {dragHandle}
+                        </div>
+                    )}
+                    <h3 className="text-xl font-bold text-gray-800 tracking-tight">{category.name}</h3>
+                </div>
+                
                 <button onClick={onEditCategory} className="text-xs font-medium text-gray-400 hover:text-brand transition-colors cursor-pointer">
                     Editar categoria
                 </button>
@@ -78,7 +112,8 @@ export default function CategorySection({
                         item={item}
                         onSave={handleUpdateItem}
                         onDelete={handleDeleteItem}
-                        onOpenDetails={() => onOpenItemDetails(item)} // <--- Passando a função
+                        onOpenDetails={() => onOpenItemDetails(item)}
+                        onDuplicate={handleDuplicateItem} // <--- PASSANDO A FUNÇÃO
                     />
                 ))}
 
