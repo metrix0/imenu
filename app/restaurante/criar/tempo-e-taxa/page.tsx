@@ -1,23 +1,21 @@
 // app/restaurante/criar/tempo-e-taxa/page.tsx
 "use client";
 
-<<<<<<< HEAD
+import { useEffect, useState, useRef } from "react";
+import { supabase } from "@/lib/supabaseClient";
+import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { icons } from "@/lib/fontawesome";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { useCreationStore } from "@/lib/creationStore";
 import posthog from "posthog-js";
-=======
-import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
->>>>>>> main
 
-import CreationStepper from "@/components/restaurante/configuracoes/CreationStepper";
-import DeliveryRules from "@/components/restaurante/configuracoes/TempoeTaxa";
+import DeliveryRules, { DeliveryRulesRef } from "@/components/restaurante/configuracoes/TempoeTaxa";
+import Button from "@/components/ui/Button"; // Assumindo que você tem esse componente, baseado no seu código de exemplo
 
 export default function TempoETaxaPage() {
-<<<<<<< HEAD
+    const router = useRouter();
     const router = useRouter();
     const { restaurantId } = useCreationStore();
 
@@ -43,8 +41,11 @@ export default function TempoETaxaPage() {
         value: string
     ) => {
         const newValue = parseFloat(value) || 0; // CONVERTS TO NUMBER
-=======
     const [restaurantId, setRestaurantId] = useState<string | null>(null);
+    const [isLoading, setIsLoading] = useState(false);
+
+    // Referência para acessar a função save() do filho
+    const rulesRef = useRef<DeliveryRulesRef>(null);
 
     // KEEPING THE WORKING LOGIC EXACTLY AS IT WAS
     useEffect(() => {
@@ -56,8 +57,6 @@ export default function TempoETaxaPage() {
                 data: { session },
                 error: sessionError,
             } = await supabase.auth.getSession();
->>>>>>> main
-
             console.log("📌 session =", session);
             console.log("📌 sessionError =", sessionError);
 
@@ -68,7 +67,6 @@ export default function TempoETaxaPage() {
 
             const user = session.user;
 
-<<<<<<< HEAD
     // ADD BLANK RULE
     const handleAddRule = () => {
         const lastRule = rules.length > 0 ? rules[rules.length - 1] : { radius_km: 0, time_minutes: 40 };
@@ -79,26 +77,10 @@ export default function TempoETaxaPage() {
                 radius_km: lastRule.radius_km + 1,
                 time_minutes: lastRule.time_minutes,
                 fee_cents: 0
-=======
-            // Get restaurant for this user
-            const { data: restaurant, error: restError } = await supabase
-                .from("restaurants")
-                .select("id, user_id, delivery_fee_json")
-                .eq("user_id", user.id)
-                .single();
-
-            console.log("🏪 restaurant =", restaurant);
-            console.log("🔴 restError =", restError);
-
-            if (!restaurant) {
-                console.log("❌ User has no restaurant yet");
-                return;
->>>>>>> main
             }
 
             setRestaurantId(restaurant.id);
 
-<<<<<<< HEAD
     // REORDER LIST
     const sortAndSave = async () => {
         const sortedRules = [...rules].sort((a, b) => a.radius_km - b.radius_km);
@@ -117,32 +99,43 @@ export default function TempoETaxaPage() {
 
         const dataToSave = {
             delivery_fee_json: sortedRules,
-=======
-            console.log("✅ restaurantId =", restaurant.id);
->>>>>>> main
         };
 
         load();
     }, []);
 
-<<<<<<< HEAD
+    const handleSave = async () => {
+        if (!rulesRef.current) return;
+
+        setIsLoading(true);
+        try {
+            // Chama a função save() que está dentro do componente DeliveryRules
+            await rulesRef.current.save();
+            
+            // Redireciona após salvar
+            router.push("/restaurante/criar/disponibilidade");
+        } catch (error) {
+            console.error("Erro ao salvar:", error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
             if (!response.ok) {
                 throw new Error("Falha ao salvar.");
             }
 
             router.push(`/restaurante/criar/disponibilidade`);
-=======
     // DO NOT RETURN NULL → this was giving you a blank screen
     if (!restaurantId) {
         return <div>Carregando restaurante...</div>;
     }
->>>>>>> main
+
 
     return (
-        <div className="max-w-3xl mx-auto py-10 px-6">
-            <CreationStepper currentStep={2} />
+        <div className="max-w-3xl mx-auto py-10 px-6 pb-32"> {/* pb-32 adicionado para o conteúdo não ficar atrás do footer */}
 
-<<<<<<< HEAD
+            {/* Passamos a ref para controlar o componente filho */}
             {/* --- FEE SECTION --- */}
             <div className="p-6 bg-white border border-gray-200 rounded-lg shadow-sm mb-8">
 
@@ -215,13 +208,32 @@ export default function TempoETaxaPage() {
             >
                 Salvar e Continuar
             </button>
-=======
-            {/* ✔ YOU COMMANDED THIS: isNew ALWAYS true */}
             <DeliveryRules
+                ref={rulesRef}
                 restaurantId={restaurantId}
                 isNew={true}
             />
->>>>>>> main
+
+            {/* Footer Bar */}
+            <div className="fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 p-4 z-40 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+                <div className="max-w-4xl mx-auto flex items-center justify-between">
+                    <button
+                        onClick={() => router.back()}
+                        className="text-brand font-medium text-base hover:opacity-80 transition-opacity flex items-center gap-1 cursor-pointer"
+                    >
+                        Voltar
+                    </button>
+                    <Button
+                        variant="primary"
+                        loading={isLoading}
+                        onClick={handleSave}
+                        className="px-8"
+                    >
+                        Salvar e Continuar
+                    </Button>
+                </div>
+            </div>
+
         </div>
     );
 }

@@ -1,14 +1,11 @@
-// app/layout.tsx
-
+// app/restaurante/layout.tsx
 import SupportButton from "@/components/SupportButton";
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RestauranteLayout({ children }: { children: React.ReactNode }) {
     return (
-        <html>
-        <body>
-        {children}
-        <SupportButton />
-        </body>
-        </html>
+        <>
+            {children}
+            <SupportButton />
+        </>
     );
 }
