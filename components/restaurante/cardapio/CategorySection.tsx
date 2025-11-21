@@ -66,7 +66,7 @@ export default function CategorySection({
         <div className="mb-10 animate-fadeUp">
             <div className="flex items-center justify-between mb-3 px-1">
                 <h3 className="text-xl font-bold text-gray-800 tracking-tight">{category.name}</h3>
-                <button onClick={onEditCategory} className="text-xs font-medium text-gray-400 hover:text-brand transition-colors">
+                <button onClick={onEditCategory} className="text-xs font-medium text-gray-400 hover:text-brand transition-colors cursor-pointer">
                     Editar categoria
                 </button>
             </div>

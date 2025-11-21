@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import Popup from "@/components/ui/Popup"; // Certifique-se que este path existe
+import Modal from "@/components/ui/Modal"; // Certifique-se que este path existe
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
+import ConfirmModal from "@/components/ui/ConfirmModal";
 
 interface ManageCategoryModalProps {
     isOpen: boolean;
@@ -23,6 +24,7 @@ export default function ManageCategoryModal({
 }: ManageCategoryModalProps) {
     const [name, setName] = useState("");
     const [isLoading, setIsLoading] = useState(false);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
     // Reseta o form ao abrir/fechar ou mudar modo
     useEffect(() => {
@@ -71,11 +73,14 @@ export default function ManageCategoryModal({
         }
     };
 
-    const handleDelete = async () => {
-        if (!categoryToEdit) return;
-        if (!confirm("Tem certeza? Isso pode ocultar os itens desta categoria.")) return;
+    const handleDeleteClick = () => {
+        setIsDeleteModalOpen(true);
+    };
 
-        setIsLoading(true);
+const executeDelete = async () => {
+        if (!categoryToEdit) return;
+
+        setIsLoading(true); // Mostra loading no modal de confirmação também
         try {
             const { error } = await supabase
                 .from("categories")
@@ -83,19 +88,23 @@ export default function ManageCategoryModal({
                 .eq("id", categoryToEdit.id);
             
             if (error) throw error;
+            
             onSuccess();
-            onClose();
+            setIsDeleteModalOpen(false); // Fecha modal de confirmação
+            onClose(); // Fecha modal de edição
         } catch (error) {
             console.error("Erro ao deletar:", error);
             alert("Não foi possível deletar (verifique se há itens vinculados).");
+            setIsDeleteModalOpen(false);
         } finally {
             setIsLoading(false);
         }
     };
 
     return (
-        <Popup open={isOpen} onClose={onClose}>
-            <div className="p-6 w-full max-w-md">
+        <>
+        <Modal open={isOpen} onClose={onClose}>
+            <div className="p-6 w-full max-w-mdjustify">
                 <h2 className="text-xl font-bold mb-4 text-gray-900">
                     {categoryToEdit ? "Editar Categoria" : "Nova Categoria"}
                 </h2>
@@ -113,7 +122,7 @@ export default function ManageCategoryModal({
                         {categoryToEdit && (
                             <Button 
                                 variant="secondary" 
-                                onClick={handleDelete}
+                                onClick={handleDeleteClick}
                                 disabled={isLoading}
                                 className="text-red-600 hover:bg-red-50 border-red-200 mr-auto"
                             >
@@ -130,6 +139,17 @@ export default function ManageCategoryModal({
                     </div>
                 </div>
             </div>
-        </Popup>
+        </Modal>
+        <ConfirmModal 
+                open={isDeleteModalOpen}
+                onClose={() => setIsDeleteModalOpen(false)}
+                onConfirm={executeDelete}
+                title="Excluir Categoria"
+                description={`Tem certeza que deseja excluir "${categoryToEdit?.name}"? Isso pode ocultar os itens que pertencem a ela.`}
+                confirmLabel="Excluir Categoria"
+                isLoading={isLoading}
+                variant="danger"
+            />
+        </>
     );
 }
