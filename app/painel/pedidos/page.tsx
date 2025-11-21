@@ -1,79 +1,128 @@
-// app/menu/[id]/panel/page.tsx
-import { createClient } from '@supabase/supabase-js';
-import PanelClient from './panel-client';
+"use client";
 
-type Props = {
-    params: Promise<{ restauranteId: string }>;
-};
+import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabaseClient";
+import Tabs from "@/components/ui/Tabs";
+import Button from "@/components/ui/Button";
 
-// cria cliente server-side tentando usar SERVICE ROLE (mais permissões, evita problemas com RLS)
-const createSupabaseServerClient = () => {
-    const SUPABASE_URL = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const SUPABASE_SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (SUPABASE_URL && SUPABASE_SERVICE_ROLE) {
-        return createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE);
-    }
-    // fallback para anon (pode falhar se houver RLS)
-    return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
-};
+// Componentes Refatorados
+import OrdersFilter from "@/components/painel/pedidos/OrdersFilter";
+import OrdersTable, { Order } from "@/components/painel/pedidos/OrdersTable";
 
-export default async function PanelPage({ params }: Props) {
-    const { restauranteId } = await params;
-    const supabase = createSupabaseServerClient();
+const TABS = ["Todos", "Em aberto", "Concluídos", "Cancelados"];
 
-    // buscar restaurante para exibir nome do painel (não crítico)
-    const { data: restaurant, error: restErr } = await supabase
-        .from("restaurants")
-        .select("id, name")
-        .eq("id", restauranteId)
-        .maybeSingle();
+export default function PedidosPage() {
+    const [activeTab, setActiveTab] = useState("Todos");
+    const [isLoading, setIsLoading] = useState(true);
+    const [orders, setOrders] = useState<Order[]>([]);
+    const [restaurantId, setRestaurantId] = useState<string | null>(null);
 
-    if (restErr) {
-        console.error("Erro ao buscar restaurante:", restErr);
-        // continua exibindo painel mesmo sem nome do restaurante
-    }
+    // Estados de Filtro
+    const [searchId, setSearchId] = useState("");
+    const [searchDate, setSearchDate] = useState("");
+    const [selectedStatus, setSelectedStatus] = useState("todas");
 
-    // Buscar pedidos do restaurante (mais robusto: select * e ordenação)
-    const { data: ordersRaw, error: ordersErr } = await supabase
-        .from("orders")
-        .select("*")
-        .eq("restaurant_id", restauranteId)
-        .order("created_at", { ascending: false });
+    // 1. Inicialização
+    useEffect(() => {
+        const init = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) return;
 
-    if (ordersErr) {
-        console.error("Erro ao buscar pedidos:", ordersErr);
-        return <div>Erro ao buscar pedidos</div>;
-    }
-    const orders = ordersRaw ?? [];
+            const { data: rest } = await supabase
+                .from("restaurants")
+                .select("id")
+                .eq("user_id", session.user.id)
+                .single();
 
-    // Buscar order_items relacionados (se houver pedidos)
-    const orderIds = orders.map((o: any) => o.id);
-    const { data: orderItemsRaw, error: orderItemsErr } = orderIds.length > 0
-        ? await supabase.from("order_items").select("*").in("order_id", orderIds)
-        : { data: [], error: null };
+            if (rest) {
+                setRestaurantId(rest.id);
+                fetchOrders(rest.id);
+            }
+        };
+        init();
+    }, []);
 
-    if (orderItemsErr) {
-        console.error("Erro ao buscar order_items:", orderItemsErr);
-    }
-    const orderItems = orderItemsRaw ?? [];
+    // 2. Recarrega ao mudar aba
+    useEffect(() => {
+        if (restaurantId) fetchOrders(restaurantId);
+    }, [activeTab, restaurantId]);
 
-    // Buscar order_item_subitems relacionados (se houver order_items)
-    const orderItemIds = orderItems.map((oi: any) => oi.id);
-    const { data: oisData, error: oisErr } = orderItemIds.length > 0
-        ? await supabase.from("order_item_subitems").select("*").in("order_item_id", orderItemIds)
-        : { data: [], error: null };
+    // 3. Lógica de Busca
+    const fetchOrders = async (restId: string) => {
+        setIsLoading(true);
+        try {
+            let query = supabase
+                .from("orders")
+                .select("id, display_id, created_at, customer_name, status, total_cents")
+                .eq("restaurant_id", restId)
+                .order("created_at", { ascending: false });
 
-    if (oisErr) {
-        console.error("Erro ao buscar order_item_subitems:", oisErr);
-    }
-    const orderItemSubitems = oisData ?? [];
+            // Filtro por Aba
+            if (activeTab === "Em aberto") {
+                query = query.in("status", ["pending", "preparing", "delivering"]);
+            } else if (activeTab === "Concluídos") {
+                query = query.eq("status", "finished");
+            } else if (activeTab === "Cancelados") {
+                query = query.eq("status", "cancelled");
+            }
+
+            // Filtros do Usuário
+            if (searchId) query = query.eq("display_id", searchId);
+            
+            if (searchDate) {
+                const start = new Date(searchDate); start.setHours(0, 0, 0, 0);
+                const end = new Date(searchDate); end.setHours(23, 59, 59, 999);
+                query = query.gte("created_at", start.toISOString()).lte("created_at", end.toISOString());
+            }
+
+            if (selectedStatus !== "todas") query = query.eq("status", selectedStatus);
+
+            const { data, error } = await query;
+            if (error) throw error;
+
+            setOrders(data as any[] || []);
+
+        } catch (err) {
+            console.error("Erro ao buscar pedidos:", err);
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     return (
-        <PanelClient
-            menuName={restaurant?.name ?? "Painel"}
-            orders={orders}
-            orderItems={orderItems}
-            orderItemSubitems={orderItemSubitems}
-        />
+        <div className="max-w-6xl mx-auto pb-20 space-y-8">
+            <div>
+                <h1 className="text-3xl font-bold text-gray-900">Pedidos</h1>
+            </div>
+
+            <div className="border-b border-gray-200">
+                <Tabs tabs={TABS} active={activeTab} onChange={setActiveTab} />
+            </div>
+
+            <OrdersFilter 
+                searchId={searchId}
+                setSearchId={setSearchId}
+                searchDate={searchDate}
+                setSearchDate={setSearchDate}
+                selectedStatus={selectedStatus}
+                setSelectedStatus={setSelectedStatus}
+                onSearch={() => restaurantId && fetchOrders(restaurantId)}
+            />
+
+            <OrdersTable 
+                orders={orders}
+                isLoading={isLoading}
+            />
+
+            {/* Paginação Simples */}
+            {!isLoading && orders.length > 0 && (
+                <div className="flex justify-center pt-4">
+                    <div className="flex gap-2">
+                        <Button variant="secondary" disabled className="px-4 py-2 text-xs">Anterior</Button>
+                        <Button variant="secondary" className="px-4 py-2 text-xs">Próxima</Button>
+                    </div>
+                </div>
+            )}
+        </div>
     );
 }

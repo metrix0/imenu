@@ -56,8 +56,10 @@ export default function FinanceiroPage() {
     // Layout ajustado para não colidir com Sidebar e ser responsivo
     return (
         <div className="space-y-8 max-w-6xl mx-auto">
-            <h1 className="text-3xl font-bold text-gray-900">Dashboard Financeiro</h1>
-            
+            <div className="mb-8 flex flex-col  gap-1 ">
+                <h1 className="text-3xl font-bold text-gray-900">Dashboard Financeiro</h1>
+                <p className="text-gray-500 mb-8 mt-1">Veja o desempenho da sua loja durante um período.</p>
+            </div>
             {/* Sales Graphs */}
             <section>
                 <SalesDashboard menuId={restaurantId} />

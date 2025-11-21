@@ -70,7 +70,7 @@ export default function PainelLayout({
         { type: "divider" },
         { label: "Cardápio", icon: faUtensils, href: cardapioHref },
         { label: "Taxa e Tempo", icon: faTruck, href: `${base}/tempo-e-taxa` },
-        { label: "Horários", icon: faClock, href: `${base}/horarios` },
+        { label: "Disponibilidade", icon: faClock, href: `${base}/disponibilidade` },
         { label: "Loja", icon: faStore, href: `${base}/loja` },
         { type: "divider" },
         { label: "Configurações", icon: faGear, href: configuracoesHref },

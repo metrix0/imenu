@@ -84,7 +84,10 @@ export default function TempoETaxaPage() {
 
     return (
         <div className="max-w-3xl mx-auto py-10 px-6 pb-32"> {/* pb-32 adicionado para o conteúdo não ficar atrás do footer */}
-
+            <div className="mb-8 text-center sm:text-left">
+                <h1 className="text-3xl font-bold mb-3">Tempo e Taxa de Entrega</h1>
+                <p className="text-gray-500 mt-1">Agora, recomendamos essa taxa e tempo de entrega</p>
+            </div>
             {/* Passamos a ref para controlar o componente filho */}
             <DeliveryRules
                 ref={rulesRef}

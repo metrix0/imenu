@@ -266,15 +266,16 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
         // ---------------------------------------------------
         return (
             <div className="max-w-2xl mx-auto ">
-                <div className="mb-8 text-center sm:text-left">
-                    <h1 className="text-3xl font-bold mb-3">Tempo e Taxa de Entrega</h1>
-                    <p className="text-gray-500 mt-1">Agora, recomendamos essa taxa e tempo de entrega</p>
+
+                <div className="text-sm font-medium h-6 flex items-center">
+                    {isNew ? (
+                        <span className="text-brand animate-pulse">Salvando...</span>
+                    ) : (
+                        <span className="text-green-600 flex items-center gap-1">
+                            <FontAwesomeIcon icon={icons.faCheck} className="text-xs" /> Tudo salvo
+                        </span>
+                    )}
                 </div>
-                {!isNew && (
-                    <p className="text-sm text-gray-500 mb-3">
-                        {status === "saved" ? "Tudo salvo ✓" : "Salvando…"}
-                    </p>
-                )}
 
                 {/* DELIVERY RULES */}
                 <div className="p-6 bg-white border border-gray-200 rounded-lg shadow-sm mb-8">
