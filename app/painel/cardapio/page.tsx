@@ -3,125 +3,154 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import Loader from "@/components/ui/Loader";
-import MenuOverview from "@/components/restaurante/configuracoes/MenuOverview";
+import Button from "@/components/ui/Button";
+import Toast from "@/components/ui/Toast";
 
-// Tipos locais para o fetch
-type Category = { id: string; name: string };
-type Item = { id: string; name: string; category?: Category | null };
+// Componentes
+import HeaderManager from "@/components/restaurante/cardapio/HeaderManager";
+import CategorySection from "@/components/restaurante/cardapio/CategorySection";
+import { MenuItemType } from "@/components/restaurante/cardapio/MenuItemRow";
+import ManageCategoryModal from "@/components/restaurante/cardapio/ManageCategoryModal";
+import ItemDetailsModal from "@/components/restaurante/cardapio/ItemDetailsModal";
 
-export default function PainelCardapioPage() {
+type Category = { id: string; name: string; position: number };
+
+export default function MenuManagerPage() {
+    const [toast, setToast] = useState<{ message: string; type?: "success" | "error" | "info" } | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [restaurantId, setRestaurantId] = useState<string | null>(null);
+    // Guardamos os dados do restaurante para passar pro HeaderManager
+    const [restaurantData, setRestaurantData] = useState<{name: string, logo_url: string | null, banner_url?: string | null} | null>(null);
     
-    // Dados do Menu
-    const [menuId, setMenuId] = useState<string | null>(null);
     const [categories, setCategories] = useState<Category[]>([]);
-    const [items, setItems] = useState<Item[]>([]);
+    const [items, setItems] = useState<MenuItemType[]>([]);
 
-    useEffect(() => {
-        const loadData = async () => {
-            setIsLoading(true);
-            
-            // 1. Sessão
+    // Modais
+    const [isCatModalOpen, setIsCatModalOpen] = useState(false);
+    const [categoryToEdit, setCategoryToEdit] = useState<{id: string, name: string} | null>(null);
+    const [isItemDetailsOpen, setIsItemDetailsOpen] = useState(false);
+    const [itemToEditDetails, setItemToEditDetails] = useState<MenuItemType | null>(null);
+
+    const loadData = async () => {
+        try {
             const { data: { session } } = await supabase.auth.getSession();
-            if (!session?.user) return;
+            if (!session) return;
 
-            // 2. Restaurante
             const { data: restaurant } = await supabase
                 .from("restaurants")
-                .select("id")
+                .select("id, name, logo_url, banner_url")
                 .eq("user_id", session.user.id)
                 .single();
 
-            if (!restaurant) {
-                setIsLoading(false);
-                return;
-            }
+            if (!restaurant) return;
             setRestaurantId(restaurant.id);
+            setRestaurantData(restaurant as any);
 
-            // 3. Menu (Pega o primeiro menu ativo)
-            const { data: menu } = await supabase
-                .from("menu")
-                .select("id")
-                .eq("restaurant_id", restaurant.id)
-                .limit(1)
-                .maybeSingle();
+            const { data: cats } = await supabase.from("categories").select("*").eq("restaurant_id", restaurant.id).order("position", { ascending: true });
+            setCategories(cats || []);
 
-            if (menu) {
-                setMenuId(menu.id);
-
-                // 4. Categorias
-                const { data: catsData } = await supabase
-                    .from("categories")
-                    .select("id, name, position")
-                    .eq("restaurant_id", restaurant.id)
-                    .order("position", { ascending: true });
-                
-                setCategories(catsData || []);
-
-                // 5. Itens (via tabela de junção menu_items se existir, ou direto se seu schema for simplificado.
-                // Assumindo relação direta items -> category -> restaurant por simplicidade,
-                // ou items -> menu_items -> menu.
-                // VOU USAR A LOGICA DA API QUE VOCÊ ME PASSOU ANTES (creation-data) como base:
-                
-                // Buscar IDs dos itens no menu
-                const { data: menuItemsRel } = await supabase
-                    .from("menu_items")
-                    .select("item_id")
-                    .eq("menu_id", menu.id);
-
-                const itemIds = (menuItemsRel || []).map((r: any) => r.item_id);
-
-                if (itemIds.length > 0) {
-                    const { data: itemsData } = await supabase
-                        .from("items")
-                        .select("id, name, category:categories(id, name)")
-                        .in("id", itemIds)
-                        .order("position", { ascending: true });
-                    
-                    // Normalizar categoria (Supabase retorna array ou objeto dependendo da relação)
-                    const normalizedItems = (itemsData || []).map((it: any) => ({
-                        ...it,
-                        category: Array.isArray(it.category) ? it.category[0] : it.category
-                    }));
-                    
-                    setItems(normalizedItems);
-                } else {
-                    setItems([]);
+            const { data: rawItems } = await supabase.from("items").select("*").eq("restaurant_id", restaurant.id).order("position", { ascending: true });
+            
+            const itemsWithUrls = (rawItems || []).map((item: any) => {
+                let publicUrl = null;
+                if (item.image_path) {
+                    publicUrl = supabase.storage.from("menu-images").getPublicUrl(item.image_path).data.publicUrl;
                 }
-            }
+                return { ...item, image_url: publicUrl };
+            });
+            setItems(itemsWithUrls as MenuItemType[]);
 
+        } catch (error) {
+            console.error(error);
+        } finally {
             setIsLoading(false);
-        };
+        }
+    };
 
-        loadData();
-    }, []);
+    useEffect(() => { loadData(); }, []);
 
-    if (isLoading) {
-        return (
-            <div className="flex flex-col items-center justify-center h-64">
-                <Loader />
-                <p className="text-gray-500 mt-4">Carregando seu cardápio...</p>
-            </div>
-        );
-    }
+    // Handlers
+    const handleNewCategory = () => { setCategoryToEdit(null); setIsCatModalOpen(true); };
+    const handleEditCategory = (cat: Category) => { setCategoryToEdit(cat); setIsCatModalOpen(true); };
+    
+    const handleOpenItemDetails = (item: MenuItemType) => {
+        setItemToEditDetails(item);
+        setIsItemDetailsOpen(true);
+    };
 
-    if (!restaurantId) {
-        return <div className="p-8 text-red-500">Restaurante não encontrado.</div>;
-    }
+    // Callback quando o HeaderManager atualiza (ex: mudou logo)
+    const handleHeaderUpdate = () => {
+        setToast({ message: "Loja atualizada com sucesso!", type: "success" });
+        loadData(); // Recarrega para atualizar visualmente
+    };
+
+    if (isLoading) return <div className="flex justify-center p-10"><Loader /></div>;
+    if (!restaurantId) return <div className="p-8 text-red-500">Restaurante não encontrado.</div>;
 
     return (
-        <div className="max-w-4xl mx-auto space-y-8">
-            <div className="flex flex-col gap-2">
-                <h1 className="text-3xl font-bold text-gray-900">Gestão de Cardápio</h1>
-                <p className="text-gray-500">Organize seus itens, categorias e preços.</p>
-            </div>
+        <div className="max-w-4xl mx-auto pb-32">
+             
+             {/* Componente Header Manager */}
+             <HeaderManager 
+                restaurantId={restaurantId} 
+                initialData={restaurantData} 
+                onUpdate={handleHeaderUpdate} 
+             />
 
-            <MenuOverview 
-                menuId={menuId} 
-                categories={categories} 
-                items={items} 
-            />
+             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-8 px-2 gap-4">
+                <div>
+                    <h1 className="text-3xl font-bold text-gray-900">Cardápio</h1>
+                    <p className="text-gray-500 mt-1">Gerencie seus produtos e a aparência da sua loja.</p>
+                </div>
+                <div className="flex gap-3 w-full sm:w-auto">
+                    <Button variant="secondary" onClick={handleNewCategory} className="flex-1 sm:flex-none">Nova Categoria</Button>
+                    <Button onClick={() => window.open(`/restaurante/${restaurantId}`, '_blank')} className="flex-1 sm:flex-none">Ver Loja</Button>
+                </div>
+             </div>
+
+             <div className="space-y-2">
+                {categories.length === 0 && items.length === 0 ? (
+                    <div className="text-center py-16 bg-white rounded-xl border border-dashed border-gray-300">
+                        <p className="text-gray-500 mb-4">Comece criando uma categoria.</p>
+                        <Button onClick={handleNewCategory}>Criar Primeira Categoria</Button>
+                    </div>
+                ) : (
+                    categories.map(category => (
+                        <CategorySection 
+                            key={category.id}
+                            category={category}
+                            items={items.filter(i => i.category_id === category.id)}
+                            restaurantId={restaurantId}
+                            onRefresh={loadData} 
+                            onEditCategory={() => handleEditCategory(category)}
+                            onOpenItemDetails={handleOpenItemDetails} 
+                        />
+                    ))
+                )}
+             </div>
+
+             {items.filter(i => !i.category_id).length > 0 && (
+                 <div className="mt-12 border-t-2 border-dashed border-gray-200 pt-8 opacity-70 hover:opacity-100 transition-opacity">
+                     <h3 className="text-gray-500 font-bold mb-4 uppercase text-xs tracking-wider px-2">Itens sem categoria</h3>
+                     <div className="bg-gray-50 border border-gray-200 rounded-xl overflow-hidden">
+                        {items.filter(i => !i.category_id).map(item => (
+                             <div key={item.id} className="p-4 border-b border-gray-200 flex justify-between"><span>{item.name}</span><span className="text-red-500 text-xs cursor-pointer">Excluir</span></div>
+                        ))}
+                     </div>
+                 </div>
+             )}
+
+             <ManageCategoryModal isOpen={isCatModalOpen} onClose={() => setIsCatModalOpen(false)} onSuccess={loadData} restaurantId={restaurantId} categoryToEdit={categoryToEdit} />
+             
+             <ItemDetailsModal isOpen={isItemDetailsOpen} onClose={() => setIsItemDetailsOpen(false)} item={itemToEditDetails} />
+
+             {toast && (
+                <Toast
+                    message={toast.message}
+                    type={toast.type}
+                    onClose={() => setToast(null)}
+                />
+             )}
         </div>
     );
 }
