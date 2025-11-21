@@ -7,9 +7,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation"; // added
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 
-import { icons } from "../../../../../lib/fontawesome";
-import { uploadBannerImage } from "../../../../../lib/uploadBannerImage";
-import { supabase as clientSupabase } from "../../../../../lib/supabaseClient"; // optional direct client if needed
+import { icons } from "../../../../lib/fontawesome";
+import { uploadBannerImage } from "../../../../lib/uploadBannerImage";
+import { supabase as clientSupabase } from "../../../../lib/supabaseClient"; // optional direct client if needed
 
 const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

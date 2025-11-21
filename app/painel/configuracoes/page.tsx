@@ -1,13 +1,16 @@
-// app/restaurante/[restauranteId]/configuracoes/page.tsx
+// app/painel/configuracoes/page.tsx
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useRouter, useParams } from "next/navigation";
-import { supabase } from "../../../lib/supabaseClient";
-import { uploadLogoImage } from "../../../lib/uploadLogoImage";
+import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabaseClient";
+import { uploadLogoImage } from "@/lib/uploadLogoImage";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { icons } from "../../../lib/fontawesome";
+import { icons } from "@/lib/fontawesome";
 import type { User } from "@supabase/supabase-js";
+
+// Tipo de mensagem (corrigido da iteração anterior)
+type MessageType = "error" | "success" | "info";
 
 type Restaurant = {
     id: string;
@@ -41,20 +44,25 @@ const loadScript = (src: string, onLoad: () => void) => {
     document.head.appendChild(script);
 };
 
-export default function RestauranteConfiguracoesPage() {
+export default function ConfiguracoesPage() {
     const router = useRouter();
-    const params = useParams();
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // Corrigido: o nome do parâmetro vem da pasta [restauranteId]
-    const restaurantId = Array.isArray(params.restauranteId) ? params.restauranteId[0] : params.restauranteId;
+    const [restaurantId, setRestaurantId] = useState<string | null>(null);
 
     const [user, setUser] = useState<User | null>(null);
     const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
     const [menu, setMenu] = useState<Menu | null>(null);
     const [loading, setLoading] = useState(true);
     const [isDeleting, setIsDeleting] = useState(false);
-    const [message, setMessage] = useState<{ type: "error" | "success"; content: string } | null>(null);
+    const [message, setMessage] = useState<{ type: MessageType; content: string } | null>(null);
+
+    // ESTADOS PARA MINHA CONTA
+    const [userName, setUserName] = useState("");
+    const [isEditingName, setIsEditingName] = useState(false);
+    const nameInputRef = useRef<HTMLInputElement>(null);
+    const [isUpdatingName, setIsUpdatingName] = useState(false);
+    // FIM ESTADOS PARA MINHA CONTA
 
     const [shareableUrl, setShareableUrl] = useState("");
     const [qrCodeUrl, setQrCodeUrl] = useState("");
@@ -68,11 +76,53 @@ export default function RestauranteConfiguracoesPage() {
     const [computing, setComputing] = useState(false);
     const [updatingManual, setUpdatingManual] = useState(false);
 
-    // 🔐 Carrega dados do restaurante com verificação de permissão
-    useEffect(() => {
-        if (!restaurantId) return;
+    // Função central para buscar o restaurante pelo user_id e configurar o estado
+    const fetchRestaurantByUserId = async (userId: string) => {
+        try {
+            const { data, error } = await supabase
+                .from("restaurants")
+                .select(
+                    "id, name, url_slug, logo_url, user_id, prep_time_min_minutes, prep_time_max_minutes, prep_time_source, prep_time_computed_at"
+                )
+                .eq("user_id", userId)
+                .single(); // Usa single() pois cada user tem 1 restaurante
 
-        const loadData = async () => {
+            if (error || !data) {
+                console.warn("fetchRestaurantByUserId: restaurante não encontrado para o user_id", userId, error);
+                return null;
+            }
+
+            // Define o ID e o objeto do restaurante
+            setRestaurantId(data.id);
+            setRestaurant(data);
+
+            // Inicia o Prep Time Mode
+            if (data.prep_time_source === "manual") {
+                setPrepMode("manual");
+            } else if (data.prep_time_source === "auto") {
+                setPrepMode("auto");
+            } else {
+                if (typeof data.prep_time_min_minutes === "number" && typeof data.prep_time_max_minutes === "number") {
+                    setPrepMode("manual");
+                } else {
+                    setPrepMode("auto");
+                }
+            }
+
+            setManualMin(typeof data.prep_time_min_minutes === "number" ? data.prep_time_min_minutes : "");
+            setManualMax(typeof data.prep_time_max_minutes === "number" ? data.prep_time_max_minutes : "");
+
+            return data.id;
+
+        } catch (err) {
+            console.error("Erro em fetchRestaurantByUserId:", err);
+            return null;
+        }
+    };
+
+    // 🔐 Carrega dados do usuário e do restaurante associado
+    useEffect(() => {
+        const loadUserAndRestaurant = async () => {
             setLoading(true);
             try {
                 const {
@@ -83,52 +133,152 @@ export default function RestauranteConfiguracoesPage() {
                     router.push("/admin/login");
                     return;
                 }
-                setUser(session.user);
+                const currentUser = session.user;
+                setUser(currentUser);
 
-                // busca restaurante + campos de prep_time usando função reutilizável
-                await fetchRestaurant();
+                // Define o nome inicial do usuário
+                setUserName((currentUser.user_metadata as { full_name?: string })?.full_name || currentUser.email || "");
 
-                // buscar cardápio (selecionando campos extras para o card)
-                const { data: menuData, error: menuError } = await supabase
-                    .from("menu")
-                    .select("id, name, description, is_active, banner_url")
-                    .eq("restaurant_id", restaurantId)
-                    .maybeSingle();
+                // 1. Busca o restaurante do usuário
+                const rId = await fetchRestaurantByUserId(currentUser.id);
 
-                if (!menuError && menuData) setMenu(menuData);
+                if (rId) {
+                    // 2. Continua buscando o cardápio
+                    const { data: menuData, error: menuError } = await supabase
+                        .from("menu")
+                        .select("id, name, description, is_active, banner_url")
+                        .eq("restaurant_id", rId)
+                        .maybeSingle();
 
-                // Preferir link por menuId (quando o restaurante tem um menu criado)
-                const slug = await getRestaurantSlug(restaurantId);
+                    if (!menuError && menuData) setMenu(menuData);
 
-                const url = `${window.location.origin}/${slug}`;
+                    // 3. Gera URLs e QR Code
+                    const slug = await getRestaurantSlug(rId);
+                    const url = `${window.location.origin}/${slug}`;
+                    setShareableUrl(url);
 
-                setShareableUrl(url);
+                    loadScript("https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.1/qrcode.min.js", () => {
+                        if ((window as any).QRCode) {
+                            (window as any).QRCode.toDataURL(url, { width: 200, margin: 1 }, (err: any, dataUrl: string) => {
+                                if (!err) setQrCodeUrl(dataUrl);
+                            });
+                        }
+                    });
+                } else {
+                    setMessage({ type: "info", content: "Nenhum restaurante encontrado para este usuário. Por favor, crie um." });
+                }
 
-                loadScript("https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.1/qrcode.min.js", () => {
-                    if ((window as any).QRCode) {
-                        (window as any).QRCode.toDataURL(url, { width: 200, margin: 1 }, (err: any, dataUrl: string) => {
-                            if (!err) setQrCodeUrl(dataUrl);
-                        });
-                    }
-                });
-
-                loadScript("https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.1/qrcode.min.js", () => {
-                    if ((window as any).QRCode) {
-                        (window as any).QRCode.toDataURL(url, { width: 200, margin: 1 }, (err: any, dataUrl: string) => {
-                            if (!err) setQrCodeUrl(dataUrl);
-                        });
-                    }
-                });
             } catch (err) {
-                console.error("Erro loadData configurações:", err);
+                console.error("Erro loadUserAndRestaurant configurações:", err);
                 setMessage({ type: "error", content: "Erro ao carregar dados." });
             } finally {
                 setLoading(false);
             }
         };
 
-        loadData();
-    }, [restaurantId, router]);
+        loadUserAndRestaurant();
+
+    }, [router]);
+
+    // Função auxiliar para re-fetch, que agora usa o estado `restaurantId`
+    const fetchRestaurant = async () => {
+        if (!restaurantId) return null;
+        try {
+            const { data, error } = await supabase
+                .from("restaurants")
+                .select(
+                    "id, name, url_slug, logo_url, user_id, prep_time_min_minutes, prep_time_max_minutes, prep_time_source, prep_time_computed_at"
+                )
+                .eq("id", restaurantId)
+                .single();
+
+            if (error || !data) {
+                console.warn("fetchRestaurant: restaurante não encontrado", error);
+                return null;
+            }
+
+            // Atualiza estado do restaurante
+            setRestaurant(data);
+
+            // Decide prepMode com base no campo source ou fallback pelos valores min/max
+            if (data.prep_time_source === "manual") {
+                setPrepMode("manual");
+            } else if (data.prep_time_source === "auto") {
+                setPrepMode("auto");
+            } else {
+                // se source não estiver definido, inferir manual se houver min/max preenchidos
+                if (typeof data.prep_time_min_minutes === "number" && typeof data.prep_time_max_minutes === "number") {
+                    setPrepMode("manual");
+                } else {
+                    setPrepMode("auto");
+                }
+            }
+
+            // preencher inputs com os valores do banco (ou vazio)
+            setManualMin(typeof data.prep_time_min_minutes === "number" ? data.prep_time_min_minutes : "");
+            setManualMax(typeof data.prep_time_max_minutes === "number" ? data.prep_time_max_minutes : "");
+
+            return data;
+        } catch (err) {
+            console.error("Erro em fetchRestaurant:", err);
+            return null;
+        }
+    };
+
+    // ----------- Lógica de Edição de Nome -----------
+
+    const handleNameUpdate = async () => {
+        if (userName.trim() === "") {
+            setMessage({ type: "error", content: "O nome não pode ser vazio." });
+            return;
+        }
+        if (userName.trim() === ((user?.user_metadata as { full_name?: string })?.full_name || user?.email)) {
+            setIsEditingName(false); // Não faz nada se o nome não mudou
+            return;
+        }
+
+        setIsUpdatingName(true);
+        setMessage(null);
+
+        try {
+            const { data, error } = await supabase.auth.updateUser({
+                data: { full_name: userName.trim() },
+            });
+
+            if (error) throw error;
+
+            // Atualiza o estado local do usuário e o modo de edição
+            setUser(data.user);
+            setUserName((data.user.user_metadata as { full_name: string }).full_name);
+            setIsEditingName(false);
+            setMessage({ type: "success", content: "Nome atualizado com sucesso!" });
+
+        } catch (error: any) {
+            console.error("Erro ao atualizar nome:", error);
+            setMessage({ type: "error", content: `Erro ao atualizar nome: ${error.message || "Tente novamente."}` });
+        } finally {
+            setIsUpdatingName(false);
+        }
+    };
+
+    const handleInputClick = () => {
+        setIsEditingName(true);
+        // Garante que o input seja focado na próxima renderização
+        setTimeout(() => nameInputRef.current?.focus(), 0);
+    };
+
+    const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter') {
+            handleNameUpdate();
+        } else if (e.key === 'Escape') {
+            // Volta o nome para o valor original e sai do modo de edição
+            setUserName((user?.user_metadata as { full_name?: string })?.full_name || user?.email || "");
+            setIsEditingName(false);
+        }
+    };
+
+    // ----------- FIM Lógica de Edição de Nome -----------
+
 
     // 🗑️ Excluir restaurante (chama API server-side que remove storage + dados relacionados)
     const handleDeleteRestaurant = async () => {
@@ -151,6 +301,7 @@ export default function RestauranteConfiguracoesPage() {
                 return;
             }
             setMessage({ type: "success", content: "Restaurante e dados relacionados deletados com sucesso." });
+
             router.push("/restaurante/criar");
         } catch (err) {
             console.error("Erro ao deletar restaurante:", err);
@@ -201,17 +352,14 @@ export default function RestauranteConfiguracoesPage() {
         if (!confirm("Deseja remover a logo atual?")) return;
 
         try {
-            // primeiro remove do bucket
             const key = restaurant.logo_url;
             const { error: storageErr } = await supabase.storage.from("restaurant-logos").remove([key]);
             if (storageErr) {
-                // log e notifica
                 console.error("Erro ao remover logo do storage:", storageErr);
                 setMessage({ type: "error", content: `Erro ao remover arquivo do storage: ${storageErr.message}` });
                 return;
             }
 
-            // depois atualiza o registro no banco para null
             const { error } = await supabase.from("restaurants").update({ logo_url: null }).eq("id", restaurant.id);
             if (error) {
                 console.error("Erro ao atualizar restaurante após remoção de logo:", error);
@@ -230,7 +378,7 @@ export default function RestauranteConfiguracoesPage() {
     // Navega para a página de criação do cardápio (AddMenuClient fará a criação)
     const handleCreateMenu = () => {
         if (!restaurant) return;
-        router.push(`/painel/${restaurant.id}/criar-cardapio`);
+        router.push(`/painel/${restaurant.id}/criar-cardapio`); // Mantendo o caminho com ID para criar cardápio
     };
 
     // Alterna disponibilidade do cardápio (cliente)
@@ -279,6 +427,7 @@ export default function RestauranteConfiguracoesPage() {
 
     // navegar para editar / visualizar cardápio
     const goToMenu = (menuId: string) => {
+        if (!restaurantId) return;
         // abre a view administrativa do cardápio dentro do painel
         router.push(`/painel/${restaurantId}/cardapio/${menuId}`);
     };
@@ -289,49 +438,6 @@ export default function RestauranteConfiguracoesPage() {
         return data?.url_slug ?? null;
     };
 
-    // FETCH centralizado do restaurante (para garantir estado sincronizado com DB)
-    const fetchRestaurant = async () => {
-        try {
-            const { data, error } = await supabase
-                .from("restaurants")
-                .select(
-                    "id, name, url_slug, logo_url, user_id, prep_time_min_minutes, prep_time_max_minutes, prep_time_source, prep_time_computed_at"
-                )
-                .eq("id", restaurantId)
-                .single();
-
-            if (error || !data) {
-                console.warn("fetchRestaurant: restaurante não encontrado", error);
-                return null;
-            }
-
-            // Atualiza estado do restaurante
-            setRestaurant(data);
-
-            // Decide prepMode com base no campo source ou fallback pelos valores min/max
-            if (data.prep_time_source === "manual") {
-                setPrepMode("manual");
-            } else if (data.prep_time_source === "auto") {
-                setPrepMode("auto");
-            } else {
-                // se source não estiver definido, inferir manual se houver min/max preenchidos
-                if (typeof data.prep_time_min_minutes === "number" && typeof data.prep_time_max_minutes === "number") {
-                    setPrepMode("manual");
-                } else {
-                    setPrepMode("auto");
-                }
-            }
-
-            // preencher inputs com os valores do banco (ou vazio)
-            setManualMin(typeof data.prep_time_min_minutes === "number" ? data.prep_time_min_minutes : "");
-            setManualMax(typeof data.prep_time_max_minutes === "number" ? data.prep_time_max_minutes : "");
-
-            return data;
-        } catch (err) {
-            console.error("Erro em fetchRestaurant:", err);
-            return null;
-        }
-    };
 
     // ---------- Prep time API interactions ----------
     const handleComputeNow = async () => {
@@ -343,7 +449,6 @@ export default function RestauranteConfiguracoesPage() {
             const json = await res.json();
             if (!res.ok) throw json;
 
-            // re-fetch restaurant para obter valores atualizados
             await fetchRestaurant();
 
             setMessage({ type: "success", content: "Cálculo automático concluído." });
@@ -361,7 +466,6 @@ export default function RestauranteConfiguracoesPage() {
         setMessage(null);
 
         if (prepMode === "manual") {
-            // valida campos manual
             if (manualMin === "" || manualMax === "") {
                 setMessage({ type: "error", content: "Informe mínimo e máximo." });
                 return;
@@ -387,7 +491,6 @@ export default function RestauranteConfiguracoesPage() {
                 const json = await res.json();
                 if (!res.ok) throw json;
 
-                // re-fetch para garantir UI sincronizada com DB (mantém manual selecionado)
                 await fetchRestaurant();
 
                 setMessage({ type: "success", content: "Tempo de preparo salvo manualmente." });
@@ -398,10 +501,8 @@ export default function RestauranteConfiguracoesPage() {
                 setUpdatingManual(false);
             }
         } else {
-            // modo automatico: remove valores manuais e marca source=auto
             setComputing(true);
             try {
-                // 1) seta source = auto (limpa manual) no backend
                 const res1 = await fetch(`/api/restaurants/${restaurant.id}/set-prep-time`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -410,13 +511,10 @@ export default function RestauranteConfiguracoesPage() {
                 const json1 = await res1.json();
                 if (!res1.ok) throw json1;
 
-                // re-fetch para garantir UI sincronizada com DB (modo auto)
                 await fetchRestaurant();
 
-                // 2) solicitar cálculo automático imediato
                 const res2 = await fetch(`/api/restaurants/${restaurant.id}/compute-prep-time`, { method: "POST" });
                 if (res2.ok) {
-                    // atualiza novamente com valores automáticos
                     await fetchRestaurant();
                 }
 
@@ -442,7 +540,7 @@ export default function RestauranteConfiguracoesPage() {
     if (!restaurant) {
         return (
             <div className="flex min-h-screen flex-col items-center justify-center p-4">
-                <p className="text-red-600 text-lg">{message?.content || "Restaurante não encontrado."}</p>
+                <p className="text-red-600 text-lg">{message?.content || "Restaurante não encontrado para seu usuário logado."}</p>
                 <button
                     onClick={() => router.push("/restaurante/criar")}
                     className="mt-3 rounded-md bg-indigo-600 px-5 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700"
@@ -452,6 +550,20 @@ export default function RestauranteConfiguracoesPage() {
             </div>
         );
     }
+
+    // função auxiliar para estilizar mensagens
+    const getMessageClasses = (type: MessageType) => {
+        switch (type) {
+            case "success":
+                return "bg-green-100 text-green-800 border border-green-300";
+            case "error":
+                return "bg-red-100 text-red-800 border border-red-300";
+            case "info":
+                return "bg-blue-100 text-blue-800 border border-blue-300";
+            default:
+                return "bg-gray-100 text-gray-800 border border-gray-300";
+        }
+    };
 
     // obter URL pública da logo (se houver)
     const logoPublicUrl =
@@ -498,40 +610,85 @@ export default function RestauranteConfiguracoesPage() {
 
                 {message && (
                     <div
-                        className={`rounded-md p-3 text-sm font-medium ${message.type === "success"
-                            ? "bg-green-100 text-green-800 border border-green-300"
-                            : "bg-red-100 text-red-800 border border-red-300"
-                            }`}
+                        className={`rounded-md p-3 text-sm font-medium ${getMessageClasses(message.type)}`}
                     >
                         {message.content}
                     </div>
                 )}
 
-                {/* PERFIL */}
+                {/* MINHA CONTA (Novo) */}
                 <section className="space-y-4 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-                    <h2 className="text-lg font-semibold text-gray-900">Perfil da Loja</h2>
-                    <p className="text-sm text-gray-700">Edite o nome, descrição e endereço do seu restaurante.</p>
-                    <button
-                        disabled
-                        className="rounded-md border border-gray-300 bg-white px-5 py-2 text-sm font-medium text-gray-700 shadow-sm disabled:opacity-50"
-                    >
-                        <FontAwesomeIcon icon={icons.faEdit} /> Editar Perfil (Em breve)
-                    </button>
-                </section>
+                    <h2 className="text-lg font-semibold text-gray-900">Minha Conta</h2>
+                    <p className="text-sm text-gray-700">Gerencie suas informações de login e perfil de administrador.</p>
 
-                {/* HORÁRIOS */}
-                <section className="space-y-4 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-                    <h2 className="text-lg font-semibold text-gray-900">Horários</h2>
-                    <p className="text-sm text-gray-700">Defina quando sua loja está aberta para receber pedidos.</p>
-                    <button
-                        disabled
-                        className="rounded-md border border-gray-300 bg-white px-5 py-2 text-sm font-medium text-gray-700 shadow-sm disabled:opacity-50"
-                    >
-                        <FontAwesomeIcon icon={icons.faTimes} /> Definir Horários (Em breve)
-                    </button>
+                    {/* Campo Nome */}
+                    <div className="space-y-2">
+                        <label htmlFor="adminName" className="block text-sm font-medium text-gray-700">Nome do Administrador</label>
+                        <div className="flex items-center gap-2">
+                            <input
+                                id="adminName"
+                                ref={nameInputRef}
+                                type="text"
+                                value={userName}
+                                onChange={(e) => setUserName(e.target.value)}
+                                onFocus={handleInputClick}
+                                onBlur={handleNameUpdate} // Salva ao perder o foco (blur)
+                                onKeyDown={handleInputKeyDown} // Salva ao apertar Enter
+                                disabled={isUpdatingName}
+                                required
+                                className={`flex-grow rounded-md border-gray-300 px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 ${isEditingName ? 'border-indigo-500' : 'border-gray-300'}`}
+                            />
+                            {(isEditingName || isUpdatingName) && (
+                                <button
+                                    onClick={handleNameUpdate}
+                                    disabled={isUpdatingName || userName.trim() === ((user?.user_metadata as { full_name?: string })?.full_name || user?.email || "") || userName.trim() === ""}
+                                    className="rounded-md bg-indigo-600 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 disabled:opacity-50 min-w-[70px]"
+                                >
+                                    {isUpdatingName ? <FontAwesomeIcon icon={icons.faSpinner} spin /> : <FontAwesomeIcon icon={icons.faCheck} />}
+                                </button>
+                            )}
+                            {!isEditingName && !isUpdatingName && (
+                                <button
+                                    onClick={handleInputClick}
+                                    className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
+                                >
+                                    <FontAwesomeIcon icon={icons.faEdit} />
+                                </button>
+                            )}
+                        </div>
+                        {isEditingName && !isUpdatingName && (
+                            <p className="text-xs text-gray-500">Pressione Enter ou clique no <FontAwesomeIcon icon={icons.faCheck} /> para salvar.</p>
+                        )}
+                        {isUpdatingName && <p className="text-xs text-indigo-600">Atualizando nome...</p>}
+                    </div>
+
+                    {/* E-mail e Senha Buttons */}
+                    <div className="flex flex-col gap-3 pt-2">
+                        <div className="flex items-center justify-between p-3 border border-gray-100 rounded-md bg-gray-50">
+                            <span className="text-sm text-gray-700">E-mail: <strong className="font-medium text-gray-900">{user?.email}</strong></span>
+                            <button
+                                onClick={() => router.push("/painel/configuracoes/atualizando-email")}
+                                className="rounded-md border border-indigo-300 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 shadow-sm hover:bg-indigo-100"
+                            >
+                                <FontAwesomeIcon icon={icons.faEnvelope} className="mr-1" /> Atualizar E-mail
+                            </button>
+                        </div>
+
+                        <div className="flex items-center justify-between p-3 border border-gray-100 rounded-md bg-gray-50">
+                            <span className="text-sm text-gray-700">Senha: **********</span>
+                            <button
+                                onClick={() => router.push("/painel/configuracoes/nova-senha")}
+                                className="rounded-md border border-indigo-300 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 shadow-sm hover:bg-indigo-100"
+                            >
+                                <FontAwesomeIcon icon={icons.faLock} className="mr-1" /> Alterar Senha
+                            </button>
+                        </div>
+                    </div>
                 </section>
 
                 {/* COMPARTILHAR */}
+                {/* ... (Conteúdo de Compartilhar, Prep Time e Cardápio permanecem inalterados) ... */}
+
                 <section className="space-y-4 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
                     <h2 className="text-lg font-semibold text-gray-900">Compartilhar Cardápio</h2>
                     <p className="text-sm text-gray-700">Use o link direto ou QR Code para divulgar seu cardápio.</p>
@@ -568,9 +725,8 @@ export default function RestauranteConfiguracoesPage() {
                     </div>
                 </section>
 
-                {/* TEMPO MÉDIO DE PREPARO */}
                 <section className="space-y-4 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-                    <h2 className="text-lg font-semibold text-gray-900">Tempo médio de preparo</h2>
+                    <h2 className="text-lg font-semibold text-gray-900">Tempo Médio de Preparo</h2>
                     <p className="text-sm text-gray-700">
                         Defina se deseja utilizar o cálculo automático (necessário ter pelo menos uma semana de uso) ou inserir um intervalo manualmente.
                     </p>
@@ -638,7 +794,6 @@ export default function RestauranteConfiguracoesPage() {
                                 />
                             </div>
                             <div>
-                                {/* Obs: botao de salvar manual agora é o salvar geral */}
                                 <div className="text-xs text-gray-500">Clique em "Salvar" à direita para persistir manualmente.</div>
                             </div>
                             <p className="text-xs text-gray-500 sm:col-span-3">A diferença entre máximo e mínimo deve ser ao menos 20 minutos.</p>
@@ -664,7 +819,6 @@ export default function RestauranteConfiguracoesPage() {
 
                 </section>
 
-                {/* CARDÁPIO (novo card UI) */}
                 <section className="space-y-4 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
                     <h2 className="text-lg font-semibold text-gray-900">Cardápio do Restaurante</h2>
                     <p className="text-sm text-gray-700">Crie e gerencie o cardápio principal do seu restaurante.</p>

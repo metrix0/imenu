@@ -1,6 +1,10 @@
 // lib/fontawesome.ts
 import {
     faPlus,
+    faSpinner,
+    faEnvelope,
+    faLock,
+    faCheckCircle,
     faTrash,
     faEdit,
     faCheck,
@@ -26,8 +30,12 @@ import {
 // 👇 all in one export object
 export const icons = {
     faPlus,
+    faSpinner,
+    faEnvelope,
+    faLock,
     faTrash,
     faEdit,
+    faCheckCircle,
     faCheck,
     faTimes,
     faGripLines,
