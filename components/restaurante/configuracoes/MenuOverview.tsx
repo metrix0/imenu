@@ -3,12 +3,14 @@
 import { useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { icons } from "@/lib/fontawesome";
 
 // UI Components
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 
-// Tipos necessários para renderização
+// Tipos necessários
 type Category = { id: string; name: string };
 type Item = { id: string; name: string; category?: Category | null };
 
@@ -29,7 +31,7 @@ export default function MenuOverview({
 }: MenuOverviewProps) {
     const router = useRouter();
 
-    // Lógica de agrupamento (mantida)
+    // Lógica de agrupamento
     const itemsByCategory = useMemo(() => {
         const grouped = categories.reduce<Record<string, Item[]>>((acc, cat) => {
             acc[cat.id] = [];
@@ -53,22 +55,37 @@ export default function MenuOverview({
     const allCategoryIds = Object.keys(itemsByCategory).filter(k => k !== UNCATEGORIZED_KEY);
     const uncategorizedItems = itemsByCategory[UNCATEGORIZED_KEY] || [];
 
-    if (!menuId) return null;
+    if (!menuId) return (
+        <Card className="p-8 text-center">
+            <p className="text-gray-500">Nenhum cardápio encontrado.</p>
+        </Card>
+    );
 
     return (
-        // Substituída a div manual pelo componente Card
         <Card className={`min-h-[200px] p-6 ${className}`}>
             <div className="space-y-8">
+                <div className="flex justify-between items-center border-b border-gray-100 pb-4">
+                    <h3 className="text-xl font-bold text-gray-900">Seu Cardápio</h3>
+                    <Button 
+                        variant="primary" 
+                        onClick={() => router.push(`/painel/cardapio/adicionar-item`)}
+                        className="text-sm px-4 py-2"
+                    >
+                        <FontAwesomeIcon icon={icons.faPlus} className="mr-2" />
+                        Novo Item
+                    </Button>
+                </div>
+
                 {/* Estado Vazio */}
                 {allCategoryIds.length === 0 && uncategorizedItems.length === 0 && (
-                     <div className="text-center py-8">
-                        <p className="text-gray-500 mb-4">Seu cardápio está vazio.</p>
-                        <Link 
-                            href={`/menu/${menuId}/add-item`}
-                            className="text-brand font-medium hover:underline"
+                     <div className="text-center py-12 my-10 bg-gray-50 rounded-lg border border-dashed border-gray-200">
+                        <p className="text-gray-500 mb-4 ">Seu cardápio ainda não tem itens.</p>
+                        <Button 
+                            variant="primary"
+                            onClick={() => router.push(`/painel/cardapio/adicionar-item`)}
                         >
-                            Comece adicionando um item
-                        </Link>
+                            Adicionar primeiro item
+                        </Button>
                      </div>
                 )}
 
@@ -81,15 +98,27 @@ export default function MenuOverview({
 
                     return (
                         <div key={catId}>
-                            <h4 className="text-lg font-bold text-gray-800 mb-3 border-b border-gray-100 pb-1">
-                                {categoryName}
-                            </h4>
-                            <div className="space-y-3">
+                            <div className="flex justify-between items-center mb-3">
+                                <h4 className="text-lg font-bold text-gray-800">
+                                    {categoryName}
+                                </h4>
+                                <Link 
+                                    href={`/painel/cardapio/categorias/${catId}`} 
+                                    className="text-xs text-brand font-medium hover:underline"
+                                >
+                                    Editar Categoria
+                                </Link>
+                            </div>
+                            
+                            <div className="grid grid-cols-1 gap-2">
                                 {categoryItems.map(item => (
-                                    <div key={item.id} className="flex justify-between items-center p-3 hover:bg-gray-50 rounded-lg border border-transparent hover:border-gray-100 transition-all">
+                                    <div key={item.id} className="flex justify-between items-center p-4 bg-white rounded-lg border border-gray-200 hover:border-brand/30 hover:shadow-sm transition-all group">
                                         <span className="text-gray-700 font-medium">{item.name}</span>
-                                        {/* Link inline mantido como Link pois é navegação textual */}
-                                        <Link href={`/painel/cardapio/item/${item.id}`} className="text-xs text-gray-400 hover:text-brand">
+                                        <Link 
+                                            href={`/painel/cardapio/item/${item.id}`} 
+                                            className="text-sm text-gray-400 group-hover:text-brand font-medium flex items-center gap-2"
+                                        >
+                                            <FontAwesomeIcon icon={icons.faEdit} />
                                             Editar
                                         </Link>
                                     </div>
@@ -102,12 +131,16 @@ export default function MenuOverview({
                 {/* Itens Sem Categoria */}
                 {uncategorizedItems.length > 0 && (
                     <div>
-                        <h4 className="text-lg font-bold text-gray-800 mb-3 border-b border-gray-100 pb-1">Geral</h4>
-                        <div className="space-y-3">
+                        <h4 className="text-lg font-bold text-gray-800 mb-3 pt-4">Geral (Sem Categoria)</h4>
+                        <div className="grid grid-cols-1 gap-2">
                             {uncategorizedItems.map(item => (
-                                <div key={item.id} className="flex justify-between items-center p-3 hover:bg-gray-50 rounded-lg border border-transparent hover:border-gray-100 transition-all">
+                                <div key={item.id} className="flex justify-between items-center p-4 bg-white rounded-lg border border-gray-200 hover:border-brand/30 hover:shadow-sm transition-all group">
                                     <span className="text-gray-700 font-medium">{item.name}</span>
-                                    <Link href={`/painel/cardapio/item/${item.id}`} className="text-xs text-gray-400 hover:text-brand">
+                                    <Link 
+                                        href={`/painel/cardapio/item/${item.id}`} 
+                                        className="text-sm text-gray-400 group-hover:text-brand font-medium flex items-center gap-2"
+                                    >
+                                        <FontAwesomeIcon icon={icons.faEdit} />
                                         Editar
                                     </Link>
                                 </div>
@@ -117,27 +150,14 @@ export default function MenuOverview({
                 )}
             </div>
 
-            {/* Ações de Rodapé usando Button Component */}
-            <div className="mt-8 pt-6 border-t border-gray-100 flex flex-col sm:flex-row gap-3">
-                <div className="flex-1">
-                    <Button 
-                        variant="secondary" 
-                        onClick={() => router.push(`/menu/${menuId}/add-item`)}
-                        className="w-full bg-white text-brand border-brand/30 hover:bg-brand/5"
-                    >
-                        + Adicionar Item Manualmente
-                    </Button>
-                </div>
-                <div className="flex-1">
-                    {/* Usando variant secondary mas com override de classes para manter o estilo 'brand' específico */}
-                    <Button 
-                        variant="secondary"
-                        onClick={() => router.push(`/menu/${menuId}`)}
-                        className="w-full bg-white text-brand border-brand/30 hover:bg-brand/5"
-                    >
-                        Gerenciar Categorias
-                    </Button>
-                </div>
+            {/* Ações de Rodapé */}
+            <div className="mt-8 pt-6 border-t border-gray-100 flex flex-col sm:flex-row gap-4 justify-end">
+                <Button 
+                    variant="secondary"
+                    onClick={() => router.push(`/painel/cardapio/categorias`)}
+                >
+                    Gerenciar Categorias
+                </Button>
             </div>
         </Card>
     );

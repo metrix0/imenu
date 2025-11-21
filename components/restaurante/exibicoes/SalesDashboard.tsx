@@ -1,4 +1,3 @@
-// components/SalesDashboard.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -14,6 +13,11 @@ import {
     Legend,
 } from "chart.js";
 import { Line } from "react-chartjs-2";
+
+// Design System Imports
+import Card from "@/components/ui/Card";
+import Input from "@/components/ui/Input";
+import ListLoader from "@/components/ui/ListLoader";
 
 // register Chart.js components
 ChartJS.register(
@@ -79,7 +83,7 @@ export default function SalesDashboard({ menuId }: { menuId: string }) {
                     `/api/restaurants/${menuId}/sales?from=${startDate}&to=${endDate}`
                 );
                 if (!response.ok) {
-                    throw new Error("Failed to fetch sales data");
+                    throw new Error("Falha ao buscar dados de vendas.");
                 }
                 const data: ApiResponse = await response.json();
                 setStats(data.stats);
@@ -97,85 +101,125 @@ export default function SalesDashboard({ menuId }: { menuId: string }) {
     // --- Graph config ---
     const chartData = {
         labels: graphData.map(d => new Date(d.date).toLocaleDateString("pt-BR", {
-            timeZone: 'UTC' // Diz ao JS para formatar a data em UTC
+            timeZone: 'UTC'
         })),
         datasets: [
             {
-                label: "Vendas Diárias (R$)",
+                label: "Vendas (R$)",
                 data: graphData.map(d => d.daily_sales_cents / 100),
                 fill: false,
-                borderColor: "rgb(245, 158, 11)",
-                tension: 0.1,
+                borderColor: "#f14400", // var(--color-brand)
+                backgroundColor: "#f14400",
+                tension: 0.3,
+                yAxisID: 'y',
             },
             {
-                // Linha 2: Pedidos
-                label: "Nº de Pedidos",
-                data: graphData.map(d => parseInt(d.daily_order_count, 10)), 
+                label: "Pedidos",
+                data: graphData.map(d => parseInt(d.daily_order_count, 10)),
                 fill: false,
-                borderColor: "rgb(59, 130, 246)", 
-                tension: 0.1,
-                
+                borderColor: "#1d1d1d", // var(--color-text)
+                backgroundColor: "#1d1d1d",
+                tension: 0.3,
+                yAxisID: 'y1',
             }
         ],
     };
 
+    const chartOptions = {
+        responsive: true,
+        interaction: {
+            mode: 'index' as const,
+            intersect: false,
+        },
+        scales: {
+            y: {
+                type: 'linear' as const,
+                display: true,
+                position: 'left' as const,
+                title: { display: true, text: 'Valor (R$)' }
+            },
+            y1: {
+                type: 'linear' as const,
+                display: true,
+                position: 'right' as const,
+                grid: {
+                    drawOnChartArea: false,
+                },
+                title: { display: true, text: 'Quantidade' }
+            },
+        },
+    };
+
     return (
         <div className="space-y-6">
-            {/* 1. Date Filters */}
-            <div className="flex flex-wrap items-center gap-4 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-                <h3 className="text-lg font-semibold">Analisar Período</h3>
+            {/* 1. Date Filters - Agora usando Card e Input */}
+            <Card className="flex flex-wrap items-end gap-4 p-5">
                 <div className="flex-1 min-w-[150px]">
-                    <label htmlFor="startDate" className="block text-sm font-medium text-gray-700">De</label>
-                    <input
+                    <Input
+                        label="Data Inicial"
                         type="date"
-                        id="startDate"
                         value={startDate}
                         onChange={(e) => setStartDate(e.target.value)}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                     />
                 </div>
                 <div className="flex-1 min-w-[150px]">
-                    <label htmlFor="endDate" className="block text-sm font-medium text-gray-700">Até</label>
-                    <input
+                    <Input
+                        label="Data Final"
                         type="date"
-                        id="endDate"
                         value={endDate}
                         onChange={(e) => setEndDate(e.target.value)}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                     />
                 </div>
-            </div>
+            </Card>
 
-            {isLoading && <p>Carregando dados...</p>}
-            {error && <p className="text-red-500">{error}</p>}
+            {isLoading && (
+                <Card>
+                    <ListLoader lines={4} />
+                    <p className="text-center text-gray-500 mt-4">Carregando métricas...</p>
+                </Card>
+            )}
+            
+            {error && (
+                <Card className="border-red-200 bg-red-50">
+                    <p className="text-red-600 text-center">{error}</p>
+                </Card>
+            )}
             
             {!isLoading && !error && stats && (
                 <>
                     {/* 2. Stats Cards (Vendas e N° de Vendas) */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-                            <h4 className="text-sm font-medium text-gray-500">Total de Vendas</h4>
-                            <p className="mt-2 text-3xl font-semibold text-gray-900">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <Card>
+                            <h4 className="text-sm font-medium text-gray-500 uppercase tracking-wide">Total de Vendas</h4>
+                            <p className="mt-2 text-3xl font-bold text-brand">
                                 {formatPrice(stats.total_sales_cents)}
                             </p>
-                        </div>
-                        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-                            <h4 className="text-sm font-medium text-gray-500">N° de Pedidos</h4>
-                            <p className="mt-2 text-3xl font-semibold text-gray-900">
+                        </Card>
+                        <Card>
+                            <h4 className="text-sm font-medium text-gray-500 uppercase tracking-wide">N° de Pedidos</h4>
+                            <p className="mt-2 text-3xl font-bold text-gray-900">
                                 {stats.total_orders}
                             </p>
-                        </div>
+                        </Card>
                     </div>
 
                     {/* 3. The Graph */}
-                    <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-                        <h4 className="text-lg font-semibold mb-4">Vendas ao Longo do Tempo</h4>
-                        {graphData.length > 0 ? (
-                            <Line data={chartData} />
-                        ) : (
-                            <p>Nenhum dado de venda para exibir no gráfico.</p>
-                        )}
-                    </div>
+                    <Card>
+                        <div className="mb-6">
+                            <h4 className="text-lg font-bold text-gray-900">Desempenho no Período</h4>
+                            <p className="text-sm text-gray-500">Acompanhe a evolução das suas vendas e pedidos.</p>
+                        </div>
+                        
+                        <div className="h-[300px] w-full">
+                            {graphData.length > 0 ? (
+                                <Line data={chartData} options={chartOptions} />
+                            ) : (
+                                <div className="h-full flex items-center justify-center text-gray-400">
+                                    Nenhum dado encontrado para este período.
+                                </div>
+                            )}
+                        </div>
+                    </Card>
                 </>
             )}
         </div>
