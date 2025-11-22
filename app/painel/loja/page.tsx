@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import Loader from "@/components/ui/Loader";
 import StoreProfileManager from "@/components/restaurante/loja/StoreProfileManager";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 
 export default function LojaPage() {
     const [isLoading, setIsLoading] = useState(true);
@@ -29,5 +30,11 @@ export default function LojaPage() {
     if (isLoading) return <div className="flex justify-center p-10"><Loader /></div>;
     if (!restaurant) return <div className="p-10 text-center text-red-500">Restaurante não encontrado.</div>;
 
-    return <StoreProfileManager restaurant={restaurant} />;
+    return(
+        <div>
+            
+        <StoreProfileManager restaurant={restaurant} />;
+
+        </div>
+    ); 
 }
