@@ -75,9 +75,6 @@ export default function NovaSenhaPage() {
         <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
             <Card className="w-full max-w-md">
                 <div className="text-center mb-8">
-                    <div className="mx-auto h-12 w-12 flex items-center justify-center rounded-full bg-indigo-50 mb-4">
-                        <FontAwesomeIcon icon={faLock} className="text-brand text-xl" />
-                    </div>
                     <h1 className="text-2xl font-bold text-brand">Alterar Senha</h1>
                     <p className="text-sm text-gray-500 mt-2">
                         Defina uma nova senha segura para sua conta de administrador.

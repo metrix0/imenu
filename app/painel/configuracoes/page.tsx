@@ -418,13 +418,7 @@ export default function ConfiguracoesPage() {
 
     const logoUrl = restaurant?.logo_url ? supabase.storage.from("restaurant-logos").getPublicUrl(restaurant.logo_url).data.publicUrl : null;
 
-    if (loading) {
-        return (
-            <div className="flex h-full min-h-[80vh] w-full items-center justify-center">
-                <Loader />
-            </div>
-        );
-    }
+    if (loading) return <div className="flex justify-center p-10"><Loader /></div>;
 
     return (
         <>
