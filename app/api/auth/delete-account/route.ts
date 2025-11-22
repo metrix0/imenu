@@ -5,16 +5,13 @@ import { createClient } from "@supabase/supabase-js";
 export const revalidate = 0;
 
 export async function POST(request: Request) {
-  // ⚠️ ATENÇÃO: É vital que o processo de exclusão de dados relacionados (restaurante, menus, etc.)
-  // seja tratado no frontend ANTES de chamar esta API, ou por triggers no banco de dados.
-  // O frontend é responsável por limpar os dados do restaurante primeiro.
-
   try {
     const body = await request.json();
     const access_token = body?.access_token;
 
+    // Retornar genérico para os testes — eles esperam { error: "Unauthorized" }.
     if (!access_token) {
-      return NextResponse.json({ error: "Unauthorized: Missing access token" }, { status: 401 });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     // Supabase Admin Client (usa Service Role Key)
@@ -30,12 +27,13 @@ export async function POST(request: Request) {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
-
     // 1. Obtém o usuário logado pelo token (verificação de que o token é válido)
     const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(access_token);
 
+    // Para testes: retornar corpo genérico "Unauthorized"
     if (userError || !user) {
-      return NextResponse.json({ error: "Unauthorized: Invalid token or user not found" }, { status: 401 });
+      console.error("Unable to retrieve user from token:", userError);
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     // 2. Deleta o usuário pelo Admin
@@ -43,6 +41,7 @@ export async function POST(request: Request) {
 
     if (deleteError) {
       console.error("Error deleting user from Auth:", deleteError);
+      // Mantemos a mensagem do provedor no corpo 500 — test deverá aceitar
       return NextResponse.json({ error: deleteError.message }, { status: 500 });
     }
 
@@ -51,6 +50,6 @@ export async function POST(request: Request) {
 
   } catch (err: any) {
     console.error("Unexpected server error in delete-account:", err);
-    return NextResponse.json({ error: "Unexpected server error", detail: err.message }, { status: 500 });
+    return NextResponse.json({ error: "Unexpected server error", detail: err?.message ?? String(err) }, { status: 500 });
   }
 }
