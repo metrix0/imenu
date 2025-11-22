@@ -1,4 +1,3 @@
-// components/restaurante/configuracoes/TempoeTaxa.tsx
 "use client";
 
 import { useEffect, useState, useRef, forwardRef, useImperativeHandle } from "react";
@@ -56,7 +55,7 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
         // ---------------------------------------------------
         useImperativeHandle(ref, () => ({
             save: async () => {
-                await saveToDB();
+                await saveToDB(true); // Força o save mesmo se isNew
             },
         }));
 
@@ -79,6 +78,8 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                 if (cachedMin != null && minOrderRef.current) {
                     minOrderRef.current.value = String(cachedMin);
                 }
+                // Se não for novo, busca do banco para garantir sync
+                if (!isNew) fetchFromDB();
                 return;
             }
 
@@ -98,38 +99,38 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                 return;
             }
 
-            // Load from DB
-            console.log("[INIT] Fetching from SUPABASE...");
-            const load = async () => {
-                const { data, error } = await supabase
-                    .from("restaurants")
-                    .select("delivery_fee_json, min_order_cents")
-                    .eq("id", restaurantId)
-                    .single();
-
-                if (error) {
-                    console.error("[INIT] Error fetching:", error);
-                    return;
-                }
-
-                if (data?.delivery_fee_json) {
-                    console.log("[INIT] Loaded rules from DB.");
-                    setRules(
-                        data.delivery_fee_json.map((r: any) => ({
-                            radius_km: r.radius_km,
-                            time_minutes: r.time_minutes,
-                            fee_cents: r.fee_cents ?? null,
-                        }))
-                    );
-                }
-
-                if (data?.min_order_cents != null && minOrderRef.current) {
-                    minOrderRef.current.value = String(data.min_order_cents / 100);
-                }
-            };
-
-            load();
+            // Load from DB if not cached and not new
+            fetchFromDB();
         }, [restaurantId, isNew]);
+
+        const fetchFromDB = async () => {
+            console.log("[INIT] Fetching from SUPABASE...");
+            const { data, error } = await supabase
+                .from("restaurants")
+                .select("delivery_fee_json, min_order_cents")
+                .eq("id", restaurantId)
+                .single();
+
+            if (error) {
+                console.error("[INIT] Error fetching:", error);
+                return;
+            }
+
+            if (data?.delivery_fee_json) {
+                console.log("[INIT] Loaded rules from DB.");
+                setRules(
+                    data.delivery_fee_json.map((r: any) => ({
+                        radius_km: r.radius_km,
+                        time_minutes: r.time_minutes,
+                        fee_cents: r.fee_cents ?? null,
+                    }))
+                );
+            }
+
+            if (data?.min_order_cents != null && minOrderRef.current) {
+                minOrderRef.current.value = String(data.min_order_cents / 100);
+            }
+        };
 
         // ---------------------------------------------------
         // REALTIME SYNC (verbose)
@@ -188,30 +189,46 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
         // ADD RULE
         // ---------------------------------------------------
         const handleAddRule = () => {
-            setRules((prev) => {
-                const last = prev[prev.length - 1];
-                return [
-                    ...prev,
-                    {
-                        radius_km: last ? last.radius_km + 0.5 : 0.5,
-                        time_minutes: last ? last.time_minutes : 40,
-                        fee_cents: null,
-                    },
-                ];
-            });
-        };
+        setRules((prev) => {
+            // Lista de raios existentes
+            const existing = new Set(prev.map(r => r.radius_km));
+
+            // Gera possíveis raios válidos (0.5 em 0.5 até um limite razoável, ex: 20km)
+            const possible = Array.from({ length: 100 }, (_, i) => (i + 1) * 0.5);
+
+            // Encontra o primeiro raio que NÃO existe ainda
+            const nextRadius = possible.find(r => !existing.has(r)) ?? (prev[prev.length - 1].radius_km + 0.5);
+
+            return [
+                ...prev,
+                {
+                    radius_km: nextRadius,
+                    time_minutes: 40,
+                    fee_cents: null,
+                }
+            ];
+        });
+    };
 
         // ---------------------------------------------------
         // DELETE RULE
         // ---------------------------------------------------
-        const handleDeleteRule = (i: number) => {
-            setRules((prev) => prev.filter((_, idx) => idx !== i));
-        };
+const handleDeleteRule = (i: number) => {
+    setRules((prev) => {
+        if (prev.length <= 1) return prev; // <-- impede deletar tudo
+        return prev.filter((_, idx) => idx !== i);
+    });
+};
+
 
         // ---------------------------------------------------
         // SAVE TO DB + ZUSTAND
         // ---------------------------------------------------
-        const saveToDB = async () => {
+        const saveToDB = async (force = false) => {
+            // CORREÇÃO LÓGICA AQUI:
+            // Se não for forçado (force=true) E for novo (isNew=true), aborta.
+            if (isNew && !force) return;
+
             console.log("[AUTOSAVE] Saving to DB...");
 
             // Build final object
@@ -240,6 +257,7 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
 
             if (error) {
                 console.error("[AUTOSAVE] Error saving:", error);
+                setStatus("idle"); // Se der erro, reseta o status
             } else {
                 console.log("%c[AUTOSAVE] Saved successfully!", "color:#22c55e;");
             }
@@ -249,6 +267,8 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
         // AUTOSAVE (only when NOT new)
         // ---------------------------------------------------
         useEffect(() => {
+            // CORREÇÃO CRÍTICA: Se for novo, NÃO dispara o efeito de autosave visual.
+            // Isso impede que ele entre em "saving" sem nunca sair.
             if (isNew) return;
 
             setStatus("saving");
@@ -267,13 +287,18 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
         return (
             <div className="max-w-2xl mx-auto ">
 
-                <div className="text-sm font-medium h-6 flex items-center">
-                    {isNew ? (
-                        <span className="text-brand animate-pulse">Salvando...</span>
-                    ) : (
-                        <span className="text-green-600 flex items-center gap-1">
-                            <FontAwesomeIcon icon={icons.faCheck} className="text-xs" /> Tudo salvo
-                        </span>
+                {/* SÓ MOSTRA O STATUS SE NÃO FOR NOVO (PAINEL) */}
+                <div className="flex justify-end mb-2 h-6" >
+                    {!isNew && (
+                        <div className="text-sm font-medium h-6 flex items-center mb-4 transition-opacity duration-300">
+                            {status === "saving" ? (
+                                <span className="text-brand animate-pulse">Salvando...</span>
+                            ) : status === "saved" ? (
+                                <span className="text-green-600 flex items-center gap-1">
+                                    <FontAwesomeIcon icon={icons.faCheck} className="text-xs" /> Tudo salvo
+                                </span>
+                            ) : null}
+                        </div>
                     )}
                 </div>
 
@@ -337,8 +362,8 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                                         const val =
                                             raw && raw !== "0,00"
                                                 ? Math.round(
-                                                    parseFloat(raw.replace(",", ".")) * 100
-                                                )
+                                                      parseFloat(raw.replace(",", ".")) * 100
+                                                  )
                                                 : null;
 
                                         setRules((prev) => {
@@ -352,10 +377,16 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                                 {/* Delete */}
                                 <button
                                     onClick={() => handleDeleteRule(index)}
-                                    className="text-red hover:text-red-900 cursor-pointer duration-200 p-1"
+                                    disabled={rules.length <= 1}
+                                    className={`p-1 duration-200 ${
+                                        rules.length <= 1
+                                            ? "text-gray-300 cursor-not-allowed"
+                                            : "text-red hover:text-red-900 cursor-pointer"
+                                    }`}
                                 >
                                     <FontAwesomeIcon icon={icons.faTrash} />
                                 </button>
+
                             </div>
                         ))}
                     </div>
@@ -370,32 +401,33 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                 </div>
 
                 {/* Pedido mínimo */}
-                {!isNew && (
-                    <div className="p-6 bg-white border border-gray-200 rounded-lg shadow-sm mb-8">
-                        <h2 className="text-xl font-semibold mb-3">
-                            Pedido Mínimo{" "}
-                            <Tooltip text="O valor mínimo para alguém pedir no seu restaurante.">
-                                <FontAwesomeIcon
-                                    icon={icons.faCircleInfo}
-                                    className="text-gray-700 text-sm"
-                                />
-                            </Tooltip>
-                        </h2>
+                <div className="p-6 bg-white border border-gray-200 rounded-lg shadow-sm mb-8">
+                    <h2 className="text-xl font-semibold mb-3">
+                        Pedido Mínimo{" "}
+                        <Tooltip text="O valor mínimo para alguém pedir no seu restaurante.">
+                            <FontAwesomeIcon
+                                icon={icons.faCircleInfo}
+                                className="text-gray-700 text-sm"
+                            />
+                        </Tooltip>
+                    </h2>
 
-                        <Input
-                            numeric
-                            icon={<FontAwesomeIcon icon={icons.faDollarSign} />}
-                            iconPosition="left"
-                            defaultValue="15"
-                            ref={minOrderRef}
-                            className="w-full"
-                            onChange={() => {
-                                // force autosave for minOrder
+                    <Input
+                        numeric
+                        icon={<FontAwesomeIcon icon={icons.faDollarSign} />}
+                        iconPosition="left"
+                        defaultValue="15"
+                        ref={minOrderRef}
+                        className="w-full"
+                        onChange={() => {
+                            // force autosave for minOrder
+                            // Mas se isNew, não faz nada, espera o botão final.
+                            if (!isNew) {
                                 setRules((r) => [...r]);
-                            }}
-                        />
-                    </div>
-                )}
+                            }
+                        }}
+                    />
+                </div>
             </div>
         );
     }

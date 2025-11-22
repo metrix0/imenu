@@ -97,7 +97,7 @@ function OtpVerificationComponent() {
             if (!response.ok) throw new Error("Erro ao vincular conta.");
 
             // ALTERAÇÃO AQUI: Redireciona para o painel de pedidos específico
-            router.push(`/painel/pedidos`);
+            router.push(`/painel`);
             
         } catch (error) {
             setMessage((error as Error).message);
