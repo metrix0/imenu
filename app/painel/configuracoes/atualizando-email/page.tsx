@@ -1,120 +1,222 @@
-// app/atualizando-email/page.tsx
+// app/painel/configuracoes/atualizar-email/page.tsx
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import { useRouter } from "next/navigation";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { icons } from "@/lib/fontawesome";
+import { faEnvelope, faCheckCircle, faArrowLeft } from "@fortawesome/free-solid-svg-icons";
 
-export default function EmailChangeCallbackPage() {
+// UI Components
+import Card from "@/components/ui/Card";
+import Input from "@/components/ui/Input";
+import Button from "@/components/ui/Button";
+
+// Tipos de Estado
+type Stage = "INPUT_EMAIL" | "AWAITING_CONFIRMATION" | "SUCCESS";
+
+export default function UpdateEmailPage() {
     const router = useRouter();
-    const [message, setMessage] = useState("Processando sua solicitação...");
-    const [status, setStatus] = useState<"loading" | "success" | "info" | "error">("loading");
-    
-    
-    const [isHandled, setIsHandled] = useState(false);
 
-    const handleSuccess = () => {
-        if (isHandled) return;
-        setIsHandled(true);
-        
-        setStatus("success");
-        setMessage("E-mail atualizado com sucesso! Redirecionando para suas configurações...");
+    const [stage, setStage] = useState<Stage>("INPUT_EMAIL");
+    const [currentEmail, setCurrentEmail] = useState<string>("");
+    const [newEmail, setNewEmail] = useState<string>("");
 
-        setTimeout(() => {
-            router.push("/configuracoes/conta");
-        }, 3000);
-    };
+    const [loading, setLoading] = useState(false);
+    const [message, setMessage] = useState<string>("");
 
+    // URL de redirecionamento após clique no e-mail
+    const REDIRECT_URL = typeof window !== "undefined"
+        ? `${window.location.origin}/painel/configuracoes?email_updated=true`
+        : "";
+
+    // Carrega e-mail atual
     useEffect(() => {
-        const hash = window.location.hash;
-
-        // ---
-        // CASE 1: FIRST EMAIL LINK
-        // (Supabase doesnt consume hash)
-        // ---
-        if (hash.includes("message=Confirmation+link+accepted")) {
-            if (isHandled) return;
-            setIsHandled(true);
-
-            setStatus("info");
-            setMessage("Confirmação inicial recebida. Por favor, verifique seu outro e-mail para concluir a alteração.");
-            
-            
-            if (window.history.replaceState) {
-                window.history.replaceState(null, "", window.location.pathname);
+        (async () => {
+            const { data } = await supabase.auth.getUser();
+            if (!data?.user) {
+                router.push("/admin/login");
+                return;
             }
-            return; 
+            setCurrentEmail(data.user.email ?? "");
+        })();
+    }, [router]);
+
+    // Handler de envio
+    const handleRequestConfirmationLink = async (e?: React.FormEvent) => {
+        if (e) e.preventDefault();
+        setMessage("");
+
+        const cleaned = (newEmail || "").trim().toLowerCase();
+
+        if (!cleaned) {
+            setMessage("Por favor, digite o novo e-mail.");
+            return;
+        }
+        if (cleaned === currentEmail) {
+            setMessage("O novo e-mail deve ser diferente do atual.");
+            return;
         }
 
-        // ---
-        // CASE 2: SECOND EMAIL LINK OR INVALID ACESS
-        // (supabse already consumed)
-        // ---
+        setLoading(true);
 
-      
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-            if (event === "USER_UPDATED" && session) {
-                handleSuccess(); 
+        try {
+            // 1. Verificar duplicidade na tabela users (opcional, mas recomendado)
+            const { data: foundUser, error: usersError } = await supabase
+                .from("users")
+                .select("id,email")
+                .eq("email", cleaned)
+                .maybeSingle();
+
+            if (foundUser) {
+                const { data: existingRestaurant } = await supabase
+                    .from("restaurants")
+                    .select("id")
+                    .eq("user_id", foundUser.id)
+                    .maybeSingle();
+
+                if (existingRestaurant) {
+                    setMessage("Este e-mail já está cadastrado em outra conta.");
+                    setLoading(false);
+                    return;
+                }
+            } else if (usersError) {
+                console.warn("Erro ao verificar users view:", usersError);
             }
-        });
 
-        
-        const checkSessionFallback = async () => {
-            
-            await new Promise(resolve => setTimeout(resolve, 250));
-            
-            if (isHandled) return; 
+            // 2. Update Auth
+            const { error: updateAuthError } = await supabase.auth.updateUser({
+                email: cleaned,
+            }, {
+                emailRedirectTo: REDIRECT_URL,
+            });
 
-            const { data: { session } } = await supabase.auth.getSession();
-
-            if (session) {
-                // VALID SESSION
-                handleSuccess();
-            } else {
-                // NO SESSION
-                if (isHandled) return;
-                setIsHandled(true);
-                
-                setStatus("error");
-                setMessage("Link de confirmação inválido ou expirado. Redirecionando...");
-                setTimeout(() => {
-                    router.push("/configuracoes/conta");
-                }, 3000);
+            if (updateAuthError) {
+                console.error("updateUser error:", updateAuthError);
+                if (updateAuthError.message.includes("Email already taken")) {
+                    setMessage("Este e-mail já está em uso.");
+                } else {
+                    setMessage(`Erro ao solicitar troca: e-mail em uso ou não existe`);
+                }
+                return;
             }
-        };
 
-        checkSessionFallback();
+            // Sucesso
+            setNewEmail(cleaned);
+            setStage("AWAITING_CONFIRMATION");
 
+        } catch (err: any) {
+            console.error("Erro inesperado:", err);
+            setMessage("Ocorreu um erro inesperado. Tente novamente.");
+        } finally {
+            setLoading(false);
+        }
+    };
 
-        return () => {
-            subscription.unsubscribe();
-        };
+    // ------------------------------
+    // RENDERIZAÇÃO
+    // ------------------------------
 
-    }, [router, isHandled]);
+    // 1. Tela de Input
+    if (stage === "INPUT_EMAIL") {
+        return (
+            <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
+                <Card className="w-full max-w-md">
+                    <div className="text-center mb-6">
+                        <h1 className="text-2xl font-bold text-brand">Atualizar E-mail</h1>
+                        <p className="text-sm text-gray-500 mt-2">
+                            Seu e-mail atual é <span className="font-medium text-gray-900">{currentEmail}</span>
+                        </p>
+                    </div>
 
+                    {message && (
+                        <div className="mb-6 p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-md">
+                            {message}
+                        </div>
+                    )}
 
+                    <form onSubmit={handleRequestConfirmationLink} className="space-y-6">
+                        <Input
+                            label="Novo E-mail"
+                            type="email"
+                            placeholder="exemplo@loja.com"
+                            value={newEmail}
+                            onChange={(e) => setNewEmail(e.target.value)}
+                            icon={<FontAwesomeIcon icon={icons.faEnvelope} />}
+                        />
 
-    const messageColor = {
-        loading: "text-gray-700",
-        info: "text-black",
-        success: "text-green-700",
-        error: "text-red-700",
-    }[status];
+                        <div className="space-y-3">
+                            <Button
+                                variant="primary"
+                                type="submit" // Garante submit no Enter
+                                loading={loading}
+                                className="w-full"
+                            >
+                                Enviar Link de Confirmação
+                            </Button>
 
-    return (
-        <div className="flex min-h-screen flex-col items-center justify-center p-4 text-center">
-            <div className="w-full max-w-md space-y-4">
-                <h1 className={`text-2xl font-bold ${messageColor}`}>
-                    {status === "loading" && "Aguardando confirmação..."}
-                    {status === "info" && "Quase lá!"}
-                    {status === "success" && "Sucesso!"}
-                    {status === "error" && "Erro"}
-                </h1>
-                <p 
-                    className={`text-lg ${messageColor}`}
-                    dangerouslySetInnerHTML={{ __html: message }}
-                />
+                            <Button
+                                variant="secondary"
+                                type="button"
+                                className="w-full"
+                                onClick={() => router.push("/painel/configuracoes")}
+                            >
+                                <FontAwesomeIcon icon={faArrowLeft} className="mr-2" /> Voltar
+                            </Button>
+                        </div>
+                    </form>
+                </Card>
             </div>
-        </div>
-    );
+        );
+    }
+
+    // 2. Tela de Aguardando Confirmação
+    if (stage === "AWAITING_CONFIRMATION") {
+        return (
+            <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
+                <Card className="w-full max-w-md text-center py-10">
+                    <div className="mb-6 flex justify-center">
+                        <div className="h-16 w-16 bg-indigo-50 rounded-full flex items-center justify-center">
+                            <FontAwesomeIcon icon={faEnvelope} className="text-brand text-3xl" />
+                        </div>
+                    </div>
+
+                    <h2 className="text-xl font-bold text-gray-900 mb-3">Verifique seu E-mail</h2>
+
+                    <p className="text-gray-600 mb-8 leading-relaxed">
+                        Enviamos um link de confirmação para:<br />
+                        <strong className="text-gray-900">{newEmail}</strong>
+                        <br /><br />
+                        Por favor, clique no link enviado para confirmar a alteração.
+                    </p>
+
+                    <Button
+                        variant="secondary"
+                        onClick={() => setStage("INPUT_EMAIL")}
+                        className="w-full"
+                    >
+                        Corrigir e-mail ou tentar novamente
+                    </Button>
+                </Card>
+            </div>
+        );
+    }
+
+    // 3. Tela de Sucesso (Opcional, caso o redirecionamento falhe ou seja rápido)
+    if (stage === "SUCCESS") {
+        return (
+            <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
+                <Card className="w-full max-w-md text-center py-10">
+                    <div className="mb-6 flex justify-center">
+                        <FontAwesomeIcon icon={faCheckCircle} className="text-green-500 text-5xl" />
+                    </div>
+                    <h2 className="text-xl font-bold text-gray-900 mb-2">E-mail atualizado!</h2>
+                    <p className="text-gray-500">Redirecionando para configurações...</p>
+                </Card>
+            </div>
+        );
+    }
+
+    return null;
 }

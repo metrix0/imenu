@@ -30,12 +30,6 @@ export default function Popup({ trigger, open, onClose, children }: PopupProps) 
                                 <p className="mb-4">Conteúdo padrão do popup.</p>
                             </>
                         )}
-                        <button
-                            onClick={handleClose}
-                            className="px-4 py-2 bg-gray-800 text-white rounded-md"
-                        >
-                            Fechar
-                        </button>
                     </div>
                 </div>
             )}
