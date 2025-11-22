@@ -53,9 +53,11 @@ export default function PainelTempoETaxaPage() {
     }
 
     return (
-        <div className="max-w-3xl mx-auto py-10 px-6">
-            <h1 className="text-2xl font-bold mb-6">Configurações de Entrega</h1>
-
+        <div className="max-w-6xl mx-auto pb-20">
+            <div className="mb-8 flex flex-col  gap-1 px-2">
+                <h1 className="text-3xl font-bold text-gray-900">Configurações de Entrega</h1>
+                <p className="text-gray-500 mb-8 mt-1">Defina suas configurações de entrega e o Pedido Mínimo.</p>
+            </div>
             <DeliveryRules
                 restaurantId={restaurantId}
                 isNew={false}

@@ -69,8 +69,8 @@ export default function PainelLayout({
         { label: "Financeiro", icon: faMoneyBillWave, href: `${base}/financeiro` },
         { type: "divider" },
         { label: "Cardápio", icon: faUtensils, href: cardapioHref },
-        { label: "Taxa e Tempo", icon: faTruck, href: `${base}/entrega` },
-        { label: "Horários", icon: faClock, href: `${base}/horarios` },
+        { label: "Taxa e Tempo", icon: faTruck, href: `${base}/tempo-e-taxa` },
+        { label: "Disponibilidade", icon: faClock, href: `${base}/disponibilidade` },
         { label: "Loja", icon: faStore, href: `${base}/loja` },
         { type: "divider" },
         { label: "Configurações", icon: faGear, href: configuracoesHref },
@@ -83,7 +83,7 @@ export default function PainelLayout({
             {/* === SIDEBAR === */}
             <aside
                 className={`fixed h-full flex flex-col border-r border-gray-200 bg-white transition-all duration-300 ${
-                    expanded ? "w-60" : "w-15"
+                    expanded ? "w-60" : "w-20"
                 }`}
             >
                 {/* Toggle Button */}
@@ -160,7 +160,13 @@ export default function PainelLayout({
             </aside>
 
             {/* === MAIN CONTENT === */}
-            <main className="flex-1 p-8">{children}</main>
+            <main 
+                className={`flex-1 p-8 transition-all duration-300 ${
+                    expanded ? "ml-60" : "ml-20"
+                }`}
+            >
+                {children}
+            </main>
         </div>
     );
 }

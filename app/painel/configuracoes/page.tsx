@@ -459,7 +459,7 @@ export default function ConfiguracoesPage() {
                 <Toast message={toast.message} type={toast.type} onClose={closeToast} />
             )}
 
-            <div className="min-h-screen bg-gray-50 p-6">
+            <div className="min-h-screen bg-gray-50 px-2">
                 <div className="max-w-6xl mx-auto space-y-8 pb-32">
 
                     {/* HEADER & LOGO */}

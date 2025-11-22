@@ -11,6 +11,7 @@ import {
     faCheck,
     faTimes,
     faGripLines,
+    faStore,
     // Ícones adicionados
     faChevronUp,
     faChevronDown,
@@ -41,6 +42,7 @@ export const icons = {
     faCheck,
     faTimes,
     faGripLines,
+    faStore,
     // Ícones adicionados
     faChevronLeft,
     faXmark,
