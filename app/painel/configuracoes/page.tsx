@@ -5,20 +5,29 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { uploadLogoImage } from "@/lib/uploadLogoImage";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { icons } from "@/lib/fontawesome";
 import type { User } from "@supabase/supabase-js";
 
-// Tipo de mensagem (corrigido da iteração anterior)
-type MessageType = "error" | "success" | "info";
+// FontAwesome
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { icons } from "@/lib/fontawesome";
+import { faTrash, faCopy, faDownload, faCheck, faPen, faCalculator, faInfoCircle } from "@fortawesome/free-solid-svg-icons";
 
+// UI Components
+import Button from "@/components/ui/Button";
+import Card from "@/components/ui/Card";
+import Input from "@/components/ui/Input";
+import ToggleInput from "@/components/ui/ToggleInput";
+import Loader from "@/components/ui/Loader";
+import Popup from "@/components/ui/Popup";
+import Toast from "@/components/ui/Toast";
+
+// Tipos
 type Restaurant = {
     id: string;
     name: string;
     url_slug?: string | null;
     logo_url?: string | null;
     user_id?: string | null;
-    // added fields for prep time
     prep_time_min_minutes?: number | null;
     prep_time_max_minutes?: number | null;
     prep_time_source?: "auto" | "manual" | null;
@@ -33,6 +42,7 @@ type Menu = {
     banner_url?: string | null;
 };
 
+// Helper para carregar scripts externos (QR Code)
 const loadScript = (src: string, onLoad: () => void) => {
     if (document.querySelector(`script[src="${src}"]`)) {
         onLoad();
@@ -48,390 +58,178 @@ export default function ConfiguracoesPage() {
     const router = useRouter();
     const fileInputRef = useRef<HTMLInputElement>(null);
 
+    // --- Estados de Dados ---
     const [restaurantId, setRestaurantId] = useState<string | null>(null);
-
     const [user, setUser] = useState<User | null>(null);
     const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
     const [menu, setMenu] = useState<Menu | null>(null);
     const [loading, setLoading] = useState(true);
-    const [isDeletingRestaurant, setIsDeletingRestaurant] = useState(false); // Renomeado para clareza
-    const [isDeletingAccount, setIsDeletingAccount] = useState(false); // Novo estado
-    const [message, setMessage] = useState<{ type: MessageType; content: string } | null>(null);
 
-    // ESTADOS PARA MINHA CONTA
+    // --- Estados de UI (Popup e Toast) ---
+    const [toast, setToast] = useState<{ show: boolean; message: string; type: "success" | "error" | "info" }>({
+        show: false,
+        message: "",
+        type: "info",
+    });
+
+    const [confirmPopup, setConfirmPopup] = useState<{
+        show: boolean;
+        title: string;
+        message: string;
+        onConfirm: () => void;
+        confirmText: string;
+        isDestructive?: boolean;
+    }>({
+        show: false,
+        title: "",
+        message: "",
+        onConfirm: () => { },
+        confirmText: "Confirmar",
+        isDestructive: false,
+    });
+
+    // --- Estados Específicos de Ações ---
+    const [isDeletingAction, setIsDeletingAction] = useState(false);
     const [userName, setUserName] = useState("");
-    const [isEditingName, setIsEditingName] = useState(false);
-    const nameInputRef = useRef<HTMLInputElement>(null);
     const [isUpdatingName, setIsUpdatingName] = useState(false);
-    // FIM ESTADOS PARA MINHA CONTA
 
     const [shareableUrl, setShareableUrl] = useState("");
     const [qrCodeUrl, setQrCodeUrl] = useState("");
-    const [copySuccess, setCopySuccess] = useState("");
     const [hoveringLogo, setHoveringLogo] = useState(false);
 
-    // Average Delivery Time Estimation (prep time)
+    // Prep Time
     const [prepMode, setPrepMode] = useState<"auto" | "manual">("auto");
-    const [manualMin, setManualMin] = useState<number | "">("");
-    const [manualMax, setManualMax] = useState<number | "">("");
-    const [computing, setComputing] = useState(false);
-    const [updatingManual, setUpdatingManual] = useState(false);
+    const [manualMin, setManualMin] = useState<string>("");
+    const [manualMax, setManualMax] = useState<string>("");
+    const [computingPrep, setComputingPrep] = useState(false); // Para o botão Calcular Agora
+    const [savingPrep, setSavingPrep] = useState(false); // Para o botão Salvar
 
-    // Função central para buscar o restaurante pelo user_id e configurar o estado
+    // --- Helpers de Feedback ---
+    const showToast = (message: string, type: "success" | "error" | "info") => {
+        setToast({ show: true, message, type });
+    };
+
+    const closeToast = () => setToast((prev) => ({ ...prev, show: false }));
+
+    const openConfirm = (
+        title: string,
+        message: string,
+        onConfirm: () => void,
+        confirmText = "Confirmar",
+        isDestructive = false
+    ) => {
+        setConfirmPopup({
+            show: true,
+            title,
+            message,
+            onConfirm,
+            confirmText,
+            isDestructive,
+        });
+    };
+
+    // --- Data Fetching ---
     const fetchRestaurantByUserId = async (userId: string) => {
         try {
             const { data, error } = await supabase
                 .from("restaurants")
-                .select(
-                    "id, name, url_slug, logo_url, user_id, prep_time_min_minutes, prep_time_max_minutes, prep_time_source, prep_time_computed_at"
-                )
+                .select("id, name, url_slug, logo_url, user_id, prep_time_min_minutes, prep_time_max_minutes, prep_time_source, prep_time_computed_at")
                 .eq("user_id", userId)
-                .single(); // Usa single() pois cada user tem 1 restaurante
+                .single();
 
             if (error || !data) {
-                console.warn("fetchRestaurantByUserId: restaurante não encontrado para o user_id", userId, error);
-                // Garante que o estado está limpo se não houver restaurante
                 setRestaurantId(null);
                 setRestaurant(null);
                 return null;
             }
 
-            // Define o ID e o objeto do restaurante
             setRestaurantId(data.id);
             setRestaurant(data);
 
-            // Inicia o Prep Time Mode
-            if (data.prep_time_source === "manual") {
-                setPrepMode("manual");
-            } else if (data.prep_time_source === "auto") {
-                setPrepMode("auto");
-            } else {
-                if (typeof data.prep_time_min_minutes === "number" && typeof data.prep_time_max_minutes === "number") {
-                    setPrepMode("manual");
-                } else {
-                    setPrepMode("auto");
-                }
-            }
-
-            setManualMin(typeof data.prep_time_min_minutes === "number" ? data.prep_time_min_minutes : "");
-            setManualMax(typeof data.prep_time_max_minutes === "number" ? data.prep_time_max_minutes : "");
+            // Configura modo de preparo
+            const isManual = data.prep_time_source === "manual" || (typeof data.prep_time_min_minutes === "number" && typeof data.prep_time_max_minutes === "number" && !data.prep_time_source);
+            setPrepMode(isManual ? "manual" : "auto");
+            setManualMin(data.prep_time_min_minutes ? String(data.prep_time_min_minutes) : "");
+            setManualMax(data.prep_time_max_minutes ? String(data.prep_time_max_minutes) : "");
 
             return data.id;
-
         } catch (err) {
-            console.error("Erro em fetchRestaurantByUserId:", err);
+            console.error(err);
             return null;
         }
     };
 
-    // 🔐 Carrega dados do usuário e do restaurante associado
+    const fetchRestaurant = async () => {
+        if (!restaurantId) return;
+        await fetchRestaurantByUserId(user!.id);
+    };
+
     useEffect(() => {
-        const loadUserAndRestaurant = async () => {
+        const loadData = async () => {
             setLoading(true);
             try {
-                const {
-                    data: { session },
-                } = await supabase.auth.getSession();
-
+                const { data: { session } } = await supabase.auth.getSession();
                 if (!session) {
                     router.push("/admin/login");
                     return;
                 }
                 const currentUser = session.user;
                 setUser(currentUser);
-
-                // Define o nome inicial do usuário
                 setUserName((currentUser.user_metadata as { full_name?: string })?.full_name || currentUser.email || "");
 
-                // 1. Busca o restaurante do usuário
                 const rId = await fetchRestaurantByUserId(currentUser.id);
 
                 if (rId) {
-                    // 2. Continua buscando o cardápio
-                    const { data: menuData, error: menuError } = await supabase
+                    // Carregar Menu
+                    const { data: menuData } = await supabase
                         .from("menu")
                         .select("id, name, description, is_active, banner_url")
                         .eq("restaurant_id", rId)
                         .maybeSingle();
 
-                    if (!menuError && menuData) setMenu(menuData);
+                    if (menuData) setMenu(menuData);
 
-                    // 3. Gera URLs e QR Code
-                    const slug = await getRestaurantSlug(rId);
-                    const url = `${window.location.origin}/${slug}`;
-                    setShareableUrl(url);
-
-                    loadScript("https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.1/qrcode.min.js", () => {
-                        if ((window as any).QRCode) {
-                            (window as any).QRCode.toDataURL(url, { width: 200, margin: 1 }, (err: any, dataUrl: string) => {
-                                if (!err) setQrCodeUrl(dataUrl);
-                            });
-                        }
-                    });
-                } else {
-                    // Garante que o estado de menu e urls está limpo
-                    setMenu(null);
-                    setShareableUrl("");
-                    setQrCodeUrl("");
-                    setMessage({ type: "info", content: "Nenhum restaurante encontrado para este usuário. Você ainda pode gerenciar sua conta e criar um restaurante." });
+                    // Gerar QR Code e URL
+                    const { data: slugData } = await supabase.from("restaurants").select("url_slug").eq("id", rId).maybeSingle();
+                    if (slugData?.url_slug) {
+                        const url = `${window.location.origin}/${slugData.url_slug}`;
+                        setShareableUrl(url);
+                        loadScript("https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.1/qrcode.min.js", () => {
+                            if ((window as any).QRCode) {
+                                (window as any).QRCode.toDataURL(url, { width: 200, margin: 1 }, (err: any, dataUrl: string) => {
+                                    if (!err) setQrCodeUrl(dataUrl);
+                                });
+                            }
+                        });
+                    }
                 }
-
             } catch (err) {
-                console.error("Erro loadUserAndRestaurant configurações:", err);
-                setMessage({ type: "error", content: "Erro ao carregar dados." });
+                showToast("Erro ao carregar dados.", "error");
             } finally {
                 setLoading(false);
             }
         };
-
-        loadUserAndRestaurant();
-
+        loadData();
     }, [router]);
 
-    // Função auxiliar para re-fetch, que agora usa o estado `restaurantId`
-    const fetchRestaurant = async () => {
-        if (!restaurantId) return null;
-        try {
-            const { data, error } = await supabase
-                .from("restaurants")
-                .select(
-                    "id, name, url_slug, logo_url, user_id, prep_time_min_minutes, prep_time_max_minutes, prep_time_source, prep_time_computed_at"
-                )
-                .eq("id", restaurantId)
-                .single();
-
-            if (error || !data) {
-                console.warn("fetchRestaurant: restaurante não encontrado", error);
-                return null;
-            }
-
-            // Atualiza estado do restaurante
-            setRestaurant(data);
-
-            // Decide prepMode com base no campo source ou fallback pelos valores min/max
-            if (data.prep_time_source === "manual") {
-                setPrepMode("manual");
-            } else if (data.prep_time_source === "auto") {
-                setPrepMode("auto");
-            } else {
-                // se source não estiver definido, inferir manual se houver min/max preenchidos
-                if (typeof data.prep_time_min_minutes === "number" && typeof data.prep_time_max_minutes === "number") {
-                    setPrepMode("manual");
-                } else {
-                    setPrepMode("auto");
-                }
-            }
-
-            // preencher inputs com os valores do banco (ou vazio)
-            setManualMin(typeof data.prep_time_min_minutes === "number" ? data.prep_time_min_minutes : "");
-            setManualMax(typeof data.prep_time_max_minutes === "number" ? data.prep_time_max_minutes : "");
-
-            return data;
-        } catch (err) {
-            console.error("Erro em fetchRestaurant:", err);
-            return null;
-        }
-    };
-
-    // ----------- Lógica de Edição de Nome -----------
+    // --- Handlers ---
 
     const handleNameUpdate = async () => {
-        if (userName.trim() === "") {
-            setMessage({ type: "error", content: "O nome não pode ser vazio." });
-            return;
-        }
-        if (userName.trim() === ((user?.user_metadata as { full_name?: string })?.full_name || user?.email)) {
-            setIsEditingName(false); // Não faz nada se o nome não mudou
-            return;
-        }
+        if (!userName.trim()) return showToast("O nome não pode ser vazio.", "error");
+        if (userName === ((user?.user_metadata as any)?.full_name)) return;
 
         setIsUpdatingName(true);
-        setMessage(null);
-
         try {
-            const { data, error } = await supabase.auth.updateUser({
-                data: { full_name: userName.trim() },
-            });
-
+            const { data, error } = await supabase.auth.updateUser({ data: { full_name: userName.trim() } });
             if (error) throw error;
-
-            // Atualiza o estado local do usuário e o modo de edição
             setUser(data.user);
-            setUserName((data.user.user_metadata as { full_name: string }).full_name);
-            setIsEditingName(false);
-            setMessage({ type: "success", content: "Nome atualizado com sucesso!" });
-
+            showToast("Nome atualizado com sucesso!", "success");
         } catch (error: any) {
-            console.error("Erro ao atualizar nome:", error);
-            setMessage({ type: "error", content: `Erro ao atualizar nome: ${error.message || "Tente novamente."}` });
+            showToast(error.message || "Erro ao atualizar nome.", "error");
         } finally {
             setIsUpdatingName(false);
         }
     };
-
-    const handleInputClick = () => {
-        setIsEditingName(true);
-        // Garante que o input seja focado na próxima renderização
-        setTimeout(() => nameInputRef.current?.focus(), 0);
-    };
-
-    const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-        if (e.key === 'Enter') {
-            handleNameUpdate();
-        } else if (e.key === 'Escape') {
-            // Volta o nome para o valor original e sai do modo de edição
-            setUserName((user?.user_metadata as { full_name?: string })?.full_name || user?.email || "");
-            setIsEditingName(false);
-        }
-    };
-
-    // ----------- FIM Lógica de Edição de Nome -----------
-
-    // Função para tratar a resposta do Fetch (para evitar o erro de JSON)
-    const safeJsonParse = async (res: Response) => {
-        const contentType = res.headers.get("content-type");
-        if (contentType && contentType.includes("application/json")) {
-            return res.json();
-        }
-        // Se não for JSON, lê o texto e retorna um erro genérico
-        const text = await res.text();
-        console.error("Resposta não-JSON recebida:", text.substring(0, 200));
-        throw new Error(`Resposta inesperada do servidor (status ${res.status}). Detalhe: ${text.substring(0, 50)}...`);
-    }
-
-    // 🗑️ Excluir restaurante (chama API server-side que remove storage + dados relacionados)
-    const handleDeleteRestaurant = async () => {
-        if (!restaurant) return;
-
-        // Utilizamos o novo componente de Modal em vez de confirm()
-        const modalConfirmed = await showCustomConfirmModal(
-            `Deletar Restaurante "${restaurant.name}"`,
-            "Tem certeza que deseja deletar o restaurante e TODOS os dados relacionados (cardápios, pedidos, etc.)? Essa ação é irreversível.",
-            "Deletar Restaurante"
-        );
-        if (!modalConfirmed) return;
-
-        setIsDeletingRestaurant(true);
-        try {
-            const res = await fetch("/api/restaurants/delete-restaurant", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ restaurantId: restaurant.id, userId: restaurant.user_id }), // Passamos o userId para segurança
-            });
-
-            // Tratamento de erro para resposta não-JSON
-            const json = await safeJsonParse(res);
-
-            if (!res.ok || json?.error) {
-                console.error("Erro ao deletar restaurante:", json);
-                setMessage({ type: "error", content: `Erro ao deletar restaurante: ${json?.error ?? json?.detail ?? "ver console"}` });
-                setIsDeletingRestaurant(false);
-                return;
-            }
-            setMessage({ type: "success", content: "Restaurante e dados relacionados deletados com sucesso." });
-
-            // Após deletar o restaurante, redireciona para criar um novo
-            router.push("/painel/configuracoes");
-        } catch (err: any) {
-            console.error("Erro ao deletar restaurante:", err);
-            // Captura o erro do safeJsonParse
-            setMessage({ type: "error", content: `Erro ao deletar: ${String(err.message)}` });
-            setIsDeletingRestaurant(false);
-        }
-    };
-
-    // 💥 NOVO: Deletar Conta (Apaga o usuário no Auth, que deve limpar o restante)
-    const handleDeleteAccount = async () => {
-        if (!user) return; // Precisa do usuário logado
-
-        // Alerta de confirmação final
-        const modalConfirmed = await showCustomConfirmModal(
-            "DELETAR CONTA PERMANENTEMENTE",
-            `Tem certeza absoluta que deseja deletar sua conta (${user.email})${restaurant ? ` e remover PERMANENTEMENTE TODOS os seus dados, incluindo o restaurante "${restaurant.name}", cardápios e pedidos` : ""}? Esta ação não pode ser desfeita.`,
-            "SIM, DELETAR TUDO"
-        );
-        if (!modalConfirmed) return;
-
-        setIsDeletingAccount(true);
-        setMessage(null);
-
-        try {
-            // 1. **Deletar todos os dados relacionados ao restaurante primeiro (se existir)**
-            if (restaurant) {
-                const deleteRestaurantRes = await fetch("/api/restaurants/delete-restaurant", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ restaurantId: restaurant.id, userId: user.id }),
-                });
-
-                const deleteRestJson = await safeJsonParse(deleteRestaurantRes);
-
-                if (!deleteRestaurantRes.ok || deleteRestJson?.error) {
-                    console.error("Erro ao limpar dados do restaurante antes de deletar a conta:", deleteRestJson);
-                    throw new Error(`Falha na limpeza de dados do restaurante: ${deleteRestJson?.error ?? "Erro desconhecido"}`);
-                }
-            }
-
-
-            // 2. **Deletar o usuário no Auth**
-            // Precisamos do access_token atual para provar que o usuário está logado.
-            const { data: { session } } = await supabase.auth.getSession();
-            const accessToken = session?.access_token;
-
-            if (!accessToken) {
-                throw new Error("Sessão não encontrada. Faça login novamente.");
-            }
-
-            const deleteAccountRes = await fetch("/api/auth/delete-account", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ access_token: accessToken }),
-            });
-
-            // Tratamento de erro para resposta não-JSON
-            const deleteAccountJson = await safeJsonParse(deleteAccountRes);
-
-            if (!deleteAccountRes.ok || deleteAccountJson?.error) {
-                console.error("Erro ao deletar conta:", deleteAccountJson);
-                throw new Error(`Falha ao deletar conta: ${deleteAccountJson?.error ?? "Erro desconhecido"}`);
-            }
-
-            // 3. **Logout e Redirecionamento**
-            await supabase.auth.signOut();
-            setMessage({ type: "success", content: "Conta deletada com sucesso. Redirecionando..." });
-            router.push("/"); // Redireciona para a home page pública ou tela de login
-        } catch (err: any) {
-            console.error("Erro final ao deletar conta:", err);
-            setMessage({ type: "error", content: `Não foi possível deletar a conta completamente: ${String(err.message)}` });
-            setIsDeletingAccount(false);
-        }
-    };
-
-
-    // 📋 Copiar link
-    const handleCopyLink = () => {
-        if (!shareableUrl) return;
-        // document.execCommand('copy') foi removido, use navigator.clipboard
-        if (navigator.clipboard && window.isSecureContext) {
-            navigator.clipboard.writeText(shareableUrl);
-        }
-        setCopySuccess("Link copiado!");
-        setTimeout(() => setCopySuccess(""), 2000);
-    };
-
-    // 📥 Baixar QR Code
-    const handleDownloadQR = () => {
-        if (!qrCodeUrl || !restaurant) return;
-        const link = document.createElement("a");
-        link.href = qrCodeUrl;
-        link.download = `${restaurant.url_slug ?? "cardapio"}-qrcode.png`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    };
-
-    // 🖼️ Upload de logo
-    const handleLogoClick = () => fileInputRef.current?.click();
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -441,649 +239,532 @@ export default function ConfiguracoesPage() {
                 const { error } = await supabase.from("restaurants").update({ logo_url: key }).eq("id", restaurant.id);
                 if (error) throw error;
                 setRestaurant({ ...restaurant, logo_url: key });
-                setMessage({ type: "success", content: "Logo atualizada com sucesso!" });
+                showToast("Logo atualizada!", "success");
             } catch (err: any) {
-                setMessage({ type: "error", content: `Erro ao enviar logo: ${err?.message ?? err}` });
+                showToast("Erro ao enviar logo.", "error");
             }
         }
     };
 
-    const handleLogoDelete = async () => {
-        if (!restaurant?.logo_url) return;
-        // Usando o componente de modal
-        const modalConfirmed = await showCustomConfirmModal("Remover Logo", "Deseja remover a logo atual?", "Remover");
-        if (!modalConfirmed) return;
-
-        try {
-            const key = restaurant.logo_url;
-            const { error: storageErr } = await supabase.storage.from("restaurant-logos").remove([key]);
-            if (storageErr) {
-                console.error("Erro ao remover logo do storage:", storageErr);
-                setMessage({ type: "error", content: `Erro ao remover arquivo do storage: ${storageErr.message}` });
-                return;
+    const confirmDeleteLogo = () => {
+        openConfirm("Remover Logo", "Deseja remover a logo do restaurante?", async () => {
+            if (!restaurant?.logo_url) return;
+            try {
+                await supabase.storage.from("restaurant-logos").remove([restaurant.logo_url]);
+                await supabase.from("restaurants").update({ logo_url: null }).eq("id", restaurant.id);
+                setRestaurant({ ...restaurant, logo_url: null });
+                showToast("Logo removida.", "success");
+            } catch (err) {
+                showToast("Erro ao remover logo.", "error");
             }
-
-            const { error } = await supabase.from("restaurants").update({ logo_url: null }).eq("id", restaurant.id);
-            if (error) {
-                console.error("Erro ao atualizar restaurante após remoção de logo:", error);
-                setMessage({ type: "error", content: `Erro ao atualizar registro: ${error.message}` });
-                return;
-            }
-
-            setRestaurant({ ...restaurant, logo_url: null });
-            setMessage({ type: "success", content: "Logo removida com sucesso!" });
-        } catch (err: any) {
-            console.error("Erro ao deletar logo:", err);
-            setMessage({ type: "error", content: `Erro ao deletar logo: ${String(err?.message ?? err)}` });
-        }
+        }, "Remover", true);
     };
 
-    // Navega para a página de criação do cardápio (AddMenuClient fará a criação)
-    const handleCreateMenu = () => {
-        if (!restaurant) return;
-        router.push(`/painel/${restaurant.id}/criar-cardapio`); // Mantendo o caminho com ID para criar cardápio
-    };
+    // 3. Prep Time Logic
 
-    // Alterna disponibilidade do cardápio (cliente)
-    const toggleMenuActive = async (e: React.MouseEvent) => {
-        e.stopPropagation();
-        if (!menu) return;
-        try {
-            const { error } = await supabase
-                .from("menu")
-                .update({ is_active: !menu.is_active })
-                .eq("id", menu.id);
-            if (error) throw error;
-            setMenu({ ...menu, is_active: !menu.is_active });
-            setMessage({ type: "success", content: "Disponibilidade do cardápio atualizada." });
-        } catch (err: any) {
-            console.error("Erro ao alternar disponibilidade do menu:", err);
-            setMessage({ type: "error", content: `Erro ao atualizar disponibilidade: ${err?.message ?? err}` });
-        }
-    };
-
-    // Excluir cardápio (usa API server-side para deletar com SERVICE ROLE)
-    const handleDeleteMenu = async (e: React.MouseEvent) => {
-        e.stopPropagation();
-        if (!menu) return;
-
-        const modalConfirmed = await showCustomConfirmModal(
-            `Excluir Cardápio "${menu.name}"`,
-            "Excluir o cardápio e todos os itens relacionados? Esta ação é irreversível.",
-            "Excluir Cardápio"
-        );
-        if (!modalConfirmed) return;
-
-        try {
-            const res = await fetch("/api/menu/delete-menu", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ menuId: menu.id }),
-            });
-
-            // Tratamento de erro para resposta não-JSON
-            const json = await safeJsonParse(res);
-
-            if (!res.ok || json?.error) {
-                console.error("Erro ao deletar menu:", json);
-                setMessage({ type: "error", content: "Erro ao deletar cardápio. Veja console." });
-                return;
-            }
-            setMenu(null);
-            setMessage({ type: "success", content: "Cardápio excluído com sucesso." });
-        } catch (err: any) {
-            console.error("Erro ao deletar menu:", err);
-            setMessage({ type: "error", content: `Erro ao deletar: ${String(err.message)}` });
-        }
-    };
-
-    // navegar para editar / visualizar cardápio
-    const goToMenu = (menuId: string) => {
-        if (!restaurantId) return;
-        // abre a view administrativa do cardápio dentro do painel
-        router.push(`/painel/${restaurantId}/cardapio/${menuId}`);
-    };
-
-    // função auxiliar para obter slug (mantida separada para clareza)
-    const getRestaurantSlug = async (id: string) => {
-        const { data } = await supabase.from("restaurants").select("url_slug").eq("id", id).maybeSingle();
-        return data?.url_slug ?? null;
-    };
-
-
-    // ---------- Prep time API interactions ----------
+    // Apenas calcula (para o botão "Calcular Agora")
     const handleComputeNow = async () => {
         if (!restaurant) return;
-        setComputing(true);
-        setMessage(null);
+        setComputingPrep(true);
         try {
             const res = await fetch(`/api/restaurants/${restaurant.id}/compute-prep-time`, { method: "POST" });
-            const json = await safeJsonParse(res);
-            if (!res.ok) throw json;
+            if (!res.ok) throw new Error("Erro ao calcular");
 
             await fetchRestaurant();
-
-            setMessage({ type: "success", content: "Cálculo automático concluído." });
-        } catch (err: any) {
-            console.error("Erro compute-prep-time:", err);
-            setMessage({ type: "error", content: "Erro ao calcular automaticamente." });
+            showToast("Cálculo realizado com sucesso!", "success");
+        } catch (err) {
+            showToast("Não foi possível calcular agora. Verifique se há pedidos suficientes.", "error");
         } finally {
-            setComputing(false);
+            setComputingPrep(false);
         }
     };
 
-    // Salva modo automático ou manual de forma unificada
-    const handleSaveGeneral = async () => {
+    // Salva a configuração (Manual ou Auto)
+    const handleSavePrepTime = async () => {
         if (!restaurant) return;
-        setMessage(null);
+        setSavingPrep(true);
 
-        if (prepMode === "manual") {
-            if (manualMin === "" || manualMax === "") {
-                setMessage({ type: "error", content: "Informe mínimo e máximo." });
-                return;
-            }
-            const min = Number(manualMin);
-            const max = Number(manualMax);
-            if (!min || !max || min <= 0 || max <= 0 || max <= min) {
-                setMessage({ type: "error", content: "Valores inválidos. Max deve ser maior que Min e ambos positivos." });
-                return;
-            }
-            if ((max - min) < 20) {
-                setMessage({ type: "error", content: "A diferença entre máximo e mínimo deve ser ao menos 20 minutos." });
-                return;
-            }
+        try {
+            if (prepMode === "manual") {
+                const min = Number(manualMin);
+                const max = Number(manualMax);
+                if (!min || !max || min <= 0 || max <= 0 || max <= min) {
+                    throw new Error("Valores inválidos. Max deve ser maior que Min.");
+                }
+                if ((max - min) < 20) throw new Error("A diferença deve ser de pelo menos 20 min.");
 
-            setUpdatingManual(true);
-            try {
-                const res = await fetch(`/api/restaurants/${restaurant.id}/set-prep-time`, {
+                await fetch(`/api/restaurants/${restaurant.id}/set-prep-time`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ min, max, source: "manual" }),
                 });
-                const json = await safeJsonParse(res);
-                if (!res.ok) throw json;
-
-                await fetchRestaurant();
-
-                setMessage({ type: "success", content: "Tempo de preparo salvo manualmente." });
-            } catch (err: any) {
-                console.error("Erro set-prep-time (manual):", err);
-                setMessage({ type: "error", content: "Erro ao salvar tempo manual." });
-            } finally {
-                setUpdatingManual(false);
-            }
-        } else {
-            setComputing(true);
-            try {
-                const res1 = await fetch(`/api/restaurants/${restaurant.id}/set-prep-time`, {
+                showToast("Tempo manual salvo.", "success");
+            } else {
+                // Auto mode - Salva que é auto
+                await fetch(`/api/restaurants/${restaurant.id}/set-prep-time`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ source: "auto" }),
                 });
-                const json1 = await safeJsonParse(res1);
-                if (!res1.ok) throw json1;
 
-                await fetchRestaurant();
+                // Tenta calcular imediatamente
+                const resCalc = await fetch(`/api/restaurants/${restaurant.id}/compute-prep-time`, { method: "POST" });
 
-                const res2 = await fetch(`/api/restaurants/${restaurant.id}/compute-prep-time`, { method: "POST" });
-                // Não precisa de safeJsonParse aqui se o res2.ok for a única coisa importante
-                if (res2.ok) {
-                    await fetchRestaurant();
-                }
-
-                setMessage({ type: "success", content: "Modo automático salvo. Valores manuais removidos; cálculo automático acionado." });
-            } catch (err: any) {
-                console.error("Erro set-prep-time (auto):", err);
-                setMessage({ type: "error", content: "Erro ao salvar modo automático." });
-            } finally {
-                setComputing(false);
+                if (resCalc.ok) showToast("Modo automático ativado e calculado.", "success");
+                else showToast("Modo automático ativado (cálculo pendente de dados).", "info");
             }
-        }
-    };
-    // --------------------------------------------------
-
-    // --------------------------------------------------
-    // CUSTOM MODAL (Substitui alert() e confirm())
-    // --------------------------------------------------
-    const [modal, setModal] = useState<{ isOpen: boolean, title: string, message: string, buttonText: string, resolve: (confirmed: boolean) => void } | null>(null);
-
-    const showCustomConfirmModal = (title: string, message: string, buttonText: string): Promise<boolean> => {
-        return new Promise((resolve) => {
-            setModal({
-                isOpen: true,
-                title,
-                message,
-                buttonText,
-                resolve,
-            });
-        });
-    };
-
-    const closeCustomModal = (confirmed: boolean) => {
-        if (modal) {
-            modal.resolve(confirmed);
-            setModal(null);
+            await fetchRestaurant();
+        } catch (err: any) {
+            showToast(err.message || "Erro ao salvar tempo.", "error");
+        } finally {
+            setSavingPrep(false);
         }
     };
 
-    // --------------------------------------------------
+    // 4. Menu Actions
+    const toggleMenuStatus = async (val: boolean) => {
+        if (!menu) return;
+        try {
+            const { error } = await supabase.from("menu").update({ is_active: val }).eq("id", menu.id);
+            if (error) throw error;
+            setMenu({ ...menu, is_active: val });
+            showToast(`Cardápio ${val ? "ativado" : "desativado"}.`, "success");
+        } catch (err) {
+            showToast("Erro ao atualizar status.", "error");
+        }
+    };
 
+    const confirmDeleteMenu = () => {
+        openConfirm("Excluir Cardápio", `Deseja excluir o cardápio "${menu?.name}" e todos os seus itens?`, async () => {
+            if (!menu) return;
+            setIsDeletingAction(true);
+            try {
+                const res = await fetch("/api/menu/delete-menu", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ menuId: menu.id }),
+                });
+                if (!res.ok) throw new Error();
+                setMenu(null);
+                showToast("Cardápio excluído.", "success");
+            } catch (err) {
+                showToast("Erro ao excluir cardápio.", "error");
+            } finally {
+                setIsDeletingAction(false);
+            }
+        }, "Excluir", true);
+    };
+
+    // 5. Danger Zone: Delete Restaurant
+    const confirmDeleteRestaurant = () => {
+        openConfirm("Deletar Restaurante", `Tem certeza que deseja deletar "${restaurant?.name}" e TODOS os dados associados?`, async () => {
+            if (!restaurant) return;
+            setIsDeletingAction(true);
+            try {
+                const res = await fetch("/api/restaurants/delete-restaurant", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ restaurantId: restaurant.id, userId: restaurant.user_id }),
+                });
+                if (!res.ok) throw new Error();
+                showToast("Restaurante deletado.", "success");
+                router.push("/painel/configuracoes");
+                setRestaurant(null);
+            } catch (err) {
+                showToast("Erro ao deletar restaurante.", "error");
+            } finally {
+                setIsDeletingAction(false);
+            }
+        }, "Deletar", true);
+    };
+
+    // 6. Danger Zone: Delete Account
+    const confirmDeleteAccount = () => {
+        openConfirm("Deletar Conta", "Essa ação removerá PERMANENTEMENTE sua conta e todos os dados associados.", async () => {
+            if (!user) return;
+            setIsDeletingAction(true);
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                if (restaurant) {
+                    await fetch("/api/restaurants/delete-restaurant", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ restaurantId: restaurant.id, userId: user.id }),
+                    });
+                }
+                const res = await fetch("/api/auth/delete-account", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ access_token: session?.access_token }),
+                });
+                if (!res.ok) throw new Error();
+
+                await supabase.auth.signOut();
+                router.push("/");
+                showToast("Conta deletada.", "success");
+            } catch (err) {
+                showToast("Erro ao deletar conta.", "error");
+                setIsDeletingAction(false);
+            }
+        }, "Deletar", true);
+    };
+
+    const handleCopyLink = () => {
+        if (shareableUrl && navigator.clipboard) {
+            navigator.clipboard.writeText(shareableUrl);
+            showToast("Link copiado!", "success");
+        }
+    };
+
+    const logoUrl = restaurant?.logo_url ? supabase.storage.from("restaurant-logos").getPublicUrl(restaurant.logo_url).data.publicUrl : null;
 
     if (loading) {
         return (
-            <div className="flex min-h-screen items-center justify-center p-4">
-                <p className="text-gray-600 text-lg">Carregando configurações...</p>
+            <div className="flex h-full min-h-[80vh] w-full items-center justify-center">
+                <Loader />
             </div>
         );
     }
 
-    // função auxiliar para estilizar mensagens
-    const getMessageClasses = (type: MessageType) => {
-        switch (type) {
-            case "success":
-                return "bg-green-100 text-green-800 border border-green-300";
-            case "error":
-                return "bg-red-100 text-red-800 border border-red-300";
-            case "info":
-                return "bg-blue-100 text-blue-800 border border-blue-300";
-            default:
-                return "bg-gray-100 text-gray-800 border border-gray-300";
-        }
-    };
-
-    // obter URL pública da logo (se houver)
-    const logoPublicUrl =
-        restaurant?.logo_url &&
-        supabase.storage.from("restaurant-logos").getPublicUrl(restaurant.logo_url).data?.publicUrl;
-
-
     return (
         <>
-            {/* Modal de Confirmação Personalizado */}
-            {modal?.isOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-                    <div className="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full space-y-4">
-                        <h3 className="text-lg font-semibold text-gray-900">{modal.title}</h3>
-                        <p className="text-sm text-gray-700">{modal.message}</p>
-                        <div className="flex justify-end gap-3">
-                            <button
-                                onClick={() => closeCustomModal(false)}
-                                className="px-4 py-2 text-sm font-medium rounded-md border border-gray-300 hover:bg-gray-50"
-                                disabled={isDeletingAccount}
-                            >
-                                Cancelar
-                            </button>
-                            <button
-                                onClick={() => closeCustomModal(true)}
-                                className="px-4 py-2 text-sm font-medium rounded-md bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
-                                disabled={isDeletingAccount}
-                            >
-                                {modal.buttonText}
-                            </button>
-                        </div>
+            {/* Popup de Confirmação */}
+            <Popup open={confirmPopup.show} onClose={() => setConfirmPopup((prev) => ({ ...prev, show: false }))}>
+                <div className="p-6 text-center space-y-4">
+                    <h3 className={`text-xl font-bold ${confirmPopup.isDestructive ? "text-red-600" : "text-gray-900"}`}>
+                        {confirmPopup.title}
+                    </h3>
+                    <p className="text-gray-600">{confirmPopup.message}</p>
+                    <div className="flex justify-center gap-4 mt-4">
+                        <Button variant="secondary" onClick={() => setConfirmPopup((prev) => ({ ...prev, show: false }))}>
+                            Cancelar
+                        </Button>
+                        <Button
+                            variant="primary"
+                            onClick={() => {
+                                confirmPopup.onConfirm();
+                                setConfirmPopup((prev) => ({ ...prev, show: false }));
+                            }}
+                            className={confirmPopup.isDestructive ? "!bg-red-600 hover:!bg-red-700 border-red-600" : ""}
+                            loading={isDeletingAction}
+                        >
+                            {confirmPopup.confirmText}
+                        </Button>
                     </div>
                 </div>
+            </Popup>
+
+            {/* Toast de Notificação */}
+            {toast.show && (
+                <Toast message={toast.message} type={toast.type} onClose={closeToast} />
             )}
 
-            <div className="flex min-h-screen flex-col items-center bg-gray-50 p-6">
-                <div className="w-full max-w-2xl space-y-8">
+            <div className="min-h-screen bg-gray-50 p-6">
+                <div className="max-w-6xl mx-auto space-y-8 pb-32">
 
-                    {/* CABEÇALHO COM LOGO (Condicional) */}
-                    <div className="flex flex-col items-center">
-                        {restaurant && (
-                            // LOGO DO RESTAURANTE
-                            <div className="flex flex-col items-center mb-4">
-                                <div
-                                    className="relative w-28 h-28 rounded-full border-4 border-gray-300 overflow-hidden cursor-pointer group"
-                                    onMouseEnter={() => setHoveringLogo(true)}
-                                    onMouseLeave={() => setHoveringLogo(false)}
-                                    onClick={handleLogoClick}
-                                >
-                                    {logoPublicUrl ? (
-                                        <img src={logoPublicUrl} alt="Logo do restaurante" className="w-full h-full object-cover" />
-                                    ) : (
-                                        <div className="flex items-center justify-center w-full h-full bg-gray-200 text-gray-500 text-sm">
-                                            Adicionar Logo
-                                        </div>
-                                    )}
-                                    {hoveringLogo && restaurant.logo_url && (
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleLogoDelete();
-                                            }}
-                                            className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 text-white"
-                                        >
-                                            <FontAwesomeIcon icon={icons.faTrash} className="text-lg" />
-                                        </button>
-                                    )}
-                                    <input type="file" ref={fileInputRef} accept="image/*" onChange={handleFileChange} className="hidden" />
+                    {/* HEADER & LOGO */}
+                    <div className="flex flex-col">
+
+                        <h1 className="text-3xl font-bold text-gray-900">Configurações</h1>
+                        <p className="text-gray-600 mt-1">
+                            {restaurant
+                                ? <>Gerenciando: <span className="font-semibold text-brand">{restaurant.name}</span></>
+                                : "Gerencie sua conta e crie seu restaurante."}
+                        </p>
+                    </div>
+
+                    {/* --- MINHA CONTA --- */}
+                    <Card>
+                        <h2 className="text-xl font-medium text-gray-900 mb-4">Minha Conta</h2>
+
+                        <div className="space-y-6">
+                            <div className="flex gap-3 items-end">
+                                <div className="flex-grow">
+                                    <Input
+                                        label="Nome Completo"
+                                        value={userName}
+                                        onChange={(e) => setUserName(e.target.value)}
+                                        placeholder="Seu nome completo"
+                                    />
+                                </div>
+                                <div className="pb-[9px]">
+                                    <Button
+                                        variant="primary"
+                                        onClick={handleNameUpdate}
+                                        loading={isUpdatingName}
+                                        disabled={!userName.trim() || userName === user?.user_metadata?.full_name}
+                                    >
+                                        <FontAwesomeIcon icon={faCheck} />
+                                    </Button>
                                 </div>
                             </div>
-                        )}
 
-                        <h1 className="mt-1 text-3xl font-bold text-gray-900">Configurações</h1>
-                        {restaurant ? (
-                            <p className="text-lg text-gray-600">
-                                Gerenciando: <span className="font-semibold">{restaurant.name}</span>
-                            </p>
-                        ) : (
-                            <p className="text-lg text-gray-600">Gerenciando sua conta.</p>
-                        )}
-                    </div>
-                    {/* FIM CABEÇALHO */}
-
-
-                    {message && (
-                        <div
-                            className={`rounded-md p-3 text-sm font-medium ${getMessageClasses(message.type)}`}
-                        >
-                            {message.content}
-                        </div>
-                    )}
-
-                    {/* MINHA CONTA - Renderizada sempre */}
-                    <section className="space-y-4 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-                        <h2 className="text-lg font-semibold text-gray-900">Minha Conta</h2>
-                        <p className="text-sm text-gray-700">Gerencie suas informações de login e perfil de administrador.</p>
-
-                        {/* Campo Nome */}
-                        <div className="space-y-2">
-                            <label htmlFor="adminName" className="block text-sm font-medium text-gray-700">Nome do Administrador</label>
-                            <div className="flex items-center gap-2">
-                                <input
-                                    id="adminName"
-                                    ref={nameInputRef}
-                                    type="text"
-                                    value={userName}
-                                    onChange={(e) => setUserName(e.target.value)}
-                                    onFocus={handleInputClick}
-                                    onBlur={handleNameUpdate} // Salva ao perder o foco (blur)
-                                    onKeyDown={handleInputKeyDown} // Salva ao apertar Enter
-                                    disabled={isUpdatingName}
-                                    required
-                                    className={`flex-grow rounded-md border-gray-300 px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 ${isEditingName ? 'border-indigo-500' : 'border-gray-300'}`}
-                                />
-                                {(isEditingName || isUpdatingName) && (
-                                    <button
-                                        onClick={handleNameUpdate}
-                                        disabled={isUpdatingName || userName.trim() === ((user?.user_metadata as { full_name?: string })?.full_name || user?.email || "") || userName.trim() === ""}
-                                        className="rounded-md bg-indigo-600 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 disabled:opacity-50 min-w-[70px]"
-                                    >
-                                        {isUpdatingName ? <FontAwesomeIcon icon={icons.faSpinner} spin /> : <FontAwesomeIcon icon={icons.faCheck} />}
-                                    </button>
-                                )}
-                                {!isEditingName && !isUpdatingName && (
-                                    <button
-                                        onClick={handleInputClick}
-                                        className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
-                                    >
-                                        <FontAwesomeIcon icon={icons.faEdit} />
-                                    </button>
-                                )}
-                            </div>
-                            {isEditingName && !isUpdatingName && (
-                                <p className="text-xs text-gray-500">Pressione Enter ou clique no <FontAwesomeIcon icon={icons.faCheck} /> para salvar.</p>
-                            )}
-                            {isUpdatingName && <p className="text-xs text-indigo-600">Atualizando nome...</p>}
-                        </div>
-
-                        {/* E-mail e Senha Buttons */}
-                        <div className="flex flex-col gap-3 pt-2">
-                            <div className="flex items-center justify-between p-3 border border-gray-100 rounded-md bg-gray-50">
-                                <span className="text-sm text-gray-700">E-mail: <strong className="font-medium text-gray-900">{user?.email}</strong></span>
-                                <button
-                                    onClick={() => router.push("/painel/configuracoes/atualizar-email")}
-                                    className="rounded-md border border-indigo-300 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 shadow-sm hover:bg-indigo-100"
-                                >
-                                    <FontAwesomeIcon icon={icons.faEnvelope} className="mr-1" /> Atualizar E-mail
-                                </button>
-                            </div>
-
-                            <div className="flex items-center justify-between p-3 border border-gray-100 rounded-md bg-gray-50">
-                                <span className="text-sm text-gray-700">Senha: **********</span>
-                                <button
-                                    onClick={() => router.push("/painel/configuracoes/nova-senha")}
-                                    className="rounded-md border border-indigo-300 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 shadow-sm hover:bg-indigo-100"
-                                >
-                                    <FontAwesomeIcon icon={icons.faLock} className="mr-1" /> Alterar Senha
-                                </button>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg bg-gray-50">
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-500">E-mail</p>
+                                        <p className="text-gray-900 font-medium">{user?.email}</p>
+                                    </div>
+                                    <Button variant="secondary" onClick={() => router.push("/painel/configuracoes/atualizando-email")}>
+                                        Alterar
+                                    </Button>
+                                </div>
+                                <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg bg-gray-50">
+                                    <div>
+                                        <p className="text-sm font-medium text-gray-500">Senha</p>
+                                        <p className="text-gray-900 font-medium">••••••••</p>
+                                    </div>
+                                    <Button variant="secondary" onClick={() => router.push("/painel/configuracoes/nova-senha")}>
+                                        Alterar
+                                    </Button>
+                                </div>
                             </div>
                         </div>
-                    </section>
+                    </Card>
 
-                    {/* Exibe a mensagem de "Não há restaurante" e o botão de criar, OU as configurações do restaurante */}
+                    {/* --- LÓGICA DO RESTAURANTE --- */}
                     {!restaurant ? (
-                        <div className="space-y-4 rounded-lg border border-blue-300 bg-blue-50 p-6 shadow-sm">
-                            <h2 className="text-lg font-semibold text-blue-800">Crie seu Restaurante</h2>
-                            <p className="text-sm text-blue-700">
-                                Não encontramos nenhum restaurante associado a esta conta. Para começar a usar a plataforma, crie seu primeiro restaurante!
-                            </p>
-                            <button
-                                onClick={() => router.push("/restaurante/criar")}
-                                className="mt-3 rounded-md bg-indigo-600 px-5 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700"
-                            >
-                                <FontAwesomeIcon icon={icons.faPlus} className="mr-2" /> Criar Restaurante Agora
-                            </button>
+                        <div className="p-8 rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 text-center space-y-4">
+                            <h2 className="text-xl font-medium text-gray-700">Você ainda não possui um restaurante</h2>
+                            <p className="text-gray-500">Crie seu primeiro restaurante para começar a vender.</p>
+                            <Button variant="primary" onClick={() => router.push("/restaurante/criar")}>
+                                Criar Restaurante Agora
+                            </Button>
                         </div>
                     ) : (
-                        // AQUI COMEÇAM AS CONFIGURAÇÕES ESPECÍFICAS DO RESTAURANTE (SOMENTE SE restaurant EXISTE)
                         <>
-                            {/* COMPARTILHAR */}
-                            <section className="space-y-4 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-                                <h2 className="text-lg font-semibold text-gray-900">Compartilhar Cardápio</h2>
-                                <p className="text-sm text-gray-700">Use o link direto ou QR Code para divulgar seu cardápio.</p>
+                            {/* --- COMPARTILHAR --- */}
+                            <Card>
+                                <h2 className="text-xl font-medium text-gray-900 mb-2">Compartilhar Cardápio</h2>
+                                <p className="text-gray-500 text-sm mb-6">Divulgue seu link ou use o QR Code.</p>
 
-                                <div className="flex flex-col gap-2 sm:flex-row">
-                                    <input
-                                        type="text"
-                                        value={shareableUrl}
-                                        readOnly
-                                        className="flex-grow rounded-md border-gray-300 bg-gray-100 px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                    />
-                                    <button
-                                        onClick={handleCopyLink}
-                                        className="flex items-center justify-center gap-2 rounded-md border border-gray-300 bg-white px-5 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 sm:w-auto"
-                                    >
-                                        {copySuccess || "Copiar Link"}
-                                    </button>
-                                </div>
-
-                                <div className="flex flex-col items-center justify-center gap-4 rounded-lg bg-gray-50 p-6">
-                                    {qrCodeUrl ? (
-                                        <img src={qrCodeUrl} alt="QR Code" width={200} height={200} className="rounded-md border border-gray-300" />
-                                    ) : (
-                                        <div className="flex h-[200px] w-[200px] items-center justify-center rounded-md border border-gray-300 bg-gray-100 text-sm text-gray-500">
-                                            Gerando QR Code...
+                                <div className="space-y-6">
+                                    <div className="flex gap-3">
+                                        <div className="flex-grow">
+                                            <Input value={shareableUrl} readOnly />
                                         </div>
-                                    )}
-                                    <button
-                                        onClick={handleDownloadQR}
-                                        className="flex items-center justify-center gap-2 rounded-md border border-gray-300 bg-white px-5 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
-                                    >
-                                        <FontAwesomeIcon icon={icons.faDownload} /> Baixar QR Code
-                                    </button>
+                                        <Button variant="secondary" onClick={handleCopyLink}>
+                                            <FontAwesomeIcon icon={faCopy} className="mr-2" /> Copiar
+                                        </Button>
+                                    </div>
+
+                                    <div className="flex flex-col items-center p-6 bg-gray-50 rounded-lg border border-gray-200">
+                                        {qrCodeUrl ? (
+                                            <img src={qrCodeUrl} alt="QR Code" className="w-48 h-48 rounded-md border border-gray-200 mb-4" />
+                                        ) : (
+                                            <div className="w-48 h-48 flex items-center justify-center bg-gray-200 rounded-md mb-4 text-gray-500 text-sm">
+                                                Carregando QR...
+                                            </div>
+                                        )}
+                                        <Button variant="secondary" onClick={() => {
+                                            if (!qrCodeUrl) return;
+                                            const link = document.createElement("a");
+                                            link.href = qrCodeUrl;
+                                            link.download = `qrcode-${restaurant.url_slug}.png`;
+                                            document.body.appendChild(link);
+                                            link.click();
+                                            document.body.removeChild(link);
+                                        }}>
+                                            <FontAwesomeIcon icon={faDownload} className="mr-2" /> Baixar Imagem
+                                        </Button>
+                                    </div>
                                 </div>
-                            </section>
+                            </Card>
 
-                            {/* TEMPO DE PREPARO */}
-                            <section className="space-y-4 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-                                <h2 className="text-lg font-semibold text-gray-900">Tempo Médio de Preparo</h2>
-                                <p className="text-sm text-gray-700">
-                                    Defina se deseja utilizar o cálculo automático (necessário ter pelo menos uma semana de uso) ou inserir um intervalo manualmente.
-                                </p>
+                            {/* --- TEMPO DE PREPARO --- */}
+                            <Card>
+                                <h2 className="text-xl font-medium text-gray-900 mb-2">Tempo Médio de Preparo</h2>
+                                <p className="text-gray-500 text-sm mb-6">Escolha como o tempo de entrega estimado é calculado. (Para cálculo automático é necessário pelo menos uma semana de uso)</p>
 
-                                <div className="flex flex-col gap-3 md:flex-row md:items-center">
-                                    <div className="flex items-center gap-4">
-                                        <label className="flex items-center gap-2">
+                                <div className="space-y-6">
+                                    <div className="flex gap-6">
+                                        <label className="flex items-center gap-3 cursor-pointer group">
                                             <input
                                                 type="radio"
                                                 name="prep_mode"
                                                 value="auto"
                                                 checked={prepMode === "auto"}
                                                 onChange={() => setPrepMode("auto")}
+                                                className="w-5 h-5 text-brand border-gray-300 focus:ring-brand"
                                             />
-                                            <span className="text-sm">Automático</span>
+                                            <span className={`text-base ${prepMode === "auto" ? "text-gray-900 font-medium" : "text-gray-600"}`}>
+                                                Automático
+                                            </span>
                                         </label>
-                                        <label className="flex items-center gap-2">
+                                        <label className="flex items-center gap-3 cursor-pointer group">
                                             <input
                                                 type="radio"
                                                 name="prep_mode"
                                                 value="manual"
                                                 checked={prepMode === "manual"}
                                                 onChange={() => setPrepMode("manual")}
+                                                className="w-5 h-5 text-brand border-gray-300 focus:ring-brand"
                                             />
-                                            <span className="text-sm">Manual</span>
+                                            <span className={`text-base ${prepMode === "manual" ? "text-gray-900 font-medium" : "text-gray-600"}`}>
+                                                Manual
+                                            </span>
                                         </label>
                                     </div>
 
-                                    <div className="ml-auto flex gap-2">
-                                        <button
+                                    {prepMode === "manual" && (
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <Input
+                                                label="Mínimo (min)"
+                                                value={manualMin}
+                                                onChange={(e) => setManualMin(e.target.value)}
+                                                placeholder="Ex: 30"
+                                                numeric
+                                            />
+                                            <Input
+                                                label="Máximo (min)"
+                                                value={manualMax}
+                                                onChange={(e) => setManualMax(e.target.value)}
+                                                placeholder="Ex: 50"
+                                                numeric
+                                            />
+                                            <p className="col-span-2 text-xs text-gray-500">
+                                                A diferença entre o mínimo e o máximo deve ser de pelo menos 20 minutos.
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    <div className="flex justify-end gap-3">
+                                        {/* Botão Calcular Agora - Visível apenas se Auto estiver selecionado */}
+                                        <Button
+                                            variant="secondary"
                                             onClick={handleComputeNow}
-                                            disabled={computing || prepMode !== "auto"}
-                                            className="rounded-md bg-indigo-600 px-4 py-2 text-white text-sm hover:bg-indigo-700 disabled:opacity-50"
+                                            loading={computingPrep}
+                                            disabled={prepMode !== "auto" || savingPrep}
+                                            className={prepMode !== "auto" ? "opacity-50 cursor-not-allowed" : ""}
                                         >
-                                            {computing ? "Calculando..." : "Calcular agora"}
-                                        </button>
-                                        <button
-                                            onClick={handleSaveGeneral}
-                                            disabled={computing || updatingManual}
-                                            className="rounded-md bg-green-600 px-4 py-2 text-white text-sm hover:bg-green-700 disabled:opacity-50"
+                                            <FontAwesomeIcon icon={faCalculator} className="mr-2" /> Calcular Agora
+                                        </Button>
+
+                                        {/* Botão Salvar */}
+                                        <Button
+                                            variant="primary"
+                                            onClick={handleSavePrepTime}
+                                            loading={savingPrep}
+                                            disabled={computingPrep}
                                         >
-                                            Salvar
-                                        </button>
+                                            Salvar Configurações
+                                        </Button>
+                                    </div>
+
+                                    <div className="mt-4 p-3 rounded-md border border-gray-200 bg-gray-50 text-gray-700 text-sm flex justify-between items-center">
+                                        <span>Estimativa atual visível aos clientes:</span>
+                                        <span className="font-bold text-lg text-brand">
+                                            {restaurant.prep_time_min_minutes || "?"}–{restaurant.prep_time_max_minutes || "?"} min
+                                        </span>
                                     </div>
                                 </div>
+                            </Card>
 
-                                {prepMode === "manual" && (
-                                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 sm:items-end">
-                                        <div>
-                                            <label className="block text-xs text-gray-600">Mínimo (minutos)</label>
-                                            <input
-                                                type="number"
-                                                value={manualMin as any}
-                                                onChange={(e) => setManualMin(e.target.value === "" ? "" : Number(e.target.value))}
-                                                className="w-full rounded-md border-gray-300 px-2 py-1"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs text-gray-600">Máximo (minutos)</label>
-                                            <input
-                                                type="number"
-                                                value={manualMax as any}
-                                                onChange={(e) => setManualMax(e.target.value === "" ? "" : Number(e.target.value))}
-                                                className="w-full rounded-md border-gray-300 px-2 py-1"
-                                            />
-                                        </div>
-                                        <div>
-                                            <div className="text-xs text-gray-500">Clique em "Salvar" à direita para persistir manualmente.</div>
-                                        </div>
-                                        <p className="text-xs text-gray-500 sm:col-span-3">A diferença entre máximo e mínimo deve ser ao menos 20 minutos.</p>
-                                        {restaurant.prep_time_computed_at && (
-                                            <p className="text-xs text-gray-500 sm:col-span-3">
-                                                Última atualização: {new Date(restaurant.prep_time_computed_at).toLocaleString()}
-                                            </p>
-                                        )}
+                            {/* --- CARDÁPIO --- */}
+                            <Card>
+                                {/* Container Flex Responsivo */}
+                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+
+                                    {/* Bloco de Texto (Título e descrição) */}
+                                    <div>
+                                        <h2 className="text-xl font-medium text-gray-900 mb-2">Cardápio Principal</h2>
+                                        <p className="text-gray-500 text-sm mb-2">Gerencie o cardápio ativo do restaurante.</p>
                                     </div>
-                                )}
 
-                                {restaurant.prep_time_min_minutes !== null && restaurant.prep_time_max_minutes !== null && (
-                                    <div className="mt-2 text-sm text-gray-700">
-                                        Estimativa atual:{" "}
-                                        <span className="font-semibold">
-                                            {restaurant.prep_time_min_minutes}–{restaurant.prep_time_max_minutes} minutos
-                                        </span>
-                                        <span className="ml-2 text-xs text-gray-500">
-                                            ({restaurant.prep_time_source === "manual" ? "definido manualmente" : "estimado automaticamente"})
-                                        </span>
-                                    </div>
-                                )}
+                                    {/* Botão (Só aparece se não tiver menu) */}
+                                    {!menu && (
+                                        <div className="flex justify-start md:justify-end w-full md:w-auto">
+                                            <Button
+                                                variant="primary"
+                                                onClick={() => router.push(`/painel/cardapio`)}
+                                                className="w-full md:w-auto" // Opcional: Deixa o botão largura total no mobile
+                                            >
+                                                Criar Cardápio
+                                            </Button>
+                                        </div>
+                                    )}
+                                </div>
 
-                            </section>
-
-                            {/* CARDÁPIO DO RESTAURANTE */}
-                            <section className="space-y-4 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-                                <h2 className="text-lg font-semibold text-gray-900">Cardápio do Restaurante</h2>
-                                <p className="text-sm text-gray-700">Crie e gerencie o cardápio principal do seu restaurante.</p>
-
-                                {menu ? (
+                                {menu && (
                                     <div
-                                        onClick={() => goToMenu(menu.id)}
-                                        className="group relative flex items-start justify-between gap-4 rounded-md border p-4 hover:shadow cursor-pointer"
+                                        className="group border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow bg-white flex items-center justify-between cursor-pointer"
+                                        onClick={() => router.push(`/painel/cardapio`)}
                                     >
-                                        <div className="flex-1">
+                                        <div>
                                             <h3 className="text-lg font-semibold text-gray-900">{menu.name}</h3>
                                         </div>
 
-                                        <div className="flex flex-col items-end gap-2">
+                                        <div className="flex items-center gap-4" onClick={(e) => e.stopPropagation()}>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-sm text-gray-600">Visível:</span>
+                                                <ToggleInput
+                                                    label=""
+                                                    checked={menu.is_active || false}
+                                                    onChange={(e) => toggleMenuStatus(e.target.checked)}
+                                                />
+                                            </div>
+                                            <div className="w-px h-8 bg-gray-200 mx-2"></div>
                                             <button
-                                                onClick={toggleMenuActive}
-                                                className={`px-3 py-1 rounded text-sm font-medium ${menu.is_active ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-700"}`}
-                                                title="Alternar disponibilidade do cardápio"
-                                            >
-                                                {menu.is_active ? "Disponível" : "Indisponível"}
-                                            </button>
-
-                                            <button
-                                                onClick={handleDeleteMenu}
-                                                className="px-3 py-1 rounded bg-red-600 text-white text-sm"
+                                                onClick={confirmDeleteMenu}
+                                                className="text-gray-400 hover:text-red-600 transition-colors p-2"
                                                 title="Excluir cardápio"
                                             >
-                                                <FontAwesomeIcon icon={icons.faTrash} />
+                                                <FontAwesomeIcon icon={faTrash} />
                                             </button>
                                         </div>
                                     </div>
-                                ) : (
-                                    <button
-                                        onClick={handleCreateMenu}
-                                        className="flex items-center gap-2 rounded-md bg-indigo-600 px-5 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700"
-                                    >
-                                        <FontAwesomeIcon icon={icons.faPlus} /> Criar Cardápio
-                                    </button>
                                 )}
-                            </section>
+                            </Card>
 
-                            {/* ZONA DE PERIGO - DELETAR RESTAURANTE */}
-                            <section className="space-y-4 rounded-lg border border-red-300 bg-red-50 p-6 shadow-sm">
-                                <h2 className="text-lg font-semibold text-red-800">Zona de Perigo: Restaurante</h2>
-                                <p className="text-sm text-red-700">
-                                    Exclui seu restaurante <b>"{restaurant.name}"</b> e todos os seus dados relacionados (cardápios, pedidos, etc.) permanentemente. Sua conta de usuário permanecerá ativa.
-                                </p>
+                            {/* --- ZONA DE PERIGO: RESTAURANTE --- */}
+                            <Card className="border-red-200">
+                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                    {/* Coluna 1: Textos */}
+                                    <div>
+                                        <h2 className="text-xl font-medium text-red-700 mb-2">Deletar Restaurante</h2>
+                                        <p className="text-red-600/70 text-sm">
+                                            Isso excluirá permanentemente o restaurante <b>{restaurant.name}</b> e todos os pedidos.
+                                        </p>
+                                    </div>
 
-                                <button
-                                    onClick={handleDeleteRestaurant}
-                                    disabled={isDeletingRestaurant || isDeletingAccount}
-                                    className="rounded-md bg-red-600 px-5 py-2 text-sm font-medium text-white shadow-sm hover:bg-red-700 disabled:opacity-50"
-                                >
-                                    <FontAwesomeIcon icon={icons.faTrash} /> {isDeletingRestaurant ? "Deletando Restaurante..." : "Deletar Restaurante"}
-                                </button>
-                            </section>
+                                    {/* Coluna 2: Botão */}
+                                    <div className="flex justify-center md:justify-end w-full md:w-auto">
+                                        <Button
+                                            variant="primary"
+                                            className="!bg-red-600 hover:!bg-red-700 border-red-600 w-full md:w-auto"
+                                            onClick={confirmDeleteRestaurant}
+                                        >
+                                            <FontAwesomeIcon icon={faTrash} className="text-xs mr-2" /> Deletar Restaurante
+                                        </Button>
+                                    </div>
+                                </div>
+                            </Card>
                         </>
                     )}
 
-                    {/* ZONA DE PERIGO - DELETAR CONTA (Renderizada sempre) */}
-                    <section className="space-y-4 rounded-lg border border-red-500 bg-red-100 p-6 shadow-md">
-                        <h2 className="text-lg font-semibold text-red-900">Zona de Perigo: Deletar Conta</h2>
-                        <p className="text-sm text-red-800 font-medium">
-                            Esta ação é irreversível e deletará:
-                        </p>
-                        <ul className="list-disc list-inside text-sm text-red-800 ml-4">
-                            <li>Sua conta de usuário ({user?.email}) do Supabase Auth.</li>
-                            {restaurant && <li>O restaurante "{restaurant.name}" e **TODOS** os dados associados (cardápios, itens, pedidos, logos, etc.).</li>}
-                            {!restaurant && <li>Todos os dados de usuário associados.</li>}
-                        </ul>
-                        <p className="text-xs text-red-700 mt-2">
-                            Você será desconectado e redirecionado para a página inicial.
-                        </p>
+                    {/* --- ZONA DE PERIGO: CONTA --- */}
+                    <Card className="border-red-200 bg-red-50/30">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            {/* Coluna 1: Textos */}
+                            <div>
+                                <h2 className="text-xl font-medium text-red-700 mb-2">Deletar Conta</h2>
+                                <p className="text-red-600/70 text-sm">
+                                    Ação irreversível. Todos os seus dados serão apagados.
+                                </p>
+                            </div>
 
-                        <button
-                            onClick={handleDeleteAccount}
-                            disabled={isDeletingAccount || isDeletingRestaurant}
-                            className="rounded-md bg-red-800 px-5 py-2 text-sm font-medium text-white shadow-sm hover:bg-red-900 disabled:opacity-50"
-                        >
-                            <FontAwesomeIcon icon={icons.faTrash} /> {isDeletingAccount ? "Deletando Conta..." : "Deletar Conta Permanentemente"}
-                        </button>
-                    </section>
+                            {/* Coluna 2: Botão */}
+                            <div className="flex justify-center md:justify-end w-full md:w-auto">
+                                <Button
+                                    variant="primary"
+                                    className="!bg-red-600 hover:!bg-red-900 border-red-800 w-full md:w-auto"
+                                    onClick={confirmDeleteAccount}
+                                >
+                                    <FontAwesomeIcon icon={faTrash} className="text-xs mr-2" /> Deletar Conta
+                                </Button>
+                            </div>
+                        </div>
+                    </Card>
 
                 </div>
             </div>
@@ -1091,7 +772,7 @@ export default function ConfiguracoesPage() {
     );
 }
 
-// Para o TypeScript reconhecer 'window.QRCode'
+// Helper para tipagem do QRCode no window
 declare global {
     interface Window {
         QRCode: {
