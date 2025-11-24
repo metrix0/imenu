@@ -28,10 +28,12 @@ export type DeliveryRulesRef = {
 type DeliveryRulesProps = {
     restaurantId: string;
     isNew: boolean;
+    // Nova prop para comunicar status
+    onStatusChange?: (status: "idle" | "saving" | "saved") => void;
 };
 
 const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
-    ({ restaurantId, isNew }, ref) => {
+    ({ restaurantId, isNew, onStatusChange }, ref) => {
         const router = useRouter();
 
         const {
@@ -42,13 +44,18 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
         } = useRestauranteConfig();
 
         const [rules, setRules] = useState<RadiusRule[]>([]);
-        const [status, setStatus] = useState<"idle" | "saving" | "saved">("idle");
+        // O status visual interno foi removido, usamos apenas para lógica ou notificar pai
 
         const minOrderRef = useRef<HTMLInputElement>(null);
 
         // LOCAL INPUT REFS — used only for initial fallback read
         const tempoRefs = useRef<Record<number, HTMLInputElement | null>>({});
         const taxaRefs = useRef<Record<number, HTMLInputElement | null>>({});
+
+        // Helper para atualizar status no pai
+        const updateStatus = (newStatus: "idle" | "saving" | "saved") => {
+            if (onStatusChange) onStatusChange(newStatus);
+        };
 
         // ---------------------------------------------------
         // EXPOSE SAVE FUNCTION TO PARENT
@@ -189,37 +196,25 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
         // ADD RULE
         // ---------------------------------------------------
         const handleAddRule = () => {
-        setRules((prev) => {
-            // Lista de raios existentes
-            const existing = new Set(prev.map(r => r.radius_km));
-
-            // Gera possíveis raios válidos (0.5 em 0.5 até um limite razoável, ex: 20km)
-            const possible = Array.from({ length: 100 }, (_, i) => (i + 1) * 0.5);
-
-            // Encontra o primeiro raio que NÃO existe ainda
-            const nextRadius = possible.find(r => !existing.has(r)) ?? (prev[prev.length - 1].radius_km + 0.5);
-
-            return [
-                ...prev,
-                {
-                    radius_km: nextRadius,
-                    time_minutes: 40,
-                    fee_cents: null,
-                }
-            ];
-        });
-    };
+            setRules((prev) => {
+                const last = prev[prev.length - 1];
+                return [
+                    ...prev,
+                    {
+                        radius_km: last ? last.radius_km + 0.5 : 0.5,
+                        time_minutes: last ? last.time_minutes : 40,
+                        fee_cents: null,
+                    },
+                ];
+            });
+        };
 
         // ---------------------------------------------------
         // DELETE RULE
         // ---------------------------------------------------
-const handleDeleteRule = (i: number) => {
-    setRules((prev) => {
-        if (prev.length <= 1) return prev; // <-- impede deletar tudo
-        return prev.filter((_, idx) => idx !== i);
-    });
-};
-
+        const handleDeleteRule = (i: number) => {
+            setRules((prev) => prev.filter((_, idx) => idx !== i));
+        };
 
         // ---------------------------------------------------
         // SAVE TO DB + ZUSTAND
@@ -257,7 +252,7 @@ const handleDeleteRule = (i: number) => {
 
             if (error) {
                 console.error("[AUTOSAVE] Error saving:", error);
-                setStatus("idle"); // Se der erro, reseta o status
+                updateStatus("idle");
             } else {
                 console.log("%c[AUTOSAVE] Saved successfully!", "color:#22c55e;");
             }
@@ -267,16 +262,14 @@ const handleDeleteRule = (i: number) => {
         // AUTOSAVE (only when NOT new)
         // ---------------------------------------------------
         useEffect(() => {
-            // CORREÇÃO CRÍTICA: Se for novo, NÃO dispara o efeito de autosave visual.
-            // Isso impede que ele entre em "saving" sem nunca sair.
             if (isNew) return;
 
-            setStatus("saving");
+            updateStatus("saving");
 
             const timeout = setTimeout(async () => {
                 await saveToDB();
-                setStatus("saved");
-            }, 500);
+                updateStatus("saved");
+            }, 1000);
 
             return () => clearTimeout(timeout);
         }, [rules]);
@@ -287,20 +280,7 @@ const handleDeleteRule = (i: number) => {
         return (
             <div className="max-w-2xl mx-auto ">
 
-                {/* SÓ MOSTRA O STATUS SE NÃO FOR NOVO (PAINEL) */}
-                <div className="flex justify-end mb-2 h-6" >
-                    {!isNew && (
-                        <div className="text-sm font-medium h-6 flex items-center mb-4 transition-opacity duration-300">
-                            {status === "saving" ? (
-                                <span className="text-brand animate-pulse">Salvando...</span>
-                            ) : status === "saved" ? (
-                                <span className="text-green-600 flex items-center gap-1">
-                                    <FontAwesomeIcon icon={icons.faCheck} className="text-xs" /> Tudo salvo
-                                </span>
-                            ) : null}
-                        </div>
-                    )}
-                </div>
+                {/* REMOVIDA A DIV DE STATUS DAQUI. O PAI AGORA CUIDA DISSO */}
 
                 {/* DELIVERY RULES */}
                 <div className="p-6 bg-white border border-gray-200 rounded-lg shadow-sm mb-8">
@@ -352,9 +332,7 @@ const handleDeleteRule = (i: number) => {
                                     defaultValue={
                                         rule.fee_cents === null
                                             ? ""
-                                            : (rule.fee_cents / 100)
-                                                .toFixed(2)
-                                                .replace(".", ",")
+                                            : (rule.fee_cents / 100).toFixed(2).replace(".", ",")
                                     }
                                     ref={(el) => (taxaRefs.current[index] = el)}
                                     onChange={(e) => {
@@ -377,16 +355,10 @@ const handleDeleteRule = (i: number) => {
                                 {/* Delete */}
                                 <button
                                     onClick={() => handleDeleteRule(index)}
-                                    disabled={rules.length <= 1}
-                                    className={`p-1 duration-200 ${
-                                        rules.length <= 1
-                                            ? "text-gray-300 cursor-not-allowed"
-                                            : "text-red hover:text-red-900 cursor-pointer"
-                                    }`}
+                                    className="text-red hover:text-red-900 cursor-pointer duration-200 p-1"
                                 >
                                     <FontAwesomeIcon icon={icons.faTrash} />
                                 </button>
-
                             </div>
                         ))}
                     </div>
@@ -402,12 +374,12 @@ const handleDeleteRule = (i: number) => {
 
                 {/* Pedido mínimo */}
                 <div className="p-6 bg-white border border-gray-200 rounded-lg shadow-sm mb-8">
-                    <h2 className="text-xl font-semibold mb-3">
+                    <h2 className="text-xl font-semibold mb-3 flex items-center gap-2">
                         Pedido Mínimo{" "}
                         <Tooltip text="O valor mínimo para alguém pedir no seu restaurante.">
                             <FontAwesomeIcon
                                 icon={icons.faCircleInfo}
-                                className="text-gray-700 text-sm"
+                                className="text-gray-700 text-sm cursor-help"
                             />
                         </Tooltip>
                     </h2>
