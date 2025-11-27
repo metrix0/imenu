@@ -8,7 +8,7 @@ import Card from "@/components/ui/Card";
 import { supabase } from "@/lib/supabaseClient";
 
 // Tipos baseados no seu schema (aproximados para o frontend)
-export type OrderStatus = "pending_online_payment" | "pending_physical_payment" | "preparing" | "delivering" | "done" | "cancelled";
+export type OrderStatus = "pending_online_payment" | "pending_physical_payment" | "preparing" | "delivering" | "done" | "canceled";
 
 export interface OrderItemData {
     id: string;
@@ -96,25 +96,25 @@ export default function OrderCard({ order, onStatusChange }: OrderCardProps) {
         },
         preparing: { 
             label: "Preparando", 
-            color: "bg-blue-100 text-blue-800", 
+            color: "bg-blue-100 text-blue-800 border-blue-200", 
             btn: "Enviar Entrega", 
             btnColor: "primary" 
         },
         delivering: { 
             label: "Em Rota", 
-            color: "bg-purple-100 text-purple-800", 
+            color: "bg-orange-100 text-orange-800 border-orange-200", 
             btn: "Concluir", 
             btnColor: "secondary" 
         },
         done: { 
             label: "Concluído", 
-            color: "bg-green-100 text-green-800", 
+            color: "bg-green-100 text-green-800 border-green-200", 
             btn: null, 
             btnColor: "secondary" 
         },
-        cancelled: { 
+        canceled: { 
             label: "Cancelado", 
-            color: "bg-red-100 text-red-800", 
+            color: "bg-red-100 text-red-800 border-red-200", 
             btn: null, 
             btnColor: "secondary" 
         }
