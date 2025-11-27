@@ -1,45 +1,148 @@
 "use client";
-import { supabase } from "@/lib/supabaseClient";
-import { useState } from "react";
+
+import { useEffect, useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { icons } from "@/lib/fontawesome";
-import Popup from "@/components/ui/Popup";
+import Card from "@/components/ui/Card";
+import Input from "@/components/ui/Input";
+import Button from "@/components/ui/Button";
+import { supabase } from "@/lib/supabaseClient";
 import Toast from "@/components/ui/Toast";
+import Popup from "@/components/ui/Popup";
 
 export default function AdminLogin() {
+    const router = useRouter();
+
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
-    const [err, setErr] = useState<string | null>(null);
-    const router = useRouter();
-    const [showPopup, setShowPopup] = useState(false);
+
+    const [loading, setLoading] = useState(false);
+    const [errorMsg, setErrorMsg] = useState("");
     const [showToast, setShowToast] = useState(false);
-    async function onSubmit(e: React.FormEvent) {
+    const [showPopup, setShowPopup] = useState(false);
+
+    const isValid = email.includes("@") && email.includes(".") && password.length >= 6;
+
+    // 👉 #1 Auto redirect if user already logged in
+    useEffect(() => {
+        const checkSession = async () => {
+            const { data } = await supabase.auth.getSession();
+            if (data.session) {
+                router.replace("/painel/pedidos");
+            }
+        };
+        checkSession();
+    }, [router]);
+
+    const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) setErr(error.message);
-        else router.replace("/admin");
-    }
+        if (!isValid) return;
+
+        setLoading(true);
+        setErrorMsg("");
+
+        const { error } = await supabase.auth.signInWithPassword({
+            email,
+            password,
+        });
+
+        if (error) {
+            setErrorMsg(error.message);
+        } else {
+            setShowToast(true);
+            setTimeout(() => router.replace("/painel/pedidos"), 1000);
+        }
+
+        setLoading(false);
+    };
 
     return (
-        <main className="min-h-screen flex items-center justify-center p-4">
-            <img src="https://mjogdsnxbwhbqcoijrwt.supabase.co/storage/v1/object/public/menu-images/menu-images/download%20(4).png" alt="Product" />
+        <div className="min-h-screen flex flex-col bg-white">
+            {/* HEADER */}
+            <header className="w-full border-b border-gray-200 px-2 py-7 flex items-center justify-between sticky top-0 bg-white z-10">
+                <div className="relative h-6 w-32 ml-4">
+                    <Image
+                        src="/logo-full.png"
+                        alt="iMenu Logo"
+                        fill
+                        className="object-contain object-left"
+                    />
+                </div>
+            </header>
 
+            {/* MAIN */}
+            <main className="flex-1 flex flex-col items-center justify-start pt-8 px-4 pb-16 sm:pt-16">
+                <Card className="w-full max-w-2xl space-y-8 p-8 border border-gray-200 shadow-sm">
 
-            <button onClick={() => setShowToast(true)} className="px-4 py-2 bg-blue-600 text-white rounded-md">Botão Toast</button>
+                    <div className="text-center space-y-2">
+                        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+                            Entrar no Painel Administrativo
+                        </h1>
+                        <p className="text-base text-gray-500">
+                            Receba pedidos e customize seu restaurante.
+                        </p>
+                    </div>
 
-            {showToast && (<Toast message="Alterações salvas com sucesso!"  type="success" onClose={() => setShowToast(false)}/>)}
+                    <form className="space-y-6" onSubmit={handleLogin}>
+                        <Input
+                            label="E-mail"
+                            placeholder="admin@exemplo.com"
+                            type="email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                        />
+
+                        <div>
+                            <Input
+                                label="Senha"
+                                placeholder="Digite sua senha"
+                                type="password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                            />
+                            <div className="text-left pt-1">
+                                <button
+                                    type="button"
+                                    onClick={() => router.push("/esqueci-senha")}
+                                    className="text-xs underline mt-2 text-gray-500 hover:text-gray-700 transition cursor-pointer"
+                                >
+                                    Esqueci minha senha
+                                </button>
+                            </div>
+                        </div>
+
+                        {errorMsg && (
+                            <div className="p-3 bg-red-50 border border-red-100 rounded-md text-sm text-red-600 text-center">
+                                {errorMsg}
+                            </div>
+                        )}
+
+                        {/* 👉 NORMAL BUTTON (not in footer) */}
+                        <Button
+                            variant="primary"
+                            loading={loading}
+                            disabled={!isValid}
+                            className="w-full mt-4"
+                            onClick={handleLogin}
+                        >
+                            Entrar
+                        </Button>
+                    </form>
+                </Card>
+            </main>
+
+            {/* TOAST + POPUP */}
+            {showToast && (
+                <Toast
+                    message="Login realizado com sucesso!"
+                    type="success"
+                    onClose={() => setShowToast(false)}
+                />
+            )}
+
             <Popup open={showPopup} onClose={() => setShowPopup(false)}>
+                {/* optional content */}
             </Popup>
-            <button onClick={() => setShowPopup(true)} className="px-4 py-2 bg-green-600 text-white rounded-md">Botão Popup</button>
-
-            <form onSubmit={onSubmit} className="w-full max-w-sm space-y-3">
-                <h1 className="text-2xl font-bold">Admin <FontAwesomeIcon icon={icons.faPlus} className="text-green-600" /></h1>
-                {err && <p className="text-red-600">{err}</p>}
-                <input className="border p-2 w-full" placeholder="Email" value={email} onChange={e=>setEmail(e.target.value)} />
-                <input className="border p-2 w-full" placeholder="Senha" type="password" value={password} onChange={e=>setPassword(e.target.value)} />
-                <button className="bg-black text-white px-4 py-2 rounded">Entrar</button>
-            </form>
-        </main>
+        </div>
     );
 }
