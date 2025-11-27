@@ -28,6 +28,19 @@ type RestaurantVisuals = {
     banner_url: string | null; 
 };
 
+const createSlug = (text: string) => {
+    return text
+        .toString()
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/\s+/g, "-")
+        .replace(/[^\w\-]+/g, "")
+        .replace(/\-\-+/g, "-")
+        .replace(/^-+/, "")
+        .replace(/-+$/, "");
+};
+
 export default function CriarCardapioPage() {
     const router = useRouter();
     const { restaurantId, email } = useCreationStore(); 
@@ -153,6 +166,15 @@ export default function CriarCardapioPage() {
         }
         setIsSaving(true);
         try {
+            const slug = createSlug(name);
+            const { error: updateError } = await supabase
+                .from("restaurants")
+                .update({ 
+                    name: name,
+                    url_slug: slug // <--- SALVANDO O SLUG AQUI
+                })
+                .eq("id", restaurantId);
+            if (updateError) throw updateError;
             // Garante que o nome final está salvo antes de ir (redundância segura)
             await supabase.from("restaurants").update({ name }).eq("id", restaurantId);
 

@@ -2,73 +2,76 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import PayoutsDashboard from "@/components/restaurante/exibicoes/PayoutsDashboard";
 import SalesDashboard from "@/components/restaurante/exibicoes/SalesDashboard";
-import Loader from "@/components/ui/Loader"; // Usando seu loader padrão
+import PayoutsDashboard from "@/components/restaurante/exibicoes/PayoutsDashboard";
+import DateFilterBar from "@/components/restaurante/exibicoes/DateFilterBar"; 
+import Loader from "@/components/ui/Loader";
+
+const getISODate = (date: Date) => date.toISOString().split("T")[0];
 
 export default function FinanceiroPage() {
     const [restaurantId, setRestaurantId] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
+    // ESTADO GLOBAL DE DATAS
+    const [startDate, setStartDate] = useState(() => {
+        const d = new Date();
+        d.setDate(d.getDate() - 7);
+        return getISODate(d);
+    });
+    const [endDate, setEndDate] = useState(() => getISODate(new Date()));
+
     useEffect(() => {
         const loadRestaurant = async () => {
             setIsLoading(true);
             const { data: { session } } = await supabase.auth.getSession();
+            if (!session?.user) { setIsLoading(false); return; }
 
-            if (!session?.user) {
-                // Redirecionar ou mostrar erro se não tiver user
-                setIsLoading(false);
-                return;
-            }
-
-            // Buscar restaurante do dono
             const { data: restaurant } = await supabase
                 .from("restaurants")
                 .select("id")
                 .eq("user_id", session.user.id)
                 .single();
 
-            if (restaurant) {
-                setRestaurantId(restaurant.id);
-            }
+            if (restaurant) setRestaurantId(restaurant.id);
             setIsLoading(false);
         };
-
         loadRestaurant();
     }, []);
 
-    if (isLoading) {
-        return (
-            <div className="flex justify-center items-center h-64">
-                <Loader />
-            </div>
-        );
-    }
+    if (isLoading) return <div className="flex justify-center items-center h-64"><Loader /></div>;
+    if (!restaurantId) return <div className="p-8 text-center text-red-500">Restaurante não encontrado.</div>;
 
-    if (!restaurantId) {
-        return (
-            <div className="p-8 text-center">
-                <p className="text-red-500">Restaurante não encontrado.</p>
-            </div>
-        );
-    }
-
-    // Layout ajustado para não colidir com Sidebar e ser responsivo
     return (
         <div className="space-y-8 max-w-6xl mx-auto">
-            <div className="mb-8 flex flex-col  gap-1 ">
-                <h1 className="text-3xl font-bold text-gray-900">Dashboard Financeiro</h1>
-                <p className="text-gray-500 mb-8 mt-1">Veja o desempenho da sua loja durante um período.</p>
-            </div>
-            {/* Sales Graphs */}
+            <h1 className="text-3xl font-bold text-gray-900">Dashboard Financeiro</h1>
+            
+            {/* Barra de Filtro controla o estado da página */}
+            <DateFilterBar 
+                startDate={startDate} 
+                endDate={endDate} 
+                onStartDateChange={setStartDate} 
+                onEndDateChange={setEndDate} 
+            />
+            
+
             <section>
-                <SalesDashboard menuId={restaurantId} />
+                 <PayoutsDashboard 
+                    menuId={restaurantId} 
+                    startDate={startDate}
+                    endDate={endDate}
+                 />
+            </section>
+            
+            <section>
+                <SalesDashboard 
+                    menuId={restaurantId} 
+                    startDate={startDate} 
+                    endDate={endDate} 
+                />
             </section>
 
-            {/* Payouts List */}
-            <section>
-                 <PayoutsDashboard menuId={restaurantId} />
-            </section>
+
         </div>
     );
 }

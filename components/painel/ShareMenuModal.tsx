@@ -51,11 +51,13 @@ export default function ShareMenuModal({ isOpen, onClose, restaurantId, restaura
 
                 {/* Link e Copy */}
                 <div className="w-full flex gap-2 mb-4">
+                    <div className="flex-1">
                     <Input 
                         readOnly 
                         value={menuUrl} 
                         className="text-xs text-gray-600 bg-gray-50"
                     />
+                    </div>
                     <Button onClick={handleCopy} className="px-3" variant="secondary">
                         <FontAwesomeIcon icon={copied ? icons.faCheck : faCopy} />
                     </Button>
