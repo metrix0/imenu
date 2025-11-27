@@ -29,11 +29,12 @@ export default function OrdersFilter({
     // Opções para o Dropdown
     const statusOptions = [
         { value: "todas", label: "Todas as situações" },
-        { value: "pending", label: "Pendente" },
+        { value: "pending_online_payment", label: "Pendente (Online)" },
+        { value: "pending_physical_payment", label: "Pendente (Balcão/Entrega)" },
         { value: "preparing", label: "Preparando" },
         { value: "delivering", label: "Em Rota" },
-        { value: "finished", label: "Concluído" },
-        { value: "cancelled", label: "Cancelado" },
+        { value: "done", label: "Concluído" },
+        { value: "canceled", label: "Cancelado" },
     ];
 
     return (
@@ -71,9 +72,10 @@ export default function OrdersFilter({
 
             {/* Botão Buscar */}
             <div className="md:col-span-2">
-                <Button 
+                <Button
+                    variant="secondary" 
                     onClick={onSearch} 
-                    className="w-full h-[3rem] top-1/2 flex items-center justify-center bg-gray-300 text-gray-900 border border-gray-200 hover:bg-gray-200 hover:text-gray-900"
+                    className="w-full h-[3rem] top-1/2 flex items-center justify-center "
                 >
                     <FontAwesomeIcon icon={faSearch} />
                 </Button>

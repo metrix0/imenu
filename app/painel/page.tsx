@@ -28,16 +28,32 @@ export default function PainelPedidosAtivosPage() {
                 order_items (
                     id,
                     quantity,
-                    price_at_purchase_cents,
-                    item ( name )
+                    price_cents,
+                    name
                 )
             `)
             .eq("restaurant_id", restId)
-            .in("status", ["pending", "preparing", "delivering"]) 
+            // ATUALIZAÇÃO: Novos status de pending
+            .in("status", ["pending_online_payment", "pending_physical_payment", "preparing", "delivering"]) 
             .order("created_at", { ascending: true }); // Mais antigos primeiro (fila)
 
-        if (error) console.error("Erro ao buscar pedidos:", error);
-        else setOrders(data as any[] || []);
+        if (error) {
+            console.error("Erro ao buscar pedidos:", error);
+        } else {
+            // ADAPTAÇÃO: Mapeia os dados planos do banco para a estrutura aninhada que o OrderCard espera
+            const formattedData = (data || []).map((order: any) => ({
+                ...order,
+                order_items: order.order_items.map((item: any) => ({
+                    ...item,
+                    // O OrderCard antigo espera 'price_at_purchase_cents'
+                    price_cents: item.price_cents,
+                    // O OrderCard antigo espera 'item.name'
+                    item: { name: item.name }
+                }))
+            }));
+            
+            setOrders(formattedData);
+        }
     };
 
     useEffect(() => {
@@ -50,7 +66,7 @@ export default function PainelPedidosAtivosPage() {
             // 2. Pega restaurante
             const { data: restaurant } = await supabase
                 .from("restaurants")
-                .select("id, url_slug") // Supondo que url_slug é o campo do link amigável
+                .select("id, url_slug") 
                 .eq("user_id", session.user.id)
                 .single();
 
@@ -82,8 +98,6 @@ export default function PainelPedidosAtivosPage() {
                 },
                 (payload) => {
                     console.log("🔔 Mudança em pedidos:", payload);
-                    // Estratégia simples: Recarrega tudo para garantir integridade (JOINs etc)
-                    // Em app gigante, faríamos optimistic update, mas aqui fetch é mais seguro
                     fetchOrders(restaurantId);
                 }
             )
@@ -115,13 +129,13 @@ export default function PainelPedidosAtivosPage() {
                     <p className="text-gray-500 mt-1">Acompanhe a fila de produção em tempo real.</p>
                 </div>
                 
-            <Button 
-                onClick={() => setIsShareModalOpen(true)} 
-                className="bg-brand text-white border border-transparent hover:opacity-90 shadow-sm transition-opacity"
-            >
-                <FontAwesomeIcon icon={faShareAlt} className="mr-2" />
-                Compartilhar Loja
-            </Button>
+                <Button 
+                    onClick={() => setIsShareModalOpen(true)} 
+                    className="bg-brand text-white border border-transparent hover:opacity-90 shadow-sm transition-opacity"
+                >
+                    <FontAwesomeIcon icon={faShareAlt} className="mr-2" />
+                    Compartilhar Loja
+                </Button>
             </div>
 
             {/* Kanban / Grid de Pedidos */}
