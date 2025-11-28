@@ -27,8 +27,8 @@ type MenuItem =
     | { label: string; icon: IconDefinition; href: string; type?: undefined };
 
 export default function PainelLayout({
-                                         children,
-                                     }: {
+    children,
+}: {
     children: React.ReactNode;
 }) {
     // obter params no client via hook (useParams retorna objeto já resolvido)
@@ -40,6 +40,7 @@ export default function PainelLayout({
 
     // menuId do cardápio único do restaurante (fetch no client)
     const [menuId, setMenuId] = useState<string | null>(null);
+    
     useEffect(() => {
         if (!restauranteId) return;
         const supabase = createClient(
@@ -56,7 +57,6 @@ export default function PainelLayout({
                     .maybeSingle();
                 if (!error && data?.id) setMenuId(data.id);
             } catch (err) {
-                // silent fail: mantemos link fallback
                 console.error("Erro ao obter menuId no layout:", err);
             }
         })();
@@ -78,18 +78,29 @@ export default function PainelLayout({
     ];
 
     return (
-        <div className="flex min-h-screen bg-gray-50">
+        <div className="flex min-h-screen bg-gray-50 relative">
+            {/* Dica Opcional: Se você REALMENTE não quer o footer global aparecendo no painel,
+               você pode forçar ele a sumir via CSS aqui, caso ele tenha uma classe específica,
+               mas a solução abaixo ajusta o layout visualmente.
+            */}
             <SupportButton />
+            
             {/* === SIDEBAR === */}
+            {/* MUDANÇAS: 
+                1. Trocado 'fixed' por 'sticky'.
+                2. Adicionado 'top-0' e 'h-screen'.
+                3. Removemos a necessidade de margens no <main>.
+                4. 'z-20' garante que fique acima de elementos padrão do conteúdo.
+            */}
             <aside
-                className={`fixed h-full flex flex-col border-r border-gray-200 bg-white transition-all duration-300 ${
+                className={`sticky top-0 h-screen flex flex-col border-r border-gray-200 bg-white transition-all duration-300 z-20 flex-shrink-0 ${
                     expanded ? "w-60" : "w-20"
                 }`}
             >
                 {/* Toggle Button */}
                 <button
                     onClick={() => setExpanded(!expanded)}
-                    className="cursor-pointer absolute -right-4 top-20 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-white border-1 border-gray-200 shadow hover:bg-gray-50"
+                    className="cursor-pointer absolute -right-4 top-20 z-30 flex h-7 w-7 items-center justify-center rounded-full bg-white border-1 border-gray-200 shadow hover:bg-gray-50"
                 >
                     <FontAwesomeIcon
                         icon={expanded ? faChevronLeft : faChevronRight}
@@ -98,7 +109,7 @@ export default function PainelLayout({
                 </button>
 
                 {/* === LOGO === */}
-                <div className="flex items-center justify-center mt-4 mb-2 h-[70px] relative">
+                <div className="flex items-center justify-center mt-4 mb-2 h-[70px] relative flex-shrink-0">
                     <div
                         className={`transition-all duration-300 flex items-center justify-center ${
                             expanded ? "scale-100 opacity-100" : "scale-0 opacity-0 absolute"
@@ -109,7 +120,7 @@ export default function PainelLayout({
                             alt="Logo"
                             width={120}
                             height={40}
-                            className="transition-all duration-300"
+                            className="transition-all duration-300 object-contain"
                         />
                     </div>
 
@@ -123,13 +134,13 @@ export default function PainelLayout({
                             alt="Logo"
                             width={32}
                             height={32}
-                            className="transition-all duration-300"
+                            className="transition-all duration-300 object-contain"
                         />
                     </div>
                 </div>
 
                 {/* === MENU === */}
-                <nav className="flex-1 flex flex-col justify-center overflow-y-auto py-6 space-y-1">
+                <nav className="flex-1 flex flex-col overflow-y-auto py-6 space-y-1 custom-scrollbar">
                     {menuItems.map((item, idx) =>
                         item.type === "divider" ? (
                             <hr key={idx} className="my-2 border-gray-200 mx-4" />
@@ -142,8 +153,9 @@ export default function PainelLayout({
                                         ? "border-l-4 border-brand bg-brand/10 text-brand font-semibold"
                                         : "text-gray-700 hover:bg-gray-100"
                                 }`}
+                                title={!expanded ? item.label : undefined}
                             >
-                                <div className="flex items-center justify-center w-6 h-6">
+                                <div className="flex items-center justify-center w-6 h-6 flex-shrink-0">
                                     <FontAwesomeIcon
                                         icon={item.icon}
                                         className={`text-lg transition-colors ${
@@ -160,11 +172,11 @@ export default function PainelLayout({
             </aside>
 
             {/* === MAIN CONTENT === */}
-            <main 
-                className={`flex-1 p-8 transition-all duration-300 ${
-                    expanded ? "ml-60" : "ml-20"
-                }`}
-            >
+            {/* MUDANÇAS:
+                1. Removemos 'ml-60' / 'ml-20'. Como o layout agora é Flex, o main se adapta ao espaço restante automaticamente.
+                2. Adicionado 'min-w-0' para evitar que tabelas grandes quebrem o flexbox.
+            */}
+            <main className="flex-1 p-8 min-w-0">
                 {children}
             </main>
         </div>
