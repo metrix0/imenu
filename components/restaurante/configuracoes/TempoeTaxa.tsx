@@ -20,7 +20,6 @@ type RadiusRule = {
     fee_cents: number | null;
 };
 
-// Definindo o tipo de referência que o Pai vai acessar
 export type DeliveryRulesRef = {
     save: () => Promise<void>;
 };
@@ -28,14 +27,11 @@ export type DeliveryRulesRef = {
 type DeliveryRulesProps = {
     restaurantId: string;
     isNew: boolean;
-    // Nova prop para comunicar status
     onStatusChange?: (status: "idle" | "saving" | "saved") => void;
 };
 
 const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
     ({ restaurantId, isNew, onStatusChange }, ref) => {
-        const router = useRouter();
-
         const {
             deliveryRules,
             minOrder,
@@ -44,13 +40,7 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
         } = useRestauranteConfig();
 
         const [rules, setRules] = useState<RadiusRule[]>([]);
-        // O status visual interno foi removido, usamos apenas para lógica ou notificar pai
-
         const minOrderRef = useRef<HTMLInputElement>(null);
-
-        // LOCAL INPUT REFS — used only for initial fallback read
-        const tempoRefs = useRef<Record<number, HTMLInputElement | null>>({});
-        const taxaRefs = useRef<Record<number, HTMLInputElement | null>>({});
 
         // Helper para atualizar status no pai
         const updateStatus = (newStatus: "idle" | "saving" | "saved") => {
@@ -62,37 +52,29 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
         // ---------------------------------------------------
         useImperativeHandle(ref, () => ({
             save: async () => {
-                await saveToDB(true); // Força o save mesmo se isNew
+                await saveToDB(true);
             },
         }));
 
         // ---------------------------------------------------
-        // INITIAL LOAD (ZUSTAND -> DEFAULT -> SUPABASE)
+        // INITIAL LOAD
         // ---------------------------------------------------
         useEffect(() => {
             if (!restaurantId) return;
 
-            console.log("[INIT] Loading rules for restaurant:", restaurantId);
-
             const cachedRules = deliveryRules[restaurantId];
             const cachedMin = minOrder[restaurantId];
 
-            // Zustand cache
             if (cachedRules && cachedRules.length > 0) {
-                console.log("[INIT] Loaded from ZUSTAND cache.");
                 setRules(cachedRules);
-
                 if (cachedMin != null && minOrderRef.current) {
                     minOrderRef.current.value = String(cachedMin);
                 }
-                // Se não for novo, busca do banco para garantir sync
                 if (!isNew) fetchFromDB();
                 return;
             }
 
-            // Defaults for NEW restaurants
             if (isNew) {
-                console.log("[INIT] Using default rules for NEW restaurant.");
                 const defaults: RadiusRule[] = [
                     { radius_km: 0.5, time_minutes: 40, fee_cents: null },
                     { radius_km: 1, time_minutes: 40, fee_cents: null },
@@ -106,32 +88,27 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                 return;
             }
 
-            // Load from DB if not cached and not new
             fetchFromDB();
         }, [restaurantId, isNew]);
 
         const fetchFromDB = async () => {
-            console.log("[INIT] Fetching from SUPABASE...");
             const { data, error } = await supabase
                 .from("restaurants")
                 .select("delivery_fee_json, min_order_cents")
                 .eq("id", restaurantId)
                 .single();
 
-            if (error) {
-                console.error("[INIT] Error fetching:", error);
-                return;
-            }
+            if (error) return;
 
             if (data?.delivery_fee_json) {
-                console.log("[INIT] Loaded rules from DB.");
-                setRules(
-                    data.delivery_fee_json.map((r: any) => ({
-                        radius_km: r.radius_km,
-                        time_minutes: r.time_minutes,
-                        fee_cents: r.fee_cents ?? null,
-                    }))
-                );
+                // Ordenamos ao carregar para garantir consistência
+                const loadedRules = data.delivery_fee_json.map((r: any) => ({
+                    radius_km: r.radius_km,
+                    time_minutes: r.time_minutes,
+                    fee_cents: r.fee_cents ?? null,
+                })).sort((a: RadiusRule, b: RadiusRule) => a.radius_km - b.radius_km);
+                
+                setRules(loadedRules);
             }
 
             if (data?.min_order_cents != null && minOrderRef.current) {
@@ -140,72 +117,35 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
         };
 
         // ---------------------------------------------------
-        // REALTIME SYNC (verbose)
-        // ---------------------------------------------------
-        useEffect(() => {
-            if (isNew) return; // realtime only in painel
-            if (!restaurantId) return;
-
-            console.log("[REALTIME] Subscribing to restaurant:", restaurantId);
-
-            const channel = supabase
-                .channel(`realtime:restaurants:${restaurantId}`)
-                .on(
-                    "postgres_changes",
-                    {
-                        event: "UPDATE",
-                        schema: "public",
-                        table: "restaurants",
-                        filter: `id=eq.${restaurantId}`,
-                    },
-                    (payload) => {
-                        console.log(
-                            "%c[REALTIME] UPDATE RECEIVED",
-                            "color: #22c55e; font-weight: bold;"
-                        );
-                        console.log(payload);
-
-                        const d = payload.new;
-
-                        if (d.delivery_fee_json) {
-                            setRules(
-                                d.delivery_fee_json.map((r: any) => ({
-                                    radius_km: r.radius_km,
-                                    time_minutes: r.time_minutes,
-                                    fee_cents: r.fee_cents ?? null,
-                                }))
-                            );
-                        }
-
-                        if (d.min_order_cents != null && minOrderRef.current) {
-                            minOrderRef.current.value = String(d.min_order_cents / 100);
-                        }
-                    }
-                )
-                .subscribe((status) => {
-                    console.log("[REALTIME] Subscription status:", status);
-                });
-
-            return () => {
-                console.log("[REALTIME] Unsubscribing channel.");
-                supabase.removeChannel(channel);
-            };
-        }, [restaurantId, isNew]);
-
-        // ---------------------------------------------------
-        // ADD RULE
+        // ADD RULE (CORRIGIDA - PREENCHE BURACOS)
         // ---------------------------------------------------
         const handleAddRule = () => {
             setRules((prev) => {
-                const last = prev[prev.length - 1];
-                return [
+                // 1. Cria um Set com todos os raios atuais para busca rápida
+                const existingRadii = new Set(prev.map(r => r.radius_km));
+                
+                // 2. Começa de 0.5 e vai incrementando até achar um "buraco" livre
+                let candidate = 0.5;
+                while (existingRadii.has(candidate)) {
+                    candidate += 0.5;
+                    // Prevenção de loop infinito (safety break), embora improvável
+                    if (candidate > 100) break;
+                }
+
+                // 3. Define o tempo padrão (copia do último ou 40min)
+                const lastRule = prev[prev.length - 1];
+
+                const newRules = [
                     ...prev,
                     {
-                        radius_km: last ? last.radius_km + 0.5 : 0.5,
-                        time_minutes: last ? last.time_minutes : 40,
+                        radius_km: candidate,
+                        time_minutes: lastRule ? lastRule.time_minutes : 40,
                         fee_cents: null,
                     },
                 ];
+
+                // 4. Ordena sempre para manter a lista visualmente correta (0.5 -> 1.0 -> 1.5 -> 4.0)
+                return newRules.sort((a, b) => a.radius_km - b.radius_km);
             });
         };
 
@@ -213,21 +153,45 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
         // DELETE RULE
         // ---------------------------------------------------
         const handleDeleteRule = (i: number) => {
+            // REGRA: Não permite excluir se for a última regra
+            if (rules.length <= 1) return;
             setRules((prev) => prev.filter((_, idx) => idx !== i));
+        };
+
+        // ---------------------------------------------------
+        // UPDATE RADIUS (Com validação de duplicidade)
+        // ---------------------------------------------------
+        const handleRadiusChange = (index: number, newValue: string) => {
+            const val = parseFloat(newValue);
+            if (isNaN(val) || val < 0) return;
+
+            // REGRA: Não permite raios iguais
+            const exists = rules.some((r, idx) => idx !== index && r.radius_km === val);
+            
+            if (exists) {
+                return; // Bloqueia a alteração se duplicar
+            }
+
+            setRules(prev => {
+                const next = [...prev];
+                next[index] = { ...next[index], radius_km: val };
+                // Opcional: Se quiser que ordene automaticamente ao digitar, descomente abaixo.
+                // Mas geralmente é ruim UX pular a linha enquanto digita.
+                // return next.sort((a, b) => a.radius_km - b.radius_km);
+                return next;
+            });
         };
 
         // ---------------------------------------------------
         // SAVE TO DB + ZUSTAND
         // ---------------------------------------------------
         const saveToDB = async (force = false) => {
-            // CORREÇÃO LÓGICA AQUI:
-            // Se não for forçado (force=true) E for novo (isNew=true), aborta.
             if (isNew && !force) return;
 
-            console.log("[AUTOSAVE] Saving to DB...");
+            // Garante ordenação final antes de salvar no banco
+            const sortedRules = [...rules].sort((a, b) => a.radius_km - b.radius_km);
 
-            // Build final object
-            const finalRules = rules.map((r) => ({
+            const finalRules = sortedRules.map((r) => ({
                 radius_km: r.radius_km,
                 time_minutes: r.time_minutes,
                 fee_cents: r.fee_cents,
@@ -237,11 +201,9 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                 ? parseFloat(minOrderRef.current.value) || 15
                 : 15;
 
-            // ZUSTAND
             setDeliveryRules(restaurantId, finalRules);
             setMinOrder(restaurantId, minOrderValue);
 
-            // DB
             const { error } = await supabase
                 .from("restaurants")
                 .update({
@@ -254,39 +216,29 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                 console.error("[AUTOSAVE] Error saving:", error);
                 updateStatus("idle");
             } else {
-                console.log("%c[AUTOSAVE] Saved successfully!", "color:#22c55e;");
+                updateStatus("saved");
             }
         };
 
         // ---------------------------------------------------
-        // AUTOSAVE (only when NOT new)
+        // AUTOSAVE
         // ---------------------------------------------------
         useEffect(() => {
             if (isNew) return;
-
             updateStatus("saving");
-
             const timeout = setTimeout(async () => {
                 await saveToDB();
-                updateStatus("saved");
             }, 1000);
-
             return () => clearTimeout(timeout);
         }, [rules]);
 
-        // ---------------------------------------------------
-        // UI
-        // ---------------------------------------------------
         return (
             <div className="max-w-2xl mx-auto ">
-
-                {/* REMOVIDA A DIV DE STATUS DAQUI. O PAI AGORA CUIDA DISSO */}
-
                 {/* DELIVERY RULES */}
                 <div className="p-6 bg-white border border-gray-200 rounded-lg shadow-sm mb-8">
                     <div className="flex items-center gap-4 mb-2 px-2">
                         <span className="w-1/3 flex items-center gap-2 text-sm font-medium text-gray-700">
-                            <FontAwesomeIcon icon={faBullseye} /> Raio
+                            <FontAwesomeIcon icon={faBullseye} /> Raio (km)
                         </span>
                         <span className="w-1/3 flex items-center gap-2 text-sm font-medium text-gray-700">
                             <FontAwesomeIcon icon={faClock} /> Tempo
@@ -300,10 +252,13 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                     <div className="space-y-3">
                         {rules.map((rule, index) => (
                             <div key={index} className="flex items-center gap-4 p-2">
-                                {/* Raio */}
-                                <div className="w-1/3 text-gray-700 font-medium">
-                                    {rule.radius_km} km
-                                </div>
+                                {/* Raio - AGORA EDITÁVEL */}
+                                <Input
+                                    numeric
+                                    className="w-1/3"
+                                    value={String(rule.radius_km)}
+                                    onChange={(e) => handleRadiusChange(index, e.target.value)}
+                                />
 
                                 {/* Tempo */}
                                 <Input
@@ -311,8 +266,7 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                                     icon="min"
                                     iconPosition="right"
                                     className="w-1/3"
-                                    defaultValue={rule.time_minutes}
-                                    ref={(el) => (tempoRefs.current[index] = el)}
+                                    value={String(rule.time_minutes)}
                                     onChange={(e) => {
                                         const val = parseInt(e.target.value || "0");
                                         setRules((prev) => {
@@ -329,19 +283,11 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                                     icon={<FontAwesomeIcon icon={icons.faDollarSign} />}
                                     iconPosition="left"
                                     className="w-1/3"
-                                    defaultValue={
-                                        rule.fee_cents === null
-                                            ? ""
-                                            : (rule.fee_cents / 100).toFixed(2).replace(".", ",")
-                                    }
-                                    ref={(el) => (taxaRefs.current[index] = el)}
+                                    value={rule.fee_cents === null ? "" : (rule.fee_cents / 100).toFixed(2).replace(".", ",")}
                                     onChange={(e) => {
                                         const raw = e.target.value;
-                                        const val =
-                                            raw && raw !== "0,00"
-                                                ? Math.round(
-                                                      parseFloat(raw.replace(",", ".")) * 100
-                                                  )
+                                        const val = raw && raw !== "0,00"
+                                                ? Math.round(parseFloat(raw.replace(",", ".")) * 100)
                                                 : null;
 
                                         setRules((prev) => {
@@ -355,7 +301,12 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                                 {/* Delete */}
                                 <button
                                     onClick={() => handleDeleteRule(index)}
-                                    className="text-red hover:text-red-900 cursor-pointer duration-200 p-1"
+                                    disabled={rules.length <= 1}
+                                    className={`duration-200 p-1 ${
+                                        rules.length <= 1 
+                                        ? "text-gray-300 cursor-not-allowed" 
+                                        : "text-gray-400  hover:text-red-600 cursor-pointer"
+                                    }`}
                                 >
                                     <FontAwesomeIcon icon={icons.faTrash} />
                                 </button>
@@ -392,9 +343,8 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                         ref={minOrderRef}
                         className="w-full"
                         onChange={() => {
-                            // force autosave for minOrder
-                            // Mas se isNew, não faz nada, espera o botão final.
                             if (!isNew) {
+                                // Trigger autosave
                                 setRules((r) => [...r]);
                             }
                         }}
