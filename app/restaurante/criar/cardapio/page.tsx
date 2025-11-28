@@ -205,7 +205,7 @@ export default function CriarCardapioPage() {
     if (error || !restaurantId) return <div className="p-8 text-center text-red-500">{error || "Erro."}</div>;
 
     return (
-        <main className="min-h-screen flex flex-col items-center justify-start p-6 bg-white pb-32">
+        <main className="min-h-screen flex flex-col items-center justify-start bg-white ">
             <div className="w-full max-w-4xl mt-4">
                 
                 <div className="mb-8 text-center sm:text-left">
@@ -240,7 +240,7 @@ export default function CriarCardapioPage() {
                     </button>
                 </div>
 
-                <div className="bg-gray-50/50 rounded-xl border border-gray-100 p-4">
+                
                     {/* 3. CARDÁPIO TAB (MODULAR) */}
                     <CardapioTab 
                         categories={categories}
@@ -251,12 +251,12 @@ export default function CriarCardapioPage() {
                         onOpenItemDetails={handleOpenItemDetails}
                         onNewCategory={handleNewCategory}
                     />
-                </div>
+                
 
             </div>
 
             {/* Footer Fixo */}
-            <div className="fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 p-4 z-40 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+            <div className="sticky bottom-0 left-0 w-full bg-white border-t border-gray-200 mt-20 p-4 z-40 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
                 <div className="max-w-4xl mx-auto flex items-center justify-between">
                     <button 
                         onClick={() => router.back()} 

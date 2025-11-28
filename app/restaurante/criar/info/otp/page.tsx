@@ -21,10 +21,34 @@ function OtpVerificationComponent() {
     
     const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
+      // --- LÓGICA PARA BARRA FIXA INTELIGENTE ---
+  const [isAtBottom, setIsAtBottom] = useState(false);
+  const footerSentinelRef = useRef<HTMLDivElement>(null);
+
     useEffect(() => {
         if (inputRefs.current[0]) {
             inputRefs.current[0]?.focus();
         }
+        const observer = new IntersectionObserver(
+      ([entry]) => {
+        // Se o final da página está visível, mudamos o estado
+        setIsAtBottom(entry.isIntersecting);
+      },
+      {
+        root: null,
+        threshold: 0, 
+        rootMargin: "0px" // Pode ajustar para "10px" se quiser que pare um pouco antes
+      }
+    );
+
+    if (footerSentinelRef.current) {
+      observer.observe(footerSentinelRef.current);
+    }
+
+    return () => {
+      if (footerSentinelRef.current) observer.unobserve(footerSentinelRef.current);
+    };
+
     }, []);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
@@ -112,19 +136,16 @@ function OtpVerificationComponent() {
         setMessage(error ? "Erro ao reenviar." : "Novo código enviado!");
     };
 
-    const handleLogout = async () => {
-        await supabase.auth.signOut();
-        clear(); // Limpa o store do zustand
-        router.push("/restaurante"); // Volta para login/home
-    };
+
 
     const isButtonDisabled = otp.join("").length !== 6 || loading;
 
     return (
         // Ajustei o padding-top para pt-8 para ficar mais próximo ao header como pedido
-        <main className="flex flex-col items-center justify-start  p-6 bg-gray-50 flex-1 min-h-[calc(100vh-80px)]">
+       <div className="min-h-screen flex flex-col bg-white relative">
+        <main className="flex-1 flex flex-col items-center justify-start pt-8 px-4 pb-32 sm:pt-16">
             
-            <Card className="w-full max-w-2xl p-20 shadow-sm border border-gray-200 text-center">
+            <Card className="w-full max-w-2xl p-6 sm:p-12 md:p-20 shadow-sm border border-gray-200 text-center">
                 <h1 className="text-2xl font-bold text-gray-900 mb-2">Validação de e-mail</h1>
 
                 <div className="flex items-center justify-center gap-2 text-gray-600 mb-8">
@@ -135,7 +156,7 @@ function OtpVerificationComponent() {
                 <div className="flex items-center justify-center gap-2 -mt-6 mb-8">
                     <strong className="text-gray-800">{email || "seu e-mail"}</strong>
                     <button 
-                        onClick={() => router.back()} 
+                        onClick={() => router.push("/restaurante")} 
                         className="text-gray-400 hover:text-brand transition-colors"
                         title="Corrigir e-mail"
                     >
@@ -174,6 +195,7 @@ function OtpVerificationComponent() {
                     </div>
                 )}
 
+
                 {/* Aviso de Spam */}
                 <div className="flex items-start justify-center gap-3 text-gray-500 text-xs text-left max-w-xs mx-auto">
                     <FontAwesomeIcon icon={faExclamationCircle} className="text-lg mt-0.5 flex-shrink-0" />
@@ -183,28 +205,34 @@ function OtpVerificationComponent() {
                     </p>
                 </div>
             </Card>
+            
+            </main>
+            <div ref={footerSentinelRef} className="absolute  bottom-0 w-full h-px pointer-events-none opacity-0" />
 
-            {/* Footer Bar Fixa */}
-            <div className="fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 p-4 z-40">
+            {/* Footer Bar Sticky */}
+            <footer 
+        className={`sticky w-full bg-white border-t border-gray-200 px-6 py-4  transition-all duration-200 z-20 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]
+            ${isAtBottom ? "absolute bottom-0" : "fixed bottom-0"}`}
+      >
                 <div className="max-w-4xl mx-auto flex items-center justify-between">
-                    <button
-                        onClick={handleLogout}
-                        className="text-brand font-medium text-base hover:opacity-80 transition-opacity cursor-pointer"
-                    >
-                        Sair
-                    </button>
-                    
-                    <Button
-                        onClick={handleSubmit}
-                        variant={isButtonDisabled ? "secondary" : "primary"}
-                        disabled={isButtonDisabled}
-                        className="px-8 min-w-[120px] disabled:opacity-80 disabled:pointer-events-none"
-                    >
-                        {loading ? "Verificando..." : "Cadastrar"}
-                    </Button>
+                    <div className="flex-1">
+
+                    </div>
+                    <div className=" mx-auto ">
+                        <Button
+                            onClick={handleSubmit}
+                            variant={isButtonDisabled ? "secondary" : "primary"}
+                            disabled={isButtonDisabled}
+                            className="w-full sm:w-auto px-8 py-3 text-base disabled:pointer-events-none disabled:opacity-50"
+                        >
+                            {loading ? "Verificando..." : "Cadastrar"}
+                        </Button>
+                    </div>
                 </div>
-            </div>
-        </main>
+            </footer>
+        
+        </div>
+        
     );
 }
 
