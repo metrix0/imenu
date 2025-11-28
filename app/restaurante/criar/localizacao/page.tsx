@@ -1,11 +1,12 @@
-// app/restaurante/criar/localizacao/page.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useCreationStore } from "@/lib/creationStore";
 import { supabase } from "@/lib/supabaseClient"; 
 import AddressForm, { AddressData } from "@/components/restaurante/configuracoes/AddressForm";
+import Button from "@/components/ui/Button";
+import Card from "@/components/ui/Card";
 
 export default function LocalizacaoPage() {
     const router = useRouter();
@@ -16,15 +17,15 @@ export default function LocalizacaoPage() {
     const [isLoadingData, setIsLoadingData] = useState(true);
     const [localRestaurantId, setLocalRestaurantId] = useState<string | null>(null);
 
+    // ESTADO DE VALIDAÇÃO (LIFTED STATE)
+    const [isFormValid, setIsFormValid] = useState(false);
+
     useEffect(() => {
         const loadData = async () => {
             try {
-                // 1. Tenta pegar a sessão, mas não bloqueia se não existir
                 const { data: { session } } = await supabase.auth.getSession();
                 const user = session?.user;
 
-                // Se já temos o ID na memória (Zustand), garantimos que ele seja o localRestaurantId
-                // Isso previne o erro caso a busca no banco falhe.
                 if (restaurantId) {
                     setLocalRestaurantId(restaurantId);
                 }
@@ -33,31 +34,24 @@ export default function LocalizacaoPage() {
                     .from("restaurants")
                     .select("id, address, latitude, longitude");
 
-                // Lógica de busca:
                 if (user) {
                     query = query.eq("user_id", user.id);
                 } else if (restaurantId) {
                     query = query.eq("id", restaurantId);
                 } else {
-                    // Sem user e sem ID no store -> Não tem o que fazer, apenas libera o loading
                     setIsLoadingData(false);
                     return;
                 }
 
-                // ALTERAÇÃO IMPORTANTE: .maybeSingle() em vez de .single()
-                // .single() estoura erro se não achar nada ou se der erro de permissão.
-                // .maybeSingle() retorna null data sem estourar erro de "0 rows".
                 const { data, error } = await query.maybeSingle();
 
                 if (error) {
-                    // Apenas logamos como warn, pois já definimos o ID ali em cima via store
-                    console.warn("Não foi possível carregar dados prévios (normal se for cadastro novo):", error.message);
+                    console.warn("Não foi possível carregar dados prévios:", error.message);
                 }
 
                 if (data) {
-                    // Se achou dados no banco, atualiza o estado
                     setLocalRestaurantId(data.id);
-                    setRestaurantId(data.id); // Sincroniza store
+                    setRestaurantId(data.id);
 
                     const addressJson = data.address as unknown as Partial<AddressData>;
                     
@@ -81,7 +75,6 @@ export default function LocalizacaoPage() {
 
 
     const handleSave = async (data: AddressData) => {
-        // Usa o ID local ou o do store como fallback
         const targetId = localRestaurantId || restaurantId;
 
         if (!targetId) {
@@ -128,12 +121,42 @@ export default function LocalizacaoPage() {
     }
 
     return (
-        <main className="flex flex-col items-center justify-start pt-4 pb-12">
-            <AddressForm 
-                initialData={initialData} 
-                onSubmit={handleSave} 
-                isLoading={isSaving} 
-            />
-        </main>
+        // Usamos flex-col e min-h-screen para ocupar a tela toda
+        <div className="flex flex-col min-h-screen bg-white">
+            
+            {/* O conteúdo principal cresce (flex-1) empurrando o footer para baixo */}
+            
+            <main className="flex-1 flex flex-col items-center justify-start pt-4 pb-8 w-full max-w-4xl mx-auto">
+                
+                <div className="w-full">
+                    <AddressForm 
+                        initialData={initialData} 
+                        onSubmit={handleSave} 
+                        onValidityChange={setIsFormValid} 
+                    />
+                </div>
+                
+            </main>
+           
+
+            {/* A barra de botões é "sticky" no fundo da viewport, mas dentro do fluxo do container */}
+            {/* Isso faz ela flutuar sobre o conteúdo se a página for longa, mas para ao chegar no final */}
+            <div className="sticky bottom-0 left-0 w-full bg-white border-t border-gray-200 px-6 py-4 mt-20 z-40 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+                <div className="max-w-4xl mx-auto flex items-center justify-end">
+                    <div className="w-auto">
+                        <Button
+                            form="address-form" 
+                            type="submit"
+                            variant={!isFormValid ? "secondary" : "primary"} 
+                            loading={isSaving}
+                            disabled={!isFormValid || isSaving} 
+                            className="w-full sm:w-auto px-8 py-3 text-base disabled:pointer-events-none disabled:opacity-50"
+                        >
+                            Continuar
+                        </Button>
+                    </div>
+                </div>
+            </div>
+        </div>
     );
 }
