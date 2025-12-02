@@ -6,6 +6,10 @@
 - [Folder Structure and Explanation](#folder-structure)
 - [Database, Pool, Realtime and Auth](#database-pool-realtime-and-auth)
 - [Mering & Jest](#merging--jest)
+- [Funnels & User Stories](#funnels--user-stories)
+- [Roadmap](#roadmap)
+- [Product Positioning](#product-positioning)
+
 
 - [Inspiration](#inspiration)
 - [For AI](#for-AI)
@@ -144,6 +148,133 @@ Realtime is when a variable is directly connected to a Table in the Database. If
 # Merging & Jest
 
 Done via GitHub Actions
+
+
+
+---
+<br>
+
+# Funnels & User Stories
+> Product Delivery related funnels
+
+## Core Funnel
+
+```
+0. Landing Page
+
+1. Subscription
+   └── Restaurant signs up and creates account
+
+2. Activation
+   └── Publishes menu
+      └── iFood Syncing or AI scanned
+
+Client Flow
+   ├── 1. Enters restaurant menu (via QR or link)
+   ├── 2. Adds item(s) to cart
+   ├── 3. Fills delivery/pickup details
+   ├── 4. Completes checkout
+   └── 5. Pays (Pix, card, Mercado Pago)
+
+3. Order Reception
+   ├── System notifies restaurant in real time (must get notified. Whatsapp?)
+   └── Order appears as “New” or “Pending confirmation”
+
+4. Order Acceptance
+   ├── Staff accepts order (marks “preparing”)
+   └── Optionally sets estimated prep time
+
+5. Order Fulfillment
+
+6. Deposit the $
+```
+## User Stories
+
+### Restaurant Owner
+1. I want to costumize exactly what I'm buying (images, videos, weight, everything)
+2. I want to be able to upsell.
+3. I want the menu to give me exact instructions on what to do to make it sell more.
+4. I want to be able to add my complex delivery fees.
+5. I want to be able to have schedule open/closed timings, being able to open/close at any time.
+6. I want different access levels for Admin and Counter.
+7. I want to have categories in the menu
+8. I want to be able to disable menu items quickly, if possible, automated.
+9. I want to upload restaurant logo and banner.
+10. I want to see daily sales, and all data I can.
+
+### Kitchen/Counter Staff
+1. I want to see a live list of orders I have to prepare/send to kitchen.
+2. I want to update the order status.
+3. I want to search and filter orders.
+4. I want to reopen/mark an order as delivering/picked up.
+
+### Costumer
+1. I want to enter via QR Code or Link. No apps needed.
+2. I want my information to be pulled instantly (credit card, location, etc)
+3. I want to see total costs, with delivery fees and everything in realtime.
+4. I want to see all states of my order: Pending, paid, preparing, delivering.
+5. I want to be notified when the order ready, and when it's near.
+6. I want the restaurant to be able to contact me.
+
+### Platform Owner
+1. I want to see all platform-level metrics.
+2. I want to verify system health.
+
+
+---
+<br>
+
+# Roadmap
+1. MVP (1.5 mo)
+
+**GOAL:** Gain Traction (Hypothesis Proved)
+
+| 5W2H         | Description              | 
+|--------------|--------------------------|
+| **What**     | **Good Core Experience** | 
+| When         | 1.5 Months               | 
+| Who          | Carlos (Avatar)          | 
+| Where        | Whatsapp Cold DM         | 
+| **Why**      | **Prove hypothesis**     | 
+| **How**      | **Gathering Data**       | 
+| **How Much** | **40% Activation Rate**  | 
+
+
+2. Beta
+
+**GOAL:** To enhance everything: Friction, Data, Numbers, Conversion.
+
+Increasing Market Fit and **Changing the product positioning to target Medium-High ticket costumers** may be ideal.
+
+3. Market Ready...
+
+---
+<br>
+
+# Product Positioning
+
+## Avatar (Brazil)
+Carlos:
+- Restaurant Owner
+- 100k R$/month Revenue
+- 32 years old
+- Staff count: 8
+- Medium Tech Familiarity
+
+**Pain Points:**
+- Primary Pain (urgent): iFood fees killing margins (30%+).
+- Secondary Pain: Existing digital menus are clunky, costly, or outdated.
+- Hidden Pain: Feels dependent and powerless in his own business.
+- False Belief: Thinks “good tech = expensive or complex.”
+- Frustration → “iFood is eating my profit.”
+
+> This is a Lead Magnet for high ticket, revolutionizing business model in the Digital Menu niche. **Our goal is to grow them for free, and then for $**
+
+| Type                         | Description                                                    | Why they matter                                       |
+| ---------------------------- |----------------------------------------------------------------|-------------------------------------------------------|
+| **High-end restaurants**     | 300k – 1M R$/month, design-conscious, want white-glove service | They bring *big-ticket* revenue (future upsell).      |
+| **Medium/small restaurants** |                                                                | They bring *volume*, feedback, and viral growth.      |
+
 
 <br>
 

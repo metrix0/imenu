@@ -18,7 +18,7 @@ export default function TempoETaxaPage() {
 
     // KEEPING THE WORKING LOGIC EXACTLY AS IT WAS
     useEffect(() => {
-        const load = async () => {
+        const fetchData = async () => {
             console.log("➡️ load() starting…");
 
             // Load session
@@ -57,7 +57,7 @@ export default function TempoETaxaPage() {
             console.log("✅ restaurantId =", restaurant.id);
         };
 
-        load();
+        fetchData(); // call the async function
     }, []);
 
     const handleSave = async () => {
@@ -69,7 +69,7 @@ export default function TempoETaxaPage() {
             await rulesRef.current.save();
             
             // Redireciona após salvar
-            router.push("/restaurante/criar/disponibilidade");
+            //router.push("/restaurante/criar/disponibilidade");
         } catch (error) {
             console.error("Erro ao salvar:", error);
         } finally {
@@ -82,44 +82,38 @@ export default function TempoETaxaPage() {
         return <div>Carregando restaurante...</div>;
     }
 
-return (
-    <div className="relative min-h-screen flex flex-col">
-        
-        {/* Conteúdo da página */}
-        <div className="max-w-3xl mx-auto py-10 px-6 pb-32 flex-1">
+    return (
+        <div className="max-w-3xl mx-auto py-10 px-6 pb-32"> {/* pb-32 adicionado para o conteúdo não ficar atrás do footer */}
             <div className="mb-8 text-center sm:text-left">
                 <h1 className="text-3xl font-bold mb-3">Tempo e Taxa de Entrega</h1>
                 <p className="text-gray-500 mt-1">Agora, recomendamos essa taxa e tempo de entrega</p>
             </div>
-
+            {/* Passamos a ref para controlar o componente filho */}
             <DeliveryRules
                 ref={rulesRef}
                 restaurantId={restaurantId}
                 isNew={true}
             />
-        </div>
 
-        {/* Barra que deve parar antes do footer */}
-        <div className="sticky bottom-0 bg-white border-t border-gray-200 p-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-40">
-            <div className="max-w-4xl mx-auto flex items-center justify-between">
-                <button
-                    onClick={() => router.back()}
-                    className="text-brand font-medium text-base hover:opacity-80 transition-opacity flex items-center gap-1 cursor-pointer"
-                >
-                    Voltar
-                </button>
-
-                <Button
-                    variant="primary"
-                    loading={isLoading}
-                    onClick={handleSave}
-                    className="px-8"
-                >
-                    Salvar e Continuar
-                </Button>
+            {/* Footer Bar */}
+            <div className="fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 p-4 z-40 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+                <div className="max-w-4xl mx-auto flex items-center justify-between">
+                    <button
+                        onClick={() => router.back()}
+                        className="text-brand font-medium text-base hover:opacity-80 transition-opacity flex items-center gap-1 cursor-pointer"
+                    >
+                        Voltar
+                    </button>
+                    <Button
+                        variant="primary"
+                        loading={isLoading}
+                        onClick={handleSave}
+                        className="px-8"
+                    >
+                        Salvar e Continuar
+                    </Button>
+                </div>
             </div>
         </div>
-
-    </div>
-);
+    );
 }

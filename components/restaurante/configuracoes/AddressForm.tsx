@@ -1,7 +1,14 @@
+// components/restaurante/configuracoes/AddressForm.tsx
 "use client";
 
 import { useState, useEffect } from "react";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+    faLocationCrosshairs
+} from "@fortawesome/free-solid-svg-icons";
+
 import Input from "@/components/ui/Input";
+import Button from "@/components/ui/Button";
 
 export type AddressData = {
     cep: string;
@@ -18,8 +25,8 @@ export type AddressData = {
 interface AddressFormProps {
     initialData?: Partial<AddressData>;
     onSubmit: (data: AddressData) => Promise<void>;
-    // Nova prop para comunicar validade ao pai
-    onValidityChange: (isValid: boolean) => void;
+    isLoading?: boolean;
+    submitLabel?: string;
 }
 
 type CepApiResponse = {
@@ -38,8 +45,9 @@ type CepApiResponse = {
 
 export default function AddressForm({ 
     initialData, 
-    onSubmit,
-    onValidityChange 
+    onSubmit, 
+    isLoading = false, 
+    submitLabel = "Continuar" 
 }: AddressFormProps) {
     
     const [cep, setCep] = useState(initialData?.cep || "");
@@ -55,16 +63,9 @@ export default function AddressForm({
     const [isFetchingCep, setIsFetchingCep] = useState(false);
     const [errorMsg, setErrorMsg] = useState("");
 
-    // 1. Lógica de Validação
-    // Verifica se todos os campos obrigatórios estão preenchidos
-    const isValid = !!(cep && state && city && neighborhood && street && number);
+    // Validação: Verifica se todos os campos obrigatórios têm valor
+    const isValid = cep && state && city && neighborhood && street && number;
 
-    // 2. Notifica o componente pai sempre que a validade mudar
-    useEffect(() => {
-        onValidityChange(isValid);
-    }, [isValid, onValidityChange]);
-
-    // Atualiza estados locais quando initialData muda (ex: carregamento do banco)
     useEffect(() => {
         if (initialData) {
             setCep(initialData.cep || "");
@@ -187,7 +188,15 @@ export default function AddressForm({
         }
 
         onSubmit({
-            cep, state, city, neighborhood, street, number, complement, latitude, longitude
+            cep,
+            state,
+            city,
+            neighborhood,
+            street,
+            number,
+            complement,
+            latitude,
+            longitude
         });
     };
 
@@ -202,15 +211,15 @@ export default function AddressForm({
                 <button
                     type="button"
                     onClick={handleUseMyLocation}
-                    disabled={isFetchingCep}
+                    disabled={isFetchingCep || isLoading}
                     className="w-full py-3 border border-gray-300 rounded-md text-brand font-medium hover:bg-gray-50 transition-colors focus:ring-2 focus:ring-brand focus:outline-none cursor-pointer"
                 >
-                    {isFetchingCep ? "Buscando..." : "Usar minha localização"}
+                    {isFetchingCep ? "Buscando..." : <><FontAwesomeIcon icon={faLocationCrosshairs}/> Usar minha localização</>}
                 </button>
             </div>
 
-            {/* ID "address-form" ESSENCIAL para o botão externo funcionar */}
-            <form id="address-form" onSubmit={handleSubmit} className="space-y-6">
+            {/* pb-32 garante que o botão fixo não tape os inputs */}
+            <form onSubmit={handleSubmit} className="space-y-6 pb-32">
                 <div className="relative">
                     <div className="flex justify-between items-center mb-1">
                         <label className="text-sm font-medium text-gray-700">CEP*</label>
@@ -293,6 +302,21 @@ export default function AddressForm({
                         {errorMsg}
                     </p>
                 )}
+
+                {/* BOTÃO FIXO NO RODAPÉ */}
+                <div className="fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 p-4 flex justify-end z-50 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+                     <div className="w-full max-w-4xl mx-auto flex justify-end">
+                        <Button
+                            variant={!isValid ? "secondary" : "primary"}
+                            disabled={!isValid || isLoading}
+                            loading={isLoading}
+                            type="submit"
+                            className="w-full sm:w-auto px-8 py-3 text-base disabled:pointer-events-none"
+                        >
+                            {submitLabel}
+                        </Button>
+                     </div>
+                </div>
             </form>
         </div>
     );

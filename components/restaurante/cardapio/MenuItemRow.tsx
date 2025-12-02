@@ -6,7 +6,6 @@ import { faImage, faTrash, faCheck, faTimes, faSpinner, faCog, faCopy } from "@f
 import { uploadMenuImage } from "@/lib/uploadMenuImage"; 
 import { supabase } from "@/lib/supabaseClient";
 import ConfirmModal from "@/components/ui/ConfirmModal";
-import Button from "@/components/ui/Button";
 
 export type MenuItemType = {
     id: string;
@@ -215,18 +214,14 @@ export default function MenuItemRow({
                     {!isNew && (
                         <>
                             {/* Botão Opções */}
-                            <Button 
-                                variant="secondary"
-                                onClick={(e) => { 
-                                    e.stopPropagation(); 
-                                    if(onOpenDetails) onOpenDetails(); 
-                                }}
-                                className="px-3 py-1.5 h-auto text-sm font-medium text-gray-500  hover:border-brand gap-2"
+                            <button 
+                                onClick={(e) => { e.stopPropagation(); if(onOpenDetails) onOpenDetails(); }}
+                                className="cursor-pointer text-sm font-medium text-gray-500 hover:text-brand bg-white border border-gray-200 hover:border-brand px-3 py-1.5 rounded-md transition-colors flex items-center gap-2 shadow-sm"
                                 title="Gerenciar complementos e opções"
                             >
                                 <FontAwesomeIcon icon={faCog} />
                                 <span className="hidden sm:inline">Opções</span>
-                            </Button>
+                            </button>
 
                             {/* Botão Duplicar (Novo) */}
                             <button 
@@ -255,8 +250,7 @@ export default function MenuItemRow({
                             e.stopPropagation();
                             setIsDeleteModalOpen(true);
                         }}
-                        className="cursor-pointer w-8 h-8 flex items-center justify-center text-gray-400 hover:text-red-600 transition-all"
-                        title="Deletar item"
+                        className="cursor-pointer w-8 h-8 flex items-center justify-center text-gray-400 hover:text-red-600 transition-all opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
                     >
                         <FontAwesomeIcon icon={faTrash} />
                     </button>

@@ -25,12 +25,10 @@ export default function Input({
     const isLeft = iconPosition === "left";
 
     const formatToFloat = (raw: string) => {
-        // Remove all non-digits
         let digits = raw.replace(/\D/g, "");
 
         if (digits.length === 0) return "0,00";
 
-        // Pad left if shorter than 3 digits
         if (digits.length === 1) digits = "00" + digits;
         if (digits.length === 2) digits = "0" + digits;
 
@@ -53,16 +51,13 @@ export default function Input({
 
         const key = e.key;
 
-        // Allow navigation
         if (["Backspace", "Tab", "ArrowLeft", "ArrowRight"].includes(key)) return;
 
-        // Block letters and symbols
         if (!/^[0-9]$/.test(key)) {
             e.preventDefault();
         }
     };
 
-    // Force default value for float inputs
     const defaultValue =
         float &&
         (props.defaultValue === undefined ||
@@ -83,8 +78,8 @@ export default function Input({
                         className={`absolute top-1/2 -translate-y-1/2 text-gray-500
               ${isLeft ? "left-3" : "right-3"}`}
                     >
-            {icon}
-          </span>
+                        {icon}
+                    </span>
                 )}
 
                 <input
@@ -92,14 +87,15 @@ export default function Input({
                     inputMode={numeric || float ? "numeric" : props.inputMode}
                     onKeyDown={handleKeyDown}
                     onInput={handleInput}
-                    {...props}            // <-- props FIRST
-                    defaultValue={defaultValue}   // <-- wins!
-                    className={`w-full border border-gray-300 rounded-md px-3 py-3
-    focus:ring-brand focus:border-brand
-    ${withIcon ? (isLeft ? "pl-10" : "pr-10") : ""}
-    ${className}`}
-                />
 
+                    defaultValue={defaultValue}   // <-- moved BEFORE props
+                    {...props}                   // <-- now LAST so Google sees correct attributes
+
+                    className={`w-full border border-gray-300 rounded-md px-3 py-3
+                        focus:ring-brand focus:border-brand
+                        ${withIcon ? (isLeft ? "pl-10" : "pr-10") : ""}
+                        ${className}`}
+                />
             </div>
         </div>
     );

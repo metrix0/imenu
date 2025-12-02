@@ -23,19 +23,6 @@ interface StoreProfileProps {
     compact?: boolean; // Se true, esconde a descrição
 }
 
-const createSlug = (text: string) => {
-    return text
-        .toString()
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .replace(/\s+/g, "-")
-        .replace(/[^\w\-]+/g, "")
-        .replace(/\-\-+/g, "-")
-        .replace(/^-+/, "")
-        .replace(/-+$/, "");
-};
-
 export default function StoreProfileManager({ restaurant, compact = false }: StoreProfileProps) {
     // Estados locais de texto
     const [name, setName] = useState(restaurant.name);
@@ -65,14 +52,9 @@ export default function StoreProfileManager({ restaurant, compact = false }: Sto
     const autoSave = async (field: string, value: string) => {
         setIsSaving(true);
         try {
-            const updates: any = { [field]: value };
-            if (field === "name") {
-                const newSlug = createSlug(value);
-                updates.url_slug = newSlug;
-            }
             const { error } = await supabase
                 .from("restaurants")
-                .update(updates)
+                .update({ [field]: value })
                 .eq("id", restaurant.id);
 
             if (error) throw error;

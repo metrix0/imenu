@@ -5,11 +5,18 @@ export type Restaurant = {
     id: string;
     name: string; // Supondo que o nome esteja aqui, ou no menu
     logo_url: string | null;
+    banner_url: string | null;
     // Campos de tempo de preparo (novas funcionalidades)
+    rating: number | null,
+    min_order_cents: number,
     prep_time_min_minutes?: number | null;
     prep_time_max_minutes?: number | null;
     prep_time_source?: "manual" | "auto" | null;
     prep_time_computed_at?: string | null;
+    availability_json: any;
+    delivery_fee_json: any;
+    latitude: number;
+    longitude: number;
 };
 
 export type Menu = {

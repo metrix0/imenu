@@ -22,8 +22,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             >
                 <PosthogProvider>
                     {children}
-                    <SupportButton />
-                    <Footer />
                 </PosthogProvider>
             </body>
         </html>

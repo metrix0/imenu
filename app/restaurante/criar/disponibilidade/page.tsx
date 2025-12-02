@@ -1,12 +1,15 @@
+// app/restaurante/criar/disponibilidade/page.tsx
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useCreationStore } from "@/lib/creationStore";
 import { supabase } from "@/lib/supabaseClient";
 import Button from "@/components/ui/Button";
 import posthog from "posthog-js";
 
+
+// UPDATE IMPORT TO THE CLICK VERSION
 import WeeklyScheduleClick, { Availability, TimeSlot } from "@/components/restaurante/configuracoes/WeeklyScheduleClick";
 
 export default function DisponibilidadePage() {
@@ -25,16 +28,20 @@ export default function DisponibilidadePage() {
     const [isFetchingData, setIsFetchingData] = useState(true);
     const [localRestaurantId, setLocalRestaurantId] = useState<string | null>(null);
 
-    // Load Data
+    // 1. Load Data
     useEffect(() => {
         const loadData = async () => {
             try {
                 const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-                
+                // if (sessionError || !session?.user) {
+                //     router.push("/restaurante/login");
+                //     return;
+                // }
+
                 const { data, error } = await supabase
                     .from("restaurants")
                     .select("id, availability_json")
-                    .eq("user_id", session?.user?.id)
+                    .eq("user_id", session.user.id)
                     .single();
 
                 if (error) {
@@ -62,6 +69,7 @@ export default function DisponibilidadePage() {
         loadData();
     }, [router, setRestaurantId]);
 
+    // Use Recommended Logic
     const handleUseRecommended = () => {
         const recommendedSlots: TimeSlot[] = [
             { open: "11:00", close: "15:00" },
@@ -108,11 +116,9 @@ export default function DisponibilidadePage() {
     }
 
     return (
-        // Flex Column + Min-H-Screen garantem que o footer fique no final
-        <div className="flex flex-col min-h-screen bg-white">
-            
-            {/* Conteúdo Principal (Cresce para ocupar espaço) */}
-            <div className="flex-1 w-full max-w-6xl mx-auto px-6 pt-8 pb-16">
+        <div className="min-h-screen bg-white flex flex-col">
+            {/* Main Content */}
+            <div className="flex-1 w-full max-w-6xl mx-auto px-6 pt-8 pb-32">
                 <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4">
                     <div>
                         <h1 className="text-3xl font-bold text-gray-900 mb-2">Horário de Funcionamento</h1>
@@ -130,15 +136,15 @@ export default function DisponibilidadePage() {
                     </button>
                 </div>
 
+                {/* CLICK/POPUP COMPONENT */}
                 <WeeklyScheduleClick 
                     value={availability} 
                     onChange={setAvailability} 
                 />
             </div>
 
-            {/* Barra Sticky no fundo do container principal */}
-            {/* Ela gruda na tela enquanto tem scroll, mas para antes do footer global */}
-            <div className="sticky bottom-0 left-0 w-full bg-white border-t border-gray-200 p-4 z-40 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+            {/* Footer Bar */}
+            <div className="fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 p-4 z-40 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
                 <div className="max-w-4xl mx-auto flex items-center justify-between">
                     <button
                         onClick={() => router.back()}
