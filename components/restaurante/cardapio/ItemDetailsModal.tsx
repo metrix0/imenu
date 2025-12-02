@@ -292,7 +292,7 @@ export default function ItemDetailsModal({ isOpen, onClose, item }: ItemDetailsM
                                             </div>
                                         </div>
                                     </div>
-                                    <button onClick={() => handleDeleteGroup(group.id)} className="cursor-pointer text-gray-400 hover:text-red-600 text-sm px-2">
+                                    <button onClick={() => handleDeleteGroup(group.id)} className="cursor-pointer text-red-400 hover:text-red-600 text-sm px-2">
                                         <FontAwesomeIcon icon={faTrash} />
                                     </button>
                                 </div>
@@ -327,7 +327,7 @@ export default function ItemDetailsModal({ isOpen, onClose, item }: ItemDetailsM
                                                 />
                                             </div>
 
-                                            <button onClick={() => handleDeleteSubitem(sub.id)} className="cursor-pointer text-gray-400 hover:text-red-500 w-6">
+                                            <button onClick={() => handleDeleteSubitem(sub.id)} className="cursor-pointer text-gray-300 hover:text-red-500 w-6">
                                                 <FontAwesomeIcon icon={faTrash} className="text-xs" />
                                             </button>
                                         </div>

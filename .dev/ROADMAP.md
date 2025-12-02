@@ -20,6 +20,9 @@ oq falamos, meus arquivos deram problema
 - ifood sync
 - separar database entre menu e restaurante (usuario e dono)
 - imagens do menu em base64 ao inves de uploadMenuImages
+- acessar dashboard direto da landingpage
+- finalizar landing page
+- domínio
 
 RAF
 - ao inserir cep, automaticamente já calcuala a taxa (sem botão) (testar com autofill)

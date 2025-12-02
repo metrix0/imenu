@@ -341,12 +341,12 @@ export default function WeeklyScheduleClick({ value, onChange }: WeeklyScheduleC
                     </div>
 
                     <div className="flex gap-3 justify-end">
-                        <button
+                        <Button variant={"secondary"}
                             onClick={() => setEditModal(prev => ({ ...prev, isOpen: false }))}
-                            className="px-4 py-2 text-gray-600 font-medium hover:bg-gray-100 rounded-md transition-colors"
+                            className=""
                         >
                             Cancelar
-                        </button>
+                        </Button>
                         <Button onClick={handleSaveSlot}>
                             {editModal.slotIndex === null ? "Adicionar" : "Salvar"}
                         </Button>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useCreationStore } from "@/lib/creationStore";
@@ -11,17 +11,7 @@ import Button from "@/components/ui/Button";
 
 export default function RestaurantRegistrationPage() {
   const router = useRouter();
-  
-  // 1. Atualizado: Pegamos todos os setters e os valores salvos
-  const { 
-    setRestaurantId, 
-    setEmail: saveEmailToStore,
-    setFullName: saveFullNameToStore,
-    setPhone: savePhoneToStore,
-    email: storedEmail,
-    fullName: storedName,
-    phone: storedPhone
-  } = useCreationStore();
+  const { setRestaurantId, setEmail: saveEmailToStore } = useCreationStore();
 
   const [email, setEmail] = useState("");
   const [fullName, setFullName] = useState("");
@@ -31,34 +21,6 @@ export default function RestaurantRegistrationPage() {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [isPhoneFocused, setIsPhoneFocused] = useState(false);
-
-  // --- LÓGICA PARA BARRA FIXA INTELIGENTE ---
-  const [isAtBottom, setIsAtBottom] = useState(false);
-  const footerSentinelRef = useRef<HTMLDivElement>(null);
-
-  // 2. Atualizado: Preenchemos TODOS os campos se existirem no store
-  useEffect(() => {
-    if (storedEmail) setEmail(storedEmail);
-    if (storedName) setFullName(storedName);
-    if (storedPhone) setPhone(storedPhone);
-  }, [storedEmail, storedName, storedPhone]);
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        setIsAtBottom(entry.isIntersecting);
-      },
-      { root: null, threshold: 0, rootMargin: "0px" }
-    );
-
-    if (footerSentinelRef.current) {
-      observer.observe(footerSentinelRef.current);
-    }
-
-    return () => {
-      if (footerSentinelRef.current) observer.unobserve(footerSentinelRef.current);
-    };
-  }, []);
 
   // Validações
   const isValid = 
@@ -85,13 +47,12 @@ export default function RestaurantRegistrationPage() {
     setLoading(true);
     setErrorMsg("");
 
-    // 3. Atualizado: Salvamos TUDO no store antes de prosseguir
+    // Salva e-mail no Zustand
     saveEmailToStore(email);
-    saveFullNameToStore(fullName);
-    savePhoneToStore(phone);
 
     try {
-      // Cria usuário
+      // 1. Criar o Usuário na Autenticação (Supabase Auth)
+      // IMPORTANTE: Para não enviar OTP, desabilite "Confirm Email" no painel do Supabase.
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
@@ -104,18 +65,21 @@ export default function RestaurantRegistrationPage() {
       });
 
       if (authError) throw authError;
+      
+      // Se "Confirm Email" estiver ligado, authData.user existe mas authData.session é null.
+      // Se estiver desligado (como você quer), ambos existem.
       if (!authData.user) throw new Error("Erro ao criar usuário.");
 
       const userId = authData.user.id;
 
-      // Cria restaurante
+      // 2. Criar o Restaurante JÁ VINCULADO ao ID do Usuário
       const res = await fetch("/api/restaurants/create", { 
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-              userId: userId,
-              phone: phone,
-              email: email
+              userId: userId,  // Enviamos o ID do Auth
+              phone: phone,    // Enviamos o telefone para salvar no banco também
+              email: email     // Enviamos o email (caso queira usar no futuro/logs)
           })
       });
       
@@ -125,8 +89,11 @@ export default function RestaurantRegistrationPage() {
       }
       
       const restaurantData = await res.json();
+      
+      // 3. Salva o novo ID do restaurante no Zustand
       setRestaurantId(restaurantData.id);
 
+      // 4. Redireciona
       router.push("/restaurante/criar/localizacao");
 
     } catch (err) {
@@ -138,14 +105,14 @@ export default function RestaurantRegistrationPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-white relative">
+    <div className="min-h-screen flex flex-col bg-white">
       <header className="w-full border-b border-gray-200 px-2 py-7 flex items-center justify-between sticky top-0 bg-white z-10">
         <div className="relative h-6 w-32 ml-4">
             <Image src="/logo-full.png" alt="iMenu Logo" fill className="object-contain object-left" />
         </div>
       </header>
 
-      <main className="flex-1 flex flex-col items-center justify-start pt-8 px-4 pb-32 sm:pt-16">
+      <main className="flex-1 flex flex-col items-center justify-start pt-8 px-4 pb-24 sm:pt-16">
         <Card className="w-full max-w-2xl space-y-8 p-8 border border-gray-200 shadow-sm">
           <div className="text-center space-y-2">
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Crie seu Cardápio Digital</h1>
@@ -199,12 +166,7 @@ export default function RestaurantRegistrationPage() {
         </Card>
       </main>
 
-      <div ref={footerSentinelRef} className="absolute bottom-0 w-full h-px pointer-events-none opacity-0" />
-
-      <footer 
-        className={`sticky w-full bg-white border-t border-gray-200 px-6 py-4 transition-all duration-200 z-20 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]
-            ${isAtBottom ? "absolute bottom-0" : "fixed bottom-0"}`}
-      >
+      <footer className="fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 px-6 py-4">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <div className="flex-1"></div> 
           
@@ -214,7 +176,7 @@ export default function RestaurantRegistrationPage() {
                 loading={loading}
                 disabled={!isValid}
                 onClick={handleRegister}
-                className="w-full sm:w-auto px-8 py-3 text-base disabled:pointer-events-none disabled:opacity-50"
+                className="min-w-[160px] disabled:pointer-events-none disabled:opacity-50"
             >
                 {isValid ? "Criar Conta Grátis" : "Preencha os dados"}
             </Button>

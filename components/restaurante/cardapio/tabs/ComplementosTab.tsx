@@ -182,7 +182,7 @@ export default function ComplementosTab({ restaurantId, onOpenItemDetails }: Com
                             </Button>
                             <button 
                                 onClick={() => handleDeleteGroup(group.id)}
-                                className="cursor-pointer w-8 h-8 flex items-center justify-center text-gray-400 hover:text-red-600 transition-all"
+                                className="cursor-pointer w-8 h-8 flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-all"
                                 title="Excluir grupo"
                             >
                                 <FontAwesomeIcon icon={faTrash} />

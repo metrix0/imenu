@@ -3,11 +3,12 @@
 @theme {
     --color-brand: #f14400;
     --color-text: #1d1d1d;
-    --color-green: #179463;
+    --color-green: rgb(21, 176, 88);
     --color-red: #be2626;
     --color-orange: #ec8b1b;
+    --color-warning: #7B4D00;
+    --color-warning-bg: #FFF8EB;
 }
-
 @font-face {
     font-family: 'iFoodRCTextos';
     src: url('/fonts/iFoodRCTextos-Thin.ttf') format('truetype');
@@ -88,4 +89,49 @@ html, body {
 
 .animate-fadeUp {
     animation: fadeUp 0.4s ease-out;
+}
+
+@layer utilities {
+    @keyframes slide-up {
+        from { transform: translateY(100%); }
+        to { transform: translateY(0); }
+    }
+
+    @keyframes slide-down {
+        from { transform: translateY(0); }
+        to { transform: translateY(100%); }
+    }
+
+    .animate-slide-up {
+        animation: slide-up 0.25s ease-out forwards;
+    }
+
+    .animate-slide-down {
+        animation: slide-down 0.25s ease-in forwards;
+    }
+}
+
+
+@keyframes sweep {
+    0% {
+        transform: translateX(-100%);
+    }
+    100% {
+        transform: translateX(100%);
+    }
+}
+
+@keyframes pulseHalo {
+    0% {
+        transform: scale(1);
+        opacity: 0.5;
+    }
+    70% {
+        transform: scale(2.5);
+        opacity: 0;
+    }
+    100% {
+        transform: scale(2.5);
+        opacity: 0;
+    }
 }

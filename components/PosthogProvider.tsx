@@ -10,7 +10,7 @@ export default function PosthogProvider({ children }: { children: ReactNode }) {
     const key = process.env.NEXT_PUBLIC_POSTHOG_KEY;
 
     if (!url || !key) {
-      console.error("PostHog envs missing");
+      console.log("PostHog envs missing");
       return;
     }
 

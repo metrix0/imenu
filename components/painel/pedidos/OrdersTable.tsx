@@ -5,23 +5,24 @@ import { faEye } from "@fortawesome/free-solid-svg-icons";
 import Card from "@/components/ui/Card";
 import ListLoader from "@/components/ui/ListLoader";
 
+// Definição do Tipo Order (pode ser movido para types.ts futuramente)
 export type Order = {
     id: string;
     display_id: number;
     created_at: string;
     customer_name: string;
-    status: "pending_online_payment" | "pending_physical_payment" | "preparing" | "delivering" | "done" | "canceled";
+    status: "pending" | "preparing" | "delivering" | "finished" | "cancelled";
     total_cents: number;
 };
 
 interface OrdersTableProps {
     orders: Order[];
     isLoading: boolean;
-    onViewOrder?: (order: Order) => void; // Nova prop para ação
 }
 
-export default function OrdersTable({ orders, isLoading, onViewOrder }: OrdersTableProps) {
+export default function OrdersTable({ orders, isLoading }: OrdersTableProps) {
     
+    // Helpers de Formatação (locais para exibição)
     const fmtMoney = (cents: number) => (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
     const fmtDate = (dateStr: string) => new Date(dateStr).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 
@@ -30,16 +31,15 @@ export default function OrdersTable({ orders, isLoading, onViewOrder }: OrdersTa
             pending: "bg-yellow-100 text-yellow-800 border-yellow-200",
             preparing: "bg-blue-100 text-blue-800 border-blue-200",
             delivering: "bg-orange-100 text-orange-800 border-orange-200",
-            done: "bg-green-100 text-green-800 border-green-200",
-            canceled: "bg-red-100 text-red-800 border-red-200",
+            finished: "bg-green-100 text-green-800 border-green-200",
+            cancelled: "bg-red-100 text-red-800 border-red-200",
         };
         const label: Record<string, string> = {
-            pending_online_payment: "Pendente (Online)",
-            pending_physical_payment: "Pendente (Balcão)",
+            pending: "Pendente",
             preparing: "Preparando",
             delivering: "Em Rota",
-            done: "Concluído",
-            canceled: "Cancelado",
+            finished: "Concluído",
+            cancelled: "Cancelado",
         };
         return (
             <span className={`px-3 py-1 rounded-full text-xs font-medium border ${map[status] || "bg-gray-100"}`}>
@@ -51,7 +51,7 @@ export default function OrdersTable({ orders, isLoading, onViewOrder }: OrdersTa
     return (
         <Card className="p-0 overflow-hidden border border-gray-200 shadow-sm">
             {/* Header da Tabela */}
-            <div className="bg-gray-50 border-b border-gray-200 grid grid-cols-12 px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">
+            <div className="bg-gray-100/50 border-b border-gray-200 grid grid-cols-12 px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">
                 <div className="col-span-2">Número</div>
                 <div className="col-span-3">Cliente</div>
                 <div className="col-span-2">Data</div>
@@ -93,11 +93,7 @@ export default function OrdersTable({ orders, isLoading, onViewOrder }: OrdersTa
                                     {getStatusBadge(order.status)}
                                 </div>
                                 <div className="col-span-1 text-right">
-                                    <button 
-                                        onClick={() => onViewOrder && onViewOrder(order)}
-                                        className="cursor-pointer text-gray-400 hover:text-brand transition-colors p-2" 
-                                        title="Ver Detalhes"
-                                    >
+                                    <button className="text-gray-400 hover:text-brand transition-colors p-2" title="Ver Detalhes">
                                         <FontAwesomeIcon icon={faEye} />
                                     </button>
                                 </div>
