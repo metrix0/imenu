@@ -3,8 +3,8 @@
 
 import React, { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { useCart } from "@/lib/cartStore";
-import { Item, Subcategory, Subitem } from "@/lib/types";
+import { useCart } from "@/lib/stores/costumer/cartStore";
+import { Item, Subcategory, Subitem } from "@/lib/types/types";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { icons } from "@/lib/fontawesome";
 import posthog from "posthog-js";

@@ -1,9 +1,9 @@
 "use client";
 
-import { useCartStore } from "@/lib/cartStore";
+import { useCartStore } from "@/lib/stores/costumer/cartStore";
 import Button from "@/components/ui/Button";
 import Tooltip from "@/components/ui/Tooltip";
-import { useCheckoutStore } from "@/lib/checkoutStore";
+import { useCheckoutStore } from "@/lib/stores/costumer/checkoutStore";
 import { useState, useRef } from "react";
 
 export default function CartBar({

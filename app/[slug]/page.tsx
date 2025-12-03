@@ -1,22 +1,10 @@
 // app/[slug]/page.tsx
-import { createClient } from "@supabase/supabase-js";
+
 import { notFound } from "next/navigation";
 import MenuClientPage from "./menu-client";
-import { Category, Item, ItemsByCategory, Menu, Restaurant } from "@/lib/types";
+import { Category, Item, ItemsByCategory, Menu, Restaurant } from "@/lib/types/types";
 
-const createSupabaseServerClient = () => {
-    const url = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const service = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (url && service) return createClient(url, service);
-
-    if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
-        return createClient(
-            process.env.NEXT_PUBLIC_SUPABASE_URL!,
-            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-        );
-
-    throw new Error("Supabase envs missing");
-};
+import { createSupabaseServerClient } from "@/lib/database/supabaseServerClient";
 
 const getPublicUrl = (supabase: any, bucket: string, path: string | null) => {
     if (!path) return null;
@@ -37,8 +25,6 @@ export default async function Page({ params }: { params: { slug: string } }) {
         .eq("url_slug", slug)
         .maybeSingle();
 
-    console.log("restaurant",restaurantData)
-
     if (!restaurantData) return notFound();
 
     const restaurant: Restaurant = {
@@ -56,9 +42,6 @@ export default async function Page({ params }: { params: { slug: string } }) {
         longitude: restaurantData.longitude
     };
 
-
-    console.log("restaurant",restaurant)
-
     // --- 2. Menu ativo ---
     const { data: menuData } = await supabase
         .from("menu")
@@ -68,7 +51,6 @@ export default async function Page({ params }: { params: { slug: string } }) {
         .limit(1)
         .single<Menu>();
 
-    console.log("menu",menuData)
 
     if (!menuData) return notFound();
 
@@ -76,6 +58,7 @@ export default async function Page({ params }: { params: { slug: string } }) {
     const menu: Menu = {
         ...menuData
     };
+
     // --- 3. Categorias ---
     const { data: categoriesRaw } = await supabase
         .from("categories")
@@ -112,22 +95,8 @@ export default async function Page({ params }: { params: { slug: string } }) {
             })) || [];
     }
 
-    // --- 5. Destaques ---
-    const { data: highlightedRaw } = await supabase
-        .from("items")
-        .select("id, name, description, price_cents, image_path")
-        .eq("is_available", true)
-        .eq("is_highlighted", true)
-        .in("id", itemIds)
-        .limit(10);
+    // --- 5. Group Items by Category ---
 
-    const highlightedItems: Item[] =
-        highlightedRaw?.map((it: any) => ({
-            ...it,
-            image_public_url: getPublicUrl(supabase, "menu-images", it.image_path),
-        })) || [];
-
-    // --- 6. Group Items by Category ---
     const itemsByCategory: ItemsByCategory = {};
     for (const cat of categories) itemsByCategory[cat.id] = [];
     const uncategorized = "_uncategorized";
@@ -143,7 +112,6 @@ export default async function Page({ params }: { params: { slug: string } }) {
         (c) => (itemsByCategory[c.id]?.length ?? 0) > 0
     );
 
-    console.log("returning")
 
     return (
         <MenuClientPage
@@ -152,7 +120,6 @@ export default async function Page({ params }: { params: { slug: string } }) {
             menu={menu}
             categories={categoriesWithItems}
             itemsByCategory={itemsByCategory}
-            highlightedItems={highlightedItems}
         />
     );
 }

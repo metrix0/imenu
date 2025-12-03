@@ -244,9 +244,9 @@ RETURNING id
                 },
                 external_reference: order.id.toString(),
                 back_urls: {
-                    success: `${baseUrl}/success/${order.id}`,
-                    failure: `${baseUrl}/failure/${order.id}`,
-                    pending: `${baseUrl}/pending/${order.id}`,
+                    success: `${baseUrl}/${order.id}`,
+                    failure: `${baseUrl}/${order.id}`,
+                    pending: `${baseUrl}/${order.id}`,
                 },
                 auto_return: "approved",
                 notification_url: `${baseUrl}/api/mercadopago/webhook`,

@@ -1,50 +1,22 @@
 // app/[slug]/ItemModal.tsx
 "use client";
 
-import { useEffect, useMemo, useState, useRef } from "react";
-import { Restaurant, Item } from "@/lib/types";
+import { useEffect, useMemo, useState } from "react";
+import { Restaurant, Item, Subitem, Subcategory } from "@/lib/types/types";
+import { useCartStore } from "@/lib/stores/costumer/cartStore";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import {
-    faChevronDown,
-    faCircle as faCircleSolid,
-    faMinus,
-    faPlus,
-    faComment,
-} from "@fortawesome/free-solid-svg-icons";
-import { faCircle as faCircleRegular } from "@fortawesome/free-solid-svg-icons";
+import { icons } from "@/lib/fontawesome";
+import {formatPrice, formatPriceNoRS} from "@/lib/utils/formatPrice";
+import ModalMobile from "@/components/ui/ModalMobile";
 import Loader from "@/components/ui/Loader";
-import Tooltip from "@/components/ui/Tooltip";
-import { useCartStore } from "@/lib/cartStore";
-
-// ─────────────────────────────────────────────
-// Types
-// ─────────────────────────────────────────────
-type ItemSubitem = {
-    id: string;
-    item_subcategory_id: string;
-    name: string;
-    description: string | null;
-    price_cents: number;
-    is_available: boolean;
-    position: number;
-};
-
-type ItemSubcategoryWithSubitems = {
-    id: string;
-    name: string;
-    description: string | null;
-    min_select: number;
-    max_select: number;
-    position: number;
-    subitems: ItemSubitem[];
-};
 
 type Props = {
     restaurant: Restaurant;
     item: Item;
-    subcategories: ItemSubcategoryWithSubitems[];
+    subcategories: Subcategory[];
     loading: boolean;
     onClose: () => void;
+    deliveryTax: { lowest: number; highest: number  };
 };
 
 export default function ItemModal({
@@ -53,87 +25,61 @@ export default function ItemModal({
                                       subcategories,
                                       loading,
                                       onClose,
+                                        deliveryTax
                                   }: Props) {
-    // ─────────────────────────────────────────────
-    // States
-    // ─────────────────────────────────────────────
     const [qty, setQty] = useState(1);
     const [observation, setObservation] = useState("");
     const [open, setOpen] = useState(false);
     const [selected, setSelected] = useState<Record<string, Set<string>>>({});
     const addToCart = useCartStore((s) => s.addItem);
-
-    // SWIPE-DOWN (iFood behavior)
-    const [dragStartY, setDragStartY] = useState<number | null>(null);
-    const [dragY, setDragY] = useState(0);
-    const [isDragging, setIsDragging] = useState(false);
-
-    const sheetRef = useRef<HTMLDivElement | null>(null);
-    const scrollRef = useRef<HTMLDivElement | null>(null);
     const [isRestaurantOpen, setIsRestaurantOpen] = useState(true);
 
-    // ─────────────────────────────────────────────
-    // Open animation
-    // ─────────────────────────────────────────────
     useEffect(() => {
-        const t = setTimeout(() => setOpen(true), 10);
-        return () => clearTimeout(t);
+        setTimeout(() => setOpen(true), 10);
     }, []);
 
     useEffect(() => {
         if (!restaurant.availability_json) return;
-
-        const availability = restaurant.availability_json;
+        const avail = restaurant.availability_json;
         const today = new Date().getDay();
-        const slots = availability[today] ?? [];
+        const slots = avail[today] ?? [];
 
         const now = new Date();
-        let openNow = false;
+        let isOpen = false;
 
         for (let slot of slots) {
             const [openH, openM] = slot.open.split(":").map(Number);
             const [closeH, closeM] = slot.close.split(":").map(Number);
 
-            const openDate = new Date();
-            openDate.setHours(openH, openM, 0, 0);
+            const openT = new Date();
+            openT.setHours(openH, openM, 0, 0);
 
-            const closeDate = new Date();
-            closeDate.setHours(closeH, closeM, 0, 0);
+            const closeT = new Date();
+            closeT.setHours(closeH, closeM, 0, 0);
 
-            if (now >= openDate && now <= closeDate) {
-                openNow = true;
+            if (now >= openT && now <= closeT) {
+                isOpen = true;
                 break;
             }
         }
 
-        setIsRestaurantOpen(openNow);
+        setIsRestaurantOpen(isOpen);
     }, [restaurant]);
+
     const closeWithAnimation = () => {
         setOpen(false);
         setTimeout(onClose, 200);
     };
 
-    // ─────────────────────────────────────────────
-    // Handlers
-    // ─────────────────────────────────────────────
-
-
-    const formatPrice = (cents: number) =>
-        (cents / 100).toLocaleString("pt-BR", {
-            style: "currency",
-            currency: "BRL",
-        });
-
-    const changeQty = (delta: number) => {
+    const changeQty = (delta: number) =>
         setQty((q) => Math.max(1, Math.min(99, q + delta)));
-    };
 
-    const toggleSubitem = (sc: ItemSubcategoryWithSubitems, si: ItemSubitem) => {
+    const toggleSubitem = (sc: Subcategory, si: Subitem) => {
         setSelected((prev) => {
             const set = new Set(prev[sc.id] || []);
-            const isSingle = sc.max_select === 1 || sc.max_select === 0;
+            const single = sc.max_select === 1 || sc.max_select === 0;
 
-            if (isSingle) {
+            if (single) {
                 set.clear();
                 set.add(si.id);
             } else {
@@ -141,8 +87,8 @@ export default function ItemModal({
                 else set.add(si.id);
 
                 if (sc.max_select > 0 && set.size > sc.max_select) {
-                    const first = set.values().next().value || "";
-                    set.delete(first);
+                    const first = set.values().next().value;
+                    if (first) set.delete(first);
                 }
             }
 
@@ -150,19 +96,14 @@ export default function ItemModal({
         });
     };
 
-    // ─────────────────────────────────────────────
-    // Totals
-    // ─────────────────────────────────────────────
     const extrasTotal = useMemo(() => {
-        let total = 0;
+        let sum = 0;
         for (const sc of subcategories) {
             const ids = selected[sc.id];
             if (!ids) continue;
-            for (const si of sc.subitems) {
-                if (ids.has(si.id)) total += si.price_cents;
-            }
+            for (const si of sc.subitems) if (ids.has(si.id)) sum += si.price_cents;
         }
-        return total;
+        return sum;
     }, [selected, subcategories]);
 
     const unitTotal = item.price_cents + extrasTotal;
@@ -200,18 +141,8 @@ export default function ItemModal({
             }
         }
 
-        console.log("ADD TO CART", {
-            item: item.id,
-            qty,
-            observation,
-            selectedSubitems,
-            total,
-        });
-
-        if (!canAdd) return;
-
         addToCart({
-            id: crypto.randomUUID(),   // ✅ REQUIRED
+            id: crypto.randomUUID(),
             base_item_id: item.id,
             name: item.name,
             image: item.image_public_url || "",
@@ -225,72 +156,29 @@ export default function ItemModal({
         closeWithAnimation();
     };
 
-    // ─────────────────────────────────────────────
-    // SWIPE DOWN (iFood style)
-    // ─────────────────────────────────────────────
-    const onTouchStart = (e: React.TouchEvent) => {
-        if (!scrollRef.current) return;
-
-        // Só permite swipe se o usuário estiver no topo do modal
-        if (scrollRef.current.scrollTop !== 0) return;
-
-        setIsDragging(true);
-        setDragStartY(e.touches[0].clientY);
-    };
-
-    const onTouchMove = (e: React.TouchEvent) => {
-        if (!isDragging || dragStartY === null) return;
-
-        const delta = e.touches[0].clientY - dragStartY;
-
-        if (delta > 0) {
-            setDragY(delta);
-        }
-    };
-
-    const onTouchEnd = () => {
-        if (!isDragging) return;
-
-        setIsDragging(false);
-
-        if (dragY > 60) {
-            closeWithAnimation();
-        } else {
-            setDragY(0);
-        }
-    };
-
-    // ─────────────────────────────────────────────
-    // Render Content (loading or real content)
-    // ─────────────────────────────────────────────
     const renderContent = () => {
-        if (loading) {
+        if (loading)
             return (
                 <div className="flex items-center justify-center h-[55vh]">
                     <Loader />
                 </div>
             );
-        }
 
         return (
             <>
-                {/* ITEM CARD */}
+                {/* ITEM HEADER */}
                 <div className="mt-3 px-4">
-                    <div className="px-1">
-                        <h1 className="text-[22px] font-semibold mb-2">
-                            {item.name}
-                        </h1>
+                    <h1 className="text-[22px] font-semibold mb-2">{item.name}</h1>
 
-                        {item.description && (
-                            <p className="text-[15px] text-gray-700 leading-snug mb-3">
-                                {item.description}
-                            </p>
-                        )}
-
-                        <p className="text-[18px] font-semibold">
-                            {formatPrice(item.price_cents)}
+                    {item.description && (
+                        <p className="text-[15px] text-gray-700 mb-3">
+                            {item.description}
                         </p>
-                    </div>
+                    )}
+
+                    <p className="text-[18px] font-semibold">
+                        {formatPrice(item.price_cents)}
+                    </p>
                 </div>
 
                 {/* SUBCATEGORIES */}
@@ -304,7 +192,7 @@ export default function ItemModal({
                             <div key={sc.id} className="mt-4">
                                 <div className="bg-gray-100 px-4 py-3 flex justify-between">
                                     <div>
-                                        <p className="text-[16px] font-semibold text-gray-600">
+                                        <p className="font-semibold text-gray-600">
                                             {sc.name}
                                         </p>
                                         <p className="text-[13px] text-gray-600">
@@ -322,8 +210,7 @@ export default function ItemModal({
                                 </div>
 
                                 {sc.subitems.map((si) => {
-                                    const isSelected =
-                                        set && set.has(si.id);
+                                    const isSelected = set?.has(si.id);
 
                                     return (
                                         <button
@@ -333,29 +220,22 @@ export default function ItemModal({
                                             }
                                             className="w-full px-4 py-3 flex justify-between"
                                         >
-                                            <div className={"text-left"}>
-                                                <p className="text-[15px] font-medium">
-                                                    {(si.name).replace(/\n/g, ' ')}
+                                            <div className="text-left">
+                                                <p className="font-medium">
+                                                    {si.name.replace(/\n/g, " ")}
                                                 </p>
 
                                                 {si.price_cents > 0 && (
-                                                <p className="text-[13px] text-gray-500">
-                                                    +{" "}
-                                                    {formatPrice(
-                                                        si.price_cents
-                                                    )}
-                                                </p>
+                                                    <p className="text-[13px] text-gray-500">
+                                                        + {formatPrice(si.price_cents)}
+                                                    </p>
                                                 )}
                                             </div>
 
-                                            <div className={"flex items-center"}>
+                                            <div className="flex items-center">
                                                 {isSingle ? (
                                                     <FontAwesomeIcon
-                                                        icon={
-                                                            isSelected
-                                                                ? faCircleSolid
-                                                                : faCircleRegular
-                                                        }
+                                                        icon={icons.faCircle}
                                                         className={
                                                             isSelected
                                                                 ? "text-brand text-lg"
@@ -364,9 +244,9 @@ export default function ItemModal({
                                                     />
                                                 ) : (
                                                     <span
-                                                        className={`duration-200 w-7 h-7 rounded-full border flex items-center justify-center ${
+                                                        className={`w-7 h-7 rounded-full border flex items-center justify-center ${
                                                             isSelected
-                                                                ? "border-brand font-bold bg-brand text-white"
+                                                                ? "border-brand bg-brand text-white"
                                                                 : "border-gray-300 bg-gray-100 text-gray-400"
                                                         }`}
                                                     >
@@ -385,17 +265,15 @@ export default function ItemModal({
                 {/* OBSERVATION */}
                 <div className="px-4 mt-8">
                     <p className="text-[15px] font-semibold text-gray-500">
-                        <FontAwesomeIcon icon={faComment} /> Alguma observação?
+                        <FontAwesomeIcon icon={icons.faComment} /> Alguma observação?
                     </p>
 
                     <textarea
                         value={observation}
                         onChange={(e) =>
-                            setObservation(
-                                e.target.value.slice(0, 140)
-                            )
+                            setObservation(e.target.value.slice(0, 140))
                         }
-                        className="w-full mt-2 p-3 border border-gray-200 rounded-xl text-[14px] outline-none resize-none"
+                        className="w-full mt-2 p-3 border border-gray-200 rounded-xl text-sm resize-none"
                         rows={3}
                         placeholder="Ex: tirar cebola..."
                     />
@@ -404,119 +282,90 @@ export default function ItemModal({
         );
     };
 
-    // ─────────────────────────────────────────────
-    // Return
-    // ─────────────────────────────────────────────
     return (
-        <div className="fixed inset-0 z-[999] flex items-end justify-center">
-            {/* BACKDROP */}
-            <div
-                className={`absolute inset-0 bg-black/40 transition-opacity duration-200 ${
-                    open ? "opacity-100" : "opacity-0"
-                }`}
-                onClick={closeWithAnimation}
-            />
+        <ModalMobile
+            open={open}
+            onClose={closeWithAnimation}
+            height={0.93}
+            handle={false}
+            xPadding={false}
+        >
+            {/* IMAGE HEADER */}
+            <div className="relative w-full h-[260px] bg-black">
+                <img
+                    src={item.image_public_url || "https://mjogdsnxbwhbqcoijrwt.supabase.co/storage/v1/object/public/menu-images/menu-images/menu_banner_placeholder.png"}
+                    className="w-full h-full object-cover"
+                />
 
-            {/* BOTTOM SHEET */}
-            <div
-                ref={sheetRef}
-                onTouchStart={onTouchStart}
-                onTouchMove={onTouchMove}
-                onTouchEnd={onTouchEnd}
-                className="absolute left-0 right-0 bottom-0 h-[93%] bg-white rounded-2xl shadow-2xl overflow-hidden"
-                style={{
-                    transform: isDragging
-                        ? `translateY(${dragY}px)`
-                        : open
-                            ? "translateY(0)"
-                            : "translateY(100%)",
-                    transition: isDragging
-                        ? "none"
-                        : "transform 0.25s ease",
-                }}
-            >
-                {/* SCROLLABLE CONTENT */}
-                <div
-                    ref={scrollRef}
-                    className="overflow-y-auto h-full pb-32"
+                <button
+                    onClick={closeWithAnimation}
+                    className="absolute left-4 top-6 w-10 h-10 bg-black/50 text-white rounded-full flex items-center justify-center"
                 >
-                    {/* IMAGE */}
-                    <div className="relative w-full h-[260px] bg-black">
+                    <FontAwesomeIcon icon={icons.faChevronDown} />
+                </button>
+
+                <div className="absolute left-4 bottom-4 bg-white shadow-md rounded-full px-3 pr-4 py-2 flex items-center gap-2 leading-none">
+                    {restaurant.logo_url && (
                         <img
-                            src={item.image_public_url || ""}
-                            className="w-full h-full object-cover"
-                            alt={item.name}
+                            src={restaurant.logo_url}
+                            className="w-8 h-8 rounded-full object-cover"
                         />
+                    )}
 
-                        <button
-                            onClick={closeWithAnimation}
-                            className="absolute left-4 top-6 w-10 h-10 bg-black/50 text-white rounded-full flex items-center justify-center"
-                        >
-                            <FontAwesomeIcon icon={faChevronDown} />
-                        </button>
-
-                        <div className="absolute left-4 bottom-4 bg-white shadow-md rounded-full px-3 pr-4 py-2 flex items-center gap-2">
-                            {restaurant.logo_url && (
-                                <img
-                                    src={restaurant.logo_url}
-                                    className="w-8 h-8 rounded-full object-cover"
-                                />
-                            )}
-
-                            <div className="flex flex-col">
-                                <span className="text-[13px] font-semibold leading-tight">
-                                    {restaurant.name}
-                                </span>
-                                <span className="text-[12px] text-gray-600">
-                                    {restaurant.prep_time_min_minutes}–
-                                    {restaurant.prep_time_max_minutes} min •{" "}
-                                    <span className="text-green-600">
-                                        Grátis
-                                    </span>
-                                </span>
-                            </div>
-                        </div>
+                    <div>
+                        <span className="text-[13px] font-semibold">
+                            {restaurant.name}
+                        </span>
+                        <br />
+                        <span className="text-[12px] text-gray-600">
+                            {restaurant.prep_time_min_minutes}–
+                            {restaurant.prep_time_max_minutes} min •{" "}
+                            <span className="text-green">R$ {formatPriceNoRS(deliveryTax.lowest)}-{formatPriceNoRS(deliveryTax.highest )}</span>
+                        </span>
                     </div>
-
-                    {/* CONTENT OR LOADING */}
-                    {renderContent()}
-                </div>
-
-                {/* FOOTER */}
-                <div className="absolute left-0 right-0 bottom-0 bg-white border-t border-gray-200 pt-5 pb-14 px-4 py-3 flex items-center gap-3">
-                    <div className="flex items-center border border-gray-200 rounded-xl px-3 py-2 w-[110px] justify-between">
-                        <button
-                            onClick={() => changeQty(-1)}
-                            className="w-6 h-6 flex items-center justify-center text-gray-400"
-                        >
-                            <FontAwesomeIcon icon={faMinus} className="text-xs" />
-                        </button>
-
-                        <span className="text-[16px]">{qty}</span>
-
-                        <button
-                            onClick={() => changeQty(1)}
-                            className="w-6 h-6 flex items-center justify-center text-brand"
-                        >
-                            <FontAwesomeIcon icon={faPlus} className="text-xs" />
-                        </button>
-                    </div>
-                        <button
-                            disabled={!canAdd || !isRestaurantOpen}
-                            onClick={handleAdd}
-                            className={`w-full flex-1 rounded-xl px-5 py-3 flex items-center justify-between text-[15px] font-semibold ${
-                                !isRestaurantOpen
-                                    ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                                    : canAdd
-                                        ? "bg-brand text-white"
-                                        : "bg-gray-200 text-gray-400"
-                            }`}
-                        >
-                            <span>Adicionar</span>
-                            <span>{formatPrice(total)}</span>
-                        </button>
                 </div>
             </div>
-        </div>
+
+            {/* CONTENT */}
+            <div className="overflow-y-auto h-full pb-32">
+                {renderContent()}
+            </div>
+
+            {/* FOOTER */}
+            <div className="absolute left-0 right-0 bottom-0 bg-white border-t border-gray-200 pt-5 pb-14 px-4 flex items-center gap-3">
+                <div className="flex items-center border border-gray-200 rounded-xl px-3 py-2 w-[110px] justify-between">
+                    <button
+                        onClick={() => changeQty(-1)}
+                        className="w-6 h-6 flex items-center justify-center text-gray-400"
+                    >
+                        <FontAwesomeIcon icon={icons.faMinus} />
+                    </button>
+
+                    <span className="text-[16px]">{qty}</span>
+
+                    <button
+                        onClick={() => changeQty(1)}
+                        className="w-6 h-6 flex items-center justify-center text-brand"
+                    >
+                        <FontAwesomeIcon icon={icons.faPlus} />
+                    </button>
+                </div>
+
+                <button
+                    disabled={!canAdd || !isRestaurantOpen}
+                    onClick={handleAdd}
+                    className={`w-full flex-1 rounded-xl px-5 py-3 flex items-center justify-between text-[15px] font-semibold ${
+                        !isRestaurantOpen
+                            ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                            : canAdd
+                                ? "bg-brand text-white"
+                                : "bg-gray-200 text-gray-400"
+                    }`}
+                >
+                    <span>Adicionar</span>
+                    <span>{formatPrice(total)}</span>
+                </button>
+            </div>
+        </ModalMobile>
     );
 }

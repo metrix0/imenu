@@ -23,6 +23,7 @@ oq falamos, meus arquivos deram problema
 - acessar dashboard direto da landingpage
 - finalizar landing page
 - domínio
+- update cart modal upon geolocation function from rafa
 
 RAF
 - ao inserir cep, automaticamente já calcuala a taxa (sem botão) (testar com autofill)
@@ -33,7 +34,8 @@ RAF
 
 - painel: adicionar item vira uma rota, não uma página. pra poder adicionar item na própria pagina que nem ifood
 
-
+## Backlog
+- Adicionar verificação de Auth (local browser data) em todas as páginas que precisam de Auth (painel, criar restaurante, etc)
 
 ---
 <br>
