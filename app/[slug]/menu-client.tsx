@@ -53,7 +53,7 @@ export default function MenuClientPage({
 
     const handleItemClick = async (item: Item) => {
         if (!item.id) return;
-
+        console.log(item.id)
         setOpenedItem({
             item,
             subcategories: [],
@@ -63,64 +63,20 @@ export default function MenuClientPage({
         setLoadingItemId(item.id);
 
         try {
-            const { data, error } = await supabase
-                .from("item_subcategories")
-                .select(`
-                    id,
-                    name,
-                    description,
-                    min_select,
-                    max_select,
-                    position,
-                    subitems:subitems (
-                        id,
-                        item_subcategory_id,
-                        name,
-                        description,
-                        price_cents,
-                        is_available,
-                        position
-                    )
-                `)
-                .eq("item_id", item.id);
-
-            if (error) {
-                console.error("Erro ao carregar complementos:", error);
+            const res = await fetch(`/api/items/${item.id}/subcategories`);
+            if (!res.ok) {
+                console.error("Erro ao carregar complementos:", await res.text());
                 return;
             }
 
-            const normalized = (data || []).map((sc: any) => ({
-                id: sc.id,
-                item_id: item.id,
-                name: sc.name,
-                description: sc.description,
-                min_select: sc.min_select,
-                max_select: sc.max_select,
-                position: sc.position,
-                subitems:
-                    (sc.subitems || [])
-                        .slice()
-                        .sort((a: any, b: any) => a.position - b.position)
-                        .map(
-                            (si: any): Subitem => ({
-                                id: si.id,
-                                item_subcategory_id: si.item_subcategory_id,
-                                name: si.name,
-                                description: si.description,
-                                price_cents: si.price_cents,
-                                is_available: si.is_available,
-                                position: si.position,
-                            })
-                        ) || [],
-            }));
+            const normalized = await res.json(); // Already sorted + normalized by API
 
             setOpenedItem({
                 item,
-                subcategories: normalized.sort(
-                    (a, b) => a.position - b.position
-                ),
+                subcategories: normalized,
                 loading: false,
             });
+
         } finally {
             setLoadingItemId(null);
         }

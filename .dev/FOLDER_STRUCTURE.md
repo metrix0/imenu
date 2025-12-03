@@ -1,3 +1,10 @@
+# app/api
+
+```
+All route folders must have the same name as the Supabase table they interact with.
+Eg: /app/api/restaurants for the "restaurants" table.
+```
+
 # /components
 
 ```
