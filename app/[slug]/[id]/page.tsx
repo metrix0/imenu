@@ -1,12 +1,11 @@
 "use client";
 
 import {use, useEffect, useRef, useState} from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import {FontAwesomeIcon} from "@fortawesome/react-fontawesome";
+import { icons } from "@/lib/fontawesome";
 
-import {
-    faCreditCard,faMoneyBill,faPersonBiking
-} from "@fortawesome/free-solid-svg-icons";
 import {faPix} from "@fortawesome/free-brands-svg-icons"
 
 export default function PedidoPage({
@@ -15,15 +14,12 @@ export default function PedidoPage({
     params: Promise<{ slug: string; id: string }>;
 }) {
     const { id } = use(params);
-
     const [status, setStatus] = useState<string>("pending_online_payment");
     const [order, setOrder] = useState<any>(null);
     const didRunClearOnce = useRef(false);
+    const router = useRouter();
 
 
-    // --------------------------------------------------------------------
-    // 🔵 REALTIME LISTENER (unchanged)
-    // --------------------------------------------------------------------
     useEffect(() => {
         const channel = supabase
             .channel(`orders-${id}`)
@@ -66,15 +62,7 @@ export default function PedidoPage({
         };
     }, [id]);
 
-    // --------------------------------------------------------------------
-// 🧹 AUTO CLEAR CART AFTER PAYMENT OR CONFIRMATION
-// --------------------------------------------------------------------
-// --------------------------------------------------------------------
-// 🧹 AUTO CLEAR CART + SET COOKIE WHEN ORDER ENTERS CONFIRMED STATES
-// --------------------------------------------------------------------
-// --------------------------------------------------------------------
-// 🧹 AUTO CLEAR CART + SET COOKIE — RUN ONLY ONCE PER PAGE LOAD
-// --------------------------------------------------------------------
+
     useEffect(() => {
         if (!status) return;
 
@@ -113,12 +101,9 @@ export default function PedidoPage({
 
 
     // --------------------------------------------------------------------
-    // 🟢 NEW: POLLING EVERY 7 SECONDS (MINIMUM CHANGE)
+    // 🟢 POLLING EVERY X SECONDS (MINIMUM CHANGE)
     // --------------------------------------------------------------------
-// 🔄 POLLING (every 7s)
-// --------------------------------------------------------------------
-// 🟢 SMART POLLING (with STOP for done/canceled)
-// --------------------------------------------------------------------
+
     useEffect(() => {
         if (!status) return;
 
@@ -193,14 +178,12 @@ export default function PedidoPage({
         );
     }
 
-    // -----------------------------
-    // STATUS LABEL
-    // -----------------------------
+
     const iconMap: Record<string, any> = {
         pix: faPix,
-        cartao: faCreditCard,
-        dinheiro: faMoneyBill,
-        maquininha: faPersonBiking
+        cartao: icons.faCreditCard,
+        dinheiro: icons.faMoneyBill,
+        maquininha: icons.faPersonBiking
     }
 
     const statusMap: Record<string, any> = {
@@ -212,11 +195,9 @@ export default function PedidoPage({
         done: "Pedido entregue, bom apetite!",
         canceled: "Pedido cancelado",
     };
+
     const readableStatus = statusMap[status] ?? status;
 
-    // -----------------------------
-    // ETA FORMAT
-    // -----------------------------
     function formatEtaFromTimestamp(iso: string | null | undefined) {
         if (!iso) return "Calculando...";
 
@@ -227,24 +208,44 @@ export default function PedidoPage({
         const end = new Date(center.getTime() + 10 * 60_000);
 
         const now = new Date();
-        const isSameDay =
-            start.getFullYear() === now.getFullYear() &&
-            start.getMonth() === now.getMonth() &&
-            start.getDate() === now.getDate();
 
-        const label = isSameDay ? "Hoje" : "Amanhã";
+        // Helper to check if two dates share Y/M/D
+        const isSameDay = (a: Date, b: Date) =>
+            a.getFullYear() === b.getFullYear() &&
+            a.getMonth() === b.getMonth() &&
+            a.getDate() === b.getDate();
+
+        let label: string;
+
+        if (isSameDay(start, now)) {
+            label = "Hoje";
+        } else {
+            const tomorrow = new Date(now);
+            tomorrow.setDate(now.getDate() + 1);
+
+            if (isSameDay(start, tomorrow)) {
+                label = "Amanhã";
+            } else {
+                // dd/MM
+                label = start.toLocaleDateString("pt-BR", {
+                    day: "2-digit",
+                    month: "2-digit",
+                });
+            }
+        }
 
         const fmt = (d: Date) =>
-            d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+            d.toLocaleTimeString("pt-BR", {
+                hour: "2-digit",
+                minute: "2-digit",
+            });
 
         return `${label}, ${fmt(start)} - ${fmt(end)}`;
     }
 
+
     const eta = formatEtaFromTimestamp(order.delivery_eta);
 
-    // -----------------------------
-    // PAYMENT TEXT
-    // -----------------------------
     const pm = order.payment_method ?? order.paymentMethod;
     const paymentIcon = iconMap[pm];
     const paymentText =
@@ -264,7 +265,7 @@ export default function PedidoPage({
             : "...";
 
     return (
-        <main className="p-6 max-w-xl mx-auto">
+        <main className="p-6 max-w-xl mx-auto min-h-screen flex flex-col">
 
             {/* ------- everything below is untouched ------- */}
 
@@ -274,7 +275,7 @@ export default function PedidoPage({
                 <p className="font-semibold text-text text-2xl mt-1">{eta}</p>
             </section>
 
-            {status === "preparing" || "delivering" || "done"
+            {!status.includes("pending") && status !== "paid"
                 ?
                 <div className="flex gap-2 w-[94%] ml-[3%] h-1 rounded-full overflow-hidden relative mt-2 mb-2">
 
@@ -397,6 +398,16 @@ export default function PedidoPage({
             </section>
 
             <p className="text-center text-gray-400 text-sm mt-6">Pedido #{id}</p>
+
+            {/* FOOTER IMAGE */}
+            <div className="mt-auto flex justify-center pt-8 pb-6">
+                <img
+                    src="/logos/CombinationMarkLogo_Black.png"     // <-- change to your path
+                    alt="Logo"
+                    className="opacity-30 w-[30%]"
+                    onClick={() => router.push("/")}
+                />
+            </div>
         </main>
     );
 }
