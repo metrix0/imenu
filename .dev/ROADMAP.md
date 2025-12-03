@@ -23,6 +23,7 @@ oq falamos, meus arquivos deram problema
 - acessar dashboard direto da landingpage
 - finalizar landing page
 - domínio
+- update cart modal upon geolocation function from rafa
 
 RAF
 - ao inserir cep, automaticamente já calcuala a taxa (sem botão) (testar com autofill)

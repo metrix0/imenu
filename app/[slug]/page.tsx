@@ -2,7 +2,7 @@
 
 import { notFound } from "next/navigation";
 import MenuClientPage from "./menu-client";
-import { Category, Item, ItemsByCategory, Menu, Restaurant } from "@/lib/stores/types";
+import { Category, Item, ItemsByCategory, Menu, Restaurant } from "@/lib/types/types";
 
 import { createSupabaseServerClient } from "@/lib/database/supabaseServerClient";
 

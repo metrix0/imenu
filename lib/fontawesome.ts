@@ -5,31 +5,30 @@ import {
     faEnvelope,
     faDownload,
     faLock,
-    faCheckCircle,
     faTrash,
     faEdit,
+    faCheckCircle,
     faCheck,
     faTimes,
     faGripLines,
     faStore,
-    // Ícones adicionados
+    faChevronLeft,
+    faXmark,
     faChevronUp,
     faChevronDown,
     faArrowLeft,
-    faChevronLeft,
     faMinus,
-    faXmark,
     faCircleInfo,
-    faDollarSign
+    faLocationCrosshairs,
+    faTriangleExclamation,
+    faPersonBiking,
+    faDollarSign,
+    faMoneyBill,
+    faCreditCard,
+    faCircle,
+    faComment
 } from "@fortawesome/free-solid-svg-icons";
 
-import {
-    faWhatsapp,
-    faInstagram,
-    faFacebook,
-} from "@fortawesome/free-brands-svg-icons";
-
-// 👇 all in one export object
 export const icons = {
     faPlus,
     faSpinner,
@@ -43,17 +42,19 @@ export const icons = {
     faTimes,
     faGripLines,
     faStore,
-    // Ícones adicionados
     faChevronLeft,
     faXmark,
     faChevronUp,
     faChevronDown,
     faArrowLeft,
     faMinus,
-    // Ícones de marcas
-    faWhatsapp,
-    faInstagram,
-    faFacebook,
     faCircleInfo,
-    faDollarSign
+    faLocationCrosshairs,
+    faTriangleExclamation,
+    faPersonBiking,
+    faDollarSign,
+    faMoneyBill,
+    faCreditCard,
+    faCircle,
+    faComment
 };

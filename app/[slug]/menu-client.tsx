@@ -1,22 +1,19 @@
 // app/[slug]/menu-client.tsx
 "use client";
 
-import { Restaurant, Menu, Category, ItemsByCategory, Item } from "@/lib/stores/types";
+import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { useState } from "react";
+import { Restaurant, Menu, Category, ItemsByCategory, Item, Subitem, Subcategory } from "@/lib/types/types";
+import { useCheckoutStore } from "@/lib/stores/costumer/checkoutStore";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faChevronRight, faStar, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
+import { icons } from "@/lib/fontawesome";
 import { supabase } from "@/lib/supabaseClient";
+import { formatPrice, formatPriceNoRS } from "@/lib/utils/formatPrice";
+import ModalMobile from "@/components/ui/ModalMobile";
 import ItemModal from "./ItemModal";
 import CartBar from "@/components/consumidor/CartBar"
 import CartModal from "./CartModal"
-import { useCartStore } from "@/lib/stores/costumer/cartStore";
-import { useCheckoutStore } from "@/lib/stores/costumer/checkoutStore";
-import { useEffect } from "react";
-import RestaurantCartWarningModal from "@/components/GenericModal";
-import { Subitem, Subcategory } from "@/lib/stores/types";
-import DraggableModal from "@/components/ui/ModalMobile"; // path you chose
-
+import WarningBox from "@/components/ui/WarningBox";
 
 
 export default function MenuClientPage({
@@ -52,34 +49,17 @@ export default function MenuClientPage({
     const [orderId, setOrderId] = useState<string | null>(null);
 
 
-    const formatPrice = (cents: number) =>
-        (cents / 100).toLocaleString("pt-BR", {
-            style: "currency",
-            currency: "BRL",
-        });
-
-    const formatPriceNoRS = (cents: number) =>
-        (cents / 100)
-            .toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
-            .replace("R$", "")
-            .trim();
 
 
-    // ============================================================
-    // 🔥 NEW: open modal instantly, load details in background
-    // ============================================================
     const handleItemClick = async (item: Item) => {
         if (!item.id) return;
 
-        // 1. Open modal IMMEDIATELY with loading=true
         setOpenedItem({
             item,
             subcategories: [],
             loading: true,
         });
 
-        //await new Promise((r) => setTimeout(r, 1500)); // SIMULATE LOADING
-        // 2. Now fetch in background
         setLoadingItemId(item.id);
 
         try {
@@ -109,9 +89,9 @@ export default function MenuClientPage({
                 return;
             }
 
-            // 3. Process subcategories
             const normalized = (data || []).map((sc: any) => ({
                 id: sc.id,
+                item_id: item.id,
                 name: sc.name,
                 description: sc.description,
                 min_select: sc.min_select,
@@ -134,7 +114,6 @@ export default function MenuClientPage({
                         ) || [],
             }));
 
-            // 4. Update modal content
             setOpenedItem({
                 item,
                 subcategories: normalized.sort(
@@ -155,7 +134,6 @@ export default function MenuClientPage({
         const lowest = Math.min(...fees);
         const highest = Math.max(...fees);
 
-        console.log("lowest:", lowest, "highest:", highest);
 
         return { lowest, highest };
     })();
@@ -180,23 +158,18 @@ export default function MenuClientPage({
             const closeDate = new Date();
             closeDate.setHours(closeH, closeM, 0, 0);
 
-            console.log(openDate,closeDate,now)
-
             if (now >= openDate && now <= closeDate) {
-                // Currently open
-                console.log("OPENNN!!!")
+
                 setNextOpening(null);
                 return;
             }
 
             if (now < openDate) {
-                // Will open later today
                 setNextOpening(openDate);
                 return;
             }
         }
 
-        // All slots passed → restaurant closed today
         setNextOpening(slots[0] ? new Date(slots[0].open) : null);
     };
 
@@ -204,7 +177,6 @@ export default function MenuClientPage({
         checkRestaurantAvailability();
     }, [restaurant]);
 
-    // ============================================================
     useEffect(() => {
         if (restaurant?.id) {
             useCheckoutStore.getState().setRestaurantId(restaurant.id);
@@ -226,8 +198,7 @@ export default function MenuClientPage({
         const id = cookie.split("=")[1];
         if (!id) return;
 
-        console.log("SET ORDER ID", id);
-        setOrderId(id); // <-- IMPORTANT! THIS UPDATES REACT STATE
+        setOrderId(id);
 
         requestAnimationFrame(() => {
             setRestaurantCartWarningVisible(true);
@@ -279,20 +250,20 @@ export default function MenuClientPage({
                             : "R$ 0,00"}
                     </p>
 
-                    {restaurant.rating && (
-                        <div className="flex hidden items-center gap-2 mt-3 text-xs border-b border-gray-200 pb-3">
-                            <FontAwesomeIcon
-                                icon={faStar}
-                                className="text-gray-700"
-                            />
-                            <span className="font-semibold">
-                                {restaurant.rating.toFixed(1)}
-                            </span>
-                            <span className="text-gray-500">
-                                (427 avaliações)
-                            </span>
-                        </div>
-                    )}
+                    {/*{restaurant.rating && (*/}
+                    {/*    <div className="flex hidden items-center gap-2 mt-3 text-xs border-b border-gray-200 pb-3">*/}
+                    {/*        <FontAwesomeIcon*/}
+                    {/*            icon={faStar}*/}
+                    {/*            className="text-gray-700"*/}
+                    {/*        />*/}
+                    {/*        <span className="font-semibold">*/}
+                    {/*            {restaurant.rating.toFixed(1)}*/}
+                    {/*        </span>*/}
+                    {/*        <span className="text-gray-500">*/}
+                    {/*            (427 avaliações)*/}
+                    {/*        </span>*/}
+                    {/*    </div>*/}
+                    {/*)}*/}
 
                     <div className="flex items-center gap-2 mt-3 text-xs font-bold">
                         <span>Entrega</span>
@@ -308,10 +279,9 @@ export default function MenuClientPage({
             </div>
 
             {nextOpening !== null && (
-                <div className="p-4 bg-warning-bg text-warning mt-10 rounded-2xl mx-6 flex gap-4 items-center">
-                    <FontAwesomeIcon icon={faTriangleExclamation} className={"text-lg"}/>
-                    <div>
-                        Restaurante fechado. Abre em<b>{" "}
+                <WarningBox icon={icons.faTriangleExclamation} className="mt-10 mx-6 ">
+                    Restaurante fechado. Abre em <b>
+                    {" "}
                     {Math.floor((nextOpening.getTime() - new Date().getTime()) / 3600000)
                         .toString()
                         .padStart(1, "0")}
@@ -320,9 +290,9 @@ export default function MenuClientPage({
                         ((nextOpening.getTime() - new Date().getTime()) % 3600000) / 60000
                     )
                         .toString()
-                        .padStart(2, "0")}</b>
+                        .padStart(2, "0")}
+                </b>
                     .
-
                     {todaySlots.length > 0 && (
                         <div className="text-sm mt-2">
                             Horários de Abertura:
@@ -333,8 +303,7 @@ export default function MenuClientPage({
                             ))}
                         </div>
                     )}
-                    </div>
-                </div>
+                </WarningBox>
 
             )}
 
@@ -394,6 +363,7 @@ export default function MenuClientPage({
                     subcategories={openedItem.subcategories}
                     loading={openedItem.loading}
                     onClose={() => setOpenedItem(null)}
+                    deliveryTax={deliveryTax}
                 />
             )}
 
@@ -403,11 +373,8 @@ export default function MenuClientPage({
                 <CartBar
                     onOpenCartAction={() => {
                         if (!cartOpen) {
-                            console.log("!CART OPEN")
                             setCartOpen(true);
-                        } else {
-                            console.log("CART OPEN")
-                            setCartStep("info");
+                        } else {setCartStep("info");
                         }
                     }}
                     cartOpen={cartOpen}
@@ -430,21 +397,48 @@ export default function MenuClientPage({
                 />
             )}
 
-            <RestaurantCartWarningModal
-                modalVisible={restaurantCartWarningVisible}
-                setModalVisible={setRestaurantCartWarningVisible}
-                setCartOpenAction={() => {
-                    console.log("ORDER ID:", orderId); // SHOULD BE CORRECT NOW
+            <ModalMobile
+                open={restaurantCartWarningVisible}
+                onClose={() => setRestaurantCartWarningVisible(false)}
+                height={0.30}
+                handle={true}
+            >
+                <div className="text-center px-6 pt-2">
+                    <div className="text-text text-md font-medium mb-2 mt-2">Pedido identificado.</div>
 
-                    if (!orderId) {
-                        console.log("OrderId not ready yet!");
-                        return;
-                    }
+                    <p className="text-gray-500 mb-4 text-sm">
+                        Você realizou um pedido aqui recentemente, gostaria de ir até a página deste pedido?
+                    </p>
 
-                    router.push(`${pathname}/${orderId}`);
-                }}
-                restaurant={restaurant}
-            />
+                    <button
+                        className="bg-brand text-white w-full py-3 rounded-lg text-sm mb-3"
+                        onClick={() => {
+                            setRestaurantCartWarningVisible(false);
+
+                            if (!orderId) return;
+                            setTimeout(() => {
+                                try {
+                                    router.push(`${pathname}/${orderId}`);
+                                } catch (err) {
+                                    console.error("navigate error:", err);
+                                }
+                            }, 180);
+                        }}
+                    >
+                        Ir ao pedido
+                    </button>
+
+                    <p
+                        className="text-brand text-sm mt-4 cursor-pointer"
+                        onClick={() => setRestaurantCartWarningVisible(false)}
+                    >
+                        Não, obrigado
+                    </p>
+                </div>
+            </ModalMobile>
+
+
+
         </div>
 
 

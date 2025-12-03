@@ -18,6 +18,7 @@
 /stores <- Zustand stores and types.ts
     /restaurant-owner
     /costumer
+/types <- shared types (for now, only types.ts)
 /utils <- utility functions
 
 ```

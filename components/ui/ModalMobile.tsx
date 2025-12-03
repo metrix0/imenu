@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-type DraggableModalProps = {
+type DraggableModalProps =  React.HTMLAttributes<HTMLDivElement> & {
     height?: number;
     handle?: boolean;
     open: boolean;
@@ -16,6 +16,7 @@ export default function DraggableModal({
                                            onClose,
                                            xPadding = true,
                                            children,
+                                            ...props
                                        }: DraggableModalProps) {
     const startY = useRef(0);
     const currentY = useRef(0);
@@ -110,20 +111,22 @@ export default function DraggableModal({
 
     return (
         <div
-            className={`fixed inset-0 z-50 transition-opacity duration-300 ${
+            className={`fixed inset-0 z-51 transition-opacity duration-300 ${
                 open ? "opacity-100" : "opacity-0 pointer-events-none"
             }`}
             style={{ background: "rgba(0,0,0,0.35)" }}
             onClick={backdropClose}
         >
             <div
+                {...props}
                 onClick={(e) => e.stopPropagation()}
-                className="fixed left-0 right-0 mx-auto bg-white rounded-t-xl"
+                className={`fixed left-0 right-0 mx-auto bg-white rounded-t-xl overflow-hidden ${props.className ?? ""}`}
                 style={{
                     height: `${height * 100}vh`,
                     bottom: 0,
                     transform: `translateY(${translateY}px)`,
                     transition: animating ? "transform 0.25s ease-out" : "none",
+                    ...(props.style ?? {}),
                 }}
             >
                 {/* Invisible drag zone */}

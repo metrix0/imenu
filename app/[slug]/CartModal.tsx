@@ -1,19 +1,15 @@
+// app/[slug]/CartModal.tsx
 "use client";
 
+import { useEffect, useState } from "react";
 import { useCartStore } from "@/lib/stores/costumer/cartStore";
 import { useCheckoutStore } from "@/lib/stores/costumer/checkoutStore";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import {
-    faChevronDown,
-    faTrash,
-    faPlus,
-    faCreditCard,
-    faLocationCrosshairs, faMinus, faTriangleExclamation,faMoneyBill,faPersonBiking
-} from "@fortawesome/free-solid-svg-icons";
-import {faPix} from "@fortawesome/free-brands-svg-icons"
-import { useEffect, useRef, useState } from "react";
+import { icons } from "@/lib/fontawesome";
+import { faPix } from "@fortawesome/free-brands-svg-icons"
 import Input from "@/components/ui/Input";
-import DraggableModal from "@/components/ui/ModalMobile";
+import ModalMobile from "@/components/ui/ModalMobile";
+import WarningBox from "@/components/ui/WarningBox";
 
 export default function CartModal({
                                       onClose,
@@ -21,6 +17,8 @@ export default function CartModal({
                                   }: {
     onClose: () => void;
     restaurant: any;
+    step: "cart" | "info" | "checkout";
+    setStep: React.Dispatch<React.SetStateAction<"cart" | "info" | "checkout">>;
 }) {
     const { items, changeQty, removeItem, clear } = useCartStore();
 
@@ -50,8 +48,6 @@ export default function CartModal({
     const [cepLocationError, setCepLocationError] = useState(false);
 
     // --- DRAG STATES (minimal, animation only) ---
-    const [translateY, setTranslateY] = useState(0);
-    const DRAG_CLOSE_THRESHOLD = 80; // px required to close on release
 
     function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
         const toRad = (deg: number) => (deg * Math.PI) / 180;
@@ -291,10 +287,7 @@ export default function CartModal({
         );
     }
 
-    const modalRef = useRef<HTMLDivElement>(null);
-    const touchStartY = useRef<number | null>(null);
-    // store last move (not necessary now but keepable)
-    const lastMoveDistance = useRef<number>(0);
+
 
     useEffect(() => {
         requestAnimationFrame(() => setOpenModal(true));
@@ -329,65 +322,6 @@ export default function CartModal({
         else closeWithAnimation();
     };
 
-    // ---- TOUCH HANDLERS: make modal follow finger while dragging ----
-    const handleTouchStart = (e: React.TouchEvent) => {
-        // only start when scrolled to top so we don't conflict with scrolling inside modal
-        if (modalRef.current && modalRef.current.scrollTop <= 0) {
-            touchStartY.current = e.touches[0].clientY;
-            lastMoveDistance.current = 0;
-            setIsDragging(true);
-            setTranslateY(0);
-        }
-    };
-
-    const handleTouchMove = (e: React.TouchEvent) => {
-        if (touchStartY.current === null) return;
-        const currentY = e.touches[0].clientY;
-        const diff = currentY - touchStartY.current;
-
-        lastMoveDistance.current = diff;
-
-        if (diff <= 0) {
-            // don't drag upward
-            setTranslateY(0);
-            return;
-        }
-
-        // Prevent native overscroll while dragging the sheet
-        e.preventDefault();
-
-        // dampen drag after 200px for resistance feel
-        setTranslateY(diff);
-
-    };
-
-    const handleTouchEnd = () => {
-        const final = lastMoveDistance.current;
-        touchStartY.current = null;
-        setIsDragging(false);
-
-        // if dragged past threshold -> close
-        if (final >= DRAG_CLOSE_THRESHOLD) {
-            // animate modal offscreen by setting translateY to window height
-            const offscreen = typeof window !== "undefined" ? window.innerHeight : 1000;
-            setTranslateY(offscreen);
-
-            // also hide openModal/backdrop by calling closeWithAnimation after the transform
-            setTimeout(() => {
-                // ensure modal unmount is handled by your existing close
-                closeWithAnimation();
-                // reset translate after close so when reopened it starts at 0
-                setTranslateY(0);
-            }, 200); // match transition duration
-            lastMoveDistance.current = 0;
-            return;
-        }
-
-        // snap back
-        setTranslateY(0);
-        lastMoveDistance.current = 0;
-    };
-
     function clearItems() {
         clear();
         setTimeout(closeWithAnimation, 150);
@@ -402,13 +336,12 @@ export default function CartModal({
     const ruaEBairro = bairro ? `${rua}, ${bairro}` : rua;
 
     return (
-        // backdrop now uses openModal for fade; unchanged markup otherwise
         <div className={`fixed inset-0 z-41 flex justify-center items-end`}>
-            <DraggableModal
+            <ModalMobile
                 open={openModal}
                 onClose={closeWithAnimation}
-                height={0.93}       // same height your modal already used (93vh)
-                handle={false}       // keeps the drag bar
+                height={0.93}
+                handle={false}
                 xPadding={false}
             >
                 {/* HEADER */}
@@ -418,7 +351,7 @@ export default function CartModal({
                         onClick={goBack}
                     >
                         <FontAwesomeIcon
-                            icon={faChevronDown}
+                            icon={icons.faChevronDown}
                             className={`duration-200 ${step === "cart" ? "rotate-0" : "rotate-90" }`}
                         />
                     </button>
@@ -477,14 +410,17 @@ export default function CartModal({
                         </div>
                     </div>
 
-                    {items.reduce((acc,i)=>acc+i.total_cents,0) < restaurant.min_order_cents && <div>
-                        <div className="p-4 bg-warning-bg text-warning mt-8 mb-8 rounded-2xl flex gap-4 items-center">
-                            <FontAwesomeIcon icon={faTriangleExclamation} className={"text-lg"}/>
-                            <div>
-                                O pedido mínimo deste restaurante é de <b>R$ {(restaurant.min_order_cents/100).toFixed(2).replace(".",",")}</b>
-                            </div>
-                        </div>
-                    </div>
+                    {items.reduce((acc,i)=>acc+i.total_cents,0) < restaurant.min_order_cents &&
+                        <WarningBox
+                            icon={icons.faTriangleExclamation}
+                            className="mt-8 mb-8 p-4"
+                        >
+                            O pedido mínimo deste restaurante é de{" "}
+                            <b>R$ {(restaurant.min_order_cents / 100)
+                                .toFixed(2)
+                                .replace(".", ",")}</b>
+                        </WarningBox>
+
                     }
 
                     <h2 className="font-semibold text-md mt-8">
@@ -532,7 +468,7 @@ export default function CartModal({
                                     }
                                     className="text-brand"
                                 >
-                                    <FontAwesomeIcon icon={it.qty > 1 ? faMinus : faTrash} />
+                                    <FontAwesomeIcon icon={it.qty > 1 ? icons.faMinus : icons.faTrash} />
                                 </button>
 
                                 <span className="font-medium">{it.qty}</span>
@@ -541,7 +477,7 @@ export default function CartModal({
                                     onClick={() => changeQty(it.id, it.qty + 1)}
                                     className="text-brand"
                                 >
-                                    <FontAwesomeIcon icon={faPlus} />
+                                    <FontAwesomeIcon icon={icons.faPlus} />
                                 </button>
                             </div>
                         </div>
@@ -568,18 +504,18 @@ export default function CartModal({
                         onClick={handleUseMyLocation}
                         type="button"
                     >
-                        <FontAwesomeIcon icon={faLocationCrosshairs}/> Usar minha localização
+                        <FontAwesomeIcon icon={icons.faLocationCrosshairs}/> Usar minha localização
                     </button>
 
-                    {showAddressWarning && <div>
-                        <div className="p-4 bg-warning-bg text-warning mt-2 mb-8 rounded-2xl flex gap-4 items-center">
-                            <FontAwesomeIcon icon={faTriangleExclamation} className={"text-lg"}/>
-                            <div>
-                                {!cepLocationError ? "O restaurante está muito longe deste endereço para entrega!" : "Erro interno, por gentileza, recarregue a página!"}
-                            </div>
-                        </div>
-
-                    </div>
+                    {showAddressWarning &&
+                        <WarningBox
+                            icon={icons.faTriangleExclamation}
+                            className="mt-2 mb-8 p-4"
+                        >
+                            {!cepLocationError
+                                ? "O restaurante está muito longe deste endereço para entrega!"
+                                : "Erro interno, por gentileza, recarregue a página!"}
+                        </WarningBox>
                     }
 
                     <div className="flex-1">
@@ -685,7 +621,7 @@ export default function CartModal({
                                 }`}
                                 onClick={() => setField("pagamento", "cartao")}
                             >
-                                <FontAwesomeIcon icon={faCreditCard} />
+                                <FontAwesomeIcon icon={icons.faCreditCard} />
                                 Cartão de crédito
                             </button>
                             <button
@@ -696,7 +632,7 @@ export default function CartModal({
                                 }`}
                                 onClick={() => setField("pagamento", "dinheiro")}
                             >
-                                <FontAwesomeIcon icon={faMoneyBill} />
+                                <FontAwesomeIcon icon={icons.faMoneyBill} />
                                 Dinheiro
                             </button>
                             <button
@@ -707,7 +643,7 @@ export default function CartModal({
                                 }`}
                                 onClick={() => setField("pagamento", "trazer-maquininha")}
                             >
-                                <FontAwesomeIcon icon={faPersonBiking} />
+                                <FontAwesomeIcon icon={icons.faPersonBiking} />
                                 Trazer Maquininha
                             </button>
                         </div>
@@ -760,7 +696,7 @@ export default function CartModal({
                     </div>
                 </div>
 
-            </DraggableModal>
+            </ModalMobile>
         </div>
 
     );

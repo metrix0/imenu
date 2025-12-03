@@ -1,7 +1,7 @@
 // app/api/item/[itemId]/route.ts
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
-import { Item, Subcategory, Subitem, Category } from "@/lib/stores/types";
+import { Item, Subcategory, Subitem, Category } from "@/lib/types/types";
 
 // (Helpers createSupabaseServerClient e getPublicUrl permanecem os mesmos)
 const createSupabaseServerClient = () => {
