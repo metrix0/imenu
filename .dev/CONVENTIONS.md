@@ -1,3 +1,7 @@
+# File Conventions
+- **All files must have their path at the start commented**
+- Only import icons that are not in fontawesome.lib
+
 # Naming Conventions
 
 - **Database fields → identical variable names in zustand.**
@@ -7,6 +11,8 @@
 
 - **Database → API → Zustand → Components.**
 Components must never talk directly to the database.
+    ⭐ Should you pass server data to Zustand?
+  * Only if the client needs to modify that data after page load.
 
 # Zustand Conventions
 

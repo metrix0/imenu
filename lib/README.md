@@ -124,6 +124,8 @@ await query("UPDATE orders SET status = 'paid' WHERE id = $1", [orderId]);
 ```
 > All files uses pool via sql.ts **Helper Function**. Not by db.ts.
 
+# supabaseServerClient.ts
+Used for the same as supabaseClient.ts, but for **server-side only** (back-end).
 
 # supabaseClient.ts
 ### What it does

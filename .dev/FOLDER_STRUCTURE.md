@@ -3,7 +3,7 @@
 ```
 
 /common <- common shared components
-/restaurant-costumer <- ex: /[slug]
+/costumer <- ex: /[slug]
 /restaurant-owner <- ex: /painel and /restaurante
 /ui <- shared UI small components
 
@@ -16,6 +16,8 @@
 /api <- API wrapper functions
 /database <- database client and queries
 /stores <- Zustand stores and types.ts
+    /restaurant-owner
+    /costumer
 /utils <- utility functions
 
 ```

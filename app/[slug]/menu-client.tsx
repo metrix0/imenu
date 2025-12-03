@@ -1,7 +1,7 @@
 // app/[slug]/menu-client.tsx
 "use client";
 
-import { Restaurant, Menu, Category, ItemsByCategory, Item } from "@/lib/types";
+import { Restaurant, Menu, Category, ItemsByCategory, Item } from "@/lib/stores/types";
 import { useRouter, usePathname } from "next/navigation";
 import { useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -10,31 +10,13 @@ import { supabase } from "@/lib/supabaseClient";
 import ItemModal from "./ItemModal";
 import CartBar from "@/components/consumidor/CartBar"
 import CartModal from "./CartModal"
-import { useCartStore } from "@/lib/cartStore";
-import { useCheckoutStore } from "@/lib/checkoutStore";
+import { useCartStore } from "@/lib/stores/costumer/cartStore";
+import { useCheckoutStore } from "@/lib/stores/costumer/checkoutStore";
 import { useEffect } from "react";
 import RestaurantCartWarningModal from "@/components/GenericModal";
+import { Subitem, Subcategory } from "@/lib/stores/types";
+import DraggableModal from "@/components/ui/ModalMobile"; // path you chose
 
-
-type ItemSubitem = {
-    id: string;
-    item_subcategory_id: string;
-    name: string;
-    description: string | null;
-    price_cents: number;
-    is_available: boolean;
-    position: number;
-};
-
-type ItemSubcategoryWithSubitems = {
-    id: string;
-    name: string;
-    description: string | null;
-    min_select: number;
-    max_select: number;
-    position: number;
-    subitems: ItemSubitem[];
-};
 
 
 export default function MenuClientPage({
@@ -43,16 +25,16 @@ export default function MenuClientPage({
                                            menu,
                                            categories,
                                            itemsByCategory,
-                                           highlightedItems,
                                        }: {
     slug: string;
     restaurant: Restaurant;
     menu: Menu;
     categories: Category[];
     itemsByCategory: ItemsByCategory;
-    highlightedItems: Item[];
 }) {
     const router = useRouter();
+
+
 
     const [loadingItemId, setLoadingItemId] = useState<string | null>(null);
     const [cartOpen, setCartOpen] = useState(false);
@@ -61,10 +43,9 @@ export default function MenuClientPage({
     const [todaySlots, setTodaySlots] = useState<
         { open: string; close: string }[]
     >([]);
-    // 🔥 NEW: modal now also stores `loading`
     const [openedItem, setOpenedItem] = useState<{
         item: Item;
-        subcategories: ItemSubcategoryWithSubitems[];
+        subcategories: Subcategory[];
         loading: boolean;
     } | null>(null);
     const [restaurantCartWarningVisible, setRestaurantCartWarningVisible] = useState(false);
@@ -76,12 +57,13 @@ export default function MenuClientPage({
             style: "currency",
             currency: "BRL",
         });
+
     const formatPriceNoRS = (cents: number) =>
         (cents / 100)
             .toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
             .replace("R$", "")
             .trim();
-    console.log("STORE ITEMS:", useCartStore.getState().items);
+
 
     // ============================================================
     // 🔥 NEW: open modal instantly, load details in background
@@ -140,7 +122,7 @@ export default function MenuClientPage({
                         .slice()
                         .sort((a: any, b: any) => a.position - b.position)
                         .map(
-                            (si: any): ItemSubitem => ({
+                            (si: any): Subitem => ({
                                 id: si.id,
                                 item_subcategory_id: si.item_subcategory_id,
                                 name: si.name,
@@ -358,41 +340,6 @@ export default function MenuClientPage({
 
 
 
-            {/* ============================
-                DESTAQUES
-            ============================ */}
-            {highlightedItems.length > 0 && (
-                <div className="mt-10 px-4">
-                    <h2 className="text-[22px] font-semibold mb-4">
-                        Destaques
-                    </h2>
-
-                    <div className="flex gap-6 overflow-x-auto pb-4">
-                        {highlightedItems.map((item) => (
-                            <button
-                                key={item.id}
-                                onClick={() => handleItemClick(item)}
-                                className="flex-shrink-0 w-[150px] text-left"
-                            >
-                                <div className="w-[150px] h-[150px] rounded-[22px] overflow-hidden bg-gray-200 shadow-sm">
-                                    <img
-                                        src={item.image_public_url || ""}
-                                        className="w-full h-full object-cover"
-                                        alt={item.name}
-                                    />
-                                </div>
-
-                                <p className="font-bold mt-2 text-[16px]">
-                                    {formatPrice(item.price_cents)}
-                                </p>
-                                <p className="text-[15px] text-gray-700 line-clamp-2">
-                                    {item.name}
-                                </p>
-                            </button>
-                        ))}
-                    </div>
-                </div>
-            )}
 
             {/* ============================
                 CATEGORIAS
@@ -483,18 +430,6 @@ export default function MenuClientPage({
                 />
             )}
 
-            {cartOpen && (
-                <CartModal
-                    restaurant={restaurant}
-                    onClose={() => {
-                        setCartOpen(false);
-                        setCartStep("cart"); // reset to first page when closing
-                    }}
-                    step={cartStep}
-                    setStep={setCartStep}
-                />
-            )}
-
             <RestaurantCartWarningModal
                 modalVisible={restaurantCartWarningVisible}
                 setModalVisible={setRestaurantCartWarningVisible}
@@ -510,7 +445,8 @@ export default function MenuClientPage({
                 }}
                 restaurant={restaurant}
             />
-
         </div>
+
+
     );
 }

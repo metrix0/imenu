@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useRef } from "react";
-import { Restaurant, Item } from "@/lib/types";
+import { Restaurant, Item } from "@/lib/stores/types";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
     faChevronDown,
@@ -14,7 +14,7 @@ import {
 import { faCircle as faCircleRegular } from "@fortawesome/free-solid-svg-icons";
 import Loader from "@/components/ui/Loader";
 import Tooltip from "@/components/ui/Tooltip";
-import { useCartStore } from "@/lib/cartStore";
+import { useCartStore } from "@/lib/stores/costumer/cartStore";
 
 // ─────────────────────────────────────────────
 // Types

@@ -33,7 +33,8 @@ RAF
 
 - painel: adicionar item vira uma rota, não uma página. pra poder adicionar item na própria pagina que nem ifood
 
-
+## Backlog
+- Adicionar verificação de Auth (local browser data) em todas as páginas que precisam de Auth (painel, criar restaurante, etc)
 
 ---
 <br>
