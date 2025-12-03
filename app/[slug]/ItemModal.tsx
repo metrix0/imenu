@@ -34,6 +34,8 @@ export default function ItemModal({
     const addToCart = useCartStore((s) => s.addItem);
     const [isRestaurantOpen, setIsRestaurantOpen] = useState(true);
 
+
+
     useEffect(() => {
         setTimeout(() => setOpen(true), 10);
     }, []);

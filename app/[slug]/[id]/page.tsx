@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import {FontAwesomeIcon} from "@fortawesome/react-fontawesome";
 import { icons } from "@/lib/fontawesome";
+import {faPix, faWhatsapp} from "@fortawesome/free-brands-svg-icons"
+import ListLoader from "@/components/ui/ListLoader";
 
-import {faPix} from "@fortawesome/free-brands-svg-icons"
 
 export default function PedidoPage({
                                        params,
@@ -18,7 +19,8 @@ export default function PedidoPage({
     const [order, setOrder] = useState<any>(null);
     const didRunClearOnce = useRef(false);
     const router = useRouter();
-
+    const [restaurantName, setRestaurantName] = useState("");
+    const [restaurantPhone, setRestaurantPhone] = useState("");
 
     useEffect(() => {
         const channel = supabase
@@ -43,18 +45,44 @@ export default function PedidoPage({
             )
             .subscribe();
 
-        // Load initial order
-        fetch(`/api/orders/${id}`)
-            .then((r) => r.json())
-            .then((d) => {
-                if (d && typeof d === "object" && "status" in d) {
-                    setStatus(d.status);
-                }
-                setOrder(d);
-            })
-            .catch(() => {});
+        // Wrapped async logic so cleanup stays sync
+        (async () => {
+            try {
+                // 1) Load initial order
+                const orderRes = await fetch(`/api/orders/${id}`);
+                const orderData = await orderRes.json();
 
-        // FIX: cleanup must NOT return a promise
+                if (orderData && typeof orderData === "object" && "status" in orderData) {
+                    setStatus(orderData.status);
+                }
+
+                setOrder(orderData);
+                console.log(orderData)
+                // 2) Extract restaurantId from order
+                const restaurantId = orderData?.restaurant_id ||
+                    orderData?.restaurantId ||
+                    orderData?.restaurant_id_fk;
+
+                console.log("restid",restaurantId)
+                if (!restaurantId) return;
+
+                console.log("starting fetch")
+                // 3) Fetch restaurant data (phone, name)
+                const restRes = await fetch(`/api/restaurants/${restaurantId}`);
+                const restData = await restRes.json();
+
+                console.log(restRes, restData)
+
+                if (restData) {
+                    setRestaurantName(restData.name);
+                    setRestaurantPhone(restData.phone);
+                }
+
+            } catch (_) {}
+        })();
+
+        console.log("name and phone: ",restaurantName,restaurantPhone)
+
         return () => {
             try {
                 supabase.removeChannel(channel);
@@ -138,7 +166,7 @@ export default function PedidoPage({
                 "color:#888"
             );
 
-            fetch(`/api/orders/${id}`)
+            fetch(`/api/orders/${id}/status`)
                 .then((res) => res.json())
                 .then((data) => {
                     console.log(
@@ -158,8 +186,6 @@ export default function PedidoPage({
                         setStatus(data.status);
                     }
 
-                    // Update full order
-                    setOrder(data);
                 })
                 .catch((err) => {
                     console.error("[Polling] ERROR:", err);
@@ -171,12 +197,47 @@ export default function PedidoPage({
 
     if (!order) {
         return (
-            <main className="p-4 animate-pulse">
-                <div className="h-6 bg-gray-300 w-1/3 rounded"></div>
-                <div className="h-4 bg-gray-200 w-1/2 mt-4 rounded"></div>
+            <main className="p-6 max-w-xl mx-auto min-h-screen flex flex-col gap-8">
+
+                {/* ETA skeleton */}
+                <section className="p-5">
+                    <ListLoader lines={1} />
+                    <div className="mt-4 w-2/3">
+                        <ListLoader lines={1} />
+                    </div>
+                </section>
+                {/* Status row skeleton */}
+                <section className="p-5 flex items-center gap-6">
+                    <div className="flex-1">
+                        <ListLoader lines={1} />
+                    </div>
+                </section>
+
+                {/* Payment card skeleton */}
+                <section className="bg-white rounded-xl p-5 shadow space-y-3">
+                    <ListLoader lines={1} />
+                    <ListLoader lines={2} />
+                </section>
+
+                {/* Order items skeleton */}
+                <section className="bg-white rounded-xl p-5 shadow space-y-4">
+                    <ListLoader lines={1} />
+
+                    <div className="space-y-4 mt-3">
+                        <ListLoader lines={2} />
+                        <ListLoader lines={2} />
+                    </div>
+                </section>
+
+                {/* Footer logo skeleton */}
+                <div className="mt-auto flex justify-center pt-8 pb-6">
+                    <div className="w-[30%] h-6 bg-gray-200 rounded" />
+                </div>
+
             </main>
         );
     }
+
 
 
     const iconMap: Record<string, any> = {
@@ -324,6 +385,10 @@ export default function PedidoPage({
                 </div>
             </section>
 
+            <div>
+                <FontAwesomeIcon icon={faWhatsapp}></FontAwesomeIcon> {restaurantName}
+            </div>
+
             {/* PAYMENT */}
             <section className="bg-white rounded-xl p-5 shadow space-y-3 mt-6">
                 <p className="text-gray-500 text-sm">
@@ -404,7 +469,7 @@ export default function PedidoPage({
                 <img
                     src="/logos/CombinationMarkLogo_Black.png"     // <-- change to your path
                     alt="Logo"
-                    className="opacity-30 w-[30%]"
+                    className="opacity-30 w-26 cursor-pointer"
                     onClick={() => router.push("/")}
                 />
             </div>

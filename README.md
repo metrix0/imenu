@@ -22,25 +22,26 @@
 
 # Tech Stack
 
-| Area            | Choice                            |
-|-----------------|-----------------------------------|
-| Frontend & API  | **Next.js (React)** (TypeScript)  |
-| Styling         | **Tailwind CSS**                  |
-| State (client)  | **Zustand**                       |
-| Database        | **Postgres (Supabase)**           |
-| Data Access     | **`pg`**                          |
-| Realtime/Status | **Supabase Realtime**             |
-| Pooling         | **Supabase Pooler with pg**       |
-| Auth            | **Supabase Auth (admin only)**    |
-| Storage         | **Supabase Storage**              |
-| Migrations      | **Manual**                        |
-| Payments        | **Mercado Pago**                  |
-| Deployment      | **Vercel**                        |
-| Monitoring/Logs | **Basic Vercel logs**             |
-| Language        | **Only PT-BR, no i18n**           |
-| UX Prototyping  | **Figma**                         |
-| UI Prototyping  | **Photoshop** (or Figma, if fine) |
-| Tests           | **Jest + Github Actions**         |
+| Area            | Choice                           |
+|-----------------|----------------------------------|
+| Frontend & API  | **Next.js (React)** (TypeScript) |
+| Styling         | **Tailwind CSS**                 |
+| State (client)  | **Zustand**                      |
+| Database        | **Postgres (Supabase)**          |
+| Data Access     | **`pg`**                         |
+| Realtime/Status | **Supabase Realtime**            |
+| Pooling         | **Supabase Pooler with pg**      |
+| Auth            | **Supabase Auth (admin only)**   |
+| Storage         | **Supabase Storage**             |
+| Migrations      | **Manual**                       |
+| Payments        | **Mercado Pago**                 |
+| Location        | **Google GeoCoding, Nominatim**  |
+| Deployment      | **Vercel**                       |
+| Monitoring/Logs | **Basic Vercel logs**            |
+| Language        | **Only PT-BR, no i18n**          |
+| UX Prototyping  | **Figma**                        |
+| UI Prototyping  | **Photoshop**                    |
+| Tests           | **Jest + Github Actions**        |
 
 ## Future Additions: (Ignore)
 
