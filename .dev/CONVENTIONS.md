@@ -1,4 +1,5 @@
 # File Conventions
+
 - **All files must have their path at the start commented**
 - Only import icons that are not in fontawesome.lib
 
@@ -13,6 +14,9 @@
 Components must never talk directly to the database.
     ⭐ Should you pass server data to Zustand?
   * Only if the client needs to modify that data after page load.
+
+- **UI should never call Supabase, only API routes.** (This does not apply for page loading)
+  Ex.: No direct calls to Supabase from React components.
 
 # Zustand Conventions
 

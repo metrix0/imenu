@@ -12,7 +12,9 @@ const getPublicUrl = (supabase: any, bucket: string, path: string | null) => {
     return data?.publicUrl || null;
 };
 
+
 export default async function Page({ params }: { params: { slug: string } }) {
+
     const { slug } = await params;
     const supabase = createSupabaseServerClient();
 
@@ -112,14 +114,15 @@ export default async function Page({ params }: { params: { slug: string } }) {
         (c) => (itemsByCategory[c.id]?.length ?? 0) > 0
     );
 
-
     return (
-        <MenuClientPage
-            slug={slug}
-            restaurant={restaurant}
-            menu={menu}
-            categories={categoriesWithItems}
-            itemsByCategory={itemsByCategory}
-        />
+
+            <MenuClientPage
+                slug={slug}
+                restaurant={restaurant}
+                menu={menu}
+                categories={categoriesWithItems}
+                itemsByCategory={itemsByCategory}
+            />
+
     );
 }

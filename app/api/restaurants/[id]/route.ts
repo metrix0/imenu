@@ -93,5 +93,43 @@ export async function PATCH(
     }
 }
 
-// TODO: ALSO ADD GET FUNCTION IN THIS FILE
-// TO QUERY RESTAURANT DATA
+export async function GET(
+    request: Request,
+    context: { params: Promise<{ id: string }> }
+) {
+    const { id } = await context.params;
+
+    if (!id) {
+        return NextResponse.json(
+            { error: "Restaurant ID is required" },
+            { status: 400 }
+        );
+    }
+
+    try {
+        const { rows } = await query(
+            `
+            SELECT id, name, phone
+            FROM public.restaurants
+            WHERE id = $1
+            LIMIT 1
+            `,
+            [id]
+        );
+
+        if (rows.length === 0) {
+            return NextResponse.json(
+                { error: "Restaurant not found" },
+                { status: 404 }
+            );
+        }
+
+        return NextResponse.json(rows[0]);
+    } catch (error) {
+        console.error("Error fetching restaurant:", error);
+        return NextResponse.json(
+            { error: "Internal server error" },
+            { status: 500 }
+        );
+    }
+}

@@ -2,17 +2,11 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { Item, Subcategory, Subitem, Category } from "@/lib/types/types";
+<<<<<<< HEAD:app/api/item/[itemId]/route.ts
+=======
+import { createSupabaseServerClient } from "@/lib/database/supabaseServerClient";
+>>>>>>> loadings-and-extra-buttons:app/api/items/[id]/route.ts
 
-// (Helpers createSupabaseServerClient e getPublicUrl permanecem os mesmos)
-const createSupabaseServerClient = () => {
-    const SUPABASE_URL = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const SUPABASE_SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    
-    if (SUPABASE_URL && SUPABASE_SERVICE_ROLE) {
-        return createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE);
-    }
-    return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
-};
 
 const getPublicUrl = (supabase: any, bucket: string, path: string | null) => {
     if (!path) return null;
@@ -50,7 +44,7 @@ export async function GET(
         if (itemErr || !itemRaw) {
             return NextResponse.json({ error: "Item not found" }, { status: 404 });
         }
-        
+
         // --- 2. NORMALIZAÇÃO DA CATEGORIA ---
         // (Baseado no código do Brendo, isso é necessário)
         const cat = itemRaw.category;
