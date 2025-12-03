@@ -17,13 +17,15 @@ oq falamos, meus arquivos deram problema
 
 ## Joao
 
-- ifood sync
-- separar database entre menu e restaurante (usuario e dono)
-- imagens do menu em base64 ao inves de uploadMenuImages
 - acessar dashboard direto da landingpage
 - finalizar landing page
+
 - domínio
+
 - update cart modal upon geolocation function from rafa
+
+- separar database entre menu e restaurante (usuario e dono)
+- ifood sync
 
 RAF
 - ao inserir cep, automaticamente já calcuala a taxa (sem botão) (testar com autofill)

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import {FontAwesomeIcon} from "@fortawesome/react-fontawesome";
 import { icons } from "@/lib/fontawesome";
-import {faPix, faWhatsapp} from "@fortawesome/free-brands-svg-icons"
+import {faPix, faWhatsappSquare} from "@fortawesome/free-brands-svg-icons"
 import ListLoader from "@/components/ui/ListLoader";
 
 
@@ -385,12 +385,9 @@ export default function PedidoPage({
                 </div>
             </section>
 
-            <div>
-                <FontAwesomeIcon icon={faWhatsapp}></FontAwesomeIcon> {restaurantName}
-            </div>
 
             {/* PAYMENT */}
-            <section className="bg-white rounded-xl p-5 shadow space-y-3 mt-6">
+            <section className="bg-white rounded-xl p-5 shadow space-y-3 mt-5">
                 <p className="text-gray-500 text-sm">
                     {paymentText === "Pix" || paymentText === "Cartão"
                         ? "Pago pelo site"
@@ -410,7 +407,7 @@ export default function PedidoPage({
             {/* ORDER ITEMS */}
             <section className="bg-white rounded-xl p-5 shadow space-y-4 mt-6">
                 <h3 className="font-semibold text-lg text-gray-700">
-                    Itens do Pedido
+                    Itens do Pedido <span className={"text-sm font-normal text-gray-500"}>{restaurantName}</span>
                 </h3>
 
                 {(!order.items || order.items.length === 0) ? (
@@ -462,7 +459,11 @@ export default function PedidoPage({
                 )}
             </section>
 
-            <p className="text-center text-gray-400 text-sm mt-6">Pedido #{id}</p>
+            <div className={" mt-6 mb-3 mx-1 text-sm text-gray-400  flex gap-1 items-center justify-center"}
+            onClick={() => router.push("https://wa.me/"+restaurantPhone)}
+            >
+                Entre em contato com este restaurante <FontAwesomeIcon icon={faWhatsappSquare} className={"text-2xl text-green"}/>
+            </div>
 
             {/* FOOTER IMAGE */}
             <div className="mt-auto flex justify-center pt-8 pb-6">
