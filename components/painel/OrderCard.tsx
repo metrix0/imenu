@@ -11,33 +11,27 @@ import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import { supabase } from "@/lib/supabaseClient";
 
-<<<<<<< HEAD
 // Tipos baseados no seu schema
 export type OrderStatus = "pending_online_payment" | "pending_physical_payment" | "preparing" | "delivering" | "done" | "canceled";
-=======
-// Tipos baseados no seu schema (aproximados para o frontend)
-export type OrderStatus = "pending" | "preparing" | "delivering" | "finished" | "cancelled";
->>>>>>> 5688e2d1e6f02d91401f335d643174d7735ff563
 
 export interface OrderItemData {
     id: string;
     quantity: number;
-    price_at_purchase_cents: number;
+    price_cents: number;
     item: {
         name: string;
     };
-    // Adicione subitens aqui se necessário na query
 }
 
 export interface OrderData {
     id: string;
-    display_id?: number; // Se você tiver um ID sequencial amigável (Pedido #1)
+    display_id?: number; 
     created_at: string;
     status: OrderStatus;
     customer_name: string;
     customer_phone?: string;
-    address_line1?: string; // Endereço
-    delivery_fee_cents: number;
+    address_line1?: string; 
+    delivery_cents: number;
     total_cents: number;
     payment_method?: string; 
     order_items: OrderItemData[];
@@ -45,7 +39,7 @@ export interface OrderData {
 
 interface OrderCardProps {
     order: OrderData;
-    onStatusChange: () => void; // Callback para atualizar a lista se necessário
+    onStatusChange: () => void; 
 }
 
 export default function OrderCard({ order, onStatusChange }: OrderCardProps) {
@@ -67,9 +61,11 @@ export default function OrderCard({ order, onStatusChange }: OrderCardProps) {
     const advanceStatus = async () => {
         let nextStatus: OrderStatus | null = null;
 
-        if (order.status === "pending") nextStatus = "preparing";
-        else if (order.status === "preparing") nextStatus = "delivering"; // ou 'ready'
-        else if (order.status === "delivering") nextStatus = "finished";
+        if (order.status === "pending_online_payment" || order.status === "pending_physical_payment") {
+            nextStatus = "preparing";
+        }
+        else if (order.status === "preparing") nextStatus = "delivering"; 
+        else if (order.status === "delivering") nextStatus = "done";
 
         if (!nextStatus) return;
         await updateStatus(nextStatus);
@@ -103,7 +99,7 @@ export default function OrderCard({ order, onStatusChange }: OrderCardProps) {
                 .eq("id", order.id);
 
             if (error) throw error;
-            onStatusChange(); // Notifica o pai (embora o Realtime vá fazer isso também)
+            onStatusChange(); 
         } catch (err) {
             console.error(err);
             alert("Erro ao atualizar status");
@@ -112,7 +108,6 @@ export default function OrderCard({ order, onStatusChange }: OrderCardProps) {
         }
     };
 
-<<<<<<< HEAD
     const statusConfig: Record<string, { label: string; color: string; btn: string | null; btnColor: string }> = {
         pending_online_payment: { 
             label: "Pendente (Online)", 
@@ -154,18 +149,6 @@ export default function OrderCard({ order, onStatusChange }: OrderCardProps) {
 
     const config = statusConfig[order.status] || statusConfig.pending_online_payment;
     const showBackButton = ["preparing", "delivering", "done"].includes(order.status);
-=======
-    // Configuração visual baseada no status
-    const statusConfig = {
-        pending: { label: "Pendente", color: "bg-yellow-100 text-yellow-800", btn: "Confirmar", btnColor: "primary" },
-        preparing: { label: "Preparando", color: "bg-blue-100 text-blue-800", btn: "Enviar Entrega", btnColor: "primary" },
-        delivering: { label: "Em Rota", color: "bg-orange-100 text-orange-800", btn: "Concluir", btnColor: "secondary" },
-        finished: { label: "Concluído", color: "bg-green-100 text-green-800", btn: null, btnColor: "secondary" },
-        cancelled: { label: "Cancelado", color: "bg-red-100 text-red-800", btn: null, btnColor: "secondary" }
-    };
-
-    const config = statusConfig[order.status] || statusConfig.pending;
->>>>>>> 5688e2d1e6f02d91401f335d643174d7735ff563
 
     return (
         <Card className="p-0 overflow-hidden border-l-4 border-l-brand">
@@ -205,7 +188,7 @@ export default function OrderCard({ order, onStatusChange }: OrderCardProps) {
                                 <span className="font-bold text-gray-900">{item.quantity}x</span>
                                 <span className="text-gray-700">{item.item.name}</span>
                             </div>
-                            <span className="text-gray-500">{fmtMoney(item.price_at_purchase_cents * item.quantity)}</span>
+                            <span className="text-gray-500">{fmtMoney(item.price_cents * item.quantity)}</span>
                         </div>
                     ))}
                 </div>
@@ -222,7 +205,7 @@ export default function OrderCard({ order, onStatusChange }: OrderCardProps) {
                     )}
                     <div className="flex justify-between text-gray-500 pt-2">
                         <span>Taxa de Entrega</span>
-                        <span>{fmtMoney(order.delivery_fee_cents)}</span>
+                        <span>{fmtMoney(order.delivery_cents)}</span>
                     </div>
                     <div className="flex justify-between font-bold text-lg text-gray-900">
                         <span>Total</span>
