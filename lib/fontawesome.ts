@@ -28,6 +28,7 @@ import {
     faCircle,
     faComment
 } from "@fortawesome/free-solid-svg-icons";
+import {faWhatsapp} from "@fortawesome/free-brands-svg-icons";
 
 export const icons = {
     faPlus,
@@ -56,5 +57,6 @@ export const icons = {
     faMoneyBill,
     faCreditCard,
     faCircle,
-    faComment
+    faComment,
+    faWhatsapp
 };
