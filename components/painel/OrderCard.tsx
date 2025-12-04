@@ -2,12 +2,16 @@
 
 import { useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faClock, faMapMarkerAlt, faMotorcycle, faCheckCircle } from "@fortawesome/free-solid-svg-icons";
+import { 
+    faClock, 
+    faMapMarkerAlt, 
+    faArrowLeft 
+} from "@fortawesome/free-solid-svg-icons";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import { supabase } from "@/lib/supabaseClient";
 
-// Tipos baseados no seu schema (aproximados para o frontend)
+// Tipos baseados no seu schema
 export type OrderStatus = "pending_online_payment" | "pending_physical_payment" | "preparing" | "delivering" | "done" | "canceled";
 
 export interface OrderItemData {
@@ -29,6 +33,7 @@ export interface OrderData {
     address_line1?: string; 
     delivery_cents: number;
     total_cents: number;
+    payment_method?: string; 
     order_items: OrderItemData[];
 }
 
@@ -40,7 +45,7 @@ interface OrderCardProps {
 export default function OrderCard({ order, onStatusChange }: OrderCardProps) {
     const [loading, setLoading] = useState(false);
 
-    // Cálculo de tempo decorrido (simples)
+    // Cálculo de tempo decorrido
     const getElapsedTime = () => {
         const start = new Date(order.created_at).getTime();
         const now = new Date().getTime();
@@ -52,7 +57,7 @@ export default function OrderCard({ order, onStatusChange }: OrderCardProps) {
     // Formatação de Moeda
     const fmtMoney = (cents: number) => (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
-    // Lógica de Avançar Status
+    // --- Lógica de AVANÇAR Status ---
     const advanceStatus = async () => {
         let nextStatus: OrderStatus | null = null;
 
@@ -63,24 +68,46 @@ export default function OrderCard({ order, onStatusChange }: OrderCardProps) {
         else if (order.status === "delivering") nextStatus = "done";
 
         if (!nextStatus) return;
+        await updateStatus(nextStatus);
+    };
 
+    // --- Lógica de VOLTAR Status ---
+    const revertStatus = async () => {
+        let prevStatus: OrderStatus | null = null;
+
+        if (order.status === "delivering") {
+            prevStatus = "preparing";
+        } 
+        else if (order.status === "done") {
+            prevStatus = "delivering";
+        }
+        else if (order.status === "preparing") {
+            const isPhysical = ["money", "card_machine"].includes(order.payment_method || "");
+            prevStatus = isPhysical ? "pending_physical_payment" : "pending_online_payment";
+        }
+
+        if (!prevStatus) return;
+        await updateStatus(prevStatus);
+    };
+
+    const updateStatus = async (newStatus: OrderStatus) => {
         setLoading(true);
         try {
             const { error } = await supabase
                 .from("orders")
-                .update({ status: nextStatus })
+                .update({ status: newStatus })
                 .eq("id", order.id);
 
             if (error) throw error;
             onStatusChange(); 
         } catch (err) {
+            console.error(err);
             alert("Erro ao atualizar status");
         } finally {
             setLoading(false);
         }
     };
 
-    // Configuração visual baseada no status
     const statusConfig: Record<string, { label: string; color: string; btn: string | null; btnColor: string }> = {
         pending_online_payment: { 
             label: "Pendente (Online)", 
@@ -104,7 +131,7 @@ export default function OrderCard({ order, onStatusChange }: OrderCardProps) {
             label: "Em Rota", 
             color: "bg-orange-100 text-orange-800 border-orange-200", 
             btn: "Concluir", 
-            btnColor: "secondary" 
+            btnColor: "primary" 
         },
         done: { 
             label: "Concluído", 
@@ -121,18 +148,31 @@ export default function OrderCard({ order, onStatusChange }: OrderCardProps) {
     };
 
     const config = statusConfig[order.status] || statusConfig.pending_online_payment;
+    const showBackButton = ["preparing", "delivering", "done"].includes(order.status);
 
     return (
         <Card className="p-0 overflow-hidden border-l-4 border-l-brand">
             {/* Header do Card */}
-            <div className="p-4 bg-gray-50 border-b border-gray-100 flex justify-between items-center">
-                <div className="flex items-center gap-2">
-                    <span className="font-bold text-gray-900 text-lg">#{order.display_id || order.id.slice(0, 4)}</span>
-                    <span className={`text-xs px-2 py-1 rounded-full font-medium ${config.color}`}>
-                        {config.label}
+            <div className="p-4 bg-gray-50 border-b border-gray-100 flex justify-between items-start">
+                {/* Lado Esquerdo: ID, Nome, Status */}
+                <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-2">
+                        <span className="font-bold text-gray-900 text-lg">
+                            #{order.display_id || order.id.slice(0, 4)}
+                        </span>
+                        {/* Status Tag */}
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${config.color}`}>
+                            {config.label}
+                        </span>
+                    </div>
+                    {/* Nome do Cliente - Agora aqui */}
+                    <span className="text-sm font-medium text-gray-700 truncate max-w-[200px]" title={order.customer_name}>
+                        {order.customer_name}
                     </span>
                 </div>
-                <div className="flex items-center gap-1 text-red-600 font-bold bg-red-50 px-2 py-1 rounded text-sm">
+
+                {/* Lado Direito: Timer */}
+                <div className="flex items-center gap-1 text-red-600 font-bold bg-red-50 px-2 py-1 rounded text-sm whitespace-nowrap">
                     <FontAwesomeIcon icon={faClock} />
                     {getElapsedTime()}
                 </div>
@@ -160,7 +200,7 @@ export default function OrderCard({ order, onStatusChange }: OrderCardProps) {
                     {order.address_line1 && (
                         <div className="flex items-start gap-2 text-gray-600">
                             <FontAwesomeIcon icon={faMapMarkerAlt} className="mt-1 text-gray-400" />
-                            <span>{order.address_line1}</span>
+                            <span className="line-clamp-2">{order.address_line1}</span>
                         </div>
                     )}
                     <div className="flex justify-between text-gray-500 pt-2">
@@ -173,16 +213,30 @@ export default function OrderCard({ order, onStatusChange }: OrderCardProps) {
                     </div>
                 </div>
 
-                {/* Botão de Ação */}
+                {/* Botões de Ação */}
                 {config.btn && (
-                    <Button 
-                        variant={config.btnColor as "primary" | "secondary"} 
-                        className="w-full mt-2"
-                        onClick={advanceStatus}
-                        loading={loading}
-                    >
-                        {config.btn}
-                    </Button>
+                    <div className="flex gap-2 mt-2">
+                        {showBackButton && (
+                            <Button 
+                                variant="secondary"
+                                className="px-4"
+                                onClick={revertStatus}
+                                loading={loading}
+                                title="Voltar status anterior"
+                            >
+                                <FontAwesomeIcon icon={faArrowLeft} />
+                            </Button>
+                        )}
+                        
+                        <Button 
+                            variant={config.btnColor as "primary" | "secondary"} 
+                            className="flex-1"
+                            onClick={advanceStatus}
+                            loading={loading}
+                        >
+                            {config.btn}
+                        </Button>
+                    </div>
                 )}
             </div>
         </Card>

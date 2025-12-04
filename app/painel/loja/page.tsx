@@ -33,7 +33,7 @@ export default function LojaPage() {
     return(
         <div>
             
-        <StoreProfileManager restaurant={restaurant} />;
+        <StoreProfileManager restaurant={restaurant} />
 
         </div>
     ); 
