@@ -28,12 +28,13 @@ export default function PainelPedidosAtivosPage() {
                 order_items (
                     id,
                     quantity,
-                    price_at_purchase_cents,
-                    item ( name )
+                    price_cents,
+                    name
                 )
             `)
             .eq("restaurant_id", restId)
-            .in("status", ["pending", "preparing", "delivering"])
+            // ATUALIZAÇÃO: Novos status de pending
+            .in("status", ["pending_online_payment", "pending_physical_payment", "preparing", "delivering"]) 
             .order("created_at", { ascending: true }); // Mais antigos primeiro (fila)
 
         if (error) console.error("Erro ao buscar pedidos:", error);
