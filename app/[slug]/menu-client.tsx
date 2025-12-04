@@ -96,6 +96,22 @@ export default function MenuClientPage({
         return { lowest, highest };
     })();
 
+    const deliveryTime = (() => {
+        const fees = restaurant.delivery_fee_json.map(
+            (i: { time_minutes: number }) => i.time_minutes
+        );
+
+        const lowest = Math.min(...fees);
+        let highest = Math.max(...fees);
+
+        if(highest-lowest >= 20){
+            highest = lowest+20
+        }
+
+        return { lowest, highest };
+    })();
+
+
     const checkRestaurantAvailability = () => {
         if (!restaurant.availability_json) return;
 
@@ -131,6 +147,7 @@ export default function MenuClientPage({
         setNextOpening(slots[0] ? new Date(slots[0].open) : null);
     };
 
+
     useEffect(() => {
         checkRestaurantAvailability();
     }, [restaurant]);
@@ -149,18 +166,21 @@ export default function MenuClientPage({
 
         const cookie = document.cookie
             .split("; ")
-            .find((row) => row.startsWith("order_page_entered="));
+            .find((row) => row.startsWith("order_page_entered"));
 
         if (!cookie) return;
 
         const id = cookie.split("=")[1];
+        const restaurantId = cookie.split("_id_")[1].split("=")[0];
+
         if (!id) return;
+        if(restaurantId === restaurant.id){
+            setOrderId(id);
 
-        setOrderId(id);
-
-        requestAnimationFrame(() => {
-            setRestaurantCartWarningVisible(true);
-        });
+            requestAnimationFrame(() => {
+                setRestaurantCartWarningVisible(true);
+            });
+        }
     }, []);
 
     return (
@@ -227,8 +247,8 @@ export default function MenuClientPage({
                         <span>Entrega</span>
                         <span>•</span>
                         <span>
-                            {restaurant.prep_time_min_minutes} -{" "}
-                            {restaurant.prep_time_max_minutes} min
+                            {deliveryTime.lowest} -{" "}
+                            {deliveryTime.highest} min
                         </span>
                         <span>•</span>
                         <span className={"text-green"}>R$ {formatPriceNoRS(deliveryTax.lowest)}-{formatPriceNoRS(deliveryTax.highest )}</span>
@@ -273,43 +293,93 @@ export default function MenuClientPage({
             ============================ */}
             <div className="mt-8 px-4 space-y-12 pb-20">
                 {categories.map((cat) => (
-                    <div key={cat.id}>
-                        <h2 className="text-xl font-medium mb-4">
-                            {cat.name}
-                        </h2>
+                    <>
+                    {categories[0].position === 1
+                        ?
+                        <div key={cat.id}>
 
-                        <div className="grid grid-cols-3 gap-[4dvw] ">
-                            {itemsByCategory[cat.id]?.map((item) => (
-                                <button
-                                    key={item.id}
-                                    onClick={() => handleItemClick(item)}
-                                    className={`text-left ${
-                                        loadingItemId === item.id
-                                            ? "opacity-60"
-                                            : ""
-                                    }`}
-                                >
-                                    <div className="w-full h-[29dvw] rounded-2xl overflow-hidden bg-gray-200 shadow-sm">
-                                        <img
-                                            src={item.image_public_url || ""}
-                                            className="w-full h-full object-cover"
-                                            alt={item.name}
-                                        />
-                                    </div>
+                            <h2 className="text-xl font-medium mb-4">
+                                {cat.name}
+                            </h2>
 
-                                    <div className="mt-3 flex flex-col h-[55px] justify-start">
-                                        <p className="font-semibold text-sm">
-                                            {formatPrice(item.price_cents)}
-                                        </p>
+                            <div className="grid grid-cols-3 gap-[4dvw] ">
+                                {itemsByCategory[cat.id]?.map((item) => (
+                                    <button
+                                        key={item.id}
+                                        onClick={() => handleItemClick(item)}
+                                        className={`text-left ${
+                                            loadingItemId === item.id
+                                                ? "opacity-60"
+                                                : ""
+                                        }`}
+                                    >
+                                        <div className="w-full h-[29dvw] rounded-2xl overflow-hidden bg-gray-200 shadow-sm">
+                                            <img
+                                                src={item.image_public_url || "/placeholders/item.png"}
+                                                className="w-full h-full object-cover"
+                                                alt={item.name}
+                                            />
+                                        </div>
 
-                                        <p className="text-sm text-gray-700 line-clamp-2 leading-snug">
-                                            {item.name}
-                                        </p>
-                                    </div>
-                                </button>
-                            ))}
+                                        <div className="mt-3 flex flex-col h-[55px] justify-start">
+                                            <p className="font-semibold text-sm">
+                                                {formatPrice(item.price_cents)}
+                                            </p>
+
+                                            <p className="text-sm text-gray-700 line-clamp-2 leading-snug">
+                                                {item.name}
+                                            </p>
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
                         </div>
-                    </div>
+                        :
+                        <div key={cat.id}>
+
+                            <h2 className="text-xl font-medium mb-6">
+                                {cat.name}
+                            </h2>
+
+                            <div className="space-y-6">
+                                {itemsByCategory[cat.id]?.map((item) => (
+                                    <button
+                                        key={item.id}
+                                        onClick={() => handleItemClick(item)}
+                                        className={`w-full flex justify-between items-start text-left border-b-1 pb-4 border-gray-200 ${
+                                            loadingItemId === item.id ? "opacity-60" : ""
+                                        }`}
+                                    >
+                                        {/* LEFT SIDE (text) */}
+                                        <div className="flex flex-col pr-4 flex-1 items-start justify-start max-w-[70%] ">
+                                            <p className="text-sm font-semibold leading-tight">
+                                                {item.name}
+                                            </p>
+
+                                            <p className="text-sm text-gray-600 line-clamp-2 mt-1 leading-tight">
+                                                {(item.description ?? "").slice(0, 60)}{item.description && item.description.length > 60 ? "…" : ""}
+                                            </p>
+
+                                            <p className="text-sm font-bold mt-2">
+                                                {formatPrice(item.price_cents)}
+                                            </p>
+                                        </div>
+
+                                        {/* RIGHT SIDE (image) */}
+                                        <div className="w-[22vw] h-[22vw] rounded-2xl overflow-hidden
+                    bg-gray-200 shadow-sm flex-shrink-0">
+                                            <img
+                                                src={item.image_public_url || "/placeholders/item.png"}
+                                                className="w-full h-full object-cover"
+                                                alt={item.name}
+                                            />
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    }
+                    </>
                 ))}
             </div>
 

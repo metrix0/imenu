@@ -5,7 +5,6 @@ export default function RestauranteLayout({ children }: { children: React.ReactN
     return (
         <>
             {children}
-            <SupportButton />
         </>
     );
 }

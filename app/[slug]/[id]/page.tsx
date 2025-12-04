@@ -21,6 +21,8 @@ export default function PedidoPage({
     const router = useRouter();
     const [restaurantName, setRestaurantName] = useState("");
     const [restaurantPhone, setRestaurantPhone] = useState("");
+    const [restaurantId, setRestaurantId] = useState<string | null>(null);
+
 
     useEffect(() => {
         const channel = supabase
@@ -57,31 +59,27 @@ export default function PedidoPage({
                 }
 
                 setOrder(orderData);
-                console.log(orderData)
                 // 2) Extract restaurantId from order
                 const restaurantId = orderData?.restaurant_id ||
                     orderData?.restaurantId ||
                     orderData?.restaurant_id_fk;
+                setRestaurantId(restaurantId)
 
-                console.log("restid",restaurantId)
                 if (!restaurantId) return;
-
-                console.log("starting fetch")
                 // 3) Fetch restaurant data (phone, name)
                 const restRes = await fetch(`/api/restaurants/${restaurantId}`);
                 const restData = await restRes.json();
 
-                console.log(restRes, restData)
 
                 if (restData) {
                     setRestaurantName(restData.name);
                     setRestaurantPhone(restData.phone);
                 }
 
+
             } catch (_) {}
         })();
 
-        console.log("name and phone: ",restaurantName,restaurantPhone)
 
         return () => {
             try {
@@ -92,6 +90,7 @@ export default function PedidoPage({
 
 
     useEffect(() => {
+        if(!restaurantId || restaurantPhone === null) return
         if (!status) return;
 
         const shouldClear =
@@ -118,13 +117,14 @@ export default function PedidoPage({
             }
 
             // SET COOKIE to remember user visited this page
+            console.log(restaurantId)
             try {
-                document.cookie = `order_page_entered=${id}; path=/; max-age=${60 * 60 * 5}`;
+                document.cookie = `order_page_entered_id_${restaurantId}=${id}; path=/; max-age=${60 * 60 * 5}`;
             } catch (err) {
                 console.error("[COOKIE] Failed to set order_page_entered cookie:", err);
             }
         }
-    }, [status]);
+    }, [restaurantId, status]);
 
 
 
