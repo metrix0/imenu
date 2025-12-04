@@ -7,6 +7,7 @@ import { Restaurant, Menu, Category, ItemsByCategory, Item, Subitem, Subcategory
 import { useCheckoutStore } from "@/lib/stores/costumer/checkoutStore";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { icons } from "@/lib/fontawesome";
+import { faStar } from "@fortawesome/free-solid-svg-icons";
 import { supabase } from "@/lib/supabaseClient";
 import { formatPrice, formatPriceNoRS } from "@/lib/utils/formatPrice";
 import ModalMobile from "@/components/ui/ModalMobile";
@@ -207,20 +208,20 @@ export default function MenuClientPage({
                             : "R$ 0,00"}
                     </p>
 
-                    {/*{restaurant.rating && (*/}
-                    {/*    <div className="flex hidden items-center gap-2 mt-3 text-xs border-b border-gray-200 pb-3">*/}
-                    {/*        <FontAwesomeIcon*/}
-                    {/*            icon={faStar}*/}
-                    {/*            className="text-gray-700"*/}
-                    {/*        />*/}
-                    {/*        <span className="font-semibold">*/}
-                    {/*            {restaurant.rating.toFixed(1)}*/}
-                    {/*        </span>*/}
-                    {/*        <span className="text-gray-500">*/}
-                    {/*            (427 avaliações)*/}
-                    {/*        </span>*/}
-                    {/*    </div>*/}
-                    {/*)}*/}
+                    {(
+                        <div className="flex items-center gap-2 mt-3 text-xs border-b border-gray-200 pb-3">
+                            <FontAwesomeIcon
+                                icon={faStar}
+                                className="text-gray-700"
+                            />
+                            <span className="font-semibold">
+                                4.7
+                            </span>
+                            <span className="text-gray-500">
+                                (427 avaliações)
+                            </span>
+                        </div>
+                    )}
 
                     <div className="flex items-center gap-2 mt-3 text-xs font-bold">
                         <span>Entrega</span>
@@ -277,7 +278,7 @@ export default function MenuClientPage({
                             {cat.name}
                         </h2>
 
-                        <div className="grid grid-cols-3 gap-[4dvw]">
+                        <div className="grid grid-cols-3 gap-[4dvw] ">
                             {itemsByCategory[cat.id]?.map((item) => (
                                 <button
                                     key={item.id}
@@ -296,13 +297,15 @@ export default function MenuClientPage({
                                         />
                                     </div>
 
-                                    <p className="font-semibold mt-3 text-sm">
-                                        {formatPrice(item.price_cents)}
-                                    </p>
+                                    <div className="mt-3 flex flex-col h-[55px] justify-start">
+                                        <p className="font-semibold text-sm">
+                                            {formatPrice(item.price_cents)}
+                                        </p>
 
-                                    <p className="text-sm text-gray-700 line-clamp-2">
-                                        {item.name}
-                                    </p>
+                                        <p className="text-sm text-gray-700 line-clamp-2 leading-snug">
+                                            {item.name}
+                                        </p>
+                                    </div>
                                 </button>
                             ))}
                         </div>

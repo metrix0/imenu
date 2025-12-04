@@ -85,7 +85,7 @@ export default function LandingPage() {
                 <div className="flex items-center justify-center">
                     <div className="absolute h-[100%] w-100 overflow-hidden top-0">
                         <video
-                            src="/renderr.webm"
+                            src="/images/CellphoneVideo.webm"
                             autoPlay
                             loop
                             muted
@@ -172,7 +172,7 @@ export default function LandingPage() {
                     <div className="flex items-center justify-center relative h-[55vh]">
                         <div className="relative h-full overflow-hidden">
                             <Image
-                                src="/wip-monitor2.png"
+                                src="/images/MonitorGraph.png"
                                 alt="Destaque do painel e resultados"
                                 width={1080}
                                 height={1920}
