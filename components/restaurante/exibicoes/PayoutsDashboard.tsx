@@ -4,16 +4,13 @@ import { useState, useEffect } from "react";
 import { icons } from "@/lib/fontawesome";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faClock } from "@fortawesome/free-solid-svg-icons";
-import { supabase } from "@/lib/supabaseClient";
 
+// Design System Imports
 import Card from "@/components/ui/Card";
 import ListLoader from "@/components/ui/ListLoader";
-import Button from "@/components/ui/Button";
 
-const PAGE_SIZE = 5;
-
+// Define the type for a payout object
 interface Payout {
-    id: string;
     start_date: string;
     end_date: string;
     amount_cents: number;
@@ -22,26 +19,22 @@ interface Payout {
     order_count: number;
 }
 
-interface PayoutsDashboardProps {
-    menuId: string;
-    startDate?: string;
-    endDate?: string;
-}
-
-// Helper to format date ranges (Versão Corrigida - Baseada em String)
+// Helper to format date ranges
 const formatWeek = (start: string, end: string) => {
-    // Função auxiliar para formatar "YYYY-MM-DD" para "DD/MM"
-    const fmt = (dateStr: string) => {
-        if (!dateStr) return "";
-        // Divide a string para evitar qualquer interpretação de timezone do navegador
-        const parts = dateStr.split("-"); // ["2025", "11", "30"]
-        if (parts.length !== 3) return dateStr;
-        return `${parts[2]}/${parts[1]}`; // Retorna "30/11"
-    };
+    const startDate = new Date(start);
+    const endDate = new Date(end);
 
-    return `${fmt(start)} - ${fmt(end)}`;
+    const formatDate = (date: Date) => {
+        // Ajuste simples de timezone para exibição
+        return new Date(date.getTime() + date.getTimezoneOffset() * 60000 + 86400000).toLocaleDateString("pt-BR", {
+            day: "2-digit",
+            month: "2-digit",
+        });
+    };
+    return `${formatDate(startDate)} - ${formatDate(endDate)}`;
 };
 
+// Helper to format currency
 const formatPrice = (priceInCents: number) => {
     return (priceInCents / 100).toLocaleString("pt-BR", {
         style: "currency",
@@ -49,6 +42,7 @@ const formatPrice = (priceInCents: number) => {
     });
 };
 
+// Componente de Status
 const PayoutStatus = ({ status }: { status: Payout["status"] }) => {
     if (status === "paid") {
         return (
@@ -66,18 +60,11 @@ const PayoutStatus = ({ status }: { status: Payout["status"] }) => {
     );
 };
 
-export default function PayoutsDashboard({ menuId, startDate, endDate }: PayoutsDashboardProps) {
+// O componente recebe o ID do restaurante/menu
+export default function PayoutsDashboard({ menuId }: { menuId: string }) {
     const [payouts, setPayouts] = useState<Payout[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    
-    const [page, setPage] = useState(0);
-    const [hasMore, setHasMore] = useState(false);
-
-    // Resetar página quando mudar filtros
-    useEffect(() => {
-        setPage(0);
-    }, [startDate, endDate]);
 
     useEffect(() => {
         if (!menuId) return;
@@ -85,47 +72,44 @@ export default function PayoutsDashboard({ menuId, startDate, endDate }: Payouts
         const fetchPayouts = async () => {
             setIsLoading(true);
             try {
-                // Query Direta no Supabase com Filtro de Data
-                let query = supabase
-                    .from("payouts")
-                    .select("*", { count: "exact" })
-                    .eq("restaurant_id", menuId)
-                    .order("start_date", { ascending: false })
-                    .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
-
-                // Aplica filtros nas colunas da tabela payouts
-                if (startDate && endDate) {
-                    query = query
-                        .gte("start_date", startDate) // Maior ou igual data inicial
-                        .lte("end_date", endDate);   // Menor ou igual data final
+                const response = await fetch(
+                    `/api/restaurants/${menuId}/payouts`
+                );
+                if (!response.ok) {
+                    throw new Error("Falha ao carregar histórico de pagamentos.");
                 }
-
-                const { data, error, count } = await query;
-
-                if (error) throw error;
-
-                setPayouts(data as Payout[]);
-                
-                if (count !== null) {
-                    setHasMore((page + 1) * PAGE_SIZE < count);
-                } else {
-                    setHasMore((data?.length || 0) === PAGE_SIZE);
-                }
-
+                const data = await response.json();
+                setPayouts(data);
             } catch (err) {
-                console.error(err);
-                setError("Não foi possível carregar os pagamentos.");
+                setError((err as Error).message);
             } finally {
                 setIsLoading(false);
             }
         };
 
         fetchPayouts();
-    }, [menuId, page, startDate, endDate]);
+    }, [menuId]);
 
-    if (isLoading) return <Card><ListLoader lines={3} /><p className="text-center text-gray-500 mt-4">Buscando pagamentos...</p></Card>;
-    
-    if (error) return <Card className="bg-red-50 border-red-200"><p className="text-red-600 text-sm">{error}</p></Card>;
+    if (isLoading) {
+        return (
+            <Card>
+                 <div className="mb-6">
+                    <h4 className="text-lg font-bold text-gray-900">Histórico de Repasses</h4>
+                </div>
+                <ListLoader lines={3} />
+                <p className="text-center text-gray-500 mt-4">Buscando pagamentos...</p>
+            </Card>
+        );
+    }
+
+    if (error) {
+        return (
+            <Card className="bg-red-50 border-red-200">
+                <h4 className="text-red-800 font-semibold mb-2">Erro ao carregar</h4>
+                <p className="text-red-600 text-sm">{error}</p>
+            </Card>
+        );
+    }
 
     return (
         <Card>
@@ -137,12 +121,12 @@ export default function PayoutsDashboard({ menuId, startDate, endDate }: Payouts
             <div className="space-y-3">
                 {payouts.length === 0 ? (
                     <div className="text-center py-8 text-gray-400 border-2 border-dashed border-gray-100 rounded-lg">
-                        Nenhum pagamento encontrado neste período.
+                        Nenhum pagamento encontrado.
                     </div>
                 ) : (
                     payouts.map((payout, index) => (
                         <div
-                            key={payout.id || index}
+                            key={`${payout.start_date}-${index}`}
                             className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-lg border border-gray-100 hover:border-gray-200 hover:bg-gray-50 transition-colors gap-4"
                         >
                             <div>
@@ -164,28 +148,6 @@ export default function PayoutsDashboard({ menuId, startDate, endDate }: Payouts
                     ))
                 )}
             </div>
-
-            {/* Paginação */}
-            {(payouts.length > 0 || page > 0) && (
-                <div className="flex justify-center gap-2 mt-6 pt-4 border-gray-100">
-                    <Button 
-                        variant="secondary" 
-                        disabled={page === 0 || isLoading}
-                        onClick={() => setPage(p => Math.max(0, p - 1))}
-                        className="px-4 py-2 text-xs"
-                    >
-                        Anterior
-                    </Button>
-                    <Button 
-                        variant="secondary" 
-                        disabled={!hasMore || isLoading}
-                        onClick={() => setPage(p => p + 1)}
-                        className="px-4 py-2 text-xs"
-                    >
-                        Próxima
-                    </Button>
-                </div>
-            )}
         </Card>
     );
 }

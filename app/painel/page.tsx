@@ -15,7 +15,7 @@ export default function PainelPedidosAtivosPage() {
     const [restaurantId, setRestaurantId] = useState<string | null>(null);
     const [restaurantSlug, setRestaurantSlug] = useState<string | undefined>(undefined);
     const [orders, setOrders] = useState<OrderData[]>([]);
-    
+
     const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
     // --- FETCH INICIAL ---
@@ -28,32 +28,16 @@ export default function PainelPedidosAtivosPage() {
                 order_items (
                     id,
                     quantity,
-                    price_cents,
-                    name
+                    price_at_purchase_cents,
+                    item ( name )
                 )
             `)
             .eq("restaurant_id", restId)
-            // ATUALIZAÇÃO: Novos status de pending
-            .in("status", ["pending_online_payment", "pending_physical_payment", "preparing", "delivering"]) 
+            .in("status", ["pending", "preparing", "delivering"])
             .order("created_at", { ascending: true }); // Mais antigos primeiro (fila)
 
-        if (error) {
-            console.error("Erro ao buscar pedidos:", error);
-        } else {
-            // ADAPTAÇÃO: Mapeia os dados planos do banco para a estrutura aninhada que o OrderCard espera
-            const formattedData = (data || []).map((order: any) => ({
-                ...order,
-                order_items: order.order_items.map((item: any) => ({
-                    ...item,
-                    // O OrderCard antigo espera 'price_at_purchase_cents'
-                    price_cents: item.price_cents,
-                    // O OrderCard antigo espera 'item.name'
-                    item: { name: item.name }
-                }))
-            }));
-            
-            setOrders(formattedData);
-        }
+        if (error) console.error("Erro ao buscar pedidos:", error);
+        else setOrders(data as any[] || []);
     };
 
     useEffect(() => {
@@ -66,7 +50,7 @@ export default function PainelPedidosAtivosPage() {
             // 2. Pega restaurante
             const { data: restaurant } = await supabase
                 .from("restaurants")
-                .select("id, url_slug") 
+                .select("id, url_slug") // Supondo que url_slug é o campo do link amigável
                 .eq("user_id", session.user.id)
                 .single();
 
@@ -98,6 +82,8 @@ export default function PainelPedidosAtivosPage() {
                 },
                 (payload) => {
                     console.log("🔔 Mudança em pedidos:", payload);
+                    // Estratégia simples: Recarrega tudo para garantir integridade (JOINs etc)
+                    // Em app gigante, faríamos optimistic update, mas aqui fetch é mais seguro
                     fetchOrders(restaurantId);
                 }
             )
@@ -128,14 +114,14 @@ export default function PainelPedidosAtivosPage() {
                     <h1 className="text-3xl font-bold text-gray-900">Pedidos de Hoje</h1>
                     <p className="text-gray-500 mt-1">Acompanhe a fila de produção em tempo real.</p>
                 </div>
-                
-                <Button 
-                    onClick={() => setIsShareModalOpen(true)} 
-                    className="bg-brand text-white border border-transparent hover:opacity-90 shadow-sm transition-opacity"
-                >
-                    <FontAwesomeIcon icon={faShareAlt} className="mr-2" />
-                    Compartilhar Loja
-                </Button>
+
+            <Button
+                onClick={() => setIsShareModalOpen(true)}
+                className="bg-brand text-white border border-transparent hover:opacity-90 shadow-sm transition-opacity"
+            >
+                <FontAwesomeIcon icon={faShareAlt} className="mr-2" />
+                Compartilhar Loja
+            </Button>
             </div>
 
             {/* Kanban / Grid de Pedidos */}
@@ -148,9 +134,9 @@ export default function PainelPedidosAtivosPage() {
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {orders.map(order => (
-                        <OrderCard 
-                            key={order.id} 
-                            order={order} 
+                        <OrderCard
+                            key={order.id}
+                            order={order}
                             onStatusChange={() => fetchOrders(restaurantId)}
                         />
                     ))}
@@ -158,12 +144,13 @@ export default function PainelPedidosAtivosPage() {
             )}
 
             {/* Modais */}
-            <ShareMenuModal 
-                isOpen={isShareModalOpen} 
-                onClose={() => setIsShareModalOpen(false)} 
+            <ShareMenuModal
+                isOpen={isShareModalOpen}
+                onClose={() => setIsShareModalOpen(false)}
                 restaurantId={restaurantId}
                 restaurantSlug={restaurantSlug}
             />
         </div>
     );
 }
+

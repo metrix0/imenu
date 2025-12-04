@@ -1,41 +1,32 @@
 # Summary
 
-
 - [To Do](#to-do)
 - [Feature List](#feature-list)
-
-#### Macro
-- [Funnels & User Stories](#funnels--user-stories)
-- [Roadmap](#roadmap)
-- [Product Positioning](#product-positioning)
-
 
 ---
 <br>
 
 # To Do
 
-- "este não é o qrcode para mesa" QR Code gen
-- termos de uso
-- ~~Start waitlist acquisition~~ | ✅J
+## Brendo
+Ver no whatsapp, meus arquivos deram problema
 
-JOAO
-- (depois do Front/Back pronto) consolidar toda UX 
-- ~~CORRIGIR PATHS~~
-- ~~pedido minimo (no criar e no painel (em algum componente))~~
-- ~~ver se tem como pagar pelo nosso side API mercado pago.~~
-- ~~organizar pasta components~~
-- ~~menu da esquerda ficanddo gigante~~
-- ~~adicionar mais botões CTA landing page, email landing page.~~
-- ~~corrigir o mercado pago pagando e deixando como "pago" na parada~~
-- ~~botão do whatsapp é só pra dono dde restaurante (nao no cardapio)~~
-- ~~login page lol~~
-- ~~mobile error message for dashboard~~
-- ifood sync
-- ~~ao adicionar algo na sacola volta pro cardapio, não vai pra sacola.~~
-- ~~ao voltar da sacola, tem que carregar tudo dnv? pq?~~
+## Rafa
+oq falamos, meus arquivos deram problema
+
+
+## Joao
+
+- acessar dashboard direto da landingpage
+- finalizar landing page
+
+- domínio
+- update cart modal upon geolocation function from rafa
+
+- update cart modal upon geolocation function from rafa
+
 - separar database entre menu e restaurante (usuario e dono)
-- imagens do menu em base64 ao inves de uploadMenuImages
+- ifood sync
 
 RAF
 - ao inserir cep, automaticamente já calcuala a taxa (sem botão) (testar com autofill)
@@ -46,12 +37,8 @@ RAF
 
 - painel: adicionar item vira uma rota, não uma página. pra poder adicionar item na própria pagina que nem ifood
 
-
-
-
 ## Backlog
-
-`
+- Adicionar verificação de Auth (local browser data) em todas as páginas que precisam de Auth (painel, criar restaurante, etc)
 
 ---
 <br>
@@ -190,127 +177,3 @@ RAF
 
 
 
-
----
-<br>
-
-# Funnels & User Stories
-> Product Delivery related funnels
-
-## Core Funnel
-
-```
-0. Landing Page
-
-1. Subscription
-   └── Restaurant signs up and creates account
-
-2. Activation
-   └── Publishes menu
-      └── iFood Syncing or AI scanned
-
-Client Flow
-   ├── 1. Enters restaurant menu (via QR or link)
-   ├── 2. Adds item(s) to cart
-   ├── 3. Fills delivery/pickup details
-   ├── 4. Completes checkout
-   └── 5. Pays (Pix, card, Mercado Pago)
-
-3. Order Reception
-   ├── System notifies restaurant in real time (must get notified. Whatsapp?)
-   └── Order appears as “New” or “Pending confirmation”
-
-4. Order Acceptance
-   ├── Staff accepts order (marks “preparing”)
-   └── Optionally sets estimated prep time
-
-5. Order Fulfillment
-
-6. Deposit the $
-```
-## User Stories
-
-### Restaurant Owner
-1. I want to costumize exactly what I'm buying (images, videos, weight, everything)
-2. I want to be able to upsell.
-3. I want the menu to give me exact instructions on what to do to make it sell more.
-4. I want to be able to add my complex delivery fees.
-5. I want to be able to have schedule open/closed timings, being able to open/close at any time.
-6. I want different access levels for Admin and Counter.
-7. I want to have categories in the menu
-8. I want to be able to disable menu items quickly, if possible, automated.
-9. I want to upload restaurant logo and banner.
-10. I want to see daily sales, and all data I can.
-
-### Kitchen/Counter Staff
-1. I want to see a live list of orders I have to prepare/send to kitchen.
-2. I want to update the order status.
-3. I want to search and filter orders.
-4. I want to reopen/mark an order as delivering/picked up.
-
-### Costumer
-1. I want to enter via QR Code or Link. No apps needed.
-2. I want my information to be pulled instantly (credit card, location, etc)
-3. I want to see total costs, with delivery fees and everything in realtime.
-4. I want to see all states of my order: Pending, paid, preparing, delivering.
-5. I want to be notified when the order ready, and when it's near.
-6. I want the restaurant to be able to contact me.
-
-### Platform Owner
-1. I want to see all platform-level metrics.
-2. I want to verify system health.
-
-
----
-<br>
-
-# Roadmap
-1. MVP (1.5 mo)
-
-**GOAL:** Gain Traction (Hypothesis Proved)
-
-| 5W2H         | Description              | 
-|--------------|--------------------------|
-| **What**     | **Good Core Experience** | 
-| When         | 1.5 Months               | 
-| Who          | Carlos (Avatar)          | 
-| Where        | Whatsapp Cold DM         | 
-| **Why**      | **Prove hypothesis**     | 
-| **How**      | **Gathering Data**       | 
-| **How Much** | **40% Activation Rate**  | 
-
-
-2. Beta
-
-**GOAL:** To enhance everything: Friction, Data, Numbers, Conversion.
-
-Increasing Market Fit and **Changing the product positioning to target Medium-High ticket costumers** may be ideal.
-
-3. Market Ready...
-
----
-<br>
-
-# Product Positioning
-
-## Avatar (Brazil)
-Carlos:
-- Restaurant Owner
-- 100k R$/month Revenue
-- 32 years old
-- Staff count: 8
-- Medium Tech Familiarity
-
-**Pain Points:**
-- Primary Pain (urgent): iFood fees killing margins (30%+). 
-- Secondary Pain: Existing digital menus are clunky, costly, or outdated. 
-- Hidden Pain: Feels dependent and powerless in his own business. 
-- False Belief: Thinks “good tech = expensive or complex.”
-- Frustration → “iFood is eating my profit.”
-
-> This is a Lead Magnet for high ticket, revolutionizing business model in the Digital Menu niche. **Our goal is to grow them for free, and then for $**
-
-| Type                         | Description                                                    | Why they matter                                       |
-| ---------------------------- |----------------------------------------------------------------|-------------------------------------------------------|
-| **High-end restaurants**     | 300k – 1M R$/month, design-conscious, want white-glove service | They bring *big-ticket* revenue (future upsell).      |
-| **Medium/small restaurants** |                                                                | They bring *volume*, feedback, and viral growth.      |

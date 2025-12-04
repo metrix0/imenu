@@ -4,12 +4,12 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import Tabs from "@/components/ui/Tabs";
 import Button from "@/components/ui/Button";
+
+// Componentes Refatorados
 import OrdersFilter from "@/components/painel/pedidos/OrdersFilter";
 import OrdersTable, { Order } from "@/components/painel/pedidos/OrdersTable";
-import OrderDetailsModal from "@/components/painel/pedidos/OrderDetailsModal";
 
 const TABS = ["Todos", "Em aberto", "Concluídos", "Cancelados"];
-const PAGE_SIZE = 10;
 
 export default function PedidosPage() {
     const [activeTab, setActiveTab] = useState("Todos");
@@ -17,18 +17,10 @@ export default function PedidosPage() {
     const [orders, setOrders] = useState<Order[]>([]);
     const [restaurantId, setRestaurantId] = useState<string | null>(null);
 
-    // Paginação
-    const [page, setPage] = useState(0);
-    const [hasMore, setHasMore] = useState(false);
-
-    // Filtros
+    // Estados de Filtro
     const [searchId, setSearchId] = useState("");
     const [searchDate, setSearchDate] = useState("");
     const [selectedStatus, setSelectedStatus] = useState("todas");
-
-    // Modal
-    const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-    const [isDetailsOpen, setIsDetailsOpen] = useState(false);
 
     // 1. Inicialização
     useEffect(() => {
@@ -44,21 +36,16 @@ export default function PedidosPage() {
 
             if (rest) {
                 setRestaurantId(rest.id);
-                // fetchOrders chamado pelo useEffect dos filtros abaixo
+                fetchOrders(rest.id);
             }
         };
         init();
     }, []);
 
-    // 2. Recarrega ao mudar filtros, aba ou página
+    // 2. Recarrega ao mudar aba
     useEffect(() => {
         if (restaurantId) fetchOrders(restaurantId);
-    }, [activeTab, restaurantId, page, searchId, searchDate, selectedStatus]);
-
-    // Resetar página ao mudar filtros
-    useEffect(() => {
-        setPage(0);
-    }, [activeTab, searchId, searchDate, selectedStatus]);
+    }, [activeTab, restaurantId]);
 
     // 3. Lógica de Busca
     const fetchOrders = async (restId: string) => {
@@ -66,46 +53,34 @@ export default function PedidosPage() {
         try {
             let query = supabase
                 .from("orders")
-                .select("id, display_id, created_at, customer_name, status, total_cents", { count: 'exact' }) // count para saber total
+                .select("id, display_id, created_at, customer_name, status, total_cents")
                 .eq("restaurant_id", restId)
-                .order("created_at", { ascending: false })
-                .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+                .order("created_at", { ascending: false });
 
             // Filtro por Aba
             if (activeTab === "Em aberto") {
-            query = query.in("status", ["pending_online_payment", "pending_physical_payment", "preparing", "delivering"]);
+                query = query.in("status", ["pending", "preparing", "delivering"]);
             } else if (activeTab === "Concluídos") {
-                query = query.eq("status", "done");
+                query = query.eq("status", "finished");
             } else if (activeTab === "Cancelados") {
-                query = query.eq("status", "canceled");
+                query = query.eq("status", "cancelled");
             }
 
             // Filtros do Usuário
             if (searchId) query = query.eq("display_id", searchId);
             
             if (searchDate) {
-                // Adicionamos 'T00:00:00' para garantir que o navegador entenda como Horário Local
-                // Ex: "2025-11-26T00:00:00" (Local) -> Convertido corretamente para UTC pelo toISOString
-                const start = new Date(`${searchDate}T00:00:00`); 
-                const end = new Date(`${searchDate}T23:59:59.999`);
-                
-                query = query
-                    .gte("created_at", start.toISOString())
-                    .lte("created_at", end.toISOString());
+                const start = new Date(searchDate); start.setHours(0, 0, 0, 0);
+                const end = new Date(searchDate); end.setHours(23, 59, 59, 999);
+                query = query.gte("created_at", start.toISOString()).lte("created_at", end.toISOString());
             }
 
             if (selectedStatus !== "todas") query = query.eq("status", selectedStatus);
 
-            const { data, error, count } = await query;
+            const { data, error } = await query;
             if (error) throw error;
 
             setOrders(data as any[] || []);
-            // Verifica se tem mais páginas
-            if (count !== null) {
-                setHasMore((page + 1) * PAGE_SIZE < count);
-            } else {
-                setHasMore(data.length === PAGE_SIZE); // Fallback
-            }
 
         } catch (err) {
             console.error("Erro ao buscar pedidos:", err);
@@ -114,18 +89,8 @@ export default function PedidosPage() {
         }
     };
 
-    const handleViewOrder = (order: Order) => {
-        setSelectedOrder(order);
-        setIsDetailsOpen(true);
-    };
-
-    // Callback chamado quando o modal altera status (recarrega a lista)
-    const handleOrderUpdate = () => {
-        if (restaurantId) fetchOrders(restaurantId);
-    };
-
     return (
-        <div className="max-w-7xl mx-auto pb-20 space-y-8">
+        <div className="max-w-6xl mx-auto pb-20 space-y-8">
             <div>
                 <h1 className="text-3xl font-bold text-gray-900">Pedidos</h1>
             </div>
@@ -147,40 +112,17 @@ export default function PedidosPage() {
             <OrdersTable 
                 orders={orders}
                 isLoading={isLoading}
-                onViewOrder={handleViewOrder} 
             />
 
-            {/* Paginação Real */}
-            {!isLoading && (orders.length > 0 || page > 0) && (
+            {/* Paginação Simples */}
+            {!isLoading && orders.length > 0 && (
                 <div className="flex justify-center pt-4">
-                    <div className="flex gap-2 items-center">
-                        <Button 
-                            variant="secondary" 
-                            disabled={page === 0 || isLoading} 
-                            onClick={() => setPage(p => Math.max(0, p - 1))}
-                            className="px-4 py-2 text-xs"
-                        >
-                            Anterior
-                        </Button>
-                        <span className="text-sm text-gray-500 px-2">Página {page + 1}</span>
-                        <Button 
-                            variant="secondary" 
-                            disabled={!hasMore || isLoading}
-                            onClick={() => setPage(p => p + 1)}
-                            className="px-4 py-2 text-xs"
-                        >
-                            Próxima
-                        </Button>
+                    <div className="flex gap-2">
+                        <Button variant="secondary" disabled className="px-4 py-2 text-xs">Anterior</Button>
+                        <Button variant="secondary" className="px-4 py-2 text-xs">Próxima</Button>
                     </div>
                 </div>
             )}
-
-            <OrderDetailsModal 
-                isOpen={isDetailsOpen}
-                onClose={() => setIsDetailsOpen(false)}
-                order={selectedOrder}
-                onOrderUpdate={handleOrderUpdate}
-            />
         </div>
     );
 }

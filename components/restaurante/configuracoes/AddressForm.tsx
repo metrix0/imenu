@@ -1,21 +1,32 @@
+// components/restaurante/configuracoes/AddressForm.tsx
 "use client";
 
 import { useState, useEffect } from "react";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+    faLocationCrosshairs
+} from "@fortawesome/free-solid-svg-icons";
+
 import Input from "@/components/ui/Input";
 import { fetchAddressByCEP, fetchCoordinates, fetchAddressByCoordinates } from "@/lib/geocoding";
 
 import { AddressData } from "@/lib/types";
+import Button from "@/components/ui/Button";
 
 interface AddressFormProps {
     initialData?: Partial<AddressData>;
     onSubmit: (data: AddressData) => Promise<void>;
     onValidityChange: (isValid: boolean) => void;
+    isLoading?: boolean;
+    submitLabel?: string;
 }
 
 export default function AddressForm({ 
     initialData, 
-    onSubmit,
-    onValidityChange 
+    onSubmit, 
+    isLoading = false, 
+    submitLabel = "Continuar",
+    onValidityChange  
 }: AddressFormProps) {
     
     const [cep, setCep] = useState(initialData?.cep || "");
@@ -155,7 +166,15 @@ export default function AddressForm({
         }
 
         onSubmit({
-            cep, state, city, neighborhood, street, number, complement, latitude, longitude
+            cep,
+            state,
+            city,
+            neighborhood,
+            street,
+            number,
+            complement,
+            latitude,
+            longitude
         });
     };
 
@@ -170,10 +189,10 @@ export default function AddressForm({
                 <button
                     type="button"
                     onClick={handleUseMyLocation}
-                    disabled={isFetchingCep}
+                    disabled={isFetchingCep || isLoading}
                     className="w-full py-3 border border-gray-300 rounded-md text-brand font-medium hover:bg-gray-50 transition-colors focus:ring-2 focus:ring-brand focus:outline-none cursor-pointer"
                 >
-                    {isFetchingCep ? "Buscando..." : "Usar minha localização"}
+                    {isFetchingCep ? "Buscando..." : <><FontAwesomeIcon icon={faLocationCrosshairs}/> Usar minha localização</>}
                 </button>
             </div>
 
@@ -260,6 +279,21 @@ export default function AddressForm({
                         {errorMsg}
                     </p>
                 )}
+
+                {/* BOTÃO FIXO NO RODAPÉ */}
+                <div className="fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 p-4 flex justify-end z-50 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+                     <div className="w-full max-w-4xl mx-auto flex justify-end">
+                        <Button
+                            variant={!isValid ? "secondary" : "primary"}
+                            disabled={!isValid || isLoading}
+                            loading={isLoading}
+                            type="submit"
+                            className="w-full sm:w-auto px-8 py-3 text-base disabled:pointer-events-none"
+                        >
+                            {submitLabel}
+                        </Button>
+                     </div>
+                </div>
             </form>
         </div>
     );

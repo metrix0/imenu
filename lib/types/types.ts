@@ -1,15 +1,20 @@
 // lib/types.ts
-// Tipos do Banco de Dados (inferidos do seu admin page)
 
 export type Restaurant = {
     id: string;
-    name: string; // Supondo que o nome esteja aqui, ou no menu
+    name: string;
     logo_url: string | null;
-    // Campos de tempo de preparo (novas funcionalidades)
+    banner_url: string | null;
+    rating: number | null,
+    min_order_cents: number,
     prep_time_min_minutes?: number | null;
     prep_time_max_minutes?: number | null;
     prep_time_source?: "manual" | "auto" | null;
     prep_time_computed_at?: string | null;
+    availability_json: any;
+    delivery_fee_json: any;
+    latitude: number;
+    longitude: number;
 };
 
 export type Menu = {
@@ -36,7 +41,6 @@ export type Item = {
     is_available: boolean;
     position: number;
     category: Category | null;
-    // Para facilitar no cliente
     image_public_url?: string | null;
 };
 
@@ -48,7 +52,6 @@ export type Subcategory = {
     min_select: number;
     max_select: number;
     position: number;
-    // Itens aninhados
     subitems: Subitem[];
 };
 
@@ -62,7 +65,7 @@ export type Subitem = {
     position: number;
 };
 
-// Tipos da Aplicação
+
 
 export type ItemsByCategory = {
     [categoryId: string]: Item[];

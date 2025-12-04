@@ -25,6 +25,14 @@ Holds all **Back-end API routes**. There is no APIs outside from here.
 ### What it does
 Everything dev-related.
 
-# /pedido, page.tsx, ...
-### What it does
-Front-end React pages.
+# [slug]
+Is the consumer view Menu, where they can order. Mobile first.
+## [slug]/[id] is the cart
+
+# /painel
+Is the main dashboard for the restaurant admin. Uses components from /components/restaurant/configuracoes
+
+# /restaurante/criar
+Is the step-by-step setup for the restaurant. Uses components from /components/restaurant/configuracoes
+
+
