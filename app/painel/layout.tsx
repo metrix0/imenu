@@ -18,6 +18,7 @@ import {
     faChevronLeft,
     faChevronRight,
     IconDefinition,
+    faHome,
 } from "@fortawesome/free-solid-svg-icons";
 import { createClient } from "@supabase/supabase-js";
 
@@ -65,6 +66,7 @@ export default function PainelLayout({
     const cardapioHref = menuId ? `${base}/cardapio/${menuId}` : `${base}/cardapio`;
     const configuracoesHref = `${base}/configuracoes`;
     const menuItems: MenuItem[] = [
+        { label: "Home", icon: faHome, href: `${base}/` },
         { label: "Pedidos", icon: faBox, href: `${base}/pedidos` },
         { label: "Financeiro", icon: faMoneyBillWave, href: `${base}/financeiro` },
         { type: "divider" },

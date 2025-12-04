@@ -114,13 +114,13 @@ export default function StoreProfileManager({ restaurant, compact = false }: Sto
                     />
 
                     {/* 3. BIO (Condicional) */}
-                    {!compact && (
+                    {/* {!compact && (
                         <StoreBio 
                             value={description} 
                             onChange={setDescription} 
                             onBlur={() => autoSave("description", description)} 
                         />
-                    )}
+                    )} */}
                 </div>
             </Card>
 

@@ -5,7 +5,10 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useCreationStore } from "@/lib/creationStore";
 import { supabase } from "@/lib/supabaseClient"; 
-import AddressForm, { AddressData } from "@/components/restaurante/configuracoes/AddressForm";
+import AddressForm from "@/components/restaurante/configuracoes/AddressForm";
+import Button from "@/components/ui/Button";
+import { AddressData } from "@/lib/types/types";
+import Card from "@/components/ui/Card";
 
 export default function LocalizacaoPage() {
     const router = useRouter();
@@ -130,10 +133,11 @@ export default function LocalizacaoPage() {
     return (
         <main className="flex flex-col items-center justify-start pt-4 pb-12">
             <AddressForm 
-                initialData={initialData} 
-                onSubmit={handleSave} 
-                isLoading={isSaving} 
-            />
+                initialData={initialData}
+                onSubmit={handleSave}
+                isLoading={isSaving} onValidityChange={function (isValid: boolean): void {
+                    throw new Error("Function not implemented.");
+                } }            />
         </main>
     );
 }
