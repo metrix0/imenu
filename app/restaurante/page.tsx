@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import {useEffect, useState} from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useCreationStore } from "@/lib/creationStore";
@@ -8,6 +8,10 @@ import { supabase } from "@/lib/supabaseClient";
 import Card from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
+import Tooltip from "@/components/ui/Tooltip";
+import BonusButton from "@/components/ui/BonusButton";
+import "@/app/reveal.css"
+
 
 export default function RestaurantRegistrationPage() {
   const router = useRouter();
@@ -21,8 +25,19 @@ export default function RestaurantRegistrationPage() {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [isPhoneFocused, setIsPhoneFocused] = useState(false);
+    const [restCount, setRestCount] = useState<number>(0);
+
+
+    useEffect(() => {
+        (async () => {
+            const totalBonus = 30 + 10 //+10 for test restaurants
+            setRestCount(totalBonus - ((await fetch("/api/restaurants/count").then(r => r.json())).count))
+            setRestCount(15)
+        })();
+    }, []);
 
   // Validações
+
   const isValid = 
     email.includes("@") && 
     email.includes(".") && 
@@ -104,85 +119,137 @@ export default function RestaurantRegistrationPage() {
     }
   };
 
+    useEffect(() => {
+        if(!restCount) return
+        const els = document.querySelectorAll(".reveal");
+
+        const obs = new IntersectionObserver(
+            entries => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add("visible");
+                        obs.unobserve(entry.target); // animate once
+                    }
+                });
+            },
+            { threshold: 0.5 }
+        );
+
+        els.forEach(el => obs.observe(el));
+    }, [restCount]);
+
   return (
     <div className="min-h-screen flex flex-col bg-white">
-      <header className="w-full border-b border-gray-200 px-2 py-7 flex items-center justify-between sticky top-0 bg-white z-10">
+      <header className="w-full px-2 py-6 flex items-center justify-between top-0 bg-white z-10">
         <div className="relative h-6 w-32 ml-4">
-            <Image src="/logo-full.png" alt="iMenu Logo" fill className="object-contain object-left" />
+            <Image src="/logos/CombinationMarkLogo_Brand.png" alt="iMenu Logo" fill className="object-contain object-left" />
         </div>
       </header>
 
-      <main className="flex-1 flex flex-col items-center justify-start pt-8 px-4 pb-24 sm:pt-16">
-        <Card className="w-full max-w-2xl space-y-8 p-8 border border-gray-200 shadow-sm">
-          <div className="text-center space-y-2">
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Crie seu Cardápio Digital</h1>
-            <p className="text-base text-gray-500">Preencha seus dados para começar de graça.</p>
-          </div>
 
-          <div className="space-y-6">
-            <Input 
-                label="E-mail*" 
-                placeholder="seu@email.com" 
-                type="email"
-                value={email} 
-                onChange={(e) => setEmail(e.target.value)} 
-            />
+        <div className="relative flex justify-center w-full min-h-screen px-4 py-10">
 
-            <Input 
-                label="Nome completo*" 
-                placeholder="Nome Sobrenome" 
-                value={fullName} 
-                onChange={(e) => setFullName(e.target.value)} 
-            />
-            
-            <Input 
-                label="Celular (WhatsApp)*" 
-                placeholder={isPhoneFocused ? "(__) _____-____" : "(00) 00000-0000"} 
-                type="tel" 
-                value={phone} 
-                onChange={handlePhoneChange} 
-                onFocus={() => setIsPhoneFocused(true)} 
-                onBlur={() => setIsPhoneFocused(false)} 
-                maxLength={15} 
-            />
-            
-            <div>
-                <Input 
-                    label="Senha*" 
-                    placeholder="Crie uma senha segura" 
-                    type="password" 
-                    value={password} 
-                    onChange={(e) => setPassword(e.target.value)} 
-                />
-                <p className="text-xs text-gray-400 pt-1">Mínimo de 6 caracteres.</p>
-            </div>
-            
-            {errorMsg && (
-                <div className="p-3 bg-red-50 border border-red-100 rounded-md text-sm text-red-600 text-center">
-                    {errorMsg}
+            {/* LEFT BONUS CARD */}
+            {restCount > 0 && (
+                <div className="reveal fade-up absolute left-18 top-1/2 -translate-y-1/2 ">
+                    <div className="opacity-95 text-white max-w-80 space-y-2 p-6 border bg-text border-gray-950 rounded-xl shadow-sm">
+                        <BonusButton className="!pr-8 pl-6  border-1">
+                            <span className="font-medium">BÔNUS</span>
+                        </BonusButton>
+
+                        <p className="text-sm font-light p-2 leading-tight">
+                            <b>Para os próximos {restCount} restaurantes que se cadastrarem:</b>
+                            <br/>
+                            <span className="mt-3 block">
+          Consultoria grátis de 30 minutos com time que já assessorou 1M+/mês.
+        </span>
+                        </p>
+                    </div>
                 </div>
             )}
-          </div>
-        </Card>
-      </main>
 
-      <footer className="fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 px-6 py-4">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <div className="flex-1"></div> 
-          
-          <div className={`w-auto ${!isValid ? "cursor-not-allowed" : ""}`}>
-            <Button
-                variant={!isValid ? "secondary" : "primary"}
-                loading={loading}
-                disabled={!isValid}
-                onClick={handleRegister}
-                className="min-w-[160px] disabled:pointer-events-none disabled:opacity-50"
-            >
-                {isValid ? "Criar Conta Grátis" : "Preencha os dados"}
-            </Button>
-          </div>
+            {/* MAIN EXACT CENTER */}
+            <main className="flex flex-col items-center justify-start flex-1 max-w-lg">
+                <Card className="w-full space-y-6 p-8 border border-gray-200 shadow-sm">
+                    <div className="text-center space-y-0">
+                        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
+                            Crie seu Cardápio Digital
+                        </h1>
+                    </div>
+
+                    <div className="space-y-5">
+                        <Input
+                            label="E-mail*"
+                            placeholder="seu@email.com"
+                            type="email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                        />
+
+                        <Input
+                            label="Nome*"
+                            placeholder="Nome Sobrenome"
+                            value={fullName}
+                            onChange={(e) => setFullName(e.target.value)}
+                        />
+
+                        <div>
+                            <Input
+                                label="Celular (WhatsApp)*"
+                                placeholder={isPhoneFocused ? "(__) _____-____" : "(00) 00000-0000"}
+                                type="tel"
+                                value={phone}
+                                onChange={handlePhoneChange}
+                                onFocus={() => setIsPhoneFocused(true)}
+                                onBlur={() => setIsPhoneFocused(false)}
+                                maxLength={15}
+                            />
+                            <p className="text-xs text-gray-400 pt-1">
+                                Usado apenas para suporte e casos de emergência.
+                            </p>
+                        </div>
+
+                        <div>
+                            <Input
+                                label="Senha*"
+                                placeholder="Crie uma senha segura"
+                                type="password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                            />
+                            <p className="text-xs text-gray-400 pt-1">Mínimo de 6 caracteres.</p>
+                        </div>
+
+                        {errorMsg && (
+                            <div className="p-3 bg-red-50 border border-red-100 rounded-md text-sm text-red-600 text-center">
+                                {errorMsg}
+                            </div>
+                        )}
+                    </div>
+                </Card>
+
+                <div className="mt-6">
+                    <div className={`w-auto ${!isValid ? "cursor-not-allowed" : ""}`}>
+                        <Tooltip
+                            text="Preencha os dados obrigatórios"
+                            className={isValid ? "!hidden" : ""}
+                        >
+                            <Button
+                                variant={!isValid ? "secondary" : "primary"}
+                                loading={loading}
+                                disabled={!isValid}
+                                onClick={handleRegister}
+                                className="min-w-[220px] disabled:pointer-events-none disabled:opacity-50"
+                            >
+                                Criar Conta Grátis
+                            </Button>
+                        </Tooltip>
+                    </div>
+                </div>
+            </main>
         </div>
-      </footer>
+
+
     </div>
   );
 }

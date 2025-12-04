@@ -17,8 +17,6 @@ oq falamos, meus arquivos deram problema
 
 ## Joao
 
-- acessar dashboard direto da landingpage
-- finalizar landing page
 - fazer o cookie de voltar no pedido só aperecer pra mesma loja
 - average delivery time being taken from both cells in the table, and not from the average from the delivery json
 - escolha até 1 no menu item details
@@ -27,7 +25,7 @@ oq falamos, meus arquivos deram problema
 - só deixar no max 10 restaurantes na DB
 - domínio
 
-- update cart modal upon geolocation function from rafa
+- update cart modal upon geolocation function from rafa + colocar placeholder.png item ao dicionar novo item
 
 RAF
 - ao inserir cep, automaticamente já calcuala a taxa (sem botão) (testar com autofill)
@@ -177,6 +175,7 @@ DATABASE
 - Instructions: Make it so the menu system itself give next instructions for it's admins, like "add a video to this best selling product to get ~15% more sales!" <- this step is very hard to implement, includes 1. WE gotta know what they have to do and 2. NOT filling them with multiple tasks, make it zero friction a the start and then keep adding new tasks
 - Delivery Fee BEFORE CEP -> currently it's after CEP, make it before, with location APIs.
 - Advanced Admin Dashboard
+- add upper search bar with categories tabs upon scrolling down on digital menu (jsutr like ifood)
 - otimizar registro (só email) - make /restaurante -> /restaurante/registrar (apenas email) -> /restaurante/criar/... -> /criar/info
 - handle all payments on website only (no webhook, no other pages) using API.
 - All the Kitchen/Counter Staff user Stories + integration with FAX and printers (recibo, papelzinho do pedido na cozinha, etc) <- hard
@@ -187,6 +186,7 @@ DATABASE
 - Marketplace: Be able to display all stores in a search with filters.
 - separate imenu.com and portal.imenu.com
 - integration tests
+- safely increase google API geocoding limits + also track errors in usage
 - add a guide on how to add the imenu link to google maps restaurant gmb (how can they share the link better)
 - Live Notifications of orders on whatsapp or app
 

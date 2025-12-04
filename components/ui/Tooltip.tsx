@@ -98,7 +98,7 @@ export default function Tooltip({
 
     return (
         <div
-            className={`relative inline-block ${className}`}
+            className={`relative inline-block`}
             onMouseEnter={safeShow}
             onMouseLeave={safeHide}
         >

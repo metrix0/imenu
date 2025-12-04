@@ -235,14 +235,15 @@ export default function ItemModal({
 
                                             <div className="flex items-center">
                                                 {isSingle ? (
-                                                    <FontAwesomeIcon
-                                                        icon={icons.faCircle}
-                                                        className={
+                                                    <span
+                                                        className={`w-7 h-7 rounded-full border flex items-center justify-center ${
                                                             isSelected
-                                                                ? "text-brand text-lg"
-                                                                : "text-gray-400 text-lg"
-                                                        }
-                                                    />
+                                                                ? "border-brand bg-brand text-white"
+                                                                : "border-gray-300 bg-gray-100 text-gray-400"
+                                                        }`}
+                                                    >
+                                                        <FontAwesomeIcon icon={icons.faCheck} className={"text-xs"}/>
+                                                    </span>
                                                 ) : (
                                                     <span
                                                         className={`w-7 h-7 rounded-full border flex items-center justify-center ${
