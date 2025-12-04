@@ -10,7 +10,7 @@ import {
 import Input from "@/components/ui/Input";
 import { fetchAddressByCEP, fetchCoordinates, fetchAddressByCoordinates } from "@/lib/geocoding";
 
-import { AddressData } from "@/lib/types";
+import { AddressData } from "@/lib/types/types";
 import Button from "@/components/ui/Button";
 
 interface AddressFormProps {
