@@ -69,7 +69,7 @@ export default function TempoETaxaPage() {
             await rulesRef.current.save();
             
             // Redireciona após salvar
-            //router.push("/restaurante/criar/disponibilidade");
+            router.push("/restaurante/criar/disponibilidade");
         } catch (error) {
             console.error("Erro ao salvar:", error);
         } finally {

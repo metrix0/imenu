@@ -118,7 +118,7 @@ export default function LocalizacaoPage() {
     }
 
     return (
-        <main className="flex flex-col items-center justify-start pt-4 pb-12">
+        <main className="flex flex-col items-center justify-start pt-4 pb-30">
             <AddressForm 
                 initialData={initialData}
                 onSubmit={handleSave}
