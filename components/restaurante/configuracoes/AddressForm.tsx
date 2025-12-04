@@ -2,39 +2,15 @@
 
 import { useState, useEffect } from "react";
 import Input from "@/components/ui/Input";
+import { fetchAddressByCEP, fetchCoordinates, fetchAddressByCoordinates } from "@/lib/geocoding";
 
-export type AddressData = {
-    cep: string;
-    state: string;
-    city: string;
-    neighborhood: string;
-    street: string;
-    number: string;
-    complement: string;
-    latitude: number | null;
-    longitude: number | null;
-};
+import { AddressData } from "@/lib/types";
 
 interface AddressFormProps {
     initialData?: Partial<AddressData>;
     onSubmit: (data: AddressData) => Promise<void>;
-    // Nova prop para comunicar validade ao pai
     onValidityChange: (isValid: boolean) => void;
 }
-
-type CepApiResponse = {
-    cep: string;
-    state: string;
-    city: string;
-    neighborhood: string;
-    street: string;
-    location?: {
-        coordinates: {
-            longitude: string;
-            latitude: string;
-        };
-    };
-};
 
 export default function AddressForm({ 
     initialData, 
@@ -55,16 +31,12 @@ export default function AddressForm({
     const [isFetchingCep, setIsFetchingCep] = useState(false);
     const [errorMsg, setErrorMsg] = useState("");
 
-    // 1. Lógica de Validação
-    // Verifica se todos os campos obrigatórios estão preenchidos
     const isValid = !!(cep && state && city && neighborhood && street && number);
 
-    // 2. Notifica o componente pai sempre que a validade mudar
     useEffect(() => {
         onValidityChange(isValid);
     }, [isValid, onValidityChange]);
 
-    // Atualiza estados locais quando initialData muda (ex: carregamento do banco)
     useEffect(() => {
         if (initialData) {
             setCep(initialData.cep || "");
@@ -87,21 +59,29 @@ export default function AddressForm({
         setErrorMsg("");
 
         try {
-            const response = await fetch(`https://brasilapi.com.br/api/cep/v1/${cleanCep}`);
-            if (!response.ok) throw new Error("CEP não encontrado.");
+            // 1. Busca dados do CEP
+            const address = await fetchAddressByCEP(cleanCep);
+            if (!address) throw new Error("CEP não encontrado.");
 
-            const data: CepApiResponse = await response.json();
+            setState(address.state);
+            setCity(address.city);
+            setNeighborhood(address.neighborhood);
+            setStreet(address.street);
 
-            setState(data.state);
-            setCity(data.city);
-            setNeighborhood(data.neighborhood);
-            setStreet(data.street);
-
-            if (data.location?.coordinates?.latitude) {
-                setLatitude(parseFloat(data.location.coordinates.latitude));
-                setLongitude(parseFloat(data.location.coordinates.longitude));
+            // 2. Se a API de CEP não trouxe lat/lon, busca no Nominatim via endereço completo
+            if (address.latitude && address.longitude) {
+                setLatitude(address.latitude);
+                setLongitude(address.longitude);
             } else {
-                await fetchCoordinates(`${data.street}, ${data.neighborhood}, ${data.city} - ${data.state}, Brasil`);
+                const fullAddr = `${address.street}, ${address.neighborhood}, ${address.city} - ${address.state}, Brasil`;
+                const coords = await fetchCoordinates(fullAddr);
+                if (coords) {
+                    setLatitude(coords.latitude);
+                    setLongitude(coords.longitude);
+                } else {
+                    setLatitude(null);
+                    setLongitude(null);
+                }
             }
 
         } catch (err) {
@@ -109,25 +89,6 @@ export default function AddressForm({
             setErrorMsg("Erro ao buscar CEP. Preencha manualmente.");
         } finally {
             setIsFetchingCep(false);
-        }
-    };
-
-    const fetchCoordinates = async (fullAddress: string) => {
-        try {
-            const geoResponse = await fetch(
-                `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(fullAddress)}`
-            );
-            const geoData = await geoResponse.json();
-
-            if (geoData && geoData.length > 0) {
-                setLatitude(parseFloat(geoData[0].lat));
-                setLongitude(parseFloat(geoData[0].lon));
-            } else {
-                setLatitude(null);
-                setLongitude(null);
-            }
-        } catch (e) {
-            console.error("Error fetching coords", e);
         }
     };
 
@@ -147,19 +108,15 @@ export default function AddressForm({
                 setLongitude(lon);
 
                 try {
-                    const response = await fetch(
-                        `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`
-                    );
-                    if (!response.ok) throw new Error("Erro ao obter endereço.");
+                    const address = await fetchAddressByCoordinates(lat, lon);
+                    if (!address) throw new Error("Endereço não encontrado.");
 
-                    const data = await response.json();
-                    const addr = data.address || {};
-
-                    setStreet(addr.road || "");
-                    setNeighborhood(addr.suburb || addr.neighbourhood || "");
-                    setCity(addr.city || addr.town || addr.village || "");
-                    setState(addr.state || "");
-                    setCep(addr.postcode || "");
+                    setStreet(address.street);
+                    setNeighborhood(address.neighborhood);
+                    setCity(address.city);
+                    setState(address.state);
+                    setCep(address.cep);
+                    if(address.number) setNumber(address.number);
 
                 } catch (err) {
                     setErrorMsg("Não foi possível obter o endereço completo.");
@@ -182,7 +139,18 @@ export default function AddressForm({
         }
 
         if (!latitude || !longitude) {
-            setErrorMsg("Não conseguimos identificar a localização exata. Verifique o CEP.");
+            // Tenta uma última vez obter coordenadas antes de enviar
+            const fullAddr = `${street}, ${neighborhood}, ${city} - ${state}, Brasil`;
+            fetchCoordinates(fullAddr).then(coords => {
+                 if (coords) {
+                     onSubmit({
+                         cep, state, city, neighborhood, street, number, complement, 
+                         latitude: coords.latitude, longitude: coords.longitude
+                     });
+                 } else {
+                     setErrorMsg("Não conseguimos identificar a localização exata. Verifique o endereço.");
+                 }
+            });
             return;
         }
 
@@ -209,7 +177,6 @@ export default function AddressForm({
                 </button>
             </div>
 
-            {/* ID "address-form" ESSENCIAL para o botão externo funcionar */}
             <form id="address-form" onSubmit={handleSubmit} className="space-y-6">
                 <div className="relative">
                     <div className="flex justify-between items-center mb-1">
