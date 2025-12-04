@@ -161,7 +161,7 @@ export default function LandingPage() {
             <section className="py-15 px-8 h-[100vh]">
                 <h2 className="text-center text-4xl font-extrabold text-brand mb-13 reveal fade-up">
                     Totalmente Grátis<br/>
-                    <span className={"text-text"}>sem taxas ou pegadinhas</span>
+                    <span className={"text-text"}>sem taxas, sem pegadinhas</span>
                 </h2>
 
                 <div className="max-w-6xl mx-auto flex flex-col md:flex-row gap-12">
@@ -214,8 +214,8 @@ export default function LandingPage() {
                             </div>
                             <div className="flex flex-col gap-12 w-[43%] ml-3  justify-center z-40">
                                 <div>
-                                    <h3 className="text-lg font-bold mb-1">+30% Estatística</h3>
-                                    <p className="text-gray-500">Em 1 mês com o cardápio digital.</p>
+                                    <h3 className="text-lg font-bold mb-1">Venda sem taxas</h3>
+                                    <p className="text-gray-500">Receba 100% do valor que você vendeu.</p>
                                 </div>
                                 <div>
                                     <h3 className="text-lg font-bold mb-1">Criado em 5 minutos</h3>
@@ -248,11 +248,11 @@ export default function LandingPage() {
             {/* ================= SECTION 3 ================= */}
             <section id={"recursos"} className="max-w-6xl mx-auto px-8 py-20">
                 <h2 className="text-4xl font-extrabold text-brand mb-3 reveal fade-left">
-                    Em média, mais 30% pedidos
-                    <br/><span className={"text-text"}>em 3 meses</span>
+                    Venda mais com iMenu
+                    <br/><span className={"text-text"}>e lucre mais</span>
                 </h2>
                 <p className="text-gray-500 mb-18 max-w-xl reveal fade-left delay-200">
-                    Baseado em X restaurantes cadastrados.
+                    Compare os benefícios entre o iMenu e outros cardápios digitais:
                 </p>
 
                 {/* Table */}
@@ -261,7 +261,7 @@ export default function LandingPage() {
                         <thead className="text-left border-b border-gray-200">
                         <tr className="bg-gray-100">
                             <th className="p-4 font-medium border-r border-gray-200">Recursos</th>
-                            <th className="p-4 font-medium border-r border-gray-200"><img src={"logo-full-black.png"} className="w-18 opacity-80"/></th>
+                            <th className="p-4 font-medium border-r border-gray-200"><img src={"/logos/CombinationMarkLogo_Black.png"} className="w-18 opacity-70"/></th>
                             <th className="p-4 font-medium">Concorrentes</th>
                         </tr>
                         </thead>
