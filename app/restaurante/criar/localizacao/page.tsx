@@ -6,9 +6,7 @@ import { useRouter } from "next/navigation";
 import { useCreationStore } from "@/lib/creationStore";
 import { supabase } from "@/lib/supabaseClient"; 
 import AddressForm from "@/components/restaurante/configuracoes/AddressForm";
-import Button from "@/components/ui/Button";
 import { AddressData } from "@/lib/types/types";
-import Card from "@/components/ui/Card";
 
 export default function LocalizacaoPage() {
     const router = useRouter();
@@ -22,12 +20,9 @@ export default function LocalizacaoPage() {
     useEffect(() => {
         const loadData = async () => {
             try {
-                // 1. Tenta pegar a sessão, mas não bloqueia se não existir
                 const { data: { session } } = await supabase.auth.getSession();
                 const user = session?.user;
 
-                // Se já temos o ID na memória (Zustand), garantimos que ele seja o localRestaurantId
-                // Isso previne o erro caso a busca no banco falhe.
                 if (restaurantId) {
                     setLocalRestaurantId(restaurantId);
                 }
@@ -36,31 +31,24 @@ export default function LocalizacaoPage() {
                     .from("restaurants")
                     .select("id, address, latitude, longitude");
 
-                // Lógica de busca:
                 if (user) {
                     query = query.eq("user_id", user.id);
                 } else if (restaurantId) {
                     query = query.eq("id", restaurantId);
                 } else {
-                    // Sem user e sem ID no store -> Não tem o que fazer, apenas libera o loading
                     setIsLoadingData(false);
                     return;
                 }
 
-                // ALTERAÇÃO IMPORTANTE: .maybeSingle() em vez de .single()
-                // .single() estoura erro se não achar nada ou se der erro de permissão.
-                // .maybeSingle() retorna null data sem estourar erro de "0 rows".
                 const { data, error } = await query.maybeSingle();
 
                 if (error) {
-                    // Apenas logamos como warn, pois já definimos o ID ali em cima via store
-                    console.warn("Não foi possível carregar dados prévios (normal se for cadastro novo):", error.message);
+                    console.warn("Aviso: ", error.message);
                 }
 
                 if (data) {
-                    // Se achou dados no banco, atualiza o estado
                     setLocalRestaurantId(data.id);
-                    setRestaurantId(data.id); // Sincroniza store
+                    setRestaurantId(data.id);
 
                     const addressJson = data.address as unknown as Partial<AddressData>;
                     
@@ -84,7 +72,6 @@ export default function LocalizacaoPage() {
 
 
     const handleSave = async (data: AddressData) => {
-        // Usa o ID local ou o do store como fallback
         const targetId = localRestaurantId || restaurantId;
 
         if (!targetId) {
@@ -135,9 +122,12 @@ export default function LocalizacaoPage() {
             <AddressForm 
                 initialData={initialData}
                 onSubmit={handleSave}
-                isLoading={isSaving} onValidityChange={function (isValid: boolean): void {
-                    throw new Error("Function not implemented.");
-                } }            />
+                // CORREÇÃO AQUI: Passamos isSaving para o loading
+                isLoading={isSaving} 
+                // CORREÇÃO AQUI: Função vazia para não quebrar o app, 
+                // já que o botão está dentro do form e se auto-gerencia.
+                onValidityChange={() => {}}            
+            />
         </main>
     );
 }
