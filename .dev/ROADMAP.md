@@ -22,13 +22,12 @@ oq falamos, meus arquivos deram problema
 - fazer o cookie de voltar no pedido só aperecer pra mesma loja
 - average delivery time being taken from both cells in the table, and not from the average from the delivery json
 - escolha até 1 no menu item details
+- items no cardapio sem image
 
+- só deixar no max 10 restaurantes na DB
 - domínio
 
 - update cart modal upon geolocation function from rafa
-
-- separar database entre menu e restaurante (usuario e dono)
-- ifood sync
 
 RAF
 - ao inserir cep, automaticamente já calcuala a taxa (sem botão) (testar com autofill)
@@ -47,6 +46,7 @@ RAF
 
 DATABASE
 - DUPLICAÇÃO EM MENU-ITEMS em posição
+- separar database entre menu e restaurante (usuario e dono)
 
  
 
@@ -167,6 +167,7 @@ DATABASE
 - Test client side routing (no refresh on page changes)
 
 ## Feature List for Next Versions (Future)
+- !!! ifood sync
 - facilitar p usuario colocar foto (cortar, etc), falar resoluão dos banners, etc
 - melhorar sessões de usuários, cookies, zustand, etc
 - Create multiple accounts with different levels, like admin, counter, kitchen, etc

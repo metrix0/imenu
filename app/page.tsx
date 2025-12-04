@@ -1,24 +1,71 @@
 "use client";
 
+import { useRouter } from 'next/navigation';
+import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { icons } from "@/lib/fontawesome";
 import BonusButton from "@/components/ui/BonusButton";
 import Button from "@/components/ui/Button";
-import { useState } from "react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faUser } from "@fortawesome/free-solid-svg-icons";
-import { faClock } from "@fortawesome/free-solid-svg-icons";
-import { icons } from "@/lib/fontawesome";
 import Tooltip from "@/components/ui/Tooltip";
-import Footer from "@/components/Footer";
+import Footer from "@/components/common/Footer";
+import "@/app/reveal.css"
 
 export default function LandingPage() {
     // SECTION 2 – troca de imagem
     const logos = [
-        { id: 1, name: "Logo 1", src: "/imenu.png", second_src:"/iMenu MENU.png" },
-        { id: 2, name: "Logo 2", src: "/imenu.png", second_src:"/iMenu MENU.png" },
-        { id: 3, name: "Logo 3", src: "/imenu.png", second_src:"/iMenu MENU.png" },
+        { id: 1, name: "Logo 1", src: "/images/Menu_Mockup_Logo_3.png", second_src:"/images/Menu_Mockup_3.png" },
+        { id: 2, name: "Logo 1", src: "/images/Menu_Mockup_Logo_2.png", second_src:"/images/Menu_Mockup_2.png" },
+        { id: 3, name: "Logo 1", src: "/images/Menu_Mockup_Logo_1.png", second_src:"/images/Menu_Mockup_1.png" },
     ];
     const [selected, setSelected] = useState(1);
+    const [restCount, setRestCount] = useState<number>(0);
+    let shouldRun = useRef<boolean>(true);
+    const router = useRouter();
+
+    useEffect(() => {
+        (async () => {
+            const totalBonus = 30 + 10 //+10 for test restaurants
+            setRestCount(totalBonus - ((await fetch("/api/restaurants/count").then(r => r.json())).count))
+            setRestCount(15)
+        })();
+    }, []);
+
+    useEffect(() => {
+        const els = document.querySelectorAll(".reveal");
+
+        const obs = new IntersectionObserver(
+            entries => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add("visible");
+                        if(entry.target.id === "logos"){
+                            setTimeout(() => autoPassLogos(), 4500)
+                        }
+                        obs.unobserve(entry.target); // animate once
+                    }
+                });
+            },
+            { threshold: 0.5 }
+        );
+
+        els.forEach(el => obs.observe(el));
+    }, []);
+
+    function autoPassLogos(delay = 4500) {
+        let currentIndex = logos.findIndex((l) => l.id === selected);
+        if (currentIndex === -1) currentIndex = 0;
+
+        function step() {
+            if(!shouldRun.current) return
+            currentIndex = (currentIndex + 1) % logos.length; // always forward
+            setSelected(logos[currentIndex].id);
+            setTimeout(step, delay);
+        }
+        if(!shouldRun.current) return
+
+        step();
+    }
 
     return (
         <div className="w-full">
@@ -29,29 +76,33 @@ export default function LandingPage() {
                 <div className="flex items-center gap-2 text-xl font-bold text-brand">
                     {/* Logo placeholder */}
                     <Image
-                        src="/logo-full.png"
+                        src="/logos/CombinationMarkLogo_Brand.png"
                         alt="iMenu Logo"
                         width={120}
                         height={32}
                         className="h-6 w-auto ml-4 cursor-pointer"
+                        onClick={() => router.push("#")}
                     />
                 </div>
 
                 {/* Right */}
                 <nav className="flex items-center gap-8 text-sm font-medium">
                     <a href="#" className="hover:text-gray-500 transition">Home</a>
-                    <a href="#" className="hover:text-gray-500 transition">Recursos</a>
-                    <Tooltip text={<span>Para os próximos 26 restaurantes que se cadastrarem: Consultoria grátis de 30 minutos com time que já assessorou 1M+/mês. <u className={"cursor-pointer"}>Saiba mais</u></span>} size={"medium"} padding={"p-4"} position={"bottom"}><BonusButton><span className="inline-block"><span className={"text-[0.8rem]"}>BÔNUS</span> <span className="font-light">para prox. 26 restaurantes</span></span></BonusButton></Tooltip>
-
+                    <a href="#recursos" className="hover:text-gray-500 transition">Recursos</a>
+                    {restCount >= 0 && (
+                        <Tooltip text={<span>Para os próximos {restCount} restaurantes que se cadastrarem: Consultoria grátis de 30 minutos com time que já assessorou 1M+/mês. <u className={"cursor-pointer"} onClick={() => router.push("/restaurante/registrar")}>Cadastre-se agora</u></span>} size={"medium"} padding={"p-4"} position={"bottom"}>
+                            <BonusButton><span className="inline-block"><span className={"text-[0.8rem]"}>BÔNUS</span> <span className="font-light">para prox. {restCount} restaurantes</span></span></BonusButton>
+                        </Tooltip>
+                    )}
 
                     <div className="w-[1px] h-6 bg-gray-300" />
 
-                    <a href="#" className="flex items-center gap-1 hover:text-gray-500 transition text-gray-600">
-                        <FontAwesomeIcon icon={faUser} />
+                    <a onClick={() => router.push("/restaurante/login")} className="cursor-pointer flex items-center gap-1 hover:text-gray-500 transition text-gray-600">
+                        <FontAwesomeIcon icon={icons.faUser} />
                         Login
                     </a>
 
-                    <Button variant="primary">
+                    <Button variant="primary" onClick={() => router.push("/restaurante/registrar")}>
                         Registrar Grátis
                     </Button>
                 </nav>
@@ -69,17 +120,26 @@ export default function LandingPage() {
 
                     <p className="text-gray-500 leading-15">
                         Sem taxas, sem mensalidades, sem pegadinhas.{" "}
-                        <a className="underline">Para sempre.</a>
+                        <Tooltip text={"O iMenu é completamente grátis, para sempre."} position={"right"}><a href={"#recursos"} className="underline cursor-pointer">Para sempre.</a></Tooltip>
                     </p>
                     <p className="text-gray-500">Seu cardápio online em 5 minutos.</p>
 
                     <div className="flex items-center gap-4 mt-6">
-                        <Button variant="primary" className="px-6 py-3 text-lg">
+                        <Button variant="primary" onClick={() => router.push("/restaurante/registrar")} className="px-6 py-3 text-lg">
                             Registrar Grátis
                         </Button>
+                        {restCount >= 0 && (
+                            <Tooltip text={<span>Para os próximos {restCount} restaurantes que se cadastrarem: Consultoria grátis de 30 minutos com time que já assessorou 1M+/mês. <u className={"cursor-pointer"} onClick={() => router.push("/restaurante/registrar")}>Cadastre-se agora</u></span>} size={"medium"} padding={"p-4"} position={"bottom"}><BonusButton><span className="font-regular text-xs">BÔNUS</span></BonusButton></Tooltip>
+                        )}
+                        <div className="w-[1px] h-6 bg-gray-300" />
 
-                        <Tooltip text={<span>Para os próximos 26 restaurantes que se cadastrarem: Consultoria grátis de 30 minutos com time que já assessorou 1M+/mês. <u className={"cursor-pointer"}>Saiba mais</u></span>} size={"medium"} padding={"p-4"} position={"right"}><BonusButton><span className="font-regular text-xs">BÔNUS</span></BonusButton></Tooltip>
+                        <a onClick={() => router.push("/restaurante/login")} className="cursor-pointer flex items-center gap-1 hover:text-gray-500 transition text-gray-600">
+                            <FontAwesomeIcon icon={icons.faUser} />
+                            Login
+                        </a>
+
                     </div>
+
                 </div>
                 {/* Right – Video placeholder (image) */}
                 <div className="flex items-center justify-center">
@@ -99,34 +159,34 @@ export default function LandingPage() {
 
             {/* ================= SECTION 2 ================= */}
             <section className="py-15 px-8 h-[100vh]">
-                <h2 className="text-center text-4xl font-extrabold text-brand mb-16">
+                <h2 className="text-center text-4xl font-extrabold text-brand mb-13 reveal fade-up">
                     Totalmente Grátis<br/>
                     <span className={"text-text"}>sem taxas ou pegadinhas</span>
                 </h2>
 
-                <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-12">
+                <div className="max-w-6xl mx-auto flex flex-col md:flex-row gap-12">
 
                     {/* LEFT – Logos + Image */}
-                    <div className="flex gap-6 items-start h-[55vh]">
+                    <div className="flex gap-10 items-start h-[63vh] flex-1">
 
                         {/* Logos */}
-                        <div className="h-[100%] flex flex-col gap-5 pt-4 items-center justify-center">
+                        <div id={"logos"} className="reveal fade-up h-[100%] flex flex-col gap-5 pt-4 items-center justify-center">
                             {logos.map((l) => (
                                 <button
                                     key={l.id}
                                     onClick={() => setSelected(l.id)}
                                     className={`transition rounded-full p-1 ${
-                                        selected === l.id ? "scale-115 opacity-100" : "opacity-30"
+                                        selected === l.id ? "scale-115 opacity-100" : "opacity-66"
                                     }`}
                                 >
-                                    <div className="cursor-pointer w-12 h-12 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center">
+                                    <div onClick={() => shouldRun.current = false} className="cursor-pointer w-12 h-12 rounded-full  hover:scale-110 duration-200 overflow-hidden bg-gray-200 flex items-center justify-center">
                                         <Image
                                             src={l.src}
                                             alt={l.name}
                                             width={50}
                                             height={50}
                                             className={`w-full h-full object-contain transition ${
-                                                selected === l.id ? "grayscale-0" : "grayscale"
+                                                selected === l.id ? "grayscale-0" : "grayscale-50"
                                             }`}                                        />
                                     </div>
                                 </button>
@@ -134,33 +194,35 @@ export default function LandingPage() {
                         </div>
 
                         {/* Main image */}
-                        <div className="flex-1 flex gap-6 relative h-full">
-                            <div
-                                key={selected}
-                                className="
-            relative h-[100%] rounded-xl overflow-hidden
-            animate-fadeUp drop-shadow-[-5px_5px_5px_rgba(0,0,0,0.15)]
-        "
-                            >
-                                <Image
-                                    src={logos.find(l => l.id === selected)?.second_src || "/iMenu Menu.png"}
-                                    alt="Preview do cardápio digital"
-                                    width={1080}
-                                    height={1920}
-                                    className="h-full w-auto"
-                                />
+                        <div className="reveal fade-right delay-300 flex-1 flex gap-8 relative h-full z-50">
+                            <div className={"w-[45%]"}>
+                                <div
+                                    key={selected}
+                                    className="
+                relative h-[100%]
+                animate-fadeUp
+            "
+                                >
+                                    <Image
+                                        src={logos.find(l => l.id === selected)?.second_src || "/iMenu Menu.png"}
+                                        alt="Preview do cardápio digital"
+                                        width={1080}
+                                        height={1920}
+                                        className="h-full w-auto drop-shadow-[0px_5px_5px_rgba(0,0,0,0.1)] rounded-xl"
+                                    />
+                                </div>
                             </div>
-                            <div className="flex flex-col gap-12 w-[50%] ml-3">
+                            <div className="flex flex-col gap-12 w-[43%] ml-3  justify-center z-40">
                                 <div>
-                                    <h3 className="text-xl font-bold mb-1">+30% Estatística</h3>
+                                    <h3 className="text-lg font-bold mb-1">+30% Estatística</h3>
                                     <p className="text-gray-500">Em 1 mês com o cardápio digital.</p>
                                 </div>
                                 <div>
-                                    <h3 className="text-xl font-bold mb-1">Criado em 5 minutos</h3>
-                                    <p className="text-gray-500">A Inteligência Artificial reconhece a foto do seu cardápio.</p>
+                                    <h3 className="text-lg font-bold mb-1">Criado em 5 minutos</h3>
+                                    <p className="text-gray-500 z-50">A <Tooltip className={"z-50"} text={"Nossa IA realiza o scan da foto ou PDF do seu cardápio."} position={"right"}><u className={"cursor-pointer"}>Inteligência Artificial</u></Tooltip> reconhece a foto do seu cardápio.</p>
                                 </div>
 
-                                <Button variant="primary" className="px-6 py-3 text-lg">
+                                <Button variant="primary" onClick={() => router.push("/restaurante/registrar")} className="px-6 py-3 text-lg mb-3">
                                     Registrar Grátis
                                 </Button>
 
@@ -169,14 +231,14 @@ export default function LandingPage() {
                     </div>
 
                     {/* RIGHT – Big image */}
-                    <div className="flex items-center justify-center relative h-[55vh]">
-                        <div className="relative h-full overflow-hidden">
+                    <div className="flex items-center justify-center relative h-[63vh] flex-1 z-1">
+                        <div className="relative h-full w-full delay-500 reveal fade-left z-1">
                             <Image
                                 src="/images/MonitorGraph.png"
                                 alt="Destaque do painel e resultados"
                                 width={1080}
                                 height={1920}
-                                className="h-full w-auto"
+                                className="h-[105%] -mt-5 ml-7 w-auto z-1"
                             />
                         </div>
                     </div>
@@ -184,12 +246,12 @@ export default function LandingPage() {
             </section>
 
             {/* ================= SECTION 3 ================= */}
-            <section className="max-w-6xl mx-auto px-8 py-12">
-                <h2 className="text-4xl font-extrabold text-brand mb-3">
+            <section id={"recursos"} className="max-w-6xl mx-auto px-8 py-20">
+                <h2 className="text-4xl font-extrabold text-brand mb-3 reveal fade-left">
                     Em média, mais 30% pedidos
                     <br/><span className={"text-text"}>em 3 meses</span>
                 </h2>
-                <p className="text-gray-500 mb-18 max-w-xl">
+                <p className="text-gray-500 mb-18 max-w-xl reveal fade-left delay-200">
                     Baseado em X restaurantes cadastrados.
                 </p>
 
@@ -205,11 +267,13 @@ export default function LandingPage() {
                         </thead>
 
                         <tbody className="[&>tr:nth-child(even)]:bg-gray-50 [&>tr:nth-child(odd)]:">
+                        {restCount >= 0 && (
                         <tr >
-                            <td className="p-4 border-r border-gray-200 font-light"><BonusButton><span className={"inline-block"}><span className={"font-medium"}>BÔNUS</span> <span className={"font-light"}>para os prox. 26 restaurantes</span></span></BonusButton></td>
+                            <td className="p-4 border-r border-gray-200 font-light"><BonusButton className={"!cursor-text"}><span className={"inline-block"}><span className={"font-medium"}>BÔNUS</span> <span className={"font-light"}>para os prox. {restCount} restaurantes</span></span></BonusButton></td>
                             <td className="p-4 border-r border-gray-200 text-center leading-tight">Consultoria com time<br/> que já assessorou 1M+/mês</td>
                             <td className="p-4 border-r border-gray-200 text-center">-</td>
                         </tr>
+                        )}
                         <tr>
                             <td className="p-4 border-r border-gray-200 ">Totalmente grátis, para sempre</td>
                             <td className="p-4 border-r border-gray-200 text-center"><FontAwesomeIcon icon={icons.faCheck} className={"text-green"}/></td>
@@ -256,7 +320,11 @@ export default function LandingPage() {
                             <td className="p-4 border-r border-gray-200 text-center">5%, 15%, 30%</td>
                         </tr>
 
-
+                        <tr>
+                            <td className="p-4 border-r border-gray-200">Scan de Cardápio com IA</td>
+                            <td className="p-4 border-r border-gray-200 text-center"><Tooltip text={<span>Nossa IA realiza o Scan da foto ou PDF do seu cardápio.</span>}><u className={"cursor-pointer"}>Pronto em segundos</u></Tooltip></td>
+                            <td className="p-4 text-center">Manual</td>
+                        </tr>
                         <tr>
                             <td className="p-4 border-r border-gray-200">Fotos e Vídeos dos produtos</td>
                             <td className="p-4 border-r border-gray-200 text-center"><FontAwesomeIcon icon={icons.faCheck} className={"text-green"}/></td>
@@ -326,27 +394,27 @@ export default function LandingPage() {
 
                         <tr>
                             <td className="p-4 border-r border-gray-200">QR Code na mesa</td>
-                            <td className="p-4 border-r border-gray-200 text-center"><Tooltip text={<span>Funcionalidade em desenvolvimento.</span>} color={"bg-orange"}><FontAwesomeIcon icon={faClock}  className={"text-orange"}/></Tooltip></td>
+                            <td className="p-4 border-r border-gray-200 text-center"><Tooltip text={<span>Funcionalidade em desenvolvimento.</span>} color={"bg-orange"}><FontAwesomeIcon icon={icons.faClock}  className={"text-orange"}/></Tooltip></td>
                             <td className="p-4 text-center">Nem sempre disponível</td>
                         </tr>
                         <tr>
                             <td className="p-4 border-r border-gray-200">Cupons de desconto</td>
-                            <td className="p-4 border-r border-gray-200 text-center"><Tooltip text={<span>Funcionalidade em desenvolvimento.</span>} color={"bg-orange"}><FontAwesomeIcon icon={faClock} className={"text-orange"}/></Tooltip></td>
+                            <td className="p-4 border-r border-gray-200 text-center"><Tooltip text={<span>Funcionalidade em desenvolvimento.</span>} color={"bg-orange"}><FontAwesomeIcon icon={icons.faClock} className={"text-orange"}/></Tooltip></td>
                             <td className="p-4 text-center">Pouca customização</td>
                         </tr>
                         <tr>
                             <td className="p-4 border-r border-gray-200">Agendamento de pedido</td>
-                            <td className="p-4 border-r border-gray-200 text-center"><Tooltip text={<span>Funcionalidade em desenvolvimento.</span>} color={"bg-orange"}><FontAwesomeIcon icon={faClock} className={"text-orange"}/></Tooltip></td>
+                            <td className="p-4 border-r border-gray-200 text-center"><Tooltip text={<span>Funcionalidade em desenvolvimento.</span>} color={"bg-orange"}><FontAwesomeIcon icon={icons.faClock} className={"text-orange"}/></Tooltip></td>
                             <td className="p-4 text-center">Não</td>
                         </tr>
                         <tr>
                             <td className="p-4 border-r border-gray-200">Pedidos via Instagram / Facebook</td>
-                            <td className="p-4 border-r border-gray-200 text-center"><Tooltip text={<span>Funcionalidade em desenvolvimento.</span>} color={"bg-orange"}><FontAwesomeIcon icon={faClock} className={"text-orange"}/></Tooltip></td>
+                            <td className="p-4 border-r border-gray-200 text-center"><Tooltip text={<span>Funcionalidade em desenvolvimento.</span>} color={"bg-orange"}><FontAwesomeIcon icon={icons.faClock} className={"text-orange"}/></Tooltip></td>
                             <td className="p-4 text-center">Não</td>
                         </tr>
                         <tr>
                             <td className="p-4 border-r border-gray-200">Rastreio de Motoboy</td>
-                            <td className="p-4 border-r border-gray-200 text-center"><Tooltip text={<span>Funcionalidade em desenvolvimento.</span>} color={"bg-orange"}><FontAwesomeIcon icon={faClock} className={"text-orange"}/></Tooltip></td>
+                            <td className="p-4 border-r border-gray-200 text-center"><Tooltip text={<span>Funcionalidade em desenvolvimento.</span>} color={"bg-orange"}><FontAwesomeIcon icon={icons.faClock} className={"text-orange"}/></Tooltip></td>
                             <td className="p-4 text-center">Clientes ficam perdidos</td>
                         </tr>
                         <tr>

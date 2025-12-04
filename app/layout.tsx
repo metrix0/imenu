@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import "@/lib/fontawesome";
 import SupportButton from "@/components/SupportButton";
-import Footer from "@/components/Footer";
+import Footer from "@/components/common/Footer";
 import PosthogProvider from "@/components/PosthogProvider";
 
 export const metadata: Metadata = {

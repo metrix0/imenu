@@ -1,4 +1,4 @@
-interface BonusButtonProps {
+interface BonusButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
     children: React.ReactNode;
     shimmer?: boolean;
     color?: string;
@@ -8,9 +8,14 @@ export default function BonusButton({
                                         children,
                                         shimmer = true,
                                         color = "bg-green",
+                                        className,
+                                        ...props
                                     }: BonusButtonProps) {
     return (
-        <button className="bg-text text-white px-3 py-1 rounded-full text-sm font-medium cursor-pointer relative overflow-hidden flex items-center gap-2">
+        <button
+            className={`bg-text text-white px-3 py-1 rounded-full text-sm font-medium cursor-pointer relative overflow-hidden flex items-center gap-2 ${className ?? ""}`}
+            {...props}
+        >
             {/* Colored circle */}
             <span className={`w-3 h-3 rounded-full ${color}`} />
 

@@ -101,7 +101,6 @@ export default function Tooltip({
             className={`relative inline-block ${className}`}
             onMouseEnter={safeShow}
             onMouseLeave={safeHide}
-            {...rest}
         >
             {children}
 
@@ -116,10 +115,12 @@ export default function Tooltip({
                     ${sizeClasses}
                     ${tooltipClassName}
                     ${show ? showClasses : hideClasses}
+                    ${className}
                 `}
                 style={{ visibility: visible ? "visible" : "hidden" }}
                 onMouseEnter={safeShow}
                 onMouseLeave={safeHide}
+                {...rest}
             >
                 {text}
             </div>
