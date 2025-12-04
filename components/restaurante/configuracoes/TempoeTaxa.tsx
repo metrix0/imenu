@@ -23,11 +23,14 @@ type RadiusRule = {
 // Definindo o tipo de referência que o Pai vai acessar
 export type DeliveryRulesRef = {
     save: () => Promise<void>;
+    getRulesSnapshot: () => { rules: RadiusRule[]; minOrder: number };
 };
 
 type DeliveryRulesProps = {
     restaurantId: string;
     isNew: boolean;
+    initialRules?: any;
+    initialMinOrder?: any;
 };
 
 const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
@@ -51,12 +54,21 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
         const taxaRefs = useRef<Record<number, HTMLInputElement | null>>({});
 
         // ---------------------------------------------------
-        // EXPOSE SAVE FUNCTION TO PARENT
+        // EXPOSE FUNCTIONS TO PARENT
         // ---------------------------------------------------
         useImperativeHandle(ref, () => ({
             save: async () => {
-                await saveToDB(true); // Força o save mesmo se isNew
+                await saveToDB(true);
             },
+            getRulesSnapshot: () => {
+                const minOrderValue = minOrderRef.current
+                    ? parseFloat(minOrderRef.current.value) || 0
+                    : 0;
+                return {
+                    rules: rules,
+                    minOrder: minOrderValue
+                };
+            }
         }));
 
         // ---------------------------------------------------
@@ -134,13 +146,11 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
         };
 
         // ---------------------------------------------------
-        // REALTIME SYNC (verbose)
+        // REALTIME SYNC
         // ---------------------------------------------------
         useEffect(() => {
-            if (isNew) return; // realtime only in painel
+            if (isNew) return;
             if (!restaurantId) return;
-
-            console.log("[REALTIME] Subscribing to restaurant:", restaurantId);
 
             const channel = supabase
                 .channel(`realtime:restaurants:${restaurantId}`)
@@ -153,14 +163,7 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                         filter: `id=eq.${restaurantId}`,
                     },
                     (payload) => {
-                        console.log(
-                            "%c[REALTIME] UPDATE RECEIVED",
-                            "color: #22c55e; font-weight: bold;"
-                        );
-                        console.log(payload);
-
                         const d = payload.new;
-
                         if (d.delivery_fee_json) {
                             setRules(
                                 d.delivery_fee_json.map((r: any) => ({
@@ -170,62 +173,70 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                                 }))
                             );
                         }
-
                         if (d.min_order_cents != null && minOrderRef.current) {
                             minOrderRef.current.value = String(d.min_order_cents / 100);
                         }
                     }
                 )
-                .subscribe((status) => {
-                    console.log("[REALTIME] Subscription status:", status);
-                });
+                .subscribe();
 
             return () => {
-                console.log("[REALTIME] Unsubscribing channel.");
                 supabase.removeChannel(channel);
             };
         }, [restaurantId, isNew]);
 
         // ---------------------------------------------------
-        // ADD RULE
+        // ADD RULE (LOGIC UPDATE - FIX GAPS)
         // ---------------------------------------------------
         const handleAddRule = () => {
-        setRules((prev) => {
-            // Lista de raios existentes
-            const existing = new Set(prev.map(r => r.radius_km));
+            setRules((prev) => {
+                // Cria um Set com os raios existentes para busca rápida
+                const existingRadii = new Set(prev.map((r) => r.radius_km));
+                
+                // Começa do menor raio possível (0.5)
+                let nextRadius = 0.5;
 
-            // Gera possíveis raios válidos (0.5 em 0.5 até um limite razoável, ex: 20km)
-            const possible = Array.from({ length: 100 }, (_, i) => (i + 1) * 0.5);
-
-            // Encontra o primeiro raio que NÃO existe ainda
-            const nextRadius = Math.max(...Array.from(existing)) + 0.5;
-            console.log(existing, possible, nextRadius)
-            return [
-                ...prev,
-                {
-                    radius_km: nextRadius,
-                    time_minutes: 40,
-                    fee_cents: null,
+                // Enquanto o raio existir na lista, incrementa 0.5
+                // Isso garante que vamos preencher os "buracos" (ex: tem 6km, cria 0.5km)
+                // E garante que não haverá duplicatas
+                while (existingRadii.has(nextRadius)) {
+                    nextRadius += 0.5;
                 }
-            ];
-        });
-    };
+
+                // Pega defaults do último item para UX ou valores padrão
+                const lastRule = prev.length > 0 ? prev[prev.length - 1] : null;
+                const defaultTime = lastRule ? lastRule.time_minutes : 40;
+                const defaultFee = lastRule ? lastRule.fee_cents : 800;
+
+                const newRules = [
+                    ...prev,
+                    {
+                        radius_km: nextRadius,
+                        time_minutes: defaultTime,
+                        fee_cents: defaultFee,
+                    },
+                ];
+
+                // IMPORTANTE: Ordena por raio para manter a lista organizada visualmente
+                return newRules.sort((a, b) => a.radius_km - b.radius_km);
+            });
+        };
 
         // ---------------------------------------------------
-        // DELETE RULE
+        // DELETE RULE (LOGIC UPDATE - MIN 1)
         // ---------------------------------------------------
-const handleDeleteRule = (i: number) => {
-    setRules((prev) => {
-        if (prev.length <= 1) return prev; // <-- impede deletar tudo
-        return prev.filter((_, idx) => idx !== i);
-    });
-};
-
+        const handleDeleteRule = (i: number) => {
+            setRules((prev) => {
+                // Regra: Não pode excluir se for a última linha restante
+                if (prev.length <= 1) return prev;
+                
+                return prev.filter((_, idx) => idx !== i);
+            });
+        };
 
         // ---------------------------------------------------
         // SAVE TO DB + ZUSTAND
         // ---------------------------------------------------
-// SAVE TO DB + ZUSTAND
         const saveToDB = async (force = false) => {
             if (isNew && !force) return;
 
@@ -244,7 +255,6 @@ const handleDeleteRule = (i: number) => {
             setMinOrder(restaurantId, minOrderValue);
 
             try {
-                console.log(restaurantId, finalRules, minOrderValue)
                 const session = await supabase.auth.getSession();
 
                 const res = await fetch("/api/update-restaurant", {
@@ -261,12 +271,8 @@ const handleDeleteRule = (i: number) => {
                 });
 
                 const data = await res.json();
-
-                console.log(data)
-                console.log(res)
                 if (!res.ok) throw new Error(data.message || "Error saving");
 
-                console.log("%c[AUTOSAVE] Saved successfully!", "color:#22c55e;");
                 setStatus("saved");
             } catch (error: any) {
                 console.error("[AUTOSAVE] Error saving:", error);
@@ -278,8 +284,6 @@ const handleDeleteRule = (i: number) => {
         // AUTOSAVE (only when NOT new)
         // ---------------------------------------------------
         useEffect(() => {
-            // CORREÇÃO CRÍTICA: Se for novo, NÃO dispara o efeito de autosave visual.
-            // Isso impede que ele entre em "saving" sem nunca sair.
             if (isNew) return;
 
             setStatus("saving");
@@ -316,15 +320,15 @@ const handleDeleteRule = (i: number) => {
                 {/* DELIVERY RULES */}
                 <div className="p-6 bg-white border border-gray-200 rounded-lg shadow-sm mb-8">
                     <div className="flex items-center gap-4 mb-2 px-2">
-        <span className="w-1/3 flex items-center gap-2 text-sm font-medium text-gray-700">
-            <FontAwesomeIcon icon={faBullseye} /> Raio
-        </span>
                         <span className="w-1/3 flex items-center gap-2 text-sm font-medium text-gray-700">
-            <FontAwesomeIcon icon={faClock} /> Tempo
-        </span>
+                            <FontAwesomeIcon icon={faBullseye} /> Raio
+                        </span>
                         <span className="w-1/3 flex items-center gap-2 text-sm font-medium text-gray-700">
-            <FontAwesomeIcon icon={icons.faDollarSign} /> Taxa
-        </span>
+                            <FontAwesomeIcon icon={faClock} /> Tempo
+                        </span>
+                        <span className="w-1/3 flex items-center gap-2 text-sm font-medium text-gray-700">
+                            <FontAwesomeIcon icon={icons.faDollarSign} /> Taxa
+                        </span>
                         <span className="w-8"></span>
                     </div>
 
@@ -362,7 +366,7 @@ const handleDeleteRule = (i: number) => {
                                     className="w-1/3"
                                     defaultValue={
                                         rule.fee_cents === null
-                                            ? "0,00"    // <-- fix: show 0,00 if null
+                                            ? "0,00"
                                             : (rule.fee_cents / 100)
                                                 .toFixed(2)
                                                 .replace(".", ",")
@@ -388,6 +392,7 @@ const handleDeleteRule = (i: number) => {
                                 {/* Delete */}
                                 <button
                                     onClick={() => handleDeleteRule(index)}
+                                    // Garante visualmente que não dá pra clicar
                                     disabled={rules.length <= 1}
                                     className={`p-1 duration-200 ${
                                         rules.length <= 1
@@ -412,7 +417,7 @@ const handleDeleteRule = (i: number) => {
                 </div>
 
                 {/* Pedido mínimo */}
-                {!isNew && (  // <-- fix: hide when isNew
+                {!isNew && (
                     <div className="p-6 bg-white border border-gray-200 rounded-lg shadow-sm mb-8">
                         <h2 className="text-xl font-semibold mb-3">
                             Pedido Mínimo{" "}
