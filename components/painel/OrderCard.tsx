@@ -9,7 +9,6 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
-import { supabase } from "@/lib/supabaseClient";
 
 // Tipos baseados no seu schema
 export type OrderStatus = "pending_online_payment" | "pending_physical_payment" | "preparing" | "delivering" | "done" | "canceled";
@@ -18,7 +17,7 @@ export interface OrderItemData {
     id: string;
     quantity: number;
     price_cents: number;
-    name: string; // CORREÇÃO: O nome está direto aqui, não dentro de um objeto 'item'
+    name: string; 
 }
 
 export interface OrderData {
@@ -91,13 +90,19 @@ export default function OrderCard({ order, onStatusChange }: OrderCardProps) {
     const updateStatus = async (newStatus: OrderStatus) => {
         setLoading(true);
         try {
-            const { error } = await supabase
-                .from("orders")
-                .update({ status: newStatus })
-                .eq("id", order.id);
+            // CORREÇÃO: Usando API em vez de Supabase Client direto
+            const res = await fetch(`/api/orders/${order.id}/status-order`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ status: newStatus })
+            });
 
-            if (error) throw error;
-            onStatusChange(); 
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.error || "Erro ao atualizar status");
+            }
+            
+            onStatusChange(); // Dispara refresh no pai
         } catch (err) {
             console.error(err);
             alert("Erro ao atualizar status");
@@ -180,7 +185,6 @@ export default function OrderCard({ order, onStatusChange }: OrderCardProps) {
                         <div key={`${order.id}-item-${idx}`} className="flex justify-between text-sm">
                             <div className="flex gap-2">
                                 <span className="font-bold text-gray-900">{item.quantity}x</span>
-                                {/* CORREÇÃO AQUI: Usando item.name diretamente */}
                                 <span className="text-gray-700">{item.name}</span>
                             </div>
                             <span className="text-gray-500">{fmtMoney(item.price_cents * item.quantity)}</span>

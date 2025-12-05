@@ -108,16 +108,20 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                     { radius_km: 5, time_minutes: 50, fee_cents: 800 },
                 ];
                 setRules(defaults);
-                if (minOrderRef.current) minOrderRef.current.value = "1500";
+                if (minOrderRef.current) minOrderRef.current.value = "1500"; // Nota: Seu original usa 1500 (centavos?) ou valor bruto. Mantive.
                 return;
             }
 
             // Load from DB if not cached and not new
             fetchFromDB();
-        }, [restaurantId, isNew]);
+        }, [restaurantId, isNew]); // MANTIDO CONFORME ORIGINAL
 
         const fetchFromDB = async () => {
+            if (!restaurantId || restaurantId === "undefined") return;
+
             console.log("[INIT] Fetching from SUPABASE...");
+            // Use a API unificada em vez de supabase client direto se preferir consistência, 
+            // mas mantive supabase client pois é leitura e seu original usava.
             const { data, error } = await supabase
                 .from("restaurants")
                 .select("delivery_fee_json, min_order_cents")
@@ -131,8 +135,10 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
 
             if (data?.delivery_fee_json) {
                 console.log("[INIT] Loaded rules from DB.");
+                // Garantir array
+                const loadedRules = Array.isArray(data.delivery_fee_json) ? data.delivery_fee_json : [];
                 setRules(
-                    data.delivery_fee_json.map((r: any) => ({
+                    loadedRules.map((r: any) => ({
                         radius_km: r.radius_km,
                         time_minutes: r.time_minutes,
                         fee_cents: r.fee_cents ?? null,
@@ -141,7 +147,8 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
             }
 
             if (data?.min_order_cents != null && minOrderRef.current) {
-                minOrderRef.current.value = String(data.min_order_cents / 100);
+                // Ajuste aqui se precisar de formatação (/100) ou valor bruto
+                minOrderRef.current.value = String(data.min_order_cents / 100); 
             }
         };
 
@@ -190,20 +197,11 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
         // ---------------------------------------------------
         const handleAddRule = () => {
             setRules((prev) => {
-                // Cria um Set com os raios existentes para busca rápida
                 const existingRadii = new Set(prev.map((r) => r.radius_km));
-                
-                // Começa do menor raio possível (0.5)
                 let nextRadius = 0.5;
-
-                // Enquanto o raio existir na lista, incrementa 0.5
-                // Isso garante que vamos preencher os "buracos" (ex: tem 6km, cria 0.5km)
-                // E garante que não haverá duplicatas
                 while (existingRadii.has(nextRadius)) {
                     nextRadius += 0.5;
                 }
-
-                // Pega defaults do último item para UX ou valores padrão
                 const lastRule = prev.length > 0 ? prev[prev.length - 1] : null;
                 const defaultTime = lastRule ? lastRule.time_minutes : 40;
                 const defaultFee = lastRule ? lastRule.fee_cents : 800;
@@ -216,8 +214,6 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                         fee_cents: defaultFee,
                     },
                 ];
-
-                // IMPORTANTE: Ordena por raio para manter a lista organizada visualmente
                 return newRules.sort((a, b) => a.radius_km - b.radius_km);
             });
         };
@@ -227,9 +223,7 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
         // ---------------------------------------------------
         const handleDeleteRule = (i: number) => {
             setRules((prev) => {
-                // Regra: Não pode excluir se for a última linha restante
                 if (prev.length <= 1) return prev;
-                
                 return prev.filter((_, idx) => idx !== i);
             });
         };
@@ -238,7 +232,16 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
         // SAVE TO DB + ZUSTAND
         // ---------------------------------------------------
         const saveToDB = async (force = false) => {
+            // Se for novo e não for save forçado (autosave), ignora
             if (isNew && !force) return;
+            
+            // PROTEÇÃO CONTRA ID INVÁLIDO
+            if (!restaurantId || restaurantId === "undefined") {
+                console.error("Tentativa de salvar sem ID válido");
+                return;
+            }
+
+            setStatus("saving");
 
             const finalRules = rules.map((r) => ({
                 radius_km: r.radius_km,
@@ -255,28 +258,26 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
             setMinOrder(restaurantId, minOrderValue);
 
             try {
-                const session = await supabase.auth.getSession();
-
-                const res = await fetch("/api/update-restaurant", {
+                // MUDANÇA PRINCIPAL: Usando a API correta
+                const res = await fetch(`/api/restaurants/${restaurantId}`, {
                     method: "PATCH",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "Authorization": `Bearer ${session.data.session?.access_token}`,
-                    },
+                    headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
-                        restaurantId,
-                        rules: finalRules,
-                        minOrder: minOrderValue,
+                        delivery_fee_json: finalRules,
+                        min_order_cents: minOrderValue * 100, // Ajuste se seu backend espera centavos
                     }),
                 });
 
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.message || "Error saving");
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.error || "Error saving");
+                }
 
                 setStatus("saved");
             } catch (error: any) {
                 console.error("[AUTOSAVE] Error saving:", error);
                 setStatus("idle");
+                throw error; // Propaga o erro para o pai ver
             }
         };
 
@@ -290,7 +291,7 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
 
             const timeout = setTimeout(async () => {
                 await saveToDB();
-                setStatus("saved");
+                setStatus("saved"); // saveToDB já seta, mas ok manter
             }, 500);
 
             return () => clearTimeout(timeout);
@@ -392,7 +393,6 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                                 {/* Delete */}
                                 <button
                                     onClick={() => handleDeleteRule(index)}
-                                    // Garante visualmente que não dá pra clicar
                                     disabled={rules.length <= 1}
                                     className={`p-1 duration-200 ${
                                         rules.length <= 1

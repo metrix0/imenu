@@ -2,65 +2,67 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { useCreationStore } from "@/lib/creationStore"; // Store Global
 import DeliveryRules from "@/components/restaurante/configuracoes/TempoeTaxa";
+import Loader from "@/components/ui/Loader";
 
 export default function PainelTempoETaxaPage() {
-    const [restaurantId, setRestaurantId] = useState<string | null>(null);
+    const { restaurantId, setRestaurantId } = useCreationStore();
+    const [isLoading, setIsLoading] = useState(!restaurantId);
 
     useEffect(() => {
         const load = async () => {
-            console.log("➡️ Painel load() starting…");
+            // Se já temos ID no Zustand, não precisa buscar
+            if (restaurantId) {
+                setIsLoading(false);
+                return;
+            }
 
-            const {
-                data: { session },
-                error: sessionError,
-            } = await supabase.auth.getSession();
-
-            console.log("📌 session =", session);
-            console.log("📌 sessionError =", sessionError);
+            console.log("➡️ Painel Tempo e Taxa: Buscando restaurante...");
+            const { data: { session } } = await supabase.auth.getSession();
 
             if (!session?.user) {
-                console.log("❌ No logged user");
+                console.log("❌ Sem usuário logado");
+                setIsLoading(false);
                 return;
             }
 
-            const user = session.user;
-
-            const { data: restaurant, error: restError } = await supabase
+            const { data: restaurant } = await supabase
                 .from("restaurants")
-                .select("id, user_id, delivery_fee_json")
-                .eq("user_id", user.id)
+                .select("id")
+                .eq("user_id", session.user.id)
                 .single();
 
-            console.log("🏪 restaurant =", restaurant);
-            console.log("🔴 restError =", restError);
-
-            if (!restaurant) {
-                console.log("❌ User has no restaurant in painel");
-                return;
+            if (restaurant) {
+                console.log("✅ Restaurante encontrado:", restaurant.id);
+                setRestaurantId(restaurant.id);
+            } else {
+                console.log("❌ Restaurante não encontrado.");
             }
-
-            setRestaurantId(restaurant.id);
-
-            console.log("✅ PAINEL restaurantId =", restaurant.id);
+            setIsLoading(false);
         };
 
         load();
-    }, []);
+    }, [restaurantId, setRestaurantId]);
+
+    if (isLoading) {
+        return <div className="flex justify-center items-center h-64"><Loader /></div>;
+    }
 
     if (!restaurantId) {
-        return <div>Carregando configurações...</div>;
+        return <div className="p-8 text-center text-gray-500">Restaurante não encontrado.</div>;
     }
 
     return (
-        <div className="max-w-6xl mx-auto pb-20">
-            <div className="mb-8 flex flex-col  gap-1 px-2">
+        <div className="max-w-6xl mx-auto pb-20 px-4 sm:px-6 pt-8">
+            <div className="mb-8 flex flex-col gap-1">
                 <h1 className="text-3xl font-bold text-gray-900">Configurações de Entrega</h1>
-                <p className="text-gray-500 mb-8 mt-1">Defina suas configurações de entrega e o Pedido Mínimo.</p>
+                <p className="text-gray-500 mt-1">Defina suas faixas de entrega e o valor mínimo de pedido.</p>
             </div>
+            
             <DeliveryRules
                 restaurantId={restaurantId}
-                isNew={false}
+                isNew={false} // Modo Edição (Autosave ativado)
             />
         </div>
     );

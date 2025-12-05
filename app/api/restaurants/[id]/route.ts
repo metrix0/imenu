@@ -1,17 +1,21 @@
-// app/api/restaurants/[id]/route.ts
 import { query } from "@/lib/sql";
 import { NextResponse } from "next/server";
 
+// Helper simples para gerar slug
+function generateSlug(name: string): string {
+    return name
+        .toLowerCase()
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Remove acentos
+        .replace(/[^a-z0-9]+/g, "-") // Substitui chars especiais por hífen
+        .replace(/^-+|-+$/g, "") // Remove hífens do começo/fim
+        + "-" + Math.floor(Math.random() * 1000); // Adiciona sufixo random para evitar colisão simples
+}
 
 export async function PATCH(
     request: Request,
     context: { params: Promise<{ id: string }> }
 ) {
     const { id } = await context.params;
-
-    // TODO: ADD AUTH
-    // LOGGED ON USER CAN EDIT THIS RESTAURANT?
-    
 
     if (!id) {
         return NextResponse.json({ error: "Restaurant ID is required" }, { status: 400 });
@@ -24,35 +28,46 @@ export async function PATCH(
         return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
     }
 
-    // --- DINAMIC UPDATE ---
-
+    // --- DYNAMIC UPDATE CONFIG ---
 
     const allowedFields: { [key: string]: string } = {
-        email: "email",
         latitude: "latitude",
         longitude: "longitude",
         address: "address", 
         delivery_fee_json: "delivery_fee_json",
         availability_json: "availability_json",
         name: "name",   
-        phone: "owner_phone", 
+        phone: "phone",
         user_id: "user_id",
         logo_url: "logo_url",
-        description: "description"           
-        
+        banner_url: "banner_url",
+        description: "description",
+        min_order_cents: "min_order_cents",
+        rating: "rating",
+        url_slug: "url_slug" // Permitir atualização explícita se necessário
     };
 
-    const fieldsToUpdate = []; // E.g.: ["name = $2", "latitude = $3"]
-    const values = [id]; // $1 will always be the ID
+    const jsonFields = ["address", "delivery_fee_json", "availability_json"];
 
-    // dinamic query
+    const fieldsToUpdate = [];
+    const values = [id]; // $1 será sempre o ID
+
+    // Lógica de Slug Automático
+    // Se o usuário mandou 'name', mas não mandou 'url_slug', geramos um.
+    if (body.name && !body.url_slug) {
+        body.url_slug = generateSlug(body.name);
+    }
+
+    // --- BUILD QUERY ---
     for (const key in body) {
-        const dbColumn = key === 'address_full' ? 'address' : allowedFields[key];
-        if (Object.prototype.hasOwnProperty.call(body, key) && dbColumn) {
+        if (Object.prototype.hasOwnProperty.call(body, key) && allowedFields[key]) {
+            const dbColumn = allowedFields[key];
             let value = body[key];
-            if (dbColumn.includes("_json")) {
-                value = JSON.stringify(value);
+
+            if (jsonFields.includes(dbColumn) || dbColumn.includes("_json")) {
+                value = JSON.stringify(value); 
             }
+
             values.push(value);
             fieldsToUpdate.push(`${dbColumn} = $${values.length}`);
         }
@@ -64,25 +79,30 @@ export async function PATCH(
             { status: 400 }
         );
     }
-    // --- end of dinamic update ---
 
     try {
         const updateQuery = `
             UPDATE public.restaurants
             SET 
-                ${fieldsToUpdate.join(", ")} 
+                ${fieldsToUpdate.join(", ")},
+                updated_at = NOW()
             WHERE 
                 id = $1
-            RETURNING id;
+            RETURNING id, url_slug; 
         `;
 
         const { rows } = await query(updateQuery, values);
 
-        if (rows.length === 0) {
+        if (!rows || rows.length === 0) {
             return NextResponse.json({ error: "Restaurant not found" }, { status: 404 });
         }
 
-        return NextResponse.json({ success: true, updatedId: rows[0].id });
+        // Retorna o slug atualizado para o frontend saber
+        return NextResponse.json({ 
+            success: true, 
+            updatedId: rows[0].id,
+            url_slug: rows[0].url_slug 
+        });
 
     } catch (error) {
         console.error("Error updating restaurant:", error);
@@ -109,7 +129,7 @@ export async function GET(
     try {
         const { rows } = await query(
             `
-            SELECT id, name, phone
+            SELECT id, name, phone, address, latitude, longitude, url_slug
             FROM public.restaurants
             WHERE id = $1
             LIMIT 1
