@@ -2,16 +2,15 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { useCreationStore } from "@/lib/creationStore"; // Store Global
 import Loader from "@/components/ui/Loader";
 import WeeklyScheduleClick, { Availability } from "@/components/restaurante/configuracoes/WeeklyScheduleClick";
-
-// Imports para o Tooltip
 import Tooltip from "@/components/ui/Tooltip";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { icons } from "@/lib/fontawesome";
 
 export default function DisponibilidadePage() {
-    const [restaurantId, setRestaurantId] = useState<string | null>(null);
+    const { restaurantId, setRestaurantId } = useCreationStore();
     const [availability, setAvailability] = useState<Availability>({});
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
@@ -19,52 +18,75 @@ export default function DisponibilidadePage() {
     // 1. Carregar Dados Iniciais
     useEffect(() => {
         const loadData = async () => {
-            setIsLoading(true);
-            try {
-                const { data: { session } } = await supabase.auth.getSession();
-                if (!session) return;
+            // Se já tem ID no store, podemos otimizar, mas ainda precisamos dos dados do banco (availability)
+            // Diferente das outras que só precisavam do ID, aqui precisamos do JSON de disponibilidade.
+            
+            // Lógica unificada de busca
+            let targetId = restaurantId;
 
+            if (!targetId) {
+                const { data: { session } } = await supabase.auth.getSession();
+                if (!session) {
+                    setIsLoading(false);
+                    return;
+                }
+                // Busca ID via user se não tiver no store
+                const { data: rest } = await supabase
+                    .from("restaurants")
+                    .select("id")
+                    .eq("user_id", session.user.id)
+                    .single();
+                
+                if (rest) {
+                    targetId = rest.id;
+                    setRestaurantId(rest.id);
+                } else {
+                    setIsLoading(false);
+                    return;
+                }
+            }
+
+            // Agora busca os dados específicos desta página
+            if (targetId) {
                 const { data: restaurant } = await supabase
                     .from("restaurants")
-                    .select("id, availability_json")
-                    .eq("user_id", session.user.id)
+                    .select("availability_json")
+                    .eq("id", targetId)
                     .single();
 
                 if (restaurant) {
-                    setRestaurantId(restaurant.id);
-                    // Garante que seja um objeto, mesmo que venha null do banco
                     setAvailability(restaurant.availability_json || {});
                 }
-            } catch (error) {
-                console.error("Erro ao carregar horários:", error);
-            } finally {
-                setIsLoading(false);
             }
+            setIsLoading(false);
         };
 
         loadData();
-    }, []);
+    }, [restaurantId, setRestaurantId]);
 
-    // 2. Handler de Atualização (Auto-Save)
+    // 2. Handler de Atualização (Auto-Save via API)
     const handleScheduleChange = async (newVal: Availability) => {
-        // Atualização Otimista (Visual instantâneo)
+        // Atualização Otimista
         setAvailability(newVal);
         
         if (!restaurantId) return;
 
         setIsSaving(true);
         try {
-            const { error } = await supabase
-                .from("restaurants")
-                .update({ availability_json: newVal })
-                .eq("id", restaurantId);
+            // CORREÇÃO: Usando API Unificada
+            const response = await fetch(`/api/restaurants/${restaurantId}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ availability_json: newVal }),
+            });
 
-            if (error) throw error;
+            if (!response.ok) {
+                throw new Error("Erro na API");
+            }
         } catch (error) {
             console.error("Erro ao salvar horários:", error);
             alert("Falha ao salvar alterações. Verifique sua conexão.");
         } finally {
-            // Pequeno delay para o usuário ver que salvou (opcional, puramente visual)
             setTimeout(() => setIsSaving(false), 500);
         }
     };
@@ -87,13 +109,11 @@ export default function DisponibilidadePage() {
     }
 
     return (
-        <div className="max-w-6xl mx-auto pb-20">
+        <div className="max-w-6xl mx-auto pb-20 px-4 sm:px-6 pt-8">
             <div className="mb-8 flex flex-col sm:flex-row sm:items-end justify-between gap-4 px-2">
                 <div>
                     <div className="flex items-center gap-2">
                         <h1 className="text-3xl font-bold text-gray-900">Horários de Funcionamento</h1>
-                        
-                        {/* Tooltip com a dica de uso */}
                         <Tooltip 
                             text="Clique nos espaços vazios para criar um turno. Clique em um turno existente para editar ou excluir."
                             position="right"
@@ -108,7 +128,6 @@ export default function DisponibilidadePage() {
                     <p className="text-gray-500 mt-1">Defina quando sua loja estará aberta para receber pedidos.</p>
                 </div>
                 
-                {/* Indicador de Status de Salvamento */}
                 <div className="text-sm font-medium h-6 flex items-center">
                     {isSaving ? (
                         <span className="text-brand animate-pulse">Salvando...</span>
@@ -121,16 +140,13 @@ export default function DisponibilidadePage() {
             </div>
 
             <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm overflow-x-auto">
-                {/* Componente Visual de Horários */}
-                <div className="min-w-[700px]"> {/* Garante largura mínima para o grid não quebrar em mobile */}
+                <div className="min-w-[700px]">
                     <WeeklyScheduleClick 
                         value={availability} 
                         onChange={handleScheduleChange} 
                     />
                 </div>
             </div>
-            
-            {/* Texto antigo removido conforme solicitado */}
         </div>
     );
 }

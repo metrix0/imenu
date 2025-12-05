@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { useCreationStore } from "@/lib/creationStore"; // Store Global
 import Loader from "@/components/ui/Loader";
-import Tabs from "@/components/ui/Tabs"; // Seu componente de Tabs
+import Tabs from "@/components/ui/Tabs";
 import Toast from "@/components/ui/Toast";
 
-// Novos Componentes de Aba
+// Componentes de Aba
 import CardapioTab from "@/components/restaurante/cardapio/tabs/CardapioTab";
 import ProdutosTab from "@/components/restaurante/cardapio/tabs/ProdutosTab";
 import ComplementosTab from "@/components/restaurante/cardapio/tabs/ComplementosTab";
@@ -21,9 +22,13 @@ type Category = { id: string; name: string; position: number };
 const TABS = ["Cardápio", "Produtos", "Complemento"];
 
 export default function MenuManagerPage() {
+    // 1. Usa Zustand para ID imediato
+    const { restaurantId, setRestaurantId } = useCreationStore();
+    
     const [activeTab, setActiveTab] = useState("Cardápio");
     const [isLoading, setIsLoading] = useState(true);
-    const [restaurantId, setRestaurantId] = useState<string | null>(null);
+    
+    // Dados locais
     const [categories, setCategories] = useState<Category[]>([]);
     const [items, setItems] = useState<MenuItemType[]>([]);
     const [toast, setToast] = useState<{ message: string; type?: "success" | "error" | "info" } | null>(null);
@@ -34,26 +39,20 @@ export default function MenuManagerPage() {
     const [isItemDetailsOpen, setIsItemDetailsOpen] = useState(false);
     const [itemToEditDetails, setItemToEditDetails] = useState<MenuItemType | null>(null);
 
-    const loadData = async () => {
+    // Função para carregar dados do MENU (categorias e itens)
+    const loadMenuData = async (id: string) => {
+        setIsLoading(true);
         try {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!session) return;
+            // Paraleliza as requisições para performance
+            const [catsRes, itemsRes] = await Promise.all([
+                supabase.from("categories").select("*").eq("restaurant_id", id).order("position", { ascending: true }),
+                supabase.from("items").select("*").eq("restaurant_id", id).order("position", { ascending: true })
+            ]);
 
-            const { data: restaurant } = await supabase
-                .from("restaurants")
-                .select("id")
-                .eq("user_id", session.user.id)
-                .single();
+            setCategories(catsRes.data || []);
 
-            if (!restaurant) return;
-            setRestaurantId(restaurant.id);
-
-            const { data: cats } = await supabase.from("categories").select("*").eq("restaurant_id", restaurant.id).order("position", { ascending: true });
-            setCategories(cats || []);
-
-            const { data: rawItems } = await supabase.from("items").select("*").eq("restaurant_id", restaurant.id).order("position", { ascending: true });
-            
-            const itemsWithUrls = (rawItems || []).map((item: any) => {
+            // Processa URLs de imagem
+            const itemsWithUrls = (itemsRes.data || []).map((item: any) => {
                 let publicUrl = null;
                 if (item.image_path) {
                     publicUrl = supabase.storage.from("menu-images").getPublicUrl(item.image_path).data.publicUrl;
@@ -63,13 +62,45 @@ export default function MenuManagerPage() {
             setItems(itemsWithUrls as MenuItemType[]);
 
         } catch (error) {
-            console.error(error);
+            console.error("Erro ao carregar cardápio:", error);
+            setToast({ message: "Erro ao carregar dados.", type: "error" });
         } finally {
             setIsLoading(false);
         }
     };
 
-    useEffect(() => { loadData(); }, []);
+    // Inicialização Inteligente
+    useEffect(() => {
+        const init = async () => {
+            // Se já temos ID no Zustand, carrega direto
+            if (restaurantId) {
+                loadMenuData(restaurantId);
+                return;
+            }
+
+            // Fallback: Busca via Auth
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) {
+                setIsLoading(false);
+                return;
+            }
+
+            const { data: restaurant } = await supabase
+                .from("restaurants")
+                .select("id")
+                .eq("user_id", session.user.id)
+                .single();
+
+            if (restaurant) {
+                setRestaurantId(restaurant.id); // Salva no Zustand
+                // O useEffect disparará novamente quando restaurantId mudar, chamando loadMenuData
+            } else {
+                setIsLoading(false);
+            }
+        };
+
+        init();
+    }, [restaurantId, setRestaurantId]); // Dependência em restaurantId garante reload se o ID mudar
 
     // Handlers
     const handleNewCategory = () => { setCategoryToEdit(null); setIsCatModalOpen(true); };
@@ -80,44 +111,45 @@ export default function MenuManagerPage() {
     };
     
     const handleAddNewProduct = () => {
-        // Se estiver na aba Produtos e não tiver categoria, precisa forçar criação de categoria primeiro
         if (categories.length === 0) {
             setToast({ message: "Crie uma categoria antes de adicionar produtos.", type: "info" });
             setActiveTab("Cardápio");
             return;
         }
-        // Lógica ideal: Abrir um modal de "Novo Produto" que pede Nome, Preço e Categoria.
-        // Para MVP: Redireciona para a primeira categoria na aba Cardápio e abre criação
         setActiveTab("Cardápio");
         setToast({ message: "Adicione o produto na categoria desejada.", type: "info" });
-        // Futuro: Implementar modal global de criação de produto
     };
 
-    if (isLoading) return <div className="flex justify-center p-10"><Loader /></div>;
-    if (!restaurantId) return <div className="p-8 text-red-500">Restaurante não encontrado.</div>;
+    // Renderização
+    if (isLoading) return <div className="flex justify-center items-center h-64"><Loader /></div>;
+    
+    if (!restaurantId) return (
+        <div className="flex flex-col items-center justify-center min-h-[50vh] text-gray-500">
+            <p>Restaurante não encontrado.</p>
+        </div>
+    );
 
     return (
-        <div className="max-w-6xl mx-auto pb-32 space-y-8">
-             
+        <div className="max-w-6xl mx-auto pb-32 space-y-8 px-4 pt-8">
              {/* Header */}
              <div>
                 <h1 className="text-3xl font-bold text-gray-900">Cardápio</h1>
                 <p className="text-gray-500 mt-1">Defina quais os itens seus clientes podem pedir.</p>
              </div>
 
-             {/* Tabs Navigation */}
+             {/* Tabs */}
              <div className="border-b border-gray-200">
                 <Tabs tabs={TABS} active={activeTab} onChange={setActiveTab} />
              </div>
 
-             {/* Tab Content */}
+             {/* Content */}
              <div className="pt-4">
                 {activeTab === "Cardápio" && (
                     <CardapioTab 
                         categories={categories}
                         items={items}
                         restaurantId={restaurantId}
-                        onRefresh={loadData}
+                        onRefresh={() => loadMenuData(restaurantId)}
                         onEditCategory={handleEditCategory}
                         onOpenItemDetails={handleOpenItemDetails}
                         onNewCategory={handleNewCategory}
@@ -127,7 +159,7 @@ export default function MenuManagerPage() {
                 {activeTab === "Produtos" && (
                     <ProdutosTab 
                         items={items}
-                        onRefresh={loadData}
+                        onRefresh={() => loadMenuData(restaurantId)}
                         onOpenItemDetails={handleOpenItemDetails}
                         onAddNewProduct={handleAddNewProduct}
                     />
@@ -142,8 +174,18 @@ export default function MenuManagerPage() {
              </div>
 
              {/* Modais Globais */}
-             <ManageCategoryModal isOpen={isCatModalOpen} onClose={() => setIsCatModalOpen(false)} onSuccess={loadData} restaurantId={restaurantId} categoryToEdit={categoryToEdit} />
-             <ItemDetailsModal isOpen={isItemDetailsOpen} onClose={() => setIsItemDetailsOpen(false)} item={itemToEditDetails} />
+             <ManageCategoryModal 
+                isOpen={isCatModalOpen} 
+                onClose={() => setIsCatModalOpen(false)} 
+                onSuccess={() => loadMenuData(restaurantId)} 
+                restaurantId={restaurantId} 
+                categoryToEdit={categoryToEdit} 
+            />
+             <ItemDetailsModal 
+                isOpen={isItemDetailsOpen} 
+                onClose={() => setIsItemDetailsOpen(false)} 
+                item={itemToEditDetails} 
+            />
 
              {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
         </div>

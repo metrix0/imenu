@@ -50,6 +50,7 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
         if (!order) return;
         setIsLoading(true);
         try {
+            // Leitura permitida via Client (SELECT)
             const { data, error } = await supabase
                 .from("orders")
                 .select(`
@@ -73,24 +74,31 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
         }
     };
 
-    // AÇÃO: Mudar Status
+    // AÇÃO: Mudar Status via API
     const handleStatusUpdate = async (newStatus: string) => {
         if (!details) return;
         setIsUpdating(true);
         try {
-            const { error } = await supabase
-                .from("orders")
-                .update({ status: newStatus })
-                .eq("id", details.id);
+            // CORREÇÃO: Usando API Route
+            const response = await fetch(`/api/orders/${details.id}/status-order`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ status: newStatus }),
+            });
 
-            if (error) throw error;
+            if (!response.ok) {
+                throw new Error("Falha ao atualizar");
+            }
 
+            // Atualiza localmente para feedback instantâneo
             setDetails(prev => prev ? { ...prev, status: newStatus as any } : null);
             
+            // Notifica o pai para recarregar a lista
             if (onOrderUpdate) onOrderUpdate();
 
         } catch (err) {
-            alert("Erro ao atualizar pedido.");
+            alert("Erro ao atualizar pedido. Tente novamente.");
+            console.error(err);
         } finally {
             setIsUpdating(false);
         }
@@ -123,7 +131,6 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
     const renderActions = () => {
         if (!details || isUpdating) return null;
 
-        // Lógica para aceitar ambos os tipos de pendente
         if (details.status === "pending_online_payment" || details.status === "pending_physical_payment") {
             return (
                 <>

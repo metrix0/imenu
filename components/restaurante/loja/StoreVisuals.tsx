@@ -13,7 +13,8 @@ interface StoreVisualsProps {
     restaurantId: string;
     logoUrl: string | null;
     bannerUrl: string | null;
-    onUpdate: (type: "logo" | "banner", url: string) => void; // Comunica a mudança pro pai
+    // Callback atualizado para receber o path do DB
+    onUpdate: (type: "logo" | "banner", publicUrl: string, dbPath: string) => void;
     onError: (msg: string) => void;
 }
 
@@ -37,11 +38,11 @@ export default function StoreVisuals({
         setIsBannerUploading(true);
         try {
             const path = await uploadBannerImage(file);
-            await supabase.from("restaurants").update({ banner_url: path }).eq("id", restaurantId);
-            
             const { data } = supabase.storage.from("menu-banners").getPublicUrl(path);
-            onUpdate("banner", data.publicUrl);
+            // Passa publicUrl para preview e path para salvar
+            onUpdate("banner", data.publicUrl, path);
         } catch (error) {
+            console.error(error);
             onError("Erro ao enviar capa.");
         } finally {
             setIsBannerUploading(false);
@@ -55,11 +56,10 @@ export default function StoreVisuals({
         setIsLogoUploading(true);
         try {
             const path = await uploadLogoImage(file);
-            await supabase.from("restaurants").update({ logo_url: path }).eq("id", restaurantId);
-            
             const { data } = supabase.storage.from("restaurant-logos").getPublicUrl(path);
-            onUpdate("logo", data.publicUrl);
+            onUpdate("logo", data.publicUrl, path);
         } catch (error) {
+            console.error(error);
             onError("Erro ao enviar logo.");
         } finally {
             setIsLogoUploading(false);

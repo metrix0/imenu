@@ -4,21 +4,18 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useCreationStore } from "@/lib/creationStore"; 
 import { supabase } from "@/lib/supabaseClient"; 
-import Loader from "@/components/ui/Loader";
 import Button from "@/components/ui/Button";
 import Toast from "@/components/ui/Toast";
+import Card from "@/components/ui/Card";
+import ListLoader from "@/components/ui/ListLoader";
 
-// --- IMPORTANDO OS NOVOS COMPONENTES MODULARES ---
+// Componentes Modulares
 import StoreVisuals from "@/components/restaurante/loja/StoreVisuals";
 import StoreName from "@/components/restaurante/loja/StoreName";
-
-// Componentes do Cardápio
 import CardapioTab from "@/components/restaurante/cardapio/tabs/CardapioTab";
 import ManageCategoryModal from "@/components/restaurante/cardapio/ManageCategoryModal";
 import ItemDetailsModal from "@/components/restaurante/cardapio/ItemDetailsModal";
 import { MenuItemType } from "@/components/restaurante/cardapio/MenuItemRow";
-import ListLoader from "@/components/ui/ListLoader";
-import Card from "@/components/ui/Card";
 
 type Category = { id: string; name: string; position: number };
 
@@ -47,7 +44,6 @@ export default function CriarCardapioPage() {
     const [isItemDetailsOpen, setIsItemDetailsOpen] = useState(false);
     const [itemToEditDetails, setItemToEditDetails] = useState<MenuItemType | null>(null);
 
-    // Validação Simples: Nome é obrigatório
     const isFormValid = name.trim().length > 0;
 
     useEffect(() => {
@@ -60,6 +56,7 @@ export default function CriarCardapioPage() {
 
     const loadData = async () => {
         try {
+            // Leitura permitida via Supabase Client (conforme CONVENTIONS.md)
             const { data: restaurant, error: rError } = await supabase
                 .from("restaurants")
                 .select("id, name, logo_url, banner_url")
@@ -107,46 +104,61 @@ export default function CriarCardapioPage() {
         }
     };
 
-    const handleVisualUpdate = (type: "logo" | "banner", url: string) => {
+    // --- UPDATES VIA API (Conforme Arquitetura) ---
+
+    const handleVisualUpdate = async (type: "logo" | "banner", publicUrl: string, dbPath: string) => {
+        // Atualiza UI instantaneamente
         setVisuals(prev => ({
             ...prev,
-            [type === "logo" ? "logo_url" : "banner_url"]: url
+            [type === "logo" ? "logo_url" : "banner_url"]: publicUrl
         }));
-        setToast({ message: "Imagem atualizada!", type: "success" });
-    };
 
-    const handleVisualError = (msg: string) => {
-        setToast({ message: msg, type: "error" });
+        try {
+            const field = type === "logo" ? "logo_url" : "banner_url";
+            
+            // Chama API para salvar o path no banco
+            const res = await fetch(`/api/restaurants/${restaurantId}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ [field]: dbPath }),
+            });
+
+            if (!res.ok) throw new Error("Falha ao salvar imagem no banco.");
+
+            setToast({ message: "Imagem salva com sucesso!", type: "success" });
+        } catch (error) {
+            console.error(error);
+            setToast({ message: "Erro ao salvar imagem.", type: "error" });
+        }
     };
 
     const handleNameBlur = async () => {
         if (!restaurantId || !name) return;
         try {
-            await supabase.from("restaurants").update({ name }).eq("id", restaurantId);
+            const res = await fetch(`/api/restaurants/${restaurantId}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name }),
+            });
+            if (!res.ok) throw new Error("Falha ao salvar nome");
         } catch (e) {
             console.error("Erro ao salvar nome:", e);
         }
     };
 
-    const handleNewCategory = () => { setCategoryToEdit(null); setIsCatModalOpen(true); };
-    const handleEditCategory = (cat: Category) => { setCategoryToEdit(cat); setIsCatModalOpen(true); };
-    const handleOpenItemDetails = (item: MenuItemType) => {
-        setItemToEditDetails(item);
-        setIsItemDetailsOpen(true);
-    };
-
     const handleContinue = async () => {
-        // Validação redundante
         if (!isFormValid) return;
-
         if (!restaurantId || !email) {
-            alert("Sessão expirada.");
+            alert("Sessão expirada ou e-mail não encontrado.");
             return;
         }
+
         setIsSaving(true);
         try {
-            await supabase.from("restaurants").update({ name }).eq("id", restaurantId);
+            // Garante que o nome está salvo antes de prosseguir
+            await handleNameBlur();
 
+            // Envia OTP (Email) - Conforme fluxo de registro
             const { error: authError } = await supabase.auth.signInWithOtp({
                 email: email,
                 options: { shouldCreateUser: false } 
@@ -161,6 +173,15 @@ export default function CriarCardapioPage() {
             setIsSaving(false);
         }
     };
+
+    const handleNewCategory = () => { setCategoryToEdit(null); setIsCatModalOpen(true); };
+    const handleEditCategory = (cat: Category) => { setCategoryToEdit(cat); setIsCatModalOpen(true); };
+    const handleOpenItemDetails = (item: MenuItemType) => {
+        setItemToEditDetails(item);
+        setIsItemDetailsOpen(true);
+    };
+
+    const handleVisualError = (msg: string) => setToast({ message: msg, type: "error" });
 
     if (isLoading) return (
         <main className="min-h-screen flex flex-col items-center justify-start p-6 bg-white">
@@ -197,7 +218,6 @@ export default function CriarCardapioPage() {
                             onChange={setName}
                             onBlur={handleNameBlur}
                         />
-
                     </div>
                 </Card>
 
@@ -233,10 +253,8 @@ export default function CriarCardapioPage() {
                     </button>
                     
                     <Button
-                        // Se não for válido, usa variante secundária (cinza/outline)
                         variant={isFormValid ? "primary" : "secondary"}
                         onClick={handleContinue}
-                        // Desabilita se salvando OU inválido
                         disabled={isSaving || !isFormValid}
                         loading={isSaving}
                         className="px-8"

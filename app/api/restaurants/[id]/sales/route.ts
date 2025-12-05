@@ -45,7 +45,7 @@ export async function GET(
                 restaurant_id = $1
                 AND created_at >= $2
                 AND created_at <= $3
-                AND status = 'paid' 
+                AND status = 'done' 
         `,
             [id, startDate, endDate]
         );
@@ -62,7 +62,7 @@ export async function GET(
                 restaurant_id = $1
                 AND created_at >= $2
                 AND created_at <= $3
-                AND status = 'paid'
+                AND status = 'done'
             GROUP BY date
             ORDER BY date ASC
         `,

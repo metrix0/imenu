@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { useCreationStore } from "@/lib/creationStore"; // Store Global
 import Tabs from "@/components/ui/Tabs";
 import Button from "@/components/ui/Button";
 import OrdersFilter from "@/components/painel/pedidos/OrdersFilter";
@@ -12,11 +13,11 @@ const TABS = ["Todos", "Em aberto", "Concluídos", "Cancelados"];
 const PAGE_SIZE = 10;
 
 export default function PedidosPage() {
+    const { restaurantId, setRestaurantId } = useCreationStore();
     const [activeTab, setActiveTab] = useState("Todos");
     const [isLoading, setIsLoading] = useState(true);
     const [orders, setOrders] = useState<Order[]>([]);
-    const [restaurantId, setRestaurantId] = useState<string | null>(null);
-
+    
     // Paginação
     const [page, setPage] = useState(0);
     const [hasMore, setHasMore] = useState(false);
@@ -30,9 +31,11 @@ export default function PedidosPage() {
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
     const [isDetailsOpen, setIsDetailsOpen] = useState(false);
 
-    // 1. Inicialização
+    // 1. Inicialização (Busca ID se não tiver)
     useEffect(() => {
         const init = async () => {
+            if (restaurantId) return; // Já temos ID no Zustand
+
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) return;
 
@@ -44,11 +47,10 @@ export default function PedidosPage() {
 
             if (rest) {
                 setRestaurantId(rest.id);
-                // fetchOrders chamado pelo useEffect dos filtros abaixo
             }
         };
         init();
-    }, []);
+    }, [restaurantId, setRestaurantId]);
 
     // 2. Recarrega ao mudar filtros, aba ou página
     useEffect(() => {
@@ -66,14 +68,14 @@ export default function PedidosPage() {
         try {
             let query = supabase
                 .from("orders")
-                .select("id, display_id, created_at, customer_name, status, total_cents", { count: 'exact' }) // count para saber total
+                .select("id, display_id, created_at, customer_name, status, total_cents", { count: 'exact' })
                 .eq("restaurant_id", restId)
                 .order("created_at", { ascending: false })
                 .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
 
             // Filtro por Aba
             if (activeTab === "Em aberto") {
-            query = query.in("status", ["pending_online_payment", "pending_physical_payment", "preparing", "delivering"]);
+                query = query.in("status", ["pending_online_payment", "pending_physical_payment", "preparing", "delivering"]);
             } else if (activeTab === "Concluídos") {
                 query = query.eq("status", "done");
             } else if (activeTab === "Cancelados") {
@@ -84,8 +86,6 @@ export default function PedidosPage() {
             if (searchId) query = query.eq("display_id", searchId);
             
             if (searchDate) {
-                // Adicionamos 'T00:00:00' para garantir que o navegador entenda como Horário Local
-                // Ex: "2025-11-26T00:00:00" (Local) -> Convertido corretamente para UTC pelo toISOString
                 const start = new Date(`${searchDate}T00:00:00`); 
                 const end = new Date(`${searchDate}T23:59:59.999`);
                 
@@ -100,11 +100,11 @@ export default function PedidosPage() {
             if (error) throw error;
 
             setOrders(data as any[] || []);
-            // Verifica se tem mais páginas
+            
             if (count !== null) {
                 setHasMore((page + 1) * PAGE_SIZE < count);
             } else {
-                setHasMore(data.length === PAGE_SIZE); // Fallback
+                setHasMore(data.length === PAGE_SIZE);
             }
 
         } catch (err) {
@@ -119,15 +119,15 @@ export default function PedidosPage() {
         setIsDetailsOpen(true);
     };
 
-    // Callback chamado quando o modal altera status (recarrega a lista)
+    // Callback chamado quando o modal altera status
     const handleOrderUpdate = () => {
         if (restaurantId) fetchOrders(restaurantId);
     };
 
     return (
-        <div className="max-w-7xl mx-auto pb-20 space-y-8">
+        <div className="max-w-7xl mx-auto pb-20 space-y-8 px-4 sm:px-6 pt-8">
             <div>
-                <h1 className="text-3xl font-bold text-gray-900">Pedidos</h1>
+                <h1 className="text-3xl font-bold text-gray-900">Histórico de Pedidos</h1>
             </div>
 
             <div className="border-b border-gray-200">
@@ -150,7 +150,6 @@ export default function PedidosPage() {
                 onViewOrder={handleViewOrder} 
             />
 
-            {/* Paginação Real */}
             {!isLoading && (orders.length > 0 || page > 0) && (
                 <div className="flex justify-center pt-4">
                     <div className="flex gap-2 items-center">
