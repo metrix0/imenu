@@ -25,6 +25,7 @@ export default function PedidoPage({
 
 
     useEffect(() => {
+        if(id.length < 10 ){router.push("/404")}
         const channel = supabase
             .channel(`orders-${id}`)
             .on(

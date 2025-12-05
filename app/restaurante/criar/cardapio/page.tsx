@@ -30,7 +30,7 @@ type RestaurantVisuals = {
 
 export default function CriarCardapioPage() {
     const router = useRouter();
-    const { restaurantId, email } = useCreationStore(); 
+    const { restaurantId, email } = { restaurantId: "0997e978-7f1e-46a9-88f7-81813c519485", email: "" }; //useCreationStore();
     
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
@@ -50,6 +50,7 @@ export default function CriarCardapioPage() {
     const [categoryToEdit, setCategoryToEdit] = useState<{id: string, name: string} | null>(null);
     const [isItemDetailsOpen, setIsItemDetailsOpen] = useState(false);
     const [itemToEditDetails, setItemToEditDetails] = useState<MenuItemType | null>(null);
+
 
     useEffect(() => {
         if (!restaurantId) {
@@ -258,7 +259,7 @@ export default function CriarCardapioPage() {
             {/* Modais Reutilizados */}
             <ManageCategoryModal isOpen={isCatModalOpen} onClose={() => setIsCatModalOpen(false)} onSuccess={loadData} restaurantId={restaurantId} categoryToEdit={categoryToEdit} />
             <ItemDetailsModal isOpen={isItemDetailsOpen} onClose={() => setIsItemDetailsOpen(false)} item={itemToEditDetails} />
-            
+
             {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
         </main>
     );
