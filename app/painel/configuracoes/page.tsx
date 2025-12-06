@@ -3,8 +3,8 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
-import { useCreationStore } from "@/lib/creationStore"; // Store Global
+import { supabase } from "@/lib/database/supabaseClient";
+import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore"; // Store Global
 import { uploadLogoImage } from "@/lib/uploadLogoImage";
 import type { User } from "@supabase/supabase-js";
 

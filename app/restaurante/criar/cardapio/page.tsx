@@ -2,15 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useCreationStore } from "@/lib/creationStore"; 
+import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 import { supabase } from "@/lib/database/supabaseClient";
-import Loader from "@/components/ui/Loader";
 import Button from "@/components/ui/Button";
 import Toast from "@/components/ui/Toast";
-import Card from "@/components/ui/Card";
-import ListLoader from "@/components/ui/ListLoader";
-
-// Componentes Modulares
 import StoreVisuals from "@/components/restaurante/loja/StoreVisuals";
 import StoreName from "@/components/restaurante/loja/StoreName";
 import CardapioTab from "@/components/restaurante/cardapio/tabs/CardapioTab";
@@ -32,7 +27,7 @@ type RestaurantVisuals = {
 
 export default function CriarCardapioPage() {
     const router = useRouter();
-    const { restaurantId, email } = { restaurantId: "0997e978-7f1e-46a9-88f7-81813c519485", email: "" }; //useCreationStore();
+    const { restaurantId, email } = useCreationStore();
     
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);

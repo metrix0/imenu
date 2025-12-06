@@ -106,8 +106,8 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
 
     const renderStatus = (status: string) => {
         const labels: Record<string, string> = {
-            pending_online_payment: "Pendente (Online)",
-            pending_physical_payment: "Pendente (Balcão/Entrega)",
+            pending_online_payment: "Pendente",
+            pending_physical_payment: "Pendente",
             preparing: "Preparando",
             delivering: "Em Rota",
             done: "Concluído",
@@ -178,7 +178,7 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
                             <FontAwesomeIcon icon={faClock} /> Realizado em {order && fmtDate(order.created_at)}
                         </p>
                     </div>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1">
+                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1 cursor-pointer">
                         <FontAwesomeIcon icon={icons.faTimes} className="text-xl" />
                     </button>
                 </div>

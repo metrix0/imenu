@@ -141,7 +141,7 @@ Helper functions to access **Realtime** and **Auth**.
 
 Realtime:
 ```
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/database/supabaseClient";
 
 supabase.channel("orders").on("postgres_changes", {...}).subscribe();
 ```

@@ -3,9 +3,9 @@ import { useEffect, useState } from "react";
 
 interface ToastProps {
     message: string;
-    duration?: number; // milliseconds
+    duration?: number;
     type?: "success" | "error" | "info";
-    onClose?: () => void; // ✅ callback to parent
+    onClose?: () => void;
 }
 
 export default function Toast({
@@ -15,12 +15,21 @@ export default function Toast({
                                   onClose,
                               }: ToastProps) {
     const [visible, setVisible] = useState(true);
+    const [animateOut, setAnimateOut] = useState(false);
+    const [animateIn, setAnimateIn] = useState(false); // ⭐ NEW
 
     useEffect(() => {
+        // ⭐ trigger IN animation on next tick
+        setTimeout(() => setAnimateIn(true), 10);
+
         const timer = setTimeout(() => {
-            setVisible(false);
-            onClose?.(); // ✅ tell parent we closed
+            setAnimateOut(true);
+            setTimeout(() => {
+                setVisible(false);
+                onClose?.();
+            }, 300);
         }, duration);
+
         return () => clearTimeout(timer);
     }, [duration, onClose]);
 
@@ -34,7 +43,18 @@ export default function Toast({
 
     return (
         <div
-            className={`fixed top-4 left-4 z-50 px-4 py-2 rounded-lg shadow-lg transition-all duration-300 ${colors[type]}`}
+            className={`
+                fixed top-4 left-4 z-50 px-4 py-2 rounded-lg shadow-lg
+                transition-all duration-300
+                ${colors[type]}
+                ${
+                animateOut
+                    ? "-translate-x-full opacity-0"
+                    : animateIn
+                        ? "translate-x-0 opacity-100"
+                        : "-translate-x-full opacity-0"
+            }
+            `}
         >
             {message}
         </div>

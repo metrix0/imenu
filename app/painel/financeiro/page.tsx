@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
-import { useCreationStore } from "@/lib/creationStore"; // Store Global
+import { supabase } from "@/lib/database/supabaseClient";
+import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore"; // Store Global
 import SalesDashboard from "@/components/restaurante/exibicoes/SalesDashboard";
 import PayoutsDashboard from "@/components/restaurante/exibicoes/PayoutsDashboard";
 import DateFilterBar from "@/components/restaurante/exibicoes/DateFilterBar"; 
