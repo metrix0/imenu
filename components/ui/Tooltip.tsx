@@ -26,7 +26,7 @@ export default function Tooltip({
                                     text,
                                     color = "bg-text",
                                     position = "top",
-                                    padding = "px-2 py-1",
+                                    padding = "px-2 py-1 2xl:px-3 2xl:py-2",
                                     size = "line",
 
                                     /** new props */
@@ -94,7 +94,7 @@ export default function Tooltip({
             break;
     }
 
-    let sizeClasses = size === "line" ? "whitespace-nowrap" : "w-80 break-words";
+    let sizeClasses = size === "line" ? "whitespace-nowrap" : "w-80 2xl:w-120 break-words";
 
     return (
         <div
@@ -106,7 +106,7 @@ export default function Tooltip({
 
             <div
                 className={`
-                    absolute z-50 rounded text-white text-xs font-normal
+                    absolute z-50 rounded text-white text-xs 2xl:text-lg 2xl:leading-snug 2xl:rounded-md 2xl: font-normal
                     pointer-events-auto select-none
                     transition-all duration-150
                     ${padding}

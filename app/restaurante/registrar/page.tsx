@@ -147,30 +147,31 @@ export default function RestaurantRegistrationPage() {
       </header>
 
 
-        <div className="relative flex justify-center w-full min-h-screen px-4 py-10">
+        <div className="relative flex justify-center w-full min-h-screen px-4 2xl:py-8">
 
             {/* LEFT BONUS CARD */}
-            {restCount > 0 && (
-                <div className="reveal fade-up absolute left-18 top-1/2 -translate-y-1/2 ">
-                    <div className="opacity-95 text-white max-w-80 space-y-2 p-6 border bg-text border-gray-950 rounded-xl shadow-sm">
-                        <BonusButton className="!pr-8 pl-6  border-1">
-                            <span className="font-medium">BÔNUS</span>
-                        </BonusButton>
 
-                        <p className="text-sm font-light p-2 leading-tight">
-                            <b>Para os próximos {restCount} restaurantes que se cadastrarem:</b>
-                            <br/>
-                            <span className="mt-3 block">
-          Consultoria grátis de 30 minutos com time que já assessorou 1M+/mês.
-        </span>
-                        </p>
-                    </div>
-                </div>
-            )}
 
             {/* MAIN EXACT CENTER */}
             <main className="flex flex-col items-center justify-start flex-1 max-w-lg">
-                <Card className="w-full space-y-6 p-8 border border-gray-200 shadow-sm">
+                <Card className="relative w-full space-y-6 p-8 border border-gray-200 shadow-sm">
+                    {restCount > 0 && (
+                        <div className="reveal fade-up absolute -right-90 top-0">
+                            <div className="opacity-95 text-white max-w-80 space-y-2 p-6 border bg-text border-gray-950 rounded-xl shadow-sm">
+                                <BonusButton className="!pr-8 pl-6  border-1">
+                                    <span className="font-medium">BÔNUS</span>
+                                </BonusButton>
+
+                                <p className="text-sm font-light p-2 leading-tight">
+                                    <b>Para os próximos {restCount} restaurantes que se cadastrarem:</b>
+                                    <br/>
+                                    <span className="mt-3 block">
+          Consultoria grátis de 30 minutos com time que já assessorou 1M+/mês.
+        </span>
+                                </p>
+                            </div>
+                        </div>
+                    )}
                     <div className="text-center space-y-0">
                         <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
                             Crie seu Cardápio Digital

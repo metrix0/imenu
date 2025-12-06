@@ -13,11 +13,11 @@ export default function BonusButton({
                                     }: BonusButtonProps) {
     return (
         <button
-            className={`bg-text text-white px-3 py-1 rounded-full text-sm font-medium cursor-pointer relative overflow-hidden flex items-center gap-2 ${className ?? ""}`}
+            className={`bg-text text-white px-3 py-1 2xl:px-4 2xl:py-[6px]  rounded-full text-sm 2xl:text-[1.1rem] font-medium cursor-pointer relative overflow-hidden flex items-center gap-2 2xl:gap-3 ${className ?? ""}`}
             {...props}
         >
             {/* Colored circle */}
-            <span className={`w-3 h-3 rounded-full ${color}`} />
+            <span className={`w-3 h-3 2xl:w-4 2xl:h-4 rounded-full ${color}`} />
 
             {/* Shimmer */}
             {shimmer && (

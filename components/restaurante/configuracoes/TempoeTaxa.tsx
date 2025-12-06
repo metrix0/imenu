@@ -197,26 +197,19 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
         // ---------------------------------------------------
         const handleAddRule = () => {
             setRules((prev) => {
-                const existingRadii = new Set(prev.map((r) => r.radius_km));
-                let nextRadius = 0.5;
-                while (existingRadii.has(nextRadius)) {
-                    nextRadius += 0.5;
-                }
-                const lastRule = prev.length > 0 ? prev[prev.length - 1] : null;
-                const defaultTime = lastRule ? lastRule.time_minutes : 40;
-                const defaultFee = lastRule ? lastRule.fee_cents : 800;
+                const last = prev[prev.length - 1];
+                const nextRadius = last ? last.radius_km + 0.5 : 0.5;
 
-                const newRules = [
-                    ...prev,
-                    {
-                        radius_km: nextRadius,
-                        time_minutes: defaultTime,
-                        fee_cents: defaultFee,
-                    },
-                ];
-                return newRules.sort((a, b) => a.radius_km - b.radius_km);
+                const newRule = {
+                    radius_km: nextRadius,
+                    time_minutes: last ? last.time_minutes : 40,
+                    fee_cents: last ? last.fee_cents : 800,
+                };
+
+                return [...prev, newRule];
             });
         };
+
 
         // ---------------------------------------------------
         // DELETE RULE (LOGIC UPDATE - MIN 1)
@@ -348,7 +341,7 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                                     iconPosition="right"
                                     className="w-1/3"
                                     defaultValue={rule.time_minutes}
-                                    ref={(el) => (tempoRefs.current[index] = el)}
+                                    ref={(el) => { tempoRefs.current[index] = el; }}
                                     onChange={(e) => {
                                         const val = parseInt(e.target.value || "0");
                                         setRules((prev) => {
@@ -372,7 +365,7 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                                                 .toFixed(2)
                                                 .replace(".", ",")
                                     }
-                                    ref={(el) => (taxaRefs.current[index] = el)}
+                                    ref={(el) => { tempoRefs.current[index] = el; }}
                                     onChange={(e) => {
                                         const raw = e.target.value;
                                         const val =

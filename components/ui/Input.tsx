@@ -8,19 +8,22 @@ type InputProps = Omit<
     label?: string;
     icon?: React.ReactNode | string;
     iconPosition?: "left" | "right";
-    numeric?: boolean; // integers
-    float?: boolean; // decimals with forced 0,00
+    numeric?: boolean;
+    float?: boolean;
 };
 
-export default function Input({
-                                  label,
-                                  icon,
-                                  iconPosition = "left",
-                                  numeric = false,
-                                  float = false,
-                                  className = "",
-                                  ...props
-                              }: InputProps) {
+const Input = React.forwardRef<HTMLInputElement, InputProps>((
+    {
+        label,
+        icon,
+        iconPosition = "left",
+        numeric = false,
+        float = false,
+        className = "",
+        ...props
+    },
+    ref
+) => {
     const withIcon = Boolean(icon);
     const isLeft = iconPosition === "left";
 
@@ -28,7 +31,6 @@ export default function Input({
         let digits = raw.replace(/\D/g, "");
 
         if (digits.length === 0) return "0,00";
-
         if (digits.length === 1) digits = "00" + digits;
         if (digits.length === 2) digits = "0" + digits;
 
@@ -40,7 +42,6 @@ export default function Input({
 
     const handleInput = (e: React.FormEvent<HTMLInputElement>) => {
         if (!float) return;
-
         const raw = e.currentTarget.value;
         const formatted = formatToFloat(raw);
         e.currentTarget.value = formatted;
@@ -83,14 +84,13 @@ export default function Input({
                 )}
 
                 <input
+                    ref={ref}                      // <-- REQUIRED FIX
                     type="text"
                     inputMode={numeric || float ? "numeric" : props.inputMode}
                     onKeyDown={handleKeyDown}
                     onInput={handleInput}
-
-                    defaultValue={defaultValue}   // <-- moved BEFORE props
-                    {...props}                   // <-- now LAST so Google sees correct attributes
-
+                    defaultValue={defaultValue}
+                    {...props}
                     className={`w-full border border-gray-300 rounded-md px-3 py-3
                         focus:ring-brand focus:border-brand
                         ${withIcon ? (isLeft ? "pl-10" : "pr-10") : ""}
@@ -99,4 +99,6 @@ export default function Input({
             </div>
         </div>
     );
-}
+});
+
+export default Input;
