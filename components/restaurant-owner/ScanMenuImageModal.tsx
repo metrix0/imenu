@@ -7,6 +7,9 @@ import Dropdown from "@/components/ui/Dropdown"; // your Dropdown
 import Toast from "@/components/ui/Toast"; // your Toast
 import LoadingBar from "@/components/ui/LoadingBar"; // your LoadingBar
 import { uploadFullMenuImageAI } from "@/lib/uploadFullMenuImageAI"; // your helper that uploads to supabase and returns key
+import Loader from "@/components/ui/Loader";
+import {FontAwesomeIcon} from "@fortawesome/react-fontawesome";
+import { icons } from "@/lib/fontawesome";
 
 // Types (match your API)
 type ScannedItem = {
@@ -85,24 +88,48 @@ function ScanModal({ open, onClose, restaurantId, existingCategories, onRefresh 
         const arr = Array.from(selectedFiles);
         if (arr.length === 0) return;
 
+        const startIndex = files.length; // where new files begin
+
         // --- keep UI responsive: add previews & files immediately ---
         const newFiles = [...files, ...arr];
         setFiles(newFiles);
         setThumbUrls((prev) => [...prev, ...arr.map((f) => URL.createObjectURL(f))]);
 
+        // mark new files as uploading
+        setUploadingKeys((prev) => {
+            const updated = { ...prev };
+            arr.forEach((_, i) => (updated[startIndex + i] = null)); // null = loading
+            return updated;
+        });
+
         // --- then upload each file (sequentially to keep toasts readable) ---
-        for (const file of arr) {
+        for (let i = 0; i < arr.length; i++) {
+            const file = arr[i];
+            const index = startIndex + i;
+
             try {
                 const url = await uploadFullMenuImageAI(file, true); // returns final public URL
-                setUploadedUrls((prev) => [...prev, url]);
+
+                // store uploaded URL in the correct slot
+                setUploadedUrls((prev) => {
+                    const updated = [...prev];
+                    updated[index] = url;
+                    return updated;
+                });
+
+                // mark as done
+                setUploadingKeys((prev) => ({ ...prev, [index]: "OK" }));
 
                 // success toast
                 setToast({ type: "success", message: `Imagem "${file.name}" enviada com sucesso!` });
             } catch (err: any) {
                 console.error("UPLOAD ERROR", err);
+
+                // mark as error
+                setUploadingKeys((prev) => ({ ...prev, [index]: "ERROR" }));
+
                 setToast({ type: "error", message: `Erro ao enviar "${file.name}".` });
             } finally {
-                // clear toast after a short period
                 setTimeout(() => setToast(null), 3000);
             }
         }
@@ -120,27 +147,44 @@ function ScanModal({ open, onClose, restaurantId, existingCategories, onRefresh 
             if (url) URL.revokeObjectURL(url);
             return prev.filter((_, i) => i !== index);
         });
+
+        if (fileInputRef.current) {
+            fileInputRef.current.value = "";
+        }
     }
 
     // upload a single file using user's helper; keep track of progress
     async function uploadFileAtIndex(file: File, index: number) {
         try {
-            setUploadingKeys((s) => ({ ...s, [index]: null })); // mark uploading
-            const key = await uploadFullMenuImageAI(file); // returns key (like "uuid-name.webp")
-            // build public URL — assumes bucket is `full-menu-images-ai` and public
-            const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/full-menu-images-ai/${encodeURIComponent(key)}`;
+            // mark uploading (already set above, but safe)
+            setUploadingKeys((s) => ({ ...s, [index]: null }));
+
+            const key = await uploadFullMenuImageAI(file); // returns key
+
+            const publicUrl =
+                `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/full-menu-images-ai/` +
+                encodeURIComponent(key);
+
+            // Mark upload done (store key)
             setUploadingKeys((s) => ({ ...s, [index]: key }));
-            setUploadedUrls((u) => {
-                // ensure same order as files by index: we push nulls then fill below; but simplest: push
-                return [...u, publicUrl];
+
+            // Put public URL exactly in the correct slot
+            setUploadedUrls((prev) => {
+                const updated = [...prev];
+                updated[index] = publicUrl;
+                return updated;
             });
+
             setToast({ message: "Upload OK", type: "success" });
+
         } catch (err: any) {
             console.error("upload error", err);
+
+            // Mark upload as error
             setUploadingKeys((s) => ({ ...s, [index]: "ERROR" }));
+
             setToast({ message: "Falha no upload: " + (err?.message ?? err), type: "error" });
         } finally {
-            // clear toast after short time
             setTimeout(() => setToast(null), 3500);
         }
     }
@@ -196,6 +240,12 @@ function ScanModal({ open, onClose, restaurantId, existingCategories, onRefresh 
     async function handleContinue() {
         if (files.length === 0) {
             setToast({ message: "Adicione ao menos 1 foto", type: "error" });
+            setTimeout(() => setToast(null), 2500);
+            return;
+        }
+        const anyUploading = Object.values(uploadingKeys).some(v => v === null);
+        if (anyUploading) {
+            setToast({ message: "Aguarde: imagens ainda estão sendo enviadas.", type: "error" });
             setTimeout(() => setToast(null), 2500);
             return;
         }
@@ -436,6 +486,11 @@ function ScanModal({ open, onClose, restaurantId, existingCategories, onRefresh 
                                     <div className="flex gap-3 overflow-x-auto pb-2">
                                         {thumbUrls.map((u, i) => (
                                             <div key={i} className="relative w-28 h-28 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
+                                                {uploadingKeys[i] === null && (
+                                                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                                                        <Loader />
+                                                    </div>
+                                                )}
                                                 <img src={u} className="w-full h-full object-cover" alt={`thumb-${i}`} />
                                                 <button
                                                     onClick={() => removeFile(i)}
@@ -445,7 +500,7 @@ function ScanModal({ open, onClose, restaurantId, existingCategories, onRefresh 
                                                 </button>
 
                                                 <div className="absolute left-1 bottom-1 text-xs bg-white/80 px-1 rounded">
-                                                    {uploadingKeys[i] === undefined ? "—" : uploadingKeys[i] === null ? "..." : uploadingKeys[i] === "ERROR" ? "erro" : "ok"}
+                                                    {uploadingKeys[i] === undefined ? "—" : uploadingKeys[i] === null ? "..." : uploadingKeys[i] === "ERROR" ? "ERRO" : <FontAwesomeIcon icon={icons.faCheck} />}
                                                 </div>
                                             </div>
                                         ))}

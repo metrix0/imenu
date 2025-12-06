@@ -38,7 +38,7 @@ export async function POST(req: Request) {
 
         // SYSTEM INSTRUCTION
         inputs.push({
-            role: "user",
+            role: "system",
             content: [
                 {
                     type: "input_text",
@@ -66,28 +66,33 @@ Rules:
 - Convert prices to integer cents.
 - Items must belong to a category.
 - If a category is not explicit, infer one.
+- Output MUST be a **single raw JSON object**.
+- **Never** wrap output in backticks.
+- **Never** use code fences.
+- **Never** add explanations, comments, or markdown.
 - Do not add anything outside JSON.
 `
                 }
             ]
         });
 
+
         // MENU IMAGES / PDFs AS URLs
-        for (const url of urls) {
-            inputs.push({
-                role: "user",
-                content: [
-                    {
-                        type: "input_text",
-                        text: `Analyze this menu image:`
-                    },
-                    {
-                        type: "input_image",
-                        image_url: url // <--- pass URL directly
-                    }
-                ]
-            });
-        }
+        inputs.push({
+            role: "user",
+            content: [
+                {
+                    type: "input_text",
+                    text: "Analyze these menu images:"
+                },
+                ...urls.map((url) => ({
+                    type: "input_image",
+                    image_url: url
+                }))
+            ]
+        });
+
+        console.log(inputs)
 
         // ----------------------------------------
         // CALL OPENAI (NEW RESPONSES API)
@@ -136,6 +141,9 @@ Rules:
             is_available: true,
             position: i
         }));
+        console.log(outputText)
+        console.log(parsed)
+        console.log(items, categories)
 
         return NextResponse.json({ items, categories });
     } catch (err: any) {
