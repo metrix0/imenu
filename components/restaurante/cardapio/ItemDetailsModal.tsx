@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/database/supabaseClient";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";

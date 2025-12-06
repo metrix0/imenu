@@ -1,5 +1,5 @@
 // lib/uploadMenuImage.ts
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/database/supabaseClient";
 
 export async function uploadMenuImage(file: File): Promise<string> {
     const key = `menu-images/${crypto.randomUUID()}-${file.name}`;

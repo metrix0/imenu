@@ -8,7 +8,7 @@ import { useCheckoutStore } from "@/lib/stores/costumer/checkoutStore";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { icons } from "@/lib/fontawesome";
 import { faStar } from "@fortawesome/free-solid-svg-icons";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/database/supabaseClient";
 import { formatPrice, formatPriceNoRS } from "@/lib/utils/formatPrice";
 import ModalMobile from "@/components/ui/ModalMobile";
 import ItemModal from "./ItemModal";

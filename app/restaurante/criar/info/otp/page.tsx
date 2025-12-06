@@ -4,7 +4,7 @@
 
 import { useState, useRef, useEffect, Suspense } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/database/supabaseClient";
 import { useCreationStore } from "@/lib/creationStore";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";

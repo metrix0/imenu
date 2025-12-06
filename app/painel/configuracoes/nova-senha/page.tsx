@@ -3,7 +3,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/database/supabaseClient";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faLock, faArrowLeft, faCheck } from "@fortawesome/free-solid-svg-icons";
 

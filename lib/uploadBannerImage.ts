@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/database/supabaseClient";
 
 /**
  * Upload de imagem de banner do menu.

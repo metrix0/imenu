@@ -17,10 +17,9 @@ oq falamos, meus arquivos deram problema
 
 ## Joao
 
-- fazer o cookie de voltar no pedido só aperecer pra mesma loja
-- average delivery time being taken from both cells in the table, and not from the average from the delivery json
-- escolha até 1 no menu item details
-- items no cardapio sem image
+-  adc animacao no toast
+- login precisa salvar o restid no zust. Usar o mesmo zust do creationStore eu acho
+
 
 - só deixar no max 10 restaurantes na DB
 - domínio
@@ -45,7 +44,8 @@ RAF
 DATABASE
 - DUPLICAÇÃO EM MENU-ITEMS em posição
 - separar database entre menu e restaurante (usuario e dono)
-
+- **DOCUMENTAR E FORMALIZAR** todas as apis (endpoints, request body, response body, erros, etc) num arquivo só (md ou outro)
+- passar transformando todo uso de supabase em pages em chamadas de API (especialmente nos componentes do painel/criar)
  
 
 ## Backlog
@@ -159,6 +159,7 @@ DATABASE
 - change .env stuff
 - Explain and document for team about changing .envs and tunneling.
 - mudar o email que o código é enviado supabase auth
+- LIBERAR ROTA api/restaurant/count remover o =15 e max 10 rests
 
 
 ### Tests
@@ -171,6 +172,7 @@ DATABASE
 - Create multiple accounts with different levels, like admin, counter, kitchen, etc
 - Add Motoboy location tracking
 - Add Upsell feature (just like iFood)
+- fazer categoria destaques no menu digital ser automatico ou deixar o user cllicar numa estrelinha no
 - MOBILE RESPONSIVENESS + mobile browsers responsiveness (bar color, hide, etc)
 - Instructions: Make it so the menu system itself give next instructions for it's admins, like "add a video to this best selling product to get ~15% more sales!" <- this step is very hard to implement, includes 1. WE gotta know what they have to do and 2. NOT filling them with multiple tasks, make it zero friction a the start and then keep adding new tasks
 - Delivery Fee BEFORE CEP -> currently it's after CEP, make it before, with location APIs.

@@ -4,7 +4,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useCreationStore } from "@/lib/creationStore";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/database/supabaseClient";
 import posthog from "posthog-js";
 
 export default function InfoPage() {

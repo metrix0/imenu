@@ -4,7 +4,7 @@ import {useEffect, useState} from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useCreationStore } from "@/lib/creationStore";
-import { supabase } from "@/lib/supabaseClient"; 
+import { supabase } from "@/lib/database/supabaseClient";
 import Card from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";

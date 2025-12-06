@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useCreationStore } from "@/lib/creationStore"; 
-import { supabase } from "@/lib/supabaseClient"; 
+import { supabase } from "@/lib/database/supabaseClient";
+import Loader from "@/components/ui/Loader";
 import Button from "@/components/ui/Button";
 import Toast from "@/components/ui/Toast";
 import Card from "@/components/ui/Card";
@@ -16,6 +17,11 @@ import CardapioTab from "@/components/restaurante/cardapio/tabs/CardapioTab";
 import ManageCategoryModal from "@/components/restaurante/cardapio/ManageCategoryModal";
 import ItemDetailsModal from "@/components/restaurante/cardapio/ItemDetailsModal";
 import { MenuItemType } from "@/components/restaurante/cardapio/MenuItemRow";
+import ListLoader from "@/components/ui/ListLoader";
+import Card from "@/components/ui/Card";
+import ScanMenuModal from "@/components/restaurant-owner/ScanMenuImageModal";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faWandMagicSparkles } from "@fortawesome/free-solid-svg-icons";
 
 type Category = { id: string; name: string; position: number };
 
@@ -26,7 +32,7 @@ type RestaurantVisuals = {
 
 export default function CriarCardapioPage() {
     const router = useRouter();
-    const { restaurantId, email } = useCreationStore(); 
+    const { restaurantId, email } = { restaurantId: "0997e978-7f1e-46a9-88f7-81813c519485", email: "" }; //useCreationStore();
     
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
@@ -43,6 +49,7 @@ export default function CriarCardapioPage() {
     const [categoryToEdit, setCategoryToEdit] = useState<{id: string, name: string} | null>(null);
     const [isItemDetailsOpen, setIsItemDetailsOpen] = useState(false);
     const [itemToEditDetails, setItemToEditDetails] = useState<MenuItemType | null>(null);
+    const [aiModalOpen, setAiModalOpen] = useState(false);
 
     const isFormValid = name.trim().length > 0;
 
@@ -223,8 +230,52 @@ export default function CriarCardapioPage() {
 
                 <div className="flex justify-between items-center mb-4 px-2">
                     <h2 className="text-xl font-bold text-gray-800">Cardápio</h2>
-                    <button disabled className="text-xs text-gray-400 border border-gray-200 px-2 py-1 rounded cursor-not-allowed opacity-60">
-                        Importar do iFood
+                    <button
+                        onClick={() => setAiModalOpen(true)}
+                        className={`
+                relative
+                flex items-center gap-2
+                px-6 py-3
+                rounded-full
+                text-white font-medium
+                transition-all duration-300
+                active:scale-95
+                overflow-hidden
+                backdrop-blur-sm
+
+                /* main gradient */
+                bg-gradient-to-br from-[#905CFF] to-[#6A3AFF]
+                cursor-pointer
+                hover:shadow-[0_0_10px_rgba(137,88,255,0.25)]
+                hover:from-[#A678FF] hover:to-[#7D4CFF]
+            `}
+                    >
+                        {/* glossy highlight */}
+                        <span
+                            className="
+                    absolute top-0 left-0 right-0 h-[35%]
+                    bg-white/10
+                    rounded-full
+                    pointer-events-none
+                "
+                        />
+
+                        {/* sparkles icon */}
+                        <FontAwesomeIcon icon={faWandMagicSparkles} className="text-white text-sm relative z-10" />
+
+                        {/* label */}
+                        <span className="relative z-10">Scanear Cardápio com IA</span>
+
+                        {/* ambient glow ring */}
+                        <span
+                            className="
+                    absolute inset-0 rounded-full
+                    bg-purple-500/20
+                    blur-xl
+                    opacity-60
+                    -z-10
+                "
+                        />
                     </button>
                 </div>
 
@@ -237,6 +288,7 @@ export default function CriarCardapioPage() {
                         onEditCategory={handleEditCategory}
                         onOpenItemDetails={handleOpenItemDetails}
                         onNewCategory={handleNewCategory}
+                        onAIScanMenu={setAiModalOpen}
                     />
                 </div>
 
@@ -266,7 +318,13 @@ export default function CriarCardapioPage() {
 
             <ManageCategoryModal isOpen={isCatModalOpen} onClose={() => setIsCatModalOpen(false)} onSuccess={loadData} restaurantId={restaurantId} categoryToEdit={categoryToEdit} />
             <ItemDetailsModal isOpen={isItemDetailsOpen} onClose={() => setIsItemDetailsOpen(false)} item={itemToEditDetails} />
-            
+            <ScanMenuModal
+                open={aiModalOpen}
+                onClose={() => setAiModalOpen(false)}
+                restaurantId={restaurantId}
+                existingCategories={categories}
+                onRefresh={loadData}
+            />
             {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
         </main>
     );
