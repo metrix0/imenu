@@ -3,14 +3,15 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/database/supabaseClient";
+import { supabase } from "@/lib/supabaseClient";
+import { useCreationStore } from "@/lib/creationStore"; // Store Global
 import { uploadLogoImage } from "@/lib/uploadLogoImage";
 import type { User } from "@supabase/supabase-js";
 
 // FontAwesome
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { icons } from "@/lib/fontawesome";
-import { faTrash, faCopy, faDownload, faCheck, faPen, faCalculator, faInfoCircle } from "@fortawesome/free-solid-svg-icons";
+import { faTrash, faCopy, faDownload, faCheck, faPen, faCalculator } from "@fortawesome/free-solid-svg-icons";
 
 // UI Components
 import Button from "@/components/ui/Button";
@@ -56,10 +57,11 @@ const loadScript = (src: string, onLoad: () => void) => {
 
 export default function ConfiguracoesPage() {
     const router = useRouter();
+    // CORREÇÃO 1: Importamos 'clear' para limpar o estado corretamente
+    const { restaurantId, setRestaurantId, clear } = useCreationStore();
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // --- Estados de Dados ---
-    const [restaurantId, setRestaurantId] = useState<string | null>(null);
     const [user, setUser] = useState<User | null>(null);
     const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
     const [menu, setMenu] = useState<Menu | null>(null);
@@ -67,9 +69,7 @@ export default function ConfiguracoesPage() {
 
     // --- Estados de UI (Popup e Toast) ---
     const [toast, setToast] = useState<{ show: boolean; message: string; type: "success" | "error" | "info" }>({
-        show: false,
-        message: "",
-        type: "info",
+        show: false, message: "", type: "info",
     });
 
     const [confirmPopup, setConfirmPopup] = useState<{
@@ -80,12 +80,7 @@ export default function ConfiguracoesPage() {
         confirmText: string;
         isDestructive?: boolean;
     }>({
-        show: false,
-        title: "",
-        message: "",
-        onConfirm: () => { },
-        confirmText: "Confirmar",
-        isDestructive: false,
+        show: false, title: "", message: "", onConfirm: () => { }, confirmText: "Confirmar", isDestructive: false,
     });
 
     // --- Estados Específicos de Ações ---
@@ -95,14 +90,13 @@ export default function ConfiguracoesPage() {
 
     const [shareableUrl, setShareableUrl] = useState("");
     const [qrCodeUrl, setQrCodeUrl] = useState("");
-    const [hoveringLogo, setHoveringLogo] = useState(false);
 
     // Prep Time
     const [prepMode, setPrepMode] = useState<"auto" | "manual">("auto");
     const [manualMin, setManualMin] = useState<string>("");
     const [manualMax, setManualMax] = useState<string>("");
-    const [computingPrep, setComputingPrep] = useState(false); // Para o botão Calcular Agora
-    const [savingPrep, setSavingPrep] = useState(false); // Para o botão Salvar
+    const [computingPrep, setComputingPrep] = useState(false);
+    const [savingPrep, setSavingPrep] = useState(false);
 
     // --- Helpers de Feedback ---
     const showToast = (message: string, type: "success" | "error" | "info") => {
@@ -111,96 +105,72 @@ export default function ConfiguracoesPage() {
 
     const closeToast = () => setToast((prev) => ({ ...prev, show: false }));
 
-    const openConfirm = (
-        title: string,
-        message: string,
-        onConfirm: () => void,
-        confirmText = "Confirmar",
-        isDestructive = false
-    ) => {
-        setConfirmPopup({
-            show: true,
-            title,
-            message,
-            onConfirm,
-            confirmText,
-            isDestructive,
-        });
+    const openConfirm = (title: string, message: string, onConfirm: () => void, confirmText = "Confirmar", isDestructive = false) => {
+        setConfirmPopup({ show: true, title, message, onConfirm, confirmText, isDestructive });
     };
 
     // --- Data Fetching ---
-    const fetchRestaurantByUserId = async (userId: string) => {
-        try {
-            const { data, error } = await supabase
-                .from("restaurants")
-                .select("id, name, url_slug, logo_url, user_id, prep_time_min_minutes, prep_time_max_minutes, prep_time_source, prep_time_computed_at")
-                .eq("user_id", userId)
-                .single();
-
-            if (error || !data) {
-                setRestaurantId(null);
-                setRestaurant(null);
-                return null;
-            }
-
-            setRestaurantId(data.id);
-            setRestaurant(data);
-
-            // Configura modo de preparo
-            const isManual = data.prep_time_source === "manual" || (typeof data.prep_time_min_minutes === "number" && typeof data.prep_time_max_minutes === "number" && !data.prep_time_source);
-            setPrepMode(isManual ? "manual" : "auto");
-            setManualMin(data.prep_time_min_minutes ? String(data.prep_time_min_minutes) : "");
-            setManualMax(data.prep_time_max_minutes ? String(data.prep_time_max_minutes) : "");
-
-            return data.id;
-        } catch (err) {
-            console.error(err);
-            return null;
-        }
-    };
-
-    const fetchRestaurant = async () => {
-        if (!restaurantId) return;
-        await fetchRestaurantByUserId(user!.id);
-    };
-
     useEffect(() => {
         const loadData = async () => {
             setLoading(true);
             try {
                 const { data: { session } } = await supabase.auth.getSession();
                 if (!session) {
-                    router.push("/admin/login");
+                    router.push("/restaurante");
                     return;
                 }
                 const currentUser = session.user;
                 setUser(currentUser);
-                setUserName((currentUser.user_metadata as { full_name?: string })?.full_name || currentUser.email || "");
+                setUserName((currentUser.user_metadata as any)?.full_name || currentUser.email || "");
 
-                const rId = await fetchRestaurantByUserId(currentUser.id);
+                // Lógica unificada de ID
+                let targetId = restaurantId;
+                if (!targetId) {
+                    const { data: rest } = await supabase.from("restaurants").select("id").eq("user_id", currentUser.id).single();
+                    if (rest) {
+                        targetId = rest.id;
+                        setRestaurantId(rest.id);
+                    }
+                }
 
-                if (rId) {
-                    // Carregar Menu
-                    const { data: menuData } = await supabase
-                        .from("menu")
-                        .select("id, name, description, is_active, banner_url")
-                        .eq("restaurant_id", rId)
-                        .maybeSingle();
+                if (targetId) {
+                    // Carregar Detalhes do Restaurante
+                    const { data: restData } = await supabase
+                        .from("restaurants")
+                        .select("id, name, url_slug, logo_url, user_id, prep_time_min_minutes, prep_time_max_minutes, prep_time_source, prep_time_computed_at")
+                        .eq("id", targetId)
+                        .single();
 
-                    if (menuData) setMenu(menuData);
+                    if (restData) {
+                        setRestaurant(restData);
+                        
+                        // Configura modo de preparo
+                        const isManual = restData.prep_time_source === "manual" || (typeof restData.prep_time_min_minutes === "number" && typeof restData.prep_time_max_minutes === "number" && !restData.prep_time_source);
+                        setPrepMode(isManual ? "manual" : "auto");
+                        setManualMin(restData.prep_time_min_minutes ? String(restData.prep_time_min_minutes) : "");
+                        setManualMax(restData.prep_time_max_minutes ? String(restData.prep_time_max_minutes) : "");
 
-                    // Gerar QR Code e URL
-                    const { data: slugData } = await supabase.from("restaurants").select("url_slug").eq("id", rId).maybeSingle();
-                    if (slugData?.url_slug) {
-                        const url = `${window.location.origin}/${slugData.url_slug}`;
-                        setShareableUrl(url);
-                        loadScript("https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.1/qrcode.min.js", () => {
-                            if ((window as any).QRCode) {
-                                (window as any).QRCode.toDataURL(url, { width: 200, margin: 1 }, (err: any, dataUrl: string) => {
-                                    if (!err) setQrCodeUrl(dataUrl);
-                                });
-                            }
-                        });
+                        // Carregar Menu
+                        const { data: menuData } = await supabase
+                            .from("menu")
+                            .select("id, name, description, is_active, banner_url")
+                            .eq("restaurant_id", targetId)
+                            .maybeSingle();
+
+                        if (menuData) setMenu(menuData);
+
+                        // QR Code
+                        if (restData.url_slug) {
+                            const url = `${window.location.origin}/${restData.url_slug}`;
+                            setShareableUrl(url);
+                            loadScript("https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.1/qrcode.min.js", () => {
+                                if ((window as any).QRCode) {
+                                    (window as any).QRCode.toDataURL(url, { width: 200, margin: 1 }, (err: any, dataUrl: string) => {
+                                        if (!err) setQrCodeUrl(dataUrl);
+                                    });
+                                }
+                            });
+                        }
                     }
                 }
             } catch (err) {
@@ -210,202 +180,88 @@ export default function ConfiguracoesPage() {
             }
         };
         loadData();
-    }, [router]);
+    }, [router, restaurantId, setRestaurantId]);
 
     // --- Handlers ---
 
-    const handleNameUpdate = async () => {
+const handleNameUpdate = async () => {
         if (!userName.trim()) return showToast("O nome não pode ser vazio.", "error");
-        if (userName === ((user?.user_metadata as any)?.full_name)) return;
-
         setIsUpdatingName(true);
         try {
-            const { data, error } = await supabase.auth.updateUser({ data: { full_name: userName.trim() } });
+            const { error } = await supabase.auth.updateUser({ data: { full_name: userName.trim() } });
             if (error) throw error;
-            setUser(data.user);
-            showToast("Nome atualizado com sucesso!", "success");
-        } catch (error: any) {
-            showToast(error.message || "Erro ao atualizar nome.", "error");
-        } finally {
-            setIsUpdatingName(false);
-        }
+            showToast("Nome atualizado!", "success");
+        } catch (e: any) { showToast(e.message, "error"); } finally { setIsUpdatingName(false); }
     };
 
-    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file && restaurant) {
-            try {
-                const key = await uploadLogoImage(file);
-                const { error } = await supabase.from("restaurants").update({ logo_url: key }).eq("id", restaurant.id);
-                if (error) throw error;
-                setRestaurant({ ...restaurant, logo_url: key });
-                showToast("Logo atualizada!", "success");
-            } catch (err: any) {
-                showToast("Erro ao enviar logo.", "error");
-            }
-        }
-    };
-
-    const confirmDeleteLogo = () => {
-        openConfirm("Remover Logo", "Deseja remover a logo do restaurante?", async () => {
-            if (!restaurant?.logo_url) return;
-            try {
-                await supabase.storage.from("restaurant-logos").remove([restaurant.logo_url]);
-                await supabase.from("restaurants").update({ logo_url: null }).eq("id", restaurant.id);
-                setRestaurant({ ...restaurant, logo_url: null });
-                showToast("Logo removida.", "success");
-            } catch (err) {
-                showToast("Erro ao remover logo.", "error");
-            }
-        }, "Remover", true);
-    };
-
-    // 3. Prep Time Logic
-
-    // Apenas calcula (para o botão "Calcular Agora")
     const handleComputeNow = async () => {
         if (!restaurant) return;
         setComputingPrep(true);
         try {
-            const res = await fetch(`/api/restaurants/${restaurant.id}/compute-prep-time`, { method: "POST" });
-            if (!res.ok) throw new Error("Erro ao calcular");
-
-            await fetchRestaurant();
-            showToast("Cálculo realizado com sucesso!", "success");
-        } catch (err) {
-            showToast("Não foi possível calcular agora. Verifique se há pedidos suficientes.", "error");
-        } finally {
-            setComputingPrep(false);
-        }
+            await fetch(`/api/restaurants/${restaurant.id}/compute-prep-time`, { method: "POST" });
+            showToast("Cálculo realizado!", "success");
+        } catch(e) { showToast("Erro ao calcular.", "error"); } finally { setComputingPrep(false); }
     };
 
-    // Salva a configuração (Manual ou Auto)
     const handleSavePrepTime = async () => {
         if (!restaurant) return;
         setSavingPrep(true);
-
         try {
-            if (prepMode === "manual") {
-                const min = Number(manualMin);
-                const max = Number(manualMax);
-                if (!min || !max || min <= 0 || max <= 0 || max <= min) {
-                    throw new Error("Valores inválidos. Max deve ser maior que Min.");
-                }
-                if ((max - min) < 20) throw new Error("A diferença deve ser de pelo menos 20 min.");
-
-                await fetch(`/api/restaurants/${restaurant.id}/set-prep-time`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ min, max, source: "manual" }),
-                });
-                showToast("Tempo manual salvo.", "success");
-            } else {
-                // Auto mode - Salva que é auto
-                await fetch(`/api/restaurants/${restaurant.id}/set-prep-time`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ source: "auto" }),
-                });
-
-                // Tenta calcular imediatamente
-                const resCalc = await fetch(`/api/restaurants/${restaurant.id}/compute-prep-time`, { method: "POST" });
-
-                if (resCalc.ok) showToast("Modo automático ativado e calculado.", "success");
-                else showToast("Modo automático ativado (cálculo pendente de dados).", "info");
-            }
-            await fetchRestaurant();
-        } catch (err: any) {
-            showToast(err.message || "Erro ao salvar tempo.", "error");
-        } finally {
-            setSavingPrep(false);
-        }
+            const body = prepMode === "manual" ? { min: Number(manualMin), max: Number(manualMax), source: "manual" } : { source: "auto" };
+            const res = await fetch(`/api/restaurants/${restaurant.id}/set-prep-time`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+            if(!res.ok) throw new Error();
+            if(prepMode === "auto") await fetch(`/api/restaurants/${restaurant.id}/compute-prep-time`, { method: "POST" });
+            showToast("Tempo salvo!", "success");
+        } catch(e) { showToast("Erro ao salvar.", "error"); } finally { setSavingPrep(false); }
     };
 
-    // 4. Menu Actions
     const toggleMenuStatus = async (val: boolean) => {
-        if (!menu) return;
+        if(!menu) return;
         try {
-            const { error } = await supabase.from("menu").update({ is_active: val }).eq("id", menu.id);
-            if (error) throw error;
+            await supabase.from("menu").update({ is_active: val }).eq("id", menu.id);
             setMenu({ ...menu, is_active: val });
             showToast(`Cardápio ${val ? "ativado" : "desativado"}.`, "success");
-        } catch (err) {
-            showToast("Erro ao atualizar status.", "error");
-        }
+        } catch(e) { showToast("Erro ao atualizar.", "error"); }
     };
 
     const confirmDeleteMenu = () => {
-        openConfirm("Excluir Cardápio", `Deseja excluir o cardápio "${menu?.name}" e todos os seus itens?`, async () => {
-            if (!menu) return;
+        openConfirm("Excluir Cardápio", `Excluir "${menu?.name}"?`, async () => {
+            if(!menu) return;
             setIsDeletingAction(true);
             try {
-                const res = await fetch("/api/menu/delete-menu", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ menuId: menu.id }),
-                });
-                if (!res.ok) throw new Error();
+                await fetch("/api/menu/delete-menu", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ menuId: menu.id }) });
                 setMenu(null);
                 showToast("Cardápio excluído.", "success");
-            } catch (err) {
-                showToast("Erro ao excluir cardápio.", "error");
-            } finally {
-                setIsDeletingAction(false);
-            }
+            } catch(e) { showToast("Erro ao excluir.", "error"); } finally { setIsDeletingAction(false); }
         }, "Excluir", true);
     };
 
-    // 5. Danger Zone: Delete Restaurant
     const confirmDeleteRestaurant = () => {
-        openConfirm("Deletar Restaurante", `Tem certeza que deseja deletar "${restaurant?.name}" e TODOS os dados associados?`, async () => {
-            if (!restaurant) return;
+        openConfirm("Deletar Restaurante", `Deletar "${restaurant?.name}"?`, async () => {
+            if(!restaurant) return;
             setIsDeletingAction(true);
             try {
-                const res = await fetch("/api/restaurants/delete-restaurant", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ restaurantId: restaurant.id, userId: restaurant.user_id }),
-                });
-                if (!res.ok) throw new Error();
+                await fetch("/api/restaurants/delete-restaurant", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ restaurantId: restaurant.id, userId: restaurant.user_id }) });
                 showToast("Restaurante deletado.", "success");
-                router.push("/painel/configuracoes");
-                setRestaurant(null);
-            } catch (err) {
-                showToast("Erro ao deletar restaurante.", "error");
-            } finally {
-                setIsDeletingAction(false);
-            }
+                clear();
+                router.push("/restaurante/criar");
+            } catch(e) { showToast("Erro ao deletar.", "error"); } finally { setIsDeletingAction(false); }
         }, "Deletar", true);
     };
 
-    // 6. Danger Zone: Delete Account
     const confirmDeleteAccount = () => {
-        openConfirm("Deletar Conta", "Essa ação removerá PERMANENTEMENTE sua conta e todos os dados associados.", async () => {
-            if (!user) return;
+        openConfirm("Deletar Conta", "Ação irreversível.", async () => {
+            if(!user) return;
             setIsDeletingAction(true);
             try {
                 const { data: { session } } = await supabase.auth.getSession();
-                if (restaurant) {
-                    await fetch("/api/restaurants/delete-restaurant", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ restaurantId: restaurant.id, userId: user.id }),
-                    });
-                }
-                const res = await fetch("/api/auth/delete-account", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ access_token: session?.access_token }),
-                });
-                if (!res.ok) throw new Error();
-
+                if(restaurant) await fetch("/api/restaurants/delete-restaurant", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ restaurantId: restaurant.id, userId: user.id }) });
+                await fetch("/api/auth/delete-account", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ access_token: session?.access_token }) });
                 await supabase.auth.signOut();
-                router.push("/");
+                clear();
+                router.push("/restaurante");
                 showToast("Conta deletada.", "success");
-            } catch (err) {
-                showToast("Erro ao deletar conta.", "error");
-                setIsDeletingAction(false);
-            }
+            } catch(e) { showToast("Erro ao deletar conta.", "error"); setIsDeletingAction(false); }
         }, "Deletar", true);
     };
 
@@ -416,7 +272,27 @@ export default function ConfiguracoesPage() {
         }
     };
 
-    const logoUrl = restaurant?.logo_url ? supabase.storage.from("restaurant-logos").getPublicUrl(restaurant.logo_url).data.publicUrl : null;
+    // Gera URL visual do QR Code
+    const qrCodeApiUrl = shareableUrl 
+        ? `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(shareableUrl)}`
+        : null;
+
+    const handleDownloadQr = async () => {
+        if (!qrCodeApiUrl) return;
+        try {
+            const response = await fetch(qrCodeApiUrl);
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = `qrcode-${restaurant?.url_slug || "cardapio"}.png`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } catch (e) {
+            showToast("Erro ao baixar imagem.", "error");
+        }
+    };
 
     if (loading) return <div className="flex justify-center p-10"><Loader /></div>;
 
@@ -481,8 +357,9 @@ export default function ConfiguracoesPage() {
                                         placeholder="Seu nome completo"
                                     />
                                 </div>
-                                <div className="pb-[9px]">
+                                <div className="">
                                     <Button
+                                        className="py-4"
                                         variant="primary"
                                         onClick={handleNameUpdate}
                                         loading={isUpdatingName}

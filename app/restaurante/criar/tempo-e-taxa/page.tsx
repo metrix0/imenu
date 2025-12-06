@@ -1,98 +1,92 @@
-// app/restaurante/criar/tempo-e-taxa/page.tsx
 "use client";
 
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/database/supabaseClient";
 import { useRouter } from "next/navigation";
+import { useCreationStore } from "@/lib/creationStore"; // Importar a store
 
 import DeliveryRules, { DeliveryRulesRef } from "@/components/restaurante/configuracoes/TempoeTaxa";
-import Button from "@/components/ui/Button"; // Assumindo que você tem esse componente, baseado no seu código de exemplo
+import Button from "@/components/ui/Button";
 
 export default function TempoETaxaPage() {
     const router = useRouter();
-    const [restaurantId, setRestaurantId] = useState<string | null>(null);
+    // Tenta pegar direto da store (mais rápido)
+    const { restaurantId: storedId, setRestaurantId: setStoreId } = useCreationStore();
+    
+    const [restaurantId, setRestaurantId] = useState<string | null>(storedId);
     const [isLoading, setIsLoading] = useState(false);
+    const [isPageLoading, setIsPageLoading] = useState(!storedId); // Se já tem ID, não carrega
 
-    // Referência para acessar a função save() do filho
     const rulesRef = useRef<DeliveryRulesRef>(null);
 
-    // KEEPING THE WORKING LOGIC EXACTLY AS IT WAS
     useEffect(() => {
-        const fetchData = async () => {
-            console.log("➡️ load() starting…");
+        const init = async () => {
+            if (restaurantId) return; // Já temos ID, não precisa buscar
 
-            // Load session
-            const {
-                data: { session },
-                error: sessionError,
-            } = await supabase.auth.getSession();
-
-            console.log("📌 session =", session);
-            console.log("📌 sessionError =", sessionError);
-
+            console.log("🔄 Buscando restaurante...");
+            
+            const { data: { session } } = await supabase.auth.getSession();
             if (!session?.user) {
-                console.log("❌ No logged user");
+                console.log("❌ Sem usuário logado");
+                // router.push("/restaurante"); // Opcional: Redirecionar se perder sessão
                 return;
             }
 
-            const user = session.user;
-
-            // Get restaurant for this user
-            const { data: restaurant, error: restError } = await supabase
+            // Busca o restaurante do usuário logado
+            const { data: restaurant, error } = await supabase
                 .from("restaurants")
-                .select("id, user_id, delivery_fee_json")
-                .eq("user_id", user.id)
+                .select("id")
+                .eq("user_id", session.user.id)
                 .single();
 
-            console.log("🏪 restaurant =", restaurant);
-            console.log("🔴 restError =", restError);
-
-            if (!restaurant) {
-                console.log("❌ User has no restaurant yet");
+            if (error || !restaurant) {
+                console.error("❌ Erro ao buscar restaurante:", error);
                 return;
             }
 
+            console.log("✅ Restaurante encontrado:", restaurant.id);
             setRestaurantId(restaurant.id);
-
-            console.log("✅ restaurantId =", restaurant.id);
+            setStoreId(restaurant.id); // Sincroniza store
+            setIsPageLoading(false);
         };
 
-        fetchData(); // call the async function
-    }, []);
+        init();
+    }, [restaurantId, setStoreId]);
 
     const handleSave = async () => {
         if (!rulesRef.current) return;
 
         setIsLoading(true);
         try {
-            // Chama a função save() que está dentro do componente DeliveryRules
             await rulesRef.current.save();
-            
-            // Redireciona após salvar
-            //router.push("/restaurante/criar/disponibilidade");
+            router.push("/restaurante/criar/disponibilidade");
         } catch (error) {
             console.error("Erro ao salvar:", error);
+            alert("Não foi possível salvar as configurações.");
         } finally {
             setIsLoading(false);
         }
     };
 
-    // DO NOT RETURN NULL → this was giving you a blank screen
-    if (!restaurantId) {
-        return <div>Carregando restaurante...</div>;
+    if (isPageLoading || !restaurantId) {
+        return (
+            <div className="flex items-center justify-center min-h-screen">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand"></div>
+            </div>
+        );
     }
 
     return (
-        <div className="max-w-3xl mx-auto py-10 px-6 pb-32"> {/* pb-32 adicionado para o conteúdo não ficar atrás do footer */}
+        <div className="max-w-3xl mx-auto py-10 px-6 pb-32">
             <div className="mb-8 text-center sm:text-left">
                 <h1 className="text-3xl font-bold mb-3">Tempo e Taxa de Entrega</h1>
-                <p className="text-gray-500 mt-1">Agora, recomendamos essa taxa e tempo de entrega</p>
+                <p className="text-gray-500 mt-1">Defina as regras de entrega para o seu restaurante.</p>
             </div>
-            {/* Passamos a ref para controlar o componente filho */}
+            
             <DeliveryRules
                 ref={rulesRef}
                 restaurantId={restaurantId}
-                isNew={true}
+                isNew={true} // Força defaults se estiver vazio
             />
 
             {/* Footer Bar */}

@@ -1,27 +1,40 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/database/supabaseClient";
-import PayoutsDashboard from "@/components/restaurante/exibicoes/PayoutsDashboard";
+import { supabase } from "@/lib/supabaseClient";
+import { useCreationStore } from "@/lib/creationStore"; // Store Global
 import SalesDashboard from "@/components/restaurante/exibicoes/SalesDashboard";
-import Loader from "@/components/ui/Loader"; // Usando seu loader padrão
+import PayoutsDashboard from "@/components/restaurante/exibicoes/PayoutsDashboard";
+import DateFilterBar from "@/components/restaurante/exibicoes/DateFilterBar"; 
+import Loader from "@/components/ui/Loader";
+
+const getISODate = (date: Date) => date.toISOString().split("T")[0];
 
 export default function FinanceiroPage() {
-    const [restaurantId, setRestaurantId] = useState<string | null>(null);
+    const { restaurantId, setRestaurantId } = useCreationStore();
     const [isLoading, setIsLoading] = useState(true);
+
+    // Datas Iniciais (Últimos 7 dias)
+    const [startDate, setStartDate] = useState(() => {
+        const d = new Date();
+        d.setDate(d.getDate() - 7);
+        return getISODate(d);
+    });
+    const [endDate, setEndDate] = useState(() => getISODate(new Date()));
 
     useEffect(() => {
         const loadRestaurant = async () => {
-            setIsLoading(true);
-            const { data: { session } } = await supabase.auth.getSession();
-
-            if (!session?.user) {
-                // Redirecionar ou mostrar erro se não tiver user
+            if (restaurantId) {
                 setIsLoading(false);
                 return;
             }
 
-            // Buscar restaurante do dono
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session?.user) { 
+                setIsLoading(false); 
+                return; 
+            }
+
             const { data: restaurant } = await supabase
                 .from("restaurants")
                 .select("id")
@@ -33,41 +46,45 @@ export default function FinanceiroPage() {
             }
             setIsLoading(false);
         };
-
         loadRestaurant();
-    }, []);
+    }, [restaurantId, setRestaurantId]);
 
-    if (isLoading) {
-        return (
-            <div className="flex justify-center items-center h-64">
-                <Loader />
-            </div>
-        );
-    }
+    if (isLoading) return <div className="flex justify-center items-center h-64"><Loader /></div>;
+    
+    if (!restaurantId) return (
+        <div className="flex flex-col items-center justify-center min-h-[50vh] text-gray-500">
+            <p>Nenhum restaurante encontrado.</p>
+        </div>
+    );
 
-    if (!restaurantId) {
-        return (
-            <div className="p-8 text-center">
-                <p className="text-red-500">Restaurante não encontrado.</p>
-            </div>
-        );
-    }
-
-    // Layout ajustado para não colidir com Sidebar e ser responsivo
     return (
-        <div className="space-y-8 max-w-6xl mx-auto">
-            <div className="mb-8 flex flex-col  gap-1 ">
-                <h1 className="text-3xl font-bold text-gray-900">Dashboard Financeiro</h1>
-                <p className="text-gray-500 mb-8 mt-1">Veja o desempenho da sua loja durante um período.</p>
-            </div>
-            {/* Sales Graphs */}
+        <div className="space-y-8 max-w-6xl mx-auto px-4 pt-8 pb-20">
+            <h1 className="text-3xl font-bold text-gray-900">Dashboard Financeiro</h1>
+            
+            {/* Barra de Filtro */}
+            <DateFilterBar 
+                startDate={startDate} 
+                endDate={endDate} 
+                onStartDateChange={setStartDate} 
+                onEndDateChange={setEndDate} 
+            />
+            
+            {/* Payouts (Repasses) */}
             <section>
-                <SalesDashboard menuId={restaurantId} />
+                 <PayoutsDashboard 
+                    menuId={restaurantId} 
+                    startDate={startDate}
+                    endDate={endDate}
+                 />
             </section>
-
-            {/* Payouts List */}
+            
+            {/* Vendas (Gráficos) */}
             <section>
-                 <PayoutsDashboard menuId={restaurantId} />
+                <SalesDashboard 
+                    menuId={restaurantId} 
+                    startDate={startDate} 
+                    endDate={endDate} 
+                />
             </section>
         </div>
     );

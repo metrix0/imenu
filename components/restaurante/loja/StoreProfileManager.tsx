@@ -10,7 +10,8 @@ import Toast from "@/components/ui/Toast";
 // Sub-componentes
 import StoreVisuals from "./StoreVisuals";
 import StoreName from "./StoreName";
-import StoreBio from "./StoreBio";
+// StoreBio não foi fornecido, mas assumo que exista e seja similar ao StoreName
+// import StoreBio from "./StoreBio"; 
 
 interface StoreProfileProps {
     restaurant: {
@@ -20,23 +21,21 @@ interface StoreProfileProps {
         logo_url: string | null;
         banner_url: string | null;
     };
-    compact?: boolean; // Se true, esconde a descrição
+    compact?: boolean;
 }
 
 export default function StoreProfileManager({ restaurant, compact = false }: StoreProfileProps) {
-    // Estados locais de texto
+    // Estados locais
     const [name, setName] = useState(restaurant.name);
-    const [description, setDescription] = useState(restaurant.description || "");
+    // const [description, setDescription] = useState(restaurant.description || "");
     
-    // Estados locais de imagem
     const [logoUrl, setLogoUrl] = useState<string | null>(null);
     const [bannerUrl, setBannerUrl] = useState<string | null>(null);
 
-    // Estados de UI
     const [isSaving, setIsSaving] = useState(false);
     const [toast, setToast] = useState<{ msg: string, type: "success" | "error" } | null>(null);
 
-    // Inicializa URLs
+    // Inicializa URLs públicas
     useEffect(() => {
         if (restaurant.logo_url) {
             const { data } = supabase.storage.from("restaurant-logos").getPublicUrl(restaurant.logo_url);
@@ -48,16 +47,19 @@ export default function StoreProfileManager({ restaurant, compact = false }: Sto
         }
     }, [restaurant]);
 
-    // Auto-Save Lógica
+    // --- AUTO-SAVE VIA API ---
     const autoSave = async (field: string, value: string) => {
         setIsSaving(true);
         try {
-            const { error } = await supabase
-                .from("restaurants")
-                .update({ [field]: value })
-                .eq("id", restaurant.id);
+            // CORREÇÃO: Usando API Route
+            const response = await fetch(`/api/restaurants/${restaurant.id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ [field]: value }),
+            });
 
-            if (error) throw error;
+            if (!response.ok) throw new Error("Erro ao salvar");
+
         } catch (err) {
             console.error(err);
             setToast({ msg: "Erro ao salvar.", type: "error" });
@@ -66,17 +68,38 @@ export default function StoreProfileManager({ restaurant, compact = false }: Sto
         }
     };
 
-    // Handlers de Update visual (passados para StoreVisuals)
-    const handleVisualUpdate = (type: "logo" | "banner", url: string) => {
-        if (type === "logo") setLogoUrl(url);
-        if (type === "banner") setBannerUrl(url);
-        setToast({ msg: `${type === 'logo' ? 'Logo' : 'Capa'} atualizada!`, type: "success" });
+    // --- VISUAL UPDATE VIA API ---
+    // O componente filho StoreVisuals já deve estar preparado para retornar (type, publicUrl, dbPath)
+    // Se ele ainda retorna apenas url, precisaremos usar o que ele mandar, mas idealmente ele manda o path.
+    // No seu código anterior de StoreVisuals, corrigimos para retornar dbPath.
+    const handleVisualUpdate = async (type: "logo" | "banner", publicUrl: string, dbPath: string) => {
+        if (type === "logo") setLogoUrl(publicUrl);
+        if (type === "banner") setBannerUrl(publicUrl);
+
+        setIsSaving(true);
+        try {
+            const field = type === "logo" ? "logo_url" : "banner_url";
+            
+            const response = await fetch(`/api/restaurants/${restaurant.id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ [field]: dbPath }),
+            });
+
+            if (!response.ok) throw new Error("Erro ao salvar imagem");
+
+            setToast({ msg: `${type === 'logo' ? 'Logo' : 'Capa'} atualizada!`, type: "success" });
+        } catch (err) {
+            console.error(err);
+            setToast({ msg: "Erro ao salvar imagem.", type: "error" });
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     return (
         <div className={compact ? "mb-8" : "flex-1 w-full max-w-6xl mx-auto px-6 pt-8 pb-32 space-y-8"}>
             
-            {/* Header do Painel (Escondido no modo compacto) */}
             {!compact && (
                 <div className="flex justify-between items-end px-2">
                     <div>
@@ -96,7 +119,7 @@ export default function StoreProfileManager({ restaurant, compact = false }: Sto
             )}
 
             <Card className="px-4 overflow-hidden pb-8 border border-gray-200 shadow-sm">
-                {/* 1. VISUAIS (Banner + Logo) */}
+                {/* 1. VISUAIS */}
                 <StoreVisuals 
                     restaurantId={restaurant.id}
                     logoUrl={logoUrl}
@@ -112,15 +135,8 @@ export default function StoreProfileManager({ restaurant, compact = false }: Sto
                         onChange={setName} 
                         onBlur={() => autoSave("name", name)} 
                     />
-
-                    {/* 3. BIO (Condicional) */}
-                    {/* {!compact && (
-                        <StoreBio 
-                            value={description} 
-                            onChange={setDescription} 
-                            onBlur={() => autoSave("description", description)} 
-                        />
-                    )} */}
+                    
+                    {/* Se tiver StoreBio, adicione aqui similar ao StoreName */}
                 </div>
             </Card>
 

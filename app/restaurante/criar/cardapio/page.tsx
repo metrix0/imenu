@@ -7,12 +7,12 @@ import { supabase } from "@/lib/database/supabaseClient";
 import Loader from "@/components/ui/Loader";
 import Button from "@/components/ui/Button";
 import Toast from "@/components/ui/Toast";
+import Card from "@/components/ui/Card";
+import ListLoader from "@/components/ui/ListLoader";
 
-// --- IMPORTANDO OS NOVOS COMPONENTES MODULARES ---
+// Componentes Modulares
 import StoreVisuals from "@/components/restaurante/loja/StoreVisuals";
 import StoreName from "@/components/restaurante/loja/StoreName";
-
-// Componentes do Cardápio
 import CardapioTab from "@/components/restaurante/cardapio/tabs/CardapioTab";
 import ManageCategoryModal from "@/components/restaurante/cardapio/ManageCategoryModal";
 import ItemDetailsModal from "@/components/restaurante/cardapio/ItemDetailsModal";
@@ -25,7 +25,6 @@ import { faWandMagicSparkles } from "@fortawesome/free-solid-svg-icons";
 
 type Category = { id: string; name: string; position: number };
 
-// Definição local para os dados visuais que precisamos
 type RestaurantVisuals = { 
     logo_url: string | null; 
     banner_url: string | null; 
@@ -40,20 +39,19 @@ export default function CriarCardapioPage() {
     const [error, setError] = useState<string | null>(null);
     const [toast, setToast] = useState<{ message: string; type?: "success" | "error" | "info" } | null>(null);
 
-    // Dados do Restaurante
     const [visuals, setVisuals] = useState<RestaurantVisuals>({ logo_url: null, banner_url: null });
-    const [name, setName] = useState(""); // O nome é gerenciado separadamente
+    const [name, setName] = useState(""); 
     
-    // Dados do Cardápio
     const [categories, setCategories] = useState<Category[]>([]);
     const [items, setItems] = useState<MenuItemType[]>([]);
 
-    // Modais
     const [isCatModalOpen, setIsCatModalOpen] = useState(false);
     const [categoryToEdit, setCategoryToEdit] = useState<{id: string, name: string} | null>(null);
     const [isItemDetailsOpen, setIsItemDetailsOpen] = useState(false);
     const [itemToEditDetails, setItemToEditDetails] = useState<MenuItemType | null>(null);
     const [aiModalOpen, setAiModalOpen] = useState(false);
+
+    const isFormValid = name.trim().length > 0;
 
     useEffect(() => {
         if (!restaurantId) {
@@ -65,6 +63,7 @@ export default function CriarCardapioPage() {
 
     const loadData = async () => {
         try {
+            // Leitura permitida via Supabase Client (conforme CONVENTIONS.md)
             const { data: restaurant, error: rError } = await supabase
                 .from("restaurants")
                 .select("id, name, logo_url, banner_url")
@@ -73,10 +72,8 @@ export default function CriarCardapioPage() {
 
             if (rError || !restaurant) throw new Error("Restaurante não encontrado.");
             
-            // Popula estados
             setName(restaurant.name || "");
             
-            // Resolve URLs públicas para o componente visual
             const logoPublic = restaurant.logo_url ? supabase.storage.from("restaurant-logos").getPublicUrl(restaurant.logo_url).data.publicUrl : null;
             const bannerPublic = restaurant.banner_url ? supabase.storage.from("menu-banners").getPublicUrl(restaurant.banner_url).data.publicUrl : null;
             
@@ -85,7 +82,6 @@ export default function CriarCardapioPage() {
                 banner_url: bannerPublic
             });
 
-            // Carrega Categorias
             const { data: cats } = await supabase
                 .from("categories")
                 .select("*")
@@ -93,7 +89,6 @@ export default function CriarCardapioPage() {
                 .order("position", { ascending: true });
             setCategories(cats || []);
 
-            // Carrega Itens
             const { data: rawItems } = await supabase
                 .from("items")
                 .select("*")
@@ -116,50 +111,61 @@ export default function CriarCardapioPage() {
         }
     };
 
-    // --- HANDLERS ---
+    // --- UPDATES VIA API (Conforme Arquitetura) ---
 
-    // Atualiza visual localmente quando o componente filho fizer upload
-    const handleVisualUpdate = (type: "logo" | "banner", url: string) => {
+    const handleVisualUpdate = async (type: "logo" | "banner", publicUrl: string, dbPath: string) => {
+        // Atualiza UI instantaneamente
         setVisuals(prev => ({
             ...prev,
-            [type === "logo" ? "logo_url" : "banner_url"]: url
+            [type === "logo" ? "logo_url" : "banner_url"]: publicUrl
         }));
-        setToast({ message: "Imagem atualizada!", type: "success" });
+
+        try {
+            const field = type === "logo" ? "logo_url" : "banner_url";
+            
+            // Chama API para salvar o path no banco
+            const res = await fetch(`/api/restaurants/${restaurantId}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ [field]: dbPath }),
+            });
+
+            if (!res.ok) throw new Error("Falha ao salvar imagem no banco.");
+
+            setToast({ message: "Imagem salva com sucesso!", type: "success" });
+        } catch (error) {
+            console.error(error);
+            setToast({ message: "Erro ao salvar imagem.", type: "error" });
+        }
     };
 
-    const handleVisualError = (msg: string) => {
-        setToast({ message: msg, type: "error" });
-    };
-
-    // Salva o nome quando sai do campo (Auto-save igual ao painel)
     const handleNameBlur = async () => {
         if (!restaurantId || !name) return;
         try {
-            await supabase.from("restaurants").update({ name }).eq("id", restaurantId);
+            const res = await fetch(`/api/restaurants/${restaurantId}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name }),
+            });
+            if (!res.ok) throw new Error("Falha ao salvar nome");
         } catch (e) {
             console.error("Erro ao salvar nome:", e);
         }
     };
 
-    // Handlers de Cardápio
-    const handleNewCategory = () => { setCategoryToEdit(null); setIsCatModalOpen(true); };
-    const handleEditCategory = (cat: Category) => { setCategoryToEdit(cat); setIsCatModalOpen(true); };
-    const handleOpenItemDetails = (item: MenuItemType) => {
-        setItemToEditDetails(item);
-        setIsItemDetailsOpen(true);
-    };
-
-    // Finalizar cadastro
     const handleContinue = async () => {
+        if (!isFormValid) return;
         if (!restaurantId || !email) {
-            alert("Sessão expirada.");
+            alert("Sessão expirada ou e-mail não encontrado.");
             return;
         }
+
         setIsSaving(true);
         try {
-            // Garante que o nome final está salvo antes de ir (redundância segura)
-            await supabase.from("restaurants").update({ name }).eq("id", restaurantId);
+            // Garante que o nome está salvo antes de prosseguir
+            await handleNameBlur();
 
+            // Envia OTP (Email) - Conforme fluxo de registro
             const { error: authError } = await supabase.auth.signInWithOtp({
                 email: email,
                 options: { shouldCreateUser: false } 
@@ -174,6 +180,15 @@ export default function CriarCardapioPage() {
             setIsSaving(false);
         }
     };
+
+    const handleNewCategory = () => { setCategoryToEdit(null); setIsCatModalOpen(true); };
+    const handleEditCategory = (cat: Category) => { setCategoryToEdit(cat); setIsCatModalOpen(true); };
+    const handleOpenItemDetails = (item: MenuItemType) => {
+        setItemToEditDetails(item);
+        setIsItemDetailsOpen(true);
+    };
+
+    const handleVisualError = (msg: string) => setToast({ message: msg, type: "error" });
 
     if (isLoading) return (
         <main className="min-h-screen flex flex-col items-center justify-start p-6 bg-white">
@@ -195,7 +210,6 @@ export default function CriarCardapioPage() {
                     <p className="text-gray-500">Adicione sua marca e seus primeiros produtos.</p>
                 </div>
 
-                {/* 1. COMPONENTE VISUAL (MODULAR) */}
                 <Card className="px-4 overflow-hidden mb-8 border border-gray-200 shadow-sm">
                     <StoreVisuals 
                         restaurantId={restaurantId}
@@ -205,8 +219,7 @@ export default function CriarCardapioPage() {
                         onError={handleVisualError}
                     />
 
-                    {/* 2. COMPONENTE NOME (MODULAR) */}
-                    <div className="mb-12 -mt-6"> {/* Ajuste de margem negativa para aproximar do visual */}
+                    <div className="mb-12 -mt-6"> 
                         <StoreName 
                             value={name}
                             onChange={setName}
@@ -267,7 +280,6 @@ export default function CriarCardapioPage() {
                 </div>
 
                 <div className="bg-gray-50/50 rounded-xl border border-gray-100 p-4">
-                    {/* 3. CARDÁPIO TAB (MODULAR) */}
                     <CardapioTab 
                         categories={categories}
                         items={items}
@@ -293,18 +305,17 @@ export default function CriarCardapioPage() {
                     </button>
                     
                     <Button
-                        variant="primary"
+                        variant={isFormValid ? "primary" : "secondary"}
                         onClick={handleContinue}
-                        disabled={isSaving || !name.trim()}
+                        disabled={isSaving || !isFormValid}
                         loading={isSaving}
                         className="px-8"
                     >
-                        {isSaving ? "Enviando Código..." : "Salvar e Continuar"}
+                        {isSaving ? "Salvando..." : "Salvar e Continuar"}
                     </Button>
                 </div>
             </div>
 
-            {/* Modais Reutilizados */}
             <ManageCategoryModal isOpen={isCatModalOpen} onClose={() => setIsCatModalOpen(false)} onSuccess={loadData} restaurantId={restaurantId} categoryToEdit={categoryToEdit} />
             <ItemDetailsModal isOpen={isItemDetailsOpen} onClose={() => setIsItemDetailsOpen(false)} item={itemToEditDetails} />
             <ScanMenuModal

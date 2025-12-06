@@ -23,11 +23,14 @@ type RadiusRule = {
 // Definindo o tipo de referência que o Pai vai acessar
 export type DeliveryRulesRef = {
     save: () => Promise<void>;
+    getRulesSnapshot: () => { rules: RadiusRule[]; minOrder: number };
 };
 
 type DeliveryRulesProps = {
     restaurantId: string;
     isNew: boolean;
+    initialRules?: any;
+    initialMinOrder?: any;
 };
 
 const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
@@ -51,12 +54,21 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
         const taxaRefs = useRef<Record<number, HTMLInputElement | null>>({});
 
         // ---------------------------------------------------
-        // EXPOSE SAVE FUNCTION TO PARENT
+        // EXPOSE FUNCTIONS TO PARENT
         // ---------------------------------------------------
         useImperativeHandle(ref, () => ({
             save: async () => {
-                await saveToDB(true); // Força o save mesmo se isNew
+                await saveToDB(true);
             },
+            getRulesSnapshot: () => {
+                const minOrderValue = minOrderRef.current
+                    ? parseFloat(minOrderRef.current.value) || 0
+                    : 0;
+                return {
+                    rules: rules,
+                    minOrder: minOrderValue
+                };
+            }
         }));
 
         // ---------------------------------------------------
@@ -96,16 +108,20 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                     { radius_km: 5, time_minutes: 50, fee_cents: 800 },
                 ];
                 setRules(defaults);
-                if (minOrderRef.current) minOrderRef.current.value = "1500";
+                if (minOrderRef.current) minOrderRef.current.value = "1500"; // Nota: Seu original usa 1500 (centavos?) ou valor bruto. Mantive.
                 return;
             }
 
             // Load from DB if not cached and not new
             fetchFromDB();
-        }, [restaurantId, isNew]);
+        }, [restaurantId, isNew]); // MANTIDO CONFORME ORIGINAL
 
         const fetchFromDB = async () => {
+            if (!restaurantId || restaurantId === "undefined") return;
+
             console.log("[INIT] Fetching from SUPABASE...");
+            // Use a API unificada em vez de supabase client direto se preferir consistência, 
+            // mas mantive supabase client pois é leitura e seu original usava.
             const { data, error } = await supabase
                 .from("restaurants")
                 .select("delivery_fee_json, min_order_cents")
@@ -119,8 +135,10 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
 
             if (data?.delivery_fee_json) {
                 console.log("[INIT] Loaded rules from DB.");
+                // Garantir array
+                const loadedRules = Array.isArray(data.delivery_fee_json) ? data.delivery_fee_json : [];
                 setRules(
-                    data.delivery_fee_json.map((r: any) => ({
+                    loadedRules.map((r: any) => ({
                         radius_km: r.radius_km,
                         time_minutes: r.time_minutes,
                         fee_cents: r.fee_cents ?? null,
@@ -129,18 +147,17 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
             }
 
             if (data?.min_order_cents != null && minOrderRef.current) {
-                minOrderRef.current.value = String(data.min_order_cents / 100);
+                // Ajuste aqui se precisar de formatação (/100) ou valor bruto
+                minOrderRef.current.value = String(data.min_order_cents / 100); 
             }
         };
 
         // ---------------------------------------------------
-        // REALTIME SYNC (verbose)
+        // REALTIME SYNC
         // ---------------------------------------------------
         useEffect(() => {
-            if (isNew) return; // realtime only in painel
+            if (isNew) return;
             if (!restaurantId) return;
-
-            console.log("[REALTIME] Subscribing to restaurant:", restaurantId);
 
             const channel = supabase
                 .channel(`realtime:restaurants:${restaurantId}`)
@@ -153,14 +170,7 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                         filter: `id=eq.${restaurantId}`,
                     },
                     (payload) => {
-                        console.log(
-                            "%c[REALTIME] UPDATE RECEIVED",
-                            "color: #22c55e; font-weight: bold;"
-                        );
-                        console.log(payload);
-
                         const d = payload.new;
-
                         if (d.delivery_fee_json) {
                             setRules(
                                 d.delivery_fee_json.map((r: any) => ({
@@ -170,64 +180,68 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                                 }))
                             );
                         }
-
                         if (d.min_order_cents != null && minOrderRef.current) {
                             minOrderRef.current.value = String(d.min_order_cents / 100);
                         }
                     }
                 )
-                .subscribe((status) => {
-                    console.log("[REALTIME] Subscription status:", status);
-                });
+                .subscribe();
 
             return () => {
-                console.log("[REALTIME] Unsubscribing channel.");
                 supabase.removeChannel(channel);
             };
         }, [restaurantId, isNew]);
 
         // ---------------------------------------------------
-        // ADD RULE
+        // ADD RULE (LOGIC UPDATE - FIX GAPS)
         // ---------------------------------------------------
         const handleAddRule = () => {
-        setRules((prev) => {
-            // Lista de raios existentes
-            const existing = new Set(prev.map(r => r.radius_km));
-
-            // Gera possíveis raios válidos (0.5 em 0.5 até um limite razoável, ex: 20km)
-            const possible = Array.from({ length: 100 }, (_, i) => (i + 1) * 0.5);
-
-            // Encontra o primeiro raio que NÃO existe ainda
-            const nextRadius = Math.max(...Array.from(existing)) + 0.5;
-            console.log(existing, possible, nextRadius)
-            return [
-                ...prev,
-                {
-                    radius_km: nextRadius,
-                    time_minutes: 40,
-                    fee_cents: null,
+            setRules((prev) => {
+                const existingRadii = new Set(prev.map((r) => r.radius_km));
+                let nextRadius = 0.5;
+                while (existingRadii.has(nextRadius)) {
+                    nextRadius += 0.5;
                 }
-            ];
-        });
-    };
+                const lastRule = prev.length > 0 ? prev[prev.length - 1] : null;
+                const defaultTime = lastRule ? lastRule.time_minutes : 40;
+                const defaultFee = lastRule ? lastRule.fee_cents : 800;
+
+                const newRules = [
+                    ...prev,
+                    {
+                        radius_km: nextRadius,
+                        time_minutes: defaultTime,
+                        fee_cents: defaultFee,
+                    },
+                ];
+                return newRules.sort((a, b) => a.radius_km - b.radius_km);
+            });
+        };
 
         // ---------------------------------------------------
-        // DELETE RULE
+        // DELETE RULE (LOGIC UPDATE - MIN 1)
         // ---------------------------------------------------
-const handleDeleteRule = (i: number) => {
-    setRules((prev) => {
-        if (prev.length <= 1) return prev; // <-- impede deletar tudo
-        return prev.filter((_, idx) => idx !== i);
-    });
-};
-
+        const handleDeleteRule = (i: number) => {
+            setRules((prev) => {
+                if (prev.length <= 1) return prev;
+                return prev.filter((_, idx) => idx !== i);
+            });
+        };
 
         // ---------------------------------------------------
         // SAVE TO DB + ZUSTAND
         // ---------------------------------------------------
-// SAVE TO DB + ZUSTAND
         const saveToDB = async (force = false) => {
+            // Se for novo e não for save forçado (autosave), ignora
             if (isNew && !force) return;
+            
+            // PROTEÇÃO CONTRA ID INVÁLIDO
+            if (!restaurantId || restaurantId === "undefined") {
+                console.error("Tentativa de salvar sem ID válido");
+                return;
+            }
+
+            setStatus("saving");
 
             const finalRules = rules.map((r) => ({
                 radius_km: r.radius_km,
@@ -244,33 +258,26 @@ const handleDeleteRule = (i: number) => {
             setMinOrder(restaurantId, minOrderValue);
 
             try {
-                console.log(restaurantId, finalRules, minOrderValue)
-                const session = await supabase.auth.getSession();
-
-                const res = await fetch("/api/update-restaurant", {
+                // MUDANÇA PRINCIPAL: Usando a API correta
+                const res = await fetch(`/api/restaurants/${restaurantId}`, {
                     method: "PATCH",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "Authorization": `Bearer ${session.data.session?.access_token}`,
-                    },
+                    headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
-                        restaurantId,
-                        rules: finalRules,
-                        minOrder: minOrderValue,
+                        delivery_fee_json: finalRules,
+                        min_order_cents: minOrderValue * 100, // Ajuste se seu backend espera centavos
                     }),
                 });
 
-                const data = await res.json();
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.error || "Error saving");
+                }
 
-                console.log(data)
-                console.log(res)
-                if (!res.ok) throw new Error(data.message || "Error saving");
-
-                console.log("%c[AUTOSAVE] Saved successfully!", "color:#22c55e;");
                 setStatus("saved");
             } catch (error: any) {
                 console.error("[AUTOSAVE] Error saving:", error);
                 setStatus("idle");
+                throw error; // Propaga o erro para o pai ver
             }
         };
 
@@ -278,15 +285,13 @@ const handleDeleteRule = (i: number) => {
         // AUTOSAVE (only when NOT new)
         // ---------------------------------------------------
         useEffect(() => {
-            // CORREÇÃO CRÍTICA: Se for novo, NÃO dispara o efeito de autosave visual.
-            // Isso impede que ele entre em "saving" sem nunca sair.
             if (isNew) return;
 
             setStatus("saving");
 
             const timeout = setTimeout(async () => {
                 await saveToDB();
-                setStatus("saved");
+                setStatus("saved"); // saveToDB já seta, mas ok manter
             }, 500);
 
             return () => clearTimeout(timeout);
@@ -316,15 +321,15 @@ const handleDeleteRule = (i: number) => {
                 {/* DELIVERY RULES */}
                 <div className="p-6 bg-white border border-gray-200 rounded-lg shadow-sm mb-8">
                     <div className="flex items-center gap-4 mb-2 px-2">
-        <span className="w-1/3 flex items-center gap-2 text-sm font-medium text-gray-700">
-            <FontAwesomeIcon icon={faBullseye} /> Raio
-        </span>
                         <span className="w-1/3 flex items-center gap-2 text-sm font-medium text-gray-700">
-            <FontAwesomeIcon icon={faClock} /> Tempo
-        </span>
+                            <FontAwesomeIcon icon={faBullseye} /> Raio
+                        </span>
                         <span className="w-1/3 flex items-center gap-2 text-sm font-medium text-gray-700">
-            <FontAwesomeIcon icon={icons.faDollarSign} /> Taxa
-        </span>
+                            <FontAwesomeIcon icon={faClock} /> Tempo
+                        </span>
+                        <span className="w-1/3 flex items-center gap-2 text-sm font-medium text-gray-700">
+                            <FontAwesomeIcon icon={icons.faDollarSign} /> Taxa
+                        </span>
                         <span className="w-8"></span>
                     </div>
 
@@ -362,7 +367,7 @@ const handleDeleteRule = (i: number) => {
                                     className="w-1/3"
                                     defaultValue={
                                         rule.fee_cents === null
-                                            ? "0,00"    // <-- fix: show 0,00 if null
+                                            ? "0,00"
                                             : (rule.fee_cents / 100)
                                                 .toFixed(2)
                                                 .replace(".", ",")
@@ -412,7 +417,7 @@ const handleDeleteRule = (i: number) => {
                 </div>
 
                 {/* Pedido mínimo */}
-                {!isNew && (  // <-- fix: hide when isNew
+                {!isNew && (
                     <div className="p-6 bg-white border border-gray-200 rounded-lg shadow-sm mb-8">
                         <h2 className="text-xl font-semibold mb-3">
                             Pedido Mínimo{" "}

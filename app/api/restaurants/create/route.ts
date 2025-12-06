@@ -16,22 +16,51 @@ export async function POST(request: Request) {
             );
         }
 
-        // Inserimos o restaurante já com o user_id, phone e a data de criação
-        // O 'email' não existe na tabela restaurants segundo seu schema, mas o 'phone' sim.
-        const { rows } = await query(
-            `
-            INSERT INTO public.restaurants (user_id, phone, created_at, updated_at)
-            VALUES ($1, $2, NOW(), NOW())
+        // 1. Inserir Restaurante com dados default
+        // Definimos is_open=false, rating=5, JSONs vazios para evitar erros no front
+        const insertRestaurantText = `
+            INSERT INTO public.restaurants (
+                user_id, 
+                phone, 
+                is_open, 
+                rating, 
+                min_order_cents, 
+                balance_cents, 
+                delivery_fee_json, 
+                availability_json,
+                prep_time_min_minutes,
+                prep_time_max_minutes,
+                created_at, 
+                updated_at
+            )
+            VALUES ($1, $2, false, 5.0, 20, 0, '[]'::jsonb, '{}'::jsonb, 20, 40, NOW(), NOW())
             RETURNING id;
-            `,
-            [userId, phone]
-        );
+        `;
 
-        if (!rows || rows.length === 0) {
+        const { rows: restaurantRows } = await query(insertRestaurantText, [userId, phone]);
+
+        if (!restaurantRows || restaurantRows.length === 0) {
             throw new Error("Falha ao criar o restaurante no banco de dados.");
         }
 
-        return NextResponse.json({ id: rows[0].id });
+        const newRestaurantId = restaurantRows[0].id;
+
+        // 2. Inserir Menu Default (Necessário para o painel não abrir vazio)
+        const insertMenuText = `
+            INSERT INTO public.menu (
+                restaurant_id, 
+                name, 
+                is_active, 
+                created_at, 
+                updated_at
+            )
+            VALUES ($1, 'Cardápio Principal', true, NOW(), NOW());
+        `;
+
+        await query(insertMenuText, [newRestaurantId]);
+
+        // Retorna o ID para o frontend salvar no Zustand (Store RestaurantId)
+        return NextResponse.json({ id: newRestaurantId });
 
     } catch (error) {
         console.error("Erro ao criar restaurante:", error);

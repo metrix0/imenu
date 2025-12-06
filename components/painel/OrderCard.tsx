@@ -18,9 +18,7 @@ export interface OrderItemData {
     id: string;
     quantity: number;
     price_cents: number;
-    item: {
-        name: string;
-    };
+    name: string; 
 }
 
 export interface OrderData {
@@ -93,13 +91,19 @@ export default function OrderCard({ order, onStatusChange }: OrderCardProps) {
     const updateStatus = async (newStatus: OrderStatus) => {
         setLoading(true);
         try {
-            const { error } = await supabase
-                .from("orders")
-                .update({ status: newStatus })
-                .eq("id", order.id);
+            // CORREÇÃO: Usando API em vez de Supabase Client direto
+            const res = await fetch(`/api/orders/${order.id}/status-order`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ status: newStatus })
+            });
 
-            if (error) throw error;
-            onStatusChange(); 
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.error || "Erro ao atualizar status");
+            }
+            
+            onStatusChange(); // Dispara refresh no pai
         } catch (err) {
             console.error(err);
             alert("Erro ao atualizar status");
@@ -154,24 +158,20 @@ export default function OrderCard({ order, onStatusChange }: OrderCardProps) {
         <Card className="p-0 overflow-hidden border-l-4 border-l-brand">
             {/* Header do Card */}
             <div className="p-4 bg-gray-50 border-b border-gray-100 flex justify-between items-start">
-                {/* Lado Esquerdo: ID, Nome, Status */}
                 <div className="flex flex-col gap-1">
                     <div className="flex items-center gap-2">
                         <span className="font-bold text-gray-900 text-lg">
                             #{order.display_id || order.id.slice(0, 4)}
                         </span>
-                        {/* Status Tag */}
                         <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${config.color}`}>
                             {config.label}
                         </span>
                     </div>
-                    {/* Nome do Cliente - Agora aqui */}
                     <span className="text-sm font-medium text-gray-700 truncate max-w-[200px]" title={order.customer_name}>
                         {order.customer_name}
                     </span>
                 </div>
 
-                {/* Lado Direito: Timer */}
                 <div className="flex items-center gap-1 text-red-600 font-bold bg-red-50 px-2 py-1 rounded text-sm whitespace-nowrap">
                     <FontAwesomeIcon icon={faClock} />
                     {getElapsedTime()}
@@ -186,7 +186,7 @@ export default function OrderCard({ order, onStatusChange }: OrderCardProps) {
                         <div key={`${order.id}-item-${idx}`} className="flex justify-between text-sm">
                             <div className="flex gap-2">
                                 <span className="font-bold text-gray-900">{item.quantity}x</span>
-                                <span className="text-gray-700">{item.item.name}</span>
+                                <span className="text-gray-700">{item.name}</span>
                             </div>
                             <span className="text-gray-500">{fmtMoney(item.price_cents * item.quantity)}</span>
                         </div>
