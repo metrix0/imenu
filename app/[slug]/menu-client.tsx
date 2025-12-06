@@ -205,7 +205,7 @@ export default function MenuClientPage({
             {/* ============================
                 CARD PRINCIPAL
             ============================ */}
-            <div className="relative -mt-8">
+            <div className="relative -mt-8 ">
                 {restaurant.logo_url && (
                     <div className="absolute left-1/2 -translate-x-1/2 -top-8 z-20">
                         <img
@@ -216,7 +216,7 @@ export default function MenuClientPage({
                     </div>
                 )}
 
-                <div className="bg-white mx-5 px-5 py-4 rounded-3xl shadow-[0_2px_10px_rgba(0,0,0,0.08)]">
+                <div className="bg-white mx-5 md:mx-48 px-5 py-4 rounded-3xl shadow-[0_2px_10px_rgba(0,0,0,0.08)]">
                     <h1 className="text-[1.2rem] font-semibold mt-6">
                         {restaurant.name}
                     </h1>
@@ -228,20 +228,20 @@ export default function MenuClientPage({
                             : "R$ 0,00"}
                     </p>
 
-                    {(
-                        <div className="flex items-center gap-2 mt-3 text-xs border-b border-gray-200 pb-3">
-                            <FontAwesomeIcon
-                                icon={faStar}
-                                className="text-gray-700"
-                            />
-                            <span className="font-semibold">
-                                4.7
-                            </span>
-                            <span className="text-gray-500">
-                                (427 avaliações)
-                            </span>
-                        </div>
-                    )}
+                    {/*{(*/}
+                    {/*    <div className="flex items-center gap-2 mt-3 text-xs border-b border-gray-200 pb-3">*/}
+                    {/*        <FontAwesomeIcon*/}
+                    {/*            icon={faStar}*/}
+                    {/*            className="text-gray-700"*/}
+                    {/*        />*/}
+                    {/*        <span className="font-semibold">*/}
+                    {/*            4.7*/}
+                    {/*        </span>*/}
+                    {/*        <span className="text-gray-500">*/}
+                    {/*            (427 avaliações)*/}
+                    {/*        </span>*/}
+                    {/*    </div>*/}
+                    {/*)}*/}
 
                     <div className="flex items-center gap-2 mt-3 text-xs font-bold">
                         <span>Entrega</span>
@@ -257,7 +257,7 @@ export default function MenuClientPage({
             </div>
 
             {nextOpening !== null && (
-                <WarningBox icon={icons.faTriangleExclamation} className="mt-10 mx-6 ">
+                <WarningBox icon={icons.faTriangleExclamation} className="mt-10 mx-6 md:mx-48">
                     Restaurante fechado. Abre em <b>
                     {" "}
                     {Math.floor((nextOpening.getTime() - new Date().getTime()) / 3600000)
@@ -269,6 +269,7 @@ export default function MenuClientPage({
                     )
                         .toString()
                         .padStart(2, "0")}
+                    min
                 </b>
                     .
                     {todaySlots.length > 0 && (
@@ -291,29 +292,29 @@ export default function MenuClientPage({
             {/* ============================
                 CATEGORIAS
             ============================ */}
-            <div className="mt-8 px-4 space-y-12 pb-20">
+            <div className="mt-8 px-4 md:mx-44 space-y-12 pb-20">
                 {categories.map((cat) => (
-                    <>
+                    <div key={cat.id}>
                     {categories[0].position === 1
                         ?
                         <div key={cat.id}>
 
-                            <h2 className="text-xl font-medium mb-4">
+                            <h2 className="text-xl font-medium mb-4 md:mb-8">
                                 {cat.name}
                             </h2>
 
-                            <div className="grid grid-cols-3 gap-[4dvw] ">
+                            <div className="grid grid-cols-3 md:grid-cols-4 gap-[4dvw] w-full relative ">
                                 {itemsByCategory[cat.id]?.map((item) => (
                                     <button
                                         key={item.id}
                                         onClick={() => handleItemClick(item)}
-                                        className={`text-left ${
+                                        className={`text-left cursor-pointer ${
                                             loadingItemId === item.id
                                                 ? "opacity-60"
                                                 : ""
                                         }`}
                                     >
-                                        <div className="w-full h-[29dvw] rounded-2xl overflow-hidden bg-gray-200 shadow-sm">
+                                        <div className=" w-full aspect-square rounded-2xl overflow-hidden bg-gray-200 shadow-sm">
                                             <img
                                                 src={item.image_public_url || "/placeholders/item.png"}
                                                 className="w-full h-full object-cover"
@@ -337,16 +338,16 @@ export default function MenuClientPage({
                         :
                         <div key={cat.id}>
 
-                            <h2 className="text-xl font-medium mb-6">
+                            <h2 className="text-xl font-medium mb-6 md:mb-8">
                                 {cat.name}
                             </h2>
 
-                            <div className="space-y-6">
+                            <div className="space-y-6 md:space-y-0 w-full md:grid md:grid-cols-2 md:gap-x-[4dvw] md:gap-y-[2dvw]">
                                 {itemsByCategory[cat.id]?.map((item) => (
                                     <button
                                         key={item.id}
                                         onClick={() => handleItemClick(item)}
-                                        className={`w-full flex justify-between items-start text-left border-b-1 pb-4 border-gray-200 ${
+                                        className={`cursor-pointer w-full flex justify-between items-start text-left border-b-1 pb-4 border-gray-200 ${
                                             loadingItemId === item.id ? "opacity-60" : ""
                                         }`}
                                     >
@@ -366,7 +367,7 @@ export default function MenuClientPage({
                                         </div>
 
                                         {/* RIGHT SIDE (image) */}
-                                        <div className="w-[22vw] h-[22vw] rounded-2xl overflow-hidden
+                                        <div className="w-[22vw] h-[22vw] md:w-[10vw] md:h-[10vw] rounded-2xl overflow-hidden
                     bg-gray-200 shadow-sm flex-shrink-0">
                                             <img
                                                 src={item.image_public_url || "/placeholders/item.png"}
@@ -379,7 +380,7 @@ export default function MenuClientPage({
                             </div>
                         </div>
                     }
-                    </>
+                    </div>
                 ))}
             </div>
 

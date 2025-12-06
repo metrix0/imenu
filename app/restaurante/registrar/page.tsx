@@ -158,7 +158,7 @@ export default function RestaurantRegistrationPage() {
                     {restCount > 0 && (
                         <div className="reveal fade-up absolute -right-90 top-0">
                             <div className="opacity-95 text-white max-w-80 space-y-2 p-6 border bg-text border-gray-950 rounded-xl shadow-sm">
-                                <BonusButton className="!pr-8 pl-6  border-1">
+                                <BonusButton className="!pr-8 pl-6 border-1 border-gray-700">
                                     <span className="font-medium">BÔNUS</span>
                                 </BonusButton>
 
@@ -227,26 +227,30 @@ export default function RestaurantRegistrationPage() {
                             </div>
                         )}
                     </div>
+
+                        <div className={`mt-8 flex justify-center w-full ${!isValid ? "cursor-not-allowed" : ""}`}>
+                            <Tooltip
+                                text="Preencha os dados obrigatórios"
+                                className={isValid ? "!hidden" : ""}
+                                parentClassName={"w-full"}
+                            >
+                                <Button
+                                    variant={"primary"}
+                                    loading={loading}
+                                    disabled={!isValid}
+                                    onClick={handleRegister}
+                                    className="min-w-[220px] w-full disabled:pointer-events-none "
+                                >
+                                    Criar Conta Grátis
+                                </Button>
+                            </Tooltip>
+                    </div>
+                    <p className={"text-sm"}>
+                        Já tem uma conta? <a className={"text-blue-500 hover:text-blue-700 duration-200 cursor-pointer"} onClick={()=>router.replace("restaurante/login")}>Log In</a>
+                    </p>
                 </Card>
 
-                <div className="mt-6">
-                    <div className={`w-auto ${!isValid ? "cursor-not-allowed" : ""}`}>
-                        <Tooltip
-                            text="Preencha os dados obrigatórios"
-                            className={isValid ? "!hidden" : ""}
-                        >
-                            <Button
-                                variant={!isValid ? "secondary" : "primary"}
-                                loading={loading}
-                                disabled={!isValid}
-                                onClick={handleRegister}
-                                className="min-w-[220px] disabled:pointer-events-none disabled:opacity-50"
-                            >
-                                Criar Conta Grátis
-                            </Button>
-                        </Tooltip>
-                    </div>
-                </div>
+
             </main>
         </div>
 

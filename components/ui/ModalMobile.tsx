@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import Modal from "./Modal";
 
 type DraggableModalProps =  React.HTMLAttributes<HTMLDivElement> & {
     height?: number;
@@ -24,6 +25,8 @@ export default function DraggableModal({
 
     const [translateY, setTranslateY] = useState(1000);
     const [animating, setAnimating] = useState(false);
+    const [isDesktop, setIsDesktop] = useState(false);
+
 
     // === Open / Close animation ===
     useEffect(() => {
@@ -109,7 +112,20 @@ export default function DraggableModal({
         setTimeout(onClose, 250); // match transition
     };
 
+    useEffect(() => {
+        const check = () => setIsDesktop(window.innerWidth >= 768);
+        check();
+        window.addEventListener("resize", check);
+        return () => window.removeEventListener("resize", check);
+    }, []);
+
+
     return (
+        <>{isDesktop ?
+                    <Modal open={open} onClose={onClose} className={props.className}>
+                        {children}
+                    </Modal>
+            :
         <div
             className={`fixed inset-0 z-51 transition-opacity duration-300 ${
                 open ? "opacity-100" : "opacity-0 pointer-events-none"
@@ -151,6 +167,6 @@ export default function DraggableModal({
                     {children}
                 </div>
             </div>
-        </div>
+        </div>}</>
     );
 }

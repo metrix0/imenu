@@ -89,10 +89,10 @@ export default function AdminLogin() {
     return (
         <div className="min-h-screen flex flex-col bg-white">
             {/* HEADER */}
-            <header className="w-full border-b border-gray-200 px-2 py-7 flex items-center justify-between sticky top-0 bg-white z-10">
+            <header className="w-full  px-2 py-7 flex items-center justify-between sticky top-0 bg-white z-10">
                 <div className="relative h-6 w-32 ml-4">
                     <Image
-                        src="/logo-full.png"
+                        src="/logos/CombinationMarkLogo_Brand.png"
                         alt="iMenu Logo"
                         fill
                         className="object-contain object-left"
@@ -101,16 +101,13 @@ export default function AdminLogin() {
             </header>
 
             {/* MAIN */}
-            <main className="flex-1 flex flex-col items-center justify-start pt-8 px-4 pb-16 sm:pt-16">
-                <Card className="w-full max-w-2xl space-y-8 p-8 border border-gray-200 shadow-sm">
+            <main className="flex-1 flex flex-col items-center justify-start sm:pt-8 px-4 pb-16">
+                <Card className="w-full max-w-lg space-y-8 p-8 border border-gray-200 shadow-sm">
 
                     <div className="text-center space-y-2">
-                        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+                        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
                             Entrar no Painel Administrativo
                         </h1>
-                        <p className="text-base text-gray-500">
-                            Receba pedidos e customize seu restaurante.
-                        </p>
                     </div>
 
                     <form className="space-y-6" onSubmit={handleLogin}>
@@ -156,7 +153,11 @@ export default function AdminLogin() {
                         >
                             Entrar
                         </Button>
+                        <p className={"text-sm"}>
+                            Novo no iMenu? <a className={"text-blue-500 hover:text-blue-700 duration-200 cursor-pointer"} onClick={()=>router.replace("restaurante/registrar")}>Registre-se agora</a>
+                        </p>
                     </form>
+
                 </Card>
             </main>
 

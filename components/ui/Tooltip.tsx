@@ -12,6 +12,7 @@ type TooltipProps = {
     padding?: string;
     size?: TooltipSize;
     position?: TooltipPosition;
+    parentClassName?: string;
 
     /** NEW props */
     className?: string;            // wrapper class
@@ -35,6 +36,7 @@ export default function Tooltip({
                                     delayShow = 0,
                                     delayHide = 100,
                                     disabled = false,
+    parentClassName,
 
                                     ...rest
                                 }: TooltipProps) {
@@ -98,7 +100,7 @@ export default function Tooltip({
 
     return (
         <div
-            className={`relative inline-block`}
+            className={`relative inline-block ${parentClassName}`}
             onMouseEnter={safeShow}
             onMouseLeave={safeHide}
         >

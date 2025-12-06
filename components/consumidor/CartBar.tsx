@@ -260,8 +260,8 @@ export default function CartBar({
 
     return (
         <>
-            <div className="fixed pb-8 bottom-0 left-0 right-0 z-50 bg-white shadow-[0_-4px_12px_rgba(0,0,0,0.12)] px-4 py-3 border-t border-gray-200">
-                <div className="flex items-center justify-between w-full">
+            <div className="fixed pb-8 md:pb-4 bottom-0 left-0 right-0 z-50  bg-white shadow-[0_-4px_12px_rgba(0,0,0,0.12)] px-4 py-3 border-t border-gray-200">
+                <div className="flex items-center justify-between w-full md:px-7">
                     <div className="flex flex-col text-left text-[12px] text-gray-600">
                         <span>
                             {checkoutState.delivery_fee_cents === null ||

@@ -48,13 +48,28 @@ export default function CriarCardapioPage() {
 
     const isFormValid = name.trim().length > 0;
 
+    const useHasHydrated = () => {
+        const [hasHydrated, setHasHydrated] = useState(false);
+
+        useEffect(() => {
+            setHasHydrated(true);
+        }, []);
+
+        return hasHydrated;
+    };
+    const hydrated = useHasHydrated();
+
+
     useEffect(() => {
+        if (!hydrated) return; // 👈 wait for hydration!
+        console.log(restaurantId)
         if (!restaurantId) {
-            router.replace("/restaurante");
-            return;
+            router.replace("/restaurante/login");
+        } else {
+            loadData();
         }
-        loadData();
-    }, [restaurantId, router]);
+    }, [hydrated, restaurantId]);
+
 
     const loadData = async () => {
         try {
