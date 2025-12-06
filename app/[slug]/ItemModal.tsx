@@ -80,6 +80,15 @@ export default function ItemModal({
             const set = new Set(prev[sc.id] || []);
             const single = sc.max_select === 1 || sc.max_select === 0;
 
+            console.log(single, set, set.has(si.id));
+            console.log(sc, si.id)
+
+            if (single && set.has(si.id)) {
+                console.log("clear");
+                set.delete(si.id);
+                return { ...prev, [sc.id]: set }; // ← THIS FIXES IT
+            }
+
             if (single) {
                 set.clear();
                 set.add(si.id);
@@ -168,7 +177,9 @@ export default function ItemModal({
         return (
             <>
                 {/* ITEM HEADER */}
+
                 <div className="mt-3 px-4">
+
                     <h1 className="text-[22px] font-semibold mb-2">{item.name}</h1>
 
                     {item.description && (
@@ -219,7 +230,7 @@ export default function ItemModal({
                                             onClick={() =>
                                                 toggleSubitem(sc, si)
                                             }
-                                            className="w-full px-4 py-3 flex justify-between"
+                                            className="cursor-pointer w-full px-4 py-3 flex justify-between"
                                         >
                                             <div className="text-left">
                                                 <p className="font-medium">
@@ -236,7 +247,7 @@ export default function ItemModal({
                                             <div className="flex items-center">
                                                 {isSingle ? (
                                                     <span
-                                                        className={`w-7 h-7 rounded-full border flex items-center justify-center ${
+                                                        className={`cursor-pointer w-7 h-7 rounded-full border flex items-center justify-center ${
                                                             isSelected
                                                                 ? "border-brand bg-brand text-white"
                                                                 : "border-gray-300 bg-gray-100 text-gray-400"
@@ -291,19 +302,24 @@ export default function ItemModal({
             height={0.93}
             handle={false}
             xPadding={false}
+            className={"!max-h-[80vh]"}
         >
+
+            <div className={"md:grid md:grid-cols-2"}>
+
             {/* IMAGE HEADER */}
-            <div className="relative w-full h-[260px] bg-black">
+            <div className="relative w-full h-[260px] md:h-auto md:aspect-square ">
                 <img
                     src={item.image_public_url || "https://mjogdsnxbwhbqcoijrwt.supabase.co/storage/v1/object/public/menu-images/menu-images/menu_banner_placeholder.png"}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover md:rounded-br-4xl "
                 />
 
                 <button
                     onClick={closeWithAnimation}
-                    className="absolute left-4 top-6 w-10 h-10 bg-black/50 text-white rounded-full flex items-center justify-center"
+                    className="absolute left-4 cursor-pointer top-6 w-10 h-10 bg-black/50 text-white rounded-full flex items-center justify-center"
                 >
-                    <FontAwesomeIcon icon={icons.faChevronDown} />
+                    <FontAwesomeIcon icon={icons.faChevronDown} className={"md:!hidden"} />
+                    <FontAwesomeIcon icon={icons.faTimes} className={"hidden md:block"} />
                 </button>
 
                 <div className="absolute left-4 bottom-4 bg-white shadow-md rounded-full px-3 pr-4 py-2 flex items-center gap-2 leading-none">
@@ -328,17 +344,22 @@ export default function ItemModal({
                 </div>
             </div>
 
+
             {/* CONTENT */}
-            <div className="overflow-y-auto h-full pb-32">
+            <div className="overflow-y-auto h-screen md:h-100px md:p-4 pb-32 md:pb-0">
+                <div className={" md:pb-62"}>
                 {renderContent()}
+                </div>
+            </div>
+
             </div>
 
             {/* FOOTER */}
-            <div className="absolute left-0 right-0 bottom-0 bg-white border-t border-gray-200 pt-5 pb-14 px-4 flex items-center gap-3">
+            <div className="absolute left-0 right-0 bottom-0 bg-white border-t border-gray-200 pt-5 pb-14 md:pb-8 px-4 flex items-center gap-3">
                 <div className="flex items-center border border-gray-200 rounded-xl px-3 py-2 w-[110px] justify-between">
                     <button
                         onClick={() => changeQty(-1)}
-                        className="w-6 h-6 flex items-center justify-center text-gray-400"
+                        className="w-6 h-6 flex items-center justify-center text-gray-400 cursor-pointer"
                     >
                         <FontAwesomeIcon icon={icons.faMinus} />
                     </button>
@@ -347,7 +368,7 @@ export default function ItemModal({
 
                     <button
                         onClick={() => changeQty(1)}
-                        className="w-6 h-6 flex items-center justify-center text-brand"
+                        className="w-6 h-6 flex items-center justify-center text-brand cursor-pointer"
                     >
                         <FontAwesomeIcon icon={icons.faPlus} />
                     </button>
@@ -356,7 +377,7 @@ export default function ItemModal({
                 <button
                     disabled={!canAdd || !isRestaurantOpen}
                     onClick={handleAdd}
-                    className={`w-full flex-1 rounded-xl px-5 py-3 flex items-center justify-between text-[15px] font-semibold ${
+                    className={`cursor-pointer w-full flex-1 rounded-xl px-5 py-3 flex items-center justify-between text-[15px] font-semibold ${
                         !isRestaurantOpen
                             ? "bg-gray-200 text-gray-400 cursor-not-allowed"
                             : canAdd

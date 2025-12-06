@@ -343,16 +343,21 @@ export default function CartModal({
                 height={0.93}
                 handle={false}
                 xPadding={false}
+                className={"md:!h-[80vh] md:!mb-[12vh]"}
             >
                 {/* HEADER */}
                 <div className="sticky top-[0.1%] z-60 flex items-center bg-white rounded-2xl justify-center pb-3 pt-4 pointer-events-none">
                     <button
-                        className="absolute left-5 text-sm pointer-events-auto"
+                        className="absolute left-5 md:left-auto md:right-5 text-sm pointer-events-auto cursor-pointer"
                         onClick={goBack}
                     >
                         <FontAwesomeIcon
                             icon={icons.faChevronDown}
-                            className={`duration-200 ${step === "cart" ? "rotate-0" : "rotate-90" }`}
+                            className={`md:!hidden duration-200 ${step === "cart" ? "rotate-0" : "rotate-90" }`}
+                        />
+                        <FontAwesomeIcon
+                            icon={icons.faTimes}
+                            className={`hidden md:block text-gray-700 hover:text-gray-950 text-lg duration-200 ${step === "cart" ? "rotate-0" : "rotate-90" }`}
                         />
                     </button>
 
@@ -363,7 +368,7 @@ export default function CartModal({
                     {step === "cart" && (
                         <button
                             onClick={clearItems}
-                            className="absolute right-5 text-brand  font-semibold text-[12px] pointer-events-auto"
+                            className="absolute right-5 md:right-auto md:left-5 cursor-pointer text-brand  font-semibold text-[12px] pointer-events-auto"
                         >
                             Limpar
                         </button>
@@ -403,7 +408,7 @@ export default function CartModal({
 
                             <button
                                 onClick={closeWithAnimation}
-                                className="text-brand font-semibold text-[13px] text-left"
+                                className="cursor-pointer text-brand font-semibold text-[13px] text-left"
                             >
                                 Adicionar mais itens
                             </button>
@@ -486,7 +491,7 @@ export default function CartModal({
                     <div className="mt-6 mb-20">
                         <button
                             onClick={closeWithAnimation}
-                            className="text-brand font-semibold text-[14px] w-full mt-8"
+                            className="cursor-pointer text-brand font-semibold text-[14px] w-full mt-8"
                         >
                             Adicionar mais itens
                         </button>

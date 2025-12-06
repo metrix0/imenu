@@ -17,7 +17,7 @@ oq falamos, meus arquivos deram problema
 
 ## Joao
 
-- login precisa salvar o restid no zust. Usar o mesmo zust do creationStore eu acho
+- testar http://localhost:3000/pizzaria-sao-paulo em monitor 1920 e ver se fica estrnaho
 
 
 - só deixar no max 10 restaurantes na DB
@@ -34,6 +34,11 @@ RAF
 - animaçao estranha ao editar item
 - nao consigo selecionar ao editar item (ele da um drag)
 - erro ao editar item
+- adicionar close animation no Modal
+- Error: Erro ao enviar código: For security purposes, you can only request this after 46 seconds. ao tentar salvar no /criar/caradapio 2 vezds
+- se usuário (ja confirmado por código OTP) esta no /criar, mandar pro /painel
+- setando pra  Min R$ 0,00
+- adicionar algo no painel n aparece  no menu provavelmente pq n linka com menu table
 
 - BRE
 
