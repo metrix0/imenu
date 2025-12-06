@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/database/supabaseClient";
 import Loader from "@/components/ui/Loader";
 import StoreProfileManager from "@/components/restaurante/loja/StoreProfileManager";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";

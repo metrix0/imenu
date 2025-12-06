@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/database/supabaseClient";
 import { useRouter } from "next/navigation";
 
 import DeliveryRules, { DeliveryRulesRef } from "@/components/restaurante/configuracoes/TempoeTaxa";

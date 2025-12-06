@@ -4,7 +4,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useCreationStore } from "@/lib/creationStore";
-import { supabase } from "@/lib/supabaseClient"; 
+import { supabase } from "@/lib/database/supabaseClient";
 import AddressForm from "@/components/restaurante/configuracoes/AddressForm";
 import Button from "@/components/ui/Button";
 import { AddressData } from "@/lib/types/types";

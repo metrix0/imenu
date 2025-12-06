@@ -1,7 +1,7 @@
 import React from "react";
 
 export default async function Page() {
-    const res = await fetch("http://localhost:3000/api/scan-menu", {
+    const res = await fetch("/api/scan-menu", {
         method: "POST",
         body: JSON.stringify({
             restaurantId: "0997e978-7f1e-46a9-88f7-81813c519485",

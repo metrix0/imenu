@@ -1,5 +1,5 @@
 
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/database/supabaseClient";
 
 export async function uploadLogoImage(file: File): Promise<string> {
     const key = `${crypto.randomUUID()}-${file.name}`;

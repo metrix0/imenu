@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faSearch, faLayerGroup, faPlus, faGripVertical } from "@fortawesome/free-solid-svg-icons";
-import { supabase } from "@/lib/supabaseClient";
+import {faSearch, faLayerGroup, faPlus, faGripVertical, faWandMagicSparkles} from "@fortawesome/free-solid-svg-icons";
+import { supabase } from "@/lib/database/supabaseClient";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 import Dropdown from "@/components/ui/Dropdown"; // Importando o componente
@@ -20,6 +20,7 @@ interface CardapioTabProps {
     onEditCategory: (cat: Category) => void;
     onOpenItemDetails: (item: MenuItemType) => void;
     onNewCategory: () => void;
+    onAIScanMenu: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 export default function CardapioTab({
@@ -29,7 +30,8 @@ export default function CardapioTab({
     onRefresh,
     onEditCategory,
     onOpenItemDetails,
-    onNewCategory
+    onNewCategory,
+    onAIScanMenu
 }: CardapioTabProps) {
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedCategoryId, setSelectedCategoryId] = useState(""); 
@@ -96,10 +98,18 @@ export default function CardapioTab({
                 <p className="text-gray-500 text-sm mb-8 text-center max-w-md">
                     Adicione uma categoria agora mesmo clicando no botão "Adicionar categoria"
                 </p>
+                <div className={"flex gap-4"}>
                 <Button variant="secondary" onClick={onNewCategory} className="text-brand border-brand/20 hover:bg-brand/5">
                     <FontAwesomeIcon icon={faPlus} className="mr-2" />
                     Adicionar categoria
                 </Button>
+                <Button
+                    onClick={() => onAIScanMenu(true)}
+                    variant={"secondary"}
+                >
+                    <FontAwesomeIcon icon={faWandMagicSparkles} className="text-sm mr-2" /> Scanear Cardápio com IA
+                </Button>
+                </div>
             </div>
         );
     }

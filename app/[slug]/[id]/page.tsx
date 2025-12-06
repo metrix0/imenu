@@ -2,7 +2,7 @@
 
 import {use, useEffect, useRef, useState} from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/database/supabaseClient";
 import {FontAwesomeIcon} from "@fortawesome/react-fontawesome";
 import { icons } from "@/lib/fontawesome";
 import {faPix, faWhatsappSquare} from "@fortawesome/free-brands-svg-icons"

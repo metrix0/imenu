@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/database/supabaseClient";
 import Loader from "@/components/ui/Loader";
 import Tabs from "@/components/ui/Tabs"; // Seu componente de Tabs
 import Toast from "@/components/ui/Toast";

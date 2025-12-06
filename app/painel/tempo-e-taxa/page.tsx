@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/database/supabaseClient";
 import DeliveryRules from "@/components/restaurante/configuracoes/TempoeTaxa";
 
 export default function PainelTempoETaxaPage() {

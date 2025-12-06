@@ -12,7 +12,7 @@ import { faClock, faBullseye } from "@fortawesome/free-solid-svg-icons";
 
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/database/supabaseClient";
 
 type RadiusRule = {
     radius_km: number;

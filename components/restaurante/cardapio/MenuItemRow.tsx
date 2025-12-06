@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faImage, faTrash, faCheck, faTimes, faSpinner, faCog, faCopy } from "@fortawesome/free-solid-svg-icons";
 import { uploadMenuImage } from "@/lib/uploadMenuImage"; 
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/database/supabaseClient";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 
 export type MenuItemType = {

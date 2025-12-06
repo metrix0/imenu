@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/database/supabaseClient";
 import PayoutsDashboard from "@/components/restaurante/exibicoes/PayoutsDashboard";
 import SalesDashboard from "@/components/restaurante/exibicoes/SalesDashboard";
 import Loader from "@/components/ui/Loader"; // Usando seu loader padrão

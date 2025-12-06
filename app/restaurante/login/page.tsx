@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import Card from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/database/supabaseClient";
 import Toast from "@/components/ui/Toast";
 import Popup from "@/components/ui/Popup";
 

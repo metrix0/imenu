@@ -92,6 +92,7 @@ Rules:
         // ----------------------------------------
         // CALL OPENAI (NEW RESPONSES API)
         // ----------------------------------------
+
         const response = await client.responses.create({
             model: "gpt-4.1",
             input: inputs,

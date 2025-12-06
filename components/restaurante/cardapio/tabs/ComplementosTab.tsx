@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/database/supabaseClient";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faSearch, faUtensils, faLayerGroup, faTrash, faEdit } from "@fortawesome/free-solid-svg-icons";
 import Input from "@/components/ui/Input";

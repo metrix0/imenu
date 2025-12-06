@@ -3,7 +3,7 @@
 import { useState, ReactNode } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { icons } from "@/lib/fontawesome";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/database/supabaseClient";
 import MenuItemRow, { MenuItemType } from "./MenuItemRow";
 
 interface CategorySectionProps {
