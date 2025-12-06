@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { icons } from "@/lib/fontawesome";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faClock } from "@fortawesome/free-solid-svg-icons";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/database/supabaseClient";
 
 import Card from "@/components/ui/Card";
 import ListLoader from "@/components/ui/ListLoader";

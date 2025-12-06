@@ -17,7 +17,6 @@ oq falamos, meus arquivos deram problema
 
 ## Joao
 
--  adc animacao no toast
 - login precisa salvar o restid no zust. Usar o mesmo zust do creationStore eu acho
 
 
@@ -25,7 +24,6 @@ oq falamos, meus arquivos deram problema
 - domínio
 
 - update cart modal upon geolocation function from rafa + colocar placeholder.png item ao dicionar novo item
-
 RAF
 - ao inserir cep, automaticamente já calcuala a taxa (sem botão) (testar com autofill)
 - complemento (opcional) no cadastro endereço
@@ -46,7 +44,7 @@ DATABASE
 - separar database entre menu e restaurante (usuario e dono)
 - **DOCUMENTAR E FORMALIZAR** todas as apis (endpoints, request body, response body, erros, etc) num arquivo só (md ou outro)
 - passar transformando todo uso de supabase em pages em chamadas de API (especialmente nos componentes do painel/criar)
- 
+- arrumar zustands, tipo creationStore deveriaser restaurantDataStore
 
 ## Backlog
 - Adicionar verificação de Auth (local browser data) em todas as páginas que precisam de Auth (painel, criar restaurante, etc)

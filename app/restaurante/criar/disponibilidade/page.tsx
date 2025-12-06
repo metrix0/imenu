@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useCreationStore } from "@/lib/creationStore";
+import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 import { supabase } from "@/lib/database/supabaseClient";
 import Button from "@/components/ui/Button";
 import posthog from "posthog-js";
@@ -33,10 +33,10 @@ export default function DisponibilidadePage() {
         const loadData = async () => {
             try {
                 const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-                // if (sessionError || !session?.user) {
-                //     router.push("/restaurante/login");
-                //     return;
-                // }
+                if (sessionError || !session?.user) {
+                    router.push("/restaurante/login");
+                    return;
+                }
 
                 const { data, error } = await supabase
                     .from("restaurants")

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/database/supabaseClient";
-import { useCreationStore } from "@/lib/creationStore"; // Store Global
+import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore"; // Store Global
 import Loader from "@/components/ui/Loader";
 import Tabs from "@/components/ui/Tabs";
 import Toast from "@/components/ui/Toast";

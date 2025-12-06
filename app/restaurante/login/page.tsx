@@ -8,7 +8,7 @@ import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 import { supabase } from "@/lib/database/supabaseClient";
 import Toast from "@/components/ui/Toast";
-import Popup from "@/components/ui/Popup";
+import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 
 export default function AdminLogin() {
     const router = useRouter();
@@ -19,7 +19,9 @@ export default function AdminLogin() {
     const [loading, setLoading] = useState(false);
     const [errorMsg, setErrorMsg] = useState("");
     const [showToast, setShowToast] = useState(false);
-    const [showPopup, setShowPopup] = useState(false);
+
+    // ⭐ ADDED — Zustand setters
+    const { setRestaurantId, setEmail: setZustandEmail } = useCreationStore();
 
     const isValid = email.includes("@") && email.includes(".") && password.length >= 6;
 
@@ -41,17 +43,45 @@ export default function AdminLogin() {
         setLoading(true);
         setErrorMsg("");
 
-        const { error } = await supabase.auth.signInWithPassword({
+        const { data: signInData, error } = await supabase.auth.signInWithPassword({
             email,
             password,
         });
 
         if (error) {
             setErrorMsg(error.message);
-        } else {
-            setShowToast(true);
-            setTimeout(() => router.replace("/painel/pedidos"), 1000);
+            setLoading(false);
+            return;
         }
+
+        // ⭐ ADDED — get logged user id
+        const userId = signInData.user?.id;
+        if (!userId) {
+            setErrorMsg("Usuário inválido.");
+            setLoading(false);
+            return;
+        }
+
+        // ⭐ ADDED — fetch user's restaurantId
+        const { data: restaurant, error: restError } = await supabase
+            .from("restaurants")
+            .select("id")
+            .eq("user_id", userId)
+            .single();
+
+        if (restError) {
+            setErrorMsg("Não foi possível encontrar o restaurante.");
+            setLoading(false);
+            return;
+        }
+
+        // ⭐ ADDED — save in Zustand
+        setRestaurantId(restaurant.id);
+        setZustandEmail(email);
+
+        // ⭐ show toast and redirect
+        setShowToast(true);
+        setTimeout(() => router.replace("/painel/pedidos"), 1000);
 
         setLoading(false);
     };
@@ -117,7 +147,6 @@ export default function AdminLogin() {
                             </div>
                         )}
 
-                        {/* 👉 NORMAL BUTTON (not in footer) */}
                         <Button
                             variant="primary"
                             loading={loading}
@@ -140,9 +169,6 @@ export default function AdminLogin() {
                 />
             )}
 
-            <Popup open={showPopup} onClose={() => setShowPopup(false)}>
-                {/* optional content */}
-            </Popup>
         </div>
     );
 }

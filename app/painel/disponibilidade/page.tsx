@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
-import { useCreationStore } from "@/lib/creationStore"; // Store Global
+import { supabase } from "@/lib/database/supabaseClient";
+import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore"; // Store Global
 import Loader from "@/components/ui/Loader";
 import WeeklyScheduleClick, { Availability } from "@/components/restaurante/configuracoes/WeeklyScheduleClick";
 import Tooltip from "@/components/ui/Tooltip";

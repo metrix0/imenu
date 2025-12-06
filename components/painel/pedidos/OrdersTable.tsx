@@ -34,8 +34,8 @@ export default function OrdersTable({ orders, isLoading, onViewOrder }: OrdersTa
             canceled: "bg-red-100 text-red-800 border-red-200",
         };
         const label: Record<string, string> = {
-            pending_online_payment: "Pendente (Online)",
-            pending_physical_payment: "Pendente (Balcão)",
+            pending_online_payment: "Pendente",
+            pending_physical_payment: "Pendente",
             preparing: "Preparando",
             delivering: "Em Rota",
             done: "Concluído",
