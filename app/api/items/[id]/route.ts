@@ -2,10 +2,8 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { Item, Subcategory, Subitem, Category } from "@/lib/types/types";
-<<<<<<< HEAD:app/api/item/[itemId]/route.ts
-=======
+
 import { createSupabaseServerClient } from "@/lib/database/supabaseServerClient";
->>>>>>> loadings-and-extra-buttons:app/api/items/[id]/route.ts
 
 
 const getPublicUrl = (supabase: any, bucket: string, path: string | null) => {
