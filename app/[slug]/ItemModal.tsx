@@ -7,7 +7,7 @@ import { useCartStore } from "@/lib/stores/costumer/cartStore";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { icons } from "@/lib/fontawesome";
 import {formatPrice, formatPriceNoRS} from "@/lib/utils/formatPrice";
-import ModalMobile from "@/components/ui/ModalMobile";
+import ModalMobile from "@/components/ui/HybridModal";
 import Loader from "@/components/ui/Loader";
 
 type Props = {
@@ -180,15 +180,15 @@ export default function ItemModal({
 
                 <div className="mt-3 px-4">
 
-                    <h1 className="text-[22px] font-semibold mb-2">{item.name}</h1>
+                    <h1 className="text-[22px] 2xl:text-3xl font-semibold mb-2">{item.name}</h1>
 
                     {item.description && (
-                        <p className="text-[15px] text-gray-700 mb-3">
+                        <p className="text-[15px] 2xl:text-lg text-gray-700 mb-3">
                             {item.description}
                         </p>
                     )}
 
-                    <p className="text-[18px] font-semibold">
+                    <p className="text-[18px] font-semibold 2xl:text-lg">
                         {formatPrice(item.price_cents)}
                     </p>
                 </div>
@@ -204,10 +204,10 @@ export default function ItemModal({
                             <div key={sc.id} className="mt-4">
                                 <div className="bg-gray-100 px-4 py-3 flex justify-between">
                                     <div>
-                                        <p className="font-semibold text-gray-600">
+                                        <p className="font-semibold text-gray-600 2xl:text-lg">
                                             {sc.name}
                                         </p>
-                                        <p className="text-[13px] text-gray-600">
+                                        <p className="text-[13px] 2xl:text-lg text-gray-600">
                                             {sc.max_select > 0
                                                 ? `Escolha até ${sc.max_select}`
                                                 : "Escolha o quanto quiser"}
@@ -215,7 +215,7 @@ export default function ItemModal({
                                     </div>
 
                                     {sc.min_select > 0 && (
-                                        <span className="text-[11px] bg-black text-white px-2 py-1 rounded-full">
+                                        <span className="text-[11px] 2xl:text-lg bg-black text-white px-2 py-1 rounded-full">
                                             OBRIGATÓRIO
                                         </span>
                                     )}
@@ -230,34 +230,34 @@ export default function ItemModal({
                                             onClick={() =>
                                                 toggleSubitem(sc, si)
                                             }
-                                            className="cursor-pointer w-full px-4 py-3 flex justify-between"
+                                            className="cursor-pointer 2xl:text-lg w-full px-4 py-3 flex justify-between"
                                         >
                                             <div className="text-left">
-                                                <p className="font-medium">
+                                                <p className="font-medium 2xl:text-lg">
                                                     {si.name.replace(/\n/g, " ")}
                                                 </p>
 
                                                 {si.price_cents > 0 && (
-                                                    <p className="text-[13px] text-gray-500">
+                                                    <p className="text-[13px] 2xl:text-lg text-gray-500">
                                                         + {formatPrice(si.price_cents)}
                                                     </p>
                                                 )}
                                             </div>
 
-                                            <div className="flex items-center">
+                                            <div className="flex items-center ">
                                                 {isSingle ? (
                                                     <span
-                                                        className={`cursor-pointer w-7 h-7 rounded-full border flex items-center justify-center ${
+                                                        className={`cursor-pointer w-7 h-7 2xl:w-10 2xl:h-10 rounded-full border flex items-center justify-center ${
                                                             isSelected
                                                                 ? "border-brand bg-brand text-white"
                                                                 : "border-gray-300 bg-gray-100 text-gray-400"
                                                         }`}
                                                     >
-                                                        <FontAwesomeIcon icon={icons.faCheck} className={"text-xs"}/>
+                                                        <FontAwesomeIcon icon={icons.faCheck} className={"text-xs 2xl:text-lg"}/>
                                                     </span>
                                                 ) : (
                                                     <span
-                                                        className={`w-7 h-7 rounded-full border flex items-center justify-center ${
+                                                        className={`w-7 h-7 2xl:w-10 2xl:h-10 rounded-full border flex items-center justify-center 2xl:text-lg ${
                                                             isSelected
                                                                 ? "border-brand bg-brand text-white"
                                                                 : "border-gray-300 bg-gray-100 text-gray-400"
@@ -277,7 +277,7 @@ export default function ItemModal({
 
                 {/* OBSERVATION */}
                 <div className="px-4 mt-8">
-                    <p className="text-[15px] font-semibold text-gray-500">
+                    <p className="text-[15px] 2xl:text-lg font-semibold text-gray-500">
                         <FontAwesomeIcon icon={icons.faComment} /> Alguma observação?
                     </p>
 
@@ -286,7 +286,7 @@ export default function ItemModal({
                         onChange={(e) =>
                             setObservation(e.target.value.slice(0, 140))
                         }
-                        className="w-full mt-2 p-3 border border-gray-200 rounded-xl text-sm resize-none"
+                        className="w-full mt-2 2xl:mt-4 2xl:text-lg p-3 border border-gray-200 rounded-xl text-sm resize-none"
                         rows={3}
                         placeholder="Ex: tirar cebola..."
                     />
@@ -302,7 +302,7 @@ export default function ItemModal({
             height={0.93}
             handle={false}
             xPadding={false}
-            className={"!max-h-[80vh]"}
+            className={"!max-h-[80vh] 2xl:max-w-4xl"}
         >
 
             <div className={"md:grid md:grid-cols-2"}>
@@ -316,26 +316,26 @@ export default function ItemModal({
 
                 <button
                     onClick={closeWithAnimation}
-                    className="absolute left-4 cursor-pointer top-6 w-10 h-10 bg-black/50 text-white rounded-full flex items-center justify-center"
+                    className="absolute left-4 2xl:text-xl 2xl:w-15 2xl:h-10 cursor-pointer top-6 w-10 h-10 bg-black/50 text-white rounded-full flex items-center justify-center"
                 >
                     <FontAwesomeIcon icon={icons.faChevronDown} className={"md:!hidden"} />
                     <FontAwesomeIcon icon={icons.faTimes} className={"hidden md:block"} />
                 </button>
 
-                <div className="absolute left-4 bottom-4 bg-white shadow-md rounded-full px-3 pr-4 py-2 flex items-center gap-2 leading-none">
+                <div className="absolute left-4 bottom-4 bg-white shadow-md rounded-full px-3 2xl:px-5 pr-4 2xl:pr-8 py-2 2xl:py-2 flex items-center gap-2 leading-none">
                     {restaurant.logo_url && (
                         <img
                             src={restaurant.logo_url}
-                            className="w-8 h-8 rounded-full object-cover"
+                            className="w-8 h-8 2xl:w-12 2xl:h-12 rounded-full object-cover "
                         />
                     )}
 
                     <div>
-                        <span className="text-[13px] font-semibold">
+                        <span className="text-[13px] font-semibold 2xl:text-md">
                             {restaurant.name}
                         </span>
                         <br />
-                        <span className="text-[12px] text-gray-600">
+                        <span className="text-[12px] text-gray-600 2xl:text-md">
                             {restaurant.prep_time_min_minutes}–
                             {restaurant.prep_time_max_minutes} min •{" "}
                             <span className="text-green">R$ {formatPriceNoRS(deliveryTax.lowest)}-{formatPriceNoRS(deliveryTax.highest )}</span>
@@ -356,19 +356,19 @@ export default function ItemModal({
 
             {/* FOOTER */}
             <div className="absolute left-0 right-0 bottom-0 bg-white border-t border-gray-200 pt-5 pb-14 md:pb-8 px-4 flex items-center gap-3">
-                <div className="flex items-center border border-gray-200 rounded-xl px-3 py-2 w-[110px] justify-between">
+                <div className="flex items-center border border-gray-200 rounded-xl px-3 2xl:px-6 py-2 w-[110px] 2xl:w-[180px] justify-between">
                     <button
                         onClick={() => changeQty(-1)}
-                        className="w-6 h-6 flex items-center justify-center text-gray-400 cursor-pointer"
+                        className="w-6 h-6 2xl:w-10 2xl:h-10 flex items-center justify-center text-gray-400 cursor-pointer  2xl:text-lg"
                     >
                         <FontAwesomeIcon icon={icons.faMinus} />
                     </button>
 
-                    <span className="text-[16px]">{qty}</span>
+                    <span className="text-[16px]  2xl:text-lg">{qty}</span>
 
                     <button
                         onClick={() => changeQty(1)}
-                        className="w-6 h-6 flex items-center justify-center text-brand cursor-pointer"
+                        className="w-6 h-6 2xl:w-10 2xl:h-10 flex items-center justify-center text-brand cursor-pointer  2xl:text-lg"
                     >
                         <FontAwesomeIcon icon={icons.faPlus} />
                     </button>
@@ -377,7 +377,7 @@ export default function ItemModal({
                 <button
                     disabled={!canAdd || !isRestaurantOpen}
                     onClick={handleAdd}
-                    className={`cursor-pointer w-full flex-1 rounded-xl px-5 py-3 flex items-center justify-between text-[15px] font-semibold ${
+                    className={`cursor-pointer w-full 2xl:text-lg flex-1 rounded-xl px-5 py-3 flex items-center justify-between text-[15px] font-semibold ${
                         !isRestaurantOpen
                             ? "bg-gray-200 text-gray-400 cursor-not-allowed"
                             : canAdd

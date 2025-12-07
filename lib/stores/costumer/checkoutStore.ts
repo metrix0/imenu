@@ -84,9 +84,9 @@ export const useCheckoutStore = create<CheckoutState>()(
                 nome: state.nome,
                 celular: state.celular,
                 pagamento: state.pagamento,
-
-                delivery_fee_cents: state.delivery_fee_cents,
-                delivery_time_minutes: state.delivery_time_minutes,
+                //
+                // delivery_fee_cents: state.delivery_fee_cents,
+                // delivery_time_minutes: state.delivery_time_minutes,
             }),
         }
     )
