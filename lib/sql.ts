@@ -9,7 +9,7 @@ export async function query<T = any>(
         const res = await client.query(text, params);
         return {
             rows: res.rows as T[],
-            rowCount: res.rowCount    // <-- return rowCount too
+            rowCount: res.rowCount ?? 0   // <-- return rowCount too
         };
     } finally {
         client.release();
