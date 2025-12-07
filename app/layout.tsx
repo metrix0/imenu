@@ -9,7 +9,7 @@ export const metadata: Metadata = {
     title: "Digital Menu",
     description: "Interactive digital menu web app",
     icons: {
-        icon: "/favicon.png",
+        icon: "/icons/favicon.png",
     },
 };
 
