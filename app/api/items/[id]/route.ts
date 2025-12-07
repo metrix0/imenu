@@ -1,4 +1,5 @@
 // app/api/items/[id]/route.ts
+export const runtime = "nodejs";
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse, NextRequest } from "next/server";
 import { Item, Subcategory, Subitem, Category } from "@/lib/types/types";
