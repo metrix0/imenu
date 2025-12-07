@@ -191,10 +191,11 @@ DATABASE
 - Marketplace: Be able to display all stores in a search with filters.
 - separate imenu.com and portal.imenu.com
 - integration tests
-- safely increase google API geocoding limits + also track errors in usage
+- safely increase
+- google API geocoding limits + also track errors in usage
 - add a guide on how to add the imenu link to google maps restaurant gmb (how can they share the link better)
 - Live Notifications of orders on whatsapp or app
 - add videos + add compression to images vides eveerting thats uploaded and convert to webp is that ideal?
 - não pagou no menu -> aparece uma tela "aguardando pagamento no /slug com link pro pagamento"
 - project AI assistant
-
+- remover bibliotecas ruins (mostra no deploy vercel)

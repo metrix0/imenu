@@ -1,6 +1,6 @@
-// app/api/item/[itemId]/route.ts
+// app/api/items/[id]/route.ts
 import { createClient } from "@supabase/supabase-js";
-import { NextResponse } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
 import { Item, Subcategory, Subitem, Category } from "@/lib/types/types";
 
 import { createSupabaseServerClient } from "@/lib/database/supabaseServerClient";
@@ -18,11 +18,11 @@ const getPublicUrl = (supabase: any, bucket: string, path: string | null) => {
 };
 
 export async function GET(
-    request: Request,
-    context: { params: { itemId: string } }
+    request: NextRequest,
+    context: { params: { id: string } }
 ) {
-    const { itemId } = await context.params;
-    if (!itemId) {
+    const { id } = context.params;
+    if (!id) {
         return NextResponse.json({ error: "Item ID is required" }, { status: 400 });
     }
     
@@ -36,7 +36,7 @@ export async function GET(
             .select(
                 "id, name, description, price_cents, image_path, is_available, position, category:category_id(id, name, position)"
             )
-            .eq("id", itemId)
+            .eq("id", id)
             .maybeSingle();
 
         if (itemErr || !itemRaw) {
@@ -55,7 +55,7 @@ export async function GET(
         const { data: subcatsRaw, error: scErr } = await supabase
             .from("item_subcategories")
             .select("id, item_id, name, description, min_select, max_select, position")
-            .eq("item_id", itemId)
+            .eq("item_id", id)
             .order("position", { ascending: true });
 
         if (scErr) throw scErr;
