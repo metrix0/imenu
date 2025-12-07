@@ -196,5 +196,5 @@ DATABASE
 - Live Notifications of orders on whatsapp or app
 - add videos + add compression to images vides eveerting thats uploaded and convert to webp is that ideal?
 - não pagou no menu -> aparece uma tela "aguardando pagamento no /slug com link pro pagamento"
-
+- project AI assistant
 
