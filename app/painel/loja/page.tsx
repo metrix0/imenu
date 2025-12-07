@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/database/supabaseClient";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore"; // Store Global
 import Loader from "@/components/ui/Loader";
-import StoreProfileManager from "@/components/restaurante/loja/StoreProfileManager";
+import StoreProfileManager from "@/components/restaurant-owner/loja/StoreProfileManager";
 
 export default function LojaPage() {
     const { restaurantId, setRestaurantId } = useCreationStore();

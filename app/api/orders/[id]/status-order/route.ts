@@ -16,11 +16,11 @@ export async function PATCH(
 
         // Validação simples dos status permitidos
         const validStatuses = [
-            "pending_online_payment", 
-            "pending_physical_payment", 
-            "preparing", 
-            "delivering", 
-            "done", 
+            "pending_online_payment",
+            "pending_physical_payment",
+            "preparing",
+            "delivering",
+            "done",
             "canceled"
         ];
 
@@ -32,14 +32,15 @@ export async function PATCH(
         }
 
         // Executa a query de atualização
+        // CORREÇÃO: Adicionado cast explícito para resolver ambiguidade de tipos (ENUM vs TEXT)
         const { rowCount } = await query(
             `
-            UPDATE orders 
-            SET 
-                status = $1,
+                UPDATE orders
+                SET
+                    status = $1::public.order_status,
                 updated_at = NOW(),
-                -- Se for 'delivering', marca hora de saída, se for 'done', marca entrega
-                delivered_at = CASE WHEN $1 = 'done' THEN NOW() ELSE delivered_at END
+                -- Convertemos $1 para text explicitamente na comparação para evitar erro 42P08
+                delivered_at = CASE WHEN $1::text = 'done' THEN NOW() ELSE delivered_at END
             WHERE id = $2
             `,
             [status, id]

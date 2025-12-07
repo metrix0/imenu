@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import "@/lib/fontawesome";
-import SupportButton from "@/components/SupportButton";
+import SupportButton from "@/components/common/SupportButton";
 import Footer from "@/components/common/Footer";
-import PosthogProvider from "@/components/PosthogProvider";
+import PosthogProvider from "@/components/common/PosthogProvider";
 
 export const metadata: Metadata = {
-    title: "Digital Menu",
+    title: "iMenu - Cardápio Digital",
     description: "Interactive digital menu web app",
     icons: {
         icon: "/icons/favicon.png",

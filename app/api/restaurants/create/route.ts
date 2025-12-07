@@ -22,7 +22,7 @@ export async function POST(request: Request) {
             INSERT INTO public.restaurants (
                 user_id, 
                 phone, 
-                is_open, 
+                is_closed, 
                 rating, 
                 min_order_cents, 
                 balance_cents, 

@@ -12,7 +12,7 @@ import { supabase } from "@/lib/database/supabaseClient";
 import { formatPrice, formatPriceNoRS } from "@/lib/utils/formatPrice";
 import ModalMobile from "@/components/ui/HybridModal";
 import ItemModal from "./ItemModal";
-import CartBar from "@/components/consumidor/CartBar"
+import CartBar from "@/components/costumer/CartBar"
 import CartModal from "./CartModal"
 import WarningBox from "@/components/ui/WarningBox";
 

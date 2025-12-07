@@ -318,7 +318,7 @@ export default function ItemModal({
             {/* IMAGE HEADER */}
             <div className="relative w-full h-[260px] md:h-auto md:aspect-square ">
                 <img
-                    src={item.image_public_url || "https://mjogdsnxbwhbqcoijrwt.supabase.co/storage/v1/object/public/menu-images/menu-images/menu_banner_placeholder.png"}
+                    src={item.image_public_url || "/placeholders/item.png"}
                     className="w-full h-full object-cover md:rounded-br-4xl "
                 />
 
@@ -326,8 +326,8 @@ export default function ItemModal({
                     onClick={closeWithAnimation}
                     className="absolute left-4 2xl:text-xl 2xl:w-15 2xl:h-10 cursor-pointer top-6 w-10 h-10 bg-black/50 text-white rounded-full flex items-center justify-center"
                 >
-                    <FontAwesomeIcon icon={icons.faChevronDown} className={"md:!hidden"} />
-                    <FontAwesomeIcon icon={icons.faTimes} className={"hidden md:block"} />
+                    <FontAwesomeIcon icon={icons.faChevronDown} className={"block md:!hidden"} />
+                    <FontAwesomeIcon icon={icons.faTimes} className={"!hidden md:!block"} />
                 </button>
 
                 <div className="absolute left-4 bottom-4 bg-white shadow-md rounded-full px-3 2xl:px-5 pr-4 2xl:pr-8 py-2 2xl:py-2 flex items-center gap-2 leading-none">

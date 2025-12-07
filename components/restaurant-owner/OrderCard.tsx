@@ -114,13 +114,13 @@ export default function OrderCard({ order, onStatusChange }: OrderCardProps) {
 
     const statusConfig: Record<string, { label: string; color: string; btn: string | null; btnColor: string }> = {
         pending_online_payment: { 
-            label: "Pendente (Online)", 
+            label: "Pendente", 
             color: "bg-yellow-100 text-yellow-800", 
             btn: "Confirmar", 
             btnColor: "primary" 
         },
         pending_physical_payment: { 
-            label: "Pendente (Balcão)", 
+            label: "Pendente",
             color: "bg-orange-100 text-orange-800", 
             btn: "Confirmar", 
             btnColor: "primary" 

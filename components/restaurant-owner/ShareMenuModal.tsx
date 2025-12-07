@@ -6,7 +6,6 @@ import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { icons } from "@/lib/fontawesome";
-import { faCopy, faQrcode } from "@fortawesome/free-solid-svg-icons";
 
 interface ShareMenuModalProps {
     isOpen: boolean;
@@ -36,7 +35,7 @@ export default function ShareMenuModal({ isOpen, onClose, restaurantId, restaura
         <Modal open={isOpen} onClose={onClose} className="max-w-sm">
             <div className="p-6 text-center flex flex-col items-center">
                 <div className="w-12 h-12 bg-brand/10 text-brand rounded-full flex items-center justify-center mb-4">
-                    <FontAwesomeIcon icon={faQrcode} className="text-xl" />
+                    <FontAwesomeIcon icon={icons.faLink} className="text-xl" />
                 </div>
 
                 <h3 className="text-xl font-bold text-gray-900 mb-2">Compartilhar Cardápio</h3>
@@ -44,10 +43,6 @@ export default function ShareMenuModal({ isOpen, onClose, restaurantId, restaura
                     Envie este link para seus clientes ou peça para eles escanearem o código.
                 </p>
 
-                {/* QR Code */}
-                <div className="bg-white p-2 border border-gray-200 rounded-lg mb-6 shadow-sm">
-                    <img src={qrCodeUrl} alt="QR Code do Cardápio" width={180} height={180} />
-                </div>
 
                 {/* Link e Copy */}
                 <div className="w-full flex gap-2 mb-4">
@@ -59,7 +54,7 @@ export default function ShareMenuModal({ isOpen, onClose, restaurantId, restaura
                     />
                     </div>
                     <Button onClick={handleCopy} className="px-3" variant="secondary">
-                        <FontAwesomeIcon icon={copied ? icons.faCheck : faCopy} />
+                        <FontAwesomeIcon icon={copied ? icons.faCheck : icons.faCopy} />
                     </Button>
                 </div>
 

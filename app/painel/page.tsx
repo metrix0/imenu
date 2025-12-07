@@ -9,9 +9,9 @@ import Button from "@/components/ui/Button";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faShareAlt } from "@fortawesome/free-solid-svg-icons";
 
-// Supondo que OrderCard já esteja criado em components/painel/OrderCard
-import OrderCard, { OrderData } from "@/components/painel/OrderCard";
-import ShareMenuModal from "@/components/painel/ShareMenuModal";
+// Supondo que OrderCard já esteja criado em components/restaurant-owner/OrderCard
+import OrderCard, { OrderData } from "@/components/restaurant-owner/OrderCard";
+import ShareMenuModal from "@/components/restaurant-owner/ShareMenuModal";
 
 export default function PainelPedidosAtivosPage() {
     const [isLoading, setIsLoading] = useState(true);

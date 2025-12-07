@@ -1,7 +1,7 @@
 // components/SupportButton.tsx
 "use client";
 
-import Popup from "./ui/Popup"; 
+import Popup from "../ui/Popup";
 import { icons } from "@/lib/fontawesome";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 

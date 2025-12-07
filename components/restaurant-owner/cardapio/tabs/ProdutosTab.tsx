@@ -6,7 +6,7 @@ import { faSearch, faBoxOpen, faPlus } from "@fortawesome/free-solid-svg-icons";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 import Dropdown from "@/components/ui/Dropdown"; // Importando o componente Dropdown
-import MenuItemRow, { MenuItemType } from "@/components/restaurante/cardapio/MenuItemRow";
+import MenuItemRow, { MenuItemType } from "@/components/restaurant-owner/cardapio/MenuItemRow";
 
 interface ProdutosTabProps {
     items: MenuItemType[];

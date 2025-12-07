@@ -5,9 +5,9 @@ import { supabase } from "@/lib/database/supabaseClient";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore"; // Store Global
 import Tabs from "@/components/ui/Tabs";
 import Button from "@/components/ui/Button";
-import OrdersFilter from "@/components/painel/pedidos/OrdersFilter";
-import OrdersTable, { Order } from "@/components/painel/pedidos/OrdersTable";
-import OrderDetailsModal from "@/components/painel/pedidos/OrderDetailsModal";
+import OrdersFilter from "@/components/restaurant-owner/pedidos/OrdersFilter";
+import OrdersTable, { Order } from "@/components/restaurant-owner/pedidos/OrdersTable";
+import OrderDetailsModal from "@/components/restaurant-owner/pedidos/OrderDetailsModal";
 
 const TABS = ["Todos", "Em aberto", "Concluídos", "Cancelados"];
 const PAGE_SIZE = 10;

@@ -28,7 +28,9 @@ import {
     faCircle,
     faComment,
     faClock,
-    faUser
+    faUser,
+    faLink,
+    faCopy
 } from "@fortawesome/free-solid-svg-icons";
 import {faWhatsapp} from "@fortawesome/free-brands-svg-icons";
 
@@ -62,5 +64,7 @@ export const icons = {
     faComment,
     faWhatsapp,
     faClock,
-    faUser
+    faUser,
+    faLink,
+    faCopy
 };

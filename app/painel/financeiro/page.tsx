@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/database/supabaseClient";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore"; // Store Global
-import SalesDashboard from "@/components/restaurante/exibicoes/SalesDashboard";
-import PayoutsDashboard from "@/components/restaurante/exibicoes/PayoutsDashboard";
-import DateFilterBar from "@/components/restaurante/exibicoes/DateFilterBar"; 
+import SalesDashboard from "@/components/restaurant-owner/exibicoes/SalesDashboard";
+import PayoutsDashboard from "@/components/restaurant-owner/exibicoes/PayoutsDashboard";
+import DateFilterBar from "@/components/restaurant-owner/exibicoes/DateFilterBar"; 
 import Loader from "@/components/ui/Loader";
 
 const getISODate = (date: Date) => date.toISOString().split("T")[0];

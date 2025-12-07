@@ -23,7 +23,9 @@ import { createClient } from "@supabase/supabase-js";
 
 // IMPORTAMOS O CONTEÚDO DO POPUP DE SUPORTE (Que pode ser extraído para um componente se preferir)
 import Popup from "@/components/ui/Popup";
+import SupportButton from "@/components/common/SupportButton";
 import { icons } from "@/lib/fontawesome";
+
 
 // --- COMPONENTE INTERNO DO CONTEÚDO DO SUPORTE ---
 const SupportPopupContent = ({ onClose }: { onClose: () => void }) => {
@@ -33,7 +35,8 @@ const SupportPopupContent = ({ onClose }: { onClose: () => void }) => {
 
     return (
         <div className="relative pt-2 text-center">
-            <button 
+            <SupportButton open={true} onToggle={()=>{}}/>
+            <button
                 onClick={onClose}
                 className="absolute -top-3 -right-3 text-gray-400 hover:text-red-500 transition-colors p-2 cursor-pointer"
             >
@@ -51,10 +54,10 @@ const SupportPopupContent = ({ onClose }: { onClose: () => void }) => {
             </div>
             <p className="text-sm text-gray-600 mb-1">Ou adicione manualmente:</p>
             <p className="text-lg font-medium text-gray-900 select-all">{phone}</p>
-            
-            <a 
-                href={whatsappUrl} 
-                target="_blank" 
+
+            <a
+                href={whatsappUrl}
+                target="_blank"
                 rel="noreferrer"
                 className="mt-6 flex items-center justify-center gap-2 w-full bg-green-500 hover:bg-green-600 text-white font-medium py-3 rounded-lg transition-colors"
             >
@@ -81,7 +84,7 @@ export default function PainelLayout({
     const base = `/painel`;
     const [expanded, setExpanded] = useState(false);
     const [menuId, setMenuId] = useState<string | null>(null);
-    
+
     // ESTADO DO POPUP DE SUPORTE
     const [isSupportOpen, setIsSupportOpen] = useState(false);
 
@@ -109,7 +112,7 @@ export default function PainelLayout({
 
     const cardapioHref = menuId ? `${base}/cardapio/${menuId}` : `${base}/cardapio`;
     const configuracoesHref = `${base}/configuracoes`;
-    
+
     // REMOVI "AJUDA" DAQUI PARA TRATAR COMO BOTÃO
     const menuItems: MenuItem[] = [
         { label: "Home", icon: faHome, href: `${base}/` },
@@ -134,7 +137,7 @@ export default function PainelLayout({
             </div>
 
             <div className="hidden md:flex min-h-screen bg-gray-50 ">
-                
+
                 {/* POPUP GLOBAL DE SUPORTE */}
                 <Popup open={isSupportOpen} onClose={() => setIsSupportOpen(false)}>
                     <SupportPopupContent onClose={() => setIsSupportOpen(false)} />
@@ -156,12 +159,33 @@ export default function PainelLayout({
                         />
                     </button>
 
-                    <div className="flex items-center justify-center mt-6 mb-4 h-[50px] relative overflow-hidden">
-                        <div className={`transition-all duration-300 absolute inset-0 flex items-center justify-center ${expanded ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-10"}`}>
-                            <Image src="/logo-full.png" alt="Logo" width={120} height={40} className="object-contain" priority />
+                    <div className="flex items-center justify-center mt-4 mb-2 h-[70px] relative">
+                        <div
+                            className={`transition-all duration-300 flex items-center justify-center ${
+                                expanded ? "scale-100 opacity-100" : "scale-0 opacity-0 absolute"
+                            }`}
+                        >
+                            <Image
+                                src="/logo-full.png"
+                                alt="Logo"
+                                width={120}
+                                height={40}
+                                className="transition-all duration-300"
+                            />
                         </div>
-                        <div className={`transition-all duration-300 absolute inset-0 flex items-center justify-center ${expanded ? "opacity-0 translate-x-10" : "opacity-100 translate-x-0"}`}>
-                            <Image src="/logo-icon_.png" alt="Logo" width={32} height={32} className="object-contain" priority />
+
+                        <div
+                            className={`transition-all duration-300 flex items-center justify-center absolute ${
+                                expanded ? "scale-0 opacity-0" : "scale-100 opacity-100"
+                            }`}
+                        >
+                            <Image
+                                src="/logo-icon_.png"
+                                alt="Logo"
+                                width={32}
+                                height={32}
+                                className="transition-all duration-300"
+                            />
                         </div>
                     </div>
 

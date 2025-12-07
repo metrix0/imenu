@@ -7,8 +7,8 @@ import { supabase } from "@/lib/database/supabaseClient";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 import Dropdown from "@/components/ui/Dropdown"; // Importando o componente
-import CategorySection from "@/components/restaurante/cardapio/CategorySection";
-import { MenuItemType } from "@/components/restaurante/cardapio/MenuItemRow";
+import CategorySection from "@/components/restaurant-owner/cardapio/CategorySection";
+import { MenuItemType } from "@/components/restaurant-owner/cardapio/MenuItemRow";
 
 type Category = { id: string; name: string; position: number };
 
