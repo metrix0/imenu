@@ -1,4 +1,4 @@
-// components/restaurante/configuracoes/WeeklyScheduleClick.tsx
+// components/restaurant-owner/configuracoes/WeeklyScheduleClick.tsx
 "use client";
 
 import { useState, useRef } from "react";

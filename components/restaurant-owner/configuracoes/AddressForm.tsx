@@ -1,4 +1,4 @@
-// components/restaurante/configuracoes/AddressForm.tsx
+// components/restaurant-owner/configuracoes/AddressForm.tsx
 "use client";
 
 import { useState, useEffect } from "react";

@@ -13,6 +13,7 @@ Ver no whatsapp, meus arquivos deram problema
 
 ## Rafa
 - **corrigir erros Txt**
+- DEPLOY VERCEL LIMITADO GITHUB NAO commits fack
 - 
 - esqueci minha senha no /login
 - mudar email funcionando (manda um email de confirmação pro email NOVO) E PODER ALTERAR TELEFONE (n precisa verificar)

@@ -1,4 +1,4 @@
-// components/restaurante/configuracoes/CreationStepper.tsx
+// components/restaurant-owner/configuracoes/CreationStepper.tsx
 "use client";
 
 import { usePathname } from "next/navigation";

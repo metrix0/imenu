@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 import { supabase } from "@/lib/database/supabaseClient";
-import AddressForm from "@/components/restaurante/configuracoes/AddressForm";
+import AddressForm from "@/components/restaurant-owner/configuracoes/AddressForm";
 import { AddressData } from "@/lib/types/types"; // Certifique-se que o caminho está certo
 
 export default function LocalizacaoPage() {

@@ -5,7 +5,7 @@ import { supabase } from "@/lib/database/supabaseClient";
 import { useRouter } from "next/navigation";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore"; // Importar a store
 
-import DeliveryRules, { DeliveryRulesRef } from "@/components/restaurante/configuracoes/TempoeTaxa";
+import DeliveryRules, { DeliveryRulesRef } from "@/components/restaurant-owner/configuracoes/TempoeTaxa";
 import Button from "@/components/ui/Button";
 
 export default function TempoETaxaPage() {
