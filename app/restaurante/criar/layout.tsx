@@ -1,7 +1,7 @@
 // app/restaurante/criar/layout.tsx
 "use client"; // 👈 Necessário para usar usePathname
 
-import CreationStepper from "@/components/restaurante/configuracoes/CreationStepper";
+import CreationStepper from "@/components/restaurant-owner/configuracoes/CreationStepper";
 import Image from "next/image";
 import { usePathname } from "next/navigation"; // 👈 Importar o hook
 

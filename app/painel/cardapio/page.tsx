@@ -8,14 +8,14 @@ import Tabs from "@/components/ui/Tabs";
 import Toast from "@/components/ui/Toast";
 
 // Componentes de Aba
-import CardapioTab from "@/components/restaurante/cardapio/tabs/CardapioTab";
-import ProdutosTab from "@/components/restaurante/cardapio/tabs/ProdutosTab";
-import ComplementosTab from "@/components/restaurante/cardapio/tabs/ComplementosTab";
+import CardapioTab from "@/components/restaurant-owner/cardapio/tabs/CardapioTab";
+import ProdutosTab from "@/components/restaurant-owner/cardapio/tabs/ProdutosTab";
+import ComplementosTab from "@/components/restaurant-owner/cardapio/tabs/ComplementosTab";
 
 // Modais e Tipos
-import ManageCategoryModal from "@/components/restaurante/cardapio/ManageCategoryModal";
-import ItemDetailsModal from "@/components/restaurante/cardapio/ItemDetailsModal";
-import { MenuItemType } from "@/components/restaurante/cardapio/MenuItemRow";
+import ManageCategoryModal from "@/components/restaurant-owner/cardapio/ManageCategoryModal";
+import ItemDetailsModal from "@/components/restaurant-owner/cardapio/ItemDetailsModal";
+import { MenuItemType } from "@/components/restaurant-owner/cardapio/MenuItemRow";
 
 type Category = { id: string; name: string; position: number };
 

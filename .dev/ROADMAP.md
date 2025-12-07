@@ -12,38 +12,33 @@
 Ver no whatsapp, meus arquivos deram problema
 
 ## Rafa
-oq falamos, meus arquivos deram problema
+- **corrigir erros Txt**
+- 
+- esqueci minha senha no /login
+- mudar email funcionando (manda um email de confirmação pro email NOVO) E PODER ALTERAR TELEFONE (n precisa verificar)
+- Adicionar verificação de Auth (pode botar no layout) (local browser data) em todas as páginas que precisam de Auth (painel, criar restaurante, etc)
+- facilitar p usuario colocar foto (cortar, etc), falar resoluão dos banners (colocar um texto embaixo em algum lugar falando a resoução do banner, inventa uma), etc (SÓ NA LOJA E PAIENL)
+- se usuário (ja confirmado por código OTP) esta no /criar, mandar pro /painel
 
 
 ## Joao
 
-- testar http://localhost:3000/pizzaria-sao-paulo em monitor 1920 e ver se fica estrnaho
+- **corrigir erros txt**
+- 
+- colocar - !!! ifood sync na agenda pessoal pra daqui umas semanas...
+- rate limit, DB backups, remover bibliotecas ruins (mostra no deploy vercel)
+- /criar e /painel 1920 adaptation (responsividade)
 
+- ### deploy
+- ### consumer
 
 - só deixar no max 10 restaurantes na DB
 - domínio
+- Verificar e garantrir o posthog
+- Adicionar sentry (tentar em tudo)
+- descubrir a resolução certa do banner e mudar lá
 
 - update cart modal upon geolocation function from rafa + colocar placeholder.png item ao dicionar novo item
-RAF
-- /criar 1920 e 1366 adaptation /painel
-- ao inserir cep, automaticamente já calcuala a taxa (sem botão) (testar com autofill)
-- complemento (opcional) no cadastro endereço
-- trocar ordem do grafico com pagamento no painel/financeiro
-- botão salvar no /painel/cardapio
-- menu não é criado no registro
-- ao adicionar um item, também deve-se criar uma row na table menu-items que coliga as categorias e items (deletar funciona) *OBS DUPLICAÇÃO EM MENU-ITEMS em posição
-- animaçao estranha ao editar item
-- nao consigo selecionar ao editar item (ele da um drag)
-- erro ao editar item
-- adicionar close animation no Modal
-- Error: Erro ao enviar código: For security purposes, you can only request this after 46 seconds. ao tentar salvar no /criar/caradapio 2 vezds
-- se usuário (ja confirmado por código OTP) esta no /criar, mandar pro /painel
-- setando pra  Min R$ 0,00
-- adicionar algo no painel n aparece  no menu provavelmente pq n linka com menu table
-
-- BRE
-
-- painel: adicionar item vira uma rota, não uma página. pra poder adicionar item na própria pagina que nem ifood
 
 DATABASE
 - DUPLICAÇÃO EM MENU-ITEMS em posição
@@ -52,8 +47,8 @@ DATABASE
 - passar transformando todo uso de supabase em pages em chamadas de API (especialmente nos componentes do painel/criar)
 - arrumar zustands, tipo creationStore deveriaser restaurantDataStore
 
+
 ## Backlog
-- Adicionar verificação de Auth (local browser data) em todas as páginas que precisam de Auth (painel, criar restaurante, etc)
 
 ---
 <br>
@@ -77,10 +72,6 @@ DATABASE
 ### CORE FUNNEL:
 
 #### Restaurant Owner
-- !!! ifood sync
-- facilitar p usuario colocar foto (cortar, etc), falar resoluão dos banners, etc
-- Live Notifications of orders on whatsapp or app
-- o usuário pode compartilhar subcategorias enter itens
 
 #### Consumer
 - Mobile responsiveness NOS BROWSERS do mobile. (teclado subindo, autofill, varias resolucoes, etc)
@@ -91,12 +82,11 @@ DATABASE
 - add videos + add compression to images vides eveerting thats uploaded and convert to webp is that ideal?
 
 #### Both
-- (wonders) Whatsapp notification for delivery: Admin receiveis it when it's paid, user receives it when it's near them or ready
-- google API geocoding limits + also track errors in usage
 
 
 
 ### NON-CORE FUNNEL (or too big)
+- (vamos ver a taxa de pedidos que não foram aceitos, se for alta) -> Live Notifications of orders on whatsapp or **app** para pedidos não aceitos por mais de 8-10 minutos + o cliente recebe um whats falando que o pedido está a caminho
 - deixar o usuário mudar a slug dele (e testar ver se ja existe)
 - Add: "those are your best upsells, add them to your menu to increase sales by X%" CLICK HERE (button to add upsell to all items) <- have a "UPSELL" menu tab, where they can adjust which items are going to be upsells. Just like the ifood sacola, but on the item modal, like an upsell.
 - Add Upsell feature NA SACOLA "peça também" (just like iFood)

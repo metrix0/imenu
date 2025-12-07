@@ -10,7 +10,7 @@ import posthog from "posthog-js";
 
 
 // UPDATE IMPORT TO THE CLICK VERSION
-import WeeklyScheduleClick, { Availability, TimeSlot } from "@/components/restaurante/configuracoes/WeeklyScheduleClick";
+import WeeklyScheduleClick, { Availability, TimeSlot } from "@/components/restaurant-owner/configuracoes/WeeklyScheduleClick";
 
 export default function DisponibilidadePage() {
     const router = useRouter();
