@@ -166,6 +166,14 @@ export default function ItemModal({
         closeWithAnimation();
     };
 
+    const taxText = () => {
+
+        if(deliveryTax.lowest === deliveryTax.highest){
+            return `R$ ${formatPriceNoRS(deliveryTax.lowest)}`
+        }
+        return `R$ ${formatPriceNoRS(deliveryTax.lowest)}-${formatPriceNoRS(deliveryTax.highest )}`
+    }
+
     const renderContent = () => {
         if (loading)
             return (
@@ -338,7 +346,7 @@ export default function ItemModal({
                         <span className="text-[12px] text-gray-600 2xl:text-md">
                             {restaurant.prep_time_min_minutes}–
                             {restaurant.prep_time_max_minutes} min •{" "}
-                            <span className="text-green">R$ {formatPriceNoRS(deliveryTax.lowest)}-{formatPriceNoRS(deliveryTax.highest )}</span>
+                            <span className="text-green">{taxText()}</span>
                         </span>
                     </div>
                 </div>

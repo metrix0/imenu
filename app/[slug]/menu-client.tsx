@@ -84,6 +84,14 @@ export default function MenuClientPage({
         }
     };
 
+    const taxText = () => {
+
+        if(deliveryTax.lowest === deliveryTax.highest){
+            return `R$ ${formatPriceNoRS(deliveryTax.lowest)}`
+        }
+        return `R$ ${formatPriceNoRS(deliveryTax.lowest)}-${formatPriceNoRS(deliveryTax.highest )}`
+    }
+
     const deliveryTax = (() => {
         const fees = restaurant.delivery_fee_json.map(
             (i: { fee_cents: number }) => i.fee_cents
@@ -251,7 +259,7 @@ export default function MenuClientPage({
                             {deliveryTime.highest} min
                         </span>
                         <span>•</span>
-                        <span className={"text-green"}>R$ {formatPriceNoRS(deliveryTax.lowest)}-{formatPriceNoRS(deliveryTax.highest )}</span>
+                        <span className={"text-green"}>{taxText()}</span>
                     </div>
                 </div>
             </div>
