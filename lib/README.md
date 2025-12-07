@@ -10,7 +10,7 @@ Also uses localStorage to persist.
 ### Usage
 **Front-end only**
 ```
-import { useCartStore } from "@/lib/stores/costumer/CartStore";
+import { useCartStore } from "@/lib/stores/costumer/cartStore";
 
 const cart = useCartStore();
 cart.addItem(product);

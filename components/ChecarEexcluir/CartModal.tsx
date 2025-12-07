@@ -1,6 +1,6 @@
 "use client";
 
-import { useCartStore } from "@/lib/stores/costumer/CartStore";
+import { useCartStore } from "@/lib/stores/costumer/cartStore";
 import { useCheckoutStore } from "@/lib/checkoutStore";
 // Importa a nova library
 import { fetchAddressByCEP, fetchCoordinates, fetchAddressByCoordinates, calculateDistanceKm } from "@/lib/geocoding";

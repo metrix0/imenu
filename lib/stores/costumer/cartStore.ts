@@ -1,5 +1,5 @@
 /*
-// lib/stores/costumer/CartStore.ts
+// lib/stores/costumer/cartStore.ts
 "use client";
 import { create } from "zustand";
 import { persist, createJSONStorage } from 'zustand/middleware';
