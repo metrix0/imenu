@@ -1,7 +1,7 @@
 "use client";
 
 import { useCartStore } from "@/lib/stores/costumer/cartStore";
-import { useCheckoutStore } from "@/lib/checkoutStore";
+import { useCheckoutStore } from "@/lib/stores/costumer/checkoutStore";
 // Importa a nova library
 import { fetchAddressByCEP, fetchCoordinates, fetchAddressByCoordinates, calculateDistanceKm } from "@/lib/geocoding";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";

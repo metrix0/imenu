@@ -1,4 +1,4 @@
-// lib/checkoutStore.ts
+// lib/stores/costumer/checkoutStore.ts
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
