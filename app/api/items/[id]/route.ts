@@ -19,9 +19,9 @@ const getPublicUrl = (supabase: any, bucket: string, path: string | null) => {
 
 export async function GET(
     request: NextRequest,
-    context: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
-    const { id } = context.params;
+    const { id } = await params;
     if (!id) {
         return NextResponse.json({ error: "Item ID is required" }, { status: 400 });
     }
