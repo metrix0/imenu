@@ -136,7 +136,7 @@ export default function DraggableModal({
             <div
                 {...props}
                 onClick={(e) => e.stopPropagation()}
-                className={`fixed left-0 right-0 mx-auto bg-white rounded-t-xl overflow-hidden ${props.className ?? ""}`}
+                className={`fixed left-0 right-0 mx-auto bg-white rounded-t-xl overflow-hidden border-2 border-red-500 ${props.className ?? ""}`}
                 style={{
                     height: `${height * 100}vh`,
                     bottom: 0,

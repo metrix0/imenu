@@ -117,7 +117,8 @@ export const useCartStore = create<CartState>()(
             clear: () => set({ items: [] }),
         }),
         {
-            name: "cart-storage",
-        }
+            name: typeof window !== "undefined"
+                ? `cart-storage-${window.location.pathname.split("/")[1]}`
+                : "cart-storage",        }
     )
 );

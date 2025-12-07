@@ -8,7 +8,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { icons } from "@/lib/fontawesome";
 import { faPix } from "@fortawesome/free-brands-svg-icons"
 import Input from "@/components/ui/Input";
-import ModalMobile from "@/components/ui/ModalMobile";
+import ModalMobile from "@/components/ui/HybridModal";
 import WarningBox from "@/components/ui/WarningBox";
 
 export default function CartModal({
@@ -77,6 +77,7 @@ export default function CartModal({
     }
 
     function computeFeeFromTiers(distanceKm: number, tiersAny: any): number | null {
+        console.log("computing")
         if (!tiersAny) return null;
 
         let tiers = Array.isArray(tiersAny)
@@ -107,17 +108,28 @@ export default function CartModal({
     }
 
     async function geocodeAddressToLatLon(address: string): Promise<{ lat: number; lon: number } | null> {
+        console.log("geocoding", address);
         try {
-            const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`, {
-                headers: { "User-Agent": "checkout" }
-            });
+            const res = await fetch(
+                `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&language=pt-BR`
+            );
+
             const json = await res.json();
-            if (!json || json.length === 0) return null;
-            return { lat: parseFloat(json[0].lat), lon: parseFloat(json[0].lon) };
+
+            if (!json || json.status !== "OK" || !json.results || json.results.length === 0) {
+                return null;
+            }
+
+            const { lat, lng } = json.results[0].geometry.location;
+            return { lat, lon: lng };
+
         } catch (e) {
+            setDeliveryFeeCents(null);
+            setCepLocationError(true);
             return null;
         }
     }
+
 
     async function reverseGeocode(lat: number, lon: number) {
         try {
@@ -214,18 +226,21 @@ export default function CartModal({
     }
 
     async function handleCepInput(value: string) {
+        setCepLocationError(false)
         console.log("handlingcep")
         const cleanCep = value.replace(/\D/g, "");
         setField("cep", cleanCep);
+        console.log(cleanCep)
 
         if (cleanCep.length !== 8) return;
+
 
         if (cepDebounceTimer) clearTimeout(cepDebounceTimer);
         const timer = window.setTimeout(async () => {
             setLoadingCepLookup(true);
             try {
                 const res = await fetch(`https://brasilapi.com.br/api/cep/v1/${cleanCep}`);
-                if (!res.ok) { setCepLocationError(true); return }
+                if (!res.ok) { setCepLocationError(true);console.log(res) ;return }
 
                 const json = await res.json();
                 if (json.street) setField("rua", json.street);
@@ -233,8 +248,11 @@ export default function CartModal({
                 if (json.city) setField("cidade", json.city);
                 if (json.state) setField("estado", json.state);
 
+
+
                 recalcDeliveryFeeFromAddress();
             } catch (err) {
+                console.log("erro", err)
             } finally {
                 setLoadingCepLookup(false);
             }
@@ -346,29 +364,47 @@ export default function CartModal({
                 className={"md:!h-[80vh] md:!mb-[12vh]"}
             >
                 {/* HEADER */}
-                <div className="sticky top-[0.1%] z-60 flex items-center bg-white rounded-2xl justify-center pb-3 pt-4 pointer-events-none">
+                <div className="sticky top-[0.1%] z-60 flex items-center bg-white rounded-2xl justify-center pb-3 pt-4 2xl:pt-6 2xl:pb-6 pointer-events-none">
                     <button
-                        className="absolute left-5 md:left-auto md:right-5 text-sm pointer-events-auto cursor-pointer"
+                        className="md:hidden absolute left-5 md:left-auto md:right-5 2xl:right-8 text-sm pointer-events-auto cursor-pointer"
                         onClick={goBack}
                     >
                         <FontAwesomeIcon
                             icon={icons.faChevronDown}
                             className={`md:!hidden duration-200 ${step === "cart" ? "rotate-0" : "rotate-90" }`}
                         />
+                    </button>
+                    <button
+                        className="hidden md:block absolute left-5 md:left-auto md:right-5 2xl:right-8 text-sm pointer-events-auto cursor-pointer"
+                        onClick={()=>{setStep("cart");closeWithAnimation()}}
+                    >
                         <FontAwesomeIcon
                             icon={icons.faTimes}
-                            className={`hidden md:block text-gray-700 hover:text-gray-950 text-lg duration-200 ${step === "cart" ? "rotate-0" : "rotate-90" }`}
+                            className={`hidden md:block text-gray-700 hover:text-gray-950 text-lg 2xl:text-xl duration-200`}
                         />
                     </button>
 
-                    <h1 className="text-[17px] font-semibold ">
+                    {step !== "cart" && (
+                        <button
+                            className="hidden md:block absolute left-8 text-xl pointer-events-auto cursor-pointer "
+                            onClick={goBack}
+
+                        >
+                        <FontAwesomeIcon
+                            icon={icons.faChevronDown}
+                            className={`md:block duration-200 rotate-90`}
+                        />
+                        </button>
+                    )}
+
+                    <h1 className="text-[17px] 2xl:text-lg font-semibold ">
                         {step === "cart" ? "SACOLA" : step === "info" ? "ENDEREÇO" : "CHECKOUT"}
                     </h1>
 
                     {step === "cart" && (
                         <button
                             onClick={clearItems}
-                            className="absolute right-5 md:right-auto md:left-5 cursor-pointer text-brand  font-semibold text-[12px] pointer-events-auto"
+                            className="absolute right-5 2xl:left-8 md:right-auto 2xl:text-[1rem] md:left-5 cursor-pointer text-brand  font-semibold text-[12px] pointer-events-auto"
                         >
                             Limpar
                         </button>
@@ -392,23 +428,23 @@ export default function CartModal({
                     >
 
                 {/* SACOLA */}
-                <div className="w-full px-4 overflow-y-auto pt-2 ">
+                <div className="w-full px-4 2xl:px-8 overflow-y-auto pt-2 ">
                     <div className="flex items-center gap-3 mt-2 mb-4">
                         {restaurant?.logo_url && (
                             <img
                                 src={restaurant.logo_url}
-                                className="w-10 h-10 rounded-full object-cover"
+                                className="w-10 h-10 2xl:w-15 2xl:h-15 rounded-full object-cover"
                             />
                         )}
 
                         <div className="flex flex-col">
-                                <span className="font-semibold text-md">
+                                <span className="font-semibold text-md 2xl:text-lg">
                                     {restaurant?.name}
                                 </span>
 
                             <button
                                 onClick={closeWithAnimation}
-                                className="cursor-pointer text-brand font-semibold text-[13px] text-left"
+                                className="cursor-pointer text-brand font-semibold text-[13px] 2xl:text-lg text-left"
                             >
                                 Adicionar mais itens
                             </button>
@@ -418,7 +454,7 @@ export default function CartModal({
                     {items.reduce((acc,i)=>acc+i.total_cents,0) < restaurant.min_order_cents &&
                         <WarningBox
                             icon={icons.faTriangleExclamation}
-                            className="mt-8 mb-8 p-4"
+                            className="mt-8 mb-8 p-4 2xl:text-lg"
                         >
                             O pedido mínimo deste restaurante é de{" "}
                             <b>R$ {(restaurant.min_order_cents / 100)
@@ -428,24 +464,24 @@ export default function CartModal({
 
                     }
 
-                    <h2 className="font-semibold text-md mt-8">
+                    <h2 className="font-semibold text-md 2xl:text-lg mt-8">
                         Itens adicionados
                     </h2>
 
                     {items.map((it) => (
                         <div
                             key={it.id}
-                            className="flex items-start justify-between py-4 w-full "
+                            className="flex items-start justify-between py-4 2xl:py-6 w-full"
                         >
-                            <div className="flex items-start gap-3">
+                            <div className="flex items-start gap-3 2xl:gap-5">
                                 <img
                                     src={it.image}
-                                    className="w-14 h-14 rounded-xl object-cover"
+                                    className="w-14 h-14 2xl:w-20 2xl:h-20 rounded-xl object-cover"
                                 />
                                 <div>
-                                    <p className="font-semibold">{it.name}</p>
+                                    <p className="font-semibold 2xl:text-lg">{it.name}</p>
 
-                                    <p className="text-green-700 font-semibold">
+                                    <p className="text-green-700 font-semibold 2xl:text-lg">
                                         R$ {((it.unit_price_cents * it.qty) / 100)
                                         .toFixed(2)
                                         .replace(".", ",")}
@@ -464,14 +500,14 @@ export default function CartModal({
                                 </div>
                             </div>
 
-                            <div className="flex items-center gap-5 bg-gray-100 px-3 py-3 rounded-lg text-sm mt-[0.33rem]">
+                            <div className="flex items-center gap-5 bg-gray-100 px-3 py-3 rounded-lg text-sm 2xl:text-lg mt-[0.33rem]">
                                 <button
                                     onClick={() =>
                                         it.qty > 1
                                             ? changeQty(it.id, it.qty - 1)
                                             : removeItem(it.id)
                                     }
-                                    className="text-brand"
+                                    className="text-brand cursor-pointer"
                                 >
                                     <FontAwesomeIcon icon={it.qty > 1 ? icons.faMinus : icons.faTrash} />
                                 </button>
@@ -480,7 +516,7 @@ export default function CartModal({
 
                                 <button
                                     onClick={() => changeQty(it.id, it.qty + 1)}
-                                    className="text-brand"
+                                    className="text-brand cursor-pointer"
                                 >
                                     <FontAwesomeIcon icon={icons.faPlus} />
                                 </button>
@@ -491,7 +527,7 @@ export default function CartModal({
                     <div className="mt-6 mb-20">
                         <button
                             onClick={closeWithAnimation}
-                            className="cursor-pointer text-brand font-semibold text-[14px] w-full mt-8"
+                            className="cursor-pointer text-brand font-semibold text-[14px] 2xl:text-lg w-full mt-8"
                         >
                             Adicionar mais itens
                         </button>
@@ -499,13 +535,13 @@ export default function CartModal({
                 </div>
 
                 {/* PAGE 2 — INFO */}
-                <form className="w-full px-4 overflow-y-auto pt-4 pb-32" autoComplete="on">
-                    <h2 className="font-semibold text-md mb-4">
+                <form className="w-full px-4 overflow-y-auto pt-4 pb-32 2xl:pb-10 2xl:px-8" autoComplete="on">
+                    <h2 className="font-semibold text-md 2xl:text-lg mb-4">
                         Entregar no endereço
                     </h2>
 
                     <button
-                        className="text-brand text-md mb-5"
+                        className="text-brand text-md 2xl:text-lg mb-5 cursor-pointer"
                         onClick={handleUseMyLocation}
                         type="button"
                     >
@@ -515,22 +551,22 @@ export default function CartModal({
                     {showAddressWarning &&
                         <WarningBox
                             icon={icons.faTriangleExclamation}
-                            className="mt-2 mb-8 p-4"
+                            className="mt-2 mb-8 p-4 2xl:text-lg"
                         >
                             {!cepLocationError
                                 ? "O restaurante está muito longe deste endereço para entrega!"
-                                : "Erro interno, por gentileza, recarregue a página!"}
+                                : "Erro interno. Insira o endereço manualmente e tentenovamente. Alternativamente, contate o restaurante via Whatsapp!"}
                         </WarningBox>
                     }
 
-                    <div className="flex-1">
+                    <div className="flex-1 2xl:mt-2">
                         <Input
                             autoComplete="postal-code"
                             label={"CEP"}
                             placeholder="12345-123"
                             value={formatCep(cep)}
                             onChange={(e) => handleCepInput(formatCep(e.target.value))}
-                            className="mb-3"
+                            className="mb-3 2xl:text-lg 2xl:mb-6"
                         />
 
                     </div>
@@ -545,17 +581,17 @@ export default function CartModal({
                             setField("rua", r.trim());
                             setField("bairro", b.join(",").trim());
                         }}
-                        className="mb-3"
+                        className="mb-3 2xl:text-lg 2xl:mb-6"
                     />
 
-                    <div className="flex  gap-3">
+                    <div className="flex  gap-3 2xl:gap-6">
                         <Input
                             autoComplete="address-line2"
                             label={"Número"}
                             placeholder="1234"
                             value={numero}
                             onChange={(e) => setField("numero", e.target.value)}
-                            className="mb-3"
+                            className="mb-3 2xl:text-lg 2xl:mb-6"
                         />
                         <Input
                             autoComplete="address-line3"
@@ -568,7 +604,7 @@ export default function CartModal({
                         />
                     </div>
 
-                    <h2 className="font-semibold text-md mt-6 mb-6">
+                    <h2 className="font-semibold text-md mt-6 mb-6 2xl:text-lg">
                         Informações pessoais
                     </h2>
 
@@ -578,7 +614,7 @@ export default function CartModal({
                         placeholder="Rafael"
                         value={nome}
                         onChange={(e) => setField("nome", e.target.value)}
-                        className={"mb-3"}
+                        className={"mb-3 2xl:text-lg 2xl:mb-6"}
                     />
 
                     <Input
@@ -589,25 +625,25 @@ export default function CartModal({
                         onChange={(e) =>
                             setField("celular", e.target.value)
                         }
-                        className="mb-2"
+                        className="mb-2 2xl:text-lg 2xl:mb-3"
                     />
 
-                    <p className={"text-gray-500 text-sm"}>
+                    <p className={"text-gray-500 text-sm 2xl:text-md"}>
                         *Seu número será usado apenas em caso de emergência
                     </p>
                 </form>
 
                 {/* PAGE 3 — CHECKOUT */}
-                <div className="w-full px-4 overflow-y-auto pt-4 pb-32">
+                <div className="w-full px-4 overflow-y-auto pt-4 pb-32 2xl:px-8">
 
                     <>
-                        <h2 className="font-semibold text-md mb-4">
+                        <h2 className="font-semibold text-md 2xl:text-lg mb-4">
                             Pagamento
                         </h2>
 
-                        <div className="flex flex-col gap-3 mb-10">
+                        <div className="flex flex-col gap-3 mb-10 2xl:text-lg">
                             <button
-                                className={`border p-3 rounded-xl duration-200 text-left flex items-center gap-3 ${
+                                className={`border cursor-pointer p-3 rounded-xl duration-200 text-left flex items-center gap-3 ${
                                     pagamento === "pix"
                                         ? "border-brand"
                                         : "border-gray-300"
@@ -619,7 +655,7 @@ export default function CartModal({
                             </button>
 
                             <button
-                                className={`border p-3 rounded-xl duration-200 text-left flex items-center gap-3 ${
+                                className={`border cursor-pointer p-3 rounded-xl duration-200 text-left flex items-center gap-3 ${
                                     pagamento === "cartao"
                                         ? "border-brand"
                                         : "border-gray-300"
@@ -630,7 +666,7 @@ export default function CartModal({
                                 Cartão de crédito
                             </button>
                             <button
-                                className={`border p-3 rounded-xl duration-200 text-left flex items-center gap-3 ${
+                                className={`border cursor-pointer p-3 rounded-xl duration-200 text-left flex items-center gap-3 ${
                                     pagamento === "dinheiro"
                                         ? "border-brand"
                                         : "border-gray-300"
@@ -641,7 +677,7 @@ export default function CartModal({
                                 Dinheiro
                             </button>
                             <button
-                                className={`border p-3 rounded-xl duration-200 text-left flex items-center gap-3 ${
+                                className={`border cursor-pointer p-3 rounded-xl duration-200 text-left flex items-center gap-3 ${
                                     pagamento === "trazer-maquininha"
                                         ? "border-brand"
                                         : "border-gray-300"
@@ -653,11 +689,11 @@ export default function CartModal({
                             </button>
                         </div>
 
-                        <h2 className="font-semibold text-md mb-4">
+                        <h2 className="font-semibold text-md mb-4 2xl:text-lg">
                             Resumo de valores
                         </h2>
 
-                        <div className="flex justify-between text-[15px] mb-2">
+                        <div className="flex justify-between text-[15px] mb-2 2xl:text-lg">
                             <span>Subtotal</span>
                             <span>
                                 R$
@@ -671,7 +707,7 @@ export default function CartModal({
                             </span>
                         </div>
 
-                        <div className="flex justify-between text-[15px] mb-2">
+                        <div className="flex justify-between text-[15px] mb-2 2xl:text-lg">
                             <span>Taxa de entrega</span>
 
                             <span className="text-green-700">
@@ -681,7 +717,7 @@ export default function CartModal({
                             </span>
                         </div>
 
-                        <div className="flex justify-between font-semibold text-[18px] mt-4">
+                        <div className="flex justify-between font-semibold text-[18px] 2xl:text-xl mt-4">
                             <span>Total</span>
                             <span>
                                 R$

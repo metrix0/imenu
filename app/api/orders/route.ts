@@ -62,6 +62,8 @@ export async function POST(req: Request) {
             paymentMethod: "pix" | "cartao" | "dinheiro" | "trazer-maquininha";
         } = body;
 
+        console.log(body)
+
         console.log("🔍 Validating input...");
 
         if (!items?.length) console.log("❌ items missing");

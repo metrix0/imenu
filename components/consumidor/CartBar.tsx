@@ -10,18 +10,19 @@ export default function CartBar({
                                     onOpenCartAction,
                                     cartOpen,
                                     restaurant,
-                                    setCartOpenAction
+                                    setCartOpenAction,
+    closeItemModalOpen,
                                 }: {
     onOpenCartAction: () => void,
     cartOpen: boolean,
     restaurant: any,
     setCartOpenAction: React.Dispatch<React.SetStateAction<boolean>>;
+    closeItemModalOpen: () => void;
 }) {
     const items = useCartStore((s) => s.items);
 
     const step = useCheckoutStore((s) => s.step);
     const setStep = useCheckoutStore((s) => s.setStep);
-    const showAddressWarning = useCheckoutStore(s => s.showAddressWarning);
     const setShowAddressWarning = useCheckoutStore(s => s.setShowAddressWarning);
     const [cartWarningVisible, setCartWarningVisible] = useState(false);
     const [cartWarningClosing, setCartWarningClosing] = useState(false);
@@ -80,6 +81,7 @@ export default function CartBar({
     };
 
     async function handleClick() {
+        closeItemModalOpen();
         if (cartOpen && step === "cart") {
             const totalCents = items.reduce((acc,i)=>acc+i.total_cents,0);
 
@@ -203,6 +205,18 @@ export default function CartBar({
             return;
         }
 
+        try {
+            document.cookie = `order_page_entered_id_${body.restaurantId}=${data.id}; path=/; max-age=${60 * 60 * 5}`;
+        } catch (err) {
+            console.error("[COOKIE] Failed to set order_page_entered cookie:", err);
+        }
+
+        try {
+            localStorage.removeItem("cart-storage");
+        } catch (err) {
+            console.error("[CART] Failed to clear cart-storage:", err);
+        }
+
         if (data.id) {
             window.location.href = `/pedido/${data.id}`;
         }
@@ -260,18 +274,18 @@ export default function CartBar({
 
     return (
         <>
-            <div className="fixed pb-8 md:pb-4 bottom-0 left-0 right-0 z-50  bg-white shadow-[0_-4px_12px_rgba(0,0,0,0.12)] px-4 py-3 border-t border-gray-200">
-                <div className="flex items-center justify-between w-full md:px-7">
-                    <div className="flex flex-col text-left text-[12px] text-gray-600">
+            <div className="fixed pb-8 2xl:pb-6 2xl:pt-5 md:pb-4 bottom-0 left-0 right-0 z-50  bg-white shadow-[0_-4px_12px_rgba(0,0,0,0.12)] px-4 py-3 border-t border-gray-200">
+                <div className="flex items-center justify-between w-full md:px-7 2xl:px-12">
+                    <div className="flex flex-col text-left text-[12px] 2xl:text-lg text-gray-600">
                         <span>
                             {checkoutState.delivery_fee_cents === null ||
-                            checkoutState.delivery_fee_cents === undefined
+                            checkoutState.delivery_fee_cents === undefined || !checkoutState.delivery_fee_cents
                                 ? "Total sem a entrega"
                                 : "Total com a entrega"}
                         </span>
 
                         <span>
-                            <span className="font-semibold text-black text-lg leading-tight tracking-tighter">
+                            <span className="font-semibold text-black text-lg  2xl:text-xl leading-tight tracking-tighter">
                                 R$ {(displayTotalCents / 100).toFixed(2).replace('.', ',')}
                             </span>
                             <span>
@@ -285,7 +299,7 @@ export default function CartBar({
                             variant="primary"
                             onClick={handleClick}
                             disabled={disabledContinue}
-                            className={`py-3 px-10 text-[13px] tracking-wide font-normal ${
+                            className={`py-3 px-10 2xl:px-15 2xl:py-4 text-[13px] 2xl:text-lg tracking-wide font-normal ${
                                 disabledContinue ? "bg-gray-300 focus:ring-transparent" : ""
                             }`}
                         >

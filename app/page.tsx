@@ -89,7 +89,7 @@ export default function LandingPage() {
                 <nav className="flex items-center gap-8 text-sm font-medium 2xl:text-[1.2rem] 2xl:gap-11">
                     <a href="#" className="hover:text-gray-500 transition hidden md:block">Home</a>
                     <a href="#recursos" className="hover:text-gray-500 transition hidden md:block">Recursos</a>
-                    {restCount >= 0 && (
+                    {restCount > 0 && (
                         <Tooltip text={<span>Para os próximos {restCount} restaurantes que se cadastrarem: Consultoria grátis de 30 minutos com time que já assessorou 1M+/mês. <u className={"cursor-pointer"} onClick={() => router.push("/restaurante/registrar")}>Cadastre-se agora</u></span>} size={"medium"} padding={"p-4 2xl:p-6"} position={"bottom"}>
                             <BonusButton><span className="inline-block"><span className={"text-[0.8rem] 2xl:text-[1.1rem]"}>BÔNUS</span> <span className="font-light">para prox. {restCount} restaurantes</span></span></BonusButton>
                         </Tooltip>
@@ -147,7 +147,7 @@ export default function LandingPage() {
                         <Button variant="primary" onClick={() => router.push("/restaurante/registrar")} className="px-6 py-3 text-lg 2xl:px-10 2xl:py-4 2xl:text-[1.6rem]">
                             Registrar Grátis
                         </Button>
-                        {restCount >= 0 && (
+                        {restCount > 0 && (
                             <Tooltip text={<span>Para os próximos {restCount} restaurantes que se cadastrarem: Consultoria grátis de 30 minutos com time que já assessorou 1M+/mês. <u className={"cursor-pointer"} onClick={() => router.push("/restaurante/registrar")}>Cadastre-se agora</u></span>} size={"medium"} padding={"p-4 2xl:p-6"} position={"bottom"}><BonusButton className={"hidden md:inline-flex"}><span className=" font-regular text-xs 2xl:text-[1.1rem]">BÔNUS</span></BonusButton></Tooltip>
                         )}
                         <div className="w-[1px] h-6 bg-gray-300" />
@@ -286,32 +286,32 @@ export default function LandingPage() {
                         </thead>
 
                         <tbody className="[&>tr>td]:p-4 [&>tr>td]:2xl:p-6 [&>tr:nth-child(even)]:bg-gray-50 [&>tr:nth-child(odd)]:">
-                        {restCount >= 0 && (
+                        {restCount > 0 && (
                         <tr >
                             <td className=" border-r border-gray-200 md:font-light text-sm md:text-[100%]"><BonusButton className={"hidden md:inline-flex"}><span className={"inline-block"}><span className={"font-medium"}>BÔNUS</span> <span className={"font-light"}>para os prox. {restCount} restaurantes</span></span></BonusButton><span className={"block md:hidden"}><b>BÔNUS</b> para os prox. {restCount} restaurantes</span></td>
                             <td className=" border-r border-gray-200 text-center leading-tight text-xs md:text-[100%]">Consultoria com time<br/> que já assessorou 1M+/mês</td>
-                            <td className=" border-r border-gray-200 text-center">-</td>
+                            <td className=" border-gray-200 text-center">-</td>
                         </tr>
                         )}
                         <tr>
                             <td className=" border-r border-gray-200 ">Totalmente grátis, para sempre</td>
                             <td className=" border-r border-gray-200 text-center"><FontAwesomeIcon icon={icons.faCheck} className={"text-green"}/></td>
-                            <td className=" border-r border-gray-200 text-center">Mensalidade e taxas</td>
+                            <td className="  border-gray-200 text-center">Mensalidade e taxas</td>
                         </tr>
                         <tr>
                             <td className=" border-r border-gray-200">Pedidos ilimitados</td>
                             <td className=" border-r border-gray-200 text-center"><FontAwesomeIcon icon={icons.faCheck} className={"text-green"}/></td>
-                            <td className=" border-r border-gray-200 text-center">Cada vez mais caro</td>
+                            <td className="  border-gray-200 text-center">Cada vez mais caro</td>
                         </tr>
                         <tr>
                             <td className=" border-r border-gray-200">Converte o cliente</td>
                             <td className=" border-r border-gray-200 text-center"><FontAwesomeIcon icon={icons.faCheck} className={"text-green"}/></td>
-                            <td className=" border-r border-gray-200 text-center">Baixa Conversão</td>
+                            <td className="  border-gray-200 text-center">Baixa Conversão</td>
                         </tr>
                         <tr>
                             <td className=" border-r border-gray-200">Gestor de pedidos</td>
                             <td className=" border-r border-gray-200 text-center"><FontAwesomeIcon icon={icons.faCheck} className={"text-green"}/></td>
-                            <td className=" border-r border-gray-200 text-center">Limitado</td>
+                            <td className="  border-gray-200 text-center">Limitado</td>
                         </tr>
                         <tr>
                             <td className=" border-r border-gray-200">Suporte humanizado</td>
@@ -326,17 +326,17 @@ export default function LandingPage() {
                         <tr>
                             <td className=" border-r border-gray-200">Acompanhamento do pedido</td>
                             <td className=" border-r border-gray-200 text-center">Notificações via Whatsapp</td>
-                            <td className=" border-r border-gray-200 text-center">Clientes ficam perdidos</td>
+                            <td className="  border-gray-200 text-center">Clientes ficam perdidos</td>
                         </tr>
                         <tr>
                             <td className=" border-r border-gray-200">Calcular Taxa de Entrega</td>
                             <td className=" border-r border-gray-200 text-center">Pelo Raio</td>
-                            <td className=" text-center">Limitado ou manual</td>
+                            <td className=" text-center">Configurações confusas</td>
                         </tr>
                         <tr>
                             <td className=" border-r border-gray-200">Taxa por Transação</td>
                             <td className=" border-r border-gray-200 text-center"><Tooltip text={<span>Taxa de transação bancária.</span>}><u className={"cursor-pointer"}>0.99%</u></Tooltip></td>
-                            <td className=" border-r border-gray-200 text-center">5%, 15%, 30%</td>
+                            <td className="  border-gray-200 text-center">5%, 15%, 30%</td>
                         </tr>
 
                         <tr>

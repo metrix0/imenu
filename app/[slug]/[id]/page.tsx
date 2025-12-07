@@ -332,8 +332,8 @@ export default function PedidoPage({
 
             {/* ETA */}
             <section className="p-5">
-                <h2 className="text-gray-500 text-lg">Previsão de entrega</h2>
-                <p className="font-semibold text-text text-2xl mt-1">{eta}</p>
+                <h2 className="text-gray-500 text-lg 2xl:text-xl">Previsão de entrega</h2>
+                <p className="font-semibold text-text text-2xl 2xl:text-3xl 2xl:mt-3 mt-1">{eta}</p>
             </section>
 
             {!status.includes("pending") && status !== "paid"
@@ -381,48 +381,48 @@ export default function PedidoPage({
       animate-[pulseHalo_2s_ease-out_infinite]
   "></div>
                 </div>                <div>
-                    <p className="font-medium text-[15px] leading-tight">{readableStatus}</p>
+                    <p className="font-medium text-[15px] 2xl:text-lg leading-tight">{readableStatus}</p>
                 </div>
             </section>
 
 
             {/* PAYMENT */}
             <section className="bg-white rounded-xl p-5 shadow space-y-3 mt-5">
-                <p className="text-gray-500 text-sm">
+                <p className="text-gray-500 text-sm  2xl:text-lg">
                     {paymentText === "Pix" || paymentText === "Cartão"
                         ? "Pago pelo site"
                         : "Pagamento na entrega"}
                 </p>
 
                 <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2  2xl:text-lg">
                         <FontAwesomeIcon icon={paymentIcon}/>
-                        <span className="font-medium">{paymentText}</span>
+                        <span className="font-medium ">{paymentText}</span>
                     </div>
 
-                    <span className="font-semibold text-lg">{totalDisplay}</span>
+                    <span className="font-semibold text-lg  2xl:text-lg">{totalDisplay}</span>
                 </div>
             </section>
 
             {/* ORDER ITEMS */}
             <section className="bg-white rounded-xl p-5 shadow space-y-4 mt-6">
-                <h3 className="font-semibold text-lg text-gray-700">
-                    Itens do Pedido <span className={"text-sm font-normal text-gray-500"}>{restaurantName}</span>
+                <h3 className="font-semibold text-lg  text-gray-700">
+                    Itens do Pedido <span className={"text-sm font-normal text-gray-500  2xl:text-lg"}>{restaurantName}</span>
                 </h3>
 
                 {(!order.items || order.items.length === 0) ? (
-                    <p className="text-gray-400 text-sm">Carregando itens...</p>
+                    <p className="text-gray-400 text-sm  2xl:text-lg">Carregando itens...</p>
                 ) : (
                     order.items.map((it: any) => (
                         <div
                             key={it.id}
                             className="border-b last:border-b-0 pb-3 mb-3"
                         >
-                            <div className="flex justify-between">
+                            <div className="flex justify-between  2xl:text-lg">
                                 <p className="font-medium">
                                     {it.quantity}× {it.name}
                                 </p>
-                                <p className="font-semibold">
+                                <p className="font-semibold ">
                                     R$ {(it.total_cents / 100)
                                     .toFixed(2)
                                     .replace(".", ",")}
@@ -430,7 +430,7 @@ export default function PedidoPage({
                             </div>
 
                             {it.observation && (
-                                <p className="text-sm text-gray-600 mt-1">
+                                <p className="text-sm  2xl:text-lg text-gray-600 mt-1">
                                     <span className="font-medium">Obs:</span>{" "}
                                     {it.observation}
                                 </p>
@@ -460,7 +460,7 @@ export default function PedidoPage({
             </section>
 
 
-            <div className={" mt-6 mb-3 mx-1 text-sm text-gray-400  flex gap-1 items-center justify-center"}
+            <div className={" mt-6 mb-3 mx-1 text-sm text-gray-400  2xl:text-lg flex gap-1 items-center justify-center"}
             onClick={() => router.push("https://wa.me/"+restaurantPhone)}
             >
                 Entre em contato com este restaurante <FontAwesomeIcon icon={faWhatsappSquare} className={"text-2xl text-green"}/>
@@ -469,10 +469,10 @@ export default function PedidoPage({
             {/* FOOTER IMAGE */}
             <div className="mt-auto flex justify-center pt-8 pb-6">
                 <img
-                    src="/logos/CombinationMarkLogo_Black.png"     // <-- change to your path
+                    src="/logos/CombinationMarkLogo_Black.png"
                     alt="Logo"
 
-                    className="opacity-30 w-26 cursor-pointer"
+                    className="opacity-30 w-26 2xl:w-40 cursor-pointer"
                     onClick={() => router.push("/")}
                 />
             </div>

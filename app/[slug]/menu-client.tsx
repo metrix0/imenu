@@ -10,7 +10,7 @@ import { icons } from "@/lib/fontawesome";
 import { faStar } from "@fortawesome/free-solid-svg-icons";
 import { supabase } from "@/lib/database/supabaseClient";
 import { formatPrice, formatPriceNoRS } from "@/lib/utils/formatPrice";
-import ModalMobile from "@/components/ui/ModalMobile";
+import ModalMobile from "@/components/ui/HybridModal";
 import ItemModal from "./ItemModal";
 import CartBar from "@/components/consumidor/CartBar"
 import CartModal from "./CartModal"
@@ -210,18 +210,18 @@ export default function MenuClientPage({
                     <div className="absolute left-1/2 -translate-x-1/2 -top-8 z-20">
                         <img
                             src={restaurant.logo_url}
-                            className="w-17 h-17 rounded-full border-1 border-gray-200 object-cover"
+                            className="w-17 h-17 md:w-23 md:h-23 2xl:h-30 2xl:w-30 rounded-full border-1 border-gray-200 object-cover"
                             alt="Logo"
                         />
                     </div>
                 )}
 
-                <div className="bg-white mx-5 md:mx-48 px-5 py-4 rounded-3xl shadow-[0_2px_10px_rgba(0,0,0,0.08)]">
-                    <h1 className="text-[1.2rem] font-semibold mt-6">
+                <div className="bg-white mx-5 md:mx-48 2xl:mx-80 px-5 py-4 2xl:py-7 rounded-3xl shadow-[0_2px_10px_rgba(0,0,0,0.08)]">
+                    <h1 className="text-[1.2rem] 2xl:text-2xl font-semibold mt-6">
                         {restaurant.name}
                     </h1>
 
-                    <p className="text-gray-600 text-xs mt-1 border-b border-gray-200 pb-2">
+                    <p className="text-gray-600 text-xs 2xl:text-[1rem] mt-1 border-b border-gray-200 pb-2">
                         {nextOpening === null ? "Aberto" : "Fechado"} • Min{" "}
                         {restaurant.min_order_cents
                             ? formatPrice(restaurant.min_order_cents)
@@ -243,7 +243,7 @@ export default function MenuClientPage({
                     {/*    </div>*/}
                     {/*)}*/}
 
-                    <div className="flex items-center gap-2 mt-3 text-xs font-bold">
+                    <div className="flex items-center gap-2 mt-3 text-xs 2xl:text-[1rem] font-bold">
                         <span>Entrega</span>
                         <span>•</span>
                         <span>
@@ -292,14 +292,14 @@ export default function MenuClientPage({
             {/* ============================
                 CATEGORIAS
             ============================ */}
-            <div className="mt-8 px-4 md:mx-44 space-y-12 pb-20">
+            <div className="mt-8 px-4 md:mx-44 space-y-12 pb-20 2xl:mx-80 2xl:mt-12">
                 {categories.map((cat) => (
                     <div key={cat.id}>
                     {categories[0].position === 1
                         ?
                         <div key={cat.id}>
 
-                            <h2 className="text-xl font-medium mb-4 md:mb-8">
+                            <h2 className="text-xl 2xl:text-2xl font-medium mb-4 md:mb-8">
                                 {cat.name}
                             </h2>
 
@@ -322,12 +322,12 @@ export default function MenuClientPage({
                                             />
                                         </div>
 
-                                        <div className="mt-3 flex flex-col h-[55px] justify-start">
-                                            <p className="font-semibold text-sm">
+                                        <div className="mt-3 flex flex-col h-[55px] justify-start ">
+                                            <p className="font-semibold text-sm 2xl:text-lg">
                                                 {formatPrice(item.price_cents)}
                                             </p>
 
-                                            <p className="text-sm text-gray-700 line-clamp-2 leading-snug">
+                                            <p className="text-sm 2xl:text-lg text-gray-700 line-clamp-2 leading-snug">
                                                 {item.name}
                                             </p>
                                         </div>
@@ -338,7 +338,7 @@ export default function MenuClientPage({
                         :
                         <div key={cat.id}>
 
-                            <h2 className="text-xl font-medium mb-6 md:mb-8">
+                            <h2 className="text-xl 2xl:text-2xl font-medium mb-6 md:mb-8">
                                 {cat.name}
                             </h2>
 
@@ -353,15 +353,15 @@ export default function MenuClientPage({
                                     >
                                         {/* LEFT SIDE (text) */}
                                         <div className="flex flex-col pr-4 flex-1 items-start justify-start max-w-[70%] ">
-                                            <p className="text-sm font-semibold leading-tight">
+                                            <p className="text-sm 2xl:text-lg font-semibold leading-tight">
                                                 {item.name}
                                             </p>
 
-                                            <p className="text-sm text-gray-600 line-clamp-2 mt-1 leading-tight">
+                                            <p className="text-sm 2xl:text-lg text-gray-600 line-clamp-2 mt-1 leading-tight">
                                                 {(item.description ?? "").slice(0, 60)}{item.description && item.description.length > 60 ? "…" : ""}
                                             </p>
 
-                                            <p className="text-sm font-bold mt-2">
+                                            <p className="text-sm 2xl:text-lg font-bold mt-2">
                                                 {formatPrice(item.price_cents)}
                                             </p>
                                         </div>
@@ -411,6 +411,7 @@ export default function MenuClientPage({
                     cartOpen={cartOpen}
                     setCartOpenAction={setCartOpen}
                     restaurant={restaurant}
+                    closeItemModalOpen={() => setOpenedItem(null)}
                 />
             )}
 
@@ -433,16 +434,17 @@ export default function MenuClientPage({
                 onClose={() => setRestaurantCartWarningVisible(false)}
                 height={0.30}
                 handle={true}
+                className={"md:!py-4 md:!pb-6 2xl:!w-4xl 2xl:!max-w-4xl"}
             >
-                <div className="text-center px-6 pt-2">
-                    <div className="text-text text-md font-medium mb-2 mt-2">Pedido identificado.</div>
+                <div className="text-center px-6 pt-2 2xl:px-12">
+                    <div className="text-text text-md 2xl:text-xl font-medium mb-2 2xl:mb-4 mt-2">Pedido identificado.</div>
 
-                    <p className="text-gray-500 mb-4 text-sm">
+                    <p className="text-gray-500 mb-4 2xl:mb-8 text-sm 2xl:text-lg 2xl:text-lg">
                         Você realizou um pedido aqui recentemente, gostaria de ir até a página deste pedido?
                     </p>
 
                     <button
-                        className="bg-brand text-white w-full py-3 rounded-lg text-sm mb-3"
+                        className="bg-brand cursor-pointer text-white w-full py-3 rounded-lg text-sm 2xl:text-lg mb-3"
                         onClick={() => {
                             setRestaurantCartWarningVisible(false);
 
@@ -460,7 +462,7 @@ export default function MenuClientPage({
                     </button>
 
                     <p
-                        className="text-brand text-sm mt-4 cursor-pointer"
+                        className="text-brand text-sm mt-4 2xl:text-lg md:mt-0 cursor-pointer"
                         onClick={() => setRestaurantCartWarningVisible(false)}
                     >
                         Não, obrigado
