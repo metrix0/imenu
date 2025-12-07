@@ -20,7 +20,7 @@ interface CardapioTabProps {
     onEditCategory: (cat: Category) => void;
     onOpenItemDetails: (item: MenuItemType) => void;
     onNewCategory: () => void;
-    onAIScanMenu: React.Dispatch<React.SetStateAction<boolean>>;
+    onAIScanMenu?: React.Dispatch<React.SetStateAction<boolean>> | (() => void);
 }
 
 export default function CardapioTab({
@@ -104,7 +104,7 @@ export default function CardapioTab({
                     Adicionar categoria
                 </Button>
                 <Button
-                    onClick={() => onAIScanMenu(true)}
+                    onClick={() => onAIScanMenu?.(true)}
                     variant={"secondary"}
                 >
                     <FontAwesomeIcon icon={faWandMagicSparkles} className="text-sm mr-2" /> Scanear Cardápio com IA
