@@ -57,7 +57,7 @@ export default function PainelTempoETaxaPage() {
         <div className="max-w-6xl mx-auto pb-20 px-4 sm:px-6 pt-8">
             <div className="mb-8 flex flex-col gap-1">
                 <h1 className="text-3xl font-bold text-gray-900">Configurações de Entrega</h1>
-                <p className="text-gray-500 mt-1">Defina suas faixas de entrega e o valor mínimo de pedido.</p>
+                <p className="text-gray-500 mt-1 2xl:text-lg">Defina suas faixas de entrega e o valor mínimo de pedido.</p>
             </div>
             
             <DeliveryRules

@@ -63,7 +63,7 @@ const SubitemPriceInput = ({
 
     return (
         <input 
-            className="w-full pl-6 pr-1 py-1 text-sm text-right border rounded border-gray-200 focus:border-brand focus:outline-none"
+            className="w-full pl-6 pr-1 py-1 text-sm 2xl:text-base text-right border rounded border-gray-200 focus:border-brand focus:outline-none"
             type="number" 
             step="0.5" 
             min="0"
@@ -250,15 +250,15 @@ export default function ItemDetailsModal({ isOpen, onClose, item }: ItemDetailsM
             <div className="w-full max-w-2xl bg-white rounded-lg flex flex-col max-h-[85vh]">
                 <div className="p-6 border-b border-gray-100 flex justify-between items-center shrink-0">
                     <div>
-                        <h2 className="text-xl font-bold text-gray-900">Complementos e Opções</h2>
-                        <p className="text-gray-500 text-sm">Para: <span className="font-medium text-brand">{item?.name}</span></p>
+                        <h2 className="text-xl 2xl:text-2xl font-bold text-gray-900">Complementos e Opções</h2>
+                        <p className="text-gray-500 text-sm 2xl:text-base 2xl:mt-1">Para: <span className="font-medium text-brand">{item?.name}</span></p>
                     </div>
                     <button onClick={onClose} className="cursor-pointer text-gray-400 hover:text-gray-600">
                         <FontAwesomeIcon icon={icons.faTimes} className="text-xl" />
                     </button>
                 </div>
 
-                <div className="p-6 overflow-y-auto flex-1 space-y-8">
+                <div className="p-6 overflow-y-auto flex-1 space-y-8 2xl:text-base">
                     {isLoading && groups.length === 0 ? (
                         <div className="text-center py-10 text-gray-400">Carregando...</div>
                     ) : (
@@ -267,11 +267,11 @@ export default function ItemDetailsModal({ isOpen, onClose, item }: ItemDetailsM
                                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 pb-4 border-b border-gray-200">
                                     <div className="flex-1">
                                         <input 
-                                            className="bg-transparent font-bold text-gray-800 text-lg w-full focus:outline-none focus:border-b focus:border-brand"
+                                            className="bg-transparent font-bold text-gray-800 text-lg 2xl:text-xl w-full focus:outline-none focus:border-b focus:border-brand"
                                             value={group.name}
                                             onChange={(e) => handleUpdateGroup(group.id, { name: e.target.value })}
                                         />
-                                        <div className="flex gap-4 mt-2 text-sm text-gray-600">
+                                        <div className="flex gap-4 mt-2 text-sm 2xl:text-base text-gray-600">
                                             <label className="flex items-center gap-2 cursor-pointer">
                                                 <input 
                                                     type="checkbox" 
@@ -281,11 +281,11 @@ export default function ItemDetailsModal({ isOpen, onClose, item }: ItemDetailsM
                                                 />
                                                 Obrigatório
                                             </label>
-                                            <div className="flex items-center gap-2">
+                                            <div className="flex items-center gap-2 2xl:text-base">
                                                 <span>Escolher até:</span>
                                                 <input 
                                                     type="number" 
-                                                    className="w-12 p-1 text-center rounded border border-gray-300 text-sm"
+                                                    className="w-12 p-1 text-center rounded border border-gray-300 text-sm 2xl:text-base"
                                                     value={group.max_select}
                                                     onChange={(e) => handleUpdateGroup(group.id, { max_select: parseInt(e.target.value) || 1 })}
                                                 />
@@ -297,7 +297,7 @@ export default function ItemDetailsModal({ isOpen, onClose, item }: ItemDetailsM
                                     </button>
                                 </div>
 
-                                <div className="space-y-2">
+                                <div className="space-y-2 ">
                                     {group.subitems.map(sub => (
                                         <div 
                                             key={sub.id} 
@@ -307,18 +307,18 @@ export default function ItemDetailsModal({ isOpen, onClose, item }: ItemDetailsM
                                             onDragEnd={handleDragEnd}
                                             onDragOver={(e) => handleDragOver(e, group.id, sub.id)}
                                         >
-                                            <div className="cursor-grab active:cursor-grabbing p-1 text-gray-300 hover:text-gray-500">
-                                                <FontAwesomeIcon icon={faGripLines} className="text-xs" />
+                                            <div className="cursor-grab active:cursor-grabbing p-1 2xl:p-2 text-gray-300 hover:text-gray-500">
+                                                <FontAwesomeIcon icon={faGripLines} className="text-xs 2xl:text-lg" />
                                             </div>
                                             
                                             <input 
-                                                className="flex-1 text-sm text-gray-700 focus:outline-none bg-transparent"
+                                                className="flex-1 text-sm text-gray-700 focus:outline-none bg-transparent 2xl:text-base"
                                                 value={sub.name}
                                                 onChange={(e) => handleUpdateSubitem(sub.id, { name: e.target.value })}
                                             />
 
                                             <div className="flex items-center gap-1 relative w-24">
-                                                <span className="text-xs text-gray-400 absolute left-2">R$</span>
+                                                <span className="text-xs text-gray-400 absolute left-2 2xl:text-base">R$</span>
                                                 
                                                 {/* USANDO O COMPONENTE AUXILIAR DE INPUT DE PREÇO */}
                                                 <SubitemPriceInput 
@@ -328,14 +328,14 @@ export default function ItemDetailsModal({ isOpen, onClose, item }: ItemDetailsM
                                             </div>
 
                                             <button onClick={() => handleDeleteSubitem(sub.id)} className="cursor-pointer text-gray-400 hover:text-red-500 w-6">
-                                                <FontAwesomeIcon icon={faTrash} className="text-xs" />
+                                                <FontAwesomeIcon icon={faTrash} className="text-xs 2xl:text-lg" />
                                             </button>
                                         </div>
                                     ))}
                                     
                                     <button 
                                         onClick={() => handleAddSubitem(group.id)}
-                                        className="cursor-pointer w-full py-2 text-xs font-medium text-brand hover:bg-brand/5 rounded border border-dashed border-brand/20 transition-colors"
+                                        className="cursor-pointer w-full py-2 text-xs 2xl:text-base font-medium text-brand hover:bg-brand/5 rounded border border-dashed border-brand/20 transition-colors"
                                     >
                                         + Adicionar Opção
                                     </button>

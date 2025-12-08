@@ -81,7 +81,7 @@ export default function AdminLogin() {
 
         // ⭐ show toast and redirect
         setShowToast(true);
-        setTimeout(() => router.replace("/painel/pedidos"), 1000);
+        setTimeout(() => router.replace("/painel"), 1000);
 
         setLoading(false);
     };

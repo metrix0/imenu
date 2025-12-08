@@ -157,33 +157,33 @@ export default function OrderCard({ order, onStatusChange }: OrderCardProps) {
     return (
         <Card className="p-0 overflow-hidden border-l-4 border-l-brand">
             {/* Header do Card */}
-            <div className="p-4 bg-gray-50 border-b border-gray-100 flex justify-between items-start">
+            <div className="p-4 2xl:py-5 bg-gray-50 border-b border-gray-100 flex justify-between items-start">
                 <div className="flex flex-col gap-1">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 2xl:gap-4">
                         <span className="font-bold text-gray-900 text-lg">
                             #{order.display_id || order.id.slice(0, 4)}
                         </span>
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${config.color}`}>
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium 2xl:text-base 2xl:px-3 2xl:py-1 ${config.color}`}>
                             {config.label}
                         </span>
                     </div>
-                    <span className="text-sm font-medium text-gray-700 truncate max-w-[200px]" title={order.customer_name}>
+                    <span className="text-sm 2xl:text-base font-medium text-gray-700 truncate max-w-[200px]" title={order.customer_name}>
                         {order.customer_name}
                     </span>
                 </div>
 
-                <div className="flex items-center gap-1 text-red-600 font-bold bg-red-50 px-2 py-1 rounded text-sm whitespace-nowrap">
+                <div className="flex items-center gap-1 text-red-600 font-bold bg-red-50 px-2 py-1 2xl:px-3 2xl:py-1.5 2xl:text-base rounded text-sm whitespace-nowrap">
                     <FontAwesomeIcon icon={faClock} />
                     {getElapsedTime()}
                 </div>
             </div>
 
             {/* Conteúdo */}
-            <div className="p-4 space-y-4">
+            <div className="p-4 space-y-4 2xl:mt-2">
                 {/* Itens */}
-                <div className="space-y-2">
+                <div className="space-y-2 2xl:space-y-3">
                     {order.order_items.map((item, idx) => (
-                        <div key={`${order.id}-item-${idx}`} className="flex justify-between text-sm">
+                        <div key={`${order.id}-item-${idx}`} className="flex justify-between text-sm 2xl:text-base">
                             <div className="flex gap-2">
                                 <span className="font-bold text-gray-900">{item.quantity}x</span>
                                 <span className="text-gray-700">{item.name}</span>
@@ -196,18 +196,18 @@ export default function OrderCard({ order, onStatusChange }: OrderCardProps) {
                 <hr className="border-gray-100" />
 
                 {/* Dados de Entrega e Totais */}
-                <div className="text-sm space-y-1">
+                <div className="text-sm space-y-1 2xl:space-y-2">
                     {order.address_line1 && (
-                        <div className="flex items-start gap-2 text-gray-600">
+                        <div className="flex items-start gap-2 text-gray-600 ">
                             <FontAwesomeIcon icon={faMapMarkerAlt} className="mt-1 text-gray-400" />
                             <span className="line-clamp-2">{order.address_line1}</span>
                         </div>
                     )}
-                    <div className="flex justify-between text-gray-500 pt-2">
+                    <div className="flex justify-between text-gray-500 pt-2 2xl:text-base">
                         <span>Taxa de Entrega</span>
                         <span>{fmtMoney(order.delivery_cents)}</span>
                     </div>
-                    <div className="flex justify-between font-bold text-lg text-gray-900">
+                    <div className="flex justify-between font-bold text-lg 2xl:text-xl text-gray-900">
                         <span>Total</span>
                         <span>{fmtMoney(order.total_cents)}</span>
                     </div>
@@ -215,7 +215,7 @@ export default function OrderCard({ order, onStatusChange }: OrderCardProps) {
 
                 {/* Botões de Ação */}
                 {config.btn && (
-                    <div className="flex gap-2 mt-2">
+                    <div className="flex gap-2 mt-2 2xl:mt-5">
                         {showBackButton && (
                             <Button 
                                 variant="secondary"

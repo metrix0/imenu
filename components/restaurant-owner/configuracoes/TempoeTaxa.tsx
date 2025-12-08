@@ -297,9 +297,9 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
             <div className="max-w-2xl 2xl:max-w-3xl mx-auto ">
 
                 {/* SÓ MOSTRA O STATUS SE NÃO FOR NOVO (PAINEL) */}
-                <div className="flex justify-end mb-2 h-6" >
+                <div className="flex justify-end mb-2 2xl:mb-3 h-6" >
                     {!isNew && (
-                        <div className="text-sm font-medium h-6 flex items-center mb-4 transition-opacity duration-300">
+                        <div className="text-sm 2xl:text-lg font-medium h-6 flex items-center mb-4 transition-opacity duration-300">
                             {status === "saving" ? (
                                 <span className="text-brand animate-pulse">Salvando...</span>
                             ) : status === "saved" ? (

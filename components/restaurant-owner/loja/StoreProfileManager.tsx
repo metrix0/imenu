@@ -104,7 +104,7 @@ export default function StoreProfileManager({ restaurant, compact = false }: Sto
                 <div className="flex justify-between items-end px-2">
                     <div>
                         <h1 className="text-3xl font-bold text-gray-900">Perfil da Loja</h1>
-                        <p className="text-gray-500 mt-1">Como seu restaurante aparece para os clientes.</p>
+                        <p className="text-gray-500 mt-1 2xl:text-lg">Como seu restaurante aparece para os clientes.</p>
                     </div>
                     <div className="h-6 text-sm font-medium">
                         {isSaving ? (

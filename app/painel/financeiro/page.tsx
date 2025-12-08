@@ -58,7 +58,7 @@ export default function FinanceiroPage() {
     );
 
     return (
-        <div className="space-y-8 max-w-6xl mx-auto px-4 pt-8 pb-20">
+        <div className="space-y-8 max-w-6xl 2xl:max-w-8xl mx-auto px-4 pt-8 pb-20">
             <h1 className="text-3xl font-bold text-gray-900">Dashboard Financeiro</h1>
             
             {/* Barra de Filtro */}

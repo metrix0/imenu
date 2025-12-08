@@ -122,7 +122,7 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
             canceled: "bg-red-100 text-red-800",
         };
         return (
-            <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${colors[status] || "bg-gray-100"}`}>
+            <span className={`2xl:text-base 2xl:px-3 px-2.5 py-0.5 rounded-full text-xs font-medium ${colors[status] || "bg-gray-100"}`}>
                 {labels[status] || status}
             </span>
         );
@@ -169,12 +169,12 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
                 <div className="p-5 border-b border-gray-100 flex justify-between items-start">
                     <div>
                         <div className="flex items-center gap-3 mb-1">
-                            <h2 className="text-xl font-bold text-gray-900">
+                            <h2 className="text-xl 2xl:text-2xl font-bold text-gray-900">
                                 Pedido #{order?.display_id}
                             </h2>
                             {(details || order) && renderStatus(details?.status || order!.status)}
                         </div>
-                        <p className="text-xs text-gray-500 flex items-center gap-1">
+                        <p className="text-xs text-gray-500 flex items-center gap-1 2xl:text-base">
                             <FontAwesomeIcon icon={faClock} /> Realizado em {order && fmtDate(order.created_at)}
                         </p>
                     </div>
@@ -195,24 +195,24 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
                         <div className="space-y-8">
                             {/* Cliente */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="space-y-3">
-                                    <h4 className="text-sm font-bold text-gray-900 uppercase tracking-wider border-b border-gray-100 pb-1">Cliente</h4>
-                                    <div className="text-sm">
-                                        <p className="font-medium text-gray-900 flex items-center gap-2">
+                                <div className="space-y-3 2xl:space-y-6">
+                                    <h4 className="text-sm 2xl:text-base font-bold text-gray-900 uppercase tracking-wider border-b border-gray-100 pb-1">Cliente</h4>
+                                    <div className="text-sm 2xl:text-base">
+                                        <p className="font-medium text-gray-900 flex items-center gap-2 2xl:gap-3">
                                             <FontAwesomeIcon icon={faUser} className="text-gray-400 w-4" />
                                             {details.customer_name}
                                         </p>
                                         {details.customer_phone && (
-                                            <p className="text-gray-500 ml-6 mt-1">{details.customer_phone}</p>
+                                            <p className="text-gray-500 ml-6 2xl:ml-8 mt-1 2xl:text-base">{details.customer_phone}</p>
                                         )}
                                     </div>
                                 </div>
-                                <div className="space-y-3">
-                                    <h4 className="text-sm font-bold text-gray-900 uppercase tracking-wider border-b border-gray-100 pb-1">Entrega</h4>
-                                    <div className="text-sm">
+                                <div className="space-y-3 2xl:space-y-6">
+                                    <h4 className="text-sm 2xl:text-base font-bold text-gray-900 uppercase tracking-wider border-b border-gray-100 pb-1">Entrega</h4>
+                                    <div className="text-sm 2xl:text-[1.1rem]">
                                         {details.customer_address ? (
                                             <p className="text-gray-600 flex items-start gap-2">
-                                                <FontAwesomeIcon icon={faMapMarkerAlt} className="text-gray-400 w-4 mt-0.5" />
+                                                <FontAwesomeIcon icon={faMapMarkerAlt} className="text-gray-400 w-4 mt-0.5 2xl:mt-0.8" />
                                                 {details.customer_address}
                                             </p>
                                         ) : (
@@ -224,19 +224,19 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
 
                             {/* Itens */}
                             <div>
-                                <h4 className="text-sm font-bold text-gray-900 uppercase tracking-wider border-b border-gray-100 pb-2 mb-3 flex items-center gap-2">
+                                <h4 className="text-sm 2xl:text-base font-bold text-gray-900 uppercase tracking-wider border-b border-gray-100 pb-2 mb-3 flex items-center gap-2">
                                     <FontAwesomeIcon icon={faReceipt} className="text-gray-400" /> Resumo do Pedido
                                 </h4>
                                 <div className="bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">
                                     {details.order_items.map((item, idx) => (
                                         <div key={item.id} className={`flex justify-between items-start p-3 ${idx !== details.order_items.length - 1 ? 'border-b border-gray-200' : ''}`}>
                                             <div className="flex gap-3">
-                                                <span className="font-bold text-gray-900 w-6 text-right">{item.quantity}x</span>
+                                                <span className="font-bold text-gray-900 w-6 text-right 2xl:text-lg">{item.quantity}x</span>
                                                 <div className="flex flex-col">
-                                                    <span className="text-gray-800 font-medium">{item.name}</span>
+                                                    <span className="text-gray-800 font-medium 2xl:text-lg">{item.name}</span>
                                                 </div>
                                             </div>
-                                            <span className="font-medium text-gray-700">
+                                            <span className="font-medium text-gray-700 2xl:text-lg">
                                                 {fmtMoney(item.price_cents * item.quantity)}
                                             </span>
                                         </div>
@@ -246,16 +246,16 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
 
                             {/* Totais */}
                             <div className="flex justify-end">
-                                <div className="w-full md:w-1/2 space-y-2 mx-4">
-                                    <div className="flex justify-between text-sm text-gray-500">
+                                <div className="w-full md:w-1/2 space-y-2 2xl:space-y-3 mx-4">
+                                    <div className="flex justify-between text-sm 2xl:text-base text-gray-500">
                                         <span>Subtotal</span>
                                         <span>{fmtMoney(details.total_cents - (details.delivery_cents || 0))}</span>
                                     </div>
-                                    <div className="flex justify-between text-sm text-gray-500">
+                                    <div className="flex justify-between text-sm 2xl:text-base text-gray-500">
                                         <span>Taxa de Entrega</span>
                                         <span>{fmtMoney(details.delivery_cents || 0)}</span>
                                     </div>
-                                    <div className="flex justify-between text-lg font-bold text-gray-900 border-t border-gray-200 pt-2 mt-2">
+                                    <div className="flex justify-between text-lg 2xl:text-xl font-bold text-gray-900 border-t border-gray-200 pt-2 mt-2">
                                         <span>Total</span>
                                         <span>{fmtMoney(details.total_cents)}</span>
                                     </div>

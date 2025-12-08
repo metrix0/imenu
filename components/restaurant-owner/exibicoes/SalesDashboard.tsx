@@ -128,10 +128,10 @@ export default function SalesDashboard({ menuId, startDate, endDate }: SalesDash
                     
                     <Card>
                         <div className="mb-6">
-                            <h4 className="text-lg font-bold text-gray-900">Desempenho no Período</h4>
-                            <p className="text-sm text-gray-500">Acompanhe a evolução das suas vendas e pedidos.</p>
+                            <h4 className="text-lg font-bold text-gray-900 2xl:text-xl">Desempenho no Período</h4>
+                            <p className="text-sm text-gray-500 2xl:text-lg">Acompanhe a evolução das suas vendas e pedidos.</p>
                         </div>
-                        <div className="h-[300px] w-full">
+                        <div className="h-[300px] w-full 2xl:text-lg">
                             {graphData.length > 0 ? <Line data={chartData} options={chartOptions} /> : <div className="h-full flex items-center justify-center text-gray-400">Nenhum dado encontrado para este período.</div>}
                         </div>
                     </Card>

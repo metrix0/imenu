@@ -167,7 +167,7 @@ export default function MenuItemRow({
     const renderImageArea = () => (
         <div 
             onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
-            className="w-12 h-12 shrink-0 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 overflow-hidden border border-gray-200 cursor-pointer hover:bg-gray-200 transition-all relative group/img"
+            className="w-12 h-12 2xl:h-18 2xl:w-18 shrink-0 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 overflow-hidden border border-gray-200 cursor-pointer hover:bg-gray-200 transition-all relative group/img"
         >
             <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleImageUpload} />
             {isUploading ? (
@@ -190,24 +190,24 @@ export default function MenuItemRow({
         return (
             <>
             <div 
-                className={`group flex items-center justify-between p-4 bg-white border-b border-gray-100 hover:bg-gray-50 transition-all cursor-pointer ${!isAvailable ? "opacity-60 bg-gray-50" : ""}`}
+                className={`group flex items-center justify-between p-4 2xl:p-5 bg-white border-b border-gray-100 hover:bg-gray-50 transition-all cursor-pointer ${!isAvailable ? "opacity-60 bg-gray-50" : ""}`}
                 onClick={() => setIsEditing(true)}
             >
-                <div className="flex items-center gap-4 overflow-hidden">
+                <div className="flex items-center gap-4 2xl:gap-4 overflow-hidden">
                     {renderImageArea()}
                     
-                    <div className="flex flex-col min-w-0">
+                    <div className="flex flex-col min-w-0 2xl:text-lg">
                         <span className="font-medium text-gray-900 truncate">{name}</span>
                         {description ? (
-                            <span className="text-xs text-gray-500 truncate block max-w-[200px] sm:max-w-xs">{description}</span>
+                            <span className="text-xs 2xl:text-base text-gray-500 truncate block max-w-[200px] sm:max-w-xs">{description}</span>
                         ) : (
-                            <span className="text-xs text-gray-300 italic">Sem descrição...</span>
+                            <span className="text-xs 2xl:text-base text-gray-300 italic">Sem descrição...</span>
                         )}
                         {!isAvailable && <span className="text-[10px] font-bold text-red-500 uppercase mt-1">Pausado</span>}
                     </div>
                 </div>
 
-                <div className="flex items-center gap-4 pl-4">
+                <div className="flex items-center gap-4 2xl:gap-6 pl-4 2xl:text-lg">
                     <span className="font-medium text-gray-900 whitespace-nowrap">
                         {(priceCents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                     </span>
@@ -234,7 +234,7 @@ export default function MenuItemRow({
                                     e.stopPropagation(); 
                                     if(onDuplicate) onDuplicate(item); 
                                 }}
-                                className="cursor-pointer w-8 h-8 flex items-center justify-center text-gray-400 hover:text-brand hover:bg-gray-50 rounded-full transition-colors"
+                                className="cursor-pointer w-8 h-8 2xl:text-2xl flex items-center justify-center text-gray-400 hover:text-brand hover:bg-gray-50 rounded-full transition-colors"
                                 title="Duplicar item"
                             >
                                 <FontAwesomeIcon icon={faCopy} />
@@ -244,10 +244,10 @@ export default function MenuItemRow({
 
                     <div 
                         onClick={handleToggleAvailability}
-                        className={`w-10 h-6 rounded-full p-1 cursor-pointer transition-colors flex items-center ${isAvailable ? "bg-green-500 justify-end" : "bg-gray-300 justify-start"}`}
+                        className={`w-10 2xl:w-15 h-6 2xl:h-8 rounded-full p-1 cursor-pointer transition-colors flex items-center ${isAvailable ? "bg-green-500 justify-end" : "bg-gray-300 justify-start"}`}
                         title={isAvailable ? "Pausar item" : "Ativar item"}
                     >
-                        <div className="w-4 h-4 bg-white rounded-full shadow-md" />
+                        <div className="w-4 h-4 2xl:h-6 2xl:w-6 bg-white rounded-full shadow-md" />
                     </div>
 
                     <button 
@@ -255,7 +255,7 @@ export default function MenuItemRow({
                             e.stopPropagation();
                             setIsDeleteModalOpen(true);
                         }}
-                        className="cursor-pointer w-8 h-8 flex items-center justify-center text-gray-400 hover:text-red-600 transition-all"
+                        className="cursor-pointer w-8 h-8 2xl:text-2xl flex items-center justify-center text-gray-400 hover:text-red-600 transition-all"
                         title="Deletar item"
                     >
                         <FontAwesomeIcon icon={faTrash} />
@@ -282,9 +282,9 @@ export default function MenuItemRow({
     // --- MODO EDIÇÃO ---
     return (
         <div className="flex flex-col sm:flex-row sm:items-center p-4 bg-white border-b border-gray-100 shadow-md relative z-10 gap-4 animate-fadeUp">
-            <div className="flex items-start gap-4 flex-1 w-full">
+            <div className="flex items-start gap-4 flex-1 w-full 2xl:items-center">
                 {renderImageArea()}
-                <div className="flex-1 space-y-2 w-full">
+                <div className="flex-1 space-y-2 2xl:space-y-0 w-full ">
                     <input
                         ref={nameInputRef}
                         value={name}
@@ -292,7 +292,7 @@ export default function MenuItemRow({
                         onBlur={() => autoSave()}
                         onKeyDown={handleKeyDown}
                         placeholder="Nome do item"
-                        className="w-full text-base font-medium text-gray-900 placeholder-gray-400 border-none p-0 focus:ring-0 bg-transparent outline-none"
+                        className="w-full text-base 2xl:text-lg font-medium text-gray-900 placeholder-gray-400 border-none p-0 focus:ring-0 bg-transparent outline-none"
                         disabled={isLoading}
                     />
                     <input 
@@ -301,15 +301,15 @@ export default function MenuItemRow({
                          onBlur={() => autoSave()}
                          onKeyDown={handleKeyDown}
                          placeholder="Adicione uma descrição..."
-                         className="w-full text-sm text-gray-600 placeholder-gray-300 border-none p-0 focus:ring-0 bg-transparent outline-none"
+                         className="w-full text-sm 2xl:text-base text-gray-600 placeholder-gray-300 border-none p-0 focus:ring-0 bg-transparent outline-none"
                          disabled={isLoading}
                     />
                 </div>
             </div>
 
-            <div className="flex items-center justify-end gap-3 w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-gray-50">
-                <div className="relative w-24 flex items-center">
-                    <span className="text-sm text-gray-500 mr-1">R$</span>
+            <div className="flex items-center justify-end gap-3 2xl:gap-5 w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-gray-50">
+                <div className="relative w-24 2xl:w-26 flex items-center">
+                    <span className="text-sm text-gray-500 2xl:mr-2 2xl:text-lg">R$</span>
                     <input
                         type="number"
                         step="0.5"
@@ -321,7 +321,7 @@ export default function MenuItemRow({
                         }}
                         onBlur={() => autoSave()}
                         onKeyDown={handleKeyDown}
-                        className="w-full text-right font-medium text-gray-900 border-b border-gray-300 focus:border-brand p-1 outline-none text-sm bg-transparent"
+                        className="w-full 2xl:text-lg text-right font-medium text-gray-900 border-b border-gray-300 focus:border-brand p-1 outline-none text-sm bg-transparent"
                         placeholder="0.00"
                         disabled={isLoading}
                     />
@@ -329,14 +329,14 @@ export default function MenuItemRow({
                 
                 <div className="flex items-center gap-1">
                     {onCancel && (
-                        <button onClick={onCancel} className="cursor-pointer w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors">
+                        <button onClick={onCancel} className="2xl:text-xl cursor-pointer w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors">
                             <FontAwesomeIcon icon={faTimes} />
                         </button>
                     )}
-                    <button 
-                        onMouseDown={(e) => e.preventDefault()} 
-                        onClick={handleSave} 
-                        className="cursor-pointer h-8 px-4 bg-brand text-white text-sm font-medium rounded-md hover:bg-orange-600 transition-colors disabled:opacity-70 flex items-center gap-2"
+                    <button
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={handleSave}
+                        className="cursor-pointer h-8 px-4 2xl:px-6 2xl:text-lg 2xl:h-10 bg-brand text-white text-sm font-medium rounded-md hover:bg-orange-600 transition-colors disabled:opacity-70 flex items-center gap-2"
                     >
                         {isLoading ? "..." : <><FontAwesomeIcon icon={faCheck} /> Salvar</>}
                     </button>
