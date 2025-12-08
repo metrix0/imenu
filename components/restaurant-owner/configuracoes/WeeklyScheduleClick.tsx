@@ -26,7 +26,7 @@ const LocalModal = ({
             onClick={onClose}
         >
             <div 
-                className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 m-4 relative animate-fadeUp"
+                className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 2xl:p-10 m-4 relative animate-fadeUp"
                 onClick={(e) => e.stopPropagation()} // Impede que o clique dentro do modal feche ele
             >
                 {children}
@@ -200,12 +200,12 @@ export default function WeeklyScheduleClick({ value, onChange }: WeeklyScheduleC
             >
                 {isLargeBlock && (
                     <div className="flex items-center gap-1 mb-1 opacity-90">
-                        <FontAwesomeIcon icon={faStar} className="w-3 h-3 text-yellow-400 text-xs" />
-                        <span className="text-[10px] font-medium uppercase tracking-wide">Melhor horário</span>
+                        <FontAwesomeIcon icon={faStar} className="w-3 h-3 text-yellow-400 text-xs 2xl:text-sm" />
+                        <span className="text-[10px] font-medium uppercase tracking-wide 2xl:text-sm">Melhor horário</span>
                     </div>
                 )}
                 {!isTooSmall && (
-                    <span className="font-bold text-[10px] leading-tight text-center">
+                    <span className="font-bold text-[10px] 2xl:text-sm leading-tight text-center">
                         {slot.open} - {slot.close}
                     </span>
                 )}
@@ -247,7 +247,7 @@ export default function WeeklyScheduleClick({ value, onChange }: WeeklyScheduleC
                     {gridHours.map((h) => (
                         <div 
                             key={h} 
-                            className="absolute w-full text-[11px] font-medium text-gray-400 text-right pr-3 -mt-2"
+                            className="absolute w-full text-[11px] font-medium text-gray-400 text-right pr-3 -mt-2 2xl:text-base 2xl:pr-5"
                             style={{ top: `${h * PX_PER_HOUR}px` }}
                         >
                             {String(h).padStart(2, "0")}h
@@ -300,7 +300,7 @@ export default function WeeklyScheduleClick({ value, onChange }: WeeklyScheduleC
 
                     <div className="flex items-end gap-4 mb-8">
                         <div className="flex-1">
-                            <label className="block text-sm font-medium text-gray-500 mb-1">Das</label>
+                            <label className="block text-sm 2xl:text-lg font-medium text-gray-500 mb-1">Das</label>
                             <div className="relative">
                                 <select
                                     value={editModal.startTime}
@@ -315,7 +315,7 @@ export default function WeeklyScheduleClick({ value, onChange }: WeeklyScheduleC
                         </div>
                         
                         <div className="flex-1">
-                            <label className="block text-sm font-medium text-gray-500 mb-1">Até</label>
+                            <label className="block text-sm font-medium 2xl:text-lg  text-gray-500 mb-1">Até</label>
                             <div className="relative">
                                 <select
                                     value={editModal.endTime}
@@ -335,19 +335,19 @@ export default function WeeklyScheduleClick({ value, onChange }: WeeklyScheduleC
                                 className="mb-3 p-2 text-brand hover:text-red-700 hover:bg-red-50 rounded-full transition-colors"
                                 title="Excluir horário"
                             >
-                                <FontAwesomeIcon icon={faTrash} className="w-5 h-5" />
+                                <FontAwesomeIcon icon={faTrash} className="w-5 h-5 2xl:text-lg cursor-pointer" />
                             </button>
                         )}
                     </div>
 
-                    <div className="flex gap-3 justify-end">
+                    <div className="flex gap-3 2xl:gap-5 justify-end">
                         <Button variant={"secondary"}
                             onClick={() => setEditModal(prev => ({ ...prev, isOpen: false }))}
                             className=""
                         >
                             Cancelar
                         </Button>
-                        <Button onClick={handleSaveSlot}>
+                        <Button onClick={handleSaveSlot} >
                             {editModal.slotIndex === null ? "Adicionar" : "Salvar"}
                         </Button>
                     </div>

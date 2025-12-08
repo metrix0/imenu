@@ -216,11 +216,11 @@ export default function CriarCardapioPage() {
             <div className="w-full max-w-4xl mt-4">
                 
                 <div className="mb-8 text-center sm:text-left">
-                    <h1 className="text-3xl font-bold text-gray-900 mb-2">Defina sua Loja</h1>
-                    <p className="text-gray-500">Adicione sua marca e seus primeiros produtos.</p>
+                    <h1 className="text-3xl font-bold text-gray-900 mb-2 2xl:text-4xl">Defina sua Loja</h1>
+                    <p className="text-gray-500 2xl:text-lg">Adicione sua marca e seus primeiros produtos.</p>
                 </div>
 
-                <Card className="px-4 overflow-hidden mb-8 border border-gray-200 shadow-sm">
+                <Card className="px-4 overflow-hidden mb-8 2xl:mb-16 border border-gray-200 shadow-sm">
                     <StoreVisuals 
                         restaurantId={restaurantId}
                         logoUrl={visuals.logo_url}
@@ -238,8 +238,8 @@ export default function CriarCardapioPage() {
                     </div>
                 </Card>
 
-                <div className="flex justify-between items-center mb-4 px-2">
-                    <h2 className="text-xl font-bold text-gray-800">Cardápio</h2>
+                <div className="flex justify-between items-center mb-4 2xl:mb-6 px-2">
+                    <h2 className="text-xl font-bold text-gray-800 2xl:text-2xl">Cardápio</h2>
                     <button
                         onClick={() => setAiModalOpen(true)}
                         className={`
@@ -271,10 +271,10 @@ export default function CriarCardapioPage() {
                         />
 
                         {/* sparkles icon */}
-                        <FontAwesomeIcon icon={faWandMagicSparkles} className="text-white text-sm relative z-10" />
+                        <FontAwesomeIcon icon={faWandMagicSparkles} className="text-white text-sm relative z-10 2xl:text-xl" />
 
                         {/* label */}
-                        <span className="relative z-10">Scanear Cardápio com IA</span>
+                        <span className="relative z-10 2xl:text-lg">Scanear Cardápio com IA</span>
 
                         {/* ambient glow ring */}
                         <span
@@ -305,21 +305,21 @@ export default function CriarCardapioPage() {
             </div>
 
             {/* Footer Fixo */}
-            <div className="fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 p-4 z-40 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+            <div className="fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 p-4 2xl:p-5 z-40 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
                 <div className="max-w-4xl mx-auto flex items-center justify-between">
-                    <button 
-                        onClick={() => router.back()} 
-                        className="text-brand font-medium text-base hover:opacity-80 transition-opacity flex items-center gap-1 cursor-pointer"
+                    <button
+                        onClick={() => router.back()}
+                        className="2xl:text-lg text-brand font-medium text-base hover:opacity-80 transition-opacity flex items-center gap-1 cursor-pointer"
                     >
                         Voltar
                     </button>
-                    
+
                     <Button
                         variant={isFormValid ? "primary" : "secondary"}
                         onClick={handleContinue}
                         disabled={isSaving || !isFormValid}
                         loading={isSaving}
-                        className="px-8"
+                        className="px-8 2xl:px-10 2xl:py-4"
                     >
                         {isSaving ? "Salvando..." : "Salvar e Continuar"}
                     </Button>

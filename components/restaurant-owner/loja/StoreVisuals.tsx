@@ -70,7 +70,7 @@ export default function StoreVisuals({
         <div className="relative mb-12">
             {/* BANNER */}
             <div 
-                className="relative h-48 bg-gray-100 group cursor-pointer overflow-hidden border-b border-gray-200"
+                className="relative h-48 2xl:h-60 2xl:rounded-lg bg-gray-100 group cursor-pointer overflow-hidden border-b border-gray-200"
                 onClick={() => bannerInputRef.current?.click()}
             >
                 <input type="file" ref={bannerInputRef} className="hidden" accept="image/*" onChange={handleBannerUpload} />
@@ -97,7 +97,7 @@ export default function StoreVisuals({
 
             {/* LOGO */}
             <div 
-                className="absolute bottom-5 left-8 w-24 h-24 bg-white rounded-full border-4 border-white shadow-md flex items-center justify-center z-10 cursor-pointer overflow-hidden hover:brightness-95 transition-all group/logo"
+                className="absolute bottom-5 left-8 w-24 h-24 2xl:w-28 2xl:h-28 bg-white rounded-full border-4 border-white shadow-md flex items-center justify-center z-10 cursor-pointer overflow-hidden hover:brightness-95 transition-all group/logo"
                 onClick={(e) => { e.stopPropagation(); logoInputRef.current?.click(); }}
             >
                 <input type="file" ref={logoInputRef} className="hidden" accept="image/*" onChange={handleLogoUpload} />

@@ -79,8 +79,8 @@ export default function TempoETaxaPage() {
     return (
         <div className="max-w-3xl mx-auto py-10 px-6 pb-32">
             <div className="mb-8 text-center sm:text-left">
-                <h1 className="text-3xl font-bold mb-3">Tempo e Taxa de Entrega</h1>
-                <p className="text-gray-500 mt-1">Defina as regras de entrega para o seu restaurante.</p>
+                <h1 className="text-3xl font-bold mb-3 2xl:text-4xl">Tempo e Taxa de Entrega</h1>
+                <p className="text-gray-500 mt-1 2xl:text-lg">Defina as regras de entrega para o seu restaurante.</p>
             </div>
             
             <DeliveryRules
@@ -90,11 +90,11 @@ export default function TempoETaxaPage() {
             />
 
             {/* Footer Bar */}
-            <div className="fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 p-4 z-40 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-                <div className="max-w-4xl mx-auto flex items-center justify-between">
+            <div className="fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 p-4 2xl:p-5 z-40 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+                <div className="max-w-4xl mx-auto flex items-center justify-between 2xl:text-lg ">
                     <button
                         onClick={() => router.back()}
-                        className="text-brand font-medium text-base hover:opacity-80 transition-opacity flex items-center gap-1 cursor-pointer"
+                        className="text-brand font-medium text-base hover:opacity-80 transition-opacity flex items-center gap-1 cursor-pointer 2xl:text-lg"
                     >
                         Voltar
                     </button>
@@ -102,7 +102,7 @@ export default function TempoETaxaPage() {
                         variant="primary"
                         loading={isLoading}
                         onClick={handleSave}
-                        className="px-8"
+                        className="px-8 2xl:px-10 2xl:py-4"
                     >
                         Salvar e Continuar
                     </Button>

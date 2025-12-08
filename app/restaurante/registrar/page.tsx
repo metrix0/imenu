@@ -147,22 +147,22 @@ export default function RestaurantRegistrationPage() {
       </header>
 
 
-        <div className="relative flex justify-center w-full min-h-screen px-4 2xl:py-8">
+        <div className="relative flex justify-center w-full min-h-[80vh] items-center px-4 2xl:py-8">
 
             {/* LEFT BONUS CARD */}
 
 
             {/* MAIN EXACT CENTER */}
-            <main className="flex flex-col items-center justify-start flex-1 max-w-lg">
-                <Card className="relative w-full space-y-6 p-8 border border-gray-200 shadow-sm">
+            <main className="flex flex-col items-center justify-start flex-1 max-w-lg 2xl:max-w-xl ">
+                <Card className="relative w-full space-y-6 p-8 2xl:p-12 border border-gray-200 shadow-sm 2xl:shadow-lg">
                     {restCount > 0 && (
-                        <div className="reveal fade-up absolute -right-90 top-0">
-                            <div className="opacity-95 text-white max-w-80 space-y-2 p-6 border bg-text border-gray-950 rounded-xl shadow-sm">
+                        <div className="reveal fade-up absolute -right-90 2xl:-right-100 top-0">
+                            <div className="opacity-95 text-white max-w-80 2xl:max-w-90 space-y-2 p-8 border bg-text border-gray-950 rounded-xl shadow-sm">
                                 <BonusButton className="!pr-8 pl-6 border-1 border-gray-700">
                                     <span className="font-medium">BÔNUS</span>
                                 </BonusButton>
 
-                                <p className="text-sm font-light p-2 leading-tight">
+                                <p className="text-sm 2xl:text-lg font-light leading-tight">
                                     <b>Para os próximos {restCount} restaurantes que se cadastrarem:</b>
                                     <br/>
                                     <span className="mt-3 block">
@@ -173,7 +173,7 @@ export default function RestaurantRegistrationPage() {
                         </div>
                     )}
                     <div className="text-center space-y-0">
-                        <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
+                        <h1 className="text-xl sm:text-2xl 2xl:text-3xl font-bold text-gray-900">
                             Crie seu Cardápio Digital
                         </h1>
                     </div>
@@ -208,7 +208,7 @@ export default function RestaurantRegistrationPage() {
                                 onBlur={() => setIsPhoneFocused(false)}
                                 maxLength={15}
                             />
-                            <p className="text-xs text-gray-400 pt-1">
+                            <p className="text-xs text-gray-400 pt-1 2xl:pt-2 2xl:text-sm">
                                 Usado apenas para suporte e casos de emergência.
                             </p>
                         </div>
@@ -221,7 +221,7 @@ export default function RestaurantRegistrationPage() {
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                             />
-                            <p className="text-xs text-gray-400 pt-1">Mínimo de 6 caracteres.</p>
+                            <p className="text-xs text-gray-400 pt-1 2xl:pt-2 2xl:text-sm">Mínimo de 6 caracteres.</p>
                         </div>
 
                         {errorMsg && (
@@ -242,13 +242,13 @@ export default function RestaurantRegistrationPage() {
                                     loading={loading}
                                     disabled={!isValid}
                                     onClick={handleRegister}
-                                    className="min-w-[220px] w-full disabled:pointer-events-none "
+                                    className="min-w-[220px] w-full disabled:pointer-events-none 2xl:text-xl"
                                 >
                                     Criar Conta Grátis
                                 </Button>
                             </Tooltip>
                     </div>
-                    <p className={"text-sm"}>
+                    <p className={"text-sm 2xl:text-base"}>
                         Já tem uma conta? <a className={"text-blue-500 hover:text-blue-700 duration-200 cursor-pointer"} onClick={()=>router.replace("restaurante/login")}>Log In</a>
                     </p>
                 </Card>

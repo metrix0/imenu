@@ -23,7 +23,7 @@ export default function Button({
 
     return (
         <button
-            className={`${base} ${variants[variant]} ${className}
+            className={`2xl:text-lg ${base} ${variants[variant]} ${className}
             ${loading ? "cursor-not-allowed pointer-events-none" : "pointer-events-auto"}
             `}
             disabled={loading || props.disabled}

@@ -190,7 +190,7 @@ export default function AddressForm({
                     type="button"
                     onClick={handleUseMyLocation}
                     disabled={isFetchingCep || isLoading}
-                    className="w-full py-3 border border-gray-300 rounded-md text-brand font-medium hover:bg-gray-50 transition-colors focus:ring-2 focus:ring-brand focus:outline-none cursor-pointer"
+                    className="w-full py-3 border border-gray-300 rounded-md text-brand font-medium hover:bg-gray-50 transition-colors focus:ring-2 focus:ring-brand focus:outline-none cursor-pointer 2xl:text-lg"
                 >
                     {isFetchingCep ? "Buscando..." : <><FontAwesomeIcon icon={faLocationCrosshairs}/> Usar minha localização</>}
                 </button>
@@ -204,7 +204,7 @@ export default function AddressForm({
                             href="https://buscacepinter.correios.com.br/app/endereco/index.php" 
                             target="_blank" 
                             rel="noreferrer"
-                            className="text-xs text-brand hover:underline font-medium"
+                            className="text-xs 2xl:text-sm text-brand hover:underline font-medium"
                         >
                             Descubra seu CEP
                         </a>
@@ -281,14 +281,14 @@ export default function AddressForm({
                 )}
 
                 {/* BOTÃO FIXO NO RODAPÉ */}
-                <div className="fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 p-4 flex justify-end z-50 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+                <div className="fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 p-4 2xl:p-5 flex justify-end z-50 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
                      <div className="w-full max-w-4xl mx-auto flex justify-end">
                         <Button
                             variant={!isValid ? "secondary" : "primary"}
                             disabled={!isValid || isLoading}
                             loading={isLoading}
                             type="submit"
-                            className="w-full sm:w-auto px-8 py-3 text-base disabled:pointer-events-none"
+                            className="w-full sm:w-auto px-8 2xl:px-10 py-3 2xl:py-4 2xl:text-lg text-base disabled:pointer-events-none"
                         >
                             {submitLabel}
                         </Button>
