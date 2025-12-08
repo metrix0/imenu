@@ -106,3 +106,18 @@ DATABASE
 - integration tests
 - add a guide on how to add the imenu link to google maps restaurant gmb (how can they share the link better)
 - whole web app AI assistant
+
+
+
+# Duplicated features
+
+            <main className="flex items-center justify-center min-h-[50vh]">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand"></div>
+            </main>
+and Component Loader
+
+footer do /criar not component (use zustand)
+
+# Bugs
+
+Da pra chegar até o fim do /criar e no ultimo continuar, o email é invalido

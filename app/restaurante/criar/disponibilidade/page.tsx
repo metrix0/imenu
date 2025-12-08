@@ -118,11 +118,11 @@ export default function DisponibilidadePage() {
     return (
         <div className="min-h-screen bg-white flex flex-col">
             {/* Main Content */}
-            <div className="flex-1 w-full max-w-6xl mx-auto px-6 pt-8 pb-32">
+            <div className="flex-1 w-full max-w-6xl 2xl:max-w-[85rem] mx-auto px-6 pt-8 pb-32">
                 <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4">
                     <div>
-                        <h1 className="text-3xl font-bold text-gray-900 mb-2">Horário de Funcionamento</h1>
-                        <p className="text-gray-500">
+                        <h1 className="text-3xl 2xl:text-4xl font-bold text-gray-900 mb-2">Horário de Funcionamento</h1>
+                        <p className="text-gray-500 2xl:text-lg">
                             Clique nos espaços vazios para adicionar horários ou nos blocos para editar.
                         </p>
                     </div>
@@ -130,9 +130,9 @@ export default function DisponibilidadePage() {
                     <button
                         type="button"
                         onClick={handleUseRecommended}
-                        className="text-brand font-medium hover:bg-red-50 px-4 py-2 rounded-md border border-brand transition-colors text-sm cursor-pointer"
+                        className="text-brand font-medium hover:bg-red-50 px-4 py-2 rounded-md border 2xl:text-lg border-brand transition-colors text-sm cursor-pointer"
                     >
-                        Usar horários recomendados
+                         Usar horários recomendados
                     </button>
                 </div>
 
@@ -144,11 +144,11 @@ export default function DisponibilidadePage() {
             </div>
 
             {/* Footer Bar */}
-            <div className="fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 p-4 z-40 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-                <div className="max-w-4xl mx-auto flex items-center justify-between">
+            <div className="fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 p-4 2xl:p-5 z-40 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+                <div className="max-w-4xl mx-auto flex items-center justify-between 2xl:text-lg ">
                     <button
                         onClick={() => router.back()}
-                        className="text-brand font-medium text-base hover:opacity-80 transition-opacity flex items-center gap-1 cursor-pointer"
+                        className="text-brand font-medium text-base hover:opacity-80 transition-opacity flex items-center gap-1 cursor-pointer 2xl:text-lg"
                     >
                         Voltar
                     </button>
@@ -156,7 +156,7 @@ export default function DisponibilidadePage() {
                         variant="primary"
                         loading={isLoading}
                         onClick={handleSave}
-                        className="px-8"
+                        className="px-8 2xl:px-10 2xl:py-4"
                     >
                         Salvar e Continuar
                     </Button>

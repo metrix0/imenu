@@ -294,7 +294,7 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
         // UI
         // ---------------------------------------------------
         return (
-            <div className="max-w-2xl mx-auto ">
+            <div className="max-w-2xl 2xl:max-w-3xl mx-auto ">
 
                 {/* SÓ MOSTRA O STATUS SE NÃO FOR NOVO (PAINEL) */}
                 <div className="flex justify-end mb-2 h-6" >
@@ -312,23 +312,23 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                 </div>
 
                 {/* DELIVERY RULES */}
-                <div className="p-6 bg-white border border-gray-200 rounded-lg shadow-sm mb-8">
-                    <div className="flex items-center gap-4 mb-2 px-2">
-                        <span className="w-1/3 flex items-center gap-2 text-sm font-medium text-gray-700">
+                <div className="p-6 bg-white 2xl:p-10 border border-gray-200 rounded-lg shadow-sm mb-8">
+                    <div className="flex items-center gap-4 mb-2 2xl:mb-4 px-2">
+                        <span className="w-1/3 flex items-center gap-2 text-sm 2xl:text-lg font-medium text-gray-700">
                             <FontAwesomeIcon icon={faBullseye} /> Raio
                         </span>
-                        <span className="w-1/3 flex items-center gap-2 text-sm font-medium text-gray-700">
+                        <span className="w-1/3 flex items-center gap-2 text-sm 2xl:text-lg font-medium text-gray-700">
                             <FontAwesomeIcon icon={faClock} /> Tempo
                         </span>
-                        <span className="w-1/3 flex items-center gap-2 text-sm font-medium text-gray-700">
+                        <span className="w-1/3 flex items-center gap-2 text-sm 2xl:text-lg font-medium text-gray-700">
                             <FontAwesomeIcon icon={icons.faDollarSign} /> Taxa
                         </span>
                         <span className="w-8"></span>
                     </div>
 
-                    <div className="space-y-3">
+                    <div className="space-y-3 2xl:space-y-5 2xl:text-lg">
                         {rules.map((rule, index) => (
-                            <div key={index} className="flex items-center gap-4 p-2">
+                            <div key={index} className="flex items-center gap-4 2xl:gap-7 p-2">
                                 {/* Raio */}
                                 <div className="w-1/3 text-gray-700 font-medium">
                                     {rule.radius_km} km
@@ -403,7 +403,7 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                     <Button
                         onClick={handleAddRule}
                         variant="secondary"
-                        className="mt-6 w-full"
+                        className="mt-6 w-full 2xl:text-base"
                     >
                         + Adicionar Faixa
                     </Button>

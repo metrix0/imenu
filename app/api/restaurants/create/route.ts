@@ -21,7 +21,6 @@ export async function POST(request: Request) {
             INSERT INTO public.restaurants (
                 user_id, 
                 phone, 
-                is_closed, 
                 rating, 
                 min_order_cents, 
                 balance_cents, 
@@ -32,7 +31,7 @@ export async function POST(request: Request) {
                 created_at, 
                 updated_at
             )
-            VALUES ($1, $2, false, 5.0, 20, 0, '[]'::jsonb, '{}'::jsonb, 20, 40, NOW(), NOW())
+            VALUES ($1, $2, 5.0, 1500, 0, '[]'::jsonb, '{}'::jsonb, 40, 50, NOW(), NOW())
             RETURNING id;
         `;
 

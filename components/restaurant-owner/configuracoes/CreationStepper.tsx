@@ -15,16 +15,16 @@ export default function CreationStepper() {
     const currentStepIndex = steps.findIndex((step) => pathname.includes(step));
 
     return (
-        <div className="w-full bg-white pb-10">
-            <nav className="flex items-center w-full gap-2" aria-label="Progress">
+        <div className="bg-white pb-10 flex w-full relative justify-center">
+            <nav className="flex items-center w-full gap-2 mx-4" aria-label="Progress">
                 {steps.map((step, index) => {
                     const isActive = index <= currentStepIndex;
 
                     return (
                         // O Container agora é o "trilho" cinza
                         // Adicionamos overflow-hidden e rounded-full aqui para cortar a barra interna
-                        <div 
-                            key={step} 
+                        <div
+                            key={step}
                             className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden first:ml-0 last:mr-0"
                         >
                             {/* A barra interna é sempre vermelha (brand), mas a largura muda */}

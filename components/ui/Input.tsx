@@ -70,8 +70,8 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>((
             : props.defaultValue;
 
     return (
-        <div className="flex flex-col gap-1">
-            {label && <label className="text-sm font-medium md:text-xs">{label}</label>}
+        <div className="flex flex-col gap-1 2xl:gap-2">
+            {label && <label className="text-sm font-medium md:text-xs 2xl:text-base">{label}</label>}
 
             <div className="relative">
                 {withIcon && (
@@ -92,7 +92,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>((
                     defaultValue={defaultValue}
                     {...props}
                     className={`w-full border border-gray-300 rounded-md px-3 py-3
-                        focus:ring-brand focus:border-brand
+                        focus:ring-brand focus:border-brand 2xl:text-lg
                         ${withIcon ? (isLeft ? "pl-10" : "pr-10") : ""}
                         ${className}`}
                 />

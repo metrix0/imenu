@@ -94,8 +94,8 @@ export default function CardapioTab({
                 <div className="w-40 h-40 bg-red-50 rounded-full flex items-center justify-center mb-6">
                     <FontAwesomeIcon icon={faLayerGroup} className="text-5xl text-brand/50" />
                 </div>
-                <h3 className="text-lg font-bold text-gray-900 mb-2">Você ainda não possui nenhuma categoria criada</h3>
-                <p className="text-gray-500 text-sm mb-8 text-center max-w-md">
+                <h3 className="text-lg font-bold text-gray-900 mb-2 2xl:text-xl">Você ainda não possui nenhuma categoria criada</h3>
+                <p className="text-gray-500 text-sm mb-8 text-center max-w-md 2xl:text-base">
                     Adicione uma categoria agora mesmo clicando no botão "Adicionar categoria"
                 </p>
                 <div className={"flex gap-4"}>

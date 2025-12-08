@@ -448,15 +448,15 @@ function ScanModal({ open, onClose, restaurantId, existingCategories, onRefresh 
     return (
         <>
             <Modal open={open} onClose={onClose}>
-                <div className="p-6 w-full max-w-3xl overflow-y-auto">
+                <div className="p-6 w-full max-w-3xl 2xl:max-w-4xl overflow-y-auto">
 
                     {/* Step 1: upload area */}
                     {!scanResult && (
                         <div className="space-y-6">
-                            <div className=" rounded-lg p-4">
+                            <div className=" rounded-lg p-4 2xl:text-xl">
                                 <div className={"mb-6"}>
-                                    <p className="font-semibold">Adicione seu Cardápio</p>
-                                    <p className="text-sm text-gray-500">JPG, PNG, PDF. <b>Use os arquivos de imagem do seu cardápio para melhores resultados.</b></p>
+                                    <p className="font-semibold 2xl:mb-2 ">Adicione seu Cardápio</p>
+                                    <p className="text-sm text-gray-500 2xl:text-base">JPG, PNG, PDF. <b>Use os arquivos de imagem do seu cardápio para melhores resultados.</b></p>
                                 </div>
 
                                 <div className="flex items-center justify-between gap-8">
@@ -485,7 +485,7 @@ function ScanModal({ open, onClose, restaurantId, existingCategories, onRefresh 
                                     {/* Thumbnails row */}
                                     <div className="flex gap-3 overflow-x-auto pb-2">
                                         {thumbUrls.map((u, i) => (
-                                            <div key={i} className="relative w-28 h-28 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
+                                            <div key={i} className="relative w-28 h-28 2xl:w-36 2xl:h-36 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
                                                 {uploadingKeys[i] === null && (
                                                     <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
                                                         <Loader />
@@ -494,12 +494,12 @@ function ScanModal({ open, onClose, restaurantId, existingCategories, onRefresh 
                                                 <img src={u} className="w-full h-full object-cover" alt={`thumb-${i}`} />
                                                 <button
                                                     onClick={() => removeFile(i)}
-                                                    className="cursor-pointer absolute top-1 right-1 bg-black/50 text-white rounded-full w-6 h-6 text-xs flex items-center justify-center"
+                                                    className="cursor-pointer absolute top-1 right-1 2xl:top-2 2xl:right-2  bg-black/50 text-white rounded-full w-6 h-6 2xl:w-8 2xl:h-8 text-xs 2xl:text-sm flex items-center justify-center"
                                                 >
                                                     ✕
                                                 </button>
 
-                                                <div className="absolute left-1 bottom-1 text-xs bg-white/80 px-1 rounded">
+                                                <div className="absolute left-1 bottom-1 text-xs bg-white/80 px-1 rounded 2xl:text-base">
                                                     {uploadingKeys[i] === undefined ? "—" : uploadingKeys[i] === null ? "..." : uploadingKeys[i] === "ERROR" ? "ERRO" : <FontAwesomeIcon icon={icons.faCheck} />}
                                                 </div>
                                             </div>
@@ -516,12 +516,12 @@ function ScanModal({ open, onClose, restaurantId, existingCategories, onRefresh 
                                                 handleFilesSelected(e.dataTransfer.files);
                                             }}
                                             className={`rounded-lg border-dashed border-2   flex items-center justify-center flex-shrink-0
-                                    ${files.length === 0 ? "w-full h-38" : "w-28 h-28"}
+                                    ${files.length === 0 ? "w-full h-38" : "w-28 h-28 2xl:w-36 2xl:h-36"}
                                     ${isDraggingImage ? "border-brand text-brand" : "border-gray-300 text-gray-500"}`}
                                         >
                                             <button
                                                 onClick={openFilePicker}
-                                                className="w-full h-full text-sm cursor-pointer"
+                                                className="w-full h-full text-sm 2xl:text-lg cursor-pointer"
                                             >
                                                 + Arraste suas fotos aqui
                                             </button>
@@ -565,7 +565,7 @@ function ScanModal({ open, onClose, restaurantId, existingCategories, onRefresh 
                                             {/* Row: category title + dropdown */}
                                             <div className="flex items-start justify-between gap-4 mb-6 ">
                                                 <div className="flex-1">
-                                                    <div className="text-sm text-gray-500">Categoria detectada</div>
+                                                    <div className="text-sm text-gray-500 2xl:text-base">Categoria detectada</div>
                                                     <div className="font-semibold text-lg">{catName}</div>
                                                 </div>
 
