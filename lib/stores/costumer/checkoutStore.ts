@@ -25,12 +25,17 @@ interface CheckoutState {
 
     showAddressWarning: boolean;
 
+    cepTrigger: boolean;
+
     setStep: (s: CheckoutState["step"]) => void;
     setField: (key: string, value: string | number | boolean | null) => void;
 
     setShowAddressWarning: (v: boolean) => void;
 
     setRestaurantId: (id: string) => void;
+
+    isContinueBlocked: boolean;
+    setContinueBlocked: (v: boolean) => void;
 }
 
 export const useCheckoutStore = create<CheckoutState>()(
@@ -56,6 +61,7 @@ export const useCheckoutStore = create<CheckoutState>()(
 
             // ⚠️ UI state (do NOT persist)
             showAddressWarning: false,
+            cepTrigger: false,
 
             setStep: (s) => set({ step: s }),
 
@@ -67,6 +73,10 @@ export const useCheckoutStore = create<CheckoutState>()(
                 set({ showAddressWarning: v }),
 
             setRestaurantId: (id) => set({ restaurantId: id }),
+
+            isContinueBlocked: false,
+            setContinueBlocked: (v) => set({ isContinueBlocked: v }),
+            
         }),
         {
             name: "checkout-store",

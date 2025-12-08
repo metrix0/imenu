@@ -25,59 +25,58 @@ export async function fetchAddressByCEP(cep: string): Promise<GeoAddress | null>
     if (cleanCep.length !== 8) return null;
 
     try {
-        const response = await fetch(`https://brasilapi.com.br/api/cep/v1/${cleanCep}`);
-        if (!response.ok) return null;
+        const res = await fetch(`https://brasilapi.com.br/api/cep/v1/${cleanCep}`);
+        if (!res.ok) return null;
 
-        const data = await response.json();
-        
-        // Tenta extrair lat/lon se a BrasilAPI retornar (as vezes retorna)
-        let lat = null;
-        let lon = null;
-        if (data.location?.coordinates) {
-            lat = parseFloat(data.location.coordinates.latitude);
-            lon = parseFloat(data.location.coordinates.longitude);
-        }
+        const data = await res.json();
 
         return {
-            cep: data.cep,
+            cep: cleanCep,
             state: data.state,
             city: data.city,
             neighborhood: data.neighborhood,
             street: data.street,
-            latitude: lat,
-            longitude: lon
+            latitude: null,
+            longitude: null
         };
-    } catch (error) {
-        console.error("Erro ao buscar CEP:", error);
+    } catch {
         return null;
     }
 }
+
 
 /**
  * 2. Transforma Endereço (texto) em Coordenadas (Nominatim / OSM)
  */
 export async function fetchCoordinates(fullAddress: string): Promise<{ latitude: number; longitude: number } | null> {
-    try {
-        const response = await fetch(
-            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(fullAddress)}&limit=1`,
-            {
-                headers: { "User-Agent": "AppDelivery/1.0" } // Boa prática para OSM
-            }
-        );
-        const data = await response.json();
 
-        if (data && data.length > 0) {
-            return {
-                latitude: parseFloat(data[0].lat),
-                longitude: parseFloat(data[0].lon),
-            };
+    const apiKey = GOOGLE_API_KEY;
+    if (!apiKey) return null;
+
+    try {
+        const res = await fetch(
+            `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
+                fullAddress
+            )}&key=${apiKey}&language=pt-BR`
+        );
+
+        const json = await res.json();
+
+        if (json.status !== "OK" || !json.results?.length) {
+            return null;
         }
-        return null;
-    } catch (error) {
-        console.error("Erro no Geocoding:", error);
+
+        const { lat, lng } = json.results[0].geometry.location;
+
+        return {
+            latitude: lat,
+            longitude: lng
+        };
+    } catch {
         return null;
     }
 }
+
 
 /**
  * 3. Transforma Coordenadas em Endereço (Reverse Geocoding)
@@ -158,3 +157,4 @@ export function calculateDistanceKm(lat1: number, lon1: number, lat2: number, lo
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
 }
+

@@ -71,7 +71,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>((
 
     return (
         <div className="flex flex-col gap-1">
-            {label && <label className="text-sm font-medium">{label}</label>}
+            {label && <label className="text-sm font-medium md:text-xs">{label}</label>}
 
             <div className="relative">
                 {withIcon && (
