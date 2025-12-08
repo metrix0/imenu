@@ -48,8 +48,31 @@ export default function MenuClientPage({
     } | null>(null);
     const [restaurantCartWarningVisible, setRestaurantCartWarningVisible] = useState(false);
     const [orderId, setOrderId] = useState<string | null>(null);
+    const [closedForToday, setClosedForToday] = useState(false);
 
 
+    useEffect(() => {
+        if (!restaurant?.is_closed) {
+            setClosedForToday(false);
+            return;
+        }
+
+        const closedDate = new Date(restaurant.is_closed);
+        const now = new Date();
+
+        // If before 4am, treat "today" as yesterday
+        if (now.getHours() < 4) {
+            now.setDate(now.getDate() - 1);
+        }
+
+
+        const sameDay =
+            closedDate.getFullYear() === now.getFullYear() &&
+            closedDate.getMonth() === now.getMonth() &&
+            closedDate.getDate() === now.getDate();
+
+        setClosedForToday(sameDay);
+    }, [restaurant?.is_closed]);
 
 
     const handleItemClick = async (item: Item) => {
@@ -119,9 +142,18 @@ export default function MenuClientPage({
         return { lowest, highest };
     })();
 
+    const deliveryText = (()=>{
+
+        if(deliveryTime.lowest === deliveryTime.highest){
+            return `${deliveryTime.lowest} min`
+        }
+        return `${deliveryTime.lowest}-${deliveryTime.highest} min`
+    })
+
 
     const checkRestaurantAvailability = () => {
         if (!restaurant.availability_json) return;
+
 
         const availability = restaurant.availability_json;
         const today = new Date().getDay();
@@ -152,7 +184,19 @@ export default function MenuClientPage({
             }
         }
 
-        setNextOpening(slots[0] ? new Date(slots[0].open) : null);
+        if (slots[0]) {
+            const [openH, openM] = slots[0].open.split(":").map(Number);
+            const next = new Date();
+            next.setHours(openH, openM, 0, 0);
+
+            if (next < now) {
+                next.setDate(next.getDate() + 1);
+            }
+
+            setNextOpening(next);
+        } else {
+            setNextOpening(null);
+        }
     };
 
 
@@ -230,7 +274,7 @@ export default function MenuClientPage({
                     </h1>
 
                     <p className="text-gray-600 text-xs 2xl:text-[1rem] mt-1 border-b border-gray-200 pb-2">
-                        {nextOpening === null ? "Aberto" : "Fechado"} • Min{" "}
+                        {(nextOpening === null && !closedForToday) ? "Aberto" : "Fechado" } • Min{" "}
                         {restaurant.min_order_cents
                             ? formatPrice(restaurant.min_order_cents)
                             : "R$ 0,00"}
@@ -255,8 +299,7 @@ export default function MenuClientPage({
                         <span>Entrega</span>
                         <span>•</span>
                         <span>
-                            {deliveryTime.lowest} -{" "}
-                            {deliveryTime.highest} min
+                            {deliveryText()}
                         </span>
                         <span>•</span>
                         <span className={"text-green"}>{taxText()}</span>
@@ -264,25 +307,32 @@ export default function MenuClientPage({
                 </div>
             </div>
 
-            {nextOpening !== null && (
+            {(nextOpening !== null || closedForToday) && (
                 <WarningBox icon={icons.faTriangleExclamation} className="mt-10 mx-6 md:mx-48">
-                    Restaurante fechado. Abre em <b>
-                    {" "}
-                    {Math.floor((nextOpening.getTime() - new Date().getTime()) / 3600000)
-                        .toString()
-                        .padStart(1, "0")}
-                    h{" "}
-                    {Math.floor(
-                        ((nextOpening.getTime() - new Date().getTime()) % 3600000) / 60000
-                    )
-                        .toString()
-                        .padStart(2, "0")}
-                    min
-                </b>
-                    .
+                    {closedForToday && (
+                        "Hoje o restaurante está fechado no horário comum de funcionamento, devido à possíveis feriados ou eventos especiais."
+                        )}
+                    {(nextOpening !== null && !closedForToday) && (
+                        <>
+                            Restaurante fechado. Abre em <b>
+                            {" "}
+                            {Math.floor((nextOpening.getTime() - new Date().getTime()) / 3600000)
+                                .toString()
+                                .padStart(1, "0")}
+                            h{" "}
+                            {Math.floor(
+                                ((nextOpening.getTime() - new Date().getTime()) % 3600000) / 60000
+                            )
+                                .toString()
+                                .padStart(2, "0")}
+                            min
+                        </b>.
+                        </>
+                    )}
+
                     {todaySlots.length > 0 && (
                         <div className="text-sm mt-2">
-                            Horários de Abertura:
+                            Horários de Abertura{closedForToday && (" Comum")}:
                             {todaySlots.map((slot, i) => (
                                 <div key={i}>
                                     {slot.open} - {slot.close}

@@ -22,7 +22,7 @@ export default async function Page({ params }: { params: { slug: string } }) {
     const { data: restaurantData } = await supabase
         .from("restaurants")
         .select(
-            "id, name, logo_url, rating, min_order_cents, prep_time_min_minutes, prep_time_max_minutes, description, banner_url, availability_json,delivery_fee_json, latitude, longitude"
+            "id, name, is_closed, logo_url, rating, min_order_cents, prep_time_min_minutes, prep_time_max_minutes, description, banner_url, availability_json,delivery_fee_json, latitude, longitude"
         )
         .eq("url_slug", slug)
         .maybeSingle();
@@ -41,7 +41,8 @@ export default async function Page({ params }: { params: { slug: string } }) {
         availability_json: restaurantData.availability_json,
         delivery_fee_json: restaurantData.delivery_fee_json,
         latitude: restaurantData.latitude,
-        longitude: restaurantData.longitude
+        longitude: restaurantData.longitude,
+        is_closed: restaurantData.is_closed
     };
 
     // --- 2. Menu ativo ---

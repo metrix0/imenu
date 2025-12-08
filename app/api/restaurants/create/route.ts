@@ -17,7 +17,6 @@ export async function POST(request: Request) {
         }
 
         // 1. Inserir Restaurante com dados default
-        // Definimos is_open=false, rating=5, JSONs vazios para evitar erros no front
         const insertRestaurantText = `
             INSERT INTO public.restaurants (
                 user_id, 

@@ -15,6 +15,7 @@ export type Restaurant = {
     delivery_fee_json: any;
     latitude: number;
     longitude: number;
+    is_closed: any;
 };
 
 export type Menu = {
