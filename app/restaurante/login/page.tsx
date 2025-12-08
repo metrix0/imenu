@@ -115,6 +115,7 @@ export default function AdminLogin() {
                             label="E-mail"
                             placeholder="admin@exemplo.com"
                             type="email"
+                            autoComplete={"email"}
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                         />
@@ -124,6 +125,7 @@ export default function AdminLogin() {
                                 label="Senha"
                                 placeholder="Digite sua senha"
                                 type="password"
+                                autoComplete={"current-password"}
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                             />

@@ -13,7 +13,6 @@ Ver no whatsapp, meus arquivos deram problema
 
 ## Rafa
 - **corrigir erros Txt**
-- DEPLOY VERCEL LIMITADO GITHUB NAO commits fack
 - 
 - esqueci minha senha no /login
 - mudar email funcionando (manda um email de confirmação pro email NOVO) E PODER ALTERAR TELEFONE (n precisa verificar)
@@ -25,13 +24,12 @@ Ver no whatsapp, meus arquivos deram problema
 ## Joao
 
 - **corrigir erros txt**
-- 
-- colocar - !!! ifood sync na agenda pessoal pra daqui umas semanas...
-- rate limit, DB backups, remover bibliotecas ruins (mostra no deploy vercel)
+- update cart modal upon geolocation function from rafa + colocar placeholder.png item ao dicionar novo item
 - /criar e /painel 1920 adaptation (responsividade)
+- DEPLOY VERCEL LIMITADO GITHUB NAO commits fack
+- rate limit, DB backups, remover bibliotecas ruins (mostra no deploy vercel)
 
 - ### deploy
-- ### consumer
 
 - só deixar no max 10 restaurantes na DB
 - domínio
@@ -39,7 +37,8 @@ Ver no whatsapp, meus arquivos deram problema
 - Adicionar sentry (tentar em tudo)
 - descubrir a resolução certa do banner e mudar lá
 
-- update cart modal upon geolocation function from rafa + colocar placeholder.png item ao dicionar novo item
+- ### costumer
+
 
 DATABASE
 - DUPLICAÇÃO EM MENU-ITEMS em posição
@@ -74,7 +73,7 @@ DATABASE
 
 #### Restaurant Owner
 
-#### Consumer
+#### Costumer
 - Mobile responsiveness NOS BROWSERS do mobile. (teclado subindo, autofill, varias resolucoes, etc)
 - add upper search bar with categories tabs upon scrolling down on digital menu (jsutr like ifood)
 - handle all payments on website only (no webhook, no other pages) using API.

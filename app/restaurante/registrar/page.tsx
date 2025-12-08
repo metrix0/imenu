@@ -184,6 +184,7 @@ export default function RestaurantRegistrationPage() {
                             placeholder="seu@email.com"
                             type="email"
                             value={email}
+                            autoComplete={"email"}
                             onChange={(e) => setEmail(e.target.value)}
                         />
 
@@ -191,6 +192,7 @@ export default function RestaurantRegistrationPage() {
                             label="Nome*"
                             placeholder="Nome Sobrenome"
                             value={fullName}
+                            autoComplete={"name"}
                             onChange={(e) => setFullName(e.target.value)}
                         />
 
@@ -200,6 +202,7 @@ export default function RestaurantRegistrationPage() {
                                 placeholder={isPhoneFocused ? "(__) _____-____" : "(00) 00000-0000"}
                                 type="tel"
                                 value={phone}
+                                autoComplete={"tel"}
                                 onChange={handlePhoneChange}
                                 onFocus={() => setIsPhoneFocused(true)}
                                 onBlur={() => setIsPhoneFocused(false)}
