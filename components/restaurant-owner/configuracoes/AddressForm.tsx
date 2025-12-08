@@ -8,7 +8,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 
 import Input from "@/components/ui/Input";
-import { fetchAddressByCEP, fetchCoordinates, fetchAddressByCoordinates } from "@/lib/geocoding";
+import { fetchAddressByCEP, fetchCoordinates, fetchAddressByCoordinates } from "@/lib/api/geocoding";
 
 import { AddressData } from "@/lib/types/types";
 import Button from "@/components/ui/Button";

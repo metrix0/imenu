@@ -10,6 +10,10 @@ import { faPix } from "@fortawesome/free-brands-svg-icons"
 import Input from "@/components/ui/Input";
 import ModalMobile from "@/components/ui/HybridModal";
 import WarningBox from "@/components/ui/WarningBox";
+import Toast from "@/components/ui/Toast";
+import Loader from "@/components/ui/Loader";
+import {fetchAddressByCEP, fetchCoordinates, fetchAddressByCoordinates, calculateDistanceKm,} from "@/lib/api/geocoding";
+
 
 export default function CartModal({
                                       onClose,
@@ -46,23 +50,11 @@ export default function CartModal({
     const [addressError, setAddressError] = useState<string | null>(null);
     const showAddressWarning = useCheckoutStore(s => s.showAddressWarning);
     const [cepLocationError, setCepLocationError] = useState(false);
+    const [showNoGeolocationToast, setShowNoGeolocationToast] = useState(false);
+    const cepTrigger = useCheckoutStore((s) => s.cepTrigger);
+    const [loadingUseMyLocation, setLoadingUseMyLocation] = useState(false);
+    const setContinueBlocked = useCheckoutStore(state => state.setContinueBlocked);
 
-    // --- DRAG STATES (minimal, animation only) ---
-
-    function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
-        const toRad = (deg: number) => (deg * Math.PI) / 180;
-        const R = 6371;
-        const dLat = toRad(lat2 - lat1);
-        const dLon = toRad(lon2 - lon1);
-        const a =
-            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-            Math.cos(toRad(lat1)) *
-            Math.cos(toRad(lat2)) *
-            Math.sin(dLon / 2) *
-            Math.sin(dLon / 2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        return R * c;
-    }
 
     function getDeliveryTiers() {
         try {
@@ -77,7 +69,6 @@ export default function CartModal({
     }
 
     function computeFeeFromTiers(distanceKm: number, tiersAny: any): number | null {
-        console.log("computing")
         if (!tiersAny) return null;
 
         let tiers = Array.isArray(tiersAny)
@@ -107,154 +98,103 @@ export default function CartModal({
         return null;
     }
 
-    async function geocodeAddressToLatLon(address: string): Promise<{ lat: number; lon: number } | null> {
-        console.log("geocoding", address);
-        try {
-            const res = await fetch(
-                `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&language=pt-BR`
-            );
-
-            const json = await res.json();
-
-            if (!json || json.status !== "OK" || !json.results || json.results.length === 0) {
-                return null;
-            }
-
-            const { lat, lng } = json.results[0].geometry.location;
-            return { lat, lon: lng };
-
-        } catch (e) {
-            setDeliveryFeeCents(null);
-            setCepLocationError(true);
-            return null;
-        }
-    }
-
-
-    async function reverseGeocode(lat: number, lon: number) {
-        try {
-            const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-            const res = await fetch(
-                `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lon}&key=${apiKey}&language=pt-BR`
-            );
-            const json = await res.json();
-            if (!json.results || json.results.length === 0) return null;
-
-            const result = json.results[0];
-            const components = result.address_components;
-
-            const getComp = (type: string) =>
-                components.find((c: any) => c.types.includes(type))?.long_name ?? "";
-
-            return {
-                postcode: getComp("postal_code"),
-                road: getComp("route"),
-                house_number: getComp("street_number"),
-                suburb: getComp("sublocality") || getComp("neighborhood"),
-                neighbourhood: getComp("neighborhood") || getComp("sublocality"),
-                city: getComp("locality") || getComp("administrative_area_level_2"),
-                state: getComp("administrative_area_level_1"),
-            };
-        } catch (e) {
-            return null;
-        }
-    }
-
     async function recalcDeliveryFeeFromAddress() {
-        setField("showAddressWarning",false)
-        setCepLocationError(false)
-        console.log("recalc")
-        const st = useCheckoutStore.getState();
+        setField("showAddressWarning", false);
+        setCepLocationError(false);
 
+
+        const st = useCheckoutStore.getState();
         if (!st.cep) return;
 
-        console.log(`${st.rua}, ${st.bairro}, ${st.cidade} - ${st.estado}, ${st.cep}, Brasil`)
-        const addressStr = `${st.rua}, ${st.bairro}, ${st.cidade} - ${st.estado}, ${st.cep}, Brasil`;
+        const fullAddress = `${st.rua}, ${st.bairro}, ${st.cidade} - ${st.estado}, ${st.cep}, Brasil    `;
 
-        console.log(addressStr)
+        const coords = await fetchCoordinates(fullAddress);
 
-        const geo = await geocodeAddressToLatLon(addressStr);
-
-        console.log(geo)
-        if (!geo) {
+        if (!coords) {
             setDeliveryFeeCents(null);
             setField("delivery_fee_cents", null);
             setField("delivery_time_minutes", null);
-            setCepLocationError(true)
+            setCepLocationError(true);
             return;
         }
-
-        const userLat = geo.lat;
-        const userLon = geo.lon;
 
         const restLat = Number(restaurant.latitude);
         const restLon = Number(restaurant.longitude);
+
         if (Number.isNaN(restLat) || Number.isNaN(restLon)) {
-            setDeliveryFeeCents(null);
-            setCepLocationError(true)
+            setCepLocationError(true);
             return;
         }
 
-        const distKm = haversineKm(restLat, restLon, userLat, userLon);
+        const distKm = calculateDistanceKm(
+            restLat,
+            restLon,
+            coords.latitude,
+            coords.longitude
+        );
 
         const tiers = getDeliveryTiers();
         const fee = computeFeeFromTiers(distKm, tiers);
-        console.log(distKm, tiers)
 
-
-        if (fee === null && tiers) {
+        if (fee === null) {
             setDeliveryFeeCents(null);
             setField("delivery_fee_cents", null);
             setField("delivery_time_minutes", null);
             return;
         }
 
-        setDeliveryFeeCents(Number(fee));
-        setField("delivery_fee_cents", String(Number(fee)));
+        setDeliveryFeeCents(fee);
+        setField("delivery_fee_cents", String(fee));
 
         let matchedTime = null;
         if (Array.isArray(tiers)) {
             for (let t of tiers) {
-                if ((Number(t.radius_km) >= distKm) || t === tiers[tiers.length - 1]) {
+                if (Number(t.radius_km) >= distKm) {
                     matchedTime = t.time_minutes ?? null;
                     break;
                 }
             }
         }
-        console.log("MATCHED TIME", matchedTime)
-        if (matchedTime !== null) setField("delivery_time_minutes", String(matchedTime));
+
+        if (matchedTime !== null) {
+            setField("delivery_time_minutes", String(matchedTime));
+        }
     }
 
     async function handleCepInput(value: string) {
-        setCepLocationError(false)
-        console.log("handlingcep")
+        setCepLocationError(false);
+        setContinueBlocked(true)
+
         const cleanCep = value.replace(/\D/g, "");
         setField("cep", cleanCep);
-        console.log(cleanCep)
 
         if (cleanCep.length !== 8) return;
 
-
         if (cepDebounceTimer) clearTimeout(cepDebounceTimer);
+
         const timer = window.setTimeout(async () => {
             setLoadingCepLookup(true);
             try {
-                const res = await fetch(`https://brasilapi.com.br/api/cep/v1/${cleanCep}`);
-                if (!res.ok) { setCepLocationError(true);console.log(res) ;return }
+                const addr = await fetchAddressByCEP(cleanCep);
+                if (!addr) {
+                    setCepLocationError(true);
+                    setField("delivery_fee_cents", null);
+                    return;
+                }
 
-                const json = await res.json();
-                if (json.street) setField("rua", json.street);
-                if (json.neighborhood) setField("bairro", json.neighborhood);
-                if (json.city) setField("cidade", json.city);
-                if (json.state) setField("estado", json.state);
-
-
+                setField("rua", addr.street);
+                setField("bairro", addr.neighborhood);
+                setField("cidade", addr.city);
+                setField("estado", addr.state);
 
                 recalcDeliveryFeeFromAddress();
-            } catch (err) {
-                console.log("erro", err)
+            } catch (error) {
+                console.error("CEP lookup failed:", error);
+                setCepLocationError(true);
+                setField("delivery_fee_cents", null);
             } finally {
                 setLoadingCepLookup(false);
+                setContinueBlocked(false)
             }
         }, 600);
 
@@ -262,47 +202,64 @@ export default function CartModal({
     }
 
     async function handleUseMyLocation() {
-        if (!("geolocation" in navigator)) return;
+        if (!("geolocation" in navigator)){
+            setShowNoGeolocationToast(true)
+            return;
+        }
+
+        setContinueBlocked(true)
+        setField("showAddressWarning", false);
+        setCepLocationError(false)
+        setLoadingUseMyLocation(true)
 
         navigator.geolocation.getCurrentPosition(
             async (pos) => {
-                const lat = pos.coords.latitude;
-                const lon = pos.coords.longitude;
+                try {
+                    const lat = pos.coords.latitude;
+                    const lon = pos.coords.longitude;
 
-                setField("lat", String(lat));
-                setField("lon", String(lon));
+                    setField("lat", String(lat));
+                    setField("lon", String(lon));
 
-                const addr = await reverseGeocode(lat, lon);
-                if (addr) {
-                    if (addr.postcode) setField("cep", String(addr.postcode).replace("-", ""));
-                    if (addr.road) setField("rua", addr.road);
-                    if (addr.house_number) setField("numero", String(addr.house_number));
-                    if (addr.suburb) setField("bairro", addr.suburb);
-                    else if (addr.neighbourhood) setField("bairro", addr.neighbourhood);
-                    if (addr.city) setField("cidade", addr.city);
-                    if (addr.state) setField("estado", addr.state);
-                }
+                    const addr = await fetchAddressByCoordinates(lat, lon);
 
-                const restLat = Number(restaurant.latitude);
-                const restLon = Number(restaurant.longitude);
-
-                if (!Number.isNaN(restLat) && !Number.isNaN(restLon)) {
-                    const distKm = haversineKm(restLat, restLon, lat, lon);
-                    const tiers = getDeliveryTiers();
-                    const fee = computeFeeFromTiers(distKm, tiers);
-                    if (fee !== null) {
-                        setDeliveryFeeCents(Number(fee));
-                        setField("delivery_fee_cents", String(Number(fee)));
+                    if (addr) {
+                        if (addr.cep) setField("cep", addr.cep);
+                        if (addr.street) setField("rua", addr.street);
+                        if (addr.number) setField("numero", addr.number);
+                        if (addr.neighborhood) setField("bairro", addr.neighborhood);
+                        if (addr.city) setField("cidade", addr.city);
+                        if (addr.state) setField("estado", addr.state);
                     }
+
+                    const restLat = Number(restaurant.latitude);
+                    const restLon = Number(restaurant.longitude);
+
+                    if (!Number.isNaN(restLat) && !Number.isNaN(restLon)) {
+                        const distKm = calculateDistanceKm(restLat, restLon, lat, lon);
+                        const fee = computeFeeFromTiers(distKm, getDeliveryTiers());
+
+                        if (fee !== null) {
+                            setDeliveryFeeCents(fee);
+                            setField("delivery_fee_cents", String(fee));
+                        }
+                    }
+                } catch (err) {
+                    console.error("Failed to use location", err);
+                    setShowNoGeolocationToast(true)
+                } finally {
+                    setLoadingUseMyLocation(false);
+                    setContinueBlocked(false)
                 }
             },
-            () => {},
-            {
-                enableHighAccuracy: true,
-                timeout: 10000,
-                maximumAge: 0,
-            }
+            (error) => {
+                console.error("Geolocation error", error);
+                setShowNoGeolocationToast(true)
+                setLoadingUseMyLocation(false);
+            },
+            { enableHighAccuracy: true, timeout: 10000 }
         );
+
     }
 
 
@@ -353,6 +310,17 @@ export default function CartModal({
 
     const ruaEBairro = bairro ? `${rua}, ${bairro}` : rua;
 
+
+
+    useEffect(() => {
+        if (!cepTrigger) return;
+
+        handleCepInput(cep);
+
+        useCheckoutStore.setState({ cepTrigger: false });
+    }, [cepTrigger]);
+
+
     return (
         <div className={`fixed inset-0 z-41 flex justify-center items-end`}>
             <ModalMobile
@@ -363,6 +331,15 @@ export default function CartModal({
                 xPadding={false}
                 className={"md:!h-[80vh] md:!mb-[12vh]"}
             >
+
+                {showNoGeolocationToast && (
+                    <Toast
+                        message="Insira o endereço manualmente!"
+                        type="error"
+                        onClose={() => setShowNoGeolocationToast(false)}
+                    />
+                )}
+                
                 {/* HEADER */}
                 <div className="sticky top-[0.1%] z-60 flex items-center bg-white rounded-2xl justify-center pb-3 pt-4 2xl:pt-6 2xl:pb-6 pointer-events-none">
                     <button
@@ -536,17 +513,20 @@ export default function CartModal({
 
                 {/* PAGE 2 — INFO */}
                 <form className="w-full px-4 overflow-y-auto pt-4 pb-32 2xl:pb-10 2xl:px-8" autoComplete="on">
-                    <h2 className="font-semibold text-md 2xl:text-lg mb-4">
-                        Entregar no endereço
-                    </h2>
+                    <div className={"md:flex md:justify-between md:pr-4 md:mx-1 md:mb-4"}>
+                        <h2 className="font-semibold text-md 2xl:text-lg mb-4 md:mb-0">
+                            Entregar no endereço
+                        </h2>
 
-                    <button
-                        className="text-brand text-md 2xl:text-lg mb-5 cursor-pointer"
-                        onClick={handleUseMyLocation}
-                        type="button"
-                    >
-                        <FontAwesomeIcon icon={icons.faLocationCrosshairs}/> Usar minha localização
-                    </button>
+                        <button
+                            className="relative inline-flex justify-center items-center gap-1 text-brand text-md 2xl:text-lg cursor-pointer mb-5 md:mb-0"
+                            onClick={handleUseMyLocation}
+                            type="button"
+                        >
+                            {loadingUseMyLocation && (<Loader className={"scale-75 absolute !border-brand/20 !border-t-brand -left-9"}/>)}
+                            <FontAwesomeIcon icon={icons.faLocationCrosshairs}/> Usar minha localização
+                        </button>
+                    </div>
 
                     {showAddressWarning &&
                         <WarningBox
@@ -555,11 +535,11 @@ export default function CartModal({
                         >
                             {!cepLocationError
                                 ? "O restaurante está muito longe deste endereço para entrega!"
-                                : "Erro interno. Insira o endereço manualmente e tentenovamente. Alternativamente, contate o restaurante via Whatsapp!"}
+                                : "Verifique se o endereço está correto ou tente usar sua localização."}
                         </WarningBox>
                     }
 
-                    <div className="flex-1 2xl:mt-2">
+                    <div className="flex-1 2xl:mt-2 md:text-sm ">
                         <Input
                             autoComplete="postal-code"
                             label={"CEP"}
@@ -572,7 +552,7 @@ export default function CartModal({
                     </div>
 
                     <Input
-                        autoComplete="address-line1"
+                        autoComplete="address-line1 "
                         label="Rua e Bairro"
                         placeholder="Rua 123, Bairro XYZ"
                         value={ruaEBairro}
@@ -581,10 +561,10 @@ export default function CartModal({
                             setField("rua", r.trim());
                             setField("bairro", b.join(",").trim());
                         }}
-                        className="mb-3 2xl:text-lg 2xl:mb-6"
+                        className="mb-3 2xl:text-lg 2xl:mb-6 md:text-sm "
                     />
 
-                    <div className="flex  gap-3 2xl:gap-6">
+                    <div className="flex  gap-3 2xl:gap-6 md:text-sm ">
                         <Input
                             autoComplete="address-line2"
                             label={"Número"}
@@ -604,7 +584,7 @@ export default function CartModal({
                         />
                     </div>
 
-                    <h2 className="font-semibold text-md mt-6 mb-6 2xl:text-lg">
+                    <h2 className="font-semibold text-md mt-3 mb-5 md:text-sm 2xl:text-lg">
                         Informações pessoais
                     </h2>
 
@@ -614,7 +594,7 @@ export default function CartModal({
                         placeholder="Rafael"
                         value={nome}
                         onChange={(e) => setField("nome", e.target.value)}
-                        className={"mb-3 2xl:text-lg 2xl:mb-6"}
+                        className={"mb-3 2xl:text-lg 2xl:mb-6 md:text-sm "}
                     />
 
                     <Input
@@ -625,7 +605,7 @@ export default function CartModal({
                         onChange={(e) =>
                             setField("celular", e.target.value)
                         }
-                        className="mb-2 2xl:text-lg 2xl:mb-3"
+                        className="mb-2 2xl:text-lg 2xl:mb-3 md:text-sm "
                     />
 
                     <p className={"text-gray-500 text-sm 2xl:text-md"}>

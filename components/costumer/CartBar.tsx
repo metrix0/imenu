@@ -34,7 +34,7 @@ export default function CartBar({
     const [closedByDrag, setClosedByDrag] = useState(false);
     const [translateY, setTranslateY] = useState(0);
     const [dragging, setDragging] = useState(false);
-
+    const isContinueBlocked = useCheckoutStore(state => state.isContinueBlocked);
     const touchStartY = useRef<number | null>(null);
     const CLOSE_THRESHOLD = 120;
 
@@ -48,7 +48,7 @@ export default function CartBar({
         : 0;
 
     const allRequiredFilled = Boolean(
-        checkoutState.cep &&
+        checkoutState.cep?.length >= 8 &&
         checkoutState.rua &&
         checkoutState.numero &&
         checkoutState.nome &&
@@ -58,7 +58,9 @@ export default function CartBar({
     const disabledContinue = cartOpen && step === "info" && !allRequiredFilled;
 
     const missingFields: string[] = [];
-    if (!checkoutState.cep) missingFields.push("CEP");
+    if (!checkoutState.cep || checkoutState.cep.length < 8) {
+        missingFields.push("CEP");
+    }
     if (!checkoutState.rua) missingFields.push("Rua");
     if (!checkoutState.numero) missingFields.push("Número");
     if (!checkoutState.nome) missingFields.push("Nome");
@@ -72,7 +74,7 @@ export default function CartBar({
     const maybeWrap = (children: React.ReactNode) => {
         if (disabledContinue && step === "info") {
             return (
-                <Tooltip text={tooltipText} position="left">
+                <Tooltip text={tooltipText}  position="left" className={!disabledContinue ? "!hidden" : ""} tooltipClassName={!disabledContinue ? "!hidden" : ""}>
                     {children}
                 </Tooltip>
             );
@@ -96,16 +98,23 @@ export default function CartBar({
         if (cartOpen && !allRequiredFilled && step !== "info") {
             setStep("info");
             return;
-        }
+        } //inutil?
 
         if (step === "info" && !allRequiredFilled) {
+
             return;
         }
 
         const fee = useCheckoutStore.getState().delivery_fee_cents;
         const deliveryFeeCents = fee !== null ? Number(fee) : null;
 
-        if (cartOpen && step === "info" && deliveryFeeCents === null) {
+
+        if (cartOpen && step === "info" && fee === false) {
+            useCheckoutStore.setState({ cepTrigger: true });
+            return;
+        }
+
+        if (cartOpen && step === "info" && fee === null) {
             setShowAddressWarning(true)
             return;
         }
@@ -195,6 +204,23 @@ export default function CartBar({
 
         const data = await res.json();
 
+        try {
+            document.cookie = `order_page_entered_id_${body.restaurantId}=${data.id}; path=/; max-age=${60 * 60 * 5}`;
+        } catch (err) {
+            console.error("[COOKIE] Failed to set order_page_entered cookie:", err);
+        }
+
+        try {
+            if(typeof window !== "undefined")
+                localStorage.removeItem(`cart-storage-${window.location.pathname.split("/")[1]}`);
+            else localStorage.removeItem("cart-storage")
+
+        } catch (err) {
+            console.error("[CART] Failed to clear cart-storage:", err);
+        }
+
+        console.log("removed cart-storage and created cookie")
+
         if (data.payment_type === "offline") {
             window.location.href = data.redirect;
             return;
@@ -203,18 +229,6 @@ export default function CartBar({
         if (data.payment_type === "online") {
             window.location.href = data.init_point;
             return;
-        }
-
-        try {
-            document.cookie = `order_page_entered_id_${body.restaurantId}=${data.id}; path=/; max-age=${60 * 60 * 5}`;
-        } catch (err) {
-            console.error("[COOKIE] Failed to set order_page_entered cookie:", err);
-        }
-
-        try {
-            localStorage.removeItem("cart-storage");
-        } catch (err) {
-            console.error("[CART] Failed to clear cart-storage:", err);
         }
 
         if (data.id) {
@@ -298,9 +312,10 @@ export default function CartBar({
                         <Button
                             variant="primary"
                             onClick={handleClick}
+                            loading={isContinueBlocked}
                             disabled={disabledContinue}
                             className={`py-3 px-10 2xl:px-15 2xl:py-4 text-[13px] 2xl:text-lg tracking-wide font-normal ${
-                                disabledContinue ? "bg-gray-300 focus:ring-transparent" : ""
+                                disabledContinue ? "!bg-gray-300 focus:ring-transparent" : ""
                             }`}
                         >
                             {step === "checkout"

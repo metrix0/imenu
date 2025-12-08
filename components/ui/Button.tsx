@@ -23,7 +23,9 @@ export default function Button({
 
     return (
         <button
-            className={`${base} ${variants[variant]} ${className}`}
+            className={`${base} ${variants[variant]} ${className}
+            ${loading ? "cursor-not-allowed pointer-events-none" : "pointer-events-auto"}
+            `}
             disabled={loading || props.disabled}
             {...props}
         >
