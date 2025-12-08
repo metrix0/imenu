@@ -30,7 +30,7 @@ export default function AdminLogin() {
         const checkSession = async () => {
             const { data } = await supabase.auth.getSession();
             if (data.session) {
-                router.replace("/painel/pedidos");
+                router.replace("/painel");
             }
         };
         checkSession();

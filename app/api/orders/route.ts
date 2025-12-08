@@ -99,7 +99,8 @@ export async function POST(req: Request) {
         console.log("⏱ Calculating ETA...");
 
         const deliveryTime = delivery_time_minutes ?? 40;
-        const eta = new Date(Date.now() + deliveryTime * 60000).toISOString();
+        const eta = new Date(Date.now() + deliveryTime * 60000);
+
 
         console.log("📌 ETA =", eta);
 

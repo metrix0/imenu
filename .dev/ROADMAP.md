@@ -42,6 +42,9 @@ Ver no whatsapp, meus arquivos deram problema
 
 DATABASE
 - DUPLICAÇÃO EM MENU-ITEMS em posição
+- more duplucation
+  - excluir delivered_at 
+  - apagar is_delivery (se não tiver uso)
 - separar database entre menu e restaurante (usuario e dono)
 - **DOCUMENTAR E FORMALIZAR** todas as apis (endpoints, request body, response body, erros, etc) num arquivo só (md ou outro)
 - passar transformando todo uso de supabase em pages em chamadas de API (especialmente nos componentes do painel/criar)

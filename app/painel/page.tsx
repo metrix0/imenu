@@ -157,8 +157,10 @@ export default function PainelPedidosAtivosPage() {
 
             {/* Grid de Pedidos */}
             {orders.length === 0 ? (
-                <div className="text-center py-20 bg-white rounded-xl border border-dashed border-gray-300">
-                    <div className="text-6xl mb-4">😴</div>
+                <div className="text-center flex flex-col items-center py-20 bg-white rounded-xl border border-dashed border-gray-300">
+                    <div className="h-25 w-25 mb-4 ">
+                        <img src={"images/sleeping_emoji.png"} alt="Sem pedidos" className="h-full w-full object-contain" />
+                    </div>
                     <h3 className="text-xl font-bold text-gray-900">Sem pedidos ativos</h3>
                     <p className="text-gray-500 mt-2">Sua loja está aberta e aguardando novos pedidos.</p>
                 </div>

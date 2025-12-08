@@ -45,22 +45,9 @@ export default async function Page({ params }: { params: { slug: string } }) {
         is_closed: restaurantData.is_closed
     };
 
-    // --- 2. Menu ativo ---
-    const { data: menuData } = await supabase
-        .from("menu")
-        .select("id, name, description")
-        .eq("restaurant_id", restaurant.id)
-        .eq("is_active", true)
-        .limit(1)
-        .single<Menu>();
 
 
-    if (!menuData) return notFound();
 
-
-    const menu: Menu = {
-        ...menuData
-    };
 
     // --- 3. Categorias ---
     const { data: categoriesRaw } = await supabase
@@ -74,11 +61,11 @@ export default async function Page({ params }: { params: { slug: string } }) {
 
     // --- 4. Itens do Menu ---
     const { data: menuItems } = await supabase
-        .from("menu_items")
-        .select("item_id")
-        .eq("menu_id", menu.id);
+        .from("items")
+        .select("id")
+        .eq("restaurant_id", restaurant.id);
 
-    const itemIds = (menuItems || []).map((m) => m.item_id);
+    const itemIds = (menuItems || []).map((m) => m.id);
 
     let allItems: Item[] = [];
     if (itemIds.length > 0) {
@@ -120,7 +107,6 @@ export default async function Page({ params }: { params: { slug: string } }) {
             <MenuClientPage
                 slug={slug}
                 restaurant={restaurant}
-                menu={menu}
                 categories={categoriesWithItems}
                 itemsByCategory={itemsByCategory}
             />

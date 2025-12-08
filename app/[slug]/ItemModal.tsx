@@ -310,7 +310,7 @@ export default function ItemModal({
             height={0.93}
             handle={false}
             xPadding={false}
-            className={"!max-h-[80vh] 2xl:max-w-4xl"}
+            className={"!max-h-[80vh] md:!mb-[11vh] 2xl:max-w-4xl"}
         >
 
             <div className={"md:grid md:grid-cols-2"}>

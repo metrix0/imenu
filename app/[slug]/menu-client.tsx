@@ -20,13 +20,11 @@ import WarningBox from "@/components/ui/WarningBox";
 export default function MenuClientPage({
                                            slug,
                                            restaurant,
-                                           menu,
                                            categories,
                                            itemsByCategory,
                                        }: {
     slug: string;
     restaurant: Restaurant;
-    menu: Menu;
     categories: Category[];
     itemsByCategory: ItemsByCategory;
 }) {
