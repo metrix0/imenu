@@ -18,8 +18,14 @@ import {
     faChevronRight,
     IconDefinition,
     faHome,
+    faDoorOpen,
+    faPowerOff,
 } from "@fortawesome/free-solid-svg-icons";
 import { createClient } from "@supabase/supabase-js";
+
+import ConfirmModal from "@/components/ui/ConfirmModal"; // Importe o Modal
+import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore"; // Para pegar o ID rápido
+
 
 // Importa o componente refatorado
 import SupportButton, { SupportButtonRef } from "@/components/common/SupportButton";
@@ -28,45 +34,103 @@ type MenuItem =
     | { type: "divider" }
     | { label: string; icon: IconDefinition; href: string; type?: undefined };
 
-export default function PainelLayout({
-                                         children,
-                                     }: {
-    children: React.ReactNode;
-}) {
+export default function PainelLayout({ children}: { children: React.ReactNode }) {
     const params = useParams();
     const pathname = usePathname();
-    const restauranteId = Array.isArray(params?.restauranteId) ? params.restauranteId[0] : params?.restauranteId ?? "";
     const base = `/painel`;
+    const { restaurantId } = useCreationStore();
     const [expanded, setExpanded] = useState(false);
     const [menuId, setMenuId] = useState<string | null>(null);
+    const [isStoreClosed, setIsStoreClosed] = useState<boolean>(false); // Estado da loja
+    const [showCloseModal, setShowCloseModal] = useState(false); // Modal de fechar
+    const [isTogglingStore, setIsTogglingStore] = useState(false); // Loading do botão
+
     
     // Ref para controlar o botão de suporte
     const supportBtnRef = useRef<SupportButtonRef>(null);
 
-    useEffect(() => {
-        const fetchMenu = async () => {
+useEffect(() => {
+        const fetchContext = async () => {
             const supabase = createClient(
                 process.env.NEXT_PUBLIC_SUPABASE_URL!,
                 process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
             );
+            
+            // Tenta pegar ID do Zustand ou da URL (fallback)
+            const targetId = restaurantId || (Array.isArray(params?.restauranteId) ? params.restauranteId[0] : params?.restauranteId);
+            
+            if (!targetId) return;
+
             try {
-                if (!restauranteId) return;
-                const { data, error } = await supabase
-                    .from("menu")
-                    .select("id")
-                    .eq("restaurant_id", restauranteId)
-                    .limit(1)
-                    .maybeSingle();
-                if (!error && data?.id) setMenuId(data.id);
+                // Busca Menu ID e Status de Fechamento em paralelo
+                const [menuRes, restRes] = await Promise.all([
+                    supabase.from("menu").select("id").eq("restaurant_id", targetId).limit(1).maybeSingle(),
+                    supabase.from("restaurants").select("is_closed").eq("id", targetId).single()
+                ]);
+
+                if (menuRes.data) setMenuId(menuRes.data.id);
+                
+                // Lógica de Verificação de Data
+                if (restRes.data) {
+                    const closedDate = restRes.data.is_closed;
+                    if (closedDate) {
+                        const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+                        const savedDate = new Date(closedDate).toISOString().split("T")[0];
+                        
+                        // Se a data salva for diferente de hoje (feriado passou), abre automaticamente
+                        if (savedDate !== today) {
+                            // Atualiza no banco para abrir (silenciosamente)
+                            await fetch(`/api/restaurants/${targetId}`, {
+                                method: "PATCH",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ is_closed: null })
+                            });
+                            setIsStoreClosed(false);
+                        } else {
+                            setIsStoreClosed(true);
+                        }
+                    } else {
+                        setIsStoreClosed(false);
+                    }
+                }
             } catch (err) {
-                console.error("Erro ao obter menuId no layout:", err);
+                console.error("Erro no layout:", err);
             }
         };
-        if (restauranteId) fetchMenu();
-    }, [restauranteId]);
+        
+        fetchContext();
+    }, [restaurantId, params]);
+
+    // Função de Toggle (Chamada pelo botão/modal)
+    const handleStoreToggle = async (action: "open" | "close") => {
+        const targetId = restaurantId;
+        if (!targetId) return;
+
+        setIsTogglingStore(true);
+        try {
+            const newVal = action === "close" ? new Date().toISOString() : null;
+            
+            // Chama API Unificada
+            const res = await fetch(`/api/restaurants/${targetId}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ is_closed: newVal })
+            });
+
+            if (!res.ok) throw new Error("Falha ao atualizar");
+
+            setIsStoreClosed(action === "close");
+            if (action === "close") setShowCloseModal(false);
+        } catch (err) {
+            alert("Erro ao alterar status da loja.");
+        } finally {
+            setIsTogglingStore(false);
+        }
+    };
 
     const cardapioHref = menuId ? `${base}/cardapio/${menuId}` : `${base}/cardapio`;
     const configuracoesHref = `${base}/configuracoes`;
+
     
     const menuItems: MenuItem[] = [
         { label: "Home", icon: faHome, href: `${base}/` },
@@ -83,6 +147,17 @@ export default function PainelLayout({
 
     return (
         <>
+            {/* Modal de Confirmação para Fechar */}
+            <ConfirmModal 
+                open={showCloseModal}
+                onClose={() => setShowCloseModal(false)}
+                onConfirm={() => handleStoreToggle("close")}
+                title="Fechar Loja Hoje?"
+                description="Isso fechará a loja temporariamente. Ela abrirá automaticamente amanhã ou você pode reabri-la manualmente a qualquer momento."
+                confirmLabel="Fechar Loja"
+                variant="danger"
+                isLoading={isTogglingStore}
+            />
             <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-white text-black px-6 text-center overflow-hidden md:hidden">
                 <p className="text-lg font-semibold leading-relaxed">
                     O painel ainda não pode ser utilizado em celulares. <br />
@@ -101,6 +176,7 @@ export default function PainelLayout({
                         expanded ? "w-60" : "w-[4.5rem]"
                     }`}
                 >
+                    {/* Botão Expandir/Contrair */}
                     <button
                         onClick={() => setExpanded(!expanded)}
                         className="cursor-pointer absolute -right-3 top-20 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-white border border-gray-200 shadow hover:bg-gray-50 text-xs"
@@ -111,7 +187,9 @@ export default function PainelLayout({
                         />
                     </button>
 
+                    {/* Logo Area */}
                     <div className="flex items-center justify-center mt-4 mb-2 h-[70px] relative">
+                        {/* Logo Full */}
                         <div
                             className={`transition-all duration-300 flex items-center justify-center ${
                                 expanded ? "scale-100 opacity-100" : "scale-0 opacity-0 absolute"
@@ -125,7 +203,7 @@ export default function PainelLayout({
                                 className="transition-all duration-300"
                             />
                         </div>
-
+                        {/* Logo Icon */}
                         <div
                             className={`transition-all duration-300 flex items-center justify-center absolute ${
                                 expanded ? "scale-0 opacity-0" : "scale-100 opacity-100"
@@ -139,6 +217,35 @@ export default function PainelLayout({
                                 className="transition-all duration-300"
                             />
                         </div>
+                    </div>
+
+                    {/* --- BOTÃO DE STATUS DA LOJA --- */}
+                    <div className={`mt-4 transition-all duration-300 ${expanded ? "w-full px-4" : "w-auto"}`}>
+                        {expanded ? (
+                            // GAVETA ABERTA: Botão com Texto
+                            <button
+                                onClick={() => isStoreClosed ? handleStoreToggle("open") : setShowCloseModal(true)}
+                                disabled={isTogglingStore}
+                                className={` cursor-pointer w-full py-2 px-3 rounded-lg flex items-center justify-center gap-2 text-sm font-medium transition-all ${
+                                    isStoreClosed 
+                                        ? "bg-red-50 text-red-600 hover:bg-red-100 border border-red-200" 
+                                        : "bg-green-50 text-green-700 hover:bg-green-100 border border-green-200"
+                                }`}
+                            >
+                                <FontAwesomeIcon icon={isStoreClosed ? faDoorOpen : faPowerOff} />
+                                {isStoreClosed ? "Abrir Loja" : "Loja Aberta"}
+                            </button>
+                        ) : (
+                            // GAVETA FECHADA: Ícone Pulse
+                            <div className="flex justify-center py-2" title={isStoreClosed ? "Loja Fechada" : "Loja Aberta"}>
+                                <div className={`w-3 h-3 rounded-full relative ${isStoreClosed ? "bg-red-500" : "bg-green-500"}`}>
+                                    {/* Efeito Pulse apenas se aberto */}
+                                    {!isStoreClosed && (
+                                        <div className="absolute inset-0 rounded-full bg-green-500 animate-[pulseHalo_2s_infinite]"></div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     {/* === MENU === */}
