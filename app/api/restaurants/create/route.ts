@@ -29,9 +29,10 @@ export async function POST(request: Request) {
                 prep_time_min_minutes,
                 prep_time_max_minutes,
                 created_at, 
-                updated_at
+                updated_at,
+                first_time
             )
-            VALUES ($1, $2, 5.0, 1500, 0, '[]'::jsonb, '{}'::jsonb, 40, 50, NOW(), NOW())
+            VALUES ($1, $2, 5.0, 1500, 0, '[]'::jsonb, '{}'::jsonb, 40, 50, NOW(), NOW(), TRUE) 
             RETURNING id;
         `;
 

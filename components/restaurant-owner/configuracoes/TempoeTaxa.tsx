@@ -53,6 +53,19 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
         const tempoRefs = useRef<Record<number, HTMLInputElement | null>>({});
         const taxaRefs = useRef<Record<number, HTMLInputElement | null>>({});
 
+        // --- PROTEÇÃO CONTRA FECHAMENTO DA ABA ---
+        useEffect(() => {
+            const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+                if (status === "saving") {
+                    e.preventDefault();
+                    e.returnValue = ""; // Necessário para Chrome/Edge
+                }
+            };
+
+            window.addEventListener("beforeunload", handleBeforeUnload);
+            return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+        }, [status]);
+
         // ---------------------------------------------------
         // EXPOSE FUNCTIONS TO PARENT
         // ---------------------------------------------------
@@ -215,10 +228,7 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
         // DELETE RULE (LOGIC UPDATE - MIN 1)
         // ---------------------------------------------------
         const handleDeleteRule = (i: number) => {
-            setRules((prev) => {
-                if (prev.length <= 1) return prev;
-                return prev.filter((_, idx) => idx !== i);
-            });
+            setRules((prev) => prev.filter((_, idx) => idx !== i));
         };
 
         // ---------------------------------------------------
@@ -386,12 +396,8 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                                 {/* Delete */}
                                 <button
                                     onClick={() => handleDeleteRule(index)}
-                                    disabled={rules.length <= 1}
-                                    className={`p-1 duration-200 ${
-                                        rules.length <= 1
-                                            ? "text-gray-300 cursor-not-allowed"
-                                            : "text-red hover:text-red-900 cursor-pointer"
-                                    }`}
+                                    
+                                    className={"p-1 duration-200  text-red hover:text-red-900 cursor-pointer"}
                                 >
                                     <FontAwesomeIcon icon={icons.faTrash} />
                                 </button>

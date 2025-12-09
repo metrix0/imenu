@@ -2,16 +2,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/database/supabaseClient";
-import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore"; // IMPORTANTE: Usando o Store Global
+import { supabase } from "@/lib/database/supabaseClient"; // Ajustado para o seu import padrão
+import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore"; // Ajustado para o seu import padrão
 import Loader from "@/components/ui/Loader";
 import Button from "@/components/ui/Button";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faShareAlt } from "@fortawesome/free-solid-svg-icons";
 
-// Supondo que OrderCard já esteja criado em components/restaurant-owner/OrderCard
-import OrderCard, { OrderData } from "@/components/restaurant-owner/OrderCard";
+import OrderCard, { OrderData } from "@/components/restaurant-owner/OrderCard"; // Ajustado imports
 import ShareMenuModal from "@/components/restaurant-owner/ShareMenuModal";
+import OrderDetailsModal from "@/components/restaurant-owner/pedidos/OrderDetailsModal";
 
 export default function PainelPedidosAtivosPage() {
     const [isLoading, setIsLoading] = useState(true);
@@ -23,8 +23,11 @@ export default function PainelPedidosAtivosPage() {
     const [orders, setOrders] = useState<OrderData[]>([]);
     const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
+    // Novo: Estado para detalhes do pedido
+    const [selectedOrder, setSelectedOrder] = useState<any | null>(null); 
+    const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+
     // --- FETCH ORDERS ---
-    // Função isolada para poder ser chamada tanto no Load quanto no Realtime
     const fetchOrders = async (restId: string) => {
         const { data, error } = await supabase
             .from("orders")
@@ -45,50 +48,83 @@ export default function PainelPedidosAtivosPage() {
         if (error) {
             console.error("Erro ao buscar pedidos:", error);
         } else {
+            // Mapeamento para garantir compatibilidade com OrderCard se necessário
+            // Se o backend já retorna 'name' no order_items (como vimos no fix anterior), isso funciona direto.
             setOrders(data as any[] || []);
         }
+    };
+
+    // --- HELPER PARA TRATAR FIRST TIME ---
+    const handleFirstTime = async (restId: string, isFirstTime: boolean) => {
+        if (isFirstTime) {
+            console.log("🎉 Primeiro acesso detectado! Abrindo modal de compartilhamento.");
+            setIsShareModalOpen(true);
+            
+            // Atualiza no banco para não abrir mais
+            await supabase
+                .from("restaurants")
+                .update({ first_time: false })
+                .eq("id", restId);
+        }
+    };
+
+    const handleViewOrder = (order: OrderData) => {
+        setSelectedOrder(order);
+        setIsDetailsOpen(true);
     };
 
     // --- INIT ---
     useEffect(() => {
         const init = async () => {
-            // Se já temos o ID no Zustand, carregamos os pedidos imediatamente (UX rápida)
+            // CENÁRIO A: Já temos o ID no Zustand (Navegação interna)
             if (restaurantId) {
                 fetchOrders(restaurantId);
-                // Ainda buscamos o slug em background se não tivermos
-                if (!restaurantSlug) {
-                    const { data } = await supabase.from("restaurants").select("url_slug").eq("id", restaurantId).single();
-                    if (data) setRestaurantSlug(data.url_slug);
+                
+                // Precisamos verificar o first_time e o slug mesmo se já tivermos o ID
+                const { data } = await supabase
+                    .from("restaurants")
+                    .select("url_slug, first_time")
+                    .eq("id", restaurantId)
+                    .single();
+                
+                if (data) {
+                    if (!restaurantSlug) setRestaurantSlug(data.url_slug);
+                    // Verifica se é a primeira vez
+                    handleFirstTime(restaurantId, data.first_time);
                 }
+
                 setIsLoading(false);
                 return;
             }
 
-            // Fallback: Se não tem ID no Zustand (ex: deu refresh), busca via Auth
+            // CENÁRIO B: Não tem ID no Zustand (Refresh da página / Login direto)
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) {
-                // Redirecionar para login se necessário, ou mostrar erro
                 setIsLoading(false);
                 return;
             }
 
             const { data: restaurant } = await supabase
                 .from("restaurants")
-                .select("id, url_slug")
+                .select("id, url_slug, first_time") // <--- ADICIONADO first_time
                 .eq("user_id", session.user.id)
                 .single();
 
             if (restaurant) {
-                // Salva no Zustand para as próximas navegações serem rápidas
+                // Salva no Zustand
                 setRestaurantId(restaurant.id);
                 setRestaurantSlug(restaurant.url_slug);
+                
                 await fetchOrders(restaurant.id);
+                
+                // Verifica se é a primeira vez
+                handleFirstTime(restaurant.id, restaurant.first_time);
             }
             setIsLoading(false);
         };
 
         init();
-    }, [restaurantId, setRestaurantId]); // Dependência correta
+    }, [restaurantId, setRestaurantId]); 
 
     // --- REALTIME SUBSCRIPTION (DB > Client) ---
     useEffect(() => {
@@ -101,14 +137,13 @@ export default function PainelPedidosAtivosPage() {
             .on(
                 "postgres_changes",
                 {
-                    event: "*", // Escuta INSERT (novo pedido) e UPDATE (mudança de status)
+                    event: "*", 
                     schema: "public",
                     table: "orders",
                     filter: `restaurant_id=eq.${restaurantId}`
                 },
                 (payload) => {
                     console.log("🔔 Atualização recebida:", payload);
-                    // Recarrega a fila para garantir a ordem e dados atualizados
                     fetchOrders(restaurantId);
                 }
             )
@@ -158,8 +193,8 @@ export default function PainelPedidosAtivosPage() {
             {/* Grid de Pedidos */}
             {orders.length === 0 ? (
                 <div className="text-center flex flex-col items-center py-20 bg-white rounded-xl border border-dashed border-gray-300">
-                    <div className="h-25 w-25 mb-4 ">
-                        <img src={"images/sleeping_emoji.png"} alt="Sem pedidos" className="h-full w-full object-contain" />
+                    <div className="h-24 w-24 mb-4 text-6xl">
+                       😴
                     </div>
                     <h3 className="text-xl font-bold text-gray-900">Sem pedidos ativos</h3>
                     <p className="text-gray-500 mt-2">Sua loja está aberta e aguardando novos pedidos.</p>
@@ -170,9 +205,8 @@ export default function PainelPedidosAtivosPage() {
                         <OrderCard
                             key={order.id}
                             order={order}
-                            // O fetchOrders será chamado quando o OrderCard chamar a API de status
-                            // e o Realtime disparar, ou podemos forçar refresh aqui também.
                             onStatusChange={() => fetchOrders(restaurantId)}
+                            onViewOrder={handleViewOrder}
                         />
                     ))}
                 </div>
@@ -185,6 +219,14 @@ export default function PainelPedidosAtivosPage() {
                 restaurantId={restaurantId}
                 restaurantSlug={restaurantSlug}
             />
+            {/* Modal de Detalhes do Pedido */}
+            {selectedOrder && (
+                <OrderDetailsModal 
+                    isOpen={isDetailsOpen}
+                    onClose={() => setIsDetailsOpen(false)}
+                    order={selectedOrder}
+                />
+            )}
         </div>
     );
 }

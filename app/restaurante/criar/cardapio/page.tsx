@@ -327,7 +327,7 @@ export default function CriarCardapioPage() {
             </div>
 
             <ManageCategoryModal isOpen={isCatModalOpen} onClose={() => setIsCatModalOpen(false)} onSuccess={loadData} restaurantId={restaurantId} categoryToEdit={categoryToEdit} />
-            <ItemDetailsModal isOpen={isItemDetailsOpen} onClose={() => setIsItemDetailsOpen(false)} item={itemToEditDetails} />
+            <ItemDetailsModal isOpen={isItemDetailsOpen} onClose={() => setIsItemDetailsOpen(false)} item={itemToEditDetails } restaurantId={restaurantId || ""} />
             <ScanMenuModal
                 open={aiModalOpen}
                 onClose={() => setAiModalOpen(false)}

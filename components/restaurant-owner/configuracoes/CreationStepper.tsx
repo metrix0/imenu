@@ -1,7 +1,7 @@
-// components/restaurant-owner/configuracoes/CreationStepper.tsx
 "use client";
 
 import { usePathname } from "next/navigation";
+import Link from "next/link";
 
 const steps = [
     "/restaurante/criar/localizacao",
@@ -20,20 +20,34 @@ export default function CreationStepper() {
                 {steps.map((step, index) => {
                     const isActive = index <= currentStepIndex;
 
+                    // Otimização de UX: Normalmente em wizards, permitimos clicar
+                    // apenas para voltar (steps anteriores) ou no atual.
+                    // Se quiser liberar tudo, basta remover a condicional 'isDisabled'.
+                    const isDisabled = index > currentStepIndex; 
+
                     return (
-                        // O Container agora é o "trilho" cinza
-                        // Adicionamos overflow-hidden e rounded-full aqui para cortar a barra interna
-                        <div
+                        <Link
                             key={step}
-                            className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden first:ml-0 last:mr-0"
+                            href={isDisabled ? "#" : step}
+                            aria-disabled={isDisabled}
+                            // Se estiver desabilitado, removemos o clique visualmente
+                            className={`flex-1 h-2 bg-gray-200 rounded-full overflow-hidden first:ml-0 last:mr-0 transition-all ${
+                                isDisabled 
+                                    ? "cursor-default opacity-50" 
+                                    : "cursor-pointer hover:brightness-95 hover:scale-[1.01]"
+                            }`}
+                            // Previne navegação se for passo futuro (opcional, remova onClick se quiser livre)
+                            onClick={(e) => {
+                                if (isDisabled) e.preventDefault();
+                            }}
                         >
-                            {/* A barra interna é sempre vermelha (brand), mas a largura muda */}
+                            {/* A barra interna vermelha */}
                             <div
                                 className={`h-full bg-brand transition-all duration-700 ease-out ${
                                     isActive ? "w-full" : "w-0"
                                 }`}
                             />
-                        </div>
+                        </Link>
                     );
                 })}
             </nav>

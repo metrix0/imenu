@@ -79,7 +79,7 @@ export default function TempoETaxaPage() {
     return (
         <div className="max-w-3xl mx-auto py-10 px-6 pb-32">
             <div className="mb-8 text-center sm:text-left">
-                <h1 className="text-3xl font-bold mb-3 2xl:text-4xl">Tempo e Taxa de Entrega</h1>
+                <h1 className="text-3xl font-bold text-gray-900 2xl:text-4xl">Tempo e Taxa de Entrega</h1>
                 <p className="text-gray-500 mt-1 2xl:text-lg">Defina as regras de entrega para o seu restaurante.</p>
             </div>
             

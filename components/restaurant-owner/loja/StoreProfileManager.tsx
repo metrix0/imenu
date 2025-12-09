@@ -35,6 +35,19 @@ export default function StoreProfileManager({ restaurant, compact = false }: Sto
     const [isSaving, setIsSaving] = useState(false);
     const [toast, setToast] = useState<{ msg: string, type: "success" | "error" } | null>(null);
 
+    useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+        // Verifique aqui sua variável de estado (ex: isSaving, status === 'saving')
+        if (isSaving) { 
+            e.preventDefault();
+            e.returnValue = ""; 
+        }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+}, [isSaving]); // Adicione a variável de estado nas dependências
+
     // Inicializa URLs públicas
     useEffect(() => {
         if (restaurant.logo_url) {
