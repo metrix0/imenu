@@ -11,7 +11,7 @@ import type { User } from "@supabase/supabase-js";
 // FontAwesome
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { icons } from "@/lib/fontawesome";
-import { faTrash, faCopy, faDownload, faCheck, faPen, faCalculator } from "@fortawesome/free-solid-svg-icons";
+import { faTrash, faCopy, faDownload, faCheck, faPen, faCalculator, faSignOutAlt } from "@fortawesome/free-solid-svg-icons";
 
 // UI Components
 import Button from "@/components/ui/Button";
@@ -87,6 +87,7 @@ export default function ConfiguracoesPage() {
     const [isDeletingAction, setIsDeletingAction] = useState(false);
     const [userName, setUserName] = useState("");
     const [isUpdatingName, setIsUpdatingName] = useState(false);
+    const [isLoggingOut, setIsLoggingOut] = useState(false);
 
     const [shareableUrl, setShareableUrl] = useState("");
     const [qrCodeUrl, setQrCodeUrl] = useState("");
@@ -116,7 +117,7 @@ export default function ConfiguracoesPage() {
             try {
                 const { data: { session } } = await supabase.auth.getSession();
                 if (!session) {
-                    router.push("/restaurante");
+                    router.push("/restaurante/login");
                     return;
                 }
                 const currentUser = session.user;
@@ -272,6 +273,23 @@ const handleNameUpdate = async () => {
         }
     };
 
+
+    //Logout
+
+    const handleLogout = async () => {
+        setIsLoggingOut(true);
+        try {
+            await supabase.auth.signOut();
+            clear(); // Limpa o Zustand (LocalStorage)
+            router.push("/restaurante/login");
+        } catch (error) {
+            console.error("Erro ao sair:", error);
+            showToast("Erro ao sair.", "error");
+            setIsLoggingOut(false);
+        }
+    };
+
+
     // Gera URL visual do QR Code
     const qrCodeApiUrl = shareableUrl 
         ? `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(shareableUrl)}`
@@ -345,7 +363,19 @@ const handleNameUpdate = async () => {
 
                     {/* --- MINHA CONTA --- */}
                     <Card>
-                        <h2 className="text-xl font-medium text-gray-900 mb-4">Minha Conta</h2>
+                        <div className="flex justify-between items-center mb-4">
+                            <h2 className="text-xl font-medium text-gray-900">Minha Conta</h2>
+                            {/* BOTÃO DE SAIR ADICIONADO AQUI */}
+                            <Button 
+                                variant="secondary" 
+                                onClick={handleLogout} 
+                                loading={isLoggingOut}
+                                className="text-red-600 hover:bg-red-50 border-red-200"
+                            >
+                                <FontAwesomeIcon icon={faSignOutAlt} className="mr-2" />
+                                Sair da Conta
+                            </Button>
+                        </div>
 
                         <div className="space-y-6">
                             <div className="flex gap-3 items-end">
@@ -368,6 +398,7 @@ const handleNameUpdate = async () => {
                                         <FontAwesomeIcon icon={faCheck} />
                                     </Button>
                                 </div>
+
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -389,6 +420,7 @@ const handleNameUpdate = async () => {
                                         Alterar
                                     </Button>
                                 </div>
+                                
                             </div>
                         </div>
                     </Card>

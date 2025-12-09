@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, ReactNode } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faImage, faTrash, faCheck, faTimes, faSpinner, faCog, faCopy } from "@fortawesome/free-solid-svg-icons";
 import { uploadMenuImage } from "@/lib/uploadMenuImage"; 
@@ -17,6 +17,7 @@ export type MenuItemType = {
     image_path?: string | null;
     is_available: boolean;
     category_id: string;
+    position?: number; // Adicionado para tipagem correta
 };
 
 interface MenuItemRowProps {
@@ -24,9 +25,10 @@ interface MenuItemRowProps {
     isNew?: boolean; 
     onSave: (item: MenuItemType) => Promise<void>;
     onDelete?: (id: string) => void;
-    onDuplicate?: (item: MenuItemType) => void; // NOVA PROP
+    onDuplicate?: (item: MenuItemType) => void;
     onCancel?: () => void;
     onOpenDetails?: () => void; 
+    dragHandle?: ReactNode; // NOVA PROP PARA O ÍCONE DE ARRASTAR
 }
 
 export default function MenuItemRow({ 
@@ -36,7 +38,8 @@ export default function MenuItemRow({
     onDelete,
     onDuplicate,
     onCancel,
-    onOpenDetails
+    onOpenDetails,
+    dragHandle
 }: MenuItemRowProps) {
     const [isEditing, setIsEditing] = useState(isNew);
     const [isLoading, setIsLoading] = useState(false);
@@ -193,7 +196,17 @@ export default function MenuItemRow({
                 className={`group flex items-center justify-between p-4 bg-white border-b border-gray-100 hover:bg-gray-50 transition-all cursor-pointer ${!isAvailable ? "opacity-60 bg-gray-50" : ""}`}
                 onClick={() => setIsEditing(true)}
             >
-                <div className="flex items-center gap-4 overflow-hidden">
+                <div className="flex items-center gap-3 overflow-hidden">
+                    {/* Renderiza o cabo de arrastar se fornecido */}
+                    {dragHandle && (
+                        <div 
+                            className="text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing p-1 -ml-2"
+                            onClick={(e) => e.stopPropagation()} // Evita abrir edição ao clicar no drag handle
+                        >
+                            {dragHandle}
+                        </div>
+                    )}
+
                     {renderImageArea()}
                     
                     <div className="flex flex-col min-w-0">

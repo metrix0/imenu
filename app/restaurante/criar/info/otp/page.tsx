@@ -115,7 +115,7 @@ function OtpVerificationComponent() {
     const handleLogout = async () => {
         await supabase.auth.signOut();
         clear(); // Limpa o store do zustand
-        router.push("/restaurante"); // Volta para login/home
+        router.push("/restaurante/login"); // Volta para login/home
     };
 
     const isButtonDisabled = otp.join("").length !== 6 || loading;
@@ -135,7 +135,7 @@ function OtpVerificationComponent() {
                 <div className="flex items-center justify-center gap-2 -mt-6 mb-8">
                     <strong className="text-gray-800">{email || "seu e-mail"}</strong>
                     <button 
-                        onClick={() => router.back()} 
+                        onClick={() => router.push("/restaurante/registrar")} 
                         className="text-gray-400 hover:text-brand transition-colors"
                         title="Corrigir e-mail"
                     >

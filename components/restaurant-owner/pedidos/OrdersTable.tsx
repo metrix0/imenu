@@ -27,9 +27,11 @@ export default function OrdersTable({ orders, isLoading, onViewOrder }: OrdersTa
 
     const getStatusBadge = (status: string) => {
         const map: Record<string, string> = {
-            pending: "bg-yellow-100 text-yellow-800 border-yellow-200",
+            pending_online_payment: "bg-yellow-100 text-yellow-800",
+            pending_physical_payment: "bg-yellow-100 text-yellow-800",
+            pending: "bg-yellow-100 text-yellow-800",
             preparing: "bg-blue-100 text-blue-800 border-blue-200",
-            delivering: "bg-orange-100 text-orange-800 border-orange-200",
+            delivering: "bg-purple-100 text-purple-800",
             done: "bg-green-100 text-green-800 border-green-200",
             canceled: "bg-red-100 text-red-800 border-red-200",
         };
@@ -42,7 +44,7 @@ export default function OrdersTable({ orders, isLoading, onViewOrder }: OrdersTa
             canceled: "Cancelado",
         };
         return (
-            <span className={`px-3 py-1 rounded-full text-xs font-medium border ${map[status] || "bg-gray-100"}`}>
+            <span className={`px-3 py-1 rounded-full text-xs font-medium ${map[status] || "bg-gray-100"}`}>
                 {label[status] || status}
             </span>
         );

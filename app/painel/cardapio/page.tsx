@@ -184,7 +184,8 @@ export default function MenuManagerPage() {
              <ItemDetailsModal 
                 isOpen={isItemDetailsOpen} 
                 onClose={() => setIsItemDetailsOpen(false)} 
-                item={itemToEditDetails} 
+                item={itemToEditDetails}
+                restaurantId={restaurantId || ""} 
             />
 
              {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
