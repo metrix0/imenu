@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { useParams, usePathname } from "next/navigation";
+import { useParams, usePathname, useRouter } from "next/navigation";
 import {
     faBox,
     faMoneyBillWave,
@@ -29,6 +29,8 @@ import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore"; 
 
 // Importa o componente refatorado
 import SupportButton, { SupportButtonRef } from "@/components/common/SupportButton";
+import { supabase } from "@/lib/database/supabaseClient";
+import Loader from "@/components/ui/Loader";
 
 type MenuItem =
     | { type: "divider" }
@@ -44,10 +46,15 @@ export default function PainelLayout({ children}: { children: React.ReactNode })
     const [isStoreClosed, setIsStoreClosed] = useState<boolean>(false); // Estado da loja
     const [showCloseModal, setShowCloseModal] = useState(false); // Modal de fechar
     const [isTogglingStore, setIsTogglingStore] = useState(false); // Loading do botão
+    const router = useRouter();
+    const [isChecking, setIsChecking] = useState(true); // Evita piscar conteúdo protegido
 
     
     // Ref para controlar o botão de suporte
     const supportBtnRef = useRef<SupportButtonRef>(null);
+
+
+
 
 useEffect(() => {
         const fetchContext = async () => {
@@ -101,6 +108,29 @@ useEffect(() => {
         fetchContext();
     }, [restaurantId, params]);
 
+        // --- PROTEÇÃO DE ROTA ---
+    useEffect(() => {
+        const checkAuth = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            
+            if (!session) {
+                // Não está logado -> Login
+                router.replace("/restaurante/login");
+                return;
+            }
+
+            setIsChecking(false); // Libera a renderização
+        };
+        
+        checkAuth();
+    }, [router]);
+
+    if (isChecking) {
+        return <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+            <Loader />
+        </div>; 
+    }
+
     // Função de Toggle (Chamada pelo botão/modal)
     const handleStoreToggle = async (action: "open" | "close") => {
         const targetId = restaurantId;
@@ -137,7 +167,7 @@ useEffect(() => {
         { label: "Pedidos", icon: faBox, href: `${base}/pedidos` },
         { label: "Financeiro", icon: faMoneyBillWave, href: `${base}/financeiro` },
         { type: "divider" },
-        { label: "Cardápio", icon: faUtensils, href: cardapioHref },
+        { label: "Cardápio", icon: faUtensils, href: `${base}/cardapio` },
         { label: "Taxa e Tempo", icon: faTruck, href: `${base}/tempo-e-taxa` },
         { label: "Horários", icon: faClock, href: `${base}/disponibilidade` },
         { label: "Loja", icon: faStore, href: `${base}/loja` },

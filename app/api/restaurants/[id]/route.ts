@@ -45,7 +45,8 @@ export async function PATCH(
         min_order_cents: "min_order_cents",
         rating: "rating",
         url_slug: "url_slug", // Permitir atualização explícita se necessário
-        is_closed: "is_closed"
+        is_closed: "is_closed",
+        first_time: "first_time"
     };
 
     const jsonFields = ["address", "delivery_fee_json", "availability_json"];

@@ -167,6 +167,7 @@ export default function CriarCardapioPage() {
         if (!isFormValid) return;
         if (!restaurantId || !email) {
             alert("Sessão expirada ou e-mail não encontrado.");
+            router.push("/restaurante/login");
             return;
         }
 
@@ -176,12 +177,12 @@ export default function CriarCardapioPage() {
             await handleNameBlur();
 
             // Envia OTP (Email) - Conforme fluxo de registro
-            const { error: authError } = await supabase.auth.signInWithOtp({
-                email: email,
-                options: { shouldCreateUser: false } 
-            });
+            // const { error: authError } = await supabase.auth.signInWithOtp({
+            //     email: email,
+            //     options: { shouldCreateUser: false } 
+            // });
 
-            if (authError) throw new Error(`Erro ao enviar código: ${authError.message}`);
+            // if (authError) throw new Error(`Erro ao enviar código: ${authError.message}`);
 
             router.push("/restaurante/criar/info/otp");
         } catch (err) {
@@ -229,7 +230,7 @@ export default function CriarCardapioPage() {
                         onError={handleVisualError}
                     />
 
-                    <div className="mb-12 -mt-6"> 
+                    <div className="py-4"> 
                         <StoreName 
                             value={name}
                             onChange={setName}
