@@ -18,7 +18,7 @@ import { faEye } from "@fortawesome/free-solid-svg-icons/faEye";
 
 export default function RestaurantRegistrationPage() {
   const router = useRouter();
-  const { setRestaurantId, setEmail: saveEmailToStore, setDraftRegisterData, draftRegisterData } = useCreationStore();
+  const { setRestaurantId, setEmail: saveEmailToStore } = useCreationStore();
 
   const [email, setEmail] = useState("");
   const [fullName, setFullName] = useState("");
@@ -33,17 +33,9 @@ export default function RestaurantRegistrationPage() {
   const [isPhoneFocused, setIsPhoneFocused] = useState(false);
   const [restCount, setRestCount] = useState<number>(0);
 
-
+  
 
     // 1. Carregar dados salvos ao montar a página
-  useEffect(() => {
-      if (draftRegisterData) {
-          setEmail(draftRegisterData.email || "");
-          setFullName(draftRegisterData.fullName || "");
-          setPhone(draftRegisterData.phone || "");
-      }
-  }, [draftRegisterData]);
-
     useEffect(() => {
         (async () => {
             const totalBonus = 30 + 10 //+10 for test restaurants
@@ -79,7 +71,7 @@ const handleRegister = async () => {
     setErrorMsg("");
 
     saveEmailToStore(email);
-    setDraftRegisterData({ email, fullName, phone });
+
 
     try {
       // 1. Tentar Criar Usuário

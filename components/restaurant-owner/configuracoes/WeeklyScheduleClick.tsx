@@ -1,39 +1,13 @@
-// components/restaurant-owner/configuracoes/WeeklyScheduleClick.tsx
 "use client";
 
 import { useState, useRef } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faTrash, faStar } from "@fortawesome/free-solid-svg-icons";
-// import Popup from "@/components/ui/Popup"; // REMOVIDO
 import Button from "@/components/ui/Button";
 
-// --- Internal Modal Component ---
-// Um modal simples e customizado apenas para este arquivo
-const LocalModal = ({ 
-    isOpen, 
-    onClose, 
-    children 
-}: { 
-    isOpen: boolean; 
-    onClose: () => void; 
-    children: React.ReactNode 
-}) => {
-    if (!isOpen) return null;
-
-    return (
-        <div 
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-[1px] transition-opacity"
-            onClick={onClose}
-        >
-            <div 
-                className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 2xl:p-10 m-4 relative animate-fadeUp"
-                onClick={(e) => e.stopPropagation()} // Impede que o clique dentro do modal feche ele
-            >
-                {children}
-            </div>
-        </div>
-    );
-};
+// Importando componentes padrão do projeto
+import Modal from "@/components/ui/Modal";
+import ConfirmModal from "@/components/ui/ConfirmModal";
 
 // --- Types ---
 export type TimeSlot = {
@@ -91,8 +65,6 @@ interface WeeklyScheduleClickProps {
 }
 
 export default function WeeklyScheduleClick({ value, onChange }: WeeklyScheduleClickProps) {
-    // Referência não é mais estritamente necessária para o clique no dia, 
-    // mas mantemos caso precise de scroll manipulation no futuro.
     const containerRef = useRef<HTMLDivElement>(null);
 
     // --- State for Popups ---
@@ -104,9 +76,8 @@ export default function WeeklyScheduleClick({ value, onChange }: WeeklyScheduleC
         endTime: string;
     }>({ isOpen: false, dayKey: "0", slotIndex: null, startTime: "00:00", endTime: "01:00" });
 
-    const [deleteConfirmModal, setDeleteConfirmModal] = useState({
-        isOpen: false,
-    });
+    // Estado simples apenas para controlar se o modal de delete está aberto
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
     // --- Handlers ---
 
@@ -162,8 +133,21 @@ export default function WeeklyScheduleClick({ value, onChange }: WeeklyScheduleC
     };
 
     const handleDeleteRequest = () => {
-        setDeleteConfirmModal({ isOpen: true });
+        // Apenas abre o confirm modal, mantendo o editModal "vivo" em background (ou fechando-o se preferir UX diferente)
+        // Aqui optamos por abrir o confirm por cima
+        setIsDeleteModalOpen(true);
     };
+
+    const handleCloseConfirm = () => {
+        setIsDeleteModalOpen(false);
+        // HACK: Re-trava o scroll logo após o ConfirmModal destravar (após a animação dele de 200ms)
+        // Como sabemos que o EditModal ainda está aberto
+        if (editModal.isOpen) {
+            setTimeout(() => {
+                document.body.style.overflow = "hidden";
+            }, 250); // 250ms para garantir que rode DEPOIS do cleanup do ConfirmModal
+        }
+    }
 
     const handleConfirmDelete = () => {
         const { dayKey, slotIndex } = editModal;
@@ -174,7 +158,7 @@ export default function WeeklyScheduleClick({ value, onChange }: WeeklyScheduleC
             onChange({ ...value, [dayKey]: newSlots });
         }
 
-        setDeleteConfirmModal({ isOpen: false });
+        setIsDeleteModalOpen(false);
         setEditModal(prev => ({ ...prev, isOpen: false }));
     };
 
@@ -220,10 +204,8 @@ export default function WeeklyScheduleClick({ value, onChange }: WeeklyScheduleC
             
             {/* --- Header Row (Dias + Status) --- */}
             <div className="flex pb-4">
-                {/* Espaço vazio acima da coluna de horas */}
                 <div className="w-14 flex-shrink-0"></div>
 
-                {/* Colunas dos Dias */}
                 {DAYS.map(day => {
                     const daySlots = value[day.key] || [];
                     const isClosed = daySlots.length === 0;
@@ -242,7 +224,7 @@ export default function WeeklyScheduleClick({ value, onChange }: WeeklyScheduleC
             {/* --- Body Row (Horas + Grid) --- */}
             <div className="flex relative">
                 
-                {/* Coluna de Horários (Eixo Y) - Fora da Matriz */}
+                {/* Coluna de Horários */}
                 <div className="w-14 flex-shrink-0 relative border-r border-transparent">
                     {gridHours.map((h) => (
                         <div 
@@ -258,7 +240,7 @@ export default function WeeklyScheduleClick({ value, onChange }: WeeklyScheduleC
                 {/* Área da Matriz (Grid) */}
                 <div className="flex-1 flex border border-gray-200 rounded-lg bg-white overflow-hidden relative" style={{ height: `${TOTAL_HEIGHT}px` }}>
                     
-                    {/* Linhas de Fundo (Grid Lines) */}
+                    {/* Linhas de Fundo */}
                     <div className="absolute inset-0 pointer-events-none z-0">
                         {gridHours.map((h) => (
                             <div 
@@ -269,7 +251,7 @@ export default function WeeklyScheduleClick({ value, onChange }: WeeklyScheduleC
                         ))}
                     </div>
 
-                    {/* Colunas dos Dias (Áreas de Clique) */}
+                    {/* Colunas dos Dias */}
                     {DAYS.map(day => (
                         <div 
                             key={day.key} 
@@ -285,17 +267,16 @@ export default function WeeklyScheduleClick({ value, onChange }: WeeklyScheduleC
             </div>
 
 
-            {/* --- CUSTOM MODAL 1: EDIT / ADD TIME --- */}
-            <LocalModal 
-                isOpen={editModal.isOpen} 
+            {/* --- MODAL 1: EDIT / ADD TIME (Usando componente Modal padrão) --- */}
+            <Modal 
+                open={editModal.isOpen} 
                 onClose={() => setEditModal(prev => ({ ...prev, isOpen: false }))}
             >
-                <div className="text-left">
+                <div className="p-6 text-left">
                     <div className="flex justify-between items-center mb-6">
                         <h3 className="text-xl font-bold text-gray-900">
                             {getDayLabel(editModal.dayKey)}
                         </h3>
-                        {/* Close X button optionally can go here */}
                     </div>
 
                     <div className="flex items-end gap-4 mb-8">
@@ -343,7 +324,6 @@ export default function WeeklyScheduleClick({ value, onChange }: WeeklyScheduleC
                     <div className="flex gap-3 2xl:gap-5 justify-end">
                         <Button variant={"secondary"}
                             onClick={() => setEditModal(prev => ({ ...prev, isOpen: false }))}
-                            className=""
                         >
                             Cancelar
                         </Button>
@@ -352,39 +332,18 @@ export default function WeeklyScheduleClick({ value, onChange }: WeeklyScheduleC
                         </Button>
                     </div>
                 </div>
-            </LocalModal>
+            </Modal>
 
-            {/* --- CUSTOM MODAL 2: CONFIRM DELETE --- */}
-            <LocalModal
-                isOpen={deleteConfirmModal.isOpen}
-                onClose={() => setDeleteConfirmModal({ isOpen: false })}
-            >
-                <div className="text-left my-5">
-                     <h3 className="text-xl font-bold text-gray-900 mb-2">
-                        Excluir horário?
-                    </h3>
-                    <p className="text-gray-600 mb-8 text-base">
-                        Tem certeza que deseja excluir o horário <strong>{editModal.startTime} - {editModal.endTime}</strong> de {getDayLabel(editModal.dayKey)}?
-                    </p>
-
-                    <div className="flex gap-3 justify-end">
-                         <button
-                            onClick={() => setDeleteConfirmModal({ isOpen: false })}
-                            className="px-4 py-2 text-gray-600 font-medium hover:bg-gray-100 rounded-md transition-colors"
-                        >
-                            Manter
-                        </button>
-                        <Button 
-                            variant="primary" 
-                            className="bg-brand hover:bg-red-700"
-                            onClick={handleConfirmDelete}
-                        >
-                            Excluir
-                        </Button>
-                    </div>
-                </div>
-            </LocalModal>
-
+            {/* --- MODAL 2: CONFIRM DELETE (Usando ConfirmModal padrão) --- */}
+            <ConfirmModal
+                open={isDeleteModalOpen}
+                onClose={handleCloseConfirm}
+                onConfirm={handleConfirmDelete}
+                title="Excluir horário?"
+                description={`Tem certeza que deseja excluir o horário ${editModal.startTime} - ${editModal.endTime} de ${getDayLabel(editModal.dayKey)}?`}
+                confirmLabel="Excluir"
+                variant="danger"
+            />
         </div>
     );
 }
