@@ -29,6 +29,7 @@ type Restaurant = {
     url_slug?: string | null;
     logo_url?: string | null;
     user_id?: string | null;
+    phone?: string | null;
     prep_time_min_minutes?: number | null;
     prep_time_max_minutes?: number | null;
     prep_time_source?: "auto" | "manual" | null;
@@ -87,6 +88,11 @@ export default function ConfiguracoesPage() {
     const [isDeletingAction, setIsDeletingAction] = useState(false);
     const [userName, setUserName] = useState("");
     const [isUpdatingName, setIsUpdatingName] = useState(false);
+
+    // NOVO ESTADO: Telefone
+    const [phone, setPhone] = useState("");
+    const [isUpdatingPhone, setIsUpdatingPhone] = useState(false);
+
     const [isLoggingOut, setIsLoggingOut] = useState(false);
 
     const [shareableUrl, setShareableUrl] = useState("");
@@ -108,6 +114,19 @@ export default function ConfiguracoesPage() {
 
     const openConfirm = (title: string, message: string, onConfirm: () => void, confirmText = "Confirmar", isDestructive = false) => {
         setConfirmPopup({ show: true, title, message, onConfirm, confirmText, isDestructive });
+    };
+
+    // Helper de máscara de telefone
+    const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        let value = e.target.value.replace(/\D/g, "");
+        if (value.length > 11) value = value.slice(0, 11);
+        
+        let formatted = "";
+        if (value.length > 0) formatted = "(" + value.slice(0, 2);
+        if (value.length > 2) formatted += ") " + value.slice(2, 7);
+        if (value.length > 7) formatted += "-" + value.slice(7);
+
+        setPhone(formatted);
     };
 
     // --- Data Fetching ---
@@ -138,12 +157,13 @@ export default function ConfiguracoesPage() {
                     // Carregar Detalhes do Restaurante
                     const { data: restData } = await supabase
                         .from("restaurants")
-                        .select("id, name, url_slug, logo_url, user_id, prep_time_min_minutes, prep_time_max_minutes, prep_time_source, prep_time_computed_at")
+                        .select("id, name, url_slug, logo_url, user_id, phone, prep_time_min_minutes, prep_time_max_minutes, prep_time_source, prep_time_computed_at")
                         .eq("id", targetId)
                         .single();
 
                     if (restData) {
                         setRestaurant(restData);
+                        setPhone(restData.phone || "");
                         
                         // Configura modo de preparo
                         const isManual = restData.prep_time_source === "manual" || (typeof restData.prep_time_min_minutes === "number" && typeof restData.prep_time_max_minutes === "number" && !restData.prep_time_source);
@@ -193,6 +213,30 @@ const handleNameUpdate = async () => {
             if (error) throw error;
             showToast("Nome atualizado!", "success");
         } catch (e: any) { showToast(e.message, "error"); } finally { setIsUpdatingName(false); }
+    };
+
+    // NOVO HANDLER: Atualizar Telefone
+    const handlePhoneUpdate = async () => {
+        if (!phone.trim() || phone.length < 14) return showToast("Digite um número válido.", "error");
+        if (!restaurant) return;
+
+        setIsUpdatingPhone(true);
+        try {
+            const response = await fetch(`/api/restaurants/${restaurant.id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ phone }),
+            });
+
+            if (!response.ok) throw new Error("Erro na API");
+
+            setRestaurant({ ...restaurant, phone });
+            showToast("Celular atualizado!", "success");
+        } catch (err: any) {
+            showToast("Erro ao salvar celular.", "error");
+        } finally {
+            setIsUpdatingPhone(false);
+        }
     };
 
     const handleComputeNow = async () => {
@@ -378,6 +422,7 @@ const handleNameUpdate = async () => {
                         </div>
 
                         <div className="space-y-6">
+                            {/* NOME */}
                             <div className="flex gap-3 items-end">
                                 <div className="flex-grow">
                                     <Input
@@ -387,7 +432,7 @@ const handleNameUpdate = async () => {
                                         placeholder="Seu nome completo"
                                     />
                                 </div>
-                                <div className="">
+                                
                                     <Button
                                         className="py-4"
                                         variant="primary"
@@ -397,8 +442,30 @@ const handleNameUpdate = async () => {
                                     >
                                         <FontAwesomeIcon icon={faCheck} />
                                     </Button>
-                                </div>
+                                
 
+                            </div>
+                            {/* CELULAR DO DONO (NOVO CAMPO) */}
+                            <div className="flex gap-3 items-end">
+                                <div className="flex-grow">
+                                    <Input
+                                        label="Celular do Responsável"
+                                        value={phone}
+                                        onChange={handlePhoneChange}
+                                        placeholder="(00) 00000-0000"
+                                        type="tel"
+                                        maxLength={15}
+                                    />
+                                </div>
+                                <Button
+                                    className="py-4"
+                                    variant="primary"
+                                    onClick={handlePhoneUpdate}
+                                    loading={isUpdatingPhone}
+                                    disabled={!phone.trim() || phone === restaurant?.phone}
+                                >
+                                    <FontAwesomeIcon icon={faCheck} />
+                                </Button>
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
