@@ -36,6 +36,8 @@ Ver no whatsapp, meus arquivos deram problema
 - Verificar e garantrir o posthog
 - Adicionar sentry (tentar em tudo)
 - descubrir a resolução certa do banner e mudar lá
+- Preencher Terms e condições +  /restaurante/dados 
+- mobile adapt supportbutton and ? buttyon
 
 - ### costumer
 
@@ -120,6 +122,8 @@ and Component Loader
 footer do /criar not component (use zustand)
 
 app/painel/disponibilidade nao ta usando o component do tudo salvo salvando...
+
+rafa acho que seus componentes de endereço nao tao usando a lib geocoding
 
 # Bugs
 

@@ -442,14 +442,14 @@ export default function LandingPage() {
                             <td className=" text-center">Taxas adicionais</td>
                         </tr>
                         <tr>
-                            <td className=" border-r border-gray-200">CRM</td>
-                            <td className=" border-r border-gray-200 text-center"><FontAwesomeIcon icon={icons.faXmark} className={"text-red"}/></td>
-                            <td className=" text-center">Limitado</td>
+                            <td className=" border-r border-gray-200">ChatBot & Robô WhatsApp</td>
+                            <td className=" border-r border-gray-200 text-center"><Tooltip text={<span>Não é uma prioridade no momento.</span>} color={"bg-orange"}><FontAwesomeIcon icon={icons.faClock} className={"text-red"}/></Tooltip></td>
+                            <td className=" text-center">Taxas adicionais</td>
                         </tr>
                         <tr>
-                            <td className=" border-r border-gray-200">ChatBot & Robô WhatsApp</td>
-                            <td className=" border-r border-gray-200 text-center"><FontAwesomeIcon icon={icons.faXmark} className={"text-red"}/></td>
-                            <td className=" text-center">Taxas adicionais</td>
+                            <td className=" border-r border-gray-200">CRM</td>
+                            <td className=" border-r border-gray-200 text-center"><Tooltip text={<span>Não é uma prioridade no momento.</span>} color={"bg-orange"}><FontAwesomeIcon icon={icons.faClock} className={"text-red"}/></Tooltip></td>
+                            <td className=" text-center">Limitado</td>
                         </tr>
 
                         </tbody>
