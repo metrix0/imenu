@@ -2,8 +2,11 @@
 "use client"; // 👈 Necessário para usar usePathname
 
 import CreationStepper from "@/components/restaurant-owner/configuracoes/CreationStepper";
+import Loader from "@/components/ui/Loader";
+import { supabase } from "@/lib/database/supabaseClient";
 import Image from "next/image";
-import { usePathname } from "next/navigation"; // 👈 Importar o hook
+import { usePathname, useRouter } from "next/navigation"; // 👈 Importar o hook
+import { useEffect, useState } from "react";
 
 export default function CreationLayout({
     children,
@@ -14,6 +17,49 @@ export default function CreationLayout({
     
     // Verifica se a rota atual contém "/info/otp"
     const isOtpPage = pathname?.includes("/info/otp");
+
+    const router = useRouter();
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        const checkStatus = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            
+            // 1. Se não tiver sessão, manda pro login
+            if (!session) {
+                router.replace("/restaurante/login");
+                return;
+            }
+
+            // 2. Verifica o status do restaurante
+            const { data: restaurant } = await supabase
+                .from("restaurants")
+                .select("first_time")
+                .eq("user_id", session.user.id)
+                .maybeSingle();
+
+            // 3. Se o restaurante já finalizou o cadastro (first_time === false),
+            // ele não deve estar aqui. Manda pro painel.
+            if (restaurant && restaurant.first_time === false) {
+                router.replace("/painel");
+                return;
+            }
+
+            // Se chegou aqui, é first_time = true (ou null), então pode continuar criando.
+            setIsLoading(false);
+        };
+
+        checkStatus();
+    }, [router]);
+
+    if (isLoading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-gray-50">
+                <Loader />
+                <p className="ml-3 text-gray-500">Verificando acesso...</p>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-white flex flex-col">

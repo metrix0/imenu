@@ -181,7 +181,7 @@ export default function AddressForm({
     return (
         <div className="w-full max-w-2xl mx-auto px-4">
             <div className="mb-8 text-center sm:text-left mt-8">
-                <h1 className="text-4xl font-bold text-gray-900">Onde fica sua loja?</h1>
+                <h1 className="text-3xl font-bold text-gray-900">Onde fica sua loja?</h1>
                 <p className="text-gray-500 mt-1">Digite o CEP e complete as informações.</p>
             </div>
 

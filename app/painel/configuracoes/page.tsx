@@ -11,7 +11,7 @@ import type { User } from "@supabase/supabase-js";
 // FontAwesome
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { icons } from "@/lib/fontawesome";
-import { faTrash, faCopy, faDownload, faCheck, faPen, faCalculator } from "@fortawesome/free-solid-svg-icons";
+import { faTrash, faCopy, faDownload, faCheck, faPen, faCalculator, faSignOutAlt } from "@fortawesome/free-solid-svg-icons";
 
 // UI Components
 import Button from "@/components/ui/Button";
@@ -29,6 +29,7 @@ type Restaurant = {
     url_slug?: string | null;
     logo_url?: string | null;
     user_id?: string | null;
+    phone?: string | null;
     prep_time_min_minutes?: number | null;
     prep_time_max_minutes?: number | null;
     prep_time_source?: "auto" | "manual" | null;
@@ -88,6 +89,12 @@ export default function ConfiguracoesPage() {
     const [userName, setUserName] = useState("");
     const [isUpdatingName, setIsUpdatingName] = useState(false);
 
+    // NOVO ESTADO: Telefone
+    const [phone, setPhone] = useState("");
+    const [isUpdatingPhone, setIsUpdatingPhone] = useState(false);
+
+    const [isLoggingOut, setIsLoggingOut] = useState(false);
+
     const [shareableUrl, setShareableUrl] = useState("");
     const [qrCodeUrl, setQrCodeUrl] = useState("");
 
@@ -109,6 +116,19 @@ export default function ConfiguracoesPage() {
         setConfirmPopup({ show: true, title, message, onConfirm, confirmText, isDestructive });
     };
 
+    // Helper de máscara de telefone
+    const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        let value = e.target.value.replace(/\D/g, "");
+        if (value.length > 11) value = value.slice(0, 11);
+        
+        let formatted = "";
+        if (value.length > 0) formatted = "(" + value.slice(0, 2);
+        if (value.length > 2) formatted += ") " + value.slice(2, 7);
+        if (value.length > 7) formatted += "-" + value.slice(7);
+
+        setPhone(formatted);
+    };
+
     // --- Data Fetching ---
     useEffect(() => {
         const loadData = async () => {
@@ -116,7 +136,7 @@ export default function ConfiguracoesPage() {
             try {
                 const { data: { session } } = await supabase.auth.getSession();
                 if (!session) {
-                    router.push("/restaurante");
+                    router.push("/restaurante/login");
                     return;
                 }
                 const currentUser = session.user;
@@ -137,12 +157,13 @@ export default function ConfiguracoesPage() {
                     // Carregar Detalhes do Restaurante
                     const { data: restData } = await supabase
                         .from("restaurants")
-                        .select("id, name, url_slug, logo_url, user_id, prep_time_min_minutes, prep_time_max_minutes, prep_time_source, prep_time_computed_at")
+                        .select("id, name, url_slug, logo_url, user_id, phone, prep_time_min_minutes, prep_time_max_minutes, prep_time_source, prep_time_computed_at")
                         .eq("id", targetId)
                         .single();
 
                     if (restData) {
                         setRestaurant(restData);
+                        setPhone(restData.phone || "");
                         
                         // Configura modo de preparo
                         const isManual = restData.prep_time_source === "manual" || (typeof restData.prep_time_min_minutes === "number" && typeof restData.prep_time_max_minutes === "number" && !restData.prep_time_source);
@@ -192,6 +213,30 @@ const handleNameUpdate = async () => {
             if (error) throw error;
             showToast("Nome atualizado!", "success");
         } catch (e: any) { showToast(e.message, "error"); } finally { setIsUpdatingName(false); }
+    };
+
+    // NOVO HANDLER: Atualizar Telefone
+    const handlePhoneUpdate = async () => {
+        if (!phone.trim() || phone.length < 14) return showToast("Digite um número válido.", "error");
+        if (!restaurant) return;
+
+        setIsUpdatingPhone(true);
+        try {
+            const response = await fetch(`/api/restaurants/${restaurant.id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ phone }),
+            });
+
+            if (!response.ok) throw new Error("Erro na API");
+
+            setRestaurant({ ...restaurant, phone });
+            showToast("Celular atualizado!", "success");
+        } catch (err: any) {
+            showToast("Erro ao salvar celular.", "error");
+        } finally {
+            setIsUpdatingPhone(false);
+        }
     };
 
     const handleComputeNow = async () => {
@@ -272,6 +317,23 @@ const handleNameUpdate = async () => {
         }
     };
 
+
+    //Logout
+
+    const handleLogout = async () => {
+        setIsLoggingOut(true);
+        try {
+            await supabase.auth.signOut();
+            clear(); // Limpa o Zustand (LocalStorage)
+            router.push("/restaurante/login");
+        } catch (error) {
+            console.error("Erro ao sair:", error);
+            showToast("Erro ao sair.", "error");
+            setIsLoggingOut(false);
+        }
+    };
+
+
     // Gera URL visual do QR Code
     const qrCodeApiUrl = shareableUrl 
         ? `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(shareableUrl)}`
@@ -345,9 +407,22 @@ const handleNameUpdate = async () => {
 
                     {/* --- MINHA CONTA --- */}
                     <Card>
-                        <h2 className="text-xl font-medium text-gray-900 mb-4">Minha Conta</h2>
+                        <div className="flex justify-between items-center mb-4">
+                            <h2 className="text-xl font-medium text-gray-900">Minha Conta</h2>
+                            {/* BOTÃO DE SAIR ADICIONADO AQUI */}
+                            <Button 
+                                variant="secondary" 
+                                onClick={handleLogout} 
+                                loading={isLoggingOut}
+                                className="text-red-600 hover:bg-red-50 border-red-200"
+                            >
+                                <FontAwesomeIcon icon={faSignOutAlt} className="mr-2" />
+                                Sair da Conta
+                            </Button>
+                        </div>
 
                         <div className="space-y-6">
+                            {/* NOME */}
                             <div className="flex gap-3 items-end">
                                 <div className="flex-grow">
                                     <Input
@@ -357,7 +432,7 @@ const handleNameUpdate = async () => {
                                         placeholder="Seu nome completo"
                                     />
                                 </div>
-                                <div className="">
+                                
                                     <Button
                                         className="py-4"
                                         variant="primary"
@@ -367,7 +442,30 @@ const handleNameUpdate = async () => {
                                     >
                                         <FontAwesomeIcon icon={faCheck} />
                                     </Button>
+                                
+
+                            </div>
+                            {/* CELULAR DO DONO (NOVO CAMPO) */}
+                            <div className="flex gap-3 items-end">
+                                <div className="flex-grow">
+                                    <Input
+                                        label="Celular do Responsável"
+                                        value={phone}
+                                        onChange={handlePhoneChange}
+                                        placeholder="(00) 00000-0000"
+                                        type="tel"
+                                        maxLength={15}
+                                    />
                                 </div>
+                                <Button
+                                    className="py-4"
+                                    variant="primary"
+                                    onClick={handlePhoneUpdate}
+                                    loading={isUpdatingPhone}
+                                    disabled={!phone.trim() || phone === restaurant?.phone}
+                                >
+                                    <FontAwesomeIcon icon={faCheck} />
+                                </Button>
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -389,6 +487,7 @@ const handleNameUpdate = async () => {
                                         Alterar
                                     </Button>
                                 </div>
+                                
                             </div>
                         </div>
                     </Card>

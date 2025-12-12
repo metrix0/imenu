@@ -10,7 +10,7 @@ interface StoreNameProps {
 
 export default function StoreName({ value, onChange, onBlur }: StoreNameProps) {
     return (
-        <div className="">
+        <div className="py-4">
              <Input 
                 label="Nome do Restaurante"
                 value={value}

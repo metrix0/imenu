@@ -9,12 +9,17 @@ import Button from "@/components/ui/Button";
 import { supabase } from "@/lib/database/supabaseClient";
 import Toast from "@/components/ui/Toast";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faEye, faEyeSlash } from "@fortawesome/free-solid-svg-icons";
 
 export default function AdminLogin() {
     const router = useRouter();
 
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
+
+    const [passwordFocused, setPasswordFocused] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
 
     const [loading, setLoading] = useState(false);
     const [errorMsg, setErrorMsg] = useState("");
@@ -121,19 +126,33 @@ export default function AdminLogin() {
                             onChange={(e) => setEmail(e.target.value)}
                         />
 
-                        <div>
+                        <div className="relative">
                             <Input
                                 label="Senha"
                                 placeholder="Digite sua senha"
-                                type="password"
+                                type={showPassword ? "text" : "password"}
                                 autoComplete={"current-password"}
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
+                                onFocus={() => setPasswordFocused(true)}
+                                onBlur={() => setPasswordFocused(false)}
                             />
+                            {(passwordFocused || showPassword) && (
+                                <button
+                                    type="button"
+                                    onMouseDown={(e) => {
+                                    e.preventDefault(); // 🔑 NÃO perde o foco do input
+                                    setShowPassword(prev => !prev);
+                                }}
+                                    className="tabIndex={-1} cursor-pointer absolute right-3 top-[38px] text-gray-500 hover:text-gray-700 text-sm"
+                                >
+                                    {showPassword ? <FontAwesomeIcon icon={faEyeSlash} className="mr-2" /> : <FontAwesomeIcon icon={faEye} className="mr-2" />}
+                                </button>
+                            )}
                             <div className="text-left pt-1">
                                 <button
                                     type="button"
-                                    onClick={() => router.push("/esqueci-senha")}
+                                    onClick={() => router.push("/restaurante/login/esqueci-senha")}
                                     className="text-xs 2xl:text-sm underline mt-2 text-gray-500 hover:text-gray-700 transition cursor-pointer"
                                 >
                                     Esqueci minha senha
@@ -157,7 +176,7 @@ export default function AdminLogin() {
                             Entrar
                         </Button>
                         <p className={"text-sm 2xl:text-base"}>
-                            Novo no iMenu? <a className={"text-blue-500 hover:text-blue-700 duration-200 cursor-pointer"} onClick={()=>router.replace("restaurante/registrar")}>Registre-se agora</a>
+                            Novo no iMenu? <a className={"text-blue-500 hover:text-blue-700 duration-200 cursor-pointer"} onClick={()=>router.replace("registrar")}>Registre-se agora</a>
                         </p>
                     </form>
 

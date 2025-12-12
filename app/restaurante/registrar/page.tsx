@@ -11,6 +11,9 @@ import Button from "@/components/ui/Button";
 import Tooltip from "@/components/ui/Tooltip";
 import BonusButton from "@/components/ui/BonusButton";
 import "@/app/reveal.css"
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faEyeSlash } from "@fortawesome/free-solid-svg-icons/faEyeSlash";
+import { faEye } from "@fortawesome/free-solid-svg-icons/faEye";
 
 
 export default function RestaurantRegistrationPage() {
@@ -21,13 +24,18 @@ export default function RestaurantRegistrationPage() {
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
+
+  const [passwordFocused, setPasswordFocused] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [isPhoneFocused, setIsPhoneFocused] = useState(false);
-    const [restCount, setRestCount] = useState<number>(0);
+  const [restCount, setRestCount] = useState<number>(0);
 
+  
 
+    // 1. Carregar dados salvos ao montar a página
     useEffect(() => {
         (async () => {
             const totalBonus = 30 + 10 //+10 for test restaurants
@@ -57,17 +65,18 @@ export default function RestaurantRegistrationPage() {
     setPhone(formatted);
   };
 
-  const handleRegister = async () => {
+const handleRegister = async () => {
     if (!isValid) return;
     setLoading(true);
     setErrorMsg("");
 
-    // Salva e-mail no Zustand
     saveEmailToStore(email);
 
+
     try {
-      // 1. Criar o Usuário na Autenticação (Supabase Auth)
-      // IMPORTANTE: Para não enviar OTP, desabilite "Confirm Email" no painel do Supabase.
+      // 1. Tentar Criar Usuário
+      let userId = "";
+      
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
@@ -79,41 +88,76 @@ export default function RestaurantRegistrationPage() {
         },
       });
 
-      if (authError) throw authError;
-      
-      // Se "Confirm Email" estiver ligado, authData.user existe mas authData.session é null.
-      // Se estiver desligado (como você quer), ambos existem.
-      if (!authData.user) throw new Error("Erro ao criar usuário.");
+      if (authError) {
+        // Se o erro for "usuário já existe", tentamos logar para recuperar o fluxo
+        // Nota: A mensagem exata pode variar, verifique o log do Supabase
+        if (authError.message.includes("already registered") || authError.status === 400) {
+           console.log("Usuário já existe, tentando login para continuar...");
+           const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({
+             email,
+             password
+           });
+           
+           if (loginError) {
+             throw new Error("Este e-mail já está cadastrado. Tente fazer login.");
+           }
+           
+           if (loginData.user) {
+             userId = loginData.user.id;
+           }
+        } else {
+          throw authError;
+        }
+      } else {
+        if (!authData.user) throw new Error("Erro ao criar usuário.");
+        userId = authData.user.id;
+      }
 
-      const userId = authData.user.id;
+      if (!userId) throw new Error("Falha na autenticação.");
 
-      // 2. Criar o Restaurante JÁ VINCULADO ao ID do Usuário
-      const res = await fetch("/api/restaurants/create", { 
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-              userId: userId,  // Enviamos o ID do Auth
-              phone: phone,    // Enviamos o telefone para salvar no banco também
-              email: email     // Enviamos o email (caso queira usar no futuro/logs)
-          })
-      });
+      // 2. Tentar Criar o Restaurante (Idempotência ou Verificação)
       
-      if (!res.ok) {
-          const errData = await res.json();
-          throw new Error(errData.error || "Falha ao criar restaurante.");
+      // Primeiro, verificamos se já existe um restaurante para este usuário (para evitar duplicatas no retry)
+      const { data: existingRest } = await supabase
+        .from("restaurants")
+        .select("id")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      let finalRestaurantId = existingRest?.id;
+
+      if (!finalRestaurantId) {
+          // Se não existe, cria
+          const res = await fetch("/api/restaurants/create", { 
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                  userId: userId,
+                  phone: phone,
+                  email: email
+              })
+          });
+          
+          if (!res.ok) {
+              const errData = await res.json();
+              // Se falhar aqui, o usuário existe mas não tem restaurante.
+              // O usuário verá o erro, mas poderá clicar em "Criar Conta" de novo.
+              // Graças à lógica de "tentar login" acima, na próxima vez ele vai logar e cair aqui de novo.
+              throw new Error(errData.error || "Falha ao criar restaurante. Tente novamente.");
+          }
+          
+          const restaurantData = await res.json();
+          finalRestaurantId = restaurantData.id;
       }
       
-      const restaurantData = await res.json();
-      
-      // 3. Salva o novo ID do restaurante no Zustand
-      setRestaurantId(restaurantData.id);
-
-      // 4. Redireciona
+      // 3. Sucesso
+      setRestaurantId(finalRestaurantId);
       router.push("/restaurante/criar/localizacao");
 
     } catch (err) {
       console.error(err);
       setErrorMsg((err as Error).message || "Erro ao realizar cadastro.");
+      // Se falhar, o loading para e o usuário pode tentar novamente.
     } finally {
       setLoading(false);
     }
@@ -213,14 +257,28 @@ export default function RestaurantRegistrationPage() {
                             </p>
                         </div>
 
-                        <div>
+                        <div className="relative">
                             <Input
                                 label="Senha*"
                                 placeholder="Crie uma senha segura"
-                                type="password"
+                                type={showPassword ? "text" : "password"}
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
+                                onFocus={() => setPasswordFocused(true)}
+                                onBlur={() => setPasswordFocused(false)}
                             />
+                            {(passwordFocused || showPassword) && (
+                                <button
+                                    type="button"
+                                    onMouseDown={(e) => {
+                                    e.preventDefault(); // 🔑 NÃO perde o foco do input
+                                    setShowPassword(prev => !prev);
+                                }}
+                                    className="tabIndex={-1} cursor-pointer absolute right-3 top-[38px] text-gray-500 hover:text-gray-700 text-sm"
+                                >
+                                    {showPassword ? <FontAwesomeIcon icon={faEyeSlash} className="mr-2" /> : <FontAwesomeIcon icon={faEye} className="mr-2" />}
+                                </button>
+                            )}
                             <p className="text-xs text-gray-400 pt-1 2xl:pt-2 2xl:text-sm">Mínimo de 6 caracteres.</p>
                         </div>
 
@@ -249,7 +307,7 @@ export default function RestaurantRegistrationPage() {
                             </Tooltip>
                     </div>
                     <p className={"text-sm 2xl:text-base"}>
-                        Já tem uma conta? <a className={"text-blue-500 hover:text-blue-700 duration-200 cursor-pointer"} onClick={()=>router.replace("restaurante/login")}>Log In</a>
+                        Já tem uma conta? <a className={"text-blue-500 hover:text-blue-700 duration-200 cursor-pointer"} onClick={()=>router.replace("login")}>Log In</a>
                     </p>
                 </Card>
 

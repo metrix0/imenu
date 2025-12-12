@@ -14,11 +14,11 @@ Ver no whatsapp, meus arquivos deram problema
 ## Rafa
 - **corrigir erros Txt**
 - 
-- esqueci minha senha no /login
-- mudar email funcionando (manda um email de confirmação pro email NOVO) E PODER ALTERAR TELEFONE (n precisa verificar)
-- Adicionar verificação de Auth (pode botar no layout) (local browser data) em todas as páginas que precisam de Auth (painel, criar restaurante, etc)
-- facilitar p usuario colocar foto (cortar, etc), falar resoluão dos banners (colocar um texto embaixo em algum lugar falando a resoução do banner, inventa uma), etc (SÓ NA LOJA E PAIENL)
-- se usuário (ja confirmado por código OTP) esta no /criar, mandar pro /painel
+- ~~esqueci minha senha no /login~~
+~~- mudar email funcionando (manda um email de confirmação pro email NOVO) E PODER ALTERAR TELEFONE (n precisa verificar)~~
+~~- Adicionar verificação de Auth (pode botar no layout) (local browser data) em todas as páginas que precisam de Auth (painel, criar restaurante, etc)~~
+~~- facilitar p usuario colocar foto (cortar, etc), falar resoluão dos banners (colocar um texto embaixo em algum lugar falando a resoução do banner, inventa uma), etc (SÓ NA LOJA E PAIENL)~~
+- ~~se usuário (ja confirmado por código OTP) esta no /criar, mandar pro /painel~~
 
 
 ## Joao

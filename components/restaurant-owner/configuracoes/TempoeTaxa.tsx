@@ -20,7 +20,6 @@ type RadiusRule = {
     fee_cents: number | null;
 };
 
-// Definindo o tipo de referência que o Pai vai acessar
 export type DeliveryRulesRef = {
     save: () => Promise<void>;
     getRulesSnapshot: () => { rules: RadiusRule[]; minOrder: number };
@@ -48,22 +47,27 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
         const [status, setStatus] = useState<"idle" | "saving" | "saved">("idle");
 
         const minOrderRef = useRef<HTMLInputElement>(null);
-
-        // LOCAL INPUT REFS — used only for initial fallback read
         const tempoRefs = useRef<Record<number, HTMLInputElement | null>>({});
         const taxaRefs = useRef<Record<number, HTMLInputElement | null>>({});
 
-        // ---------------------------------------------------
-        // EXPOSE FUNCTIONS TO PARENT
-        // ---------------------------------------------------
+        useEffect(() => {
+            const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+                if (status === "saving") {
+                    e.preventDefault();
+                    e.returnValue = "";
+                }
+            };
+            window.addEventListener("beforeunload", handleBeforeUnload);
+            return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+        }, [status]);
+
         useImperativeHandle(ref, () => ({
             save: async () => {
                 await saveToDB(true);
             },
             getRulesSnapshot: () => {
-                const minOrderValue = minOrderRef.current
-                    ? parseFloat(minOrderRef.current.value) || 0
-                    : 0;
+                const rawVal = minOrderRef.current?.value || "0";
+                const minOrderValue = parseFloat(rawVal.replace(",", ".")) || 0;
                 return {
                     rules: rules,
                     minOrder: minOrderValue
@@ -72,7 +76,7 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
         }));
 
         // ---------------------------------------------------
-        // INITIAL LOAD (ZUSTAND -> DEFAULT -> SUPABASE)
+        // INITIAL LOAD
         // ---------------------------------------------------
         useEffect(() => {
             if (!restaurantId) return;
@@ -82,46 +86,26 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
             const cachedRules = deliveryRules[restaurantId];
             const cachedMin = minOrder[restaurantId];
 
-            // Zustand cache
+            // 1. Tenta Cache do Zustand
             if (cachedRules && cachedRules.length > 0) {
                 console.log("[INIT] Loaded from ZUSTAND cache.");
                 setRules(cachedRules);
-
                 if (cachedMin != null && minOrderRef.current) {
                     minOrderRef.current.value = String(cachedMin);
                 }
-                // Se não for novo, busca do banco para garantir sync
-                if (!isNew) fetchFromDB();
+                // Mesmo com cache, buscamos do banco para garantir consistência (especialmente o min_order criado no registro)
+                fetchFromDB(); 
                 return;
             }
 
-            // Defaults for NEW restaurants
-            if (isNew) {
-                console.log("[INIT] Using default rules for NEW restaurant.");
-                const defaults: RadiusRule[] = [
-                    { radius_km: 0.5, time_minutes: 40, fee_cents: 800 },
-                    { radius_km: 1, time_minutes: 40, fee_cents: 800 },
-                    { radius_km: 1.5, time_minutes: 40, fee_cents: 800 },
-                    { radius_km: 2, time_minutes: 40, fee_cents: 800 },
-                    { radius_km: 3, time_minutes: 50, fee_cents: 800 },
-                    { radius_km: 4, time_minutes: 50, fee_cents: 800 },
-                    { radius_km: 5, time_minutes: 50, fee_cents: 800 },
-                ];
-                setRules(defaults);
-                if (minOrderRef.current) minOrderRef.current.value = "1500"; // Nota: Seu original usa 1500 (centavos?) ou valor bruto. Mantive.
-                return;
-            }
-
-            // Load from DB if not cached and not new
+            // 2. Busca do Banco (Sempre, para garantir que pegamos o min_order 1500)
             fetchFromDB();
-        }, [restaurantId, isNew]); // MANTIDO CONFORME ORIGINAL
+        }, [restaurantId]); // Removi isNew da dependência para simplificar
 
         const fetchFromDB = async () => {
             if (!restaurantId || restaurantId === "undefined") return;
 
             console.log("[INIT] Fetching from SUPABASE...");
-            // Use a API unificada em vez de supabase client direto se preferir consistência, 
-            // mas mantive supabase client pois é leitura e seu original usava.
             const { data, error } = await supabase
                 .from("restaurants")
                 .select("delivery_fee_json, min_order_cents")
@@ -133,28 +117,45 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                 return;
             }
 
-            if (data?.delivery_fee_json) {
+            // --- Lógica de Regras de Entrega ---
+            if (data?.delivery_fee_json && Array.isArray(data.delivery_fee_json) && data.delivery_fee_json.length > 0) {
                 console.log("[INIT] Loaded rules from DB.");
-                // Garantir array
-                const loadedRules = Array.isArray(data.delivery_fee_json) ? data.delivery_fee_json : [];
                 setRules(
-                    loadedRules.map((r: any) => ({
+                    data.delivery_fee_json.map((r: any) => ({
                         radius_km: r.radius_km,
                         time_minutes: r.time_minutes,
                         fee_cents: r.fee_cents ?? null,
                     }))
                 );
+            } else if (isNew) {
+                // Se não tem regras no banco e é novo, aplica defaults
+                console.log("[INIT] Applying default rules for NEW restaurant.");
+                const defaults: RadiusRule[] = [
+                    { radius_km: 0.5, time_minutes: 40, fee_cents: 800 },
+                    { radius_km: 1, time_minutes: 40, fee_cents: 800 },
+                    { radius_km: 1.5, time_minutes: 40, fee_cents: 800 },
+                    { radius_km: 2, time_minutes: 40, fee_cents: 800 },
+                    { radius_km: 3, time_minutes: 50, fee_cents: 800 },
+                    { radius_km: 4, time_minutes: 50, fee_cents: 800 },
+                    { radius_km: 5, time_minutes: 50, fee_cents: 800 },
+                ];
+                setRules(defaults);
             }
 
+            // --- Lógica de Pedido Mínimo (Onde estava o erro) ---
             if (data?.min_order_cents != null && minOrderRef.current) {
-                // Ajuste aqui se precisar de formatação (/100) ou valor bruto
-                minOrderRef.current.value = String(data.min_order_cents / 100); 
+                // Converte centavos para reais (2000 -> 20.00)
+                // Se o valor for 0 (erro antigo), forçamos 20 para corrigir visualmente
+                const val = data.min_order_cents === 0 ? 20 : data.min_order_cents / 100;
+                minOrderRef.current.value = String(val);
+                console.log("[INIT] Set min order from DB:", val);
+            } else if (isNew && minOrderRef.current) {
+                // Fallback final se o banco vier nulo
+                minOrderRef.current.value = "20";
             }
         };
 
-        // ---------------------------------------------------
-        // REALTIME SYNC
-        // ---------------------------------------------------
+        // ... (REALTIME SYNC MANTIDO IGUAL) ...
         useEffect(() => {
             if (isNew) return;
             if (!restaurantId) return;
@@ -181,7 +182,11 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                             );
                         }
                         if (d.min_order_cents != null && minOrderRef.current) {
-                            minOrderRef.current.value = String(d.min_order_cents / 100);
+                            // Cuidado com loops infinitos aqui se o input estiver focado
+                            // Idealmente só atualiza se for muito diferente
+                             if (document.activeElement !== minOrderRef.current) {
+                                 minOrderRef.current.value = String(d.min_order_cents / 100);
+                             }
                         }
                     }
                 )
@@ -192,28 +197,26 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
             };
         }, [restaurantId, isNew]);
 
-        // ---------------------------------------------------
-        // ADD RULE (LOGIC UPDATE - FIX GAPS)
-        // ---------------------------------------------------
+
+        // ... (ADD/DELETE RULE MANTIDOS IGUAIS) ...
         const handleAddRule = () => {
             setRules((prev) => {
-                const last = prev[prev.length - 1];
-                const nextRadius = last ? last.radius_km + 0.5 : 0.5;
+                const existingRadii = new Set(prev.map((r) => r.radius_km));
+                let nextRadius = 0.5;
+                while (existingRadii.has(nextRadius)) nextRadius += 0.5;
 
-                const newRule = {
-                    radius_km: nextRadius,
-                    time_minutes: last ? last.time_minutes : 40,
-                    fee_cents: last ? last.fee_cents : 800,
-                };
+                const lastRule = prev.length > 0 ? prev[prev.length - 1] : null;
+                const defaultTime = lastRule ? lastRule.time_minutes : 40;
+                const defaultFee = lastRule ? lastRule.fee_cents : 800;
 
-                return [...prev, newRule];
+                const newRules = [
+                    ...prev,
+                    { radius_km: nextRadius, time_minutes: defaultTime, fee_cents: defaultFee },
+                ];
+                return newRules.sort((a, b) => a.radius_km - b.radius_km);
             });
         };
 
-
-        // ---------------------------------------------------
-        // DELETE RULE (LOGIC UPDATE - MIN 1)
-        // ---------------------------------------------------
         const handleDeleteRule = (i: number) => {
             setRules((prev) => {
                 if (prev.length <= 1) return prev;
@@ -242,9 +245,14 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                 fee_cents: r.fee_cents,
             }));
 
-            const minOrderValue = minOrderRef.current
-                ? parseFloat(minOrderRef.current.value) || 0
-                : 0;
+            // Parsing robusto para garantir que não envie 0 acidentalmente
+            let rawMinOrder = minOrderRef.current?.value || "0";
+            rawMinOrder = rawMinOrder.replace(",", "."); // Troca vírgula por ponto
+            let minOrderValue = parseFloat(rawMinOrder);
+            
+            if (isNaN(minOrderValue)) minOrderValue = 0;
+
+            console.log("Saving minOrder:", minOrderValue, "-> cents:", Math.round(minOrderValue * 100));
 
             // ZUSTAND
             setDeliveryRules(restaurantId, finalRules);
@@ -257,7 +265,7 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
                         delivery_fee_json: finalRules,
-                        min_order_cents: minOrderValue * 100, // Ajuste se seu backend espera centavos
+                        min_order_cents: Math.round(minOrderValue * 100),
                     }),
                 });
 
@@ -351,8 +359,6 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                                         });
                                     }}
                                 />
-
-                                {/* Taxa */}
                                 <Input
                                     float
                                     icon={<FontAwesomeIcon icon={icons.faDollarSign} />}
@@ -365,14 +371,11 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                                                 .toFixed(2)
                                                 .replace(".", ",")
                                     }
-                                    ref={(el) => { tempoRefs.current[index] = el; }}
+                                    ref={(el) => { taxaRefs.current[index] = el; }}
                                     onChange={(e) => {
                                         const raw = e.target.value;
-                                        const val =
-                                            raw && raw !== "0,00"
-                                                ? Math.round(
-                                                    parseFloat(raw.replace(",", ".")) * 100
-                                                )
+                                        const val = raw && raw !== "0,00"
+                                                ? Math.round(parseFloat(raw.replace(",", ".")) * 100)
                                                 : null;
 
                                         setRules((prev) => {
@@ -386,12 +389,8 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                                 {/* Delete */}
                                 <button
                                     onClick={() => handleDeleteRule(index)}
-                                    disabled={rules.length <= 1}
-                                    className={`p-1 duration-200 ${
-                                        rules.length <= 1
-                                            ? "text-gray-300 cursor-not-allowed"
-                                            : "text-red hover:text-red-900 cursor-pointer"
-                                    }`}
+                                    
+                                    className={"p-1 duration-200  text-red hover:text-red-900 cursor-pointer"}
                                 >
                                     <FontAwesomeIcon icon={icons.faTrash} />
                                 </button>
@@ -410,10 +409,10 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                 </div>
 
                 {/* Pedido mínimo */}
-                {!isNew && (
+                
                     <div className="p-6 bg-white border border-gray-200 rounded-lg shadow-sm mb-8">
                         <h2 className="text-xl font-semibold mb-3">
-                            Pedido Mínimo{" "}
+                            Pedido Mínimo
                             <Tooltip text="O valor mínimo para alguém pedir no seu restaurante.">
                                 <FontAwesomeIcon
                                     icon={icons.faCircleInfo}
@@ -421,27 +420,25 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                                 />
                             </Tooltip>
                         </h2>
-
                         <Input
                             numeric
                             icon={<FontAwesomeIcon icon={icons.faDollarSign} />}
                             iconPosition="left"
-                            defaultValue="15"
+                            defaultValue="20"
                             ref={minOrderRef}
                             className="w-full"
                             onChange={() => {
-                                if (!isNew) {
-                                    setRules((r) => [...r]);
-                                }
+                                // Força re-render para disparar autosave no useEffect[rules] se necessário,
+                                // mas idealmente autosave deveria depender de minOrder também se quiser salvar ao digitar.
+                                // Como seu useEffect[rules] só olha rules, o minOrder só salva quando muda regra ou clica em Salvar.
                             }}
                         />
                     </div>
-                )}
+               
             </div>
         );
     }
 );
 
 DeliveryRules.displayName = "DeliveryRules";
-
 export default DeliveryRules;

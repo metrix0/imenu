@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { useParams, usePathname } from "next/navigation";
+import { useParams, usePathname, useRouter } from "next/navigation";
 import {
     faBox,
     faMoneyBillWave,
@@ -18,108 +18,156 @@ import {
     faChevronRight,
     IconDefinition,
     faHome,
+    faDoorOpen,
+    faPowerOff,
 } from "@fortawesome/free-solid-svg-icons";
 import { createClient } from "@supabase/supabase-js";
 
-// IMPORTAMOS O CONTEÚDO DO POPUP DE SUPORTE (Que pode ser extraído para um componente se preferir)
-import Popup from "@/components/ui/Popup";
-import SupportButton from "@/components/common/SupportButton";
-import { icons } from "@/lib/fontawesome";
+import ConfirmModal from "@/components/ui/ConfirmModal"; // Importe o Modal
+import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore"; // Para pegar o ID rápido
 
 
-// --- COMPONENTE INTERNO DO CONTEÚDO DO SUPORTE ---
-const SupportPopupContent = ({ onClose }: { onClose: () => void }) => {
-    const phone = "5519997235394";
-    const message = "Olá! Preciso de ajuda com um problema!";
-    const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+// Importa o componente refatorado
+import SupportButton, { SupportButtonRef } from "@/components/common/SupportButton";
+import { supabase } from "@/lib/database/supabaseClient";
+import Loader from "@/components/ui/Loader";
 
-    return (
-        <div className="relative pt-2 text-center">
-            <SupportButton open={true} onToggle={()=>{}}/>
-            <button
-                onClick={onClose}
-                className="absolute -top-3 -right-3 text-gray-400 hover:text-red-500 transition-colors p-2 cursor-pointer"
-            >
-                <FontAwesomeIcon icon={icons.faXmark} className="text-xl" />
-            </button>
-
-            <h3 className="mb-4 text-lg font-semibold text-gray-800">Suporte via WhatsApp</h3>
-            <div className="rounded-md border border-gray-200 p-4 inline-block mb-4">
-                <img
-                    src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(whatsappUrl)}&format=svg`}
-                    alt="QR Code"
-                    width={180}
-                    height={180}
-                />
-            </div>
-            <p className="text-sm text-gray-600 mb-1">Ou adicione manualmente:</p>
-            <p className="text-lg font-medium text-gray-900 select-all">{phone}</p>
-
-            <a
-                href={whatsappUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="mt-6 flex items-center justify-center gap-2 w-full bg-green-500 hover:bg-green-600 text-white font-medium py-3 rounded-lg transition-colors"
-            >
-                <FontAwesomeIcon icon={icons.faWhatsapp} className="text-xl" />
-                Abrir no WhatsApp
-            </a>
-        </div>
-    );
-};
-
-// ✅ Strong type for menu items
 type MenuItem =
     | { type: "divider" }
     | { label: string; icon: IconDefinition; href: string; type?: undefined };
 
-export default function PainelLayout({
-                                         children,
-                                     }: {
-    children: React.ReactNode;
-}) {
+export default function PainelLayout({ children}: { children: React.ReactNode }) {
     const params = useParams();
     const pathname = usePathname();
-    const restauranteId = Array.isArray(params?.restauranteId) ? params.restauranteId[0] : params?.restauranteId ?? "";
     const base = `/painel`;
+    const { restaurantId } = useCreationStore();
     const [expanded, setExpanded] = useState(false);
     const [menuId, setMenuId] = useState<string | null>(null);
+    const [isStoreClosed, setIsStoreClosed] = useState<boolean>(false); // Estado da loja
+    const [showCloseModal, setShowCloseModal] = useState(false); // Modal de fechar
+    const [isTogglingStore, setIsTogglingStore] = useState(false); // Loading do botão
+    const router = useRouter();
+    const [isChecking, setIsChecking] = useState(true); // Evita piscar conteúdo protegido
 
-    // ESTADO DO POPUP DE SUPORTE
-    const [isSupportOpen, setIsSupportOpen] = useState(false);
+    
+    // Ref para controlar o botão de suporte
+    const supportBtnRef = useRef<SupportButtonRef>(null);
 
-    useEffect(() => {
-        const fetchMenu = async () => {
+
+
+
+useEffect(() => {
+        const fetchContext = async () => {
             const supabase = createClient(
                 process.env.NEXT_PUBLIC_SUPABASE_URL!,
                 process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
             );
+            
+            // Tenta pegar ID do Zustand ou da URL (fallback)
+            const targetId = restaurantId || (Array.isArray(params?.restauranteId) ? params.restauranteId[0] : params?.restauranteId);
+            
+            if (!targetId) return;
+
             try {
-                if (!restauranteId) return;
-                const { data, error } = await supabase
-                    .from("menu")
-                    .select("id")
-                    .eq("restaurant_id", restauranteId)
-                    .limit(1)
-                    .maybeSingle();
-                if (!error && data?.id) setMenuId(data.id);
+                // Busca Menu ID e Status de Fechamento em paralelo
+                const [menuRes, restRes] = await Promise.all([
+                    supabase.from("menu").select("id").eq("restaurant_id", targetId).limit(1).maybeSingle(),
+                    supabase.from("restaurants").select("is_closed").eq("id", targetId).single()
+                ]);
+
+                if (menuRes.data) setMenuId(menuRes.data.id);
+                
+                // Lógica de Verificação de Data
+                if (restRes.data) {
+                    const closedDate = restRes.data.is_closed;
+                    if (closedDate) {
+                        const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+                        const savedDate = new Date(closedDate).toISOString().split("T")[0];
+                        
+                        // Se a data salva for diferente de hoje (feriado passou), abre automaticamente
+                        if (savedDate !== today) {
+                            // Atualiza no banco para abrir (silenciosamente)
+                            await fetch(`/api/restaurants/${targetId}`, {
+                                method: "PATCH",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ is_closed: null })
+                            });
+                            setIsStoreClosed(false);
+                        } else {
+                            setIsStoreClosed(true);
+                        }
+                    } else {
+                        setIsStoreClosed(false);
+                    }
+                }
             } catch (err) {
-                console.error("Erro ao obter menuId no layout:", err);
+                console.error("Erro no layout:", err);
             }
         };
-        if (restauranteId) fetchMenu();
-    }, [restauranteId]);
+        
+        fetchContext();
+    }, [restaurantId, params]);
+
+        // --- PROTEÇÃO DE ROTA ---
+    useEffect(() => {
+        const checkAuth = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            
+            if (!session) {
+                // Não está logado -> Login
+                router.replace("/restaurante/login");
+                return;
+            }
+
+            setIsChecking(false); // Libera a renderização
+        };
+        
+        checkAuth();
+    }, [router]);
+
+    if (isChecking) {
+        return <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+            <Loader />
+        </div>; 
+    }
+
+    // Função de Toggle (Chamada pelo botão/modal)
+    const handleStoreToggle = async (action: "open" | "close") => {
+        const targetId = restaurantId;
+        if (!targetId) return;
+
+        setIsTogglingStore(true);
+        try {
+            const newVal = action === "close" ? new Date().toISOString() : null;
+            
+            // Chama API Unificada
+            const res = await fetch(`/api/restaurants/${targetId}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ is_closed: newVal })
+            });
+
+            if (!res.ok) throw new Error("Falha ao atualizar");
+
+            setIsStoreClosed(action === "close");
+            if (action === "close") setShowCloseModal(false);
+        } catch (err) {
+            alert("Erro ao alterar status da loja.");
+        } finally {
+            setIsTogglingStore(false);
+        }
+    };
 
     const cardapioHref = menuId ? `${base}/cardapio/${menuId}` : `${base}/cardapio`;
     const configuracoesHref = `${base}/configuracoes`;
 
-    // REMOVI "AJUDA" DAQUI PARA TRATAR COMO BOTÃO
+    
     const menuItems: MenuItem[] = [
         { label: "Home", icon: faHome, href: `${base}/` },
         { label: "Pedidos", icon: faBox, href: `${base}/pedidos` },
         { label: "Financeiro", icon: faMoneyBillWave, href: `${base}/financeiro` },
         { type: "divider" },
-        { label: "Cardápio", icon: faUtensils, href: cardapioHref },
+        { label: "Cardápio", icon: faUtensils, href: `${base}/cardapio` },
         { label: "Taxa e Tempo", icon: faTruck, href: `${base}/tempo-e-taxa` },
         { label: "Horários", icon: faClock, href: `${base}/disponibilidade` },
         { label: "Loja", icon: faStore, href: `${base}/loja` },
@@ -129,6 +177,17 @@ export default function PainelLayout({
 
     return (
         <>
+            {/* Modal de Confirmação para Fechar */}
+            <ConfirmModal 
+                open={showCloseModal}
+                onClose={() => setShowCloseModal(false)}
+                onConfirm={() => handleStoreToggle("close")}
+                title="Fechar Loja Hoje?"
+                description="Isso fechará a loja temporariamente. Ela abrirá automaticamente amanhã ou você pode reabri-la manualmente a qualquer momento."
+                confirmLabel="Fechar Loja"
+                variant="danger"
+                isLoading={isTogglingStore}
+            />
             <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-white text-black px-6 text-center overflow-hidden md:hidden">
                 <p className="text-lg font-semibold leading-relaxed">
                     O painel ainda não pode ser utilizado em celulares. <br />
@@ -136,12 +195,10 @@ export default function PainelLayout({
                 </p>
             </div>
 
-            <div className="hidden md:flex min-h-screen bg-gray-50 ">
-
-                {/* POPUP GLOBAL DE SUPORTE */}
-                <Popup open={isSupportOpen} onClose={() => setIsSupportOpen(false)}>
-                    <SupportPopupContent onClose={() => setIsSupportOpen(false)} />
-                </Popup>
+            <div className="hidden md:flex min-h-screen bg-gray-50">
+                
+                {/* Renderiza o botão flutuante e conecta a ref */}
+                <SupportButton ref={supportBtnRef} />
 
                 {/* === SIDEBAR === */}
                 <aside
@@ -149,6 +206,7 @@ export default function PainelLayout({
                         expanded ? "w-60 2xl:w-70" : "w-[5.2vw]"
                     }`}
                 >
+                    {/* Botão Expandir/Contrair */}
                     <button
                         onClick={() => setExpanded(!expanded)}
                         className="cursor-pointer absolute -right-4 2xl:-right-5 top-20 z-10 flex h-8 w-8 2xl:h-10 2xl:w-10 items-center justify-center rounded-full bg-white border border-gray-200 shadow hover:bg-gray-50 text-sm 2xl:text-base"
@@ -173,7 +231,7 @@ export default function PainelLayout({
                                 className="transition-all duration-300 2xl:w-35"
                             />
                         </div>
-
+                        {/* Logo Icon */}
                         <div
                             className={`transition-all duration-300 flex items-center justify-center absolute ${
                                 expanded ? "scale-0 opacity-0" : "scale-100 opacity-100"
@@ -189,21 +247,59 @@ export default function PainelLayout({
                         </div>
                     </div>
 
+                    {/* --- BOTÃO DE STATUS DA LOJA --- */}
+                    <div className={`mt-4 transition-all duration-300 ${expanded ? "w-full px-4" : "w-auto"}`}>
+                        {expanded ? (
+                            // GAVETA ABERTA: Botão com Texto
+                            <button
+                                onClick={() => isStoreClosed ? handleStoreToggle("open") : setShowCloseModal(true)}
+                                disabled={isTogglingStore}
+                                className={` cursor-pointer w-full py-2 px-3 rounded-lg flex items-center justify-center gap-2 text-sm font-medium transition-all ${
+                                    isStoreClosed 
+                                        ? "bg-red-50 text-red-600 hover:bg-red-100 border border-red-200" 
+                                        : "bg-green-50 text-green-700 hover:bg-green-100 border border-green-200"
+                                }`}
+                            >
+                                <FontAwesomeIcon icon={isStoreClosed ? faDoorOpen : faPowerOff} />
+                                {isStoreClosed ? "Abrir Loja" : "Loja Aberta"}
+                            </button>
+                        ) : (
+                            // GAVETA FECHADA: Ícone Pulse
+                            <div className="flex justify-center py-2" title={isStoreClosed ? "Loja Fechada" : "Loja Aberta"}>
+                                <div className={`w-3 h-3 rounded-full relative ${isStoreClosed ? "bg-red-500" : "bg-green-500"}`}>
+                                    {/* Efeito Pulse apenas se aberto */}
+                                    {!isStoreClosed && (
+                                        <div className="absolute inset-0 rounded-full bg-green-500 animate-[pulseHalo_2s_infinite]"></div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
                     {/* === MENU === */}
-                    <nav className="flex-1 flex flex-col overflow-y-auto py-4 space-y-1 2xl:justify-center  2xl:mb-30">
-                        {menuItems.map((item, idx) =>
-                            item.type === "divider" ? (
-                                <hr key={`div-${idx}`} className="my-3 border-gray-100 mx-4" />
-                            ) : (
+                    <nav className="flex-1 flex flex-col overflow-y-auto py-4 space-y-1">
+                      
+                        {menuItems.map((item, idx) => {
+                            // 1. PRIMEIRO verificamos se é um divisor
+                            if (item.type === "divider") {
+                                return <hr key={`div-${idx}`} className="my-3 border-gray-100 mx-4" />;
+                            }
+
+                            // 2. AGORA o TypeScript sabe que "item" tem "href" e "icon"
+                            const isHome = item.href === `${base}/`;
+                            const isActive = isHome
+                                ? pathname === base || pathname === `${base}/`
+                                : pathname?.startsWith(item.href);
+
+                            return (
                                 <Link
                                     key={item.href}
                                     href={item.href}
                                     className={`group flex items-center relative py-3 cursor-pointer transition-all duration-200 ${
                                         expanded ? "justify-start px-5 gap-3" : "justify-center px-0"
                                     } ${
-                                        (pathname ?? "").startsWith(item.href) && item.href !== `${base}/`
-                                        || (item.href === `${base}/` && pathname === `${base}/`)
-                                            ? "bg-brand/10 text-brand font-medium border-r-4 border-brand md:border-r-0 md:border-l-4" 
+                                        isActive
+                                            ? "bg-brand/10 text-brand font-medium border-r-4 border-brand md:border-r-0 md:border-l-4"
                                             : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                                     }`}
                                     title={!expanded ? item.label : ""}
@@ -211,24 +307,28 @@ export default function PainelLayout({
                                     <div className="flex items-center justify-center w-6 h-6 2xl:w-12 2xl:h-10">
                                         <FontAwesomeIcon
                                             icon={item.icon}
-                                            className={`text-lg 2xl:text-2xl transition-colors ${
-                                                (pathname ?? "").startsWith(item.href) && item.href !== `${base}/`
-                                                || (item.href === `${base}/` && pathname === `${base}/`)
-                                                    ? "text-brand" 
+                                            className={`text-lg transition-colors ${
+                                                isActive
+                                                    ? "text-brand"
                                                     : "text-gray-400 group-hover:text-gray-600"
                                             }`}
                                         />
                                     </div>
-                                    <span className={`whitespace-nowrap overflow-hidden text-sm 2xl:text-lg transition-all duration-300 ${expanded ? "w-auto opacity-100 ml-0" : "w-0 opacity-0 ml-0"}`}>
+                                    <span
+                                        className={`whitespace-nowrap overflow-hidden text-sm transition-all duration-300 ${
+                                            expanded ? "w-auto opacity-100 ml-0" : "w-0 opacity-0 ml-0"
+                                        }`}
+                                    >
                                         {item.label}
                                     </span>
                                 </Link>
-                            )
-                        )}
+                            );
+                        })}
+                      
 
-                        {/* === BOTÃO DE AJUDA/SUPORTE (Manual) === */}
+                        {/* === BOTÃO DE AJUDA/SUPORTE (Abre via Ref) === */}
                         <button
-                            onClick={() => setIsSupportOpen(true)}
+                            onClick={() => supportBtnRef.current?.open()}
                             className={`group flex items-center relative py-3 cursor-pointer transition-all duration-200 w-full text-gray-600 hover:bg-gray-50 hover:text-gray-900 ${
                                 expanded ? "justify-start px-5 gap-3" : "justify-center px-0"
                             }`}

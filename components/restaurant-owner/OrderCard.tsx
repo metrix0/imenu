@@ -5,7 +5,8 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { 
     faClock, 
     faMapMarkerAlt, 
-    faArrowLeft 
+    faArrowLeft, 
+    faEye
 } from "@fortawesome/free-solid-svg-icons";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
@@ -38,9 +39,10 @@ export interface OrderData {
 interface OrderCardProps {
     order: OrderData;
     onStatusChange: () => void; 
+    onViewOrder?: (order: OrderData) => void; // NOVA PROP
 }
 
-export default function OrderCard({ order, onStatusChange }: OrderCardProps) {
+export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderCardProps) {
     const [loading, setLoading] = useState(false);
 
     // Cálculo de tempo decorrido
@@ -91,7 +93,6 @@ export default function OrderCard({ order, onStatusChange }: OrderCardProps) {
     const updateStatus = async (newStatus: OrderStatus) => {
         setLoading(true);
         try {
-            // CORREÇÃO: Usando API em vez de Supabase Client direto
             const res = await fetch(`/api/orders/${order.id}/status-order`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
@@ -112,40 +113,46 @@ export default function OrderCard({ order, onStatusChange }: OrderCardProps) {
         }
     };
 
-    const statusConfig: Record<string, { label: string; color: string; btn: string | null; btnColor: string }> = {
+    const statusConfig: Record<string, { label: string; color: string; borderColor: string; btn: string | null; btnColor: string }> = {
         pending_online_payment: { 
             label: "Pendente", 
-            color: "bg-yellow-100 text-yellow-800", 
+            color: "bg-yellow-100 text-yellow-800",
+            borderColor: "border-l-yellow-500",
             btn: "Confirmar", 
             btnColor: "primary" 
         },
         pending_physical_payment: { 
-            label: "Pendente",
-            color: "bg-orange-100 text-orange-800", 
+            label: "Pendente", 
+            color: "bg-yellow-100 text-yellow-800",
+            borderColor: "border-l-yellow-500", 
             btn: "Confirmar", 
             btnColor: "primary" 
         },
         preparing: { 
             label: "Preparando", 
             color: "bg-blue-100 text-blue-800 border-blue-200", 
+            borderColor: "border-l-blue-500",
             btn: "Enviar Entrega", 
             btnColor: "primary" 
         },
         delivering: { 
             label: "Em Rota", 
-            color: "bg-orange-100 text-orange-800 border-orange-200", 
+            color: "bg-purple-100 text-purple-800 border-purple-800",
+            borderColor: "border-l-purple-500", 
             btn: "Concluir", 
             btnColor: "primary" 
         },
         done: { 
             label: "Concluído", 
-            color: "bg-green-100 text-green-800 border-green-200", 
+            color: "bg-green-100 text-green-800 border-green-200",
+            borderColor: "border-l-green-500", 
             btn: null, 
             btnColor: "secondary" 
         },
         canceled: { 
             label: "Cancelado", 
-            color: "bg-red-100 text-red-800 border-red-200", 
+            color: "bg-red-100 text-red-800 border-red-200",
+            borderColor: "border-l-red-500", 
             btn: null, 
             btnColor: "secondary" 
         }
@@ -154,8 +161,13 @@ export default function OrderCard({ order, onStatusChange }: OrderCardProps) {
     const config = statusConfig[order.status] || statusConfig.pending_online_payment;
     const showBackButton = ["preparing", "delivering", "done"].includes(order.status);
 
+    // LÓGICA DE VISUALIZAÇÃO LIMITADA
+    const VISIBLE_ITEMS = 2;
+    const remainingItems = order.order_items.length - VISIBLE_ITEMS;
+    const itemsToShow = order.order_items.slice(0, VISIBLE_ITEMS);
+
     return (
-        <Card className="p-0 overflow-hidden border-l-4 border-l-brand">
+        <Card className={`p-0 overflow-hidden border-l-4 ${config.borderColor} flex flex-col h-full`}>
             {/* Header do Card */}
             <div className="p-4 2xl:py-5 bg-gray-50 border-b border-gray-100 flex justify-between items-start">
                 <div className="flex flex-col gap-1">
@@ -169,6 +181,9 @@ export default function OrderCard({ order, onStatusChange }: OrderCardProps) {
                     </div>
                     <span className="text-sm 2xl:text-base font-medium text-gray-700 truncate max-w-[200px]" title={order.customer_name}>
                         {order.customer_name}
+                    </span>
+                    <span className="text-sm font-medium text-gray-700 truncate max-w-[200px]" title={order.customer_phone}>
+                        {order.customer_phone}
                     </span>
                 </div>
 
@@ -186,11 +201,21 @@ export default function OrderCard({ order, onStatusChange }: OrderCardProps) {
                         <div key={`${order.id}-item-${idx}`} className="flex justify-between text-sm 2xl:text-base">
                             <div className="flex gap-2">
                                 <span className="font-bold text-gray-900">{item.quantity}x</span>
-                                <span className="text-gray-700">{item.name}</span>
+                                <span className="text-gray-700 line-clamp-1">{item.name}</span>
                             </div>
-                            <span className="text-gray-500">{fmtMoney(item.price_cents * item.quantity)}</span>
+                            <span className="text-gray-500 whitespace-nowrap">{fmtMoney(item.price_cents * item.quantity)}</span>
                         </div>
                     ))}
+                    
+                    {/* Indicador de mais itens */}
+                    {remainingItems > 0 && (
+                        <div 
+                            className="text-xs text-gray-400 italic mt-1 "
+                            
+                        >
+                            ...e mais {remainingItems} item(s). 
+                        </div>
+                    )}
                 </div>
 
                 <hr className="border-gray-100" />
@@ -222,19 +247,33 @@ export default function OrderCard({ order, onStatusChange }: OrderCardProps) {
                                 className="px-4"
                                 onClick={revertStatus}
                                 loading={loading}
+                                disabled={loading}
                                 title="Voltar status anterior"
                             >
                                 <FontAwesomeIcon icon={faArrowLeft} />
                             </Button>
                         )}
                         
+                        {/* Botão Principal (Avançar) */}
                         <Button 
                             variant={config.btnColor as "primary" | "secondary"} 
                             className="flex-1"
                             onClick={advanceStatus}
                             loading={loading}
+                            disabled={loading}
                         >
                             {config.btn}
+                        </Button>
+
+                        {/* Botão de Ver Detalhes (Olho) */}
+                        <Button 
+                            variant="secondary"
+                            className="px-4"
+                            onClick={() => onViewOrder && onViewOrder(order)}
+                            title="Ver detalhes do pedido"
+                            disabled={loading}
+                        >
+                            <FontAwesomeIcon icon={faEye} />
                         </Button>
                     </div>
                 )}

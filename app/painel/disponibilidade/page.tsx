@@ -15,6 +15,19 @@ export default function DisponibilidadePage() {
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
 
+    useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+        // Verifique aqui sua variável de estado (ex: isSaving, status === 'saving')
+        if (isSaving) { 
+            e.preventDefault();
+            e.returnValue = ""; 
+        }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+}, [isSaving]); // Adicione a variável de estado nas dependências
+
     // 1. Carregar Dados Iniciais
     useEffect(() => {
         const loadData = async () => {
