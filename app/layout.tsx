@@ -8,7 +8,7 @@ import Script from "next/script";
 
 export const metadata: Metadata = {
     title: "iMenu - Cardápio Digital",
-    description: "Interactive digital menu web app",
+    description: "O novo cardápio digital para delivery totalmente grátis.",
     icons: {
         icon: "/icons/favicon.png",
     },
