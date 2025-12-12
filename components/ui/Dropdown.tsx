@@ -29,7 +29,7 @@ export default function Dropdown({
 
     return (
         <div className="flex flex-col gap-1">
-            {label && <label className="text-sm font-medium 2xl:text-base">{label}</label>}
+            {label && <label className="text-xs font-medium 2xl:text-base">{label}</label>}
 
             <div
                 className="relative inline-block w-full cursor-pointer"

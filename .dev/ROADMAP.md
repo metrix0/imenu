@@ -36,9 +36,9 @@ Ver no whatsapp, meus arquivos deram problema
 - ~~descubrir a resolução certa do banner e mudar lá~~
 
 - ~~mobile adapt supportbutton and ? buttyon~~
-- Clarity
+- ~~Clarity~~
 - ~~Preencher Terms e condições +  /restaurante/dados~~
-- adicionar campo pro usuário colocar o pix dele
+- salvar payment method e payment info
 - XX Verificar e garantrir o posthog
 - XX Adicionar sentry (tentar em tudo)
 
