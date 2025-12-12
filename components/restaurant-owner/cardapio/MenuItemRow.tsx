@@ -108,15 +108,25 @@ export default function MenuItemRow({
     };
 
     const handleToggleAvailability = async (e: React.MouseEvent) => {
-        e.stopPropagation(); 
+        e.stopPropagation();
+
         const newState = !isAvailable;
-        setIsAvailable(newState); 
-        
+        setIsAvailable(newState);
+
         if (!isNew) {
             try {
-                await onSave({ ...item, is_available: newState });
-            } catch (error) {
-                setIsAvailable(!newState); 
+                const res = await fetch(`/api/items/${String(item.id)}/toggle`, {
+                    method: "PATCH",
+                });
+
+                const json = await res.json();
+
+                if (!res.ok) throw new Error(json.error || "Failed to toggle");
+
+                setIsAvailable(json.item.is_available);
+            } catch (err) {
+                console.error(err);
+                setIsAvailable(!newState); // rollback
             }
         }
     };

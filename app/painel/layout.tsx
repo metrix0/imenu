@@ -50,7 +50,7 @@ export default function PainelLayout({ children}: { children: React.ReactNode })
     const router = useRouter();
     const [isChecking, setIsChecking] = useState(true); // Evita piscar conteúdo protegido
 
-    
+
     // Ref para controlar o botão de suporte
     const supportBtnRef = useRef<SupportButtonRef>(null);
 
@@ -63,10 +63,10 @@ useEffect(() => {
                 process.env.NEXT_PUBLIC_SUPABASE_URL!,
                 process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
             );
-            
+
             // Tenta pegar ID do Zustand ou da URL (fallback)
             const targetId = restaurantId || (Array.isArray(params?.restauranteId) ? params.restauranteId[0] : params?.restauranteId);
-            
+
             if (!targetId) return;
 
             try {
@@ -77,14 +77,14 @@ useEffect(() => {
                 ]);
 
                 if (menuRes.data) setMenuId(menuRes.data.id);
-                
+
                 // Lógica de Verificação de Data
                 if (restRes.data) {
                     const closedDate = restRes.data.is_closed;
                     if (closedDate) {
                         const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
                         const savedDate = new Date(closedDate).toISOString().split("T")[0];
-                        
+
                         // Se a data salva for diferente de hoje (feriado passou), abre automaticamente
                         if (savedDate !== today) {
                             // Atualiza no banco para abrir (silenciosamente)
@@ -105,7 +105,7 @@ useEffect(() => {
                 console.error("Erro no layout:", err);
             }
         };
-        
+
         fetchContext();
     }, [restaurantId, params]);
 
@@ -113,7 +113,7 @@ useEffect(() => {
     useEffect(() => {
         const checkAuth = async () => {
             const { data: { session } } = await supabase.auth.getSession();
-            
+
             if (!session) {
                 // Não está logado -> Login
                 router.replace("/restaurante/login");
@@ -122,14 +122,14 @@ useEffect(() => {
 
             setIsChecking(false); // Libera a renderização
         };
-        
+
         checkAuth();
     }, [router]);
 
     if (isChecking) {
         return <div className="min-h-screen bg-gray-50 flex items-center justify-center">
             <Loader />
-        </div>; 
+        </div>;
     }
 
     // Função de Toggle (Chamada pelo botão/modal)
@@ -140,7 +140,7 @@ useEffect(() => {
         setIsTogglingStore(true);
         try {
             const newVal = action === "close" ? new Date().toISOString() : null;
-            
+
             // Chama API Unificada
             const res = await fetch(`/api/restaurants/${targetId}`, {
                 method: "PATCH",
@@ -162,7 +162,7 @@ useEffect(() => {
     const cardapioHref = menuId ? `${base}/cardapio/${menuId}` : `${base}/cardapio`;
     const configuracoesHref = `${base}/configuracoes`;
 
-    
+
     const menuItems: MenuItem[] = [
         { label: "Home", icon: faHome, href: `${base}/` },
         { label: "Pedidos", icon: faBox, href: `${base}/pedidos` },
@@ -188,7 +188,7 @@ useEffect(() => {
               `}
             </Script>
             {/* Modal de Confirmação para Fechar */}
-            <ConfirmModal 
+            <ConfirmModal
                 open={showCloseModal}
                 onClose={() => setShowCloseModal(false)}
                 onConfirm={() => handleStoreToggle("close")}
@@ -206,7 +206,7 @@ useEffect(() => {
             </div>
 
             <div className="hidden md:flex min-h-screen bg-gray-50">
-                
+
                 {/* Renderiza o botão flutuante e conecta a ref */}
                 <SupportButton ref={supportBtnRef} />
 
@@ -258,13 +258,13 @@ useEffect(() => {
                     </div>
 
                     {/* --- BOTÃO DE STATUS DA LOJA --- */}
-                    <div className={`mt-2 transition-all duration-300 ${expanded ? "w-full px-4" : "w-auto"}`}>
+                    <div className={`mt-2 2xl:mt-8 transition-all duration-300 ${expanded ? "w-full px-4" : "w-auto"}`}>
                         {expanded ? (
                             // GAVETA ABERTA: Botão com Texto
                             <button
                                 onClick={() => isStoreClosed ? handleStoreToggle("open") : setShowCloseModal(true)}
                                 disabled={isTogglingStore}
-                                className={` cursor-pointer w-full py-2 px-3 rounded-lg flex items-center justify-center gap-2 text-sm font-medium transition-all ${
+                                className={`whitespace-nowrap cursor-pointer w-full py-2 px-3 rounded-lg flex items-center justify-center gap-2 text-sm font-medium transition-all ${
                                     isStoreClosed 
                                         ? "bg-red-50 text-red-600 hover:bg-red-100 border border-red-200" 
                                         : "bg-green-50 text-green-700 hover:bg-green-100 border border-green-200"
@@ -275,8 +275,8 @@ useEffect(() => {
                             </button>
                         ) : (
                             // GAVETA FECHADA: Ícone Pulse
-                            <div className="flex justify-center py-2" title={isStoreClosed ? "Loja Fechada" : "Loja Aberta"}>
-                                <div className={`w-3 h-3 rounded-full relative ${isStoreClosed ? "bg-red-500" : "bg-green-500"}`}>
+                            <div className="flex justify-center py-2 mt-2 " title={isStoreClosed ? "Loja Fechada" : "Loja Aberta"}>
+                                <div className={`w-3 h-3 rounded-full relative  ${isStoreClosed ? "bg-red-500" : "bg-green-500"}`}>
                                     {/* Efeito Pulse apenas se aberto */}
                                     {!isStoreClosed && (
                                         <div className="absolute inset-0 rounded-full bg-green-500 animate-[pulseHalo_2s_infinite]"></div>
@@ -288,7 +288,7 @@ useEffect(() => {
 
                     {/* === MENU === */}
                     <nav className="flex-1 flex flex-col overflow-y-auto py-4 space-y-1 thin-scrollbar">
-                      
+
                         {menuItems.map((item, idx) => {
                             // 1. PRIMEIRO verificamos se é um divisor
                             if (item.type === "divider") {
@@ -317,7 +317,7 @@ useEffect(() => {
                                     <div className="flex items-center justify-center w-6 h-6 2xl:w-12 2xl:h-10">
                                         <FontAwesomeIcon
                                             icon={item.icon}
-                                            className={`text-lg transition-colors ${
+                                            className={`text-lg 2xl:text-2xl transition-colors ${
                                                 isActive
                                                     ? "text-brand"
                                                     : "text-gray-400 group-hover:text-gray-600"
@@ -334,7 +334,7 @@ useEffect(() => {
                                 </Link>
                             );
                         })}
-                      
+
 
                         {/* === BOTÃO DE AJUDA/SUPORTE (Abre via Ref) === */}
                         <button

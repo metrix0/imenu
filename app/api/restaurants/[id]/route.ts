@@ -46,7 +46,9 @@ export async function PATCH(
         rating: "rating",
         url_slug: "url_slug", // Permitir atualização explícita se necessário
         is_closed: "is_closed",
-        first_time: "first_time"
+        first_time: "first_time",
+        payment_method: "payment_method",
+        payment_info: "payment_info",
     };
 
     const jsonFields = ["address", "delivery_fee_json", "availability_json"];

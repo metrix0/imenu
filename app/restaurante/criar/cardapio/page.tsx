@@ -17,6 +17,8 @@ import Card from "@/components/ui/Card";
 import ScanMenuModal from "@/components/restaurant-owner/ScanMenuImageModal";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faWandMagicSparkles } from "@fortawesome/free-solid-svg-icons";
+import Dropdown from "@/components/ui/Dropdown";
+import Input from "@/components/ui/Input";
 
 type Category = { id: string; name: string; position: number };
 
@@ -45,6 +47,8 @@ export default function CriarCardapioPage() {
     const [isItemDetailsOpen, setIsItemDetailsOpen] = useState(false);
     const [itemToEditDetails, setItemToEditDetails] = useState<MenuItemType | null>(null);
     const [aiModalOpen, setAiModalOpen] = useState(false);
+    const [paymentMethod, setPaymentMethod] = useState("pix");
+    const [paymentInfo, setPaymentInfo] = useState("");
 
     const isFormValid = name.trim().length > 0;
 
@@ -76,14 +80,16 @@ export default function CriarCardapioPage() {
             // Leitura permitida via Supabase Client (conforme CONVENTIONS.md)
             const { data: restaurant, error: rError } = await supabase
                 .from("restaurants")
-                .select("id, name, logo_url, banner_url")
+                .select("id, name, logo_url, banner_url, payment_method, payment_info")
                 .eq("id", restaurantId)
                 .single();
 
             if (rError || !restaurant) throw new Error("Restaurante não encontrado.");
             
             setName(restaurant.name || "");
-            
+
+            setPaymentMethod(restaurant.payment_method || "pix");
+            setPaymentInfo(restaurant.payment_info || "");
             const logoPublic = restaurant.logo_url ? supabase.storage.from("restaurant-logos").getPublicUrl(restaurant.logo_url).data.publicUrl : null;
             const bannerPublic = restaurant.banner_url ? supabase.storage.from("menu-banners").getPublicUrl(restaurant.banner_url).data.publicUrl : null;
             
@@ -118,6 +124,19 @@ export default function CriarCardapioPage() {
             setError((err as Error).message);
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    const autoSave = async (field: string, value: string) => {
+        if (!restaurantId) return;
+        try {
+            await fetch(`/api/restaurants/${restaurantId}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ [field]: value }),
+            });
+        } catch (err) {
+            console.error("Erro ao salvar pagamento:", err);
         }
     };
 
@@ -230,13 +249,48 @@ export default function CriarCardapioPage() {
                         onError={handleVisualError}
                     />
 
-                    <div className="py-4"> 
+                    <div className="mt-4">
                         <StoreName 
                             value={name}
                             onChange={setName}
                             onBlur={handleNameBlur}
                         />
                     </div>
+
+                    <div className={"flex gap-6 mb-4"}>
+                        {/* MÉTODO DE PAGAMENTO */}
+                        <Dropdown
+                            label="Método de pagamento"
+                            options={[
+                                { value: "pix", label: "PIX" },
+                            ]}
+                            value={paymentMethod}
+                            onChange={(e) => {
+                                const method = (e.target.value as unknown) as "pix" | "deposit";
+                                setPaymentMethod(method);
+                            }}
+                        />
+
+                        {/* CAMPOS DINÂMICOS */}
+                        {(paymentMethod !== "pix" || paymentMethod) ? (
+                            <Input
+                                label="Chave PIX"
+                                placeholder="Ex: 123456789"
+                                value={paymentInfo}
+                                onChange={(e) => setPaymentInfo(e.target.value)}
+                                onBlur={() => autoSave("payment_info", paymentInfo)}
+                            />
+                        ) : (
+                            <Input
+                                label="Dados para Depósito"
+                                placeholder={`Banco, Agência, Conta, Tipo, Titular...`}
+                                value={paymentInfo}
+                                onChange={(e) => setPaymentInfo(e.target.value)}
+                                onBlur={() => autoSave("payment_info", paymentInfo)}
+                            />
+                        )}
+                    </div>
+
                 </Card>
 
                 <div className="flex justify-between items-center mb-4 2xl:mb-6 px-2">

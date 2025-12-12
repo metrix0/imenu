@@ -6,6 +6,8 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { icons } from "@/lib/fontawesome";
 import Card from "@/components/ui/Card";
 import Toast from "@/components/ui/Toast";
+import Input from "@/components/ui/Input";
+import Dropdown from "@/components/ui/Dropdown";
 
 // Sub-componentes
 import StoreVisuals from "./StoreVisuals";
@@ -20,8 +22,11 @@ interface StoreProfileProps {
         description: string | null;
         logo_url: string | null;
         banner_url: string | null;
+        payment_method: string
+        payment_info: string
     };
     compact?: boolean;
+
 }
 
 export default function StoreProfileManager({ restaurant, compact = false }: StoreProfileProps) {
@@ -34,6 +39,8 @@ export default function StoreProfileManager({ restaurant, compact = false }: Sto
 
     const [isSaving, setIsSaving] = useState(false);
     const [toast, setToast] = useState<{ msg: string, type: "success" | "error" } | null>(null);
+    const [paymentMethod, setPaymentMethod] = useState("pix");
+    const [paymentInfo, setPaymentInfo] = useState("");
 
     useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -58,6 +65,8 @@ export default function StoreProfileManager({ restaurant, compact = false }: Sto
             const { data } = supabase.storage.from("menu-banners").getPublicUrl(restaurant.banner_url);
             setBannerUrl(data.publicUrl);
         }
+        setPaymentMethod(restaurant.payment_method || "pix");
+        setPaymentInfo(restaurant.payment_info || "");
     }, [restaurant]);
 
     // --- AUTO-SAVE VIA API ---
@@ -150,6 +159,40 @@ export default function StoreProfileManager({ restaurant, compact = false }: Sto
                     />
                     
                     {/* Se tiver StoreBio, adicione aqui similar ao StoreName */}
+                </div>
+
+                <div className={"flex gap-6"}>
+                {/* MÉTODO DE PAGAMENTO */}
+                <Dropdown
+                    label="Método de pagamento"
+                    options={[
+                        { value: "pix", label: "PIX" },
+                    ]}
+                    value={paymentMethod}
+                    onChange={(e) => {
+                        const method = (e.target.value as unknown) as "pix" | "deposit";
+                        setPaymentMethod(method);
+                    }}
+                />
+
+                {/* CAMPOS DINÂMICOS */}
+                {paymentMethod === "pix" ? (
+                    <Input
+                        label="Chave PIX"
+                        placeholder="Ex: 123456789"
+                        value={paymentInfo}
+                        onChange={(e) => setPaymentInfo(e.target.value)}
+                        onBlur={() => autoSave("payment_info", paymentInfo)}
+                    />
+                ) : (
+                    <Input
+                        label="Dados para Depósito"
+                        placeholder={`Banco, Agência, Conta, Tipo, Titular...`}
+                        value={paymentInfo}
+                        onChange={(e) => setPaymentInfo(e.target.value)}
+                        onBlur={() => autoSave("payment_info", paymentInfo)}
+                    />
+                )}
                 </div>
             </Card>
 

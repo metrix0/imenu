@@ -18,7 +18,7 @@ const QRCodePopupContent = ({ url, phone, onClose }: { url: string; phone: strin
         </button>
 
         <div className="text-center">
-            <h3 className="mb-4 text-lg font-semibold text-gray-800">Suporte via WhatsApp</h3>
+            <h3 className="mb-4 text-lg font-semibold text-gray-800">Scaneie o QR Code</h3>
             <div className="rounded-md border border-gray-200 p-4 inline-block">
                 <img
                     src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(
@@ -29,7 +29,7 @@ const QRCodePopupContent = ({ url, phone, onClose }: { url: string; phone: strin
                     height={180}
                 />
             </div>
-            <p className="mt-4 text-sm text-gray-600">Ou adicione manualmente:</p>
+            <p className="mt-4 text-sm text-gray-600">Ou adicione no Whatsapp:</p>
             <p className="text-lg font-medium text-gray-900 select-all">{phone}</p>
         </div>
     </div>
