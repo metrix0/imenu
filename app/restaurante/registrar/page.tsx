@@ -32,6 +32,7 @@ export default function RestaurantRegistrationPage() {
   const [errorMsg, setErrorMsg] = useState("");
   const [isPhoneFocused, setIsPhoneFocused] = useState(false);
   const [restCount, setRestCount] = useState<number>(0);
+    const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   
 
@@ -51,7 +52,9 @@ export default function RestaurantRegistrationPage() {
     email.includes(".") && 
     fullName.length > 3 && 
     phone.length >= 14 && 
-    password.length >= 6;
+    password.length >= 6 &&
+      acceptedTerms; // <-- NEW
+
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let value = e.target.value.replace(/\D/g, "");
@@ -282,6 +285,27 @@ const handleRegister = async () => {
                             <p className="text-xs text-gray-400 pt-1 2xl:pt-2 2xl:text-sm">Mínimo de 6 caracteres.</p>
                         </div>
 
+                        <div className="flex items-center gap-2 mt-2">
+                            <input
+                                type="checkbox"
+                                id="acceptTerms"
+                                checked={acceptedTerms}
+                                onChange={(e) => setAcceptedTerms(e.target.checked)}
+                                className="h-4 w-4 cursor-pointer opacity-40"
+                            />
+
+                            <label htmlFor="acceptTerms" className="text-xs 2xl:text-sm text-gray-600 cursor-pointer leading-tight">
+                                Eu li e aceito os{" "}
+                                <a href="dados/termos" target="_blank" className="text-blue-600 underline">
+                                    Termos de Uso
+                                </a>{" "}
+                                e a{" "}
+                                <a href="dados/privacidade" target="_blank" className="text-blue-600 underline">
+                                    Política de Privacidade
+                                </a>.
+                            </label>
+                        </div>
+
                         {errorMsg && (
                             <div className="p-3 bg-red-50 border border-red-100 rounded-md text-sm text-red-600 text-center">
                                 {errorMsg}
@@ -289,9 +313,9 @@ const handleRegister = async () => {
                         )}
                     </div>
 
-                        <div className={`mt-8 flex justify-center w-full ${!isValid ? "cursor-not-allowed" : ""}`}>
+                        <div className={`mt-2 flex justify-center w-full ${!isValid ? "cursor-not-allowed" : ""}`}>
                             <Tooltip
-                                text="Preencha os dados obrigatórios"
+                                text="Preencha os dados obrigatórios e aceite os termos"
                                 className={isValid ? "!hidden" : ""}
                                 parentClassName={"w-full"}
                             >

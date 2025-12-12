@@ -23,21 +23,24 @@ Ver no whatsapp, meus arquivos deram problema
 
 ## Joao
 
-- **corrigir erros txt**
+- ~~**corrigir erros txt**~~
 - update cart modal upon geolocation function from rafa + colocar placeholder.png item ao dicionar novo item
-- /criar e /painel 1920 adaptation (responsividade)
-- DEPLOY VERCEL LIMITADO GITHUB NAO commits fack
+- ~~/criar e /painel 1920 adaptation (responsividade)~~
 - rate limit, DB backups, remover bibliotecas ruins (mostra no deploy vercel)
 
 - ### deploy
 
-- só deixar no max 10 restaurantes na DB
-- domínio
-- Verificar e garantrir o posthog
-- Adicionar sentry (tentar em tudo)
-- descubrir a resolução certa do banner e mudar lá
-- Preencher Terms e condições +  /restaurante/dados 
-- mobile adapt supportbutton and ? buttyon
+- ~~só deixar no max 10 restaurantes na DB~~
+- ~~DEPLOY VERCEL LIMITADO GITHUB NAO commits fack~~
+- ~~domínio~~
+- ~~descubrir a resolução certa do banner e mudar lá~~
+
+- ~~mobile adapt supportbutton and ? buttyon~~
+- Clarity
+- ~~Preencher Terms e condições +  /restaurante/dados~~
+- adicionar campo pro usuário colocar o pix dele
+- XX Verificar e garantrir o posthog
+- XX Adicionar sentry (tentar em tudo)
 
 - ### costumer
 
