@@ -48,11 +48,11 @@ export default function MenuItemRow({
 
     // Estados locais
     const [name, setName] = useState(item.name ?? "");
-    const [description, setDescription] = useState(item.description || "");
-    const [priceCents, setPriceCents] = useState(item.price_cents);
-    const [imageUrl, setImageUrl] = useState(item.image_url); 
-    const [imagePath, setImagePath] = useState(item.image_path);
-    const [isAvailable, setIsAvailable] = useState(item.is_available);
+    const [description, setDescription] = useState(item.description ?? "");
+    const [priceCents, setPriceCents] = useState(item.price_cents ?? 0);
+    const [imageUrl, setImageUrl] = useState(item.image_url ?? null); 
+    const [imagePath, setImagePath] = useState(item.image_path ?? null);
+    const [isAvailable, setIsAvailable] = useState(item.is_available ?? false);
 
     const nameInputRef = useRef<HTMLInputElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -310,7 +310,7 @@ export default function MenuItemRow({
                 <div className="flex-1 space-y-2 2xl:space-y-0 w-full ">
                     <input
                         ref={nameInputRef}
-                        value={name}
+                        value={name ?? ""}
                         onChange={(e) => setName(e.target.value)}
                         onBlur={() => autoSave()}
                         onKeyDown={handleKeyDown}
@@ -319,7 +319,7 @@ export default function MenuItemRow({
                         disabled={isLoading}
                     />
                     <input 
-                         value={description}
+                         value={description ?? ""}
                          onChange={(e) => setDescription(e.target.value)}
                          onBlur={() => autoSave()}
                          onKeyDown={handleKeyDown}
