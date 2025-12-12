@@ -44,11 +44,14 @@ export default function ManageCategoryModal({
                     .from("categories")
                     .update({ name })
                     .eq("id", categoryToEdit.id);
-                if (error) throw error;
+                if (error){
+                    console.error("Supabase Update Error:", error); // Log detalhado
+                    throw new Error(error.message); // Lança mensagem legível
+                }
             } else {
                 // CRIAR (Busca a última posição para colocar no fim)
                 // Nota: Idealmente faríamos isso no backend, mas aqui funciona para MVP
-                const { count } = await supabase
+                const { count, error: countError } = await supabase
                     .from("categories")
                     .select("*", { count: 'exact', head: true })
                     .eq("restaurant_id", restaurantId);
@@ -60,14 +63,17 @@ export default function ManageCategoryModal({
                         restaurant_id: restaurantId,
                         position: (count || 0) + 1
                     });
-                if (error) throw error;
+                if (error){
+                    console.error("Supabase Insert Error:", error);
+                    throw new Error(error.message);
+                } 
             }
 
             onSuccess(); // Recarrega a página pai
             onClose();
-        } catch (error) {
-            console.error("Erro ao salvar categoria:", error);
-            alert("Erro ao salvar categoria.");
+        } catch (error: any) {
+            console.error("Erro completo:", error); // Vê o objeto todo
+            alert(`Erro ao salvar categoria: ${error.message || "Erro desconhecido"}`);
         } finally {
             setIsLoading(false);
         }
