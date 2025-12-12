@@ -23,22 +23,11 @@ Ver no whatsapp, meus arquivos deram problema
 
 ## Joao
 
-- ~~**corrigir erros txt**~~
 - update cart modal upon geolocation function from rafa + colocar placeholder.png item ao dicionar novo item
-- ~~/criar e /painel 1920 adaptation (responsividade)~~
 - rate limit, DB backups, remover bibliotecas ruins (mostra no deploy vercel)
 
 - ### deploy
 
-- ~~só deixar no max 10 restaurantes na DB~~
-- ~~DEPLOY VERCEL LIMITADO GITHUB NAO commits fack~~
-- ~~domínio~~
-- ~~descubrir a resolução certa do banner e mudar lá~~
-
-- ~~mobile adapt supportbutton and ? buttyon~~
-- ~~Clarity~~
-- ~~Preencher Terms e condições +  /restaurante/dados~~
-- salvar payment method e payment info
 - XX Verificar e garantrir o posthog
 - XX Adicionar sentry (tentar em tudo)
 
@@ -132,3 +121,4 @@ rafa acho que seus componentes de endereço nao tao usando a lib geocoding
 
 Da pra chegar até o fim do /criar e no ultimo continuar, o email é invalido
 arrumar loadings no painel
+!!!!! SE O usuário entrar pelo mobile, registrar, ele cai no /criar, e fica uma bosta, mas se ele logar pelo pc, ele cai direto no painel e não finaliza o /criar
