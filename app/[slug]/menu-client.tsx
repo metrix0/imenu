@@ -351,7 +351,7 @@ export default function MenuClientPage({
             <div className="mt-8 px-4 md:mx-44 space-y-12 pb-20 2xl:mx-80 2xl:mt-12">
                 {categories.map((cat) => (
                     <div key={cat.id}>
-                    {categories[0].position === 1
+                    {cat.position === 1
                         ?
                         <div key={cat.id}>
 
