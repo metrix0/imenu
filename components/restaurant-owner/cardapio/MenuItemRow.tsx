@@ -47,7 +47,7 @@ export default function MenuItemRow({
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
     // Estados locais
-    const [name, setName] = useState(item.name || "");
+    const [name, setName] = useState(item.name ?? "");
     const [description, setDescription] = useState(item.description || "");
     const [priceCents, setPriceCents] = useState(item.price_cents);
     const [imageUrl, setImageUrl] = useState(item.image_url); 
