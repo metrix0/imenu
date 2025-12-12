@@ -197,7 +197,7 @@ export default function PainelPedidosAtivosPage() {
                         <img src={"images/sleeping_emoji.png"} alt="Sem pedidos" className="h-full w-full object-contain" />
                     </div>
                     <h3 className="text-xl font-bold text-gray-900 2xl:text-3xl">Sem pedidos ativos</h3>
-                    <p className="text-gray-500 mt-2 2xl:text-lg">Sua loja está aberta e aguardando novos pedidos.</p>
+                    <p className="text-gray-500 mt-2 2xl:text-lg">Esta página recebe pedidos automaticamente, não é necessário atualizar.</p>
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 2xl:gap-10">
