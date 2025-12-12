@@ -156,33 +156,33 @@ export default function ComplementosTab({ restaurantId, onOpenItemDetails }: Com
             {/* Lista de Grupos */}
             <div className="grid grid-cols-1 gap-3">
                 {filteredGroups.map(group => (
-                    <div key={group.id} className="bg-white border border-gray-200 rounded-lg p-4 flex flex-col sm:flex-row sm:items-center justify-between hover:border-brand/30 transition-colors shadow-sm">
+                    <div key={group.id} className="bg-white border border-gray-200 rounded-lg p-4 2xl:p-6 flex flex-col sm:flex-row sm:items-center justify-between hover:border-brand/30 transition-colors shadow-sm">
                         <div className="mb-2 sm:mb-0">
                             <h4 className="text-lg font-bold text-gray-900">{group.name}</h4>
-                            <div className="text-sm text-gray-500 flex items-center gap-2 mt-1">
-                                <span className="bg-gray-100 px-2 py-0.5 rounded text-xs font-medium text-gray-600">
+                            <div className="text-sm text-gray-500 flex items-center gap-2 mt-1 2xl:mt-2">
+                                <span className="bg-gray-100 px-2 py-0.5 rounded text-xs font-medium text-gray-600 2xl:text-base">
                                     {group.min_select > 0 ? "Obrigatório" : "Opcional"}
                                 </span>
                                 <span>•</span>
-                                <span className="flex items-center gap-1">
-                                    <FontAwesomeIcon icon={faUtensils} className="text-xs" />
+                                <span className="flex items-center gap-1 2xl:text-base">
+                                    <FontAwesomeIcon icon={faUtensils} className="text-xs 2xl:text-base" />
                                     {group.item_name}
                                 </span>
                             </div>
                         </div>
 
-                        <div className="flex items-center gap-2 self-end sm:self-auto">
+                        <div className="flex items-center gap-2 2xl:gap-4 self-end sm:self-auto">
                             <Button 
                                 variant="secondary" 
                                 onClick={() => handleEditGroup(group)}
-                                className="text-xs h-8 px-3"
+                                className="text-xs h-8 px-3 2xl:h-10"
                             >
                                 <FontAwesomeIcon icon={faEdit} className="mr-2" />
                                 Editar
                             </Button>
                             <button 
                                 onClick={() => handleDeleteGroup(group.id)}
-                                className="cursor-pointer w-8 h-8 flex items-center justify-center text-gray-400 hover:text-red-600 transition-all"
+                                className="cursor-pointer 2xl:text-xl w-8 h-8 flex items-center justify-center text-gray-400 hover:text-red-600 transition-all"
                                 title="Excluir grupo"
                             >
                                 <FontAwesomeIcon icon={faTrash} />

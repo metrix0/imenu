@@ -53,7 +53,18 @@ const SubitemPriceInput = ({ priceCents, onChange }: { priceCents: number; onCha
             setLocalValue((newCents / 100).toFixed(2));
         } else { setLocalValue((priceCents / 100).toFixed(2)); }
     };
-    return <input className="w-20 pl-1 pr-1 py-1 text-sm text-right border rounded border-gray-200 focus:border-brand focus:outline-none" type="number" step="0.5" min="0" value={localValue} onChange={(e) => setLocalValue(e.target.value)} onBlur={handleBlur} />;
+
+    return (
+        <input 
+            className="w-full pl-6 pr-1 py-1 text-sm 2xl:text-base text-right border rounded border-gray-200 focus:border-brand focus:outline-none"
+            type="number" 
+            step="0.5" 
+            min="0"
+            value={localValue}
+            onChange={(e) => setLocalValue(e.target.value)}
+            onBlur={handleBlur}
+        />
+    );
 };
 
 export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId }: ItemDetailsModalProps) {
@@ -277,15 +288,15 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId }
             <div className="w-full max-w-2xl bg-white rounded-lg flex flex-col max-h-[85vh]">
                 <div className="p-6 border-b border-gray-100 flex justify-between items-center shrink-0">
                     <div>
-                        <h2 className="text-xl font-bold text-gray-900">Complementos</h2>
-                        <p className="text-gray-500 text-sm">Item: <span className="font-medium text-brand">{item?.name}</span></p>
+                        <h2 className="text-xl 2xl:text-2xl font-bold text-gray-900">Complementos</h2>
+                        <p className="text-gray-500 text-sm 2xl:text-base 2xl:mt-1">Item: <span className="font-medium text-brand">{item?.name}</span></p>
                     </div>
                     <button onClick={onClose} className="cursor-pointer text-gray-400 hover:text-gray-600">
                         <FontAwesomeIcon icon={icons.faTimes} className="text-xl" />
                     </button>
                 </div>
 
-                <div className="p-6 overflow-y-auto flex-1 space-y-6">
+                <div className="p-6 overflow-y-auto flex-1 space-y-6 2xl:text-base">
                     {/* LISTA DE GRUPOS ATUAIS */}
                     {groups.map((group) => (
                         <div 
@@ -304,12 +315,12 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId }
                                     </div>
                                     <div className="flex-1">
                                         <input 
-                                            className="bg-transparent font-bold text-gray-800 text-lg w-full focus:outline-none focus:border-b focus:border-brand"
+                                            className="bg-transparent font-bold text-gray-800 text-lg 2xl:text-xl w-full focus:outline-none focus:border-b focus:border-brand"
                                             value={group.name}
                                             onChange={(e) => handleUpdateGroup(group.id, { name: e.target.value })}
                                             onMouseDown={e => e.stopPropagation()} 
                                         />
-                                        <div className="flex gap-4 mt-2 text-sm text-gray-600">
+                                        <div className="flex gap-4 mt-2 text-sm 2xl:text-base text-gray-600">
                                             <label className="flex items-center gap-2 cursor-pointer select-none">
                                                 <input 
                                                     type="checkbox" 
@@ -319,11 +330,11 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId }
                                                 />
                                                 Obrigatório
                                             </label>
-                                            <div className="flex items-center gap-2">
+                                            <div className="flex items-center gap-2 2xl:text-base">
                                                 <span>Até:</span>
                                                 <input 
                                                     type="number" 
-                                                    className="w-12 p-1 text-center rounded border border-gray-300 text-sm"
+                                                    className="w-12 p-1 text-center rounded border border-gray-300 text-sm 2xl:text-base"
                                                     value={group.max_select}
                                                     onChange={(e) => handleUpdateGroup(group.id, { max_select: parseInt(e.target.value) || 1 })}
                                                     onMouseDown={e => e.stopPropagation()}
@@ -348,22 +359,22 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId }
                                         onDragEnd={handleSubitemDragEnd}
                                         onDragOver={(e) => handleSubitemDragOver(e, group.id, sub.id)}
                                     >
-                                        <div className="cursor-grab text-gray-300 p-1"><FontAwesomeIcon icon={faGripVertical} className="text-xs" /></div>
+                                        <div className="cursor-grab text-gray-300 p-1 2xl:p-2"><FontAwesomeIcon icon={faGripVertical} className="text-xs 2xl:text-base" /></div>
                                         <input 
-                                            className="flex-1 text-sm text-gray-700 focus:outline-none bg-transparent"
+                                            className="flex-1 text-sm 2xl:text-base text-gray-700 focus:outline-none bg-transparent"
                                             value={sub.name}
                                             onChange={(e) => handleUpdateSubitem(sub.id, { name: e.target.value })}
                                             onMouseDown={e => e.stopPropagation()}
                                         />
                                         <div className="flex items-center gap-1 relative">
-                                            <span className="text-xs text-gray-400 ">R$</span>
+                                            <span className="text-xs text-gray-400 2xl:text-base">R$</span>
                                             <SubitemPriceInput 
                                                 priceCents={sub.price_cents}
                                                 onChange={(newCents) => handleUpdateSubitem(sub.id, { price_cents: newCents })}
                                             />
                                         </div>
                                         <button onClick={() => handleDeleteSubitem(sub.id)} className="cursor-pointer text-gray-400 hover:text-red-500 w-6">
-                                            <FontAwesomeIcon icon={faTrash} className="text-xs" />
+                                            <FontAwesomeIcon icon={faTrash} className="text-xs 2xl:text-lg" />
                                         </button>
                                     </div>
                                 ))}

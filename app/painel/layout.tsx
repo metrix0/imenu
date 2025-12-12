@@ -203,13 +203,13 @@ useEffect(() => {
                 {/* === SIDEBAR === */}
                 <aside
                     className={`fixed h-full flex flex-col border-r border-gray-200 bg-white transition-all duration-300 z-20 ${
-                        expanded ? "w-60" : "w-[4.5rem]"
+                        expanded ? "w-60 2xl:w-70" : "w-[5.2vw]"
                     }`}
                 >
                     {/* Botão Expandir/Contrair */}
                     <button
                         onClick={() => setExpanded(!expanded)}
-                        className="cursor-pointer absolute -right-3 top-20 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-white border border-gray-200 shadow hover:bg-gray-50 text-xs"
+                        className="cursor-pointer absolute -right-4 2xl:-right-5 top-20 z-10 flex h-8 w-8 2xl:h-10 2xl:w-10 items-center justify-center rounded-full bg-white border border-gray-200 shadow hover:bg-gray-50 text-sm 2xl:text-base"
                     >
                         <FontAwesomeIcon
                             icon={expanded ? faChevronLeft : faChevronRight}
@@ -217,20 +217,18 @@ useEffect(() => {
                         />
                     </button>
 
-                    {/* Logo Area */}
-                    <div className="flex items-center justify-center mt-4 mb-2 h-[70px] relative">
-                        {/* Logo Full */}
+                    <div className="flex items-center justify-center mt-4 mb-2 h-[70px] 2xl:h-[90px] relative">
                         <div
                             className={`transition-all duration-300 flex items-center justify-center ${
                                 expanded ? "scale-100 opacity-100" : "scale-0 opacity-0 absolute"
                             }`}
                         >
                             <Image
-                                src="/logo-full.png"
+                                src="/logos/CombinationMarkLogo_Brand.png"
                                 alt="Logo"
                                 width={120}
                                 height={40}
-                                className="transition-all duration-300"
+                                className="transition-all duration-300 2xl:w-35"
                             />
                         </div>
                         {/* Logo Icon */}
@@ -240,11 +238,11 @@ useEffect(() => {
                             }`}
                         >
                             <Image
-                                src="/logo-icon_.png"
+                                src="/logos/LogoMark_Brand.png"
                                 alt="Logo"
                                 width={32}
                                 height={32}
-                                className="transition-all duration-300"
+                                className="transition-all duration-300  2xl:w-10"
                             />
                         </div>
                     </div>
@@ -306,7 +304,7 @@ useEffect(() => {
                                     }`}
                                     title={!expanded ? item.label : ""}
                                 >
-                                    <div className="flex items-center justify-center w-6 h-6">
+                                    <div className="flex items-center justify-center w-6 h-6 2xl:w-12 2xl:h-10">
                                         <FontAwesomeIcon
                                             icon={item.icon}
                                             className={`text-lg transition-colors ${
@@ -336,13 +334,13 @@ useEffect(() => {
                             }`}
                             title={!expanded ? "Ajuda" : ""}
                         >
-                            <div className="flex items-center justify-center w-6 h-6">
+                            <div className="flex items-center justify-center w-6 h-6 2xl:w-12 2xl:h-10">
                                 <FontAwesomeIcon
                                     icon={faCircleQuestion}
-                                    className="text-lg text-gray-400 group-hover:text-gray-600 transition-colors"
+                                    className="text-lg 2xl:text-2xl text-gray-400 group-hover:text-gray-600 transition-colors"
                                 />
                             </div>
-                            <span className={`whitespace-nowrap overflow-hidden text-sm transition-all duration-300 ${expanded ? "w-auto opacity-100 ml-0" : "w-0 opacity-0 ml-0"}`}>
+                            <span className={`2xl:text-lg whitespace-nowrap overflow-hidden text-sm transition-all duration-300 ${expanded ? "w-auto opacity-100 ml-0" : "w-0 opacity-0 ml-0"}`}>
                                 Ajuda
                             </span>
                         </button>

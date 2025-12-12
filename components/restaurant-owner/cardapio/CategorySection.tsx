@@ -166,15 +166,14 @@ export default function CategorySection({
                     <h3 className="text-xl font-bold text-gray-800 tracking-tight">{category.name}</h3>
                 </div>
                 
-                <button onClick={onEditCategory} className="text-xs font-medium text-gray-400 hover:text-brand transition-colors cursor-pointer">
+                <button onClick={onEditCategory} className="text-xs 2xl:text-base font-medium text-gray-400 hover:text-brand transition-colors cursor-pointer">
                     Editar categoria
                 </button>
             </div>
 
-            <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-                {/* Loop dos Itens Locais (para refletir o drag instantaneamente) */}
-                {localItems.map((item) => (
-                    <div
+            <div className="bg-white border border-gray-200 rounded-xl 2xl:mt-4 overflow-hidden shadow-sm 2xl:sadow-lg">
+                {items.map((item) => (
+                    <MenuItemRow
                         key={item.id}
                         draggable={!isCreating} // Desabilita drag durante criação
                         onDragStart={(e) => handleDragStart(e, item.id)}
@@ -204,11 +203,13 @@ export default function CategorySection({
                 )}
 
                 {!isCreating && (
-                    <button onClick={() => setIsCreating(true)} className="cursor-pointer w-full py-4 px-4 text-left text-brand text-sm font-semibold hover:bg-orange-50/50 transition-colors flex items-center gap-3 group">
-                        <div className="w-5 h-5 rounded-full border-2 border-brand flex items-center justify-center">
+                    <button onClick={() => setIsCreating(true)} className="cursor-pointer 2xl:text-base w-full py-4 px-4 2xl:px-6 2xl:py-6 text-left text-brand text-sm font-semibold hover:bg-orange-50/50 transition-colors flex items-center gap-3 group">
+                        <div className="w-5 h-5 2xl:w-6 2xl:h-6 rounded-full border-2 border-brand flex items-center justify-center">
                             <FontAwesomeIcon icon={icons.faPlus} className="text-[10px]" />
                         </div>
-                        Adicionar item em <span className="underline decoration-brand/30 group-hover:decoration-brand">{category.name}</span>
+                        <div>
+                            Adicionar item em <span className="underline decoration-brand/30 group-hover:decoration-brand ml-1">{category.name}</span>
+                        </div>
                     </button>
                 )}
             </div>

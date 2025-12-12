@@ -130,13 +130,13 @@ export default function PayoutsDashboard({ menuId, startDate, endDate }: Payouts
     return (
         <Card>
             <div className="mb-6">
-                <h2 className="text-lg font-bold text-gray-900">Histórico de Repasses</h2>
-                <p className="text-sm text-gray-500">Acompanhe os valores transferidos semanalmente.</p>
+                <h2 className="text-lg font-bold text-gray-900 2xl:text-xl">Histórico de Repasses</h2>
+                <p className="text-sm text-gray-500 2xl:text-lg">Acompanhe os valores transferidos semanalmente.</p>
             </div>
 
             <div className="space-y-3">
                 {payouts.length === 0 ? (
-                    <div className="text-center py-8 text-gray-400 border-2 border-dashed border-gray-100 rounded-lg">
+                    <div className="text-center 2xl:text-lg 2xl:py-15 py-8 text-gray-400 border-2 border-dashed border-gray-100 rounded-lg">
                         Nenhum pagamento encontrado neste período.
                     </div>
                 ) : (

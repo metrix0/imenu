@@ -122,7 +122,7 @@ export default function DisponibilidadePage() {
     }
 
     return (
-        <div className="max-w-6xl mx-auto pb-20 px-4 sm:px-6 pt-8">
+        <div className="max-w-6xl 2xl:max-w-[100rem] 2xl:w-full mx-auto pb-20 px-4 sm:px-6 pt-8">
             <div className="mb-8 flex flex-col sm:flex-row sm:items-end justify-between gap-4 px-2">
                 <div>
                     <div className="flex items-center gap-2">
@@ -138,7 +138,7 @@ export default function DisponibilidadePage() {
                             />
                         </Tooltip>
                     </div>
-                    <p className="text-gray-500 mt-1">Defina quando sua loja estará aberta para receber pedidos.</p>
+                    <p className="text-gray-500 mt-1 2xl:text-lg">Defina quando sua loja estará aberta para receber pedidos.</p>
                 </div>
                 
                 <div className="text-sm font-medium h-6 flex items-center">
@@ -152,7 +152,7 @@ export default function DisponibilidadePage() {
                 </div>
             </div>
 
-            <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm overflow-x-auto">
+            <div className="bg-white border border-gray-200 2xl:min-w-[1400px] 2xl:-ml-20 rounded-xl p-6 shadow-sm overflow-x-auto">
                 <div className="min-w-[700px]">
                     <WeeklyScheduleClick 
                         value={availability} 

@@ -44,7 +44,7 @@ export default function OrdersTable({ orders, isLoading, onViewOrder }: OrdersTa
             canceled: "Cancelado",
         };
         return (
-            <span className={`px-3 py-1 rounded-full text-xs font-medium ${map[status] || "bg-gray-100"}`}>
+            <span className={`px-3 py-1 rounded-full text-xs 2xl:text-base font-medium border ${map[status] || "bg-gray-100"}`}>
                 {label[status] || status}
             </span>
         );
@@ -53,7 +53,7 @@ export default function OrdersTable({ orders, isLoading, onViewOrder }: OrdersTa
     return (
         <Card className="p-0 overflow-hidden border border-gray-200 shadow-sm">
             {/* Header da Tabela */}
-            <div className="bg-gray-50 border-b border-gray-200 grid grid-cols-12 px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">
+            <div className="bg-gray-50 border-b border-gray-200 grid grid-cols-12 px-6 2xl:px-8 2xl:py-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider 2xl:text-sm">
                 <div className="col-span-2">Número</div>
                 <div className="col-span-3">Cliente</div>
                 <div className="col-span-2">Data</div>
@@ -70,14 +70,14 @@ export default function OrdersTable({ orders, isLoading, onViewOrder }: OrdersTa
             ) : (
                 <div className="divide-y divide-gray-100">
                     {orders.length === 0 ? (
-                        <div className="p-10 text-center text-gray-500">
+                        <div className="p-10 text-center text-gray-500 2xl:text-lg 2xl:p-18">
                             Nenhum pedido encontrado com estes filtros.
                         </div>
                     ) : (
                         orders.map((order) => (
                             <div 
                                 key={order.id} 
-                                className="grid grid-cols-12 px-6 py-4 items-center hover:bg-gray-50 transition-colors text-sm text-gray-700"
+                                className="grid grid-cols-12 px-6 py-4 2xl:py-5 items-center hover:bg-gray-50 transition-colors text-sm 2xl:text-[1.1rem] text-gray-700"
                             >
                                 <div className="col-span-2 font-bold text-gray-900">
                                     #{order.display_id || order.id.slice(0, 4)}
@@ -97,7 +97,7 @@ export default function OrdersTable({ orders, isLoading, onViewOrder }: OrdersTa
                                 <div className="col-span-1 text-right">
                                     <button 
                                         onClick={() => onViewOrder && onViewOrder(order)}
-                                        className="cursor-pointer text-gray-400 hover:text-brand transition-colors p-2" 
+                                        className="cursor-pointer text-gray-400 hover:text-brand transition-colors p-2"
                                         title="Ver Detalhes"
                                     >
                                         <FontAwesomeIcon icon={faEye} />

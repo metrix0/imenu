@@ -397,8 +397,8 @@ const handleNameUpdate = async () => {
                     {/* HEADER & LOGO */}
                     <div className="flex flex-col">
 
-                        <h1 className="text-3xl font-bold text-gray-900">Configurações</h1>
-                        <p className="text-gray-600 mt-1">
+                        <h1 className="text-3xl 2xl:text-4xl font-bold text-gray-900">Configurações</h1>
+                        <p className="text-gray-600 mt-1 2xl:text-lg">
                             {restaurant
                                 ? <>Gerenciando: <span className="font-semibold text-brand">{restaurant.name}</span></>
                                 : "Gerencie sua conta e crie seu restaurante."}
@@ -471,8 +471,8 @@ const handleNameUpdate = async () => {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg bg-gray-50">
                                     <div>
-                                        <p className="text-sm font-medium text-gray-500">E-mail</p>
-                                        <p className="text-gray-900 font-medium">{user?.email}</p>
+                                        <p className="text-sm 2xl:text-base font-medium text-gray-500">E-mail</p>
+                                        <p className="text-gray-900 font-medium 2xl:mt-1">{user?.email}</p>
                                     </div>
                                     <Button variant="secondary" onClick={() => router.push("/painel/configuracoes/atualizando-email")}>
                                         Alterar
@@ -480,8 +480,8 @@ const handleNameUpdate = async () => {
                                 </div>
                                 <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg bg-gray-50">
                                     <div>
-                                        <p className="text-sm font-medium text-gray-500">Senha</p>
-                                        <p className="text-gray-900 font-medium">••••••••</p>
+                                        <p className="text-sm 2xl:text-base font-medium text-gray-500">Senha</p>
+                                        <p className="text-gray-900 font-medium 2xl:mt-1">••••••••</p>
                                     </div>
                                     <Button variant="secondary" onClick={() => router.push("/painel/configuracoes/nova-senha")}>
                                         Alterar
@@ -522,7 +522,7 @@ const handleNameUpdate = async () => {
                                         {qrCodeUrl ? (
                                             <img src={qrCodeUrl} alt="QR Code" className="w-48 h-48 rounded-md border border-gray-200 mb-4" />
                                         ) : (
-                                            <div className="w-48 h-48 flex items-center justify-center bg-gray-200 rounded-md mb-4 text-gray-500 text-sm">
+                                            <div className="w-48 h-48 flex items-center justify-center bg-gray-200 rounded-md mb-4 text-gray-500 2xl:text-base text-sm">
                                                 Carregando QR...
                                             </div>
                                         )}
@@ -544,7 +544,7 @@ const handleNameUpdate = async () => {
                             {/* --- TEMPO DE PREPARO --- */}
                             <Card>
                                 <h2 className="text-xl font-medium text-gray-900 mb-2">Tempo Médio de Preparo</h2>
-                                <p className="text-gray-500 text-sm mb-6">Escolha como o tempo de entrega estimado é calculado. (Para cálculo automático é necessário pelo menos uma semana de uso)</p>
+                                <p className="text-gray-500 text-sm 2xl:text-base mb-6">Escolha como o tempo de entrega estimado é calculado. (Para cálculo automático é necessário pelo menos uma semana de uso)</p>
 
                                 <div className="space-y-6">
                                     <div className="flex gap-6">
@@ -621,7 +621,7 @@ const handleNameUpdate = async () => {
                                         </Button>
                                     </div>
 
-                                    <div className="mt-4 p-3 rounded-md border border-gray-200 bg-gray-50 text-gray-700 text-sm flex justify-between items-center">
+                                    <div className="mt-4 p-3 rounded-md border border-gray-200 bg-gray-50 text-gray-700 2xl:text-base text-sm flex justify-between items-center">
                                         <span>Estimativa atual visível aos clientes:</span>
                                         <span className="font-bold text-lg text-brand">
                                             {restaurant.prep_time_min_minutes || "?"}–{restaurant.prep_time_max_minutes || "?"} min
@@ -638,7 +638,7 @@ const handleNameUpdate = async () => {
                                     {/* Bloco de Texto (Título e descrição) */}
                                     <div>
                                         <h2 className="text-xl font-medium text-gray-900 mb-2">Cardápio Principal</h2>
-                                        <p className="text-gray-500 text-sm mb-2">Gerencie o cardápio ativo do restaurante.</p>
+                                        <p className="text-gray-500 text-sm 2xl:text-base mb-2">Gerencie o cardápio ativo do restaurante.</p>
                                     </div>
 
                                     {/* Botão (Só aparece se não tiver menu) */}
@@ -666,7 +666,7 @@ const handleNameUpdate = async () => {
 
                                         <div className="flex items-center gap-4" onClick={(e) => e.stopPropagation()}>
                                             <div className="flex items-center gap-2">
-                                                <span className="text-sm text-gray-600">Visível:</span>
+                                                <span className="text-sm 2xl:text-base text-gray-600">Visível:</span>
                                                 <ToggleInput
                                                     label=""
                                                     checked={menu.is_active || false}
@@ -692,7 +692,7 @@ const handleNameUpdate = async () => {
                                     {/* Coluna 1: Textos */}
                                     <div>
                                         <h2 className="text-xl font-medium text-red-700 mb-2">Deletar Restaurante</h2>
-                                        <p className="text-red-600/70 text-sm">
+                                        <p className="text-red-600/70 text-sm 2xl:text-base">
                                             Isso excluirá permanentemente o restaurante <b>{restaurant.name}</b> e todos os pedidos.
                                         </p>
                                     </div>
@@ -718,7 +718,7 @@ const handleNameUpdate = async () => {
                             {/* Coluna 1: Textos */}
                             <div>
                                 <h2 className="text-xl font-medium text-red-700 mb-2">Deletar Conta</h2>
-                                <p className="text-red-600/70 text-sm">
+                                <p className="text-red-600/70 text-sm 2xl:text-base">
                                     Ação irreversível. Todos os seus dados serão apagados.
                                 </p>
                             </div>

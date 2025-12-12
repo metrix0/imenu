@@ -173,12 +173,12 @@ export default function PainelPedidosAtivosPage() {
     }
 
     return (
-        <div className="max-w-7xl mx-auto pb-20 px-4 sm:px-6 pt-8">
+        <div className="max-w-7xl 2xl:max-w-[90rem] mx-auto pb-20 px-4 sm:px-6 pt-8">
             {/* Header */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-8 gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold text-gray-900">Pedidos de Hoje</h1>
-                    <p className="text-gray-500 mt-1">Acompanhe a fila de produção em tempo real.</p>
+                    <h1 className="text-3xl font-bold text-gray-900 2xl:text-4xl">Pedidos de Hoje</h1>
+                    <p className="text-gray-500 mt-1 2xl:text-lg 2xl:mt-2">Acompanhe a fila de produção em tempo real.</p>
                 </div>
 
                 <Button
@@ -192,15 +192,15 @@ export default function PainelPedidosAtivosPage() {
 
             {/* Grid de Pedidos */}
             {orders.length === 0 ? (
-                <div className="text-center flex flex-col items-center py-20 bg-white rounded-xl border border-dashed border-gray-300">
-                    <div className="h-24 w-24 mb-4 text-6xl">
-                       😴
+                <div className="text-center flex flex-col items-center py-20 2xl:py-30 bg-white rounded-xl border border-dashed border-gray-300">
+                    <div className="h-25 w-25 2xl:h-30 2xl:w-30 mb-4 ">
+                        <img src={"images/sleeping_emoji.png"} alt="Sem pedidos" className="h-full w-full object-contain" />
                     </div>
-                    <h3 className="text-xl font-bold text-gray-900">Sem pedidos ativos</h3>
-                    <p className="text-gray-500 mt-2">Sua loja está aberta e aguardando novos pedidos.</p>
+                    <h3 className="text-xl font-bold text-gray-900 2xl:text-3xl">Sem pedidos ativos</h3>
+                    <p className="text-gray-500 mt-2 2xl:text-lg">Sua loja está aberta e aguardando novos pedidos.</p>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 2xl:gap-10">
                     {orders.map(order => (
                         <OrderCard
                             key={order.id}

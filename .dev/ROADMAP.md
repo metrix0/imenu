@@ -36,6 +36,8 @@ Ver no whatsapp, meus arquivos deram problema
 - Verificar e garantrir o posthog
 - Adicionar sentry (tentar em tudo)
 - descubrir a resolução certa do banner e mudar lá
+- Preencher Terms e condições +  /restaurante/dados 
+- mobile adapt supportbutton and ? buttyon
 
 - ### costumer
 
@@ -49,7 +51,7 @@ DATABASE
 - **DOCUMENTAR E FORMALIZAR** todas as apis (endpoints, request body, response body, erros, etc) num arquivo só (md ou outro)
 - passar transformando todo uso de supabase em pages em chamadas de API (especialmente nos componentes do painel/criar)
 - arrumar zustands, tipo creationStore deveriaser restaurantDataStore
-
+- transformar tudo em timestampz
 
 ## Backlog
 
@@ -106,6 +108,7 @@ DATABASE
 - integration tests
 - add a guide on how to add the imenu link to google maps restaurant gmb (how can they share the link better)
 - whole web app AI assistant
+- COMPONENTIZAR MUITAS MAIS COISAS p/ facilitar responsividade
 
 
 
@@ -118,6 +121,11 @@ and Component Loader
 
 footer do /criar not component (use zustand)
 
+app/painel/disponibilidade nao ta usando o component do tudo salvo salvando...
+
+rafa acho que seus componentes de endereço nao tao usando a lib geocoding
+
 # Bugs
 
 Da pra chegar até o fim do /criar e no ultimo continuar, o email é invalido
+arrumar loadings no painel

@@ -30,19 +30,19 @@ export default function ConfirmModal({
 }: ConfirmModalProps) {
     
     return (
-        <Modal open={open} onClose={onClose} className="max-w-md">
-            <div className="p-6 text-center">
-                <div className={`mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full ${variant === 'danger' ? 'bg-red-100' : 'bg-blue-100'}`}>
+        <Modal open={open} onClose={onClose} className="max-w-md 2xl:max-w-lg">
+            <div className="p-6 2xl:p-7 text-center">
+                <div className={`mx-auto mb-4 flex h-12 w-12 2xl:h-16 2xl:w-16 items-center justify-center rounded-full ${variant === 'danger' ? 'bg-red-100' : 'bg-blue-100'}`}>
                     <FontAwesomeIcon 
                         icon={faExclamationTriangle} 
-                        className={`text-xl ${variant === 'danger' ? 'text-red-600' : 'text-brand'}`} 
+                        className={`text-xl 2xl:text-2xl ${variant === 'danger' ? 'text-red-600' : 'text-brand'}`}
                     />
                 </div>
                 
-                <h3 className="mb-2 text-lg font-bold text-gray-900">{title}</h3>
+                <h3 className="mb-2 text-lg font-bold text-gray-900 2xl:text-xl">{title}</h3>
                 
                 {description && (
-                    <p className="mb-6 text-sm text-gray-500">{description}</p>
+                    <p className="mb-6 text-sm text-gray-500 2xl:text-lg">{description}</p>
                 )}
 
                 <div className="flex justify-center gap-3">

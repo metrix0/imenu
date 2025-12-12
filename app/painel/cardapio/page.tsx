@@ -130,15 +130,15 @@ export default function MenuManagerPage() {
     );
 
     return (
-        <div className="max-w-6xl mx-auto pb-32 space-y-8 px-4 pt-8">
+        <div className="max-w-6xl 2xl:max-w-8xl mx-auto pb-32 space-y-8 px-4 pt-8">
              {/* Header */}
              <div>
                 <h1 className="text-3xl font-bold text-gray-900">Cardápio</h1>
-                <p className="text-gray-500 mt-1">Defina quais os itens seus clientes podem pedir.</p>
+                <p className="text-gray-500 mt-1 2xl:text-lg">Defina quais os itens seus clientes podem pedir.</p>
              </div>
 
              {/* Tabs */}
-             <div className="border-b border-gray-200">
+             <div className="border-b border-gray-200 ">
                 <Tabs tabs={TABS} active={activeTab} onChange={setActiveTab} />
              </div>
 
