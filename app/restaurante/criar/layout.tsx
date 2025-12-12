@@ -63,6 +63,12 @@ export default function CreationLayout({
 
     return (
         <div className="min-h-screen bg-white flex flex-col">
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-white text-black px-6 text-center overflow-hidden md:hidden">
+                <p className="text-lg font-normal leading-relaxed">
+                    O painel de administrador ainda não pode ser utilizado em celulares. <br /> <br />
+                    Continue em um computador ou notebook.
+                </p>
+            </div>
             {/* Header stays visible */}
             <header className="w-full px-2 py-7 2xl:px-4 2xl:py-10 flex items-center justify-between top-0 bg-white z-10">
                 <div className="relative h-6 w-32 2xl:w-60 2xl:h-8 ml-4">
@@ -79,7 +85,7 @@ export default function CreationLayout({
                Isso mantém o layout limpo para o usuário focar no código.
             */}
             {!isOtpPage && <CreationStepper />}
-            
+
             <div className="flex-1">
                 {children}
             </div>

@@ -201,7 +201,7 @@ const handleRegister = async () => {
 
             {/* MAIN EXACT CENTER */}
             <main className="flex flex-col items-center justify-start flex-1 max-w-lg 2xl:max-w-xl ">
-                <Card className="relative w-full space-y-6 p-8 2xl:p-12 border border-gray-200 shadow-sm 2xl:shadow-lg">
+                <Card className="relative w-full space-y-6 p-8 mb-15 2xl:p-12 border border-gray-200 shadow-sm 2xl:shadow-lg">
                     {restCount > 0 && (
                         <div className="reveal fade-up absolute -right-90 2xl:-right-100 top-0">
                             <div className="opacity-95 text-white max-w-80 2xl:max-w-90 space-y-2 p-8 border bg-text border-gray-950 rounded-xl shadow-sm">
