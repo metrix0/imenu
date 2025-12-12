@@ -173,7 +173,7 @@ export default function CategorySection({
 
             <div className="bg-white border border-gray-200 rounded-xl 2xl:mt-4 overflow-hidden shadow-sm 2xl:sadow-lg">
                 {items.map((item) => (
-                    <MenuItemRow
+                    <div
                         key={item.id}
                         draggable={!isCreating} // Desabilita drag durante criação
                         onDragStart={(e) => handleDragStart(e, item.id)}

@@ -153,3 +153,12 @@ html, body {
 ::-webkit-scrollbar-track {
     background: transparent;
 }
+
+/* Hide scrollbar but keep scrolling */
+.thin-scrollbar {
+    scrollbar-width: none; /* Firefox */
+}
+
+.thin-scrollbar::-webkit-scrollbar {
+    display: none; /* Chrome/Safari */
+}

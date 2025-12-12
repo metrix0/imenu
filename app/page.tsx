@@ -25,9 +25,8 @@ export default function LandingPage() {
 
     useEffect(() => {
         (async () => {
-            const totalBonus = 30 + 10 //+10 for test restaurants
+            const totalBonus = 20 + 10 //+10 for test restaurants
             setRestCount(totalBonus - ((await fetch("/api/restaurants/count").then(r => r.json())).count))
-            setRestCount(15)
         })();
     }, []);
 

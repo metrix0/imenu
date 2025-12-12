@@ -31,6 +31,7 @@ import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore"; 
 import SupportButton, { SupportButtonRef } from "@/components/common/SupportButton";
 import { supabase } from "@/lib/database/supabaseClient";
 import Loader from "@/components/ui/Loader";
+import Script from "next/script";
 
 type MenuItem =
     | { type: "divider" }
@@ -177,6 +178,15 @@ useEffect(() => {
 
     return (
         <>
+            <Script id="ms-clarity" strategy="afterInteractive">
+                {`
+                (function(c,l,a,r,i,t,y){
+                    c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+                    t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+                    y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+                })(window, document, "clarity", "script", "uk4ichh2nj");
+              `}
+            </Script>
             {/* Modal de Confirmação para Fechar */}
             <ConfirmModal 
                 open={showCloseModal}
@@ -217,7 +227,7 @@ useEffect(() => {
                         />
                     </button>
 
-                    <div className="flex items-center justify-center mt-4 mb-2 h-[70px] 2xl:h-[90px] relative">
+                    <div className="flex items-center justify-center mt-4 mb-0 2xl:mb-2 h-[70px] 2xl:h-[90px] relative">
                         <div
                             className={`transition-all duration-300 flex items-center justify-center ${
                                 expanded ? "scale-100 opacity-100" : "scale-0 opacity-0 absolute"
@@ -248,7 +258,7 @@ useEffect(() => {
                     </div>
 
                     {/* --- BOTÃO DE STATUS DA LOJA --- */}
-                    <div className={`mt-4 transition-all duration-300 ${expanded ? "w-full px-4" : "w-auto"}`}>
+                    <div className={`mt-2 transition-all duration-300 ${expanded ? "w-full px-4" : "w-auto"}`}>
                         {expanded ? (
                             // GAVETA ABERTA: Botão com Texto
                             <button
@@ -277,7 +287,7 @@ useEffect(() => {
                     </div>
 
                     {/* === MENU === */}
-                    <nav className="flex-1 flex flex-col overflow-y-auto py-4 space-y-1">
+                    <nav className="flex-1 flex flex-col overflow-y-auto py-4 space-y-1 thin-scrollbar">
                       
                         {menuItems.map((item, idx) => {
                             // 1. PRIMEIRO verificamos se é um divisor
