@@ -10,7 +10,7 @@ export const metadata: Metadata = {
     title: "Cardápio Digital Gratuito para Restaurantes e Delivery | iMenu",
     description: "Crie seu cardápio digital gratuito para restaurantes e delivery. Receba pedidos online, sem taxas, sem mensalidades e sem pegadinhas.",
     icons: {
-        icon: "/icons/favicon.png",
+        icon: "/icons/favicon.ico",
     },
     alternates: {
         canonical: "https://imenuapp.com.br",
