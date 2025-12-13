@@ -31,6 +31,10 @@ export default function LandingPage() {
     }, []);
 
     useEffect(() => {
+        document.title = "iMenu - Cardápio Digital";
+    }, []);
+
+    useEffect(() => {
         const els = document.querySelectorAll(".reveal");
 
         const obs = new IntersectionObserver(
@@ -130,18 +134,20 @@ export default function LandingPage() {
 
                     <h1 className="text-3xl md:text-5xl 2xl:text-[4rem]  font-extrabold mb-2 mt-6 md:-mt-4 text-brand leading-tight ">
                         O novo Cardápio Digital
-                        <br/><span className={"text-text"}>de Alta Conversão</span>
+                        <br/><span className={"text-text"}>100% Gratuito</span>
                     </h1>
 
 
-                    <div className="text-gray-500 leading-normal mt-4 md:mt-0 md:leading-15 2xl:leadin-24 2xl:text-[1.4rem]">
-                        Sem taxas, sem mensalidades, sem pegadinhas.{" "}
+                    <h2 className="text-gray-500 leading-normal mt-4 md:mt-0 md:leading-15 2xl:leadin-24 2xl:text-[1.4rem]">
+                        Cardápio digital para Restaurantes e Delivery. Pronto em 5 minutos.
+                    </h2>
+
+
+
+                    <p className="text-gray-500 2xl:text-[1.4rem] mt-5 md:mt-0 hidden md:block">
+                        Sem taxas, sem pegadinhas.{" "}
                         <Tooltip text={"O iMenu é completamente grátis, para sempre."} position={"right"}><a href={"#recursos"} className="underline cursor-pointer">Para sempre.</a></Tooltip>
-                    </div>
-
-
-
-                    <p className="text-gray-500 2xl:text-[1.4rem] mt-5 md:mt-0 hidden md:block">Seu cardápio online em 5 minutos.</p>
+                    </p>
 
                     <div className="flex items-center justify-center md:justify-start gap-4 mt-6 2xl:mt-9 2xl:gap-6">
                         <Button variant="primary" onClick={() => router.push("/restaurante/registrar")} className="px-6 py-3 text-lg 2xl:px-10 2xl:py-4 2xl:text-[1.6rem]">
@@ -270,9 +276,9 @@ export default function LandingPage() {
                     Venda mais <span className={"hidden md:inline-block"}>com iMenu</span>
                     <br/><span className={"text-text"}>e lucre mais</span>
                 </h2>
-                <p className="text-gray-500 mb-12 md:mb-18 2xl:text-xl 2xl:mb-24 reveal fade-left delay-200 text-center md:text-left">
+                <h2 className="text-gray-500 mb-12 md:mb-18 2xl:text-xl 2xl:mb-24 reveal fade-left delay-200 text-center md:text-left">
                     Compare os benefícios entre o iMenu e outros cardápios digitais:
-                </p>
+                </h2>
 
                 {/* Table */}
                 <div className="overflow-x-auto">
@@ -438,6 +444,11 @@ export default function LandingPage() {
                         </tr>
                         <tr>
                             <td className=" border-r border-gray-200">Comanda Mobile</td>
+                            <td className=" border-r border-gray-200 text-center"><Tooltip text={<span>Funcionalidade em desenvolvimento.</span>} color={"bg-orange"}><FontAwesomeIcon icon={icons.faClock}  className={"text-orange"}/></Tooltip></td>
+                            <td className=" text-center">Taxas adicionais</td>
+                        </tr>
+                        <tr>
+                            <td className=" border-r border-gray-200">Gestor de Pedidos</td>
                             <td className=" border-r border-gray-200 text-center"><Tooltip text={<span>Funcionalidade em desenvolvimento.</span>} color={"bg-orange"}><FontAwesomeIcon icon={icons.faClock}  className={"text-orange"}/></Tooltip></td>
                             <td className=" text-center">Taxas adicionais</td>
                         </tr>

@@ -7,11 +7,14 @@ import PosthogProvider from "@/components/common/PosthogProvider";
 import Script from "next/script";
 
 export const metadata: Metadata = {
-    title: "iMenu - Cardápio Digital",
-    description: "O novo cardápio digital para delivery totalmente grátis.",
+    title: "Cardápio Digital Gratuito para Restaurantes e Delivery | iMenu",
+    description: "Crie seu cardápio digital gratuito para restaurantes e delivery. Receba pedidos online, sem taxas, sem mensalidades e sem pegadinhas.",
     icons: {
         icon: "/icons/favicon.png",
     },
+    alternates: {
+        canonical: "https://imenuapp.com.br",
+    }
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
