@@ -125,3 +125,16 @@ partially fixed, ideal would be user finishes register through /criar on phone >
 
 on mobile, you can get stucked in a page, because sometimes the "scroll up or down" fills the fucking vision.
 Also customize mobile, like, colors if we can.
+
+
+ainda da pra acessar o /criar mesmo logado e ja criado (criar um step na database? se null, acabou, se 1, 2, 3, ou 4, parou na etapa)
+
+
+autofill nos forms de endereço
+
+plmd arruma a porra do input do cardapio
+ainda ta bugado o drag, n consigo selecionar input
+
+slug editavel + arrumar os números (só precisa gerar se não existir o nome (no futuro vamos precisar verificar anyway))
+
+add 4k resolutionm (easy, just ctrl f 2xl)

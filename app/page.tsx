@@ -85,7 +85,7 @@ export default function LandingPage() {
                 </div>
 
                 {/* Right */}
-                <nav className="flex items-center gap-8 text-sm font-medium 2xl:text-[1.2rem] 2xl:gap-11">
+                <nav className="flex z-30 md:z-auto items-center gap-8 text-sm font-medium 2xl:text-[1.2rem] 2xl:gap-11">
                     <a href="#" className="hover:text-gray-500 transition hidden md:block">Home</a>
                     <a href="#recursos" className="hover:text-gray-500 transition hidden md:block">Recursos</a>
                     {restCount > 0 && (
@@ -108,22 +108,23 @@ export default function LandingPage() {
             </header>
 
             {/* ================= SECTION 1 ================= */}
-            <section className="relative text-center md:text-left mx-auto grid grid-cols-1 md:grid-cols-2 gap-10 px-6 md:px-15 2xl:px-20 py-0 md:py-20 h-[89vh] ">
+            <section className=" relative text-center md:text-left mx-auto grid grid-cols-1 md:grid-cols-2 gap-10 px-6 md:px-15 2xl:px-20 py-0 md:py-20 h-[89vh] ">
 
                 {/* Left – Text */}
                 <div className="flex flex-col justify-start md:justify-center -mt-10 md:mt-0">
 
                     <div className="flex items-center justify-center">
-                        <div className="h-120 w-100 relative overflow-hidden md:hidden top-0 2xl:mt-1">
-                            <video
-                                src="/images/CellphoneVideo.webm"
-                                autoPlay
-                                loop
-                                muted
-                                playsInline
-                                className="absolute inset-0 w-full h-full object-cover"
-                            />
-                        </div>
+
+                            <div className="h-120 w-100 relative overflow-hidden md:hidden top-0 2xl:mt-1 z-1">
+                                <video
+                                    src="/images/CellphoneVideo.webm"
+                                    autoPlay
+                                    loop
+                                    muted
+                                    playsInline
+                                    className="absolute inset-0 w-full h-full object-cover"
+                                />
+                            </div>
 
                     </div>
 
