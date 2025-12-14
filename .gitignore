@@ -13,3 +13,6 @@ out
 .vscode/
 .idea/
 /Backup.rar
+
+# Sentry Config File
+.env.sentry-build-plugin
