@@ -15,8 +15,10 @@ Components must never talk directly to the database.
     ⭐ Should you pass server data to Zustand?
   * Only if the client needs to modify that data after page load.
 
-- **UI should never call Supabase, only API routes.** (This does not apply for page loading)
-  Ex.: No direct calls to Supabase from React components.
+[NEW]
+- **Do not call Supabase directly from the front-end after page load.**
+Frontend → API → Supabase.
+Only API routes should interact with Supabase after page load to ensure separation of concerns, security, and maintainable code.
 
 # Zustand Conventions
 
