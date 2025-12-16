@@ -33,7 +33,7 @@ export default async function Page({ params }: { params: { slug: string } }) {
         id: restaurantData.id,
         name: restaurantData.name,
         logo_url: getPublicUrl(supabase, "restaurant-logos", restaurantData.logo_url),
-        banner_url: getPublicUrl(supabase, "menu-banners", restaurantData.banner_url) || "https://mjogdsnxbwhbqcoijrwt.supabase.co/storage/v1/object/public/menu-images/menu-images/menu_banner_placeholder.png",
+        banner_url: getPublicUrl(supabase, "menu-banners", restaurantData.banner_url) || "/placeholders/banner.png",
         rating: restaurantData.rating,
         min_order_cents: restaurantData.min_order_cents,
         prep_time_min_minutes: restaurantData.prep_time_min_minutes,

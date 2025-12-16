@@ -213,7 +213,7 @@ useEffect(() => {
                 {/* === SIDEBAR === */}
                 <aside
                     className={`fixed h-full flex flex-col border-r border-gray-200 bg-white transition-all duration-300 z-20 ${
-                        expanded ? "w-60 2xl:w-70" : "w-[5.2vw]"
+                        expanded ? "w-60 2xl:w-70" : "w-[5.2vw] min-w-15"
                     }`}
                 >
                     {/* Botão Expandir/Contrair */}
