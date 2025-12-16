@@ -2,7 +2,7 @@
 // lib/stores/costumer/cartStore.ts
 "use client";
 import { create } from "zustand";
-import { persist, createJSONStorage } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/proxy';
 
 // O carrinho agora só armazena o ID do pedido ativo
 type CartState = {
