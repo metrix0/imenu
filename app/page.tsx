@@ -183,7 +183,7 @@ export default function LandingPage() {
             </section>
 
             {/* ================= SECTION 2 ================= */}
-            <section className="py-16 2xl:py-26 px-8 h-auto md:h-[100vh] ">
+            <section className="pb-16 mt-16 2xl:mt-0 2xl:py-26 px-8 h-auto md:h-[100vh] ">
                 <h2 className="text-center text-3xl md:text-4xl 2xl:text-[3.2rem] font-extrabold text-brand mb-4 md:mb-13 2xl:mb-20 reveal fade-up">
                     Totalmente Grátis<br/>
                     <span className={"text-text text-2xl md:text-[100%]"}>sem taxas, sem pegadinhas</span>
@@ -219,7 +219,7 @@ export default function LandingPage() {
                         </div>
 
                         {/* Main image */}
-                        <div className="reveal fade-right delay-300 flex-1 flex flex-col md:flex-row  gap-8 2xl:gap-12 relative h-full z-50">
+                        <div className="md:reveal md:fade-right delay-300 flex-1 flex flex-col md:flex-row  gap-8 2xl:gap-12 relative h-full z-50">
                             <div className={"w-full md:w-[45%] 2xl:w-[50%]"}>
                                 <div
                                     key={selected}
