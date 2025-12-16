@@ -132,7 +132,7 @@ export default function LandingPage() {
 
                     </div>
 
-                    <h1 className="text-3xl md:text-5xl 2xl:text-[4rem]  font-extrabold mb-2 mt-6 md:-mt-4 text-brand leading-tight ">
+                    <h1 className="text-2xl sm:bg-red-500 md:text-5xl 2xl:text-[4rem]  font-extrabold mb-2 mt-6 md:-mt-4 text-brand leading-tight ">
                         O novo Cardápio Digital
                         <br/><span className={"text-text"}>100% Gratuito</span>
                     </h1>
@@ -183,7 +183,7 @@ export default function LandingPage() {
             </section>
 
             {/* ================= SECTION 2 ================= */}
-            <section className="py-15 2xl:py-26 px-8 h-[200vh] md:h-[100vh] ">
+            <section className="py-16 2xl:py-26 px-8 h-[200vh] md:h-[100vh] ">
                 <h2 className="text-center text-3xl md:text-4xl 2xl:text-[3.2rem] font-extrabold text-brand mb-4 md:mb-13 2xl:mb-20 reveal fade-up">
                     Totalmente Grátis<br/>
                     <span className={"text-text text-2xl md:text-[100%]"}>sem taxas, sem pegadinhas</span>
