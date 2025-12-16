@@ -112,7 +112,7 @@ export default function LandingPage() {
             </header>
 
             {/* ================= SECTION 1 ================= */}
-            <section className=" relative text-center md:text-left mx-auto grid grid-cols-1 md:grid-cols-2 gap-10 px-6 md:px-15 2xl:px-20 py-0 md:py-20 h-[89svh] ">
+            <section className=" relative text-center md:text-left mx-auto grid grid-cols-1 md:grid-cols-2 gap-10 px-6 md:px-15 2xl:px-20 py-0 md:py-20 h-full md:h-[89svh] ">
 
                 {/* Left – Text */}
                 <div className="flex flex-col justify-start md:justify-center -mt-10 md:mt-0">
@@ -454,12 +454,12 @@ export default function LandingPage() {
                         </tr>
                         <tr>
                             <td className=" border-r border-gray-200">ChatBot & Robô WhatsApp</td>
-                            <td className=" border-r border-gray-200 text-center"><Tooltip text={<span>Não é uma prioridade no momento.</span>} color={"bg-orange"}><FontAwesomeIcon icon={icons.faClock} className={"text-red"}/></Tooltip></td>
+                            <td className=" border-r border-gray-200 text-center"><Tooltip text={<span>Não é uma prioridade no momento.</span>} color={"bg-red"}><FontAwesomeIcon icon={icons.faClock} className={"text-red"}/></Tooltip></td>
                             <td className=" text-center">Taxas adicionais</td>
                         </tr>
                         <tr>
                             <td className=" border-r border-gray-200">CRM</td>
-                            <td className=" border-r border-gray-200 text-center"><Tooltip text={<span>Não é uma prioridade no momento.</span>} color={"bg-orange"}><FontAwesomeIcon icon={icons.faClock} className={"text-red"}/></Tooltip></td>
+                            <td className=" border-r border-gray-200 text-center"><Tooltip text={<span>Não é uma prioridade no momento.</span>} color={"bg-red"}><FontAwesomeIcon icon={icons.faClock} className={"text-red"}/></Tooltip></td>
                             <td className=" text-center">Limitado</td>
                         </tr>
 
