@@ -112,7 +112,7 @@ export default function LandingPage() {
             </header>
 
             {/* ================= SECTION 1 ================= */}
-            <section className=" relative text-center md:text-left mx-auto grid grid-cols-1 md:grid-cols-2 gap-10 px-6 md:px-15 2xl:px-20 py-0 md:py-20 h-[89vh] ">
+            <section className=" relative text-center md:text-left mx-auto grid grid-cols-1 md:grid-cols-2 gap-10 px-6 md:px-15 2xl:px-20 py-0 md:py-20 h-[89svh] ">
 
                 {/* Left – Text */}
                 <div className="flex flex-col justify-start md:justify-center -mt-10 md:mt-0">
@@ -132,7 +132,7 @@ export default function LandingPage() {
 
                     </div>
 
-                    <h1 className="text-2xl sm:bg-red-500 md:text-5xl 2xl:text-[4rem]  font-extrabold mb-2 mt-6 md:-mt-4 text-brand leading-tight ">
+                    <h1 className="text-2xl md:text-5xl 2xl:text-[4rem]  font-extrabold mb-2 mt-6 md:-mt-4 text-brand leading-tight ">
                         O novo Cardápio Digital
                         <br/><span className={"text-text"}>100% Gratuito</span>
                     </h1>
@@ -183,7 +183,7 @@ export default function LandingPage() {
             </section>
 
             {/* ================= SECTION 2 ================= */}
-            <section className="py-16 2xl:py-26 px-8 h-[200vh] md:h-[100vh] ">
+            <section className="py-16 2xl:py-26 px-8 h-[200svh] md:h-[100vh] ">
                 <h2 className="text-center text-3xl md:text-4xl 2xl:text-[3.2rem] font-extrabold text-brand mb-4 md:mb-13 2xl:mb-20 reveal fade-up">
                     Totalmente Grátis<br/>
                     <span className={"text-text text-2xl md:text-[100%]"}>sem taxas, sem pegadinhas</span>
@@ -192,7 +192,7 @@ export default function LandingPage() {
                 <div className="x-4 md:mx-18 flex flex-col md:flex-row gap-4 md:gap-12">
 
                     {/* LEFT – Logos + Image */}
-                    <div className="flex gap-8 md:gap-10 2xl:gap-16 items-center md:items-start h-[63vh] flex-1 flex-col md:flex-row">
+                    <div className="flex gap-8 md:gap-10 2xl:gap-16 items-center md:items-start h-[63svh] flex-1 flex-col md:flex-row">
 
                         {/* Logos */}
                         <div id={"logos"} className="reveal fade-up h-[100%] flex flex-row md:flex-col gap-5 2xl:gap-8 pt-4 items-center justify-center">
@@ -256,7 +256,7 @@ export default function LandingPage() {
                     </div>
 
                     {/* RIGHT – Big image */}
-                    <div className="flex items-center justify-center relative h-[63vh] flex-1 z-1 mt-10 md:mt-0">
+                    <div className="flex items-center justify-center relative h-[63svh] flex-1 z-1 mt-10 md:mt-0">
                         <div className="relative h-full w-full delay-500 reveal fade-left z-1">
                             <Image
                                 src="/images/MonitorGraph.png"
