@@ -144,10 +144,10 @@ export default function LandingPage() {
 
 
 
-                    <p className="text-gray-500 2xl:text-[1.4rem] mt-5 md:mt-0 hidden md:block">
+                    <div className="text-gray-500 2xl:text-[1.4rem] mt-5 md:mt-0 hidden md:block">
                         Sem taxas, sem pegadinhas.{" "}
                         <Tooltip text={"O iMenu é completamente grátis, para sempre."} position={"right"}><a href={"#recursos"} className="underline cursor-pointer">Para sempre.</a></Tooltip>
-                    </p>
+                    </div>
 
                     <div className="flex items-center justify-center md:justify-start gap-4 mt-6 2xl:mt-9 2xl:gap-6">
                         <Button variant="primary" onClick={() => router.push("/restaurante/registrar")} className="px-6 py-3 text-lg 2xl:px-10 2xl:py-4 2xl:text-[1.6rem]">
