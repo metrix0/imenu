@@ -183,7 +183,7 @@ export default function LandingPage() {
             </section>
 
             {/* ================= SECTION 2 ================= */}
-            <section className="pb-16 mt-16 2xl:mt-0 2xl:py-26 px-8 h-auto md:h-[100vh] ">
+            <section className="pb-16 mt-34 md:mt-16 2xl:mt-0 2xl:py-26 px-8 h-auto md:h-[100vh] ">
                 <h2 className="text-center text-3xl md:text-4xl 2xl:text-[3.2rem] font-extrabold text-brand mb-4 md:mb-13 2xl:mb-20 reveal fade-up">
                     Totalmente Grátis<br/>
                     <span className={"text-text text-2xl md:text-[100%]"}>sem taxas, sem pegadinhas</span>
