@@ -9,43 +9,15 @@
 # To Do
 
 ## Brendo
-Ver no whatsapp, meus arquivos deram problema
 
 ## Rafa
-- **corrigir erros Txt**
-- 
-- ~~esqueci minha senha no /login~~
-~~- mudar email funcionando (manda um email de confirmação pro email NOVO) E PODER ALTERAR TELEFONE (n precisa verificar)~~
-~~- Adicionar verificação de Auth (pode botar no layout) (local browser data) em todas as páginas que precisam de Auth (painel, criar restaurante, etc)~~
-~~- facilitar p usuario colocar foto (cortar, etc), falar resoluão dos banners (colocar um texto embaixo em algum lugar falando a resoução do banner, inventa uma), etc (SÓ NA LOJA E PAIENL)~~
-- ~~se usuário (ja confirmado por código OTP) esta no /criar, mandar pro /painel~~
-
 
 ## Joao
 
-- update cart modal upon geolocation function from rafa + colocar placeholder.png item ao dicionar novo item
-- rate limit, DB backups, remover bibliotecas ruins (mostra no deploy vercel)
-
-- ### deploy
-
-- XX Verificar e garantrir o posthog
-- XX Adicionar sentry (tentar em tudo)
-
-- ### costumer
 
 
-DATABASE
-- DUPLICAÇÃO EM MENU-ITEMS em posição
-- more duplucation
-  - excluir delivered_at 
-  - apagar is_delivery (se não tiver uso)
-- separar database entre menu e restaurante (usuario e dono)
-- **DOCUMENTAR E FORMALIZAR** todas as apis (endpoints, request body, response body, erros, etc) num arquivo só (md ou outro)
-- passar transformando todo uso de supabase em pages em chamadas de API (especialmente nos componentes do painel/criar)
-- arrumar zustands, tipo creationStore deveriaser restaurantDataStore
-- transformar tudo em timestampz
 
-## Backlog
+
 
 ---
 <br>
@@ -54,33 +26,58 @@ DATABASE
 > Based on Funnels & User Stories. iFood inspiration UI/UX, Figma for UX. Make sure features work 100%
 
 
-### Deploy
-- GET DOMAIN
-- Switch Authentication > URL Configuration > Site URL (https://supabase.com/dashboard/project/mjogdsnxbwhbqcoijrwt/auth/url-configuration
-- change .env stuff
-- max 10 restaurantes, deixar uns 5 + LIMPAR DB com coisa de teste (manter burger fodas)
-- mudar o email que o código é enviado supabase auth
-- get supabase/vercel plans
-- disable automatic github deploy
+
+## Feature List for V1.0
+
+> Um cardápio digital que vende 20% mais que os outros. (Seu faturamento no digital aumenta 20%)
+
+[Novidade:] Agora não precisamos nos preocupar com os custos do software. Podemos fazer simplesmente o melhor sotware possível.
+
+TOP_MENUS: Saipos, Anota ai, Goomer
+
+### **20% More Sales** [Conversion] (Mid-Funnel Costumer Features)
+| Feature                                           | Owner | Description                                                                                                                                                                                     |
+|---------------------------------------------------|-------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **Proxy Features**                                | XX    | XX                                                                                                                                                                                              |
+| SMART MENU: Automatic Upsell + Bundle + Destaques |       | Automatic Ideas: Has Bundled Stuff Automatically, Has Destaques automatically, upsells automatically, etc.                                                                                      |
+| **Enhancements**                                  | XX    | XX                                                                                                                                                                                              |
+| Search Bar+Filtering+Payment Modal                |       | não pagou no menu -> aparece uma tela "aguardando pagamento no /slug com link pro pagamento" + add upper search bar with categories tabs upon scrolling down on digital menu (jsutr like ifood) |
+|                                                   |       |                                                                                                                                                                                                 |
+
+(Iterated upon testing, proxy features upon copying others)
+
+### **20% More Sales** [Traffic]
+| Feature                        | Owner | Description                                                                                                                                                                    |
+|--------------------------------|-------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **Funneling and Auto-selling** | XX    | *All those also include the connection and Panel stuff                                                                                                                         |
+| Whatsapp Bot                   |       | Whatsapp: Costumer Message -> Menu shows up (Menu with Images, or one Image with whole Menu and IDs) (they can order via Whatsapp) (24h free) (Official WhatsApp Business API) |
+| Instagram Bot                  |       | Ig: Same thing (Meta Graph API)                                                                                                                                                |
+| Facebook Bot                   |       | Fb: Same thing (has some features) (Messenger Platform API)                                                                                                                    |
+| **Marketing:**                 | XX    | *All those also include the connection and Panel stuff                                                                                                                         |
+|                                |       | instagram button, all like goomer,   Google My Business: Faça seu Pedido button guide (like goomer)                                                                            |
+|                                |       | _Manual: Lookalike Retargeting Campaign for Orders_                                                                                                                            |
+
+### **Feature Gap** (Churn)
+| Feature                    | Owner | Description                                                                                                          |
+|----------------------------|-------|----------------------------------------------------------------------------------------------------------------------|
+| Whatsapp Notifications     |       | Whatsapp: Notifications para dono e p/ consumidor. (0.06 R$, at 50 orders/day, 2 messages/order = 180 R$/month/user) |
+| Videos and Multiple Images |       | add videos + add compression to images vides eveerting thats uploaded and convert to webp is that ideal?             |
+| ZERO BUGS (Bug list below) |       | TEST EVERYTHING, IN 3 DIFFERENT DEVICES, INCOGNITO, MULTIPLE BROWSERS, BREAK EVERYTHING AND THEN FIX                 |
+| Infrastructure             |       | FASTEST MENU ALIVE, smooth back and front end loadings and calls (vercel paid plan)                                  |
+|                            |       |                                                                                                                      |
 
 
-## Feature List for Next Versions (Future)
+
+# Feature Backlog
 
 ### CORE FUNNEL:
 
 #### Restaurant Owner
 
 #### Costumer
-- Mobile responsiveness NOS BROWSERS do mobile. (teclado subindo, autofill, varias resolucoes, etc)
-- add upper search bar with categories tabs upon scrolling down on digital menu (jsutr like ifood)
 - handle all payments on website only (no webhook, no other pages) using API.
-- Checkout must pull information from browser and INTEGRATE with everything we can to make the transaction as smooth as possible
-- não pagou no menu -> aparece uma tela "aguardando pagamento no /slug com link pro pagamento"
-- add videos + add compression to images vides eveerting thats uploaded and convert to webp is that ideal?
 
 #### Both
-
-
 
 ### NON-CORE FUNNEL (or too big)
 - (vamos ver a taxa de pedidos que não foram aceitos, se for alta) -> Live Notifications of orders on whatsapp or **app** para pedidos não aceitos por mais de 8-10 minutos + o cliente recebe um whats falando que o pedido está a caminho
@@ -104,7 +101,7 @@ DATABASE
 
 
 
-# Duplicated features
+# Duplicated features (for Monthly Code Review)
 
             <main className="flex items-center justify-center min-h-[50vh]">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand"></div>
@@ -115,7 +112,7 @@ footer do /criar not component (use zustand)
 
 app/painel/disponibilidade nao ta usando o component do tudo salvo salvando...
 
-rafa acho que seus componentes de endereço nao tao usando a lib geocoding
+rafa acho que seus /componentes de endereço nao tao usando a lib geocoding
 
 # Bugs
 
@@ -138,3 +135,7 @@ ainda ta bugado o drag, n consigo selecionar input
 slug editavel + arrumar os números (só precisa gerar se não existir o nome (no futuro vamos precisar verificar anyway))
 
 add 4k resolutionm (easy, just ctrl f 2xl)
+
+Bairro não salva no zustand persist
+
+- Mobile responsiveness NOS BROWSERS do mobile. (teclado subindo, autofill, varias resolucoes, etc)
