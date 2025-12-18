@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { query } from "@/lib/sql";
+import { query } from "@/lib/database/sql";
 import { MercadoPagoConfig, Payment } from "mercadopago";
 
 // ✅ create Mercado Pago client

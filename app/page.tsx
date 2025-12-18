@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { icons } from "@/lib/fontawesome";
+import { icons } from "@/lib/utils/fontawesome";
 import BonusButton from "@/components/ui/BonusButton";
 import Button from "@/components/ui/Button";
 import Tooltip from "@/components/ui/Tooltip";

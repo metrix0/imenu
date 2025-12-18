@@ -1,16 +1,7 @@
 
 > Those are all monthly Cleaned (Monthly Code Review)
 
-# Database
-- DUPLICAÇÃO EM MENU-ITEMS em posição
-- more duplucation
-    - excluir delivered_at
-    - apagar is_delivery (se não tiver uso)
-- separar database entre menu e restaurante (usuario e dono)
-- **DOCUMENTAR E FORMALIZAR** todas as apis (endpoints, request body, response body, erros, etc) num arquivo só (md ou outro)
-- passar transformando todo uso de supabase em pages em chamadas de API (especialmente nos componentes do painel/criar)
-- arrumar zustands, tipo creationStore deveriaser restaurantDataStore
-- transformar tudo em timestampz
+
 
 # Duplicated features (for Monthly Code Review)
 
@@ -26,35 +17,74 @@ app/painel/disponibilidade nao ta usando o component do tudo salvo salvando...
 rafa acho que seus /componentes de endereço nao tao usando a lib geocoding
 
 
+# Non-priority to 20% Bugs (Bugs that we can fix manually for the client, or he won't even face it)
 
-# Bugs
+Da pra chegar até o fim do /criar e no ultimo continuar, o email da pessoa ser inválido <- OTP vai ter que ser depois mesmo (nao nos importamos com conversão direto na page mais, por enquanto)
 
-Da pra chegar até o fim do /criar e no ultimo continuar, o email é invalido
-arrumar loadings no painel
+arrumar loadings no painel (usar o tabs loading component)
+
 partially fixed, ideal would be user finishes register through /criar on phone > !!!!! SE O usuário entrar pelo mobile, registrar, ele cai no /criar, e fica uma bosta, mas se ele logar pelo pc, ele cai direto no painel e não finaliza o /criar
 
-on mobile, you can get stucked in a page, because sometimes the "scroll up or down" fills the fucking vision.
-Also customize mobile, like, colors if we can.
-
-
 ainda da pra acessar o /criar mesmo logado e ja criado (criar um step na database? se null, acabou, se 1, 2, 3, ou 4, parou na etapa)
-
-
-autofill nos forms de endereço
 
 plmd arruma a porra do input do cardapio
 ainda ta bugado o drag, n consigo selecionar input
 
-slug editavel + arrumar os números (só precisa gerar se não existir o nome (no futuro vamos precisar verificar anyway))
+restaurante/criar/cardapio não ta componentizado (fodase)
 
-add 4k resolutionm (easy, just ctrl f 2xl)
+Whatsapp Pessoal e Whatsapp do Restaurante são diferentes. do restaurante no /loja
+
+/menu não deveria existir, delete-item, insert-item, tudo isso deve estar no items
+(front não pode usar db depois do loading)
+
+/auth
+Cade as outras apis de auth? Logar, Registrar, Mudar senha, etc
+(front não pode usar db depois do loading)
+
+- transformar tudo em timestampz
+
+# Bugs
+
+J:
+on mobile (cardapio), you can get stucked in a page, because sometimes the "scroll up or down" fills the fucking vision.
+Also customize mobile, like, colors if we can.
+
+mobile cardapio autofill nos forms de endereço
+
+add 4k resolution to everything (easy, just ctrl f 2xl)
 
 Bairro não salva no zustand persist
 
-- Mobile responsiveness NOS BROWSERS do mobile. (teclado subindo, autofill, varias resolucoes, etc)
+**- Mobile responsiveness NOS BROWSERS do mobile. (teclado subindo, autofill, varias resolucoes, etc)**
 
+- sem clarity no (seo)
+
+R:
+VOU DELETAR A TABLE menus, tirar todo uso. (pode remover vc mesmo da supabase assim que tira todos usos de "menu")
+
+slug editavel + arrumar os números (só precisa gerar se não existir o nome (no futuro vamos precisar verificar anyway))
 tirar o número aleatorio do slug, só colocar se for necessário (testar se "slug ja usada"), usuário tb pode trocar
 
-Custom domain for the users
+nunca usar base 64 emptyImg.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'
 
-Wpp pessoal e wpp restaurant diferent saas login page change number as wll
+whatsapp support modal sem animação
+
+NÃO PRECISA CORRIGIR, SÓ NÃO REPETIR: (vou deletar a table tb) /menu não deveria existir, delete-item, insert-item, tudo isso deve estar no items
+(front não pode usar db depois do loading)
+
+passa todas as colunas de restaurants para restaurant_owner_settings (ja pasei no  SQL, precisa pasasr no código em si)
+outra coisa, quando um pagamento é feito, o restaurante recebe o dinheiro? Tipo aparece pra eles certinho? QUANDO o dinheiro é somado?
+
+B:
+(ERro meu, prep time depende de distância) prep_time_min e max, prep_time_source, prep_time_computed_at serão deletados, pode tirar, e tirar a func de calcular (fiz de um jeito diff que fica melhor) (pode deletar da supabase)
+
+
+ALL:
+NÃO PRECISA CORRIGIR, SÓ NÃO REPETIR:  ## /auth  Cade as outras apis de auth? Logar, Registrar, Mudar senha, etc
+(front não pode usar db depois do loading)
+
+
+AGR OU DPS? (organização, project-health)
+- passar transformando todo uso de supabase em pages em chamadas de API (especialmente nos componentes do painel/criar)
+- arrumar zustands, tipo creationStore deveriaser restaurantDataStore
+*só usar timestampz a partir de agr

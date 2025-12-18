@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { icons } from "@/lib/fontawesome";
+import { icons } from "@/lib/utils/fontawesome";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faClock } from "@fortawesome/free-solid-svg-icons";
 import { supabase } from "@/lib/database/supabaseClient";

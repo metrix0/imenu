@@ -6,7 +6,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { Restaurant, Menu, Category, ItemsByCategory, Item, Subitem, Subcategory } from "@/lib/types/types";
 import { useCheckoutStore } from "@/lib/stores/costumer/checkoutStore";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { icons } from "@/lib/fontawesome";
+import { icons } from "@/lib/utils/fontawesome";
 import { faStar } from "@fortawesome/free-solid-svg-icons";
 import { supabase } from "@/lib/database/supabaseClient";
 import { formatPrice, formatPriceNoRS } from "@/lib/utils/formatPrice";
@@ -451,6 +451,7 @@ export default function MenuClientPage({
                     loading={openedItem.loading}
                     onClose={() => setOpenedItem(null)}
                     deliveryTax={deliveryTax}
+                    deliveryTime={deliveryTime}
                 />
             )}
 

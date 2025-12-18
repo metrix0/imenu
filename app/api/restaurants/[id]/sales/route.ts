@@ -1,5 +1,5 @@
 // app/api/restaurants/[id]/sales/route.ts
-import { query } from "@/lib/sql";
+import { query } from "@/lib/database/sql";
 import { NextResponse } from "next/server";
 
 // Helper function to get default dates (Last 7 days)

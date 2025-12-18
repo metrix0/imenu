@@ -7,7 +7,7 @@ import Loader from "@/components/ui/Loader";
 import WeeklyScheduleClick, { Availability } from "@/components/restaurant-owner/configuracoes/WeeklyScheduleClick";
 import Tooltip from "@/components/ui/Tooltip";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { icons } from "@/lib/fontawesome";
+import { icons } from "@/lib/utils/fontawesome";
 
 export default function DisponibilidadePage() {
     const { restaurantId, setRestaurantId } = useCreationStore();

@@ -1,6 +1,6 @@
 // app/api/orders/[id]/status/route.ts
 import { NextResponse } from "next/server";
-import { query } from "@/lib/sql";
+import { query } from "@/lib/database/sql";
 
 // ================================
 // PATCH — Update Order Status ONLY

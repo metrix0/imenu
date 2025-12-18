@@ -1,6 +1,6 @@
 // app/api/checkout/finalize/route.ts
 import { NextResponse } from "next/server";
-import { query } from "@/lib/sql";
+import { query } from "@/lib/database/sql";
 import { MercadoPagoConfig, Preference } from "mercadopago";
 
 // (Configuração do MercadoPago - sem mudança)

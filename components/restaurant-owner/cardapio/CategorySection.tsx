@@ -2,7 +2,7 @@
 
 import { useState, ReactNode, useEffect } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { icons } from "@/lib/fontawesome";
+import { icons } from "@/lib/utils/fontawesome";
 import { faGripVertical } from "@fortawesome/free-solid-svg-icons"; // Importando ícone
 import { supabase } from "@/lib/database/supabaseClient";
 import MenuItemRow, { MenuItemType } from "./MenuItemRow";

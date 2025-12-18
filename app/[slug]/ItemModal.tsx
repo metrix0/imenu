@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Restaurant, Item, Subitem, Subcategory } from "@/lib/types/types";
 import { useCartStore } from "@/lib/stores/costumer/cartStore";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { icons } from "@/lib/fontawesome";
+import { icons } from "@/lib/utils/fontawesome";
 import {formatPrice, formatPriceNoRS} from "@/lib/utils/formatPrice";
 import ModalMobile from "@/components/ui/HybridModal";
 import Loader from "@/components/ui/Loader";
@@ -17,6 +17,7 @@ type Props = {
     loading: boolean;
     onClose: () => void;
     deliveryTax: { lowest: number; highest: number  };
+    deliveryTime: { lowest: number; highest: number  };
 };
 
 export default function ItemModal({
@@ -25,7 +26,8 @@ export default function ItemModal({
                                       subcategories,
                                       loading,
                                       onClose,
-                                        deliveryTax
+                                        deliveryTax,
+                                      deliveryTime,
                                   }: Props) {
     const [qty, setQty] = useState(1);
     const [observation, setObservation] = useState("");
@@ -344,8 +346,8 @@ export default function ItemModal({
                         </span>
                         <br />
                         <span className="text-[12px] text-gray-600 2xl:text-md">
-                            {restaurant.prep_time_min_minutes}–
-                            {restaurant.prep_time_max_minutes} min •{" "}
+                            {deliveryTime.lowest}–
+                            {deliveryTime.highest} min •{" "}
                             <span className="text-green">{taxText()}</span>
                         </span>
                     </div>

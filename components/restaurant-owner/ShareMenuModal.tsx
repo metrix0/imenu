@@ -5,7 +5,7 @@ import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { icons } from "@/lib/fontawesome";
+import { icons } from "@/lib/utils/fontawesome";
 import { faQrcode } from "@fortawesome/free-solid-svg-icons"; // Importando ícone de QR Code
 
 interface ShareMenuModalProps {

@@ -4,11 +4,11 @@ import { useState, useRef } from "react";
 import Cropper from "react-easy-crop"; // Biblioteca de Crop
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faSpinner, faCheck, faTimes, faSearchPlus, faSearchMinus } from "@fortawesome/free-solid-svg-icons";
-import { icons } from "@/lib/fontawesome";
+import { icons } from "@/lib/utils/fontawesome";
 import { supabase } from "@/lib/database/supabaseClient";
-import { uploadBannerImage } from "@/lib/uploadBannerImage";
-import { uploadLogoImage } from "@/lib/uploadLogoImage";
-import { getCroppedImg } from "@/lib/canvasUtils"; // Nosso helper criado
+import { uploadBannerImage } from "@/lib/database/uploadBannerImage";
+import { uploadLogoImage } from "@/lib/database/uploadLogoImage";
+import { getCroppedImg } from "@/lib/utils/canvasUtils"; // Nosso helper criado
 import Loader from "@/components/ui/Loader";
 import Button from "@/components/ui/Button"; // Reutilizando seu botão
 import Modal from "@/components/ui/Modal"; // Reutilizando seu modal

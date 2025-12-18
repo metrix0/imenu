@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import "@/lib/fontawesome";
+import "@/lib/utils/fontawesome";
 import SupportButton from "@/components/common/SupportButton";
 import Footer from "@/components/common/Footer";
 import PosthogProvider from "@/components/common/PosthogProvider";

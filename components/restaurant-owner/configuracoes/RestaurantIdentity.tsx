@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react";
 import { supabase } from "@/lib/database/supabaseClient";
-import { uploadLogoImage } from "@/lib/uploadLogoImage"; // Usando a helper function
+import { uploadLogoImage } from "@/lib/database/uploadLogoImage"; // Usando a helper function
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCamera, faSpinner } from "@fortawesome/free-solid-svg-icons";
 import Input from "@/components/ui/Input";

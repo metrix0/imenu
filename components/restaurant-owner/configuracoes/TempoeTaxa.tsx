@@ -3,9 +3,9 @@
 import { useEffect, useState, useRef, forwardRef, useImperativeHandle } from "react";
 import { useRouter } from "next/navigation";
 
-import { useRestauranteConfig } from "@/lib/RestauranteConfiguracoesZustand";
+import { useRestauranteConfig } from "@/lib/stores/restaurant-owner/RestauranteConfiguracoesZustand";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { icons } from "@/lib/fontawesome";
+import { icons } from "@/lib/utils/fontawesome";
 import Tooltip from "@/components/ui/Tooltip";
 
 import { faClock, faBullseye } from "@fortawesome/free-solid-svg-icons";

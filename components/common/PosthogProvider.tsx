@@ -1,7 +1,7 @@
 "use client";
 
 import { ReactNode, useEffect } from "react";
-import posthog from "@/lib/instrumentation-client";
+import posthog from "@/lib/api/instrumentation-client";
 
 export default function PosthogProvider({ children }: { children: ReactNode }) {
 

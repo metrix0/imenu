@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { query } from "@/lib/sql";
+import { query } from "@/lib/database/sql";
 
 export async function GET() {
     // Get categories and items ordered

@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, ReactNode } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faImage, faTrash, faCheck, faTimes, faSpinner, faCog, faCopy } from "@fortawesome/free-solid-svg-icons";
-import { uploadMenuImage } from "@/lib/uploadMenuImage"; 
+import { uploadMenuImage } from "@/lib/database/uploadMenuImage";
 import { supabase } from "@/lib/database/supabaseClient";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import Button from "@/components/ui/Button";

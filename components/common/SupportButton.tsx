@@ -2,7 +2,7 @@
 
 import { useState, useImperativeHandle, forwardRef } from "react";
 import Popup from "../ui/Popup";
-import { icons } from "@/lib/fontawesome";
+import { icons } from "@/lib/utils/fontawesome";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 
 const QRCodePopupContent = ({ url, phone, onClose }: { url: string; phone: string; onClose: () => void; }) => (

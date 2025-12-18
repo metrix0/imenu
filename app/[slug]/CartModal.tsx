@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { useCartStore } from "@/lib/stores/costumer/cartStore";
 import { useCheckoutStore } from "@/lib/stores/costumer/checkoutStore";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { icons } from "@/lib/fontawesome";
+import { icons } from "@/lib/utils/fontawesome";
 import { faPix } from "@fortawesome/free-brands-svg-icons"
 import Input from "@/components/ui/Input";
 import ModalMobile from "@/components/ui/HybridModal";

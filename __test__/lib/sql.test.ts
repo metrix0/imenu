@@ -1,8 +1,8 @@
-import { query } from "@/lib/sql";
-import { pool } from "@/lib/db";
+import { query } from "@/lib/database/sql";
+import { pool } from "@/lib/database/db";
 
 // Mock the DB client
-jest.mock("@/lib/db", () => ({
+jest.mock("@/lib/database/db", () => ({
     pool: {
         connect: jest.fn().mockResolvedValue({
             query: jest.fn().mockResolvedValue({ rows: [{ id: 1, name: "Test" }] }),

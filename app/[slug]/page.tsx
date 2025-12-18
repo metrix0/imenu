@@ -22,7 +22,7 @@ export default async function Page({ params }: { params: { slug: string } }) {
     const { data: restaurantData } = await supabase
         .from("restaurants")
         .select(
-            "id, name, is_closed, logo_url, rating, min_order_cents, prep_time_min_minutes, prep_time_max_minutes, description, banner_url, availability_json,delivery_fee_json, latitude, longitude"
+            "id, name, is_closed, logo_url, rating, min_order_cents, description, banner_url, availability_json,delivery_fee_json, latitude, longitude"
         )
         .eq("url_slug", slug)
         .maybeSingle();
@@ -36,8 +36,6 @@ export default async function Page({ params }: { params: { slug: string } }) {
         banner_url: getPublicUrl(supabase, "menu-banners", restaurantData.banner_url) || "/placeholders/banner.png",
         rating: restaurantData.rating,
         min_order_cents: restaurantData.min_order_cents,
-        prep_time_min_minutes: restaurantData.prep_time_min_minutes,
-        prep_time_max_minutes: restaurantData.prep_time_max_minutes,
         availability_json: restaurantData.availability_json,
         delivery_fee_json: restaurantData.delivery_fee_json,
         latitude: restaurantData.latitude,

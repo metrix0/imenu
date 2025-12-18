@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/database/supabaseClient";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { icons } from "@/lib/fontawesome";
+import { icons } from "@/lib/utils/fontawesome";
 import Card from "@/components/ui/Card";
 import Toast from "@/components/ui/Toast";
 import Input from "@/components/ui/Input";

@@ -1,5 +1,5 @@
 // app/api/restaurants/[id]/payouts/route.ts
-import { query } from "@/lib/sql"; 
+import { query } from "@/lib/database/sql";
 import { NextResponse } from "next/server";
 
 export async function GET(

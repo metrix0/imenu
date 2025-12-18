@@ -1,5 +1,5 @@
 // app/api/checkout/calculate-fee/route.ts
-import { query } from "@/lib/sql";
+import { query } from "@/lib/database/sql";
 import { NextResponse } from "next/server";
 
 // (Tipo RadiusRule e helper getDistanceInKm permanecem os mesmos)

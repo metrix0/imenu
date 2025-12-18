@@ -5,12 +5,12 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/database/supabaseClient";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore"; // Store Global
-import { uploadLogoImage } from "@/lib/uploadLogoImage";
+import { uploadLogoImage } from "@/lib/database/uploadLogoImage";
 import type { User } from "@supabase/supabase-js";
 
 // FontAwesome
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { icons } from "@/lib/fontawesome";
+import { icons } from "@/lib/utils/fontawesome";
 import { faTrash, faCopy, faDownload, faCheck, faPen, faCalculator, faSignOutAlt } from "@fortawesome/free-solid-svg-icons";
 
 // UI Components

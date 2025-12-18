@@ -168,7 +168,7 @@ Handles uploading images to Supabase.
 
 ### Usage
 ```
-import { uploadMenuImage } from "@/lib/uploadMenuImage";
+import { uploadMenuImage } from "@/lib/database/uploadMenuImage";
 
 const url = await uploadMenuImage(file);
 await query("UPDATE menu SET image_url = $1 WHERE id = $2", [url, id]);

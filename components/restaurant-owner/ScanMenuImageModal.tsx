@@ -6,10 +6,10 @@ import Modal from "@/components/ui/Modal"; // your Modal
 import Dropdown from "@/components/ui/Dropdown"; // your Dropdown
 import Toast from "@/components/ui/Toast"; // your Toast
 import LoadingBar from "@/components/ui/LoadingBar"; // your LoadingBar
-import { uploadFullMenuImageAI } from "@/lib/uploadFullMenuImageAI"; // your helper that uploads to supabase and returns key
+import { uploadFullMenuImageAI } from "@/lib/database/uploadFullMenuImageAI"; // your helper that uploads to supabase and returns key
 import Loader from "@/components/ui/Loader";
 import {FontAwesomeIcon} from "@fortawesome/react-fontawesome";
-import { icons } from "@/lib/fontawesome";
+import { icons } from "@/lib/utils/fontawesome";
 
 // Types (match your API)
 type ScannedItem = {
@@ -320,7 +320,7 @@ function ScanModal({ open, onClose, restaurantId, existingCategories, onRefresh 
                         const res = await fetch("/api/categories/create", {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ restaurant_id: restaurantId, name: catName, position: 0 }),
+                            body: JSON.stringify({ restaurant_id: restaurantId, name: catName, position: 99 }),
                         });
                         const json = await res.json();
                         if (!res.ok) throw new Error(json?.error || "create category failed");

@@ -1,8 +1,3 @@
-# File Conventions
-
-- **All files must have their path at the start commented**
-- Only import icons that are not in fontawesome.lib
-
 # Naming Conventions
 
 - **Database fields → identical variable names in zustand.**
@@ -19,6 +14,8 @@ Components must never talk directly to the database.
 - **Do not call Supabase directly from the front-end after page load.**
 Frontend → API → Supabase.
 Only API routes should interact with Supabase after page load to ensure separation of concerns, security, and maintainable code.
+
+- **Only timestampz for time**
 
 # Zustand Conventions
 

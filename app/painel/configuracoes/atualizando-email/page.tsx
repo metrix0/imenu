@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/lib/database/supabaseClient";
 import { useRouter } from "next/navigation";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { icons } from "@/lib/fontawesome";
+import { icons } from "@/lib/utils/fontawesome";
 import { faEnvelope, faCheckCircle, faArrowLeft } from "@fortawesome/free-solid-svg-icons";
 
 // UI Components

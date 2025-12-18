@@ -1,7 +1,7 @@
 import { POST } from "@/app/api/webhooks/mercadopago/route";
-import * as sql from "@/lib/sql";
+import * as sql from "@/lib/database/sql";
 
-jest.mock("@/lib/sql");
+jest.mock("@/lib/database/sql");
 
 describe("POST /api/webhooks/mercadopago", () => {
     it("marks order as paid", async () => {

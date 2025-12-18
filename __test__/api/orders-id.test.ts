@@ -1,7 +1,7 @@
 import { PATCH } from "@/app/api/orders/[id]/route";
-import * as sql from "@/lib/sql";
+import * as sql from "@/lib/database/sql";
 
-jest.mock("@/lib/sql");
+jest.mock("@/lib/database/sql");
 
 describe("PATCH /api/orders/[id]", () => {
     it("updates order status", async () => {

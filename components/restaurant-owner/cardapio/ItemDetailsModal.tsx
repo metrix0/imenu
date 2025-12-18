@@ -5,7 +5,7 @@ import { supabase } from "@/lib/database/supabaseClient";
 import Modal from "@/components/ui/Modal";
 import Input from "@/components/ui/Input";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { icons } from "@/lib/fontawesome";
+import { icons } from "@/lib/utils/fontawesome";
 import { faTrash, faPlus, faGripLines, faGripVertical, faDownload, faSearch } from "@fortawesome/free-solid-svg-icons";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 

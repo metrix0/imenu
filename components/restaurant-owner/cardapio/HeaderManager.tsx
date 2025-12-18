@@ -3,10 +3,10 @@
 import { useState, useRef } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faSpinner } from "@fortawesome/free-solid-svg-icons";
-import { icons } from "@/lib/fontawesome";
+import { icons } from "@/lib/utils/fontawesome";
 import { supabase } from "@/lib/database/supabaseClient";
-import { uploadBannerImage } from "@/lib/uploadBannerImage";
-import { uploadLogoImage } from "@/lib/uploadLogoImage";
+import { uploadBannerImage } from "@/lib/database/uploadBannerImage";
+import { uploadLogoImage } from "@/lib/database/uploadLogoImage";
 import Loader from "@/components/ui/Loader";
 
 interface HeaderManagerProps {

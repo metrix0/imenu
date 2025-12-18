@@ -1,4 +1,4 @@
-import { query } from "@/lib/sql";
+import { query } from "@/lib/database/sql";
 import { NextResponse } from "next/server";
 
 // Helper simples para gerar slug

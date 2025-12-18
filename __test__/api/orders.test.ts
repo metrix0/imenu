@@ -11,8 +11,8 @@ jest.mock("mercadopago", () => {
 });
 
 import { POST } from "@/app/api/orders/route";
-import * as sql from "@/lib/sql";
-jest.mock("@/lib/sql");
+import * as sql from "@/lib/database/sql";
+jest.mock("@/lib/database/sql");
 
 describe("POST /api/orders", () => {
     it("creates an order successfully", async () => {

@@ -1,5 +1,5 @@
 // app/api/restaurants/[id]/creation-data/route.ts
-import { query } from "@/lib/sql";
+import { query } from "@/lib/database/sql";
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 

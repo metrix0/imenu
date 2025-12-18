@@ -1,7 +1,7 @@
 import { GET } from "@/app/api/menu/route";
-import { query } from "@/lib/sql";
+import { query } from "@/lib/database/sql";
 
-jest.mock("@/lib/sql");
+jest.mock("@/lib/database/sql");
 
 describe("GET /api/menu", () => {
     it("returns categories and items ordered", async () => {

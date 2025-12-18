@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/lib/database/supabaseClient";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faTimes, faUser, faMapMarkerAlt, faClock, faReceipt, faCheck, faMotorcycle } from "@fortawesome/free-solid-svg-icons";
-import { icons } from "@/lib/fontawesome";
+import { icons } from "@/lib/utils/fontawesome";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
 import ListLoader from "@/components/ui/ListLoader";
