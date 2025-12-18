@@ -315,7 +315,7 @@ export default function LandingPage() {
                             <td className="  border-gray-200 text-center">Baixa Conversão</td>
                         </tr>
                         <tr>
-                            <td className=" border-r border-gray-200">Gestor de pedidos</td>
+                            <td className=" border-r border-gray-200">Gestor de pedidos (balcão)</td>
                             <td className=" border-r border-gray-200 text-center"><FontAwesomeIcon icon={icons.faCheck} className={"text-green"}/></td>
                             <td className="  border-gray-200 text-center">Limitado</td>
                         </tr>
