@@ -17,6 +17,11 @@ app/painel/disponibilidade nao ta usando o component do tudo salvo salvando...
 rafa acho que seus /componentes de endereço nao tao usando a lib geocoding
 
 
+
+
+
+
+
 # Non-priority to 20% Bugs (Bugs that we can fix manually for the client, or he won't even face it)
 
 Da pra chegar até o fim do /criar e no ultimo continuar, o email da pessoa ser inválido <- OTP vai ter que ser depois mesmo (nao nos importamos com conversão direto na page mais, por enquanto)
@@ -65,8 +70,6 @@ VOU DELETAR A TABLE menus, tirar todo uso. (pode remover vc mesmo da supabase as
 slug editavel + arrumar os números (só precisa gerar se não existir o nome (no futuro vamos precisar verificar anyway))
 tirar o número aleatorio do slug, só colocar se for necessário (testar se "slug ja usada"), usuário tb pode trocar
 
-nunca usar base 64 emptyImg.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'
-
 whatsapp support modal sem animação
 
 NÃO PRECISA CORRIGIR, SÓ NÃO REPETIR: (vou deletar a table tb) /menu não deveria existir, delete-item, insert-item, tudo isso deve estar no items
@@ -79,9 +82,7 @@ B:
 (ERro meu, prep time depende de distância) prep_time_min e max, prep_time_source, prep_time_computed_at serão deletados, pode tirar, e tirar a func de calcular (fiz de um jeito diff que fica melhor) (pode deletar da supabase)
 
 
-ALL:
-NÃO PRECISA CORRIGIR, SÓ NÃO REPETIR:  ## /auth  Cade as outras apis de auth? Logar, Registrar, Mudar senha, etc
-(front não pode usar db depois do loading)
+
 
 
 AGR OU DPS? (organização, project-health)
