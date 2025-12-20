@@ -19,6 +19,17 @@ export default function SearchModal({ restaurant, categories, itemsByCategory, o
     const [searchText, setSearchText] = useState(""); // isolated state
     const [openedItem, setOpenedItem] = useState<Item | null>(null);
     const [openModal, setOpenModal] = useState(false);
+    const [debouncedSearch, setDebouncedSearch] = useState(""); // used for filtering
+
+    // debounce effect
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(searchText);
+        }, 300); // 100ms buffer
+
+        return () => clearTimeout(timer);
+    }, [searchText]);
+
 
     // --- Animate open ---
     useEffect(() => {
@@ -35,16 +46,21 @@ export default function SearchModal({ restaurant, categories, itemsByCategory, o
         return Object.fromEntries(
             Object.entries(itemsByCategory).map(([catId, arr]) => [
                 catId,
-                searchText
-                    ? arr.filter((i) => i.name.toLowerCase().includes(searchText.toLowerCase()))
+                debouncedSearch
+                    ? arr.filter((i) =>
+                        i.name.toLowerCase().includes(debouncedSearch.toLowerCase())
+                    )
                     : [],
             ])
         );
-    }, [searchText, itemsByCategory]);
+    }, [debouncedSearch, itemsByCategory]);
 
-    const allFilteredItems = useMemo(() => Object.values(filteredItemsByCat).flat(), [filteredItemsByCat]);
+    const allFilteredItems = useMemo(
+        () => Object.values(filteredItemsByCat).flat(),
+        [filteredItemsByCat]
+    );
 
-    const hasSearch = searchText.trim().length > 0;
+    const hasSearch = debouncedSearch.trim().length > 0;
 
     useEffect(() => {
         if (!openModal) return;
@@ -60,32 +76,36 @@ export default function SearchModal({ restaurant, categories, itemsByCategory, o
     }, [openModal]);
 
     return (
-        <DraggableModal open={openModal} onClose={closeWithAnimation} height={0.9} handle>
+        <DraggableModal open={openModal} onClose={closeWithAnimation} height={1} handle>
             {/* Search bar + Cancel */}
-            <div className="sticky top-0 bg-white z-50 py-3 flex items-center gap-2 px-2">
-                <Input
-                    icon={<FontAwesomeIcon icon={icons.faMagnifyingGlass} />}
-                    placeholder="Buscar no cardápio..."
-                    value={searchText}
-                    onChange={(e) => setSearchText(e.target.value)}
-                />
-                <button className="text-brand font-semibold ml-2" onClick={closeWithAnimation}>
-                    Cancelar
-                </button>
+            <div className="sticky top-0 z-50 w-full bg-white">
+                <div className={"py-5 gap-3 relative flex bg-white justify-between w-[97.5%] ml-[2%]"}>
+                    <Input
+                        icon={<FontAwesomeIcon icon={icons.faMagnifyingGlass} />}
+                        placeholder="Buscar no cardápio..."
+                        value={searchText}
+                        onChange={(e) => setSearchText(e.target.value)}
+                        className="min-w-[65vw]"
+                    />
+                    <button className="text-brand" onClick={closeWithAnimation}>
+                        Cancelar
+                    </button>
+                </div>
+
             </div>
 
             {/* Empty / Not found */}
             {!hasSearch && (
-                <div className="flex flex-col items-center justify-center mt-20 text-center">
-                    <img src="/images/empty_search.svg" alt="Sem pesquisa" className="w-48 h-48 mb-4" />
-                    <p className="text-gray-500">Digite o nome do item que deseja encontrar no cardápio.</p>
+                <div className="flex flex-col items-center justify-center text-center mx-10 h-[70%]">
+                    <img src="/images/monocle_emoji.png" alt="Sem pesquisa" className="w-38 h-38 mb-4" />
+                    <p className="text-gray-500 text-md">Qual será seu pedido? Digite o item que busca.</p>
                 </div>
             )}
 
             {hasSearch && allFilteredItems.length === 0 && (
-                <div className="flex flex-col items-center justify-center mt-20 text-center">
-                    <img src="/images/no_results.svg" alt="Nada encontrado" className="w-48 h-48 mb-4" />
-                    <p className="text-gray-500">Nenhum item encontrado para "{searchText}".</p>
+                <div className="flex flex-col items-center justify-center text-center mx-10 h-[70%]">
+                    <img src="/images/meh_emoji.png" alt="Nada encontrado" className="w-38 h-38 mb-4" />
+                    <p className="text-gray-500 text-md">Nenhum item encontrado para <b>{searchText}</b>.</p>
                 </div>
             )}
 
@@ -138,6 +158,7 @@ export default function SearchModal({ restaurant, categories, itemsByCategory, o
                     onClose={() => setOpenedItem(null)}
                     deliveryTax={{ lowest: 0, highest: 0 }}
                     deliveryTime={{ lowest: 0, highest: 0 }}
+                    onAdd={() => closeWithAnimation()}
                 />
             )}
         </DraggableModal>

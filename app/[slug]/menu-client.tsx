@@ -139,7 +139,7 @@ export default function MenuClientPage({
         if (!cat) return;
         const el = document.getElementById(`cat-${cat.id}`);
         if (el) {
-            const yOffset = -300; // adjust for your fixed headers if needed
+            const yOffset = -250; // adjust for your fixed headers if needed
             const y = el.getBoundingClientRect().top + window.pageYOffset + yOffset;
             window.scrollTo({ top: y, behavior: "smooth" });
         }
@@ -460,44 +460,68 @@ export default function MenuClientPage({
 
             )}
 
-            {!showMobileSearch && (
-                <div className={"top-7 right-5 fixed flex gap-3 md:hidden"}>
-                    <div className={"h-10 w-10 rounded-full bg-black/50 text-white flex justify-center items-center"}>
-                        <FontAwesomeIcon icon={icons.faHistory}/>
-                    </div>
-                    <div className={"h-10 w-10 rounded-full bg-black/50 text-white flex justify-center items-center"}>
-                        <FontAwesomeIcon icon={icons.faMagnifyingGlass}/>
-                    </div>
+            {/* === FLOATING BUTTONS === */}
+            <div
+                className={`
+        top-7 right-5 fixed flex gap-4 md:hidden
+        transition-all duration-300 ease-out
+        ${showMobileSearch
+                    ? "opacity-0 translate-y-2 pointer-events-none"
+                    : "opacity-100 translate-y-0"}
+    `}
+            >
+                <div className="h-10 w-10 rounded-full bg-black/50 text-white flex justify-center items-center">
+                    <FontAwesomeIcon icon={icons.faHistory} />
                 </div>
 
-            )}
+                <div
+                    onClick={() => setSearchOpen(true)}
+                    className="h-10 w-10 rounded-full bg-black/50 text-white flex justify-center items-center"
+                >
+                    <FontAwesomeIcon icon={icons.faMagnifyingGlass} />
+                </div>
+            </div>
+
 
             {/* === MOBILE SEARCH + TABS (only after scroll) === */}
-            {showMobileSearch && (
-                <div className="md:hidden fixed w-full top-0 bg-white z-[40] border-b border-gray-100">
-                    {/* Search trigger */}
-                    <div className="px-4 py-2 shadow-sm flex items-center gap-3">
-                        <button onClick={() => setSearchOpen(true)} className="flex-1">
-                            <Input
-                                icon={<FontAwesomeIcon icon={icons.faMagnifyingGlass} />}
-                                placeholder="Buscar no cardápio..."
-                                readOnly
-                            />
-                        </button>
-                    </div>
-
-                    {/* Category Tabs */}
-                    <div className="hidden-x-scroll mt-1 px-2 overflow-x-auto">
-                        <Tabs
-                            tabs={categories.map((c) => c.name)}
-                            active={activeTab}
-                            onChange={handleTabChange}
-                            className="border-none"
-                            childClassName="whitespace-nowrap"
+            <div
+                className={`
+        md:hidden fixed w-full top-0 bg-white z-[40] border-b border-gray-100
+        transition-all duration-300 ease-out
+        ${showMobileSearch
+                    ? "opacity-100 translate-y-0"
+                    : "opacity-0 -translate-y-2 pointer-events-none"}
+    `}
+            >
+                {/* Search trigger */}
+                <div className="px-4 py-2 shadow-sm flex items-center gap-3">
+                    <button
+                        onClick={() => setSearchOpen(true)}
+                        className="flex-1 focus:outline-none"
+                        onFocus={(e) => e.preventDefault()}
+                    >
+                        <Input
+                            icon={<FontAwesomeIcon icon={icons.faMagnifyingGlass} />}
+                            placeholder="Buscar no cardápio..."
+                            readOnly
+                            className="focus:outline-none focus:border-gray-300"
+                            onFocus={(e) => e.preventDefault()}
                         />
-                    </div>
+                    </button>
                 </div>
-            )}
+
+                {/* Category Tabs */}
+                <div className="hidden-x-scroll mt-1 px-2 overflow-x-auto">
+                    <Tabs
+                        tabs={categories.map((c) => c.name)}
+                        active={activeTab}
+                        onChange={handleTabChange}
+                        className="border-none"
+                        childClassName="whitespace-nowrap"
+                    />
+                </div>
+            </div>
+
 
             {/* ============================
                 CATEGORIAS
@@ -618,7 +642,6 @@ export default function MenuClientPage({
                     restaurant={restaurant}
                     categories={categories}
                     itemsByCategory={itemsByCategory}
-                    searchText={searchText}
                     setSearchText={setSearchText}
                     onClose={() => setSearchOpen(false)}
                 />
