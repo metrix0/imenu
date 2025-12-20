@@ -56,6 +56,17 @@ export default function MenuClientPage({
     const [showMobileSearch, setShowMobileSearch] = useState(false);
     const [activeTab, setActiveTab] = useState(categories[0]?.name ?? "");
     const [manualScrollLock, setManualScrollLock] = useState(false);
+    const [debouncedSearch, setDebouncedSearch] = useState(""); // used for filtering
+
+    // debounce effect
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(searchText);
+        }, 300); // 100ms buffer
+
+        return () => clearTimeout(timer);
+    }, [searchText]);
+
 
     useEffect(() => {
         const btn = document.querySelector(
@@ -153,14 +164,13 @@ export default function MenuClientPage({
     const filteredItemsByCat = Object.fromEntries(
         Object.entries(itemsByCategory).map(([catId, arr]) => [
             catId,
-            searchText
+            debouncedSearch
                 ? arr.filter(i =>
-                    i.name.toLowerCase().includes(searchText.toLowerCase())
+                    i.name.toLowerCase().includes(debouncedSearch.toLowerCase())
                 )
                 : arr,
         ])
     );
-
     const taxText = () => {
 
         if(deliveryTax.lowest === deliveryTax.highest){
@@ -403,25 +413,7 @@ export default function MenuClientPage({
                 </div>
             </div>
 
-            <div className="hidden md:block mx-5 md:mx-48 2xl:mx-80 mt-6">
-                <Input
-                    icon={<FontAwesomeIcon icon={icons.faMagnifyingGlass} />}
-                    placeholder="Buscar..."
-                    value={searchText}
-                    onChange={(e) => setSearchText(e.target.value)}
-                />
-                {searchText.length > 0 && (
-                    <button
-                        className="text-sm text-brand mt-1"
-                        onClick={() => setSearchText("")}
-                    >
-                        limpar
-                    </button>
-                )}
-            </div>
-            {searchText && Object.values(filteredItemsByCat).every(arr => arr.length === 0) && (
-                <p className="text-gray-500 text-sm mt-3">Nenhum item encontrado.</p>
-            )}
+
 
             {(nextOpening !== null || closedForToday) && (
                 <WarningBox icon={icons.faTriangleExclamation} className="mt-10 mx-6 md:mx-48">
@@ -526,7 +518,36 @@ export default function MenuClientPage({
             {/* ============================
                 CATEGORIAS
             ============================ */}
-            <div className="mt-8 px-4 md:mx-44 space-y-12 pb-20 2xl:mx-80 2xl:mt-12">
+            <div className="mt-8 px-4 md:mx-44 space-y-12 pb-20 2xl:mx-80 2xl:mt-12 relative">
+                <div className="absolute top-0 right-4 hidden md:flex justify-end gap-4">
+                    <button
+                        className={`text-sm 2xl:text-base text-brand mt-1 transition-opacity duration-200 ${
+                            searchText.length > 0 ? "opacity-100 pointer-events-auto cursor-pointer" : "opacity-0 pointer-events-none"
+                        }`}
+                        onClick={() => {
+                            setSearchText("");
+                            setDebouncedSearch(""); // instant clear
+                        }}
+                    >
+                        Cancelar
+                    </button>
+                    <Input
+                        icon={<FontAwesomeIcon icon={icons.faMagnifyingGlass} />}
+                        placeholder="Buscar..."
+                        value={searchText}
+                        onChange={(e) => setSearchText(e.target.value)}
+                        className={"!py-2"}
+                    />
+                </div>
+
+
+                {debouncedSearch && Object.values(filteredItemsByCat).every(arr => arr.length === 0) && (
+                    <div className="flex flex-col items-center justify-center text-center mx-10 pt-16">
+                        <img src="/images/meh_emoji.png" alt="Nada encontrado" className="w-38 h-38 mb-4 2xl:w-46 2xl:h-46" />
+                        <p className="text-gray-500 text-md 2xl:text-xl">Nenhum item encontrado para <b>{searchText}</b>.</p>
+                    </div>
+                )}
+
                 {categories.filter(cat => filteredItemsByCat[cat.id]?.length > 0).map((cat) => (
                     <div key={cat.id}>
                     {cat.position === 1
@@ -642,7 +663,6 @@ export default function MenuClientPage({
                     restaurant={restaurant}
                     categories={categories}
                     itemsByCategory={itemsByCategory}
-                    setSearchText={setSearchText}
                     onClose={() => setSearchOpen(false)}
                 />
             )}

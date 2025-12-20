@@ -428,7 +428,7 @@ export default function CartModal({
                         </div>
                     </div>
 
-                    {items.reduce((acc,i)=>acc+i.total_cents,0) < restaurant.min_order_cents &&
+                    {(items.length > 0 && items.reduce((acc,i)=>acc+i.total_cents,0) < restaurant.min_order_cents) &&
                         <WarningBox
                             icon={icons.faTriangleExclamation}
                             className="mt-8 mb-8 p-4 2xl:text-lg"
@@ -452,7 +452,7 @@ export default function CartModal({
                         >
                             <div className="flex items-start gap-3 2xl:gap-5">
                                 <img
-                                    src={it.image}
+                                    src={it.image || "/placeholders/item.png"}
                                     className="w-14 h-14 2xl:w-20 2xl:h-20 rounded-xl object-cover"
                                 />
                                 <div>
