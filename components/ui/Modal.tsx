@@ -33,6 +33,12 @@ export default function Modal({ open, onClose, children, className = "" }: Modal
         }
     }, [open]);
 
+    useEffect(() => {
+        return () => {
+            document.body.style.overflow = "";
+        };
+    }, []);
+
     // Lógica de ESC
     useEffect(() => {
         const handleEsc = (e: KeyboardEvent) => {

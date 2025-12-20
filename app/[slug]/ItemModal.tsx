@@ -18,6 +18,7 @@ type Props = {
     onClose: () => void;
     deliveryTax: { lowest: number; highest: number  };
     deliveryTime: { lowest: number; highest: number  };
+    onAdd?: () => void;
 };
 
 export default function ItemModal({
@@ -28,6 +29,7 @@ export default function ItemModal({
                                       onClose,
                                         deliveryTax,
                                       deliveryTime,
+    onAdd,
                                   }: Props) {
     const [qty, setQty] = useState(1);
     const [observation, setObservation] = useState("");
@@ -165,7 +167,17 @@ export default function ItemModal({
             selectedSubitems,
         });
 
-        closeWithAnimation();
+        if (onAdd) {
+            closeWithAnimation();
+            setTimeout(() =>{
+                onAdd();
+            }, 200)
+
+        }
+        else{
+            closeWithAnimation();
+
+        }
     };
 
     const taxText = () => {
