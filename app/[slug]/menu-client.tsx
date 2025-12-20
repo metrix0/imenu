@@ -711,7 +711,7 @@ export default function MenuClientPage({
                 <div className="text-center px-6 pt-2 2xl:px-12">
                     <div className="text-text text-md 2xl:text-xl font-medium mb-2 2xl:mb-4 mt-2">Pedido identificado.</div>
 
-                    <p className="text-gray-500 mb-4 2xl:mb-8 text-sm 2xl:text-lg 2xl:text-lg">
+                    <p className="text-gray-500 mb-4 2xl:mb-8 text-sm 2xl:text-lg">
                         Você realizou um pedido aqui recentemente, gostaria de ir até a página deste pedido?
                     </p>
 
