@@ -13,10 +13,19 @@ const getPublicUrl = (supabase: any, bucket: string, path: string | null) => {
 };
 
 
-export default async function Page({ params }: { params: { slug: string } }) {
+export default async function Page({
+                                       params,
+                                       searchParams,
+                                   }: {
+    params: { slug: string };
+    searchParams: { p?: string };
+}) {
 
     const { slug } = await params;
+    const p = await searchParams;
+
     const supabase = createSupabaseServerClient();
+
 
     // --- 1. Restaurante ---
     const { data: restaurantData } = await supabase
@@ -107,6 +116,7 @@ export default async function Page({ params }: { params: { slug: string } }) {
                 restaurant={restaurant}
                 categories={categoriesWithItems}
                 itemsByCategory={itemsByCategory}
+                openedProductId={p.p}
             />
 
     );

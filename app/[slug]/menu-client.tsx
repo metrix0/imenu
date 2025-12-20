@@ -26,11 +26,13 @@ export default function MenuClientPage({
                                            restaurant,
                                            categories,
                                            itemsByCategory,
+    openedProductId,
                                        }: {
     slug: string;
     restaurant: Restaurant;
     categories: Category[];
     itemsByCategory: ItemsByCategory;
+    openedProductId?: string | null;
 }) {
     const router = useRouter();
 
@@ -99,6 +101,16 @@ export default function MenuClientPage({
 
         setClosedForToday(sameDay);
     }, [restaurant?.is_closed]);
+
+    useEffect(() => {
+        if (openedProductId) {
+            const allItems = Object.values(itemsByCategory).flat();
+            const item = allItems.find(i => i.id === openedProductId);
+            if (item) {
+                handleItemClick(item);
+            }
+        }
+    }, []);
 
 
     const handleItemClick = async (item: Item) => {
