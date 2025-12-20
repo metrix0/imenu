@@ -10,8 +10,8 @@
 ## Rafa
 
 ## Joao
-
-
+- Payment modal (você fez um pedido mas nao pagou, quer pagar agora? link pro pagamento) <- dps q o brendo fiezr  o novo pagmaneto
+- Adicionar Zustand de setRestaurantSlug nos logins e registros
 
 ---
 <br>

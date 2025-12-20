@@ -10,7 +10,7 @@ type CreationState = {
     setEmail: (email: string) => void;
     clear: () => void;
     restaurantSlug?: string | null;
-    setRestaurantSlug?: (slug: string | null) => void;
+    setRestaurantSlug: (slug: string | null) => void;
 };
 
 export const useCreationStore = create<CreationState>()(
