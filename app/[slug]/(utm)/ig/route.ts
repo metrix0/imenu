@@ -1,13 +1,13 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
-export function GET(
-    request: Request,
-    { params }: { params: { slug: string } }
+export async function GET(
+    request: NextRequest,
+    { params }: { params: Promise<{ slug: string }> }
 ) {
-    const { slug } = params;
+    const { slug } = await params;
 
     return NextResponse.redirect(
         `https://imenuapp.com.br/${slug}?utm_source=instagram`,
-        { status: 307 } // ou 302
+        { status: 307 }
     );
 }

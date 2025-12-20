@@ -179,10 +179,14 @@ export default function MenuClientPage({
         return `R$ ${formatPriceNoRS(deliveryTax.lowest)}-${formatPriceNoRS(deliveryTax.highest )}`
     }
 
-    const hScroll = document.querySelector('.scroll-wrapper');
-    if (hScroll && hScroll.scrollWidth > hScroll.clientWidth) {
-        hScroll.classList.add('visible');
-    }
+    useEffect(() => {
+        const hScroll = document.querySelector('.scroll-wrapper');
+        if (!hScroll) return;
+
+        if (hScroll.scrollWidth > hScroll.clientWidth) {
+            hScroll.classList.add('visible');
+        }
+    }, []);
 
     const deliveryTax = (() => {
         const fees = restaurant.delivery_fee_json.map(
@@ -419,7 +423,7 @@ export default function MenuClientPage({
                 <WarningBox icon={icons.faTriangleExclamation} className="mt-10 mx-6 md:mx-48">
                     {closedForToday && (
                         "Hoje o restaurante está fechado no horário comum de funcionamento, devido à possíveis feriados ou eventos especiais."
-                    )}
+                        )}
                     {(nextOpening !== null && !closedForToday) && (
                         <>
                             Restaurante fechado. Abre em <b>
@@ -550,94 +554,94 @@ export default function MenuClientPage({
 
                 {categories.filter(cat => filteredItemsByCat[cat.id]?.length > 0).map((cat) => (
                     <div key={cat.id}>
-                        {cat.position === 1
-                            ?
-                            <div key={cat.id}>
+                    {cat.position === 1
+                        ?
+                        <div key={cat.id}>
 
-                                <h2 className="text-xl 2xl:text-2xl font-medium mb-4 md:mb-8">
-                                    <div id={`cat-${cat.id}`} />
-                                    {cat.name}
-                                </h2>
+                            <h2 className="text-xl 2xl:text-2xl font-medium mb-4 md:mb-8">
+                                <div id={`cat-${cat.id}`} />
+                                {cat.name}
+                            </h2>
 
-                                <div className="grid grid-cols-3 md:grid-cols-4 gap-[4dvw] w-full relative ">
-                                    {filteredItemsByCat[cat.id]?.map((item) => (
-                                            <button
-                                                key={item.id}
-                                                onClick={() => handleItemClick(item)}
-                                                className={`text-left cursor-pointer ${
-                                                    loadingItemId === item.id
-                                                        ? "opacity-60"
-                                                        : ""
-                                                }`}
-                                            >
-                                                <div className=" w-full aspect-square rounded-2xl overflow-hidden bg-gray-200 shadow-sm">
-                                                    <img
-                                                        src={item.image_public_url || "/placeholders/item.png"}
-                                                        className="w-full h-full object-cover"
-                                                        alt={item.name}
-                                                    />
-                                                </div>
+                            <div className="grid grid-cols-3 md:grid-cols-4 gap-[4dvw] w-full relative ">
+                                {filteredItemsByCat[cat.id]?.map((item) => (
+                                    <button
+                                        key={item.id}
+                                        onClick={() => handleItemClick(item)}
+                                        className={`text-left cursor-pointer ${
+                                            loadingItemId === item.id
+                                                ? "opacity-60"
+                                                : ""
+                                        }`}
+                                    >
+                                        <div className=" w-full aspect-square rounded-2xl overflow-hidden bg-gray-200 shadow-sm">
+                                            <img
+                                                src={item.image_public_url || "/placeholders/item.png"}
+                                                className="w-full h-full object-cover"
+                                                alt={item.name}
+                                            />
+                                        </div>
 
-                                                <div className="mt-3 flex flex-col h-[55px] justify-start ">
-                                                    <p className="font-semibold text-sm 2xl:text-lg">
-                                                        {formatPrice(item.price_cents)}
-                                                    </p>
+                                        <div className="mt-3 flex flex-col h-[55px] justify-start ">
+                                            <p className="font-semibold text-sm 2xl:text-lg">
+                                                {formatPrice(item.price_cents)}
+                                            </p>
 
-                                                    <p className="text-sm 2xl:text-lg text-gray-700 line-clamp-2 leading-snug">
-                                                        {item.name}
-                                                    </p>
-                                                </div>
-                                            </button>
-                                        )
-                                    )}
-                                </div>
+                                            <p className="text-sm 2xl:text-lg text-gray-700 line-clamp-2 leading-snug">
+                                                {item.name}
+                                            </p>
+                                        </div>
+                                    </button>
+                                )
+                                )}
                             </div>
-                            :
-                            <div key={cat.id}>
+                        </div>
+                        :
+                        <div key={cat.id}>
 
-                                <h2 className="text-xl 2xl:text-2xl font-medium mb-6 md:mb-8">
-                                    <div id={`cat-${cat.id}`} />
-                                    {cat.name}
-                                </h2>
+                            <h2 className="text-xl 2xl:text-2xl font-medium mb-6 md:mb-8">
+                                <div id={`cat-${cat.id}`} />
+                                {cat.name}
+                            </h2>
 
-                                <div className="space-y-6 md:space-y-0 w-full md:grid md:grid-cols-2 md:gap-x-[4dvw] md:gap-y-[2dvw]">
-                                    {filteredItemsByCat[cat.id]?.map((item) => (
-                                        <button
-                                            key={item.id}
-                                            onClick={() => handleItemClick(item)}
-                                            className={`cursor-pointer w-full flex justify-between items-start text-left border-b-1 pb-4 border-gray-200 ${
-                                                loadingItemId === item.id ? "opacity-60" : ""
-                                            }`}
-                                        >
-                                            {/* LEFT SIDE (text) */}
-                                            <div className="flex flex-col pr-4 flex-1 items-start justify-start max-w-[70%] ">
-                                                <p className="text-sm 2xl:text-lg font-semibold leading-tight">
-                                                    {item.name}
-                                                </p>
+                            <div className="space-y-6 md:space-y-0 w-full md:grid md:grid-cols-2 md:gap-x-[4dvw] md:gap-y-[2dvw]">
+                                {filteredItemsByCat[cat.id]?.map((item) => (
+                                    <button
+                                        key={item.id}
+                                        onClick={() => handleItemClick(item)}
+                                        className={`cursor-pointer w-full flex justify-between items-start text-left border-b-1 pb-4 border-gray-200 ${
+                                            loadingItemId === item.id ? "opacity-60" : ""
+                                        }`}
+                                    >
+                                        {/* LEFT SIDE (text) */}
+                                        <div className="flex flex-col pr-4 flex-1 items-start justify-start max-w-[70%] ">
+                                            <p className="text-sm 2xl:text-lg font-semibold leading-tight">
+                                                {item.name}
+                                            </p>
 
-                                                <p className="text-sm 2xl:text-lg text-gray-600 line-clamp-2 mt-1 leading-tight">
-                                                    {(item.description ?? "").slice(0, 60)}{item.description && item.description.length > 60 ? "…" : ""}
-                                                </p>
+                                            <p className="text-sm 2xl:text-lg text-gray-600 line-clamp-2 mt-1 leading-tight">
+                                                {(item.description ?? "").slice(0, 60)}{item.description && item.description.length > 60 ? "…" : ""}
+                                            </p>
 
-                                                <p className="text-sm 2xl:text-lg font-bold mt-2">
-                                                    {formatPrice(item.price_cents)}
-                                                </p>
-                                            </div>
+                                            <p className="text-sm 2xl:text-lg font-bold mt-2">
+                                                {formatPrice(item.price_cents)}
+                                            </p>
+                                        </div>
 
-                                            {/* RIGHT SIDE (image) */}
-                                            <div className="w-[22vw] h-[22vw] md:w-[10vw] md:h-[10vw] rounded-2xl overflow-hidden
+                                        {/* RIGHT SIDE (image) */}
+                                        <div className="w-[22vw] h-[22vw] md:w-[10vw] md:h-[10vw] rounded-2xl overflow-hidden
                     bg-gray-200 shadow-sm flex-shrink-0">
-                                                <img
-                                                    src={item.image_public_url || "/placeholders/item.png"}
-                                                    className="w-full h-full object-cover"
-                                                    alt={item.name}
-                                                />
-                                            </div>
-                                        </button>
-                                    ))}
-                                </div>
+                                            <img
+                                                src={item.image_public_url || "/placeholders/item.png"}
+                                                className="w-full h-full object-cover"
+                                                alt={item.name}
+                                            />
+                                        </div>
+                                    </button>
+                                ))}
                             </div>
-                        }
+                        </div>
+                    }
                     </div>
                 ))}
             </div>
@@ -737,6 +741,7 @@ export default function MenuClientPage({
                     </p>
                 </div>
             </ModalMobile>
+
 
 
         </div>
