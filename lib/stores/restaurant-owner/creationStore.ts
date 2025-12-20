@@ -9,16 +9,20 @@ type CreationState = {
     setRestaurantId: (id: string) => void;
     setEmail: (email: string) => void;
     clear: () => void;
+    restaurantSlug?: string | null;
+    setRestaurantSlug?: (slug: string | null) => void;
 };
 
 export const useCreationStore = create<CreationState>()(
     persist(
         (set) => ({
             restaurantId: null,
-            email: null, 
+            email: null,
             setRestaurantId: (id) => set({ restaurantId: id }),
             setEmail: (email) => set({ email: email }), 
-            clear: () => set({ restaurantId: null, email: null }), 
+            clear: () => set({ restaurantId: null, email: null }),
+            restaurantSlug : null,
+            setRestaurantSlug: (slug) => set({ restaurantSlug: slug }),
         }),
         {
             name: 'restaurant-creation-storage',

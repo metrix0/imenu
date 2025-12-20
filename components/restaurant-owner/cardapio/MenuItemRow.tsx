@@ -2,11 +2,14 @@
 
 import { useState, useRef, useEffect, ReactNode } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faImage, faTrash, faCheck, faTimes, faSpinner, faCog, faCopy } from "@fortawesome/free-solid-svg-icons";
+import { faImage, faSpinner, faCog, } from "@fortawesome/free-solid-svg-icons";
+import { icons } from "@/lib/utils/fontawesome"
 import { uploadMenuImage } from "@/lib/database/uploadMenuImage";
 import { supabase } from "@/lib/database/supabaseClient";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import Button from "@/components/ui/Button";
+import Tooltip from "@/components/ui/Tooltip";
+import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 
 export type MenuItemType = {
     id: string;
@@ -41,6 +44,11 @@ export default function MenuItemRow({
     onOpenDetails,
     dragHandle
 }: MenuItemRowProps) {
+
+    const restaurantSlug = useCreationStore((state) => state.restaurantSlug);
+    const setRestaurantSlug = useCreationStore((state) => state.setRestaurantSlug);
+    const restaurantId = useCreationStore((state) => state.restaurantId);
+
     const [isEditing, setIsEditing] = useState(isNew);
     const [isLoading, setIsLoading] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
@@ -53,9 +61,39 @@ export default function MenuItemRow({
     const [imageUrl, setImageUrl] = useState(item.image_url ?? null); 
     const [imagePath, setImagePath] = useState(item.image_path ?? null);
     const [isAvailable, setIsAvailable] = useState(item.is_available ?? false);
+    const [copied, setCopied] = useState(false);
 
     const nameInputRef = useRef<HTMLInputElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const handleCopy = async () => {
+        let slug = restaurantSlug;
+
+        if (!slug) {
+            const { data, error } = await supabase
+                .from("restaurants")
+                .select("url_slug")
+                .eq("id", restaurantId)
+                .single();
+
+            if (error || !data) {
+                console.error("Failed to fetch restaurant slug", error);
+                return;
+            }
+
+            if (setRestaurantSlug) {
+                setRestaurantSlug(data.url_slug);
+            }
+
+            slug = data.url_slug;
+        }
+
+        const couponLink = `imenuapp.com.br/${slug}/?p=${item.id}`;
+
+        await navigator.clipboard.writeText(couponLink);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
 
     useEffect(() => {
         if (isNew && nameInputRef.current) nameInputRef.current.focus();
@@ -251,6 +289,18 @@ export default function MenuItemRow({
                                 <span className="hidden sm:inline">Opções</span>
                             </Button>
 
+                            <Tooltip text={"Copiar link que leva direto para o Item"} position={"left"}>
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleCopy()
+                                    }}
+                                    className="cursor-pointer w-8 h-8 2xl:text-2xl flex items-center justify-center text-gray-400 hover:text-brand hover:bg-gray-50 rounded-full transition-colors"
+                                >
+                                    <FontAwesomeIcon icon={copied ? icons.faCheck : icons.faLink} />
+                                </button>
+                            </Tooltip>
+
                             {/* Botão Duplicar (Novo) */}
                             <button 
                                 onClick={(e) => { 
@@ -260,7 +310,7 @@ export default function MenuItemRow({
                                 className="cursor-pointer w-8 h-8 2xl:text-2xl flex items-center justify-center text-gray-400 hover:text-brand hover:bg-gray-50 rounded-full transition-colors"
                                 title="Duplicar item"
                             >
-                                <FontAwesomeIcon icon={faCopy} />
+                                <FontAwesomeIcon icon={icons.faCopy} />
                             </button>
                         </>
                     )}
@@ -281,7 +331,7 @@ export default function MenuItemRow({
                         className="cursor-pointer w-8 h-8 2xl:text-2xl flex items-center justify-center text-gray-400 hover:text-red-600 transition-all"
                         title="Deletar item"
                     >
-                        <FontAwesomeIcon icon={faTrash} />
+                        <FontAwesomeIcon icon={icons.faTrash} />
                     </button>
                 </div>
             </div>
@@ -353,7 +403,7 @@ export default function MenuItemRow({
                 <div className="flex items-center gap-1">
                     {onCancel && (
                         <button onClick={onCancel} className="2xl:text-xl cursor-pointer w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors">
-                            <FontAwesomeIcon icon={faTimes} />
+                            <FontAwesomeIcon icon={icons.faTimes} />
                         </button>
                     )}
                     <button
@@ -361,7 +411,7 @@ export default function MenuItemRow({
                         onClick={handleSave}
                         className="cursor-pointer h-8 px-4 2xl:px-6 2xl:text-lg 2xl:h-10 bg-brand text-white text-sm font-medium rounded-md hover:bg-orange-600 transition-colors disabled:opacity-70 flex items-center gap-2"
                     >
-                        {isLoading ? "..." : <><FontAwesomeIcon icon={faCheck} /> Salvar</>}
+                        {isLoading ? "..." : <><FontAwesomeIcon icon={icons.faCheck} /> Salvar</>}
                     </button>
                 </div>
             </div>
