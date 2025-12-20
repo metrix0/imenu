@@ -514,6 +514,18 @@ export default function MenuClientPage({
                 </div>
             </div>
 
+                    {/* Category Tabs */}
+                    <div className="hidden-x-scroll mt-1 px-2 overflow-x-auto">
+                        <Tabs
+                            tabs={categories.map((c) => c.name)}
+                            active={activeTab}
+                            onChange={handleTabChange}
+                            className="border-none"
+                            childClassName="whitespace-nowrap"
+                        />
+                    </div>
+                </div>
+            )}
 
             {/* ============================
                 CATEGORIAS
