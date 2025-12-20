@@ -162,3 +162,12 @@ html, body {
 .thin-scrollbar::-webkit-scrollbar {
     display: none; /* Chrome/Safari */
 }
+
+.hidden-x-scroll {
+    overflow-x: scroll;
+    scrollbar-width: none; /* Firefox */
+}
+
+.hidden-x-scroll::-webkit-scrollbar {
+    display: none; /* Chrome/Safari */
+}
