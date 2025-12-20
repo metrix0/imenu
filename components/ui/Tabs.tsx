@@ -20,6 +20,7 @@ export default function Tabs<T extends string>({
         <div className={`flex gap-2 border-b border-gray-200 ${className}`}>
             {tabs.map((tab) => (
                 <button
+                    data-tab={tab}
                     key={tab}
                     onClick={() => onChange(tab)}
                     className={`px-4 py-2 2xl:py-3 2xl:px-5 font-medium border-b-2 transition-all cursor-pointer 2xl:text-[1.18rem] ${childClassName} ${

@@ -9,12 +9,16 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { icons } from "@/lib/utils/fontawesome";
 import { faStar } from "@fortawesome/free-solid-svg-icons";
 import { supabase } from "@/lib/database/supabaseClient";
+import Input from "@/components/ui/Input";
 import { formatPrice, formatPriceNoRS } from "@/lib/utils/formatPrice";
 import ModalMobile from "@/components/ui/HybridModal";
 import ItemModal from "./ItemModal";
 import CartBar from "@/components/costumer/CartBar"
 import CartModal from "./CartModal"
 import WarningBox from "@/components/ui/WarningBox";
+import Tabs from "@/components/ui/Tabs";
+import SearchModal from "./SearchModal"
+
 
 
 export default function MenuClientPage({
@@ -47,7 +51,20 @@ export default function MenuClientPage({
     const [restaurantCartWarningVisible, setRestaurantCartWarningVisible] = useState(false);
     const [orderId, setOrderId] = useState<string | null>(null);
     const [closedForToday, setClosedForToday] = useState(false);
+    const [searchText, setSearchText] = useState("");
+    const [searchOpen, setSearchOpen] = useState(false);
+    const [showMobileSearch, setShowMobileSearch] = useState(false);
+    const [activeTab, setActiveTab] = useState(categories[0]?.name ?? "");
+    const [manualScrollLock, setManualScrollLock] = useState(false);
 
+    useEffect(() => {
+        const btn = document.querySelector(
+            `button[data-tab="${CSS.escape(activeTab)}"]`
+        );
+        if (btn) {
+            btn.scrollIntoView({ behavior: "smooth", inline: "center" });
+        }
+    }, [activeTab]);
 
     useEffect(() => {
         if (!restaurant?.is_closed) {
@@ -105,12 +122,56 @@ export default function MenuClientPage({
         }
     };
 
+    const handleTabChange = (tab: string) => {
+        setManualScrollLock(true);
+        setActiveTab(tab);
+
+        // scroll the tab horizontally
+        setTimeout(() => {
+            const btn = document.querySelector(
+                `button[data-tab="${CSS.escape(tab)}"]`
+            );
+            if (btn) btn.scrollIntoView({ behavior: "smooth", inline: "center" });
+        }, 0);
+
+        // scroll to the category
+        const cat = categories.find(c => c.name === tab);
+        if (!cat) return;
+        const el = document.getElementById(`cat-${cat.id}`);
+        if (el) {
+            const yOffset = -300; // adjust for your fixed headers if needed
+            const y = el.getBoundingClientRect().top + window.pageYOffset + yOffset;
+            window.scrollTo({ top: y, behavior: "smooth" });
+        }
+
+
+        // unlock
+        setTimeout(() => setManualScrollLock(false), 600);
+    };
+
+
+    const filteredItemsByCat = Object.fromEntries(
+        Object.entries(itemsByCategory).map(([catId, arr]) => [
+            catId,
+            searchText
+                ? arr.filter(i =>
+                    i.name.toLowerCase().includes(searchText.toLowerCase())
+                )
+                : arr,
+        ])
+    );
+
     const taxText = () => {
 
         if(deliveryTax.lowest === deliveryTax.highest){
             return `R$ ${formatPriceNoRS(deliveryTax.lowest)}`
         }
         return `R$ ${formatPriceNoRS(deliveryTax.lowest)}-${formatPriceNoRS(deliveryTax.highest )}`
+    }
+
+    const hScroll = document.querySelector('.scroll-wrapper');
+    if (hScroll && hScroll.scrollWidth > hScroll.clientWidth) {
+        hScroll.classList.add('visible');
     }
 
     const deliveryTax = (() => {
@@ -196,7 +257,14 @@ export default function MenuClientPage({
             setNextOpening(null);
         }
     };
-
+    useEffect(() => {
+        const onScroll = () => {
+            const threshold = window.innerHeight * 0.30;
+            setShowMobileSearch(window.scrollY > threshold);
+        };
+        window.addEventListener("scroll", onScroll);
+        return () => window.removeEventListener("scroll", onScroll);
+    }, []);
 
     useEffect(() => {
         checkRestaurantAvailability();
@@ -232,6 +300,36 @@ export default function MenuClientPage({
             });
         }
     }, []);
+
+// AUTO-HIGHLIGHT TAB WHEN USER SCROLLS
+    useEffect(() => {
+        const observer = new IntersectionObserver(
+            (entries) => {
+                if (manualScrollLock) return; // ignore while programmatic scrolling
+                entries.forEach((e) => {
+                    if (e.isIntersecting) {
+                        const id = e.target.getAttribute("data-cat")!;
+                        const cat = categories.find((c) => c.id.toString() === id);
+                        if (cat) setActiveTab(cat.name);
+                    }
+                });
+            },
+            {
+                root: null,
+                rootMargin: "-20% 0px -70% 0px"
+            }
+        );
+
+        categories.forEach((cat) => {
+            const el = document.getElementById(`cat-${cat.id}`);
+            if (el) {
+                el.setAttribute("data-cat", cat.id.toString());
+                observer.observe(el);
+            }
+        });
+
+        return () => observer.disconnect();
+    }, [categories, manualScrollLock]);
 
     return (
 
@@ -305,6 +403,26 @@ export default function MenuClientPage({
                 </div>
             </div>
 
+            <div className="hidden md:block mx-5 md:mx-48 2xl:mx-80 mt-6">
+                <Input
+                    icon={<FontAwesomeIcon icon={icons.faMagnifyingGlass} />}
+                    placeholder="Buscar..."
+                    value={searchText}
+                    onChange={(e) => setSearchText(e.target.value)}
+                />
+                {searchText.length > 0 && (
+                    <button
+                        className="text-sm text-brand mt-1"
+                        onClick={() => setSearchText("")}
+                    >
+                        limpar
+                    </button>
+                )}
+            </div>
+            {searchText && Object.values(filteredItemsByCat).every(arr => arr.length === 0) && (
+                <p className="text-gray-500 text-sm mt-3">Nenhum item encontrado.</p>
+            )}
+
             {(nextOpening !== null || closedForToday) && (
                 <WarningBox icon={icons.faTriangleExclamation} className="mt-10 mx-6 md:mx-48">
                     {closedForToday && (
@@ -342,25 +460,62 @@ export default function MenuClientPage({
 
             )}
 
+            {!showMobileSearch && (
+                <div className={"top-7 right-5 fixed flex gap-3 md:hidden"}>
+                    <div className={"h-10 w-10 rounded-full bg-black/50 text-white flex justify-center items-center"}>
+                        <FontAwesomeIcon icon={icons.faHistory}/>
+                    </div>
+                    <div className={"h-10 w-10 rounded-full bg-black/50 text-white flex justify-center items-center"}>
+                        <FontAwesomeIcon icon={icons.faMagnifyingGlass}/>
+                    </div>
+                </div>
 
+            )}
 
+            {/* === MOBILE SEARCH + TABS (only after scroll) === */}
+            {showMobileSearch && (
+                <div className="md:hidden fixed w-full top-0 bg-white z-[40] border-b border-gray-100">
+                    {/* Search trigger */}
+                    <div className="px-4 py-2 shadow-sm flex items-center gap-3">
+                        <button onClick={() => setSearchOpen(true)} className="flex-1">
+                            <Input
+                                icon={<FontAwesomeIcon icon={icons.faMagnifyingGlass} />}
+                                placeholder="Buscar no cardápio..."
+                                readOnly
+                            />
+                        </button>
+                    </div>
+
+                    {/* Category Tabs */}
+                    <div className="hidden-x-scroll mt-1 px-2 overflow-x-auto">
+                        <Tabs
+                            tabs={categories.map((c) => c.name)}
+                            active={activeTab}
+                            onChange={handleTabChange}
+                            className="border-none"
+                            childClassName="whitespace-nowrap"
+                        />
+                    </div>
+                </div>
+            )}
 
             {/* ============================
                 CATEGORIAS
             ============================ */}
             <div className="mt-8 px-4 md:mx-44 space-y-12 pb-20 2xl:mx-80 2xl:mt-12">
-                {categories.map((cat) => (
+                {categories.filter(cat => filteredItemsByCat[cat.id]?.length > 0).map((cat) => (
                     <div key={cat.id}>
                     {cat.position === 1
                         ?
                         <div key={cat.id}>
 
                             <h2 className="text-xl 2xl:text-2xl font-medium mb-4 md:mb-8">
+                                <div id={`cat-${cat.id}`} />
                                 {cat.name}
                             </h2>
 
                             <div className="grid grid-cols-3 md:grid-cols-4 gap-[4dvw] w-full relative ">
-                                {itemsByCategory[cat.id]?.map((item) => (
+                                {filteredItemsByCat[cat.id]?.map((item) => (
                                     <button
                                         key={item.id}
                                         onClick={() => handleItemClick(item)}
@@ -388,18 +543,20 @@ export default function MenuClientPage({
                                             </p>
                                         </div>
                                     </button>
-                                ))}
+                                )
+                                )}
                             </div>
                         </div>
                         :
                         <div key={cat.id}>
 
                             <h2 className="text-xl 2xl:text-2xl font-medium mb-6 md:mb-8">
+                                <div id={`cat-${cat.id}`} />
                                 {cat.name}
                             </h2>
 
                             <div className="space-y-6 md:space-y-0 w-full md:grid md:grid-cols-2 md:gap-x-[4dvw] md:gap-y-[2dvw]">
-                                {itemsByCategory[cat.id]?.map((item) => (
+                                {filteredItemsByCat[cat.id]?.map((item) => (
                                     <button
                                         key={item.id}
                                         onClick={() => handleItemClick(item)}
@@ -455,6 +612,17 @@ export default function MenuClientPage({
                 />
             )}
 
+            {/* === SEARCH MODAL === */}
+            {searchOpen && (
+                <SearchModal
+                    restaurant={restaurant}
+                    categories={categories}
+                    itemsByCategory={itemsByCategory}
+                    searchText={searchText}
+                    setSearchText={setSearchText}
+                    onClose={() => setSearchOpen(false)}
+                />
+            )}
 
             {/* AQUI! */}
             {nextOpening === null && (

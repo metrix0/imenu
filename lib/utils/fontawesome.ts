@@ -30,7 +30,9 @@ import {
     faClock,
     faUser,
     faLink,
-    faCopy
+    faCopy,
+    faMagnifyingGlass,
+    faHistory
 } from "@fortawesome/free-solid-svg-icons";
 import {faWhatsapp} from "@fortawesome/free-brands-svg-icons";
 
@@ -66,5 +68,7 @@ export const icons = {
     faClock,
     faUser,
     faLink,
-    faCopy
+    faCopy,
+    faMagnifyingGlass,
+    faHistory
 };

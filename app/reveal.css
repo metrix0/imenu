@@ -23,3 +23,12 @@
 .delay-300 { transition-delay: 300ms; }
 .delay-500 { transition-delay: 500ms; }
 .delay-700 { transition-delay: 500ms; }
+
+.fade-scroll {
+    opacity: 0;
+    transition: opacity 0.4s ease-out;
+}
+
+.fade-scroll.visible {
+    opacity: 1;
+}
