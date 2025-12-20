@@ -13,18 +13,23 @@ type DropdownProps = React.SelectHTMLAttributes<HTMLSelectElement> & {
     options: DropdownOption[];
 };
 
-export default function Dropdown({
-                                     label,
-                                     options,
-                                     className = "",
-                                     ...props
-                                 }: DropdownProps) {
+const Dropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(function Dropdown(
+    {
+        label,
+        options,
+        className = "",
+        ...props
+    },
+    ref
+) {
     const [open, setOpen] = React.useState(false);
     const selectRef = React.useRef<HTMLSelectElement>(null);
 
+    React.useImperativeHandle(ref, () => selectRef.current as HTMLSelectElement);
+
     const handleToggle = () => {
         setOpen((prev) => !prev);
-        selectRef.current?.focus(); // ensures click on chevron opens it too
+        selectRef.current?.focus();
     };
 
     return (
@@ -57,4 +62,6 @@ export default function Dropdown({
             </div>
         </div>
     );
-}
+});
+
+export default Dropdown;

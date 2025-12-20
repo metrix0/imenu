@@ -10,6 +10,7 @@ type InputProps = Omit<
     iconPosition?: "left" | "right";
     numeric?: boolean;
     float?: boolean;
+    locked?: boolean;
 };
 
 const Input = React.forwardRef<HTMLInputElement, InputProps>((
@@ -20,6 +21,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>((
         numeric = false,
         float = false,
         className = "",
+        locked = false,
         ...props
     },
     ref
@@ -94,7 +96,9 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>((
                     className={`w-full border border-gray-300 rounded-md px-3 py-3
                         focus:ring-brand focus:border-brand 2xl:text-lg
                         ${withIcon ? (isLeft ? "pl-10" : "pr-10") : ""}
-                        ${className}`}
+                        ${className}
+                        ${locked ? "bg-gray-100 cursor-not-allowed text-gray-500" : "bg-white"}
+                        `}
                 />
             </div>
         </div>
