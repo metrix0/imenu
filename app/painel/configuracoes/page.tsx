@@ -414,7 +414,7 @@ const handleNameUpdate = async () => {
                                 variant="secondary" 
                                 onClick={handleLogout} 
                                 loading={isLoggingOut}
-                                className="text-red-600 hover:bg-red-50 border-red-200"
+                                className="text-red-600 hover:bg-red-50 border-red-200 font-normal text-sm bg-white"
                             >
                                 <FontAwesomeIcon icon={faSignOutAlt} className="mr-2" />
                                 Sair da Conta
@@ -631,84 +631,83 @@ const handleNameUpdate = async () => {
                             </Card>
 
                             {/* --- CARDÁPIO --- */}
-                            <Card>
-                                {/* Container Flex Responsivo */}
-                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            {/*<Card>*/}
+                            {/*    /!* Container Flex Responsivo *!/*/}
+                            {/*    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">*/}
 
-                                    {/* Bloco de Texto (Título e descrição) */}
-                                    <div>
-                                        <h2 className="text-xl font-medium text-gray-900 mb-2">Cardápio Principal</h2>
-                                        <p className="text-gray-500 text-sm 2xl:text-base mb-2">Gerencie o cardápio ativo do restaurante.</p>
-                                    </div>
+                            {/*        <div>*/}
+                            {/*            <h2 className="text-xl font-medium text-gray-900 mb-2">Cardápio Principal</h2>*/}
+                            {/*            <p className="text-gray-500 text-sm 2xl:text-base mb-2">Gerencie o cardápio ativo do restaurante.</p>*/}
+                            {/*        </div>*/}
 
-                                    {/* Botão (Só aparece se não tiver menu) */}
-                                    {!menu && (
-                                        <div className="flex justify-start md:justify-end w-full md:w-auto">
-                                            <Button
-                                                variant="primary"
-                                                onClick={() => router.push(`/painel/cardapio`)}
-                                                className="w-full md:w-auto" // Opcional: Deixa o botão largura total no mobile
-                                            >
-                                                Criar Cardápio
-                                            </Button>
-                                        </div>
-                                    )}
-                                </div>
+                            {/*        /!* Botão (Só aparece se não tiver menu) *!/*/}
+                            {/*        {!menu && (*/}
+                            {/*            <div className="flex justify-start md:justify-end w-full md:w-auto">*/}
+                            {/*                <Button*/}
+                            {/*                    variant="primary"*/}
+                            {/*                    onClick={() => router.push(`/painel/cardapio`)}*/}
+                            {/*                    className="w-full md:w-auto" // Opcional: Deixa o botão largura total no mobile*/}
+                            {/*                >*/}
+                            {/*                    Criar Cardápio*/}
+                            {/*                </Button>*/}
+                            {/*            </div>*/}
+                            {/*        )}*/}
+                            {/*    </div>*/}
 
-                                {menu && (
-                                    <div
-                                        className="group border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow bg-white flex items-center justify-between cursor-pointer"
-                                        onClick={() => router.push(`/painel/cardapio`)}
-                                    >
-                                        <div>
-                                            <h3 className="text-lg font-semibold text-gray-900">{menu.name}</h3>
-                                        </div>
+                            {/*    {menu && (*/}
+                            {/*        <div*/}
+                            {/*            className="group border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow bg-white flex items-center justify-between cursor-pointer"*/}
+                            {/*            onClick={() => router.push(`/painel/cardapio`)}*/}
+                            {/*        >*/}
+                            {/*            <div>*/}
+                            {/*                <h3 className="text-lg font-semibold text-gray-900">{menu.name}</h3>*/}
+                            {/*            </div>*/}
 
-                                        <div className="flex items-center gap-4" onClick={(e) => e.stopPropagation()}>
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-sm 2xl:text-base text-gray-600">Visível:</span>
-                                                <ToggleInput
-                                                    label=""
-                                                    checked={menu.is_active || false}
-                                                    onChange={(e) => toggleMenuStatus(e.target.checked)}
-                                                />
-                                            </div>
-                                            <div className="w-px h-8 bg-gray-200 mx-2"></div>
-                                            <button
-                                                onClick={confirmDeleteMenu}
-                                                className="text-gray-400 hover:text-red-600 transition-colors p-2"
-                                                title="Excluir cardápio"
-                                            >
-                                                <FontAwesomeIcon icon={faTrash} />
-                                            </button>
-                                        </div>
-                                    </div>
-                                )}
-                            </Card>
+                            {/*            <div className="flex items-center gap-4" onClick={(e) => e.stopPropagation()}>*/}
+                            {/*                <div className="flex items-center gap-2">*/}
+                            {/*                    <span className="text-sm 2xl:text-base text-gray-600">Visível:</span>*/}
+                            {/*                    <ToggleInput*/}
+                            {/*                        label=""*/}
+                            {/*                        checked={menu.is_active || false}*/}
+                            {/*                        onChange={(e) => toggleMenuStatus(e.target.checked)}*/}
+                            {/*                    />*/}
+                            {/*                </div>*/}
+                            {/*                <div className="w-px h-8 bg-gray-200 mx-2"></div>*/}
+                            {/*                <button*/}
+                            {/*                    onClick={confirmDeleteMenu}*/}
+                            {/*                    className="text-gray-400 hover:text-red-600 transition-colors p-2"*/}
+                            {/*                    title="Excluir cardápio"*/}
+                            {/*                >*/}
+                            {/*                    <FontAwesomeIcon icon={faTrash} />*/}
+                            {/*                </button>*/}
+                            {/*            </div>*/}
+                            {/*        </div>*/}
+                            {/*    )}*/}
+                            {/*</Card>*/}
 
                             {/* --- ZONA DE PERIGO: RESTAURANTE --- */}
-                            <Card className="border-red-200">
-                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                                    {/* Coluna 1: Textos */}
-                                    <div>
-                                        <h2 className="text-xl font-medium text-red-700 mb-2">Deletar Restaurante</h2>
-                                        <p className="text-red-600/70 text-sm 2xl:text-base">
-                                            Isso excluirá permanentemente o restaurante <b>{restaurant.name}</b> e todos os pedidos.
-                                        </p>
-                                    </div>
+                            {/*<Card className="border-red-200">*/}
+                            {/*    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">*/}
+                            {/*        /!* Coluna 1: Textos *!/*/}
+                            {/*        <div>*/}
+                            {/*            <h2 className="text-xl font-medium text-red-700 mb-2">Deletar Restaurante</h2>*/}
+                            {/*            <p className="text-red-600/70 text-sm 2xl:text-base">*/}
+                            {/*                Isso excluirá permanentemente o restaurante <b>{restaurant.name}</b> e todos os pedidos.*/}
+                            {/*            </p>*/}
+                            {/*        </div>*/}
 
-                                    {/* Coluna 2: Botão */}
-                                    <div className="flex justify-center md:justify-end w-full md:w-auto">
-                                        <Button
-                                            variant="primary"
-                                            className="!bg-red-600 hover:!bg-red-700 border-red-600 w-full md:w-auto"
-                                            onClick={confirmDeleteRestaurant}
-                                        >
-                                            <FontAwesomeIcon icon={faTrash} className="text-xs mr-2" /> Deletar Restaurante
-                                        </Button>
-                                    </div>
-                                </div>
-                            </Card>
+                            {/*        /!* Coluna 2: Botão *!/*/}
+                            {/*        <div className="flex justify-center md:justify-end w-full md:w-auto">*/}
+                            {/*            <Button*/}
+                            {/*                variant="primary"*/}
+                            {/*                className="!bg-red-600 hover:!bg-red-700 border-red-600 w-full md:w-auto"*/}
+                            {/*                onClick={confirmDeleteRestaurant}*/}
+                            {/*            >*/}
+                            {/*                <FontAwesomeIcon icon={faTrash} className="text-xs mr-2" /> Deletar Restaurante*/}
+                            {/*            </Button>*/}
+                            {/*        </div>*/}
+                            {/*    </div>*/}
+                            {/*</Card>*/}
                         </>
                     )}
 
@@ -717,7 +716,7 @@ const handleNameUpdate = async () => {
                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                             {/* Coluna 1: Textos */}
                             <div>
-                                <h2 className="text-xl font-medium text-red-700 mb-2">Deletar Conta</h2>
+                                <h2 className="text-lg font-medium text-red-700 mb-2">Deletar Conta</h2>
                                 <p className="text-red-600/70 text-sm 2xl:text-base">
                                     Ação irreversível. Todos os seus dados serão apagados.
                                 </p>
@@ -735,6 +734,15 @@ const handleNameUpdate = async () => {
                             </div>
                         </div>
                     </Card>
+                    <Button
+                        variant="secondary"
+                        onClick={handleLogout}
+                        loading={isLoggingOut}
+                        className="text-red-600 hover:bg-red-50 border-red-200 font-normal text-sm bg-transparent"
+                    >
+                        <FontAwesomeIcon icon={faSignOutAlt} className="mr-2" />
+                        Sair da Conta
+                    </Button>
 
                 </div>
             </div>

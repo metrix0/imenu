@@ -3,6 +3,8 @@
 import { notFound } from "next/navigation";
 import MenuClientPage from "./menu-client";
 import { Category, Item, ItemsByCategory, Menu, Restaurant } from "@/lib/types/types";
+import TrackingScripts from "@/components/costumer/TrackingScripts";
+
 
 import { createSupabaseServerClient } from "@/lib/database/supabaseServerClient";
 
@@ -31,7 +33,7 @@ export default async function Page({
     const { data: restaurantData } = await supabase
         .from("restaurants")
         .select(
-            "id, name, is_closed, logo_url, rating, min_order_cents, description, banner_url, availability_json,delivery_fee_json, latitude, longitude"
+            "id, name, is_closed, logo_url, rating, min_order_cents, description, banner_url, availability_json,delivery_fee_json, latitude, longitude, tracking_integrations (ga4_id, gtm_id, meta_pixel_id)"
         )
         .eq("url_slug", slug)
         .maybeSingle();
@@ -109,8 +111,16 @@ export default async function Page({
         (c) => (itemsByCategory[c.id]?.length ?? 0) > 0
     );
 
-    return (
+    const tracking = restaurantData.tracking_integrations?.[0];
 
+    return (
+        <>
+            <TrackingScripts
+                ga4Id={tracking?.ga4_id}
+                gtmId={tracking?.gtm_id}
+                metaPixelId={tracking?.meta_pixel_id}
+                enabled={tracking.ga4_id !== null || tracking.gtm_id !== null || tracking.meta_pixel_id !== null}
+            />
             <MenuClientPage
                 slug={slug}
                 restaurant={restaurant}
@@ -118,6 +128,8 @@ export default async function Page({
                 itemsByCategory={itemsByCategory}
                 openedProductId={p.p}
             />
+        </>
+
 
     );
 }

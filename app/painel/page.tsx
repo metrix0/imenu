@@ -17,9 +17,8 @@ export default function PainelPedidosAtivosPage() {
     const [isLoading, setIsLoading] = useState(true);
     
     // 1. Recupera ID do Store Global para acesso imediato
-    const { restaurantId, setRestaurantId } = useCreationStore();
-    const [restaurantSlug, setRestaurantSlug] = useState<string | undefined>(undefined);
-    
+    const { restaurantId, setRestaurantId, setRestaurantSlug, restaurantSlug } = useCreationStore();
+
     const [orders, setOrders] = useState<OrderData[]>([]);
     const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
@@ -217,7 +216,7 @@ export default function PainelPedidosAtivosPage() {
                 isOpen={isShareModalOpen}
                 onClose={() => setIsShareModalOpen(false)}
                 restaurantId={restaurantId}
-                restaurantSlug={restaurantSlug}
+                restaurantSlug={restaurantSlug ?? undefined}
             />
             {/* Modal de Detalhes do Pedido */}
             {selectedOrder && (

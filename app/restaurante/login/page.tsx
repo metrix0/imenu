@@ -26,7 +26,7 @@ export default function AdminLogin() {
     const [showToast, setShowToast] = useState(false);
 
     // ⭐ ADDED — Zustand setters
-    const { setRestaurantId, setEmail: setZustandEmail } = useCreationStore();
+    const { setRestaurantId, setEmail: setZustandEmail, setRestaurantSlug } = useCreationStore();
 
     const isValid = email.includes("@") && email.includes(".") && password.length >= 6;
 
@@ -70,7 +70,7 @@ export default function AdminLogin() {
         // ⭐ ADDED — fetch user's restaurantId
         const { data: restaurant, error: restError } = await supabase
             .from("restaurants")
-            .select("id")
+            .select("id, slug_url")
             .eq("user_id", userId)
             .single();
 
@@ -83,6 +83,7 @@ export default function AdminLogin() {
         // ⭐ ADDED — save in Zustand
         setRestaurantId(restaurant.id);
         setZustandEmail(email);
+        setRestaurantSlug(restaurant.slug_url)
 
         // ⭐ show toast and redirect
         setShowToast(true);

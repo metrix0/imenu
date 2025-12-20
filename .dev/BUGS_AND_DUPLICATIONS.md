@@ -17,7 +17,7 @@ app/painel/disponibilidade nao ta usando o component do tudo salvo salvando...
 rafa acho que seus /componentes de endereço nao tao usando a lib geocoding
 
 
-
+CTRL+SHIFT+F: setRestaurantId <- duplicado setar o Zustand do restid
 
 
 
