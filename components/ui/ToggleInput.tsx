@@ -4,8 +4,9 @@ import * as React from "react";
 type ToggleInputProps = {
     checked: boolean;
     onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-    label?: string;
+    label?: any;
     className?: string;
+    color?: string | null;
 };
 
 export default function ToggleInput({
@@ -13,12 +14,13 @@ export default function ToggleInput({
                                         onChange,
                                         label,
                                         className = "",
+    color = null,
                                     }: ToggleInputProps) {
     return (
         <label className={`flex items-center gap-2 cursor-pointer ${className}`}>
             <div
                 className={`w-10 h-6 flex items-center rounded-full p-1 duration-300 ${
-                    checked ? "bg-brand" : "bg-gray-300"
+                    checked ? `${color ? color : "bg-brand"}` : "bg-gray-300"
                 }`}
             >
                 <div
@@ -27,7 +29,7 @@ export default function ToggleInput({
                     }`}
                 />
             </div>
-            {label && <span>{label}</span>}
+            {label && <span className={"text-sm 2xl:text-base"}>{label}</span>}
             <input
                 type="checkbox"
                 checked={checked}

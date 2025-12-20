@@ -20,6 +20,7 @@ import {
     faHome,
     faDoorOpen,
     faPowerOff,
+    faPercent
 } from "@fortawesome/free-solid-svg-icons";
 import { createClient } from "@supabase/supabase-js";
 
@@ -167,8 +168,10 @@ useEffect(() => {
         { label: "Home", icon: faHome, href: `${base}/` },
         { label: "Pedidos", icon: faBox, href: `${base}/pedidos` },
         { label: "Financeiro", icon: faMoneyBillWave, href: `${base}/financeiro` },
-        { type: "divider" },
         { label: "Cardápio", icon: faUtensils, href: `${base}/cardapio` },
+        { type: "divider" },
+        { label: "Promoções", icon: faPercent, href: `${base}/promocoes` },
+        { type: "divider" },
         { label: "Taxa e Tempo", icon: faTruck, href: `${base}/tempo-e-taxa` },
         { label: "Horários", icon: faClock, href: `${base}/disponibilidade` },
         { label: "Loja", icon: faStore, href: `${base}/loja` },

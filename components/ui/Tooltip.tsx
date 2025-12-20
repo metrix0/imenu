@@ -40,6 +40,7 @@ export default function Tooltip({
 
                                     ...rest
                                 }: TooltipProps) {
+    if(text === "") disabled = true
     const [show, setShow] = useState(false);
     const [visible, setVisible] = useState(false);
     const timeoutRef = useRef<NodeJS.Timeout | null>(null);
