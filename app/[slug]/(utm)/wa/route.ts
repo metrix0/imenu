@@ -1,13 +1,9 @@
-import { NextResponse } from "next/server";
+import { redirect } from "next/navigation";
 
 export function GET(
     request: Request,
     { params }: { params: { slug: string } }
 ) {
     const { slug } = params;
-
-    return NextResponse.redirect(
-        `https://imenuapp.com.br/${slug}?utm_source=whatsapp`,
-        { status: 307 } // ou 302
-    );
+    redirect(`https://imenuapp.com.br/${slug}?utm_source=whatsapp`);
 }
