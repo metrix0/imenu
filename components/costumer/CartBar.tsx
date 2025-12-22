@@ -5,6 +5,8 @@ import Button from "@/components/ui/Button";
 import Tooltip from "@/components/ui/Tooltip";
 import { useCheckoutStore } from "@/lib/stores/costumer/checkoutStore";
 import { useState, useRef } from "react";
+import {FontAwesomeIcon} from "@fortawesome/react-fontawesome";
+import {icons} from "@/lib/utils/fontawesome";
 
 export default function CartBar({
                                     onOpenCartAction,
@@ -47,6 +49,8 @@ export default function CartBar({
         ? Number(checkoutState.delivery_fee_cents)
         : 0;
 
+    const discount_cents = checkoutState.coupon_discount_cents || 0;
+
     const allRequiredFilled = Boolean(
         checkoutState.cep?.length >= 8 &&
         checkoutState.rua &&
@@ -70,6 +74,10 @@ export default function CartBar({
         missingFields.length > 0
             ? `Preencha: ${missingFields.join(", ")}`
             : "";
+
+    const originalTotalCents = total + delivery_fee_cents;
+    const finalTotalCents = Math.max(originalTotalCents - discount_cents, 0);
+    const hasDiscount = discount_cents > 0;
 
     const maybeWrap = (children: React.ReactNode) => {
         if (disabledContinue && step === "info") {
@@ -174,16 +182,32 @@ export default function CartBar({
         const cart = useCartStore.getState();
         const checkout = useCheckoutStore.getState();
 
+        // ✅ derived values (frontend preview only)
+        const subtotal_cents = cart.items.reduce(
+            (sum, i) => sum + i.total_cents,
+            0
+        );
+
+        const delivery_fee_cents =
+            checkout.delivery_fee_cents && checkout.delivery_fee_cents !== true
+                ? Number(checkout.delivery_fee_cents)
+                : 0;
+
+        const discount_cents = checkout.coupon_discount_cents || 0;
+
+        const total_cents =
+            subtotal_cents + delivery_fee_cents - discount_cents;
+
         const body = {
             restaurantId: checkout.restaurantId,
             customer_name: checkout.nome,
             customer_phone: checkout.celular,
             customer_address: `${checkout.rua}, ${checkout.numero} - ${checkout.cep} (${checkout.complemento})`,
-            delivery_fee_cents: checkout.delivery_fee_cents ? Number(checkout.delivery_fee_cents) : 0,
+            delivery_fee_cents,
             paymentMethod: checkout.pagamento,
             delivery_time_minutes: checkout.delivery_time_minutes,
 
-            // 👇 THIS IS NOW CORRECT
+            // 👇 cart items (unchanged)
             items: cart.items.map((i) => ({
                 cart_row_id: i.id,
                 base_item_id: i.base_item_id,
@@ -193,7 +217,16 @@ export default function CartBar({
                 total_cents: i.total_cents,
                 observation: i.observation ?? null,
                 selectedSubitems: i.selectedSubitems
-            }))
+            })),
+
+            // 👇 coupon info (unchanged)
+            coupon_id: checkout.coupon_id || null,
+            coupon_code: checkout.coupon_code || null,
+            coupon_discount_cents: discount_cents,
+
+            // ✅ added (preview / UI / debugging)
+            subtotal_cents,
+            total_cents,
         };
 
         const res = await fetch("/api/orders", {
@@ -211,15 +244,14 @@ export default function CartBar({
         }
 
         try {
-            if(typeof window !== "undefined")
+            if (typeof window !== "undefined")
                 localStorage.removeItem(`cart-storage-${window.location.pathname.split("/")[1]}`);
-            else localStorage.removeItem("cart-storage")
-
+            else localStorage.removeItem("cart-storage");
         } catch (err) {
             console.error("[CART] Failed to clear cart-storage:", err);
         }
 
-        console.log("removed cart-storage and created cookie")
+        console.log("removed cart-storage and created cookie");
 
         if (data.payment_type === "offline") {
             window.location.href = data.redirect;
@@ -294,14 +326,16 @@ export default function CartBar({
                         <span>
                             {checkoutState.delivery_fee_cents === null ||
                             checkoutState.delivery_fee_cents === undefined || !checkoutState.delivery_fee_cents
-                                ? "Total sem a entrega"
-                                : "Total com a entrega"}
+                                ? "Total sem a entrega "
+                                : "Total com a entrega "}
                         </span>
-
                         <span>
-                            <span className="font-semibold text-black text-lg  2xl:text-xl leading-tight tracking-tighter">
+                            <span className={`${hasDiscount && ("line-through text-gray-400 !text-sm 2xl:!text-base")} font-semibold text-black text-lg  2xl:text-xl leading-tight tracking-tighter`}>
                                 R$ {(displayTotalCents / 100).toFixed(2).replace('.', ',')}
                             </span>
+                            {hasDiscount && (<span className={"ml-1 font-semibold text-black text-lg  2xl:text-xl leading-tight tracking-tighter"}>
+                                R$ {(finalTotalCents / 100).toFixed(2).replace('.', ',')}
+                            </span>)}
                             <span>
                                 / {itemCount} {itemCount === 1 ? "item" : "itens"}
                             </span>

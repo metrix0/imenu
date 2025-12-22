@@ -8,10 +8,13 @@
 ## Brendo
 
 ## Rafa
+- BUGS WHATSAPP
 
 ## Joao
 - Payment modal (você fez um pedido mas nao pagou, quer pagar agora? link pro pagamento) <- dps q o brendo fiezr  o novo pagmaneto
-- Adicionar Zustand de setRestaurantSlug nos logins e registros
+- test meta and google pixels (on deploy) after promo code finished
+- adicionar um OTP secreto pra gente poder sempre aprovar
+- BUG: IA ainda não pega categoria
 
 ---
 <br>
@@ -32,13 +35,13 @@ TOP_MENUS: Saipos, Anota ai, Goomer
 | ★ Upsell                                                     | João   | iFood                |                                                                                                                                                                                                                                                                                            |
 | SMART MENU: Automatic Upsell + Bundle + Destaques            |        |                      | Automatic Ideas: Has Bundled Stuff Automatically, Has Destaques automatically, upsells automatically, etc.                                                                                                                                                                                 |
 | **Enhancements**                                             | XX     | XX                   | XX                                                                                                                                                                                                                                                                                         |
-| ★ Search Bar+Filtering+Payment Modal+unique page per product | João   | iFood                | não pagou no menu -> aparece uma tela "aguardando pagamento no /slug com link pro pagamento" + add upper search bar with categories tabs upon scrolling down on digital menu (jsutr like ifood)                                                                                            |
+| ★ Search Bar+Filtering+Payment Modal+unique page per product | ✅ J    | iFood                | não pagou no menu -> aparece uma tela "aguardando pagamento no /slug com link pro pagamento" + add upper search bar with categories tabs upon scrolling down on digital menu (jsutr like ifood)                                                                                            |
 | ★ Handle All Payments without Link + Refunds System          | Brendo | iFood                | handle all payments on website only (no webhook, no other pages) using API.                                                                                                                                                                                                                |
 | (final) METRICS/ERROR LOGGING                                |        |                      | Make sure it's all 100% smooth, all metrics, all funnel                                                                                                                                                                                                                                    |
-| ★ Meta and Google Pixels                                     | João   | Goomer               | working and tested                                                                                                                                                                                                                                                                         |
+| ★ Meta and Google Pixels                                     | ✅ J    | Goomer               | working and tested                                                                                                                                                                                                                                                                         |
 | ★ Custom domain for the users                                | Brendo | EXEMPLO NA DESCRIÇÃO | acai-da-barra.com <=> imenuapp.com/acaidabarra EXEMPLO: https://youtu.be/IHAHI61f8Rw?t=45 (exemplo bem lúdico, no nosso da pra deixar bem mais fácil (Configurações -> Input e botão adicionar domínio -> ao clicar, expande o card ou sla e aparece os DNS que a pessoa precisa colocar)  |
 | ★ Cupom de desconto                                          | João   | iFood                | %, R$ fixo, MTO COMPLEXO VER IFOOD. -> Afeta o cardápio que o usuáriu vê (igual no ifood), afeta a compra final e talvez ainda tem que colocar explicado em cada pedido que o usuário usou um cupom                                                                                        |
-|                                                              | João   | iFood                |                                                                                                                                                                                                                                                                                            |
+|                                                              |        |                      |                                                                                                                                                                                                                                                                                            |
 
 (Iterated upon testing, proxy features upon copying others)
 

@@ -32,7 +32,8 @@ import {
     faLink,
     faCopy,
     faMagnifyingGlass,
-    faHistory
+    faHistory,
+    faTicket
 } from "@fortawesome/free-solid-svg-icons";
 import {faWhatsapp} from "@fortawesome/free-brands-svg-icons";
 
@@ -70,5 +71,6 @@ export const icons = {
     faLink,
     faCopy,
     faMagnifyingGlass,
-    faHistory
+    faHistory,
+    faTicket
 };

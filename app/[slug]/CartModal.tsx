@@ -1,7 +1,7 @@
 // app/[slug]/CartModal.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useCartStore } from "@/lib/stores/costumer/cartStore";
 import { useCheckoutStore } from "@/lib/stores/costumer/checkoutStore";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -13,16 +13,20 @@ import WarningBox from "@/components/ui/WarningBox";
 import Toast from "@/components/ui/Toast";
 import Loader from "@/components/ui/Loader";
 import {fetchAddressByCEP, fetchCoordinates, fetchAddressByCoordinates, calculateDistanceKm,} from "@/lib/api/geocoding";
+import {formatPriceNoRS} from "@/lib/utils/formatPrice";
+import { supabase } from "@/lib/database/supabaseClient";
 
 
 export default function CartModal({
                                       onClose,
                                       restaurant,
+    selectedCouponCode,
                                   }: {
     onClose: () => void;
     restaurant: any;
     step: "cart" | "info" | "checkout";
     setStep: React.Dispatch<React.SetStateAction<"cart" | "info" | "checkout">>;
+    selectedCouponCode?: string | null;
 }) {
     const { items, changeQty, removeItem, clear } = useCartStore();
 
@@ -54,6 +58,11 @@ export default function CartModal({
     const cepTrigger = useCheckoutStore((s) => s.cepTrigger);
     const [loadingUseMyLocation, setLoadingUseMyLocation] = useState(false);
     const setContinueBlocked = useCheckoutStore(state => state.setContinueBlocked);
+    const couponDebounceRef = useRef<number | null>(null);
+    const [showDiscountInput, setShowDiscountInput] = useState(false);
+
+    const coupon_code = useCheckoutStore((s) => s.coupon_code);
+    const coupon_discount_cents = useCheckoutStore((s) => s.coupon_discount_cents);
 
 
     function getDeliveryTiers() {
@@ -203,9 +212,11 @@ export default function CartModal({
 
     async function handleUseMyLocation() {
         if (!("geolocation" in navigator)){
+            console.log("no geo")
             setShowNoGeolocationToast(true)
             return;
         }
+        console.log("geo1")
 
         setContinueBlocked(true)
         setField("showAddressWarning", false);
@@ -220,6 +231,7 @@ export default function CartModal({
 
                     setField("lat", String(lat));
                     setField("lon", String(lon));
+
 
                     const addr = await fetchAddressByCoordinates(lat, lon);
 
@@ -320,6 +332,30 @@ export default function CartModal({
         useCheckoutStore.setState({ cepTrigger: false });
     }, [cepTrigger]);
 
+    useEffect(() => {
+        console.log("checkout coupons")
+
+        const checkCoupons = async () => {
+            const { count, error } = await supabase
+                .from("coupons")
+                .select("id", { count: "exact", head: true })
+                .eq("restaurant_id", restaurant.id)
+                .eq("active", true);
+
+            console.log("coupon count:", count);
+
+            if (error) {
+                console.error("Failed to check coupons", error);
+                setShowDiscountInput(false);
+                return;
+            }
+
+            setShowDiscountInput((count ?? 0) > 0);
+        };
+
+        checkCoupons();
+    },[] );
+
 
     return (
         <div className={`fixed inset-0 z-41 flex justify-center items-end`}>
@@ -331,6 +367,7 @@ export default function CartModal({
                 xPadding={false}
                 className={"md:!h-[80vh] md:!mb-[12vh]"}
             >
+
 
                 {showNoGeolocationToast && (
                     <Toast
@@ -519,11 +556,11 @@ export default function CartModal({
                         </h2>
 
                         <button
-                            className="relative inline-flex justify-center items-center gap-1 text-brand text-md 2xl:text-lg cursor-pointer mb-5 md:mb-0"
+                            className={`relative inline-flex justify-center items-center gap-1 text-brand text-md 2xl:text-lg cursor-pointer mb-5 md:mb-0`}
                             onClick={handleUseMyLocation}
                             type="button"
                         >
-                            {loadingUseMyLocation && (<Loader className={"scale-75 absolute !border-brand/20 !border-t-brand -left-9"}/>)}
+                            {loadingUseMyLocation && (<Loader className={"scale-75 absolute !border-brand/20 !border-t-brand -right-9 md:-left-9 md:right-0"}/>)}
                             <FontAwesomeIcon icon={icons.faLocationCrosshairs}/> Usar minha localização
                         </button>
                     </div>
@@ -621,7 +658,7 @@ export default function CartModal({
                             Pagamento
                         </h2>
 
-                        <div className="flex flex-col gap-3 mb-10 2xl:text-lg">
+                        <div className="flex flex-col gap-3 mb-5 2xl:text-lg">
                             <button
                                 className={`border cursor-pointer p-3 rounded-xl duration-200 text-left flex items-center gap-3 ${
                                     pagamento === "pix"
@@ -669,7 +706,30 @@ export default function CartModal({
                             </button>
                         </div>
 
-                        <h2 className="font-semibold text-md mb-4 2xl:text-lg">
+                        {showDiscountInput && (<div className="mb-6">
+                            <Input
+                                readOnly={!!selectedCouponCode}
+                                locked={!!selectedCouponCode}
+                                label="Cupom de desconto"
+                                placeholder="EX: PROMO10"
+                                defaultValue={selectedCouponCode || ""}
+                                onChange={(e) => {
+                                    const v = e.target.value.toUpperCase();
+
+                                    if (couponDebounceRef.current) {
+                                        clearTimeout(couponDebounceRef.current);
+                                    }
+
+                                    couponDebounceRef.current = window.setTimeout(() => {
+                                        setField("coupon_code", v);
+                                    }, 500);
+                                }}
+                                className="2xl:text-lg"
+                            />
+                        </div>)}
+
+
+                            <h2 className="font-semibold text-md mb-4 mt-5 2xl:text-lg">
                             Resumo de valores
                         </h2>
 
@@ -697,6 +757,15 @@ export default function CartModal({
                             </span>
                         </div>
 
+                        { (coupon_code && coupon_discount_cents) && (
+                        <div className="flex justify-between text-[15px] mb-2 2xl:text-lg border-t border-gray-200 pt-2">
+                            <span>Cupom: {coupon_code}</span>
+                            <span>
+
+                                - R$ {formatPriceNoRS(coupon_discount_cents ? coupon_discount_cents : 0)}
+                            </span>
+                        </div>)}
+
                         <div className="flex justify-between font-semibold text-[18px] 2xl:text-xl mt-4">
                             <span>Total</span>
                             <span>
@@ -706,7 +775,7 @@ export default function CartModal({
                                         0
                                     ) /
                                     100 +
-                                    (deliveryFeeCents ? deliveryFeeCents / 100 : 0)
+                                    ((deliveryFeeCents ? deliveryFeeCents / 100 : 0)-(coupon_discount_cents ? coupon_discount_cents / 100 : 0))
                                 )
                                     .toFixed(2)
                                     .replace(".", ",")}
