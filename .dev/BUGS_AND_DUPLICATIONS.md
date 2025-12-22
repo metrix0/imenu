@@ -24,8 +24,6 @@ CTRL+SHIFT+F: setRestaurantId <- duplicado setar o Zustand do restid
 
 # Non-priority to 20% Bugs (Bugs that we can fix manually for the client, or he won't even face it)
 
-Da pra chegar até o fim do /criar e no ultimo continuar, o email da pessoa ser inválido <- OTP vai ter que ser depois mesmo (nao nos importamos com conversão direto na page mais, por enquanto)
-
 arrumar loadings no painel (usar o tabs loading component)
 
 partially fixed, ideal would be user finishes register through /criar on phone > !!!!! SE O usuário entrar pelo mobile, registrar, ele cai no /criar, e fica uma bosta, mas se ele logar pelo pc, ele cai direto no painel e não finaliza o /criar
@@ -63,6 +61,8 @@ Bairro não salva no zustand persist
 **- Mobile responsiveness NOS BROWSERS do mobile. (teclado subindo, autofill, varias resolucoes, etc)**
 
 - sem clarity no (seo)
+
+- "obrigatório" nos subitems ta feio
 
 R:
 VOU DELETAR A TABLE menus, tirar todo uso. (pode remover vc mesmo da supabase assim que tira todos usos de "menu")

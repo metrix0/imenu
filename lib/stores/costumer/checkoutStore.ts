@@ -2,6 +2,8 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
+export type CouponDiscountType = "percent" | "fixed" | "delivery";
+
 interface CheckoutState {
     step: "cart" | "info" | "checkout";
 
@@ -23,15 +25,24 @@ interface CheckoutState {
     delivery_fee_cents: number | null | boolean;
     delivery_time_minutes: number | null;
 
-    showAddressWarning: boolean;
+    // ✅ coupon (RAW, from Supabase – persisted)
+    coupon_id: string | null;
+    coupon_code: string | null;
+    coupon_type: CouponDiscountType | null;
+    coupon_value: number | null;        // percent OR cents
+    coupon_max_value: number | null;    // cents
+    coupon_min_order: number | null;    // cents
 
+    // ✅ coupon (CALCULATED, frontend preview)
+    coupon_discount_cents: number | null;
+
+    showAddressWarning: boolean;
     cepTrigger: boolean;
 
     setStep: (s: CheckoutState["step"]) => void;
     setField: (key: string, value: string | number | boolean | null) => void;
 
     setShowAddressWarning: (v: boolean) => void;
-
     setRestaurantId: (id: string) => void;
 
     isContinueBlocked: boolean;
@@ -56,8 +67,17 @@ export const useCheckoutStore = create<CheckoutState>()(
             celular: "",
             pagamento: "pix",
 
-            delivery_fee_cents: false, // false = nao calculado, null = muito longe, number = valor da fee
+            delivery_fee_cents: false, // false = nao calculado, null = muito longe, number = valor
             delivery_time_minutes: null,
+
+            // ✅ coupon defaults
+            coupon_id: null,
+            coupon_code: null,
+            coupon_type: null,
+            coupon_value: null,
+            coupon_max_value: null,
+            coupon_min_order: null,
+            coupon_discount_cents: null,
 
             // ⚠️ UI state (do NOT persist)
             showAddressWarning: false,
@@ -68,20 +88,20 @@ export const useCheckoutStore = create<CheckoutState>()(
             setField: (key, value) =>
                 set({ [key]: value } as any),
 
-
             setShowAddressWarning: (v) =>
                 set({ showAddressWarning: v }),
 
-            setRestaurantId: (id) => set({ restaurantId: id }),
+            setRestaurantId: (id) =>
+                set({ restaurantId: id }),
 
             isContinueBlocked: false,
-            setContinueBlocked: (v) => set({ isContinueBlocked: v }),
-            
+            setContinueBlocked: (v) =>
+                set({ isContinueBlocked: v }),
         }),
         {
             name: "checkout-store",
 
-            // 🔥 Only persist REAL checkout data, not UI flags
+            // 🔥 persist ONLY real checkout data
             partialize: (state) => ({
                 restaurantId: state.restaurantId,
 
@@ -94,9 +114,15 @@ export const useCheckoutStore = create<CheckoutState>()(
                 nome: state.nome,
                 celular: state.celular,
                 pagamento: state.pagamento,
-                //
-                // delivery_fee_cents: state.delivery_fee_cents,
-                // delivery_time_minutes: state.delivery_time_minutes,
+
+                // ✅ persist coupon selection + preview
+                coupon_id: state.coupon_id,
+                coupon_code: state.coupon_code,
+                coupon_type: state.coupon_type,
+                coupon_value: state.coupon_value,
+                coupon_max_value: state.coupon_max_value,
+                coupon_min_order: state.coupon_min_order,
+                coupon_discount_cents: state.coupon_discount_cents,
             }),
         }
     )

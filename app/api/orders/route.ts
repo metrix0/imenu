@@ -51,6 +51,9 @@ export async function POST(req: Request) {
             delivery_fee_cents,
             delivery_time_minutes,
             paymentMethod,
+            coupon_id,
+            coupon_code,
+            coupon_discount_cents,
         }: {
             restaurantId: string;
             customer_name?: string;
@@ -60,9 +63,14 @@ export async function POST(req: Request) {
             delivery_fee_cents: number;
             delivery_time_minutes: number;
             paymentMethod: "pix" | "cartao" | "dinheiro" | "trazer-maquininha";
+            coupon_id?: string;
+            coupon_code?: string;
+            coupon_discount_cents?: number;
         } = body;
 
         console.log(body)
+
+
 
         console.log("🔍 Validating input...");
 
@@ -86,11 +94,15 @@ export async function POST(req: Request) {
         items.forEach((item) => {
             subtotal += item.total_cents;
         });
+        const safeCouponDiscount =
+            coupon_discount_cents && coupon_discount_cents > 0
+                ? Math.min(coupon_discount_cents, subtotal)
+                : 0;
 
         console.log("💰 Subtotal:", subtotal);
         console.log("💰 Delivery Fee:", delivery_fee_cents);
 
-        const total = subtotal + delivery_fee_cents;
+        const total = subtotal + delivery_fee_cents - safeCouponDiscount;
         console.log("💰 TOTAL:", total);
 
         // -------------------------------

@@ -20,7 +20,7 @@ export default async function Page({
                                        searchParams,
                                    }: {
     params: { slug: string };
-    searchParams: { p?: string };
+    searchParams: { p?: string, c?: string };
 }) {
 
     const { slug } = await params;
@@ -115,18 +115,20 @@ export default async function Page({
 
     return (
         <>
+            {tracking && (
             <TrackingScripts
                 ga4Id={tracking?.ga4_id}
                 gtmId={tracking?.gtm_id}
                 metaPixelId={tracking?.meta_pixel_id}
                 enabled={tracking.ga4_id !== null || tracking.gtm_id !== null || tracking.meta_pixel_id !== null}
-            />
+            />)}
             <MenuClientPage
                 slug={slug}
                 restaurant={restaurant}
                 categories={categoriesWithItems}
                 itemsByCategory={itemsByCategory}
                 openedProductId={p.p}
+                selectedCouponCode={p.c}
             />
         </>
 

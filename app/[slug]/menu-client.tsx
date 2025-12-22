@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Restaurant, Menu, Category, ItemsByCategory, Item, Subitem, Subcategory } from "@/lib/types/types";
 import { useCheckoutStore } from "@/lib/stores/costumer/checkoutStore";
+import { useCartStore } from "@/lib/stores/costumer/cartStore";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { icons } from "@/lib/utils/fontawesome";
 import { faStar } from "@fortawesome/free-solid-svg-icons";
@@ -26,6 +27,7 @@ export default function MenuClientPage({
                                            restaurant,
                                            categories,
                                            itemsByCategory,
+    selectedCouponCode,
     openedProductId,
                                        }: {
     slug: string;
@@ -33,11 +35,15 @@ export default function MenuClientPage({
     categories: Category[];
     itemsByCategory: ItemsByCategory;
     openedProductId?: string | null;
+    selectedCouponCode?: string | null;
 }) {
     const router = useRouter();
 
-
-
+    const coupon_code = useCheckoutStore((s) => s.coupon_code);
+    const coupon_value = useCheckoutStore((s) => s.coupon_value);
+    const coupon_type = useCheckoutStore((s) => s.coupon_type);
+    const coupon_discount_cents = useCheckoutStore((s) => s.coupon_discount_cents);
+    const setField = useCheckoutStore((s) => s.setField);
     const [loadingItemId, setLoadingItemId] = useState<string | null>(null);
     const [cartOpen, setCartOpen] = useState(false);
     const [cartStep, setCartStep] = useState<"cart" | "info" | "checkout">("cart");
@@ -60,6 +66,15 @@ export default function MenuClientPage({
     const [manualScrollLock, setManualScrollLock] = useState(false);
     const [debouncedSearch, setDebouncedSearch] = useState(""); // used for filtering
 
+    useEffect(() => {
+        if (!selectedCouponCode) return;
+
+        // avoid overwriting user edits
+        if (coupon_code === selectedCouponCode) return;
+
+        setField("coupon_code", selectedCouponCode);
+    }, [selectedCouponCode]);
+
     // debounce effect
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -68,6 +83,133 @@ export default function MenuClientPage({
 
         return () => clearTimeout(timer);
     }, [searchText]);
+
+
+    useEffect(() => {
+        if (!coupon_code || !restaurant?.id) {
+            const store = useCheckoutStore.getState();
+            store.setField("coupon_id", null);
+            store.setField("coupon_code", null);
+            store.setField("coupon_type", null);
+            store.setField("coupon_value", null);
+            store.setField("coupon_max_value", null);
+            store.setField("coupon_min_order", null);
+            store.setField("coupon_discount_cents", null);
+            return;
+        }
+
+        const fetchCouponOnce = async () => {
+            const { data, error } = await supabase
+                .from("coupons")
+                .select(`
+                id,
+                code,
+                discount_type,
+                discount_value,
+                max_discount_value,
+                min_order_value
+            `)
+                .eq("code", coupon_code)
+                .eq("restaurant_id", restaurant.id)
+                .eq("active", true)
+                .single();
+
+            if (error || !data) {
+                const store = useCheckoutStore.getState();
+                store.setField("coupon_id", null);
+                store.setField("coupon_code", null);
+                store.setField("coupon_type", null);
+                store.setField("coupon_value", null);
+                store.setField("coupon_max_value", null);
+                store.setField("coupon_min_order", null);
+                store.setField("coupon_discount_cents", null);
+                return;
+            }
+
+            const store = useCheckoutStore.getState();
+            store.setField("coupon_id", data.id);
+            store.setField("coupon_code", data.code);
+            store.setField("coupon_type", data.discount_type);
+            store.setField("coupon_value", data.discount_value);
+            store.setField("coupon_max_value", data.max_discount_value);
+            store.setField("coupon_min_order", data.min_order_value);
+        };
+
+        fetchCouponOnce();
+    }, [coupon_code, restaurant?.id]);
+
+    useEffect(() => {
+        const cart = useCartStore.getState();
+        const checkout = useCheckoutStore.getState();
+
+        if (!checkout.coupon_id || !checkout.coupon_type) {
+            checkout.setField("coupon_discount_cents", null);
+            return;
+        }
+
+        const cartSubtotal = cart.items.reduce(
+            (sum, i) => sum + i.total_cents,
+            0
+        );
+
+        const deliveryFee =
+            typeof checkout.delivery_fee_cents === "number"
+                ? checkout.delivery_fee_cents
+                : 0;
+
+        // ❌ minimum order
+        if (
+            checkout.coupon_min_order &&
+            cartSubtotal < checkout.coupon_min_order
+        ) {
+            checkout.setField("coupon_discount_cents", null);
+            return;
+        }
+
+        let discountCents = 0;
+
+        // % discount
+        if (checkout.coupon_type === "percent") {
+            discountCents = Math.floor(
+                (cartSubtotal * checkout.coupon_value!)
+            );
+        }
+
+        // fixed R$
+        if (checkout.coupon_type === "fixed") {
+            discountCents = checkout.coupon_value!;
+        }
+
+        // delivery
+        if (checkout.coupon_type === "delivery") {
+            discountCents = deliveryFee;
+        }
+
+        // cap
+        if (
+            checkout.coupon_max_value &&
+            discountCents > checkout.coupon_max_value
+        ) {
+            discountCents = checkout.coupon_max_value;
+        }
+
+        // never exceed order total
+        discountCents = Math.min(
+            discountCents,
+            cartSubtotal + deliveryFee
+        );
+
+        checkout.setField("coupon_discount_cents", discountCents);
+    }, [
+        useCartStore((s) => s.items),
+        useCheckoutStore((s) => s.delivery_fee_cents),
+        useCheckoutStore((s) => s.coupon_type),
+        useCheckoutStore((s) => s.coupon_value),
+        useCheckoutStore((s) => s.coupon_max_value),
+        useCheckoutStore((s) => s.coupon_min_order),
+    ]);
+
+
 
 
     useEffect(() => {
@@ -283,6 +425,29 @@ export default function MenuClientPage({
             setNextOpening(null);
         }
     };
+
+    const couponLabel = () => {
+        if (!coupon_code || !coupon_type ) return null;
+
+        if (coupon_type === "delivery") {
+            return `ENTREGA GRÁTIS`;
+        }
+
+        if (coupon_value === null) return null;
+
+        if (coupon_type === "percent") {
+            return `${coupon_value*100}% OFF`;
+        }
+
+        if (coupon_type === "fixed") {
+            return `R$ ${formatPriceNoRS(coupon_value!)} OFF`;
+        }
+
+
+
+        return null;
+    };
+
     useEffect(() => {
         const onScroll = () => {
             const threshold = window.innerHeight * 0.30;
@@ -326,6 +491,7 @@ export default function MenuClientPage({
             });
         }
     }, []);
+
 
 // AUTO-HIGHLIGHT TAB WHEN USER SCROLLS
     useEffect(() => {
@@ -417,17 +583,37 @@ export default function MenuClientPage({
                     {/*    </div>*/}
                     {/*)}*/}
 
-                    <div className="flex items-center gap-2 mt-3 text-xs 2xl:text-[1rem] font-bold">
-                        <span>Entrega</span>
-                        <span>•</span>
-                        <span>
-                            {deliveryText()}
-                        </span>
-                        <span>•</span>
-                        <span className={"text-green"}>{taxText()}</span>
+                    <div className={"block md:flex justify-between mt-3"}>
+                        <div className="flex items-center gap-2 text-xs 2xl:text-[1rem] font-bold">
+                            <span>Entrega</span>
+                            <span>•</span>
+                            <span>
+                                {deliveryText()}
+                            </span>
+                            <span>•</span>
+                            <span className={"text-green"}>{taxText()}</span>
+
+
+                        </div>
+                        <div className={"hidden md:inline-block"}>
+                            {coupon_code && (
+                                <div className="px-2.5 py-1.5 rounded-lg bg-brand/10 text-brand text-xs 2xl:text-sm font-normal">
+                                    <FontAwesomeIcon icon={icons.faTicket} /> CUPOM {coupon_code} APLICADO - <b>{couponLabel()}</b>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>
+            {coupon_code && (
+            <div className={"mt-6 -mb-4 mx-5 flex md:hidden justify-center"}>
+                    <div className="px-2.5 py-1.5 rounded-lg bg-brand/10 text-brand text-xs 2xl:text-sm font-normal">
+                        <FontAwesomeIcon icon={icons.faTicket} /> CUPOM {coupon_code} APLICADO - <b>{couponLabel()}</b>
+                    </div>
+            </div>
+            )}
+
+
 
 
 
@@ -702,7 +888,6 @@ export default function MenuClientPage({
 
             {cartOpen && (
                 <CartModal
-
                     restaurant={restaurant}
                     onClose={() => {
                         setCartOpen(false);
@@ -710,6 +895,7 @@ export default function MenuClientPage({
                     }}
                     step={cartStep}
                     setStep={setCartStep}
+                    selectedCouponCode={selectedCouponCode}
                 />
             )}
 

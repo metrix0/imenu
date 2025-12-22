@@ -44,7 +44,7 @@ export default function Toast({
     return (
         <div
             className={`
-                fixed top-4 left-4 z-50 px-4 py-2 rounded-lg shadow-lg
+                fixed top-4 left-4 z-5000 px-4 py-2 rounded-lg shadow-lg
                 transition-all duration-300
                 ${colors[type]}
                 ${

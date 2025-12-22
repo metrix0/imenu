@@ -153,7 +153,7 @@ export default function CouponsList({
                                 </td>
 
                                 <td className="px-4 py-3 text-center text-gray-700">
-                                    0{c.unlimited_quantity ? "" : ` de ${c.quantity ?? "-"}`}
+                                    {c.usage_count}{c.unlimited_quantity ? "" : ` de ${c.quantity ?? "-"}`}
                                 </td>
 
                                 <td className="px-4 py-3 text-gray-700">
