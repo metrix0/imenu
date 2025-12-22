@@ -68,6 +68,13 @@ const SubitemPriceInput = ({ priceCents, onChange }: { priceCents: number; onCha
 };
 
 export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId }: ItemDetailsModalProps) {
+
+    // NOVO ESTADO: Controla qual item TEM PERMISSÃO para ser arrastado
+    const [allowDragId, setAllowDragId] = useState<string | null>(null);
+
+    // NOVO ESTADO: Controla qual GRUPO tem permissão para ser arrastado
+    const [allowGroupDragId, setAllowGroupDragId] = useState<string | null>(null);
+
     const [isLoading, setIsLoading] = useState(false);
     const [groups, setGroups] = useState<Subcategory[]>([]);
     
@@ -264,7 +271,17 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId }
         await supabase.from("item_subcategories").update(dbUpdates).eq("id", groupId);
     };
     const handleAddSubitem = async (groupId: string) => {
-        await supabase.from("subitems").insert({ item_subcategory_id: groupId, name: "Nova Opção", price_cents: 0, is_available: true, position: 999 });
+        // 1. Encontramos o grupo atual para ver os itens existentes
+        const group = groups.find(g => g.id === groupId);
+        if (!group) return;
+
+        // 2. Calculamos a próxima posição segura
+        // Se houver itens, pega o maior 'position' e soma 1. Se não, começa do 0.
+        // Math.max garante que mesmo se houver gaps (0, 1, 5), o próximo será 6.
+        const nextPosition = group.subitems.length > 0 
+            ? Math.max(...group.subitems.map(s => s.position)) + 1 
+            : 0;
+        await supabase.from("subitems").insert({ item_subcategory_id: groupId, name: "Nova Opção", price_cents: 0, is_available: true, position: nextPosition });
         loadComplements();
     };
     const handleUpdateSubitem = async (subitemId: string, updates: Partial<Subitem>) => {
@@ -302,7 +319,7 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId }
                         <div 
                             key={group.id} 
                             className="bg-gray-50 rounded-xl border border-gray-200 p-4 transition-all"
-                            draggable
+                            draggable={allowGroupDragId === group.id}
                             onDragStart={(e) => handleGroupDragStart(e, group.id)}
                             onDragOver={(e) => handleGroupDragOver(e, group.id)}
                             onDragEnd={handleGroupDragEnd}
@@ -310,7 +327,10 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId }
                             {/* Header do Grupo */}
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 pb-4 border-b border-gray-200">
                                 <div className="flex-1 flex items-center gap-3">
-                                    <div className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 p-1">
+                                    <div className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 p-1"
+                                        onMouseEnter={() => setAllowGroupDragId(group.id)}
+                                        onMouseLeave={() => setAllowGroupDragId(null)}
+                                        onTouchStart={() => setAllowGroupDragId(group.id)}>
                                         <FontAwesomeIcon icon={faGripVertical} className="text-sm" />
                                     </div>
                                     <div className="flex-1">
@@ -354,12 +374,15 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId }
                                     <div 
                                         key={sub.id} 
                                         className={`flex items-center gap-3 bg-white p-2 rounded border border-gray-100 shadow-sm ${draggedSubitem?.subitemId === sub.id ? 'opacity-50' : ''}`}
-                                        draggable 
+                                        draggable={allowDragId === sub.id}
                                         onDragStart={(e) => handleSubitemDragStart(e, group.id, sub.id)}
                                         onDragEnd={handleSubitemDragEnd}
                                         onDragOver={(e) => handleSubitemDragOver(e, group.id, sub.id)}
                                     >
-                                        <div className="cursor-grab text-gray-300 p-1 2xl:p-2"><FontAwesomeIcon icon={faGripVertical} className="text-xs 2xl:text-base" /></div>
+                                        <div className="cursor-grab text-gray-300 p-1 2xl:p-2" onMouseEnter={() => setAllowDragId(sub.id)}
+                                        onMouseLeave={() => setAllowDragId(null)}
+                                        // Suporte mobile simples (opcional, mas recomendado)
+                                        onTouchStart={() => setAllowDragId(sub.id)}><FontAwesomeIcon icon={faGripVertical} className="text-xs 2xl:text-base" /></div>
                                         <input 
                                             className="flex-1 text-sm 2xl:text-base text-gray-700 focus:outline-none bg-transparent"
                                             value={sub.name}
