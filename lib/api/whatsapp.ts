@@ -124,3 +124,66 @@ export async function sendWhatsAppTemplate(to: string, templateName: string, var
     console.error("Erro na requisição WhatsApp:", error);
   }
 }
+
+// --- FUNÇÃO 3: ENVIO DE MENU INTERATIVO (Dinâmico) ---
+export async function sendWhatsAppInteractiveMenu(
+    to: string, 
+    restaurantName: string, 
+    menuUrl: string, 
+    bannerUrl: string | null
+) {
+  if (!phoneId) return;
+  const cleanPhone = getCleanPhone(to);
+
+  try {
+    const body = {
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      to: cleanPhone,
+      type: "interactive",
+      interactive: {
+        type: "cta_url",
+        
+        // Header: Usa o Banner do restaurante ou Texto se não tiver
+        header: bannerUrl ? {
+            type: "image",
+            image: { link: bannerUrl }
+        } : {
+            type: "text",
+            text: restaurantName.substring(0, 60) // Limite do Whats
+        },
+
+        body: {
+          text: `Olá! 👋 Bem-vindo ao *${restaurantName}*.\n\nPara fazer seu pedido com fotos e descrição, acesse nosso cardápio digital:`
+        },
+        
+        footer: {
+          text: "Rápido, fácil e sem app."
+        },
+
+        action: {
+          name: "cta_url",
+          parameters: {
+            display_text: "Ver Cardápio",
+            url: menuUrl
+          }
+        }
+      }
+    };
+
+    const res = await fetch(`${GRAPH_API_URL}/${phoneId}/messages`, {
+      method: "POST",
+      headers: getHeaders(),
+      body: JSON.stringify(body),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+        console.error("Erro ao enviar Menu Interativo:", JSON.stringify(data, null, 2));
+    } else {
+        console.log(`Menu de '${restaurantName}' enviado para ${cleanPhone}`);
+    }
+  } catch (error) {
+    console.error("Erro requisição WhatsApp:", error);
+  }
+}

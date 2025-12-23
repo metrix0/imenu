@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { sendWhatsAppMessage } from "@/lib/api/whatsapp";
+import { sendWhatsAppInteractiveMenu, sendWhatsAppMessage } from "@/lib/api/whatsapp";
+import { query } from "@/lib/database/sql";
 
 const VERIFY_TOKEN = "imenu_secret_verify_token";
 
@@ -48,31 +49,46 @@ export async function POST(request: NextRequest) {
 
       if (messages && messages.length > 0) {
         const message = messages[0];
-        const from = message.from; // Número do cliente (ex: 5511999999999)
-        const msgBody = message.text?.body; // Conteúdo da mensagem de texto
-        const name = value.contacts?.[0]?.profile?.name || "Cliente"; // Nome do perfil (nem sempre vem)
-
-        console.log(`Mensagem de ${name} (${from}): ${msgBody}`);
-
-        // 2. Lógica do Bot (MVP)
-        // Aqui definimos o que responder. Por enquanto, hardcoded.
-        // Futuramente pegaremos o link do restaurante baseado no número de destino (se tivermos vários números)
-        // ou faremos um fluxo de conversa.
+        const from = message.from;
         
-        const welcomeMessage = `Olá, ${name}! 👋\n\nBem-vindo ao *Imenu*.\n\nPara fazer seu pedido, acesse nosso cardápio digital:\n👉 https://imenuapp.com.br/demo\n\nQualquer dúvida, chame o garçom!`;
+        // Ignora status updates e mensagens vazias
+        if (!message.text) return new NextResponse("OK", { status: 200 });
 
-        // 3. Enviar a resposta (Não usamos await para não travar a resposta 200 OK para a Meta)
-        // A Meta exige resposta em poucos segundos ou considera falha.
-        sendWhatsAppMessage(from, welcomeMessage);
+        console.log(`Mensagem de ${from}: ${message.text.body}`);
+
+        // --- LÓGICA DO BOT DINÂMICA ---
+        
+        // 1. Buscar dados do Restaurante no Banco
+        // NOTA: No futuro, filtraremos pelo ID do WhatsApp. Por enquanto, pegamos o primeiro.
+        const { rows } = await query(
+            `SELECT id, name, slug, banner_url FROM restaurants LIMIT 1`
+        );
+        
+        if (rows.length > 0) {
+            const restaurant = rows[0];
+            
+            // 2. Montar URLs reais
+            // Supondo que sua URL base seja essa. Ajuste se necessário.
+            const baseUrl = "https://imenuapp.com.br"; 
+            const menuUrl = `${baseUrl}/${restaurant.slug}`; // Ex: imenuapp.com.br/burguer-king
+            
+            // Fallback de imagem se o restaurante não tiver banner
+            const bannerUrl = restaurant.banner_url || "https://images.unsplash.com/photo-1544025162-d76690b6d01d?q=80&w=1000&auto=format&fit=crop";
+
+            // 3. Enviar Menu Dinâmico
+            await sendWhatsAppInteractiveMenu(from, restaurant.name, menuUrl, bannerUrl);
+        } else {
+            console.error("Nenhum restaurante encontrado no banco para responder.");
+            // Fallback opcional: manda mensagem de erro ou demo
+            await sendWhatsAppMessage(from, "Desculpe, sistema em manutenção.");
+        }
       }
     }
 
-    // Sempre retorne 200 OK para a Meta saber que recebemos
     return new NextResponse("EVENT_RECEIVED", { status: 200 });
 
   } catch (error) {
     console.error("Erro no webhook:", error);
-    // Mesmo com erro, retornamos 200 para não travar a fila de mensagens do WhatsApp
     return new NextResponse("Internal Server Error", { status: 200 });
   }
 }
