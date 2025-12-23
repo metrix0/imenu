@@ -1,5 +1,5 @@
 import { query } from "@/lib/database/sql";
-import { sendWhatsAppMessage } from "@/lib/api/whatsapp";
+import { sendWhatsAppTemplate } from "@/lib/api/whatsapp";
 
 export async function notifyOrderStatusUpdate(orderId: string, newStatus: string) {
     try {
@@ -35,16 +35,25 @@ export async function notifyOrderStatusUpdate(orderId: string, newStatus: string
             "canceled": "foi cancelado ❌"
         };
 
-        const friendlyStatus = statusMessages[newStatus];
-        if (!friendlyStatus) return;
+        const statusText = statusMessages[newStatus];
+        if (!statusText) return;
 
-        // 3. Montar a mensagem
-        const message = `Olá ${order.customer_name || "Cliente"}! \n\nAtualização do *${order.restaurant_name}*: \nSeu pedido *#${order.id.slice(0, 4)}* ${friendlyStatus}`;
+        // 3. Preparar variáveis para o template
+        // Template: Olá {{1}}! Atualização do {{2}}: Seu pedido #{{3}} {{4}}
+        
+        const variables = [
+            order.customer_name || "Cliente",  // {{1}}
+            order.restaurant_name,             // {{2}}
+            order.id.slice(0, 4),              // {{3}} (Apenas os 4 primeiros dígitos do UUID)
+            statusText                         // {{4}}
+        ];
 
-        console.log(`[WhatsApp Service] Notificando ${order.customer_phone} sobre status '${newStatus}'`);
+        console.log(`[WhatsApp Service] Enviando template para ${order.customer_phone}`);
 
-        // 4. Enviar
-        await sendWhatsAppMessage(order.customer_phone, message);
+        // 4. Enviar usando o helper de template
+        await sendWhatsAppTemplate(order.customer_phone, "order_status_update", variables);
+
+        
 
     } catch (error) {
         console.error("[WhatsApp Service] Erro ao processar notificação:", error);
