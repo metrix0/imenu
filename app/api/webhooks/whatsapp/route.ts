@@ -33,8 +33,19 @@ export async function POST(request: NextRequest) {
       const changes = entry?.changes?.[0];
       const value = changes?.value;
       const messages = value?.messages;
+      
+      // --- ADICIONE ESTE BLOCO ABAIXO ---
+      const statuses = value?.statuses;
+      if (statuses && statuses.length > 0) {
+        const status = statuses[0];
+        console.log(`⚡ STATUS ATUALIZADO: ${status.status}`);
+        if (status.errors) {
+          console.error("❌ ERRO NA ENTREGA:", JSON.stringify(status.errors, null, 2));
+        }
+        return new NextResponse("STATUS_RECEIVED", { status: 200 });
+      }
+      // ----------------------------------
 
-      // Se houver mensagens (pode ser status update, lido, digitando... ignoramos esses por enquanto)
       if (messages && messages.length > 0) {
         const message = messages[0];
         const from = message.from; // Número do cliente (ex: 5511999999999)

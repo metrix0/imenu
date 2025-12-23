@@ -1,6 +1,7 @@
 // app/api/orders/[id]/status/route.ts
 import { NextResponse } from "next/server";
 import { query } from "@/lib/database/sql";
+import { notifyOrderStatusUpdate } from "@/lib/services/whatsappNotification"; 
 
 // ================================
 // PATCH — Update Order Status ONLY
@@ -38,9 +39,7 @@ export async function PATCH(
                 UPDATE orders
                 SET
                     status = $1::public.order_status,
-                updated_at = NOW(),
-                -- Convertemos $1 para text explicitamente na comparação para evitar erro 42P08
-                delivered_at = CASE WHEN $1::text = 'done' THEN NOW() ELSE delivered_at END
+                    updated_at = NOW()
             WHERE id = $2
             `,
             [status, id]
@@ -49,6 +48,8 @@ export async function PATCH(
         if (rowCount === 0) {
             return NextResponse.json({ error: "Order not found" }, { status: 404 });
         }
+
+        notifyOrderStatusUpdate(id, status);
 
         return NextResponse.json({ ok: true, status });
 
