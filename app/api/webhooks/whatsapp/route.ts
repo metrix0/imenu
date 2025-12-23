@@ -1,45 +1,67 @@
 import { NextRequest, NextResponse } from "next/server";
+import { sendWhatsAppMessage } from "@/lib/api/whatsapp";
 
-// TOKEN DE VERIFICAÇÃO (Você inventa. Tem que ser igual no painel da Meta)
 const VERIFY_TOKEN = "imenu_secret_verify_token";
 
-// GET: Usado pela Meta para verificar se o Webhook é válido (Handshake)
+// GET: Verificação da Meta (Mantido igual)
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
-
   const mode = searchParams.get("hub.mode");
   const token = searchParams.get("hub.verify_token");
   const challenge = searchParams.get("hub.challenge");
 
-  // Se a Meta estiver tentando verificar o webhook
   if (mode && token) {
     if (mode === "subscribe" && token === VERIFY_TOKEN) {
-      console.log("WEBHOOK_VERIFIED");
-      // Retorna o "challenge" para confirmar que somos nós
       return new NextResponse(challenge, { status: 200 });
     } else {
-      // Senha errada
       return new NextResponse(null, { status: 403 });
     }
   }
-
   return new NextResponse(null, { status: 400 });
 }
 
-// POST: Usado para receber as mensagens reais do WhatsApp
+// POST: Recebe mensagens e Responde
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    // Log para vermos a estrutura da mensagem chegando (útil para debug)
-    console.log("Mensagem recebida do WhatsApp:", JSON.stringify(body, null, 2));
+    // 1. Validar se é uma mensagem do WhatsApp Business API
+    if (body.object === "whatsapp_business_account") {
+      
+      // Navega pelo JSON gigante do WhatsApp
+      const entry = body.entry?.[0];
+      const changes = entry?.changes?.[0];
+      const value = changes?.value;
+      const messages = value?.messages;
 
-    // A Meta exige que retornemos 200 OK imediatamente, senão eles ficam tentando reenviar
-    // Logica de processar a mensagem virá depois aqui...
-    
+      // Se houver mensagens (pode ser status update, lido, digitando... ignoramos esses por enquanto)
+      if (messages && messages.length > 0) {
+        const message = messages[0];
+        const from = message.from; // Número do cliente (ex: 5511999999999)
+        const msgBody = message.text?.body; // Conteúdo da mensagem de texto
+        const name = value.contacts?.[0]?.profile?.name || "Cliente"; // Nome do perfil (nem sempre vem)
+
+        console.log(`Mensagem de ${name} (${from}): ${msgBody}`);
+
+        // 2. Lógica do Bot (MVP)
+        // Aqui definimos o que responder. Por enquanto, hardcoded.
+        // Futuramente pegaremos o link do restaurante baseado no número de destino (se tivermos vários números)
+        // ou faremos um fluxo de conversa.
+        
+        const welcomeMessage = `Olá, ${name}! 👋\n\nBem-vindo ao *Imenu*.\n\nPara fazer seu pedido, acesse nosso cardápio digital:\n👉 https://imenuapp.com.br/demo\n\nQualquer dúvida, chame o garçom!`;
+
+        // 3. Enviar a resposta (Não usamos await para não travar a resposta 200 OK para a Meta)
+        // A Meta exige resposta em poucos segundos ou considera falha.
+        sendWhatsAppMessage(from, welcomeMessage);
+      }
+    }
+
+    // Sempre retorne 200 OK para a Meta saber que recebemos
     return new NextResponse("EVENT_RECEIVED", { status: 200 });
+
   } catch (error) {
     console.error("Erro no webhook:", error);
-    return new NextResponse("Internal Server Error", { status: 500 });
+    // Mesmo com erro, retornamos 200 para não travar a fila de mensagens do WhatsApp
+    return new NextResponse("Internal Server Error", { status: 200 });
   }
 }
