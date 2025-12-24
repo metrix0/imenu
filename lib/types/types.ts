@@ -133,8 +133,14 @@ export type LoyaltyProgram = {
     id: string;
     restaurant_id: string;
     goal_count: number;
-    reward_description: string | null;
     active: boolean;
+    min_order_value_cents: number;
+    
+    reward_item_id: string | null;
+    reward_subitem_ids: string[]; // <--- ALTERADO: Lista de IDs dos subitens grátis
+    
+    reward_description: string | null; 
+    
     created_at?: string;
     updated_at?: string;
 };

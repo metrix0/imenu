@@ -59,7 +59,7 @@ export async function PATCH(
             try {
                 // A. Busca dados do pedido para verificar elegibilidade
                 const { rows: [order] } = await query(
-                    `SELECT restaurant_id, customer_phone, loyalty_credited 
+                    `SELECT restaurant_id, customer_phone, loyalty_credited, total_cents 
                      FROM orders 
                      WHERE id = $1`, 
                     [id]
@@ -74,12 +74,16 @@ export async function PATCH(
                     // Limpa o telefone para garantir match no banco (apenas números)
                     const cleanPhone = order.customer_phone.replace(/\D/g, "");
 
-                    if (cleanPhone.length >= 8) { // Validação mínima
-                        // B. Verifica se o restaurante tem Fidelidade Ativa
+                    if (cleanPhone.length >= 8) {
+                        // B. Busca regra ativa E o valor mínimo
                         const { rows: [program] } = await query(
-                            `SELECT id FROM loyalty_programs WHERE restaurant_id = $1 AND active = true`,
+                            `SELECT id, min_order_value_cents 
+                             FROM loyalty_programs 
+                             WHERE restaurant_id = $1 AND active = true`,
                             [order.restaurant_id]
                         );
+
+                        const minVal = program?.min_order_value_cents || 0;
 
                         if (program) {
                             // C. UPSERT no Saldo (Cria ou Incrementa)
@@ -106,7 +110,9 @@ export async function PATCH(
                                 [id]
                             );
 
-                            console.log(`✅ Pontos de fidelidade creditados para o pedido ${id}`);
+                            console.log(`✅ Pontos creditados. Pedido R$${order.total_cents/100} >= Mínimo R$${minVal/100}`);
+                        } else if (program) {
+                            console.log(`⚠️ Pedido não pontuou: Valor R$${order.total_cents/100} menor que o mínimo R$${minVal/100}`);
                         }
                     }
                 }
