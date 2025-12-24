@@ -43,8 +43,9 @@ export async function GET() {
             ];
 
             // Envia WhatsApp
-            //await sendWhatsAppTemplate(order.phone, "new_order_alert", variables);
-            await sendWhatsAppTemplate(order.phone, "hello_world", []);
+            //TO DO: CHECK IF new_order_alert was already analised by meta
+            await sendWhatsAppTemplate(order.phone, "new_order_alert", variables);
+            //await sendWhatsAppTemplate(order.phone, "hello_world", []);
 
             // Marca como notificado para não enviar de novo no próximo Cron
             await query(`UPDATE orders SET owner_notified = true WHERE id = $1`, [order.id]);
