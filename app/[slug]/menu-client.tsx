@@ -18,7 +18,8 @@ import CartBar from "@/components/costumer/CartBar"
 import CartModal from "./CartModal"
 import WarningBox from "@/components/ui/WarningBox";
 import Tabs from "@/components/ui/Tabs";
-import SearchModal from "./SearchModal"
+import SearchModal from "./SearchModal";
+import HistoryModal from "@/components/costumer/HistoryModal";
 
 
 
@@ -39,6 +40,7 @@ export default function MenuClientPage({
 }) {
     const router = useRouter();
 
+    const [historyOpen, setHistoryOpen] = useState(false);
     const coupon_code = useCheckoutStore((s) => s.coupon_code);
     const coupon_value = useCheckoutStore((s) => s.coupon_value);
     const coupon_type = useCheckoutStore((s) => s.coupon_type);
@@ -664,7 +666,8 @@ export default function MenuClientPage({
                     : "opacity-100 translate-y-0"}
     `}
             >
-                <div className="h-10 w-10 rounded-full bg-black/50 text-white flex justify-center items-center">
+                <div onClick={() => setHistoryOpen(true)}
+                    className="cursor-pointer pointer-events-auto h-10 w-10 rounded-full bg-black/50 text-white flex justify-center items-center">
                     <FontAwesomeIcon icon={icons.faHistory} />
                 </div>
 
@@ -898,6 +901,12 @@ export default function MenuClientPage({
                     selectedCouponCode={selectedCouponCode}
                 />
             )}
+
+            <HistoryModal 
+                open={historyOpen}
+                onClose={() => setHistoryOpen(false)}
+                restaurantId={restaurant.id}
+            />
 
             <ModalMobile
                 open={restaurantCartWarningVisible}

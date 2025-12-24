@@ -104,3 +104,46 @@ export type AddressData = {
     latitude: number | null;
     longitude: number | null;
 };
+
+export type Order = {
+    id: string;
+    restaurant_id: string;
+    status: string; // "pending", "preparing", etc
+    subtotal_cents: number;
+    delivery_cents: number;
+    total_cents: number;
+    customer_name: string;
+    customer_phone: string;
+    customer_address: string;
+    payment_ref: string | null;
+    created_at: string; // timestamp with time zone
+    updated_at: string;
+    is_delivery: string; // "true" | "false" text in DB
+    display_id: number;
+    payment_method: string;
+    delivery_eta: string | null;
+    coupon_id: string | null;
+    coupon_code: string | null;
+    coupon_discount_cents: number | null;
+    owner_notified: boolean;
+    loyalty_credited: boolean; // Novo campo
+};
+
+export type LoyaltyProgram = {
+    id: string;
+    restaurant_id: string;
+    goal_count: number;
+    reward_description: string | null;
+    active: boolean;
+    created_at?: string;
+    updated_at?: string;
+};
+
+export type LoyaltyBalance = {
+    id: string;
+    restaurant_id: string;
+    customer_phone: string;
+    current_count: number;
+    total_lifetime_count: number;
+    last_order_at: string | null;
+};
