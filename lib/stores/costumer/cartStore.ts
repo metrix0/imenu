@@ -35,24 +35,8 @@ export const useCart = create<CartState>()(
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { CartItem } from "@/lib/types/types";
 
-export type CartItem = {
-    id: string; // unique id for the cart row
-    base_item_id: string;
-    name: string;
-    image: string;
-    qty: number;
-    unit_price_cents: number;
-    total_cents: number;
-    observation?: string;
-    selectedSubitems: {
-        subcategoryId: string;
-        subcategoryName: string;
-        subitemId: string;
-        subitemName: string;
-        price_cents: number;
-    }[];
-};
 
 type CartState = {
     items: CartItem[];
@@ -73,11 +57,15 @@ export const useCartStore = create<CartState>()(
                     const existing = state.items.find((i) =>
                         i.base_item_id === item.base_item_id &&
                         i.observation === item.observation &&
-                        JSON.stringify(i.selectedSubitems) === JSON.stringify(item.selectedSubitems)
+                        JSON.stringify(i.selectedSubitems) === JSON.stringify(item.selectedSubitems) &&
+                        i.is_reward === item.is_reward
                     );
 
                     // Se já existe, aumenta a quantidade
                     if (existing) {
+                        if (existing.is_reward) {
+                            return { items: state.items };
+                        }
                         return {
                             items: state.items.map((i) =>
                                 i.id === existing.id
@@ -97,17 +85,26 @@ export const useCartStore = create<CartState>()(
                     };
                 }),
             changeQty: (id: string, qty: number) =>
-                set((state) => ({
-                    items: state.items.map((i) =>
-                        i.id === id
-                            ? {
-                                ...i,
-                                qty,
-                                total_cents: qty * i.unit_price_cents,
-                            }
-                            : i
-                    ),
-                })),
+                set((state) => {
+                    const item = state.items.find(i => i.id === id);
+                    
+                    // 🛑 TRAVA DE SEGURANÇA: Impede aumentar qty de prêmios
+                    if (item?.is_reward && qty > 1) {
+                        return state; // Retorna o estado sem alterações
+                    }
+
+                    return {
+                        items: state.items.map((i) =>
+                            i.id === id
+                                ? {
+                                    ...i,
+                                    qty,
+                                    total_cents: qty * i.unit_price_cents,
+                                }
+                                : i
+                        ),
+                    };
+                }),
 
             removeItem: (id: string) =>
                 set((state) => ({
@@ -119,6 +116,7 @@ export const useCartStore = create<CartState>()(
         {
             name: typeof window !== "undefined"
                 ? `cart-storage-${window.location.pathname.split("/")[1]}`
-                : "cart-storage",        }
+                : "cart-storage",        
+            }
     )
 );

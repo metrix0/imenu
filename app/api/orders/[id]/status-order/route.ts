@@ -83,36 +83,51 @@ export async function PATCH(
                             [order.restaurant_id]
                         );
 
+                        // C. Verifica se existe programa E se o valor do pedido atinge o mínimo
                         const minVal = program?.min_order_value_cents || 0;
-
-                        if (program) {
-                            // C. UPSERT no Saldo (Cria ou Incrementa)
-                            await query(
-                                `INSERT INTO loyalty_balances (
-                                    restaurant_id, 
-                                    customer_phone, 
-                                    current_count, 
-                                    total_lifetime_count, 
-                                    last_order_at
-                                )
-                                VALUES ($1, $2, 1, 1, NOW())
-                                ON CONFLICT (restaurant_id, customer_phone)
-                                DO UPDATE SET
-                                    current_count = loyalty_balances.current_count + 1,
-                                    total_lifetime_count = loyalty_balances.total_lifetime_count + 1,
-                                    last_order_at = NOW()`,
+                        
+                        if (program && order.total_cents >= minVal) {
+                            
+                            // --- NOVA LÓGICA: TRAVA DE PONTOS ---
+                            // Verifica o saldo atual antes de adicionar
+                            const { rows: [balance] } = await query(
+                                `SELECT current_count FROM loyalty_balances 
+                                 WHERE restaurant_id = $1 AND customer_phone = $2`,
                                 [order.restaurant_id, cleanPhone]
                             );
 
-                            // D. Marca o pedido como creditado para evitar pontos duplos
-                            await query(
-                                `UPDATE orders SET loyalty_credited = true WHERE id = $1`,
-                                [id]
-                            );
+                            const currentCount = balance?.current_count || 0;
+                            const goal = program.goal_count || 10;
 
-                            console.log(`✅ Pontos creditados. Pedido R$${order.total_cents/100} >= Mínimo R$${minVal/100}`);
-                        } else if (program) {
-                            console.log(`⚠️ Pedido não pontuou: Valor R$${order.total_cents/100} menor que o mínimo R$${minVal/100}`);
+                            if (currentCount >= goal) {
+                                console.log(`🛑 Cliente já atingiu a meta (${currentCount}/${goal}). Nenhum ponto adicionado.`);
+                            } else {
+                                // D. UPSERT no Saldo (Cria ou Incrementa)
+                                await query(
+                                    `INSERT INTO loyalty_balances (
+                                        restaurant_id, 
+                                        customer_phone, 
+                                        current_count, 
+                                        total_lifetime_count, 
+                                        last_order_at
+                                    )
+                                    VALUES ($1, $2, 1, 1, NOW())
+                                    ON CONFLICT (restaurant_id, customer_phone)
+                                    DO UPDATE SET
+                                        current_count = loyalty_balances.current_count + 1,
+                                        total_lifetime_count = loyalty_balances.total_lifetime_count + 1,
+                                        last_order_at = NOW()`,
+                                    [order.restaurant_id, cleanPhone]
+                                );
+
+                                // E. Marca como creditado
+                                await query(
+                                    `UPDATE orders SET loyalty_credited = true WHERE id = $1`,
+                                    [id]
+                                );
+
+                                console.log(`✅ Pontos creditados.`);
+                            }
                         }
                     }
                 }

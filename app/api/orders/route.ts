@@ -14,6 +14,7 @@ const client = new MercadoPagoConfig({
 // Types (FIXED: added missing name: string)
 // -------------------------------
 type OrderItemInput = {
+    is_reward?: boolean;
     item_id: string;
     name: string; // ✅ REQUIRED — your SQL uses this
     qty: number;
@@ -157,6 +158,37 @@ RETURNING id
         );
 
         console.log("✅ Order created:", order);
+
+        // -------------------------------
+        // LOYALTY DEDUCTION LOGIC
+        // -------------------------------
+        const hasRewardItem = items.some((i: any) => i.is_reward === true);
+
+        if (hasRewardItem && customer_phone) {
+            console.log("🎁 Pedido contém recompensa. Processando dedução de pontos...");
+            const cleanPhone = customer_phone.replace(/\D/g, "");
+
+            // 1. Busca programa ativo para saber quantos pontos descontar (goal_count)
+            const { rows: [prog] } = await query(
+                `SELECT goal_count FROM loyalty_programs WHERE restaurant_id = $1 AND active = true`,
+                [restaurantId]
+            );
+
+            if (prog) {
+                // 2. Deduz os pontos
+                // Opção A: ZERAR (current_count = 0)
+                // Opção B: SUBTRAIR (current_count = current_count - goal) <- Melhor se o cara tiver 20 pontos
+                
+                await query(
+                    `UPDATE loyalty_balances 
+                     SET current_count = GREATEST(0, current_count - $1)
+                     WHERE restaurant_id = $2 AND customer_phone = $3`,
+                    [prog.goal_count, restaurantId, cleanPhone]
+                );
+                
+                console.log(`✅ ${prog.goal_count} pontos deduzidos do cliente ${cleanPhone}`);
+            }
+        }
 
         // -------------------------------
         // Insert ITEMS + SUBITEMS

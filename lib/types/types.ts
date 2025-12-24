@@ -67,21 +67,27 @@ export type Subitem = {
     position: number;
 };
 
-
-
 export type ItemsByCategory = {
     [categoryId: string]: Item[];
 };
 
 export type CartItem = {
-    itemId: string; // ID único para ESTA configuração no carrinho (ex: "uuid" ou "item_id-timestamp")
-    name: string; // Nome descritivo (ex: "Açaí (Leite em pó, Morango)")
-    price_cents: number; // Preço unitário TOTAL (item + subitens)
+    id: string; // unique id for the cart row
+    base_item_id: string;
+    name: string;
+    image: string | null;
     qty: number;
-
-    // Metadados para referência, se necessário
-    base_item_id: string; // O ID original do item no DB
-    menuId: string; // Para saber para onde voltar
+    unit_price_cents: number;
+    total_cents: number;
+    observation?: string;
+    is_reward?: boolean; // NOVO CAMPO
+    selectedSubitems: {
+        subcategoryId: string;
+        subcategoryName: string;
+        subitemId: string;
+        subitemName: string;
+        price_cents: number;
+    }[];
 };
 
 export type CartStore = {
