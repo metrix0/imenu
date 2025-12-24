@@ -51,6 +51,73 @@ export async function PATCH(
 
         notifyOrderStatusUpdate(id, status);
 
+        // ============================================================
+        // 3. LÓGICA DE FIDELIDADE (Novo)
+        // Só pontua se status for "done" (Concluído)
+        // ============================================================
+        if (status === "done") {
+            try {
+                // A. Busca dados do pedido para verificar elegibilidade
+                const { rows: [order] } = await query(
+                    `SELECT restaurant_id, customer_phone, loyalty_credited 
+                     FROM orders 
+                     WHERE id = $1`, 
+                    [id]
+                );
+
+                // Só prossegue se:
+                // 1. O pedido existe
+                // 2. Ainda não foi creditado
+                // 3. Tem telefone do cliente
+                if (order && !order.loyalty_credited && order.customer_phone) {
+                    
+                    // Limpa o telefone para garantir match no banco (apenas números)
+                    const cleanPhone = order.customer_phone.replace(/\D/g, "");
+
+                    if (cleanPhone.length >= 8) { // Validação mínima
+                        // B. Verifica se o restaurante tem Fidelidade Ativa
+                        const { rows: [program] } = await query(
+                            `SELECT id FROM loyalty_programs WHERE restaurant_id = $1 AND active = true`,
+                            [order.restaurant_id]
+                        );
+
+                        if (program) {
+                            // C. UPSERT no Saldo (Cria ou Incrementa)
+                            await query(
+                                `INSERT INTO loyalty_balances (
+                                    restaurant_id, 
+                                    customer_phone, 
+                                    current_count, 
+                                    total_lifetime_count, 
+                                    last_order_at
+                                )
+                                VALUES ($1, $2, 1, 1, NOW())
+                                ON CONFLICT (restaurant_id, customer_phone)
+                                DO UPDATE SET
+                                    current_count = loyalty_balances.current_count + 1,
+                                    total_lifetime_count = loyalty_balances.total_lifetime_count + 1,
+                                    last_order_at = NOW()`,
+                                [order.restaurant_id, cleanPhone]
+                            );
+
+                            // D. Marca o pedido como creditado para evitar pontos duplos
+                            await query(
+                                `UPDATE orders SET loyalty_credited = true WHERE id = $1`,
+                                [id]
+                            );
+
+                            console.log(`✅ Pontos de fidelidade creditados para o pedido ${id}`);
+                        }
+                    }
+                }
+            } catch (loyaltyError) {
+                // Não queremos quebrar a requisição se o sistema de fidelidade falhar, 
+                // apenas logamos o erro. O status do pedido já foi atualizado com sucesso.
+                console.error("❌ Erro ao processar fidelidade:", loyaltyError);
+            }
+        }
+        // ============================================================
+
         return NextResponse.json({ ok: true, status });
 
     } catch (err: any) {
