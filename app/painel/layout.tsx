@@ -21,7 +21,8 @@ import {
     faDoorOpen,
     faPowerOff,
     faPercent,
-    faPuzzlePiece
+    faPuzzlePiece,
+    faGift
 } from "@fortawesome/free-solid-svg-icons";
 import { createClient } from "@supabase/supabase-js";
 
@@ -172,6 +173,7 @@ useEffect(() => {
         { label: "Cardápio", icon: faUtensils, href: `${base}/cardapio` },
         { type: "divider" },
         { label: "Promoções", icon: faPercent, href: `${base}/promocoes` },
+        { label: "Fidelidade", icon: faGift, href: `${base}/fidelidade` },
         { label: "Taxa e Tempo", icon: faTruck, href: `${base}/tempo-e-taxa` },
         { label: "Horários", icon: faClock, href: `${base}/disponibilidade` },
         { label: "Loja", icon: faStore, href: `${base}/loja` },
