@@ -146,15 +146,18 @@ export default function CouponsList({
                                     {c.code}
                                 </td>
 
-                                <td className="px-4 py-3 text-gray-700">
+                                <td className={`px-4 py-3 text-gray-700 ${c.discount_type === "delivery" && "text-xs"}`}>
                                     {c.discount_type === "percent"
                                         ? `${Math.round(c.discount_value * 100)}%`
-                                        : `R$ ${c.discount_value}`}
+                                        : `${c.discount_type === "fixed" ? `R$ ${c.discount_value}` : ""}`
+                                    }
+                                    {c.discount_type === "delivery" && <span>Entrega</span>}
                                 </td>
-
                                 <td className="px-4 py-3 text-center text-gray-700">
                                     {c.usage_count}{c.unlimited_quantity ? "" : ` de ${c.quantity ?? "-"}`}
                                 </td>
+
+
 
                                 <td className="px-4 py-3 text-gray-700">
                                     {formatDateBR(c.start_date)} à {formatDateBR(c.end_date)}

@@ -238,6 +238,31 @@ export default function CartBar({
         const data = await res.json();
 
         try {
+            if (checkout.coupon_id) {
+                const couponUsage = {
+                    coupon_id: checkout.coupon_id,
+                    coupon_code: checkout.coupon_code,
+                    used_at: Date.now()
+                };
+
+                // localStorage (primary)
+                if (typeof window !== "undefined") {
+                    localStorage.setItem(
+                        `coupon_used_${checkout.restaurantId}`,
+                        JSON.stringify(couponUsage)
+                    );
+                }
+
+                // cookie (fallback / redundancy)
+                document.cookie = `coupon_used_${checkout.restaurantId}=${encodeURIComponent(
+                    JSON.stringify(couponUsage)
+                )}; path=/; max-age=${60 * 60 * 24 * 30}`; // 30 days
+            }
+        } catch (err) {
+            console.error("[COUPON] Failed to persist coupon usage:", err);
+        }
+
+        try {
             document.cookie = `order_page_entered_id_${body.restaurantId}=${data.id}; path=/; max-age=${60 * 60 * 5}`;
         } catch (err) {
             console.error("[COOKIE] Failed to set order_page_entered cookie:", err);

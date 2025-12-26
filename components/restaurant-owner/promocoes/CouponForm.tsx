@@ -68,6 +68,7 @@ export default function CouponForm({
         active: initialData?.active ?? true,
 
         show_coupon: initialData?.show_coupon ?? true,
+        one_coupon_per_user: initialData?.one_coupon_per_user ?? false,
     });
     const discountTypeRef = useRef<HTMLSelectElement | null>(null);
 
@@ -170,6 +171,7 @@ export default function CouponForm({
                     options={[
                         { value: "percent", label: "Porcentagem (%)" },
                         { value: "fixed", label: "Valor Fixo" },
+                        { value: "delivery", label: "Entrega Grátis" },
                     ]}
                     onChange={(v) => {
                         console.log(v)
@@ -180,13 +182,14 @@ export default function CouponForm({
                 <Input
                     label="Valor do desconto"
                     numeric
-                    icon={`${form.discount_type === "percent" ? "%" : "R$"}`}
+                    icon={`${form.discount_type === "fixed" ? "R$" : "%"}`}
                     iconPosition="right"
                     value={
                         form.discount_type === "percent"
                             ? percentDisplay
-                            : form.discount_value
+                            : `${form.discount_type === "fixed" ? form.discount_value : "100"}`
                     }
+                    locked={form.discount_type === "delivery"}
                     onChange={(e) => {
                         const raw = Number(e.target.value);
 
@@ -221,16 +224,31 @@ export default function CouponForm({
             </div>
 
             <div>
-                <ToggleInput
-                    label={<Tooltip text={<>Este cupom ficará visível para todos os usuários do seu Cardápio Digital. <u>Recomendado para converter mais clientes.</u></>} padding={"py-2 px-3"} size={"medium"} >
-                        Mostrar este cupom <FontAwesomeIcon icon={icons.faCircleInfo} className={"text-xs text-gray-500"} /> <span className={"text-brand text-xs "}>RECOMENDADO</span>
-                </Tooltip>}
+                {/*<ToggleInput*/}
+                {/*    label={<Tooltip text={<>Este cupom ficará visível para todos os usuários do seu Cardápio Digital. <u>Recomendado para converter mais clientes.</u></>} padding={"py-2 px-3"} size={"medium"} >*/}
+                {/*        Mostrar este cupom <FontAwesomeIcon icon={icons.faCircleInfo} className={"text-xs text-gray-500"} /> <span className={"text-brand text-xs "}>RECOMENDADO</span>*/}
+                {/*</Tooltip>}*/}
 
-                    checked={form.show_coupon}
+                {/*    checked={form.show_coupon}*/}
+                {/*    onChange={(e) =>*/}
+                {/*        setForm({*/}
+                {/*            ...form,*/}
+                {/*            show_coupon: e.target.checked,*/}
+                {/*        })*/}
+                {/*    }*/}
+                {/*    color={"bg-green-500"}*/}
+                {/*    className={"mt-4"}*/}
+                {/*/>*/}
+                <ToggleInput
+                    label={<Tooltip text={<>Rastreado através do dispositivo do usuário</>} position={"right"} >
+                        Um cupom por pessoa <FontAwesomeIcon icon={icons.faCircleInfo} className={"text-xs text-gray-500"} />
+                    </Tooltip>}
+
+                    checked={form.one_coupon_per_user}
                     onChange={(e) =>
                         setForm({
                             ...form,
-                            show_coupon: e.target.checked,
+                            one_coupon_per_user: e.target.checked,
                         })
                     }
                     color={"bg-green-500"}

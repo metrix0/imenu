@@ -32,6 +32,7 @@ interface CheckoutState {
     coupon_value: number | null;        // percent OR cents
     coupon_max_value: number | null;    // cents
     coupon_min_order: number | null;    // cents
+    coupon_one_coupon_per_user: null,
 
     // ✅ coupon (CALCULATED, frontend preview)
     coupon_discount_cents: number | null;
@@ -78,6 +79,7 @@ export const useCheckoutStore = create<CheckoutState>()(
             coupon_max_value: null,
             coupon_min_order: null,
             coupon_discount_cents: null,
+            coupon_one_coupon_per_user: null,
 
             // ⚠️ UI state (do NOT persist)
             showAddressWarning: false,
@@ -115,14 +117,6 @@ export const useCheckoutStore = create<CheckoutState>()(
                 celular: state.celular,
                 pagamento: state.pagamento,
 
-                // ✅ persist coupon selection + preview
-                coupon_id: state.coupon_id,
-                coupon_code: state.coupon_code,
-                coupon_type: state.coupon_type,
-                coupon_value: state.coupon_value,
-                coupon_max_value: state.coupon_max_value,
-                coupon_min_order: state.coupon_min_order,
-                coupon_discount_cents: state.coupon_discount_cents,
             }),
         }
     )

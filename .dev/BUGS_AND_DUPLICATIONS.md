@@ -58,6 +58,10 @@ add 4k resolution to everything (easy, just ctrl f 2xl)
 
 Bairro não salva no zustand persist
 
+delivery_fee nao carrega no reload mais menu (provavelmente por causa do bairr)
+
+acompanhar pedido nao mostra taxa de entrega e cupons
+
 **- Mobile responsiveness NOS BROWSERS do mobile. (teclado subindo, autofill, varias resolucoes, etc)**
 
 - sem clarity no (seo)
