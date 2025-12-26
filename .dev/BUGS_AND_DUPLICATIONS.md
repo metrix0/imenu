@@ -64,6 +64,8 @@ Bairro não salva no zustand persist
 
 - "obrigatório" nos subitems ta feio
 
+- as vezes quando reseta a página o botçao continuar ainda fica como "confirmar" do anterior
+
 R:
 VOU DELETAR A TABLE menus, tirar todo uso. (pode remover vc mesmo da supabase assim que tira todos usos de "menu")
 
@@ -89,3 +91,9 @@ AGR OU DPS? (organização, project-health)
 - passar transformando todo uso de supabase em pages em chamadas de API (especialmente nos componentes do painel/criar)
 - arrumar zustands, tipo creationStore deveriaser restaurantDataStore
 *só usar timestampz a partir de agr
+
+
+
+IMAGEM DO LUIGI ERRO 
+
+LUGI DISPONIBILIDADE NAO TA APARECENDO ERRO DE NAO TA ABERTO
