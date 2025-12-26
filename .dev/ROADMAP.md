@@ -15,6 +15,7 @@
 - test meta and google pixels (on deploy) after promo code finished
 - adicionar um OTP secreto pra gente poder sempre aprovar
 - BUG: IA ainda não pega categoria
+- fazer o churn fidelidade ser algo appealing pro cliente no menu
 
 ---
 <br>
@@ -66,6 +67,7 @@ TOP_MENUS: Saipos, Anota ai, Goomer
 | ★ Videos and Multiple Images       | Brendo | (botão img)       | add videos + add compression to images vides eveerting thats uploaded and convert to webp is that ideal? (TANTO NO PAINEL QUANDO PRO CLIENTE)                                                        |
 | (final) ZERO BUGS (Bug list below) |        |                   | TEST EVERYTHING, IN 3 DIFFERENT DEVICES, INCOGNITO, MULTIPLE BROWSERS, BREAK EVERYTHING AND THEN FIX                                                                                                 |
 | (final) Infrastructure             |        |                   | FASTEST MENU ALIVE, smooth back and front end loadings and calls (vercel paid plan)                                                                                                                  |
+| 1920x1080 e 4k tudo                |        |                   |                                                                                                                                                                                                      |
 |                                    |        |                   |                                                                                                                                                                                                      |
 
 

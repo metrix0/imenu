@@ -128,7 +128,7 @@ export default async function Page({
                 categories={categoriesWithItems}
                 itemsByCategory={itemsByCategory}
                 openedProductId={p.p}
-                selectedCouponCode={p.c}
+                selectedCouponCode={p.c?.toUpperCase()}
             />
         </>
 

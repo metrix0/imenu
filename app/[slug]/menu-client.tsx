@@ -44,6 +44,7 @@ export default function MenuClientPage({
     const coupon_code = useCheckoutStore((s) => s.coupon_code);
     const coupon_value = useCheckoutStore((s) => s.coupon_value);
     const coupon_type = useCheckoutStore((s) => s.coupon_type);
+    const coupon_id = useCheckoutStore((s) => s.coupon_id);
     const coupon_discount_cents = useCheckoutStore((s) => s.coupon_discount_cents);
     const setField = useCheckoutStore((s) => s.setField);
     const [loadingItemId, setLoadingItemId] = useState<string | null>(null);
@@ -67,6 +68,7 @@ export default function MenuClientPage({
     const [activeTab, setActiveTab] = useState(categories[0]?.name ?? "");
     const [manualScrollLock, setManualScrollLock] = useState(false);
     const [debouncedSearch, setDebouncedSearch] = useState(""); // used for filtering
+    const [couponUsed, setCouponUsed] = useState("");
 
     useEffect(() => {
         if (!selectedCouponCode) return;
@@ -88,7 +90,8 @@ export default function MenuClientPage({
 
 
     useEffect(() => {
-        if (!coupon_code || !restaurant?.id) {
+        if(coupon_code === couponUsed) return
+        if (!useCheckoutStore.getState().coupon_code || !restaurant?.id) {
             const store = useCheckoutStore.getState();
             store.setField("coupon_id", null);
             store.setField("coupon_code", null);
@@ -109,9 +112,10 @@ export default function MenuClientPage({
                 discount_type,
                 discount_value,
                 max_discount_value,
-                min_order_value
+                min_order_value,
+                one_coupon_per_user
             `)
-                .eq("code", coupon_code)
+                .eq("code", useCheckoutStore.getState().coupon_code)
                 .eq("restaurant_id", restaurant.id)
                 .eq("active", true)
                 .single();
@@ -135,7 +139,9 @@ export default function MenuClientPage({
             store.setField("coupon_value", data.discount_value);
             store.setField("coupon_max_value", data.max_discount_value);
             store.setField("coupon_min_order", data.min_order_value);
+            store.setField("coupon_one_coupon_per_user", data.one_coupon_per_user)
         };
+
 
         fetchCouponOnce();
     }, [coupon_code, restaurant?.id]);
@@ -143,6 +149,34 @@ export default function MenuClientPage({
     useEffect(() => {
         const cart = useCartStore.getState();
         const checkout = useCheckoutStore.getState();
+
+        // 🚫 block reused coupon (device-level)
+        try {
+            if (checkout.coupon_id && checkout.coupon_code && checkout.coupon_one_coupon_per_user === true) {
+                const raw = localStorage.getItem(`coupon_used_${checkout.restaurantId}`);
+                if (raw) {
+                    const stored = JSON.parse(raw);
+
+                    const isSameCoupon =
+                        stored.coupon_id === checkout.coupon_id &&
+                        stored.coupon_code === checkout.coupon_code;
+
+                    console.log(isSameCoupon)
+                    console.log(stored.coupon_id, stored.coupon_code)
+
+                    if (isSameCoupon) {
+                        setCouponUsed(checkout.coupon_code)
+                        checkout.setField("coupon_discount_cents", null);
+                        checkout.setField("coupon_id", null);
+                        checkout.setField("coupon_type", null);
+                        checkout.setField("coupon_code", null);
+                        return;
+                    }
+                }
+            }
+        } catch (err) {
+            console.error("[COUPON] Failed to read stored coupon usage", err);
+        }
 
         if (!checkout.coupon_id || !checkout.coupon_type) {
             checkout.setField("coupon_discount_cents", null);
@@ -155,8 +189,8 @@ export default function MenuClientPage({
         );
 
         const deliveryFee =
-            typeof checkout.delivery_fee_cents === "number"
-                ? checkout.delivery_fee_cents
+            typeof checkout.delivery_fee_cents === "number" || "string"
+                ? Number(checkout.delivery_fee_cents)
                 : 0;
 
         // ❌ minimum order
@@ -173,7 +207,7 @@ export default function MenuClientPage({
         // % discount
         if (checkout.coupon_type === "percent") {
             discountCents = Math.floor(
-                (cartSubtotal * checkout.coupon_value!)
+                cartSubtotal * checkout.coupon_value!
             );
         }
 
@@ -209,8 +243,9 @@ export default function MenuClientPage({
         useCheckoutStore((s) => s.coupon_value),
         useCheckoutStore((s) => s.coupon_max_value),
         useCheckoutStore((s) => s.coupon_min_order),
+        useCheckoutStore((s) => s.coupon_id),
+        useCheckoutStore((s) => s.coupon_code),
     ]);
-
 
 
 
@@ -598,7 +633,7 @@ export default function MenuClientPage({
 
                         </div>
                         <div className={"hidden md:inline-block"}>
-                            {coupon_code && (
+                            {(coupon_code && coupon_type) && (
                                 <div className="px-2.5 py-1.5 rounded-lg bg-brand/10 text-brand text-xs 2xl:text-sm font-normal">
                                     <FontAwesomeIcon icon={icons.faTicket} /> CUPOM {coupon_code} APLICADO - <b>{couponLabel()}</b>
                                 </div>

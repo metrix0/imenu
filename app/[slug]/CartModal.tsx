@@ -64,7 +64,6 @@ export default function CartModal({
     const coupon_code = useCheckoutStore((s) => s.coupon_code);
     const coupon_discount_cents = useCheckoutStore((s) => s.coupon_discount_cents);
 
-
     function getDeliveryTiers() {
         try {
             if (!restaurant) return null;
@@ -708,8 +707,8 @@ export default function CartModal({
 
                         {showDiscountInput && (<div className="mb-6">
                             <Input
-                                readOnly={!!selectedCouponCode}
-                                locked={!!selectedCouponCode}
+                                readOnly={!!selectedCouponCode && !!coupon_discount_cents}
+                                locked={!!selectedCouponCode && !!coupon_discount_cents}
                                 label="Cupom de desconto"
                                 placeholder="EX: PROMO10"
                                 defaultValue={selectedCouponCode || ""}
@@ -725,6 +724,8 @@ export default function CartModal({
                                     }, 500);
                                 }}
                                 className="2xl:text-lg"
+                                icon={<FontAwesomeIcon icon={icons.faEdit} className={"cursor-pointer"} onClick={() => {selectedCouponCode = null; setField("coupon_code", null); setField("coupon_discount_cents", null); console.log(selectedCouponCode)}} />}
+                                iconPosition={"right"}
                             />
                         </div>)}
 
