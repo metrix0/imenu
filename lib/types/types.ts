@@ -1,4 +1,4 @@
-// lib/types.ts
+// lib/types/types.ts
 
 export type PromotionType = "fixed" | "percent";
 

@@ -1,4 +1,4 @@
-import { Item, Promotion } from "@/lib/types";
+import { Item, Promotion } from "@/lib/types/types";
 
 export function mergePromotions(
     items: Item[],
