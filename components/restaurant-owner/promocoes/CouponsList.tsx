@@ -8,6 +8,7 @@ import { supabase } from "@/lib/database/supabaseClient";
 import {FontAwesomeIcon} from "@fortawesome/react-fontawesome";
 import { icons } from "@/lib/utils/fontawesome";
 import Tooltip from "@/components/ui/Tooltip";
+import ListLoader from "@/components/ui/ListLoader";
 
 interface Props {
     restaurantId: string;
@@ -107,8 +108,16 @@ export default function CouponsList({
 
             {/* Loading */}
             {loading && (
-                <div className="py-10 text-center text-gray-500">
-                    Carregando cupons…
+                <div className="py-2 text-center text-gray-500">
+                    <>
+                        <div className="mt-0">
+                            <ListLoader lines={4}/>
+                        </div>
+
+                        <div className="mt-8">
+                            <ListLoader lines={4}/>
+                        </div>
+                    </>
                 </div>
             )}
 

@@ -1,5 +1,17 @@
 // lib/types.ts
 
+export type PromotionType = "fixed" | "percent";
+
+export interface Promotion {
+    id: string;
+    item_id: string;
+    type: PromotionType;
+    value: number;
+    starts_at: string;
+    ends_at: string;
+    active: boolean;
+}
+
 export type Restaurant = {
     id: string;
     name: string;
@@ -44,6 +56,7 @@ export type Item = {
     position: number;
     category: Category | null;
     image_public_url?: string | null;
+    promotion?: Promotion;
 };
 
 export type Subcategory = {
