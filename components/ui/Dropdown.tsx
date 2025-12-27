@@ -11,6 +11,7 @@ export type DropdownOption = {
 type DropdownProps = React.SelectHTMLAttributes<HTMLSelectElement> & {
     label?: string;
     options: DropdownOption[];
+    chevronClassName?: string;
 };
 
 const Dropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(function Dropdown(
@@ -18,6 +19,7 @@ const Dropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(function Dro
         label,
         options,
         className = "",
+        chevronClassName,
         ...props
     },
     ref
@@ -57,7 +59,7 @@ const Dropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(function Dro
                     icon={faChevronDown}
                     className={`absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 transition-transform duration-200 pointer-events-none ${
                         open ? "rotate-180" : ""
-                    }`}
+                    } ${chevronClassName || ""}`}
                 />
             </div>
         </div>

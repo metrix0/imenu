@@ -12,6 +12,7 @@ import ListLoader from "@/components/ui/ListLoader";
 import CouponsList from "@/components/restaurant-owner/promocoes/CouponsList";
 import CouponForm from "@/components/restaurant-owner/promocoes/CouponForm";
 import {notFound} from "next/navigation";
+import PromotionsPanel from "@/components/restaurant-owner/promocoes/PromotionsPanel";
 
 
 export default function PromocoesPage() {
@@ -20,7 +21,7 @@ export default function PromocoesPage() {
 
     const [restaurant, setRestaurant] = useState<any>({id: restaurantId || '', url_slug: ''});
     const [loading, setLoading] = useState(!restaurantId);
-    const [tab, setTab] = useState("Cupons");
+    const [tab, setTab] = useState("Promoções");
     const [showForm, setShowForm] = useState(false);
     const [editingCoupon, setEditingCoupon] = useState<any>(null);
 
@@ -98,10 +99,12 @@ export default function PromocoesPage() {
 
     return (
         <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-8 pb-24">
-            <h1 className="text-3xl font-bold text-gray-900 mb-6">Promoções</h1>
+            <h1 className="text-3xl font-bold text-gray-900">Promoções</h1>
+            <p className="text-gray-500 mt-1 2xl:text-lg mb-6">Crie promoções para seus itens, ou crie cupons de desconto.</p>
+
 
             <Tabs
-                tabs={["Cupons"]}
+                tabs={["Promoções", "Cupons"]}
                 active={tab}
                 onChange={(t) => {
                     setTab(t);
@@ -125,6 +128,15 @@ export default function PromocoesPage() {
                     restaurant={restaurant}
                 />
             )}
+
+            {tab === "Promoções" && (
+                <PromotionsPanel
+                    restaurantId={restaurantId!}
+                    onToast={(message, type) => {
+                        setToastConfig({ message, type });
+                        setShowToast(true);
+                    }}
+                />            )}
 
             {tab === "Cupons" && showForm && (
                 <CouponForm

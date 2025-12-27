@@ -16,10 +16,12 @@ import ComplementosTab from "@/components/restaurant-owner/cardapio/tabs/Complem
 import ManageCategoryModal from "@/components/restaurant-owner/cardapio/ManageCategoryModal";
 import ItemDetailsModal from "@/components/restaurant-owner/cardapio/ItemDetailsModal";
 import { MenuItemType } from "@/components/restaurant-owner/cardapio/MenuItemRow";
+import { useRouter } from "next/navigation";
+
 
 type Category = { id: string; name: string; position: number };
 
-const TABS = ["Cardápio", "Produtos", "Complemento"];
+const TABS = ["Cardápio", "Produtos", "Complemento", "Promoções e Cupons"];
 
 export default function MenuManagerPage() {
     // 1. Usa Zustand para ID imediato
@@ -27,7 +29,7 @@ export default function MenuManagerPage() {
     
     const [activeTab, setActiveTab] = useState("Cardápio");
     const [isLoading, setIsLoading] = useState(true);
-    
+
     // Dados locais
     const [categories, setCategories] = useState<Category[]>([]);
     const [items, setItems] = useState<MenuItemType[]>([]);
@@ -38,6 +40,15 @@ export default function MenuManagerPage() {
     const [categoryToEdit, setCategoryToEdit] = useState<{id: string, name: string} | null>(null);
     const [isItemDetailsOpen, setIsItemDetailsOpen] = useState(false);
     const [itemToEditDetails, setItemToEditDetails] = useState<MenuItemType | null>(null);
+
+    const router = useRouter();
+
+    useEffect(() => {
+        if(activeTab === "Promoções e Cupons") {
+            router.push("/painel/promocoes");
+        }
+    }, [activeTab]);
+
 
     // Função para carregar dados do MENU (categorias e itens)
     const loadMenuData = async (id: string) => {
