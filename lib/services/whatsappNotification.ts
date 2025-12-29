@@ -59,3 +59,54 @@ export async function notifyOrderStatusUpdate(orderId: string, newStatus: string
         console.error("[WhatsApp Service] Erro ao processar notificação:", error);
     }
 }
+
+
+// ---------------------------------------------------------
+// 1. FUNÇÃO DE ENVIO DE TEXTO (OTP) - VERSÃO META API
+// ---------------------------------------------------------
+export async function sendWhatsAppMessage(phone: string, message: string) {
+    try {
+        console.log(`🔑 [DEBUG MOCK] Para: ${phone} | Mensagem: "${message}"`);
+        const token = process.env.WHATSAPP_API_TOKEN;
+        const phoneId = process.env.WHATSAPP_PHONE_ID;
+
+        if (!token || !phoneId) {
+            console.log(`📱 [OTP Mock - Falta Config] Para: ${phone} | Msg: ${message}`);
+            return;
+        }
+
+        // Formatação do telefone para Meta (Geralmente 55 + DDD + Numero)
+        let cleanPhone = phone.replace(/\D/g, "");
+        if (!cleanPhone.startsWith("55") && cleanPhone.length <= 11) {
+            cleanPhone = "55" + cleanPhone;
+        }
+
+        console.log(`📱 Enviando via Meta API para ${cleanPhone}...`);
+
+        const url = `https://graph.facebook.com/v19.0/${phoneId}/messages`;
+
+        const res = await fetch(url, {
+            method: "POST",
+            headers: {
+                "Authorization": `Bearer ${token}`,
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                messaging_product: "whatsapp",
+                recipient_type: "individual",
+                to: cleanPhone,
+                type: "text",
+                text: { preview_url: false, body: message }
+            }),
+        });
+
+        if (!res.ok) {
+            const errorData = await res.json();
+            console.error("❌ Erro Meta API:", JSON.stringify(errorData, null, 2));
+            throw new Error("Falha ao enviar mensagem via Facebook/Meta");
+        }
+
+    } catch (error) {
+        console.error("❌ Erro no envio de WhatsApp:", error);
+    }
+}

@@ -1,4 +1,4 @@
-// app/api/orders/[id]/route.ts
+// app/api/orders/[id]/status/route.ts
 import { NextResponse } from "next/server";
 import { query } from "@/lib/database/sql";
 
