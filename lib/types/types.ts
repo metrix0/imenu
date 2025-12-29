@@ -133,6 +133,7 @@ export type Order = {
     coupon_discount_cents: number | null;
     owner_notified: boolean;
     loyalty_credited: boolean; // Novo campo
+    loyalty_points_used: number;
 };
 
 export type LoyaltyProgram = {

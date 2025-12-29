@@ -1,21 +1,47 @@
 import { NextRequest, NextResponse } from "next/server";
 import { query } from "@/lib/database/sql";
+import { jwtVerify } from "jose";
+import { cookies } from "next/headers";
+
+const SECRET = new TextEncoder().encode(process.env.JWT_SECRET || "segredo_super_seguro_troque_isso");
+
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { restaurant_id, phone } = body;
+    const { restaurant_id } = body;
 
-    if (!restaurant_id || !phone) return NextResponse.json({ error: "Missing data" }, { status: 400 });
+    // 🔒 1. VERIFICAÇÃO DE SEGURANÇA (COOKIE)
+    const cookieStore = await cookies();
+    const token = cookieStore.get("loyalty_token")?.value;
 
-    const cleanPhone = phone.replace(/\D/g, "");
+    if (!token) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    let verifiedPhone = "";
+    try {
+        const { payload } = await jwtVerify(token, SECRET);
+        verifiedPhone = payload.phone as string;
+    } catch (e) {
+        return NextResponse.json({ error: "Invalid Token" }, { status: 401 });
+    }
+
+    // O telefone agora vem do token, garantido que é o dono
+    const cleanPhone = verifiedPhone;
+
+
+
+    if (!restaurant_id) return NextResponse.json({ error: "Missing data" }, { status: 400 });
+
+
 
     // 1. Saldo
     const balanceQuery = `SELECT * FROM loyalty_balances WHERE restaurant_id = $1 AND customer_phone = $2`;
     
     // 2. Histórico
     const ordersQuery = `
-        SELECT id, display_id, status, total_cents, created_at, loyalty_credited 
+        SELECT id, display_id, status, total_cents, created_at, loyalty_credited, loyalty_points_used 
         FROM orders 
         WHERE restaurant_id = $1 AND customer_phone = $2 
         ORDER BY created_at DESC LIMIT 10

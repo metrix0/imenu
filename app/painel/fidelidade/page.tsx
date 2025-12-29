@@ -196,10 +196,10 @@ export default function FidelidadePage() {
     const dropdownOptions = menuItems.map(item => ({ value: item.id, label: item.name }));
 
     return (
-        <div className="p-4 md:p-8 max-w-4xl mx-auto space-y-8">
-            <div>
-                <h1 className="text-2xl font-bold text-gray-900">Programa de Fidelidade</h1>
-                <p className="text-gray-500">Defina o item que será dado como recompensa e quais complementos já vêm inclusos.</p>
+        <div className="max-w-6xl mx-auto pb-20 px-4 sm:px-6 pt-8">
+            <div className="mb-8 flex flex-col gap-1">
+                <h1 className="text-3xl font-bold text-gray-900">Programa de Fidelidade</h1>
+                <p className="text-gray-500 mt-1 2xl:text-lg">Defina o item que será dado como recompensa e quais complementos já vêm inclusos.</p>
             </div>
 
             <Card className="space-y-6 p-6">

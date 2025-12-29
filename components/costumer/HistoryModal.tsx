@@ -7,7 +7,7 @@ import Button from "@/components/ui/Button";
 import { useHistoryStore } from "@/lib/stores/costumer/historyStore";
 import { useCartStore } from "@/lib/stores/costumer/cartStore"; // Importar CartStore
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faStar, faGift, faTrophy } from "@fortawesome/free-solid-svg-icons";
+import { faStar, faGift, faTrophy, faLock } from "@fortawesome/free-solid-svg-icons";
 import { formatPrice } from "@/lib/utils/formatPrice";
 import Toast from "@/components/ui/Toast";
 import { useState } from "react";
@@ -27,17 +27,34 @@ export default function HistoryModal({ open, onClose, restaurantId }: Props) {
         orders, 
         loading, 
         error,
-        setPhone, 
+        setPhone,
+        requestOtp, // Action nova
+        validateOtp, // Action nova 
         fetchHistory, 
         reset 
     } = useHistoryStore();
 
-    const addToCart = useCartStore((s) => s.addItem); // Hook do carrinho
+    const addToCart = useCartStore((s) => s.addItem);
     const [showToast, setShowToast] = useState(false);
+    const [otpCode, setOtpCode] = useState(""); // Estado local para o input do código
 
     useEffect(() => {
-        if (open) reset();
+        if (open) {
+            reset();
+            setOtpCode("");
+        }
     }, [open]);
+
+    // 1. Pede o Código
+    const handleSendCode = () => {
+        requestOtp();
+    };
+
+    // 2. Valida o Código
+    const handleVerifyCode = () => {
+        if (otpCode.length < 6) return;
+        validateOtp(otpCode, restaurantId);
+    };
 
     const handleFetch = () => {
         fetchHistory(restaurantId);
@@ -139,7 +156,7 @@ export default function HistoryModal({ open, onClose, restaurantId }: Props) {
                             </div>
                         </div>
                         <p className="text-gray-600 text-center font-medium">
-                            Digite seu celular para consultar seus selos.
+                            Digite seu WhatsApp para acessar seus pontos.
                         </p>
                         <Input 
                             placeholder="(00) 00000-0000"
@@ -151,16 +168,66 @@ export default function HistoryModal({ open, onClose, restaurantId }: Props) {
                         {error && <p className="text-red-500 text-sm text-center">{error}</p>}
                         
                         <Button 
-                            onClick={handleFetch} 
+                            onClick={handleSendCode} 
                             loading={loading} 
                             className="w-full mt-4"
                         >
-                            Ver Pontos
+                            Enviar Código de Acesso
                         </Button>
+                        <p className="text-xs text-gray-400 text-center px-4">
+                            Enviaremos um código temporário para o seu WhatsApp para confirmar sua identidade.
+                        </p>
                     </div>
                 )}
 
-                {/* STEP 2: VIEW DATA */}
+                {/* STEP 2: INPUT OTP (NOVO) */}
+                {step === "waiting_code" && (
+                    <div className="space-y-4 pt-10 animate-fadeIn">
+                        <div className="flex justify-center mb-4">
+                            <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center text-blue-500 text-2xl">
+                                <FontAwesomeIcon icon={faLock} />
+                            </div>
+                        </div>
+                        
+                        <div className="text-center">
+                            <p className="text-gray-800 font-bold text-lg">Digite o código</p>
+                            <p className="text-gray-500 text-sm mt-1">
+                                Enviado para o WhatsApp <strong>{customer_phone}</strong>
+                            </p>
+                        </div>
+
+                        <Input 
+                            placeholder="000000"
+                            value={otpCode}
+                            onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))} 
+                            type="tel"
+                            className="text-center text-2xl tracking-[0.5em] font-bold"
+                            autoFocus
+                        />
+
+                        
+                        
+                        <Button 
+                            onClick={handleVerifyCode} 
+                            loading={loading} 
+                            className="w-full mt-4"
+                            disabled={otpCode.length < 6}
+                        >
+                            Confirmar Código
+                        </Button>
+                        
+                        {error && <p className="text-red-500 text-sm text-center">{error}</p>}
+
+                        <button 
+                            onClick={() => { reset(); setOtpCode(""); }} 
+                            className="w-full text-center text-sm text-brand mt-4 underline"
+                        >
+                            Trocar número
+                        </button>
+                    </div>
+                )}
+
+                {/* STEP 3: VIEW DATA */}
                 {step === "view_history" && (
                     <div className="space-y-8 animate-fadeIn">
                         
@@ -199,7 +266,12 @@ export default function HistoryModal({ open, onClose, restaurantId }: Props) {
                                     {orders.map((order) => (
                                         <div key={order.id} className="flex justify-between items-center border-b border-gray-50 pb-3 last:border-0">
                                             <div className="flex items-center gap-3">
-                                                <div className={`w-2 h-2 rounded-full ${order.loyalty_credited ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+                                                {/* Bolinha muda de cor se for Resgate */}
+                                                <div className={`w-2 h-2 rounded-full ${
+                                                    order.loyalty_points_used > 0 ? 'bg-blue-500' : // Azul para resgate
+                                                    order.loyalty_credited ? 'bg-green-500' : 'bg-gray-300'
+                                                }`}></div>
+                                                
                                                 <div>
                                                     <p className="font-medium text-sm text-gray-800">
                                                         Pedido #{order.display_id}
@@ -210,7 +282,12 @@ export default function HistoryModal({ open, onClose, restaurantId }: Props) {
                                                 </div>
                                             </div>
                                             
-                                            {order.loyalty_credited ? (
+                                            {/* Badge da Direita */}
+                                            {order.loyalty_points_used > 0 ? (
+                                                <span className="text-xs font-bold text-blue-600 bg-blue-100 px-2 py-1 rounded-full">
+                                                    Trocou {order.loyalty_points_used} pts
+                                                </span>
+                                            ) : order.loyalty_credited ? (
                                                 <span className="text-xs font-bold text-brand bg-brand/10 px-2 py-1 rounded-full">
                                                     +1 Selo
                                                 </span>
