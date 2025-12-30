@@ -6,7 +6,7 @@ import { Restaurant, Item, Subitem, Subcategory } from "@/lib/types/types";
 import { useCartStore } from "@/lib/stores/costumer/cartStore";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { icons } from "@/lib/utils/fontawesome";
-import {formatPrice, formatPriceNoRS} from "@/lib/utils/formatPrice";
+import {formatPrice, formatPriceNoRS, promotionPrice} from "@/lib/utils/formatPrice";
 import ModalMobile from "@/components/ui/HybridModal";
 import Loader from "@/components/ui/Loader";
 
@@ -70,6 +70,9 @@ export default function ItemModal({
 
         setIsRestaurantOpen(isOpen);
     }, [restaurant]);
+
+
+
 
     const closeWithAnimation = () => {
         setOpen(false);
@@ -165,6 +168,7 @@ export default function ItemModal({
             total_cents: total,
             observation,
             selectedSubitems,
+            promotion: item.promotion ?? undefined
         });
 
         if (onAdd) {
@@ -211,7 +215,9 @@ export default function ItemModal({
                     )}
 
                     <p className="text-[18px] font-semibold 2xl:text-lg">
-                        {formatPrice(item.price_cents)}
+                        {(item.promotion && item.promotion.value > 0) ? <><span className={"text-green"}>{formatPrice(promotionPrice(item) || item.price_cents)}</span> <span className={"font-normal text-gray-400 line-through text-xs"}>{formatPrice(item.price_cents)}</span></>
+                            : formatPrice(item.price_cents)
+                        }
                     </p>
                 </div>
 
@@ -408,7 +414,11 @@ export default function ItemModal({
                     }`}
                 >
                     <span>Adicionar</span>
-                    <span>{formatPrice(total)}</span>
+                    <span>
+                        {(item.promotion && item.promotion.value > 0) ? <><span>{formatPrice(promotionPrice(item) || item.price_cents)}</span></>
+                            : formatPrice(item.price_cents)
+                        }
+                    </span>
                 </button>
             </div>
         </ModalMobile>

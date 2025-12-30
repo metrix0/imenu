@@ -11,7 +11,7 @@ import { icons } from "@/lib/utils/fontawesome";
 import { faStar } from "@fortawesome/free-solid-svg-icons";
 import { supabase } from "@/lib/database/supabaseClient";
 import Input from "@/components/ui/Input";
-import { formatPrice, formatPriceNoRS } from "@/lib/utils/formatPrice";
+import { formatPrice, formatPriceNoRS, promotionPrice } from "@/lib/utils/formatPrice";
 import ModalMobile from "@/components/ui/HybridModal";
 import ItemModal from "./ItemModal";
 import CartBar from "@/components/costumer/CartBar"
@@ -184,7 +184,7 @@ export default function MenuClientPage({
         }
 
         const cartSubtotal = cart.items.reduce(
-            (sum, i) => sum + i.total_cents,
+            (sum, i) => sum + (promotionPrice(i) || i.total_cents),
             0
         );
 
@@ -820,7 +820,9 @@ export default function MenuClientPage({
 
                                         <div className="mt-3 flex flex-col h-[55px] justify-start ">
                                             <p className="font-semibold text-sm 2xl:text-lg">
-                                                {formatPrice(item.price_cents)}
+                                                {(item.promotion && item.promotion.value > 0) ? <><span className={"text-green"}>{formatPrice(promotionPrice(item) || item.price_cents)}</span> <span className={"font-normal text-gray-400 line-through text-xs"}>{formatPrice(item.price_cents)}</span></>
+                                                    : formatPrice(item.price_cents)
+                                                }
                                             </p>
 
                                             <p className="text-sm 2xl:text-lg text-gray-700 line-clamp-2 leading-snug">
@@ -860,7 +862,9 @@ export default function MenuClientPage({
                                             </p>
 
                                             <p className="text-sm 2xl:text-lg font-bold mt-2">
-                                                {formatPrice(item.price_cents)}
+                                                {(item.promotion && item.promotion.value > 0) ? <><span className={"text-green"}>{formatPrice(promotionPrice(item) || item.price_cents)}</span> <span className={"font-normal text-gray-400 line-through text-xs"}>{formatPrice(item.price_cents)}</span></>
+                                                    : formatPrice(item.price_cents)
+                                                    }
                                             </p>
                                         </div>
 

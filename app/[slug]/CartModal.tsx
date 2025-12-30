@@ -13,7 +13,7 @@ import WarningBox from "@/components/ui/WarningBox";
 import Toast from "@/components/ui/Toast";
 import Loader from "@/components/ui/Loader";
 import {fetchAddressByCEP, fetchCoordinates, fetchAddressByCoordinates, calculateDistanceKm,} from "@/lib/api/geocoding";
-import {formatPriceNoRS} from "@/lib/utils/formatPrice";
+import {formatPriceNoRS, formatPrice, promotionPrice} from "@/lib/utils/formatPrice";
 import { supabase } from "@/lib/database/supabaseClient";
 
 
@@ -464,7 +464,7 @@ export default function CartModal({
                         </div>
                     </div>
 
-                    {(items.length > 0 && items.reduce((acc,i)=>acc+i.total_cents,0) < restaurant.min_order_cents) &&
+                    {(items.length > 0 && items.reduce((acc,i)=>acc+(promotionPrice(i) || i.total_cents),0) < restaurant.min_order_cents) &&
                         <WarningBox
                             icon={icons.faTriangleExclamation}
                             className="mt-8 mb-8 p-4 2xl:text-lg"
@@ -492,12 +492,12 @@ export default function CartModal({
                                     className="w-14 h-14 2xl:w-20 2xl:h-20 rounded-xl object-cover"
                                 />
                                 <div>
-                                    <p className="font-semibold 2xl:text-lg">{it.name}</p>
+                                    <p className="font-semibold 2xl:text-lg w-[95%] truncate">{it.name}</p>
 
-                                    <p className="text-green-700 font-semibold 2xl:text-lg">
-                                        R$ {((it.unit_price_cents * it.qty) / 100)
-                                        .toFixed(2)
-                                        .replace(".", ",")}
+                                    <p className="font-semibold 2xl:text-base sm:text-sm">
+                                        {(it.promotion && it.promotion.value > 0) ? <><span className={"text-green"}>{formatPrice(promotionPrice(it) || it.unit_price_cents)}</span> <span className={"font-normal text-gray-400 line-through text-xs"}>{formatPrice(it.unit_price_cents)}</span></>
+                                            : formatPrice(it.unit_price_cents)
+                                        }
                                     </p>
 
                                     {(it.selectedSubitems?.length > 0 || it.observation) && (
@@ -739,7 +739,7 @@ export default function CartModal({
                             <span>
                                 R$
                                 {(items.reduce(
-                                        (acc, i) => acc + i.total_cents,
+                                        (acc, i) => acc + (promotionPrice(i) || i.total_cents),
                                         0
                                     ) /
                                     100)
@@ -772,7 +772,7 @@ export default function CartModal({
                             <span>
                                 R$
                                 {(items.reduce(
-                                        (acc, i) => acc + i.total_cents,
+                                        (acc, i) => acc + (promotionPrice(i) || i.total_cents),
                                         0
                                     ) /
                                     100 +

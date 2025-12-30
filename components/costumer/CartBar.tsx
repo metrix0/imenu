@@ -7,6 +7,7 @@ import { useCheckoutStore } from "@/lib/stores/costumer/checkoutStore";
 import { useState, useRef } from "react";
 import {FontAwesomeIcon} from "@fortawesome/react-fontawesome";
 import {icons} from "@/lib/utils/fontawesome";
+import {formatPrice, promotionPrice} from "@/lib/utils/formatPrice";
 
 export default function CartBar({
                                     onOpenCartAction,
@@ -42,7 +43,7 @@ export default function CartBar({
 
     if (items.length === 0) return null;
 
-    const total = items.reduce((acc, i) => acc + i.total_cents, 0);
+    const total = items.reduce((acc, i) => acc + (promotionPrice(i) || i.total_cents), 0);
     const itemCount = items.reduce((acc, i) => acc + i.qty, 0);
 
     const delivery_fee_cents = checkoutState.delivery_fee_cents
@@ -184,7 +185,7 @@ export default function CartBar({
 
         // ✅ derived values (frontend preview only)
         const subtotal_cents = cart.items.reduce(
-            (sum, i) => sum + i.total_cents,
+            (sum, i) => sum + (promotionPrice(i) || i.total_cents),
             0
         );
 
@@ -216,7 +217,8 @@ export default function CartBar({
                 unit_price_cents: i.unit_price_cents,
                 total_cents: i.total_cents,
                 observation: i.observation ?? null,
-                selectedSubitems: i.selectedSubitems
+                selectedSubitems: i.selectedSubitems,
+                promotion: i.promotion
             })),
 
             // 👇 coupon info (unchanged)
@@ -356,10 +358,10 @@ export default function CartBar({
                         </span>
                         <span>
                             <span className={`${hasDiscount && ("line-through text-gray-400 !text-sm 2xl:!text-base")} font-semibold text-black text-lg  2xl:text-xl leading-tight tracking-tighter`}>
-                                R$ {(displayTotalCents / 100).toFixed(2).replace('.', ',')}
+                                {formatPrice(displayTotalCents)}
                             </span>
                             {hasDiscount && (<span className={"ml-1 font-semibold text-black text-lg  2xl:text-xl leading-tight tracking-tighter"}>
-                                R$ {(finalTotalCents / 100).toFixed(2).replace('.', ',')}
+                                {formatPrice(finalTotalCents)}
                             </span>)}
                             <span>
                                 / {itemCount} {itemCount === 1 ? "item" : "itens"}

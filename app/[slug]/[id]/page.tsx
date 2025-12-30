@@ -7,7 +7,7 @@ import {FontAwesomeIcon} from "@fortawesome/react-fontawesome";
 import { icons } from "@/lib/utils/fontawesome";
 import {faPix, faWhatsappSquare} from "@fortawesome/free-brands-svg-icons"
 import ListLoader from "@/components/ui/ListLoader";
-
+import {formatPrice, promotionPrice} from "@/lib/utils/formatPrice"
 
 export default function PedidoPage({
                                        params,
@@ -423,9 +423,7 @@ export default function PedidoPage({
                                     {it.quantity}× {it.name}
                                 </p>
                                 <p className="font-semibold ">
-                                    R$ {(it.total_cents / 100)
-                                    .toFixed(2)
-                                    .replace(".", ",")}
+                                    {formatPrice(promotionPrice(it) || it.total_cents)}
                                 </p>
                             </div>
 

@@ -101,6 +101,7 @@ export type CartItem = {
         subitemName: string;
         price_cents: number;
     }[];
+    promotion?: Promotion;
 };
 
 export type CartStore = {
