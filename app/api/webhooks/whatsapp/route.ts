@@ -1,94 +1,165 @@
 import { NextRequest, NextResponse } from "next/server";
-import { sendWhatsAppInteractiveMenu, sendWhatsAppMessage } from "@/lib/api/whatsapp";
+import { sendWhatsAppMessage } from "@/lib/api/whatsapp";
 import { query } from "@/lib/database/sql";
+import { getOrCreateSession, updateSession } from "@/lib/services/whatsappSession";
+import { sendCategoriesMenu, sendItemsMenu } from "@/lib/services/whatsappMenu";
 
-const VERIFY_TOKEN = "imenu_secret_verify_token";
+// Força a renderização dinâmica para evitar cache de respostas antigas no Vercel
+export const dynamic = 'force-dynamic'; 
 
-// GET: Verificação da Meta (Mantido igual)
+// ----------------------------------------------------------------------
+// GET: Validação do Webhook (Meta Challenge)
+// ----------------------------------------------------------------------
 export async function GET(request: NextRequest) {
-  const searchParams = request.nextUrl.searchParams;
-  const mode = searchParams.get("hub.mode");
-  const token = searchParams.get("hub.verify_token");
-  const challenge = searchParams.get("hub.challenge");
+  try {
+    const searchParams = request.nextUrl.searchParams;
+    const mode = searchParams.get("hub.mode");
+    const token = searchParams.get("hub.verify_token");
+    const challenge = searchParams.get("hub.challenge");
 
-  if (mode && token) {
-    if (mode === "subscribe" && token === VERIFY_TOKEN) {
-      return new NextResponse(challenge, { status: 200 });
-    } else {
-      return new NextResponse(null, { status: 403 });
+    const ENV_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN;
+
+    console.log("--- TENTATIVA DE VERIFICAÇÃO ---");
+    // Logs seguros (não expor o token real em logs de produção se possível, mas ok para debug inicial)
+    console.log(`Mode: ${mode} | Token Recebido: ${token} | Esperado: ${ENV_TOKEN}`);
+
+    if (mode === "subscribe" && token === ENV_TOKEN) {
+      console.log("✅ SUCESSO: Webhook verificado!");
+      
+      // Retorna o challenge como texto puro e status 200 (Crítico para aprovação do Facebook)
+      return new NextResponse(challenge, { 
+        status: 200,
+        headers: { "Content-Type": "text/plain" }
+      });
     }
+
+    console.log("❌ FALHA: Tokens não batem ou requisição inválida.");
+    return new NextResponse("Forbidden", { status: 403 });
+  } catch (error) {
+    console.error("Erro fatal no GET:", error);
+    return new NextResponse("Internal Server Error", { status: 500 });
   }
-  return new NextResponse(null, { status: 400 });
 }
 
-// POST: Recebe mensagens e Responde
+// ----------------------------------------------------------------------
+// POST: Recebimento de Eventos (Mensagens, Status, etc)
+// ----------------------------------------------------------------------
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    // 1. Validar se é uma mensagem do WhatsApp Business API
+    // Verifica se é um evento do WhatsApp Business
     if (body.object === "whatsapp_business_account") {
-      
-      // Navega pelo JSON gigante do WhatsApp
       const entry = body.entry?.[0];
       const changes = entry?.changes?.[0];
       const value = changes?.value;
-      const messages = value?.messages;
       
-      // --- ADICIONE ESTE BLOCO ABAIXO ---
-      const statuses = value?.statuses;
-      if (statuses && statuses.length > 0) {
-        const status = statuses[0];
-        console.log(`⚡ STATUS ATUALIZADO: ${status.status}`);
-        if (status.errors) {
-          console.error("❌ ERRO NA ENTREGA:", JSON.stringify(status.errors, null, 2));
-        }
+      // A. Tratamento de Status (Entregue, Lido, Enviado)
+      // O WhatsApp manda eventos de status separadamente das mensagens.
+      // Precisamos retornar 200 rápido para não travar a fila.
+      if (value?.statuses) {
+        // Futuramente: Podemos atualizar o status do pedido no banco aqui (Ex: 'msg lida')
         return new NextResponse("STATUS_RECEIVED", { status: 200 });
       }
-      // ----------------------------------
 
+      // B. Tratamento de Mensagens Recebidas
+      const messages = value?.messages;
       if (messages && messages.length > 0) {
         const message = messages[0];
-        const from = message.from;
+        const from = message.from; // Telefone do Cliente
         
-        // Ignora status updates e mensagens vazias
-        if (!message.text) return new NextResponse("OK", { status: 200 });
+        // ---------------------------------------------------------
+        // 1. MENSAGENS DE TEXTO (Deep Link ou Busca)
+        // ---------------------------------------------------------
+        if (message.type === "text") {
+            const incomingText = message.text.body.trim();
+            console.log(`📩 Texto de ${from}: "${incomingText}"`);
 
-        console.log(`Mensagem de ${from}: ${message.text.body}`);
+            // Regex para Deep Link: "pedido: slug", "ir para slug" ou "#slug"
+            const slugRegex = /(?:pedido:|ir para|#)\s*([\w-]+)/i;
+            const match = incomingText.match(slugRegex);
 
-        // --- LÓGICA DO BOT DINÂMICA ---
-        
-        // 1. Buscar dados do Restaurante no Banco
-        // NOTA: No futuro, filtraremos pelo ID do WhatsApp. Por enquanto, pegamos o primeiro.
-        const { rows } = await query(
-            `SELECT id, name, slug, banner_url FROM restaurants LIMIT 1`
-        );
-        
-        if (rows.length > 0) {
-            const restaurant = rows[0];
+            let restaurant = null;
+
+            if (match && match[1]) {
+                // Busca Exata (Deep Link)
+                const { rows } = await query(
+                    `SELECT id, name, slug FROM restaurants WHERE slug = $1 LIMIT 1`, 
+                    [match[1].toLowerCase()]
+                );
+                if (rows.length > 0) restaurant = rows[0];
+            } else if (incomingText.length >= 3) {
+                // Busca Fuzzy (Nome do Restaurante)
+                const { rows } = await query(
+                    `SELECT id, name, slug FROM restaurants WHERE slug = $1 OR name ILIKE $2 LIMIT 1`,
+                    [incomingText.toLowerCase(), `%${incomingText}%`]
+                );
+                if (rows.length > 0) restaurant = rows[0];
+            }
+
+            if (restaurant) {
+                // 1.1 Inicia/Atualiza Sessão
+                await getOrCreateSession(from, restaurant.id);
+                // Atualiza o passo para garantir que o bot sabe que estamos no menu
+                await updateSession(from, { step: 'VIEW_MENU', restaurant_id: restaurant.id });
+
+                // 1.2 Responde com as Categorias (Menu Principal)
+                await sendCategoriesMenu(from, restaurant.id, restaurant.name);
+                
+            } else {
+                // Se não achou nada, manda mensagem genérica
+                await sendWhatsAppMessage(from, `Olá! Não encontrei o restaurante. Tente usar o link oficial ou digite o nome corretamente.`);
+            }
+        }
+
+        // ---------------------------------------------------------
+        // 2. INTERAÇÕES (Cliques em Listas/Botões)
+        // ---------------------------------------------------------
+        else if (message.type === "interactive") {
+            const interaction = message.interactive;
+            let buttonId = "";
+
+            if (interaction.type === "list_reply") {
+                buttonId = interaction.list_reply.id;
+            } else if (interaction.type === "button_reply") {
+                buttonId = interaction.button_reply.id;
+            }
+
+            console.log(`👆 Clique de ${from}: ID "${buttonId}"`);
+
+            // Recupera sessão para saber o contexto (Restaurante ID)
+            const session = await getOrCreateSession(from);
             
-            // 2. Montar URLs reais
-            // Supondo que sua URL base seja essa. Ajuste se necessário.
-            const baseUrl = "https://imenuapp.com.br"; 
-            const menuUrl = `${baseUrl}/${restaurant.slug}`; // Ex: imenuapp.com.br/burguer-king
-            
-            // Fallback de imagem se o restaurante não tiver banner
-            const bannerUrl = restaurant.banner_url || "https://images.unsplash.com/photo-1544025162-d76690b6d01d?q=80&w=1000&auto=format&fit=crop";
+            if (!session || !session.restaurant_id) {
+                await sendWhatsAppMessage(from, "Sua sessão expirou. Por favor, digite o nome do restaurante novamente para recomeçar.");
+                return new NextResponse("SESSION_EXPIRED", { status: 200 });
+            }
 
-            // 3. Enviar Menu Dinâmico
-            await sendWhatsAppInteractiveMenu(from, restaurant.name, menuUrl, bannerUrl);
-        } else {
-            console.error("Nenhum restaurante encontrado no banco para responder.");
-            // Fallback opcional: manda mensagem de erro ou demo
-            await sendWhatsAppMessage(from, "Desculpe, sistema em manutenção.");
+            // 2.1 CLIQUE EM CATEGORIA (ID começa com "cat_")
+            if (buttonId.startsWith("cat_")) {
+                const categoryId = buttonId.replace("cat_", "");
+                
+                await updateSession(from, { step: 'VIEW_CATEGORY', metadata: { category_id: categoryId } });
+                await sendItemsMenu(from, categoryId);
+            }
+
+            // 2.2 CLIQUE EM ITEM (ID começa com "itm_")
+            else if (buttonId.startsWith("itm_")) {
+                const itemId = buttonId.replace("itm_", "");
+                
+                await updateSession(from, { step: 'VIEW_ITEM', metadata: { item_id: itemId } });
+                
+                // TODO: Futuramente, verificar complementos aqui.
+                await sendWhatsAppMessage(from, `✅ Item selecionado (ID: ${itemId}). Em breve você poderá adicionar ao carrinho!`);
+            }
         }
       }
     }
 
     return new NextResponse("EVENT_RECEIVED", { status: 200 });
-
   } catch (error) {
-    console.error("Erro no webhook:", error);
+    console.error("❌ Erro no webhook POST:", error);
+    // Retornamos 200 para o WhatsApp não ficar tentando reenviar a mensagem bugada infinitamente
     return new NextResponse("Internal Server Error", { status: 200 });
   }
 }
