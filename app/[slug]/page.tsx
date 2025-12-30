@@ -94,6 +94,37 @@ export default async function Page({
             })) || [];
     }
 
+    const now = new Date().toISOString();
+
+    const { data: promotions } = await supabase
+        .from("promotions")
+        .select("id,item_id , type, value, starts_at, ends_at")
+        .eq("restaurant_id", restaurant.id)
+        .lte("starts_at", now)
+        .or(`ends_at.gte.${now},ends_at.is.null`);
+
+
+// ======================
+// ADD PROMOTIONS TO ITEMS
+// ======================
+
+    const promotionByItemId = new Map<string, any>();
+
+    (promotions || []).forEach((promo) => {
+        if (promo.item_id) {
+            promotionByItemId.set(promo.item_id, promo);
+        }
+    });
+
+    allItems = allItems.map((item) => ({
+        ...item,
+        promotion: promotionByItemId.get(item.id) ?? undefined,
+    }));
+
+    console.log(allItems)
+
+
+
     // --- 5. Group Items by Category ---
 
     const itemsByCategory: ItemsByCategory = {};

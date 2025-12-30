@@ -7,9 +7,6 @@ export interface Promotion {
     item_id: string;
     type: PromotionType;
     value: number;
-    starts_at: string;
-    ends_at: string;
-    active: boolean;
 }
 
 export type Restaurant = {
@@ -101,6 +98,7 @@ export type CartItem = {
         subitemName: string;
         price_cents: number;
     }[];
+    promotion?: Promotion;
 };
 
 export type CartStore = {

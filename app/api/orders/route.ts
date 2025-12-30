@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import { query } from "@/lib/database/sql";
 import { MercadoPagoConfig, Preference } from "mercadopago";
+import {promotionPrice} from "@/lib/utils/formatPrice";
 export const dynamic = "force-dynamic";
 
 if (!process.env.MERCADO_PAGO_ACCESS_TOKEN)
@@ -43,8 +44,16 @@ export async function POST(req: Request) {
 
         // 2. Cálculo de totais
         let subtotal = 0;
-        items.forEach((item: any) => { subtotal += (item.total_cents || 0); });
-        
+        console.log(items)
+        console.log(items)
+        console.log(items)
+        items.forEach((item: any) => { subtotal += ((promotionPrice(item) || item.total_cents) || 0); });
+        console.log(subtotal)
+        console.log(subtotal)
+        console.log(subtotal)
+        console.log(subtotal)
+        console.log(subtotal)
+
         const safeCouponDiscount = coupon_discount_cents && coupon_discount_cents > 0
                 ? Math.min(coupon_discount_cents, subtotal)
                 : 0;
@@ -168,9 +177,9 @@ export async function POST(req: Request) {
             const finalItemId = cartItem.item_id || cartItem.base_item_id;
 
             const { rows: [oi] } = await query(
-                `INSERT INTO order_items (order_id, item_id, name, price_cents, quantity, observation, total_cents)
-                 VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id`,
-                [order.id, finalItemId, cartItem.name, cartItem.unit_price_cents, cartItem.qty, cartItem.observation ?? null, cartItem.total_cents]
+                `INSERT INTO order_items (order_id, item_id, name, price_cents, quantity, observation, total_cents, original_value)
+                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
+                [order.id, finalItemId, cartItem.name, (promotionPrice(cartItem, false) ||  cartItem.unit_price_cents), cartItem.qty, cartItem.observation ?? null, (promotionPrice(cartItem) ||  cartItem.total_cents), cartItem.unit_price_cents]
             );
 
             console.log("🧩 Created order_item:", oi);
