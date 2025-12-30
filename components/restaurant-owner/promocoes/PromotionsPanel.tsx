@@ -255,8 +255,31 @@ export default function PromotionsPanel({
             }))
         );
 
-        await supabase.from("promotions").delete().eq("item_id", itemId);
-    };
+        const { data, error, status, statusText } = await supabase
+            .from("promotions")
+            .delete()
+            .eq("item_id", itemId)
+            .select(); // forces Supabase to return deleted rows
+
+        if (error) {
+            console.error("[removePromotion] Supabase error:", {
+                itemId,
+                status,
+                statusText,
+                message: error.message,
+                details: error.details,
+                hint: error.hint,
+            });
+
+            // optional: rollback UI here if needed
+            return;
+        }
+
+        console.log("[removePromotion] Promotion removed successfully", {
+            itemId,
+            status,
+            deletedRows: data,
+        });    };
 
     if (loading) {
         return (
@@ -276,7 +299,7 @@ export default function PromotionsPanel({
     return (
         <div className="mt-10">
             <div className="text-sm text-right -mb-4">
-                {isSaving ? "Salvando..." : <span className={"text-green-600"}><FontAwesomeIcon icon={icons.faCheck}/> Tudo salvo</span>}
+                {isSaving ? <span className={"text-red-600"}>Salvando...</span> : <span className={"text-green-600"}><FontAwesomeIcon icon={icons.faCheck}/> Tudo salvo</span>}
             </div>
 
             {data.map(({ category, items }) => {
