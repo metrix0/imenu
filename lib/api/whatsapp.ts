@@ -178,3 +178,52 @@ export async function sendWhatsAppInteractiveMenu(to: string, restaurantName: st
     console.error("Erro requisição WhatsApp:", error);
   }
 }
+
+
+// Para suportar o envio de Listas (Categories/Items).
+
+interface ListSection {
+  title: string;
+  rows: { id: string; title: string; description?: string }[];
+}
+
+export async function sendWhatsAppList(
+  to: string, 
+  bodyText: string, 
+  buttonText: string, 
+  sections: ListSection[]
+) {
+  const phoneId = process.env.WHATSAPP_PHONE_ID;
+  const cleanPhone = getCleanPhone(to);
+  if (!phoneId || !cleanPhone) return;
+
+  try {
+    const body = {
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      to: cleanPhone,
+      type: "interactive",
+      interactive: {
+        type: "list",
+        body: { text: bodyText.substring(0, 1024) },
+        action: {
+          button: buttonText.substring(0, 20),
+          sections: sections
+        }
+      }
+    };
+
+    const res = await fetch(`${GRAPH_API_URL}/${phoneId}/messages`, {
+      method: "POST",
+      headers: getHeaders(),
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+        const err = await res.json();
+        console.error("❌ Erro List Message:", JSON.stringify(err, null, 2));
+    }
+  } catch (error) {
+    console.error("Erro requisição WhatsApp:", error);
+  }
+}
