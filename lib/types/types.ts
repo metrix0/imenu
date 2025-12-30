@@ -9,6 +9,7 @@ export interface Promotion {
     value: number;
     starts_at: string;
     ends_at: string;
+    active: boolean;
 }
 
 export type Restaurant = {

@@ -139,7 +139,7 @@ export default function PromotionRow({
       → {formatBRL(finalPrice / 100)}
     </span>
                                 <div title="Remover promoção"
-                                     onClick={() => {}}
+                                     onClick={() => onChange({ active: false } as Promotion)}
                                      className={" ml-1 cursor-pointer text-red-600 text-[0.65rem] hover:text-red-700 duration-100 hover:bg-gray-200 h-5 w-5 flex justify-center items-center rounded-full"}>
 
                                 <FontAwesomeIcon icon={icons.faTrash}
