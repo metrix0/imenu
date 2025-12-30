@@ -99,6 +99,23 @@ export default function PromotionRow({
         } as Promotion);
     };
 
+    const testCalendar = (startsAt: string | null, endsAt: string | null) => {
+
+        if(!startsAt && !endsAt) return false
+        if(!startsAt) return false
+
+        const now = new Date();
+        const startsDate = new Date(startsAt);
+        const endsDate = new Date(endsAt || "3000-01-01T00:00:00.000Z");
+
+        console.log(now, startsDate, endsDate) // 30 28 3000
+
+        if (startsDate > now) return false;
+        else if (now > endsDate) return false;
+        else {console.log("yay"); return true}
+
+    }
+
     // Trigger commit on type change
     useEffect(() => {
         commit();
@@ -183,13 +200,20 @@ export default function PromotionRow({
                             commit(); // save when toggling calendar
                         }}
                         className={` cursor-pointer duration-100 ${
-                            startsAt || endsAt ? "text-brand hover:text-dark-brand" : "text-gray-500 hover:text-gray-700"
+                            !startsAt && !endsAt ? "text-gray-400 hover:text-gray-600" :`
+                                    ${testCalendar(startsAt || null, endsAt || null) ? "text-green hover:text-green-700" : "text-yellow-500 hover:text-yellow-600"}
+                            `
                         }`}
                         icon={icons.faCalendarDays}
                     />
 
                     {calendarOpen && (
                         <div className="absolute right-0 mt-2 bg-white border border-gray-100 rounded-lg shadow-lg p-3 z-50">
+                            {!startsAt && !endsAt ? <p className={"text-gray-500 text-xs"}>DESLIGADO</p> : (
+                            testCalendar(startsAt || null, endsAt || null) ? <p className={"text-green-600 text-xs"}>ATIVO</p> : <p className={"text-yellow-600 text-xs"}>PROGRAMADO</p>
+                                )
+                            }
+
                             <label className="text-xs text-gray-500">Início</label>
                             <input
                                 type="date"

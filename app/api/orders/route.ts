@@ -44,15 +44,9 @@ export async function POST(req: Request) {
 
         // 2. Cálculo de totais
         let subtotal = 0;
-        console.log(items)
-        console.log(items)
-        console.log(items)
+
         items.forEach((item: any) => { subtotal += ((promotionPrice(item) || item.total_cents) || 0); });
-        console.log(subtotal)
-        console.log(subtotal)
-        console.log(subtotal)
-        console.log(subtotal)
-        console.log(subtotal)
+
 
         const safeCouponDiscount = coupon_discount_cents && coupon_discount_cents > 0
                 ? Math.min(coupon_discount_cents, subtotal)
