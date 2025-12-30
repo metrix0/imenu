@@ -7,6 +7,8 @@ export interface Promotion {
     item_id: string;
     type: PromotionType;
     value: number;
+    starts_at: string;
+    ends_at: string;
 }
 
 export type Restaurant = {

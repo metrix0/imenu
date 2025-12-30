@@ -104,3 +104,6 @@ LUGI DISPONIBILIDADE NAO TA APARECENDO ERRO DE NAO TA ABERTO
 
 
 Acho que faz sentido os pedidos aparecerem em ordem crescente de tempo, não o contrário + bug do -1min + o tempo deve aparecer verde/azul, só ficar vermelho se >5min pra aceitar
+
+
+remover o github actions bug testing
