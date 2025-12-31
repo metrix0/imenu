@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
             } else if (incomingText.length >= 3) {
                 // Busca Fuzzy (Nome do Restaurante)
                 const { rows } = await query(
-                    `SELECT id, name, ul_slug FROM restaurants WHERE slug = $1 OR name ILIKE $2 LIMIT 1`,
+                    `SELECT id, name, url_slug FROM restaurants WHERE slug = $1 OR name ILIKE $2 LIMIT 1`,
                     [incomingText.toLowerCase(), `%${incomingText}%`]
                 );
                 if (rows.length > 0) restaurant = rows[0];
