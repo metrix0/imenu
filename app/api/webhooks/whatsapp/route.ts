@@ -84,14 +84,14 @@ export async function POST(request: NextRequest) {
             if (match && match[1]) {
                 // Busca Exata (Deep Link)
                 const { rows } = await query(
-                    `SELECT id, name, slug FROM restaurants WHERE slug = $1 LIMIT 1`, 
+                    `SELECT id, name, url_slug FROM restaurants WHERE slug = $1 LIMIT 1`, 
                     [match[1].toLowerCase()]
                 );
                 if (rows.length > 0) restaurant = rows[0];
             } else if (incomingText.length >= 3) {
                 // Busca Fuzzy (Nome do Restaurante)
                 const { rows } = await query(
-                    `SELECT id, name, slug FROM restaurants WHERE slug = $1 OR name ILIKE $2 LIMIT 1`,
+                    `SELECT id, name, ul_slug FROM restaurants WHERE slug = $1 OR name ILIKE $2 LIMIT 1`,
                     [incomingText.toLowerCase(), `%${incomingText}%`]
                 );
                 if (rows.length > 0) restaurant = rows[0];
