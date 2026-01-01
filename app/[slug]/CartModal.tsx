@@ -15,18 +15,21 @@ import Loader from "@/components/ui/Loader";
 import {fetchAddressByCEP, fetchCoordinates, fetchAddressByCoordinates, calculateDistanceKm,} from "@/lib/api/geocoding";
 import {formatPriceNoRS, formatPrice, promotionPrice} from "@/lib/utils/formatPrice";
 import { supabase } from "@/lib/database/supabaseClient";
-
+import { MenuItemType } from "@/components/restaurant-owner/cardapio/MenuItemRow";
+import { Item } from "@/lib/types/types";
 
 export default function CartModal({
                                       onClose,
                                       restaurant,
-    selectedCouponCode,
+    selectedCouponCode, onSelectItem
                                   }: {
     onClose: () => void;
     restaurant: any;
     step: "cart" | "info" | "checkout";
     setStep: React.Dispatch<React.SetStateAction<"cart" | "info" | "checkout">>;
     selectedCouponCode?: string | null;
+    onSelectItem: (item: Item) => void;
+
 }) {
     const { items, changeQty, removeItem, clear } = useCartStore();
 
@@ -60,7 +63,8 @@ export default function CartModal({
     const setContinueBlocked = useCheckoutStore(state => state.setContinueBlocked);
     const couponDebounceRef = useRef<number | null>(null);
     const [showDiscountInput, setShowDiscountInput] = useState(false);
-
+    const [upsells, setUpsells] = useState<Item[]>([]);
+    const [loadingUpsells, setLoadingUpsells] = useState(false);
     const coupon_code = useCheckoutStore((s) => s.coupon_code);
     const coupon_discount_cents = useCheckoutStore((s) => s.coupon_discount_cents);
 
@@ -75,6 +79,18 @@ export default function CartModal({
             return null;
         }
     }
+
+    const getPublicUrl = (
+        supabase: any,
+        bucket: string,
+        path: string | null
+    ) => {
+        if (!path) return null;
+        const { data } = supabase.storage.from(bucket).getPublicUrl(path);
+        return data?.publicUrl || null;
+    };
+
+
 
     function computeFeeFromTiers(distanceKm: number, tiersAny: any): number | null {
         if (!tiersAny) return null;
@@ -215,7 +231,6 @@ export default function CartModal({
             setShowNoGeolocationToast(true)
             return;
         }
-        console.log("geo1")
 
         setContinueBlocked(true)
         setField("showAddressWarning", false);
@@ -272,6 +287,65 @@ export default function CartModal({
         );
 
     }
+
+
+    useEffect(() => {
+        if (!restaurant?.id) return;
+
+        const loadUpsells = async () => {
+            setLoadingUpsells(true);
+
+            const { data: upsellRows } = await supabase
+                .from("upsell")
+                .select("item_id, position")
+                .eq("restaurant_id", restaurant.id)
+                .order("position", { ascending: true });
+
+            if (!upsellRows || upsellRows.length === 0) {
+                setUpsells([]);
+                setLoadingUpsells(false);
+                return;
+            }
+
+            const itemIds = upsellRows.map(u => u.item_id);
+
+            const { data: items } = await supabase
+                .from("items")
+                .select("*")
+                .in("id", itemIds)
+                .eq("is_available", true);
+
+            if (!items) {
+                setUpsells([]);
+                setLoadingUpsells(false);
+                return;
+            }
+
+            // keep order defined in upsell table
+            const ordered: Item[] = upsellRows
+                .map(u => {
+                    const item = items.find(i => i.id === u.item_id);
+                    if (!item) return null;
+
+                    return {
+                        ...item,
+                        image_public_url: getPublicUrl(
+                            supabase,
+                            "menu-images",
+                            item.image_path
+                        ),
+                    };
+                })
+                .filter((i): i is Item => i !== null);
+
+
+
+            setUpsells(ordered);
+            setLoadingUpsells(false);
+        };
+
+        loadUpsells();
+    }, [restaurant?.id]);
 
 
 
@@ -492,11 +566,11 @@ export default function CartModal({
                                     className="w-14 h-14 2xl:w-20 2xl:h-20 rounded-xl object-cover"
                                 />
                                 <div>
-                                    <p className="font-semibold 2xl:text-lg w-[95%] truncate">{it.name}</p>
+                                    <p className="font-semibold 2xl:text-lg line-clamp-2 leading-normal">{it.name}</p>
 
-                                    <p className="font-semibold 2xl:text-base sm:text-sm">
-                                        {(it.promotion && it.promotion.value > 0) ? <><span className={"text-green"}>{formatPrice(promotionPrice(it) || it.unit_price_cents)}</span> <span className={"font-normal text-gray-400 line-through text-xs"}>{formatPrice(it.unit_price_cents)}</span></>
-                                            : formatPrice(it.unit_price_cents)
+                                    <p className="font-semibold 2xl:text-base sm:text-sm mt-0.5">
+                                        {(it.promotion && it.promotion.value > 0) ? <><span className={"text-green"}>{formatPrice(promotionPrice(it) || it.unit_price_cents*it.qty)}</span> <span className={"font-normal text-gray-400 line-through text-xs"}>{formatPrice(it.unit_price_cents*it.qty)}</span></>
+                                            : formatPrice(it.unit_price_cents*it.qty)
                                         }
                                     </p>
 
@@ -545,6 +619,45 @@ export default function CartModal({
                             Adicionar mais itens
                         </button>
                     </div>
+
+                    {/* Upsells */}
+                    {upsells.length > 0 && (
+                    <div className="-mt-10 mb-10 md:-mt-13 md:mb-13 relative overflow-hidden">
+                        <h3 className="text-base font-semibold mb-3">Peça também</h3>
+                        <div className={"pointer-events-none w-[20%] h-full bg-gradient-to-l from-white/67 to-transparent absolute -right-1 -top-1 z-232"}></div>
+
+                        <div className="flex relative gap-3 overflow-x-auto pb-2 items-start hidden-x-scroll">
+                            {upsells.map(item => (
+                                <button
+                                    key={item.id}
+                                    onClick={() => onSelectItem(item)} // SAME add logic as other items
+                                    className="w-[28.3vw] md:w-[33%] h-auto aspect-square flex-shrink-0 text-left"
+                                >
+                                    <div className="relative">
+                                        <img
+                                            src={item.image_public_url || "/placeholders/item.png"}
+                                            alt={item.name}
+                                            className="w-full h-28 md:h-40 aspect-square object-cover rounded-xl"
+                                        />
+
+                                        <div className="absolute bottom-2 right-2 cursor-pointer bg-white rounded-full w-8 h-8 flex items-center justify-center shadow">
+                                            <FontAwesomeIcon icon={icons.faPlus} className="text-sm" />
+                                        </div>
+                                    </div>
+                                    <p className="text-sm font-semibold mt-2 ">
+                                        {formatPrice(item.price_cents)}
+                                    </p>
+                                    <p className="text-sm mt-1 leading-tight line-clamp-2">
+                                        {item.name}
+                                    </p>
+
+
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                    )}
+
                 </div>
 
                 {/* PAGE 2 — INFO */}

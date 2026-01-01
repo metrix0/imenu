@@ -107,3 +107,5 @@ Acho que faz sentido os pedidos aparecerem em ordem crescente de tempo, não o c
 
 
 remover o github actions bug testing
+
+quando a categoria for a 0 no cardapio, colocar um "primeira categoria: em destaque"

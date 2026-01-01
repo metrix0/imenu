@@ -69,6 +69,24 @@ export default function MenuClientPage({
     const [manualScrollLock, setManualScrollLock] = useState(false);
     const [debouncedSearch, setDebouncedSearch] = useState(""); // used for filtering
     const [couponUsed, setCouponUsed] = useState("");
+    const isItemModalOpen = Boolean(openedItem);
+
+    useEffect(() => {
+        const shouldLockScroll = cartOpen || isItemModalOpen;
+
+        if (shouldLockScroll) {
+            document.body.style.overflow = "hidden";
+            document.body.style.touchAction = "none";
+        } else {
+            document.body.style.overflow = "";
+            document.body.style.touchAction = "";
+        }
+
+        return () => {
+            document.body.style.overflow = "";
+            document.body.style.touchAction = "";
+        };
+    }, [cartOpen, isItemModalOpen]);
 
     useEffect(() => {
         if (!selectedCouponCode) return;
@@ -161,8 +179,6 @@ export default function MenuClientPage({
                         stored.coupon_id === checkout.coupon_id &&
                         stored.coupon_code === checkout.coupon_code;
 
-                    console.log(isSameCoupon)
-                    console.log(stored.coupon_id, stored.coupon_code)
 
                     if (isSameCoupon) {
                         setCouponUsed(checkout.coupon_code)
@@ -938,6 +954,15 @@ export default function MenuClientPage({
                     step={cartStep}
                     setStep={setCartStep}
                     selectedCouponCode={selectedCouponCode}
+
+                    onSelectItem={(item: Item) => {
+                        // 1️⃣ close cart
+                        setCartOpen(false);
+                        setCartStep("cart");
+
+                        // 2️⃣ open item modal
+                        handleItemClick(item);
+                    }}
                 />
             )}
 
