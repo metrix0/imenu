@@ -54,7 +54,7 @@ export type Item = {
     image_path: string | null;
     is_available: boolean;
     position: number;
-    category: Category | null;
+    category?: Category | null;
     image_public_url?: string | null;
     promotion?: Promotion;
 };

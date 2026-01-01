@@ -11,6 +11,7 @@ import Toast from "@/components/ui/Toast";
 import CardapioTab from "@/components/restaurant-owner/cardapio/tabs/CardapioTab";
 import ProdutosTab from "@/components/restaurant-owner/cardapio/tabs/ProdutosTab";
 import ComplementosTab from "@/components/restaurant-owner/cardapio/tabs/ComplementosTab";
+import UpsellTab from "@/components/restaurant-owner/cardapio/tabs/UpsellTab";
 
 // Modais e Tipos
 import ManageCategoryModal from "@/components/restaurant-owner/cardapio/ManageCategoryModal";
@@ -21,7 +22,7 @@ import { useRouter } from "next/navigation";
 
 type Category = { id: string; name: string; position: number };
 
-const TABS = ["Cardápio", "Produtos", "Complemento", "Promoções e Cupons"];
+const TABS = ["Cardápio", "Produtos", "Complemento", "Upsells", "Promoções e Cupons"];
 
 export default function MenuManagerPage() {
     // 1. Usa Zustand para ID imediato
@@ -182,6 +183,12 @@ export default function MenuManagerPage() {
                         onOpenItemDetails={handleOpenItemDetails}
                     />
                 )}
+                 {activeTab === "Upsells" && (
+                     <UpsellTab
+                         restaurantId={restaurantId}
+                         items={items}
+                     />
+                 )}
              </div>
 
              {/* Modais Globais */}

@@ -121,7 +121,6 @@ export default async function Page({
         promotion: promotionByItemId.get(item.id) ?? undefined,
     }));
 
-    console.log(allItems)
 
 
 
