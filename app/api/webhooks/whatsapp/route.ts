@@ -4,116 +4,93 @@ import { query } from "@/lib/database/sql";
 import { getOrCreateSession, updateSession } from "@/lib/services/whatsappSession";
 import { sendCategoriesMenu, sendItemsMenu } from "@/lib/services/whatsappMenu";
 
-// Força a renderização dinâmica para evitar cache de respostas antigas no Vercel
-export const dynamic = 'force-dynamic'; 
+const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN;
 
-// ----------------------------------------------------------------------
-// GET: Validação do Webhook (Meta Challenge)
-// ----------------------------------------------------------------------
+// GET: Verificação do Webhook pela Meta
 export async function GET(request: NextRequest) {
-  try {
-    const searchParams = request.nextUrl.searchParams;
-    const mode = searchParams.get("hub.mode");
-    const token = searchParams.get("hub.verify_token");
-    const challenge = searchParams.get("hub.challenge");
+  const searchParams = request.nextUrl.searchParams;
+  const mode = searchParams.get("hub.mode");
+  const token = searchParams.get("hub.verify_token");
+  const challenge = searchParams.get("hub.challenge");
 
-    const ENV_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN;
-
-    console.log("--- TENTATIVA DE VERIFICAÇÃO ---");
-    // Logs seguros (não expor o token real em logs de produção se possível, mas ok para debug inicial)
-    console.log(`Mode: ${mode} | Token Recebido: ${token} | Esperado: ${ENV_TOKEN}`);
-
-    if (mode === "subscribe" && token === ENV_TOKEN) {
-      console.log("✅ SUCESSO: Webhook verificado!");
-      
-      // Retorna o challenge como texto puro e status 200 (Crítico para aprovação do Facebook)
-      return new NextResponse(challenge, { 
-        status: 200,
-        headers: { "Content-Type": "text/plain" }
-      });
+  if (mode && token) {
+    if (mode === "subscribe" && token === VERIFY_TOKEN) {
+      return new NextResponse(challenge, { status: 200 });
+    } else {
+      return new NextResponse(null, { status: 403 });
     }
-
-    console.log("❌ FALHA: Tokens não batem ou requisição inválida.");
-    return new NextResponse("Forbidden", { status: 403 });
-  } catch (error) {
-    console.error("Erro fatal no GET:", error);
-    return new NextResponse("Internal Server Error", { status: 500 });
   }
+  return new NextResponse(null, { status: 400 });
 }
 
-// ----------------------------------------------------------------------
-// POST: Recebimento de Eventos (Mensagens, Status, etc)
-// ----------------------------------------------------------------------
+// POST: Recebimento de Mensagens
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    // Verifica se é um evento do WhatsApp Business
     if (body.object === "whatsapp_business_account") {
-      const entry = body.entry?.[0];
-      const changes = entry?.changes?.[0];
-      const value = changes?.value;
-      
-      // A. Tratamento de Status (Entregue, Lido, Enviado)
-      // O WhatsApp manda eventos de status separadamente das mensagens.
-      // Precisamos retornar 200 rápido para não travar a fila.
-      if (value?.statuses) {
-        // Futuramente: Podemos atualizar o status do pedido no banco aqui (Ex: 'msg lida')
-        return new NextResponse("STATUS_RECEIVED", { status: 200 });
+      const value = body.entry?.[0]?.changes?.[0]?.value;
+      const messages = value?.messages;
+      const statuses = value?.statuses; // <--- ONDE O ERRO VAI APARECER
+
+      // 1. MONITORAMENTO DE STATUS (Para descobrir por que não chega)
+      if (statuses && statuses.length > 0) {
+          const status = statuses[0];
+          console.log(`🔔 [STATUS UPDATE] ID: ${status.id} | Status: ${status.status}`);
+          
+          if (status.errors) {
+              console.error("❌ [ERRO DE ENTREGA]:", JSON.stringify(status.errors, null, 2));
+          }
+          return new NextResponse("STATUS_RECEIVED", { status: 200 });
       }
 
-      // B. Tratamento de Mensagens Recebidas
-      const messages = value?.messages;
+      // 2. PROCESSAMENTO DE MENSAGENS
       if (messages && messages.length > 0) {
         const message = messages[0];
-        const from = message.from; // Telefone do Cliente
+        const from = message.from; // Vamos confiar no from que vem (9 dígitos)
         
-        // ---------------------------------------------------------
-        // 1. MENSAGENS DE TEXTO (Deep Link ou Busca)
-        // ---------------------------------------------------------
         if (message.type === "text") {
             const incomingText = message.text.body.trim();
-            console.log(`📩 Texto de ${from}: "${incomingText}"`);
+            console.log(`🔍 [DEBUG] Texto de ${from}: "${incomingText}"`);
 
-            // Regex para Deep Link: "pedido: slug", "ir para slug" ou "#slug"
             const slugRegex = /(?:pedido:|ir para|#)\s*([\w-]+)/i;
             const match = incomingText.match(slugRegex);
-
             let restaurant = null;
 
+            // Busca no Banco
             if (match && match[1]) {
-                // Busca Exata (Deep Link)
-                const { rows } = await query(
-                    `SELECT id, name, url_slug FROM restaurants WHERE url_slug = $1 LIMIT 1`, 
+                 const { rows } = await query(
+                    `SELECT id, name, url_slug as slug, banner_url FROM restaurants WHERE url_slug = $1 LIMIT 1`, 
                     [match[1].toLowerCase()]
                 );
                 if (rows.length > 0) restaurant = rows[0];
             } else if (incomingText.length >= 3) {
-                // Busca Fuzzy (Nome do Restaurante)
-                const { rows } = await query(
-                    `SELECT id, name, url_slug FROM restaurants WHERE url_slug = $1 OR name ILIKE $2 LIMIT 1`,
+                 const { rows } = await query(
+                    `SELECT id, name, url_slug as slug, banner_url FROM restaurants WHERE url_slug = $1 OR name ILIKE $2 LIMIT 1`,
                     [incomingText.toLowerCase(), `%${incomingText}%`]
                 );
                 if (rows.length > 0) restaurant = rows[0];
             }
 
             if (restaurant) {
-                // 1.1 Inicia/Atualiza Sessão
+                console.log(`✅ Restaurante encontrado: ${restaurant.name}`);
+                
                 await getOrCreateSession(from, restaurant.id);
-                // Atualiza o passo para garantir que o bot sabe que estamos no menu
                 await updateSession(from, { step: 'VIEW_MENU', restaurant_id: restaurant.id });
 
-                // 1.2 Responde com as Categorias (Menu Principal)
-                await sendCategoriesMenu(from, restaurant.id, restaurant.name);
+                // Tenta enviar o texto simples primeiro para garantir
+                await sendWhatsAppMessage(from, `Olá! Bem-vindo ao *${restaurant.name}*!`);
+                
+                // Se o texto acima funcionar, descomente a linha abaixo para ligar o menu:
+                // await sendCategoriesMenu(from, restaurant.id, restaurant.name);
                 
             } else {
-                // Se não achou nada, manda mensagem genérica
-                await sendWhatsAppMessage(from, `Olá! Não encontrei o restaurante. Tente usar o link oficial ou digite o nome corretamente.`);
+                await sendWhatsAppMessage(from, "Restaurante não encontrado.");
             }
         }
 
         // ---------------------------------------------------------
-        // 2. INTERAÇÕES (Cliques em Listas/Botões)
+        // 2. TRATAMENTO DE INTERAÇÃO (Cliques em Botões/Listas)
         // ---------------------------------------------------------
         else if (message.type === "interactive") {
             const interaction = message.interactive;
@@ -127,30 +104,25 @@ export async function POST(request: NextRequest) {
 
             console.log(`👆 Clique de ${from}: ID "${buttonId}"`);
 
-            // Recupera sessão para saber o contexto (Restaurante ID)
             const session = await getOrCreateSession(from);
             
             if (!session || !session.restaurant_id) {
-                await sendWhatsAppMessage(from, "Sua sessão expirou. Por favor, digite o nome do restaurante novamente para recomeçar.");
+                await sendWhatsAppMessage(from, "Sua sessão expirou. Por favor, digite o nome do restaurante novamente.");
                 return new NextResponse("SESSION_EXPIRED", { status: 200 });
             }
 
-            // 2.1 CLIQUE EM CATEGORIA (ID começa com "cat_")
+            // 2.1 CLIQUE EM CATEGORIA (Ex: cat_uuid-da-categoria)
             if (buttonId.startsWith("cat_")) {
                 const categoryId = buttonId.replace("cat_", "");
-                
                 await updateSession(from, { step: 'VIEW_CATEGORY', metadata: { category_id: categoryId } });
                 await sendItemsMenu(from, categoryId);
             }
 
-            // 2.2 CLIQUE EM ITEM (ID começa com "itm_")
+            // 2.2 CLIQUE EM ITEM (Ex: itm_uuid-do-item)
             else if (buttonId.startsWith("itm_")) {
                 const itemId = buttonId.replace("itm_", "");
-                
                 await updateSession(from, { step: 'VIEW_ITEM', metadata: { item_id: itemId } });
-                
-                // TODO: Futuramente, verificar complementos aqui.
-                await sendWhatsAppMessage(from, `✅ Item selecionado (ID: ${itemId}). Em breve você poderá adicionar ao carrinho!`);
+                await sendWhatsAppMessage(from, `✅ Você selecionou o item ID: ${itemId}.\n\n(A funcionalidade de adicionar ao carrinho virá no próximo update!)`);
             }
         }
       }
@@ -158,8 +130,7 @@ export async function POST(request: NextRequest) {
 
     return new NextResponse("EVENT_RECEIVED", { status: 200 });
   } catch (error) {
-    console.error("❌ Erro no webhook POST:", error);
-    // Retornamos 200 para o WhatsApp não ficar tentando reenviar a mensagem bugada infinitamente
+    console.error("❌ [CRITICAL ERROR] Webhook:", error);
     return new NextResponse("Internal Server Error", { status: 200 });
   }
 }
