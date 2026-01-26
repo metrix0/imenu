@@ -106,8 +106,8 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
 
     const renderStatus = (status: string) => {
         const labels: Record<string, string> = {
-            pending_online_payment: "Pendente (Não Pago)",
-            pending_physical_payment: "Pendente (Pagar na Entrega)",
+            pending_online_payment: "À Pagar",
+            pending_physical_payment: "Pendente (Pgt. Entrega)",
             paid: "Pendente (Pago)",
             preparing: "Preparando",
             delivering: "Em Rota",
