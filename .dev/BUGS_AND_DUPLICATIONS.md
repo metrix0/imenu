@@ -109,3 +109,5 @@ Acho que faz sentido os pedidos aparecerem em ordem crescente de tempo, não o c
 remover o github actions bug testing
 
 quando a categoria for a 0 no cardapio, colocar um "primeira categoria: em destaque"
+
+https://search.google.com/search-console/index/drilldown?resource_id=sc-domain%3Aimenuapp.com.br&item_key=CAMYCyAC&hl=pt erro SEO pagina nao indexada

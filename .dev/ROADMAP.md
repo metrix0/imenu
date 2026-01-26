@@ -69,6 +69,7 @@ TOP_MENUS: Saipos, Anota ai, Goomer
 | (final) Infrastructure                               |       |                   | FASTEST MENU ALIVE, smooth back and front end loadings and calls (vercel paid plan)                                                                                                                  |
 | 1920x1080 e 4k tudo                                  |       |                   |                                                                                                                                                                                                      |
 | ★ Tirar todos bugs + colocar novas features na lista |       |                   |                                                                                                                                                                                                      |
+|  Integração com impressoras                                                    |       |                   |                          
 |                                                      |       |                   |                                                                                                                                                                                                      |
 
 
