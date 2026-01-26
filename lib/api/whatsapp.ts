@@ -1,47 +1,58 @@
-const GRAPH_API_URL = "https://graph.facebook.com/v17.0";
+// lib/api/whatsapp.ts
 
+const GRAPH_API_URL = "https://graph.facebook.com/v19.0";
 
 /**
- * Envia uma mensagem via Template do WhatsApp Cloud API
- * @param to Telefone do destinatário (ex: 551999999999)
- * @param templateName Nome do template criado no painel da Meta (ex: order_status_update)
- * @param variables Array com as strings que substituem {{1}}, {{2}}, etc.
+ * Helper: Limpa e formata o telefone para o padrão E.164 (sem +)
+ * Ex: (19) 99999-9999 -> 5519999999999
  */
-
 function getCleanPhone(phone: string | null | undefined) {
-    if (!phone) return "";
+  if (!phone) return "";
 
-    // 1. Remove tudo que não é número: (19) 99... -> 1999...
-    let clean = phone.replace(/\D/g, "");
+  // 1. Remove tudo que não é número
+  let clean = phone.replace(/\D/g, "");
 
-    // 2. Se o número tiver 10 ou 11 dígitos (ex: 19999253315), assume que é BR e adiciona 55
-    if (clean.length >= 10 && clean.length <= 11) {
-        clean = "55" + clean;
-    }
-
+  // 2. Tratamento para número de teste da Meta (EUA - começa com 1555...)
+  if (clean.startsWith("1555")) {
     return clean;
-}
-
-function getHeaders() {
-    const token = process.env.WHATSAPP_API_TOKEN;
-    if (!token) {
-        // Log de Debug para ver o que está acontecendo
-        console.error("❌ ERRO FATAL: WHATSAPP_API_TOKEN está vazio ou indefinido.");
-    }
-    return {
-        "Authorization": `Bearer ${token}`,
-        "Content-Type": "application/json",
-    };
-}
-
-const phoneId = process.env.WHATSAPP_PHONE_ID;
-
-// --- FUNÇÃO 1: ENVIO DE TEXTO LIVRE (Para Respostas do Bot) ---
-export async function sendWhatsAppMessage(to: string, message: string) {
-  if (!phoneId) {
-      console.error("❌ ERRO: WHATSAPP_PHONE_ID não definido.");
-      return;
   }
+
+  // 3. Lógica Brasil
+  // Se já começar com 55 e tiver mais de 10 digitos, CONFIA no que veio do Webhook
+  if (clean.startsWith("55") && clean.length >= 12) {
+      return clean; 
+  }
+
+  // Só adiciona 55 se parecer que está faltando
+  if (clean.length >= 10 && clean.length <= 11) {
+    clean = "55" + clean;
+  }
+
+  return clean;
+}
+
+/**
+ * Helper: Gera os headers de autenticação
+ */
+function getHeaders() {
+  const token = process.env.WHATSAPP_API_TOKEN;
+  if (!token) {
+    console.error("❌ [FATAL] WHATSAPP_API_TOKEN está vazio ou indefinido no .env");
+  }
+  return {
+    "Authorization": `Bearer ${token}`,
+    "Content-Type": "application/json",
+  };
+}
+
+// --- FUNÇÃO 1: ENVIO DE TEXTO SIMPLES ---
+export async function sendWhatsAppMessage(to: string, message: string) {
+  const phoneId = process.env.WHATSAPP_PHONE_ID;
+  if (!phoneId) {
+    console.error("❌ [CONFIG ERROR] WHATSAPP_PHONE_ID não definido.");
+    return;
+  }
+  
   const cleanPhone = getCleanPhone(to);
   if (!cleanPhone) return;
 
@@ -58,33 +69,24 @@ export async function sendWhatsAppMessage(to: string, message: string) {
       }),
     });
 
-    const data = await res.json();
     if (!res.ok) {
-        console.error("Erro ao enviar msg de texto:", JSON.stringify(data, null, 2));
+        const errorData = await res.json();
+        console.error("❌ [API ERROR] Falha ao enviar texto:", JSON.stringify(errorData, null, 2));
     } else {
-        console.log("Msg de texto enviada para", cleanPhone);
+        // console.log(`✅ Texto enviado para ${cleanPhone}`);
     }
   } catch (error) {
-    console.error("Erro requisição WhatsApp:", error);
+    console.error("❌ [FETCH ERROR] sendWhatsAppMessage:", error);
   }
 }
 
-
-
+// --- FUNÇÃO 2: ENVIO DE TEMPLATE (Notificações) ---
 export async function sendWhatsAppTemplate(to: string, templateName: string, variables: string[]) {
   const phoneId = process.env.WHATSAPP_PHONE_ID;
-  if (!phoneId) {
-      console.error("❌ ERRO: WHATSAPP_PHONE_ID não definido.");
-      return;
-  }
+  if (!phoneId) return;
+
   const cleanPhone = getCleanPhone(to);
-
-  if (!cleanPhone) {
-      console.error(`[WhatsApp] Erro: Telefone inválido: ${to}`);
-      return;
-  }
-
-
+  if (!cleanPhone) return;
 
   try {
     const parameters = variables.map(variable => ({
@@ -102,29 +104,31 @@ export async function sendWhatsAppTemplate(to: string, templateName: string, var
         type: "template",
         template: {
           name: templateName,
-          language: { code: "en_US" },
+          language: { code: "pt_BR" }, // Ajustado para Português
           components: [{ type: "body", parameters }]
         }
       }),
     });
 
-    const data = await res.json();
     if (!res.ok) {
-        console.error("Erro Template:", JSON.stringify(data, null, 2));
+        const errorData = await res.json();
+        console.error(`❌ [API ERROR] Falha no Template '${templateName}':`, JSON.stringify(errorData, null, 2));
     } else {
         console.log(`✅ Template '${templateName}' enviado para ${cleanPhone}`);
     }
   } catch (error) {
-    console.error("Erro requisição WhatsApp:", error);
+    console.error("❌ [FETCH ERROR] sendWhatsAppTemplate:", error);
   }
 }
 
-// --- FUNÇÃO 3: ENVIO DE MENU INTERATIVO (Dinâmico) ---
+// --- FUNÇÃO 3: MENU INTERATIVO (Link Externo / CTA) ---
+// Útil se quisermos enviar o cliente para o site finalizar o pagamento
 export async function sendWhatsAppInteractiveMenu(to: string, restaurantName: string, menuUrl: string, bannerUrl: string | null) {
-  const phoneId = process.env.WHATSAPP_PHONE_ID; // Lendo dentro da função
-    if (!phoneId) return;
+  const phoneId = process.env.WHATSAPP_PHONE_ID;
+  if (!phoneId) return;
+  
   const cleanPhone = getCleanPhone(to);
-    if (!cleanPhone) return;
+  if (!cleanPhone) return;
 
   try {
     const body = {
@@ -135,13 +139,13 @@ export async function sendWhatsAppInteractiveMenu(to: string, restaurantName: st
       interactive: {
         type: "cta_url",
         
-        // Header: Usa o Banner do restaurante ou Texto se não tiver
+        // Header: Imagem ou Texto
         header: bannerUrl ? {
             type: "image",
             image: { link: bannerUrl }
         } : {
             type: "text",
-            text: restaurantName.substring(0, 60) // Limite do Whats
+            text: restaurantName.substring(0, 60)
         },
 
         body: {
@@ -168,21 +172,21 @@ export async function sendWhatsAppInteractiveMenu(to: string, restaurantName: st
       body: JSON.stringify(body),
     });
 
-    const data = await res.json();
     if (!res.ok) {
-        console.error("Erro ao enviar Menu Interativo:", JSON.stringify(data, null, 2));
+        const errorData = await res.json();
+        console.error("❌ [API ERROR] CTA Menu:", JSON.stringify(errorData, null, 2));
     } else {
-        console.log(`Menu de '${restaurantName}' enviado para ${cleanPhone}`);
+        console.log(`✅ CTA Menu enviado para ${cleanPhone}`);
     }
   } catch (error) {
-    console.error("Erro requisição WhatsApp:", error);
+    console.error("❌ [FETCH ERROR] sendWhatsAppInteractiveMenu:", error);
   }
 }
 
+// --- FUNÇÃO 4: LISTA DE OPÇÕES (Categorias e Itens) ---
+// Essencial para o fluxo de carrinho dentro do WhatsApp
 
-// Para suportar o envio de Listas (Categories/Items).
-
-interface ListSection {
+export interface ListSection {
   title: string;
   rows: { id: string; title: string; description?: string }[];
 }
@@ -194,25 +198,32 @@ export async function sendWhatsAppList(
   sections: ListSection[]
 ) {
   const phoneId = process.env.WHATSAPP_PHONE_ID;
+  if (!phoneId) {
+      console.error("❌ WHATSAPP_PHONE_ID ausente.");
+      return;
+  }
+
   const cleanPhone = getCleanPhone(to);
-  if (!phoneId || !cleanPhone) return;
+  if (!cleanPhone) return;
+
+  const body = {
+    messaging_product: "whatsapp",
+    recipient_type: "individual",
+    to: cleanPhone,
+    type: "interactive",
+    interactive: {
+      type: "list",
+      header: { type: "text", text: "Cardápio Digital" },
+      body: { text: bodyText.substring(0, 1024) },
+      footer: { text: "Selecione uma opção" },
+      action: {
+        button: buttonText.substring(0, 20), // Max 20 chars
+        sections: sections
+      }
+    }
+  };
 
   try {
-    const body = {
-      messaging_product: "whatsapp",
-      recipient_type: "individual",
-      to: cleanPhone,
-      type: "interactive",
-      interactive: {
-        type: "list",
-        body: { text: bodyText.substring(0, 1024) },
-        action: {
-          button: buttonText.substring(0, 20),
-          sections: sections
-        }
-      }
-    };
-
     const res = await fetch(`${GRAPH_API_URL}/${phoneId}/messages`, {
       method: "POST",
       headers: getHeaders(),
@@ -220,10 +231,14 @@ export async function sendWhatsAppList(
     });
 
     if (!res.ok) {
-        const err = await res.json();
-        console.error("❌ Erro List Message:", JSON.stringify(err, null, 2));
+        const errorData = await res.json();
+        // LOG CRÍTICO PARA DEBUG
+        console.error("❌ [API ERROR] WhatsApp List Response:", JSON.stringify(errorData, null, 2));
+        console.error("❌ [DEBUG] Payload enviado:", JSON.stringify(body, null, 2));
+    } else {
+        console.log("✅ [API SUCCESS] Lista enviada com sucesso!");
     }
-  } catch (error) {
-    console.error("Erro requisição WhatsApp:", error);
+  } catch (err) {
+      console.error("❌ [FETCH ERROR] sendWhatsAppList:", err);
   }
 }
