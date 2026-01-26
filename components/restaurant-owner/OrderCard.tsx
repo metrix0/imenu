@@ -51,8 +51,8 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
         const now = new Date().getTime();
         const diffMins = Math.floor((now - start) / 60000);
         if (diffMins < 60) return `${diffMins} min`;
-        return `${Math.floor(diffMins / 60)}h`;
-    };
+        const hours = Math.floor(diffMins / 60);
+        return `${Math.max(0, hours)}h`;    };
 
     // Formatação de Moeda
     const fmtMoney = (cents: number) => (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -113,20 +113,28 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
         }
     };
 
-    const statusConfig: Record<string, { label: string; color: string; borderColor: string; btn: string | null; btnColor: string }> = {
+    const statusConfig: Record<string, { label: string; extra?: string | null;color: string; borderColor: string; btn: string | null; btnColor: string; }> = {
         pending_online_payment: { 
-            label: "Pendente", 
+            label: "Pendente",
             color: "bg-yellow-100 text-yellow-800",
             borderColor: "border-l-yellow-500",
             btn: "Confirmar", 
             btnColor: "primary" 
         },
         pending_physical_payment: { 
-            label: "Pendente", 
+            label: "Pendente",
             color: "bg-yellow-100 text-yellow-800",
             borderColor: "border-l-yellow-500", 
             btn: "Confirmar", 
-            btnColor: "primary" 
+            btnColor: "primary" ,
+            extra: "Pagar na Entrega"
+        },
+        paid: {
+            label: "Pendente",
+            color: "bg-yellow-100 text-yellow-800",
+            borderColor: "border-l-yellow-500",
+            btn: "Confirmar",
+            btnColor: "primary"
         },
         preparing: { 
             label: "Preparando", 
@@ -178,6 +186,11 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
                         <span className={`text-xs px-2 py-0.5 rounded-full font-medium 2xl:text-base 2xl:px-3 2xl:py-1 ${config.color}`}>
                             {config.label}
                         </span>
+                        {config.extra && (
+                            <span className={`text-xs -ml-1 px-2 py-0.5 rounded-full font-medium 2xl:text-base 2xl:px-3 2xl:py-1 color-gray-500 bg-gray-200`}>
+                            {config.extra}
+                        </span>
+                        )}
                     </div>
                     <span className="text-sm 2xl:text-base font-medium text-gray-700 truncate max-w-[200px]" title={order.customer_name}>
                         {order.customer_name}

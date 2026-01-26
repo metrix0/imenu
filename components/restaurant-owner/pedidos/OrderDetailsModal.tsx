@@ -106,8 +106,9 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
 
     const renderStatus = (status: string) => {
         const labels: Record<string, string> = {
-            pending_online_payment: "Pendente",
-            pending_physical_payment: "Pendente",
+            pending_online_payment: "Pendente (Não Pago)",
+            pending_physical_payment: "Pendente (Pagar na Entrega)",
+            paid: "Pendente (Pago)",
             preparing: "Preparando",
             delivering: "Em Rota",
             done: "Concluído",
@@ -116,6 +117,7 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
         const colors: Record<string, string> = {
             pending_online_payment: "bg-yellow-100 text-yellow-800",
             pending_physical_payment: "bg-yellow-100 text-yellow-800",
+            paid: "bg-yellow-100 text-yellow-800",
             preparing: "bg-blue-100 text-blue-800 border-blue-200",
             delivering: "bg-purple-100 text-purple-800",
             done: "bg-green-100 text-green-800 border-green-200",

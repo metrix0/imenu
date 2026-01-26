@@ -29,8 +29,9 @@ export default function OrdersFilter({
     // Opções para o Dropdown
     const statusOptions = [
         { value: "todas", label: "Todas as situações" },
-        { value: "pending_online_payment", label: "Pendente" },
-        { value: "pending_physical_payment", label: "Pendente" },
+        { value: "pending_online_payment", label: "Pendente (Não Pago)" },
+        { value: "pending_physical_payment", label: "Pendente (Pagar na Entrega)" },
+        { value: "paid", label: "Pendente (Pago)" },
         { value: "preparing", label: "Preparando" },
         { value: "delivering", label: "Em Rota" },
         { value: "done", label: "Concluído" },
