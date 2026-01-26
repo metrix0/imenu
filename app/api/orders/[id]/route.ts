@@ -29,7 +29,10 @@ export async function GET(
         customer_phone,
         customer_address,
         restaurant_id,
-        created_at
+        created_at,
+        payment_ref,
+        pix_qr_base64,
+        pix_copia_cola
     FROM orders
     WHERE id = $1
     `,

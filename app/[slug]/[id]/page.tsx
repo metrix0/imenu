@@ -22,6 +22,7 @@ export default function PedidoPage({
     const [restaurantName, setRestaurantName] = useState("");
     const [restaurantPhone, setRestaurantPhone] = useState("");
     const [restaurantId, setRestaurantId] = useState<string | null>(null);
+    const [copiedPix, setCopiedPix] = useState(false);
 
 
     useEffect(() => {
@@ -368,7 +369,6 @@ export default function PedidoPage({
                 </div>
             }
 
-
             <section className="p-5 flex items-center gap-6">
                 <div className="relative">
                     <div className="w-3 h-3 bg-green rounded-full" />
@@ -384,6 +384,61 @@ export default function PedidoPage({
                     <p className="font-medium text-[15px] 2xl:text-lg leading-tight">{readableStatus}</p>
                 </div>
             </section>
+
+            {pm === "pix" && status === "pending_online_payment" && (
+                <section className="bg-white rounded-xl p-5 pb-7 shadow space-y-3 mt-3 mb-3">
+                    <p className="font-semibold text-lg text-center">Pix</p>
+                    {order?.pix_qr_base64 && (
+                        <img
+                            className="w-[50vw] md:w-64 mx-auto"
+                            src={`data:image/png;base64,${order.pix_qr_base64}`}
+                            alt="QR Code Pix"
+                        />
+                    )}
+
+                    {order?.pix_copia_cola && (
+                        <div
+                            className="cursor-pointer"
+                            onClick={async () => {
+                                try {
+                                    await navigator.clipboard.writeText(order.pix_copia_cola);
+                                } catch {
+                                    const el = document.createElement("textarea");
+                                    el.value = order.pix_copia_cola;
+                                    document.body.appendChild(el);
+                                    el.select();
+                                    document.execCommand("copy");
+                                    document.body.removeChild(el);
+                                }
+
+                                setCopiedPix(true);
+                                setTimeout(() => setCopiedPix(false), 1200);
+                            }}
+                        >
+                            <p className="text-gray-500 text-sm mb-3 mt-4">
+                                Copia e cola <FontAwesomeIcon icon={icons.faCopy} />
+                            </p>
+
+                            <div className="relative">
+      <textarea
+          className="w-full p-3 rounded text-sm border-gray-200 border overflow-hidden focus:outline-none focus:ring-0 "
+          readOnly
+          value={order.pix_copia_cola}
+      />
+
+                                {copiedPix && (
+                                    <div className="absolute inset-0 flex items-center justify-center rounded bg-black/10">
+          <span className="text-sm font-semibold text-gray-700 bg-white px-3 py-1 rounded">
+            Copiado
+          </span>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                </section>
+            )}
 
 
             {/* PAYMENT */}
@@ -458,7 +513,7 @@ export default function PedidoPage({
             </section>
 
 
-            <div className={" mt-6 mb-3 mx-1 text-sm text-gray-400  2xl:text-lg flex gap-1 items-center justify-center"}
+            <div className={" mt-6 mb-3 mx-1 text-sm text-gray-400  2xl:text-lg flex gap-1 items-center justify-center cursor-pointer"}
             onClick={() => router.push("https://wa.me/"+restaurantPhone)}
             >
                 Entre em contato com este restaurante <FontAwesomeIcon icon={faWhatsappSquare} className={"text-2xl text-green"}/>
