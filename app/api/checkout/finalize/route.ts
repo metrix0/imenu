@@ -12,6 +12,7 @@ const client = new MercadoPagoConfig({
 
 export async function POST(req: Request) {
     const body = await req.json();
+
     const {
         orderId,
         customer_name,
@@ -29,6 +30,8 @@ export async function POST(req: Request) {
         paymentMethod: "machine" | "online";
         isDelivery: boolean;
     } = body;
+
+    console.log(body)
 
     if (!orderId || !customer_name || !customer_phone || !paymentMethod)
         return NextResponse.json({ error: "Dados incompletos" }, { status: 400 });
@@ -87,40 +90,40 @@ export async function POST(req: Request) {
 
 
         // ✅ PIX DIRECT: create QR/code without redirect
-        // if (body.payment_method === "pix") {
-        //     const payment = await new Payment(client).create({
-        //         body: {
-        //             transaction_amount: total / 100,
-        //             description: `Pedido ${orderId}`,
-        //             payment_method_id: "pix",
-        //             external_reference: orderId,
-        //             notification_url: `${baseUrl}/api/webhooks/mercadopago`,
-        //             payer: {
-        //                 first_name: customer_name,
-        //                 phone: { number: customer_phone },
-        //             },
-        //         },
-        //     });
-        //
-        //     const pix_qr_base64 =
-        //         payment.point_of_interaction?.transaction_data?.qr_code_base64 ?? null;
-        //
-        //     const pix_copia_cola =
-        //         payment.point_of_interaction?.transaction_data?.qr_code ?? null;
-        //
-        //     // save payment id
-        //     await query(`UPDATE orders SET payment_ref = $1 WHERE id = $2`, [
-        //         payment.id?.toString() ?? null,
-        //         orderId,
-        //     ]);
-        //
-        //     return NextResponse.json({
-        //         order_id: orderId,
-        //         payment_type: "pix",
-        //         pix_qr_base64,
-        //         pix_copia_cola,
-        //     });
-        // }
+        if (body.paymentMethod === "pix") {
+            const payment = await new Payment(client).create({
+                body: {
+                    transaction_amount: total / 100,
+                    description: `Pedido ${orderId}`,
+                    payment_method_id: "pix",
+                    external_reference: orderId,
+                    notification_url: `${baseUrl}/api/webhooks/mercadopago`,
+                    payer: {
+                        first_name: customer_name,
+                        phone: { number: customer_phone },
+                    },
+                },
+            });
+
+            const pix_qr_base64 =
+                payment.point_of_interaction?.transaction_data?.qr_code_base64 ?? null;
+
+            const pix_copia_cola =
+                payment.point_of_interaction?.transaction_data?.qr_code ?? null;
+
+            // save payment id
+            await query(`UPDATE orders SET payment_ref = $1 WHERE id = $2`, [
+                payment.id?.toString() ?? null,
+                orderId,
+            ]);
+
+            return NextResponse.json({
+                order_id: orderId,
+                payment_type: "pix",
+                pix_qr_base64,
+                pix_copia_cola,
+            });
+        }
 
 
         const preference = await new Preference(client).create({

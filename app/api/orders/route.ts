@@ -1,7 +1,7 @@
 // app/api/orders/route.ts
 import { NextResponse } from "next/server";
 import { query } from "@/lib/database/sql";
-import { MercadoPagoConfig, Preference } from "mercadopago";
+import { MercadoPagoConfig, Preference, Payment } from "mercadopago";
 import {promotionPrice} from "@/lib/utils/formatPrice";
 export const dynamic = "force-dynamic";
 
@@ -226,6 +226,56 @@ export async function POST(req: Request) {
         console.log("💳 Creating Mercado Pago payment...");
 
         const baseUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/${slug}`;
+
+        // ✅ PIX: create payment and redirect to Mercado Pago PIX ticket page (QR)
+        if (paymentMethod === "pix") {
+            const payment = await new Payment(client).create({
+                body: {
+                    transaction_amount: total / 100,
+                    description: `Pedido ${order.id}`,
+                    payment_method_id: "pix",
+                    external_reference: order.id.toString(),
+                    notification_url: `${process.env.NEXT_PUBLIC_BASE_URL}/api/webhooks/mercadopago`,
+                    payer: {
+                        email: `cliente_${order.id}@fake.com`,
+                        first_name: customer_name,
+                    },
+                },
+            });
+
+            const pix_qr_base64 =
+                payment.point_of_interaction?.transaction_data?.qr_code_base64 ?? null;
+
+            const pix_copia_cola =
+                payment.point_of_interaction?.transaction_data?.qr_code ?? null;
+
+// save payment id + pix data in the order
+            await query(
+                `UPDATE orders 
+   SET payment_ref = $1, pix_qr_base64 = $2, pix_copia_cola = $3 
+   WHERE id = $4`,
+                [
+                    payment.id?.toString() ?? null,
+                    pix_qr_base64,
+                    pix_copia_cola,
+                    order.id,
+                ]
+            );
+
+// send user to /pedido/:id (your frontend already does this with data.id)
+            return NextResponse.json({
+                id: order.id,
+                payment_type: "pix",
+            });
+
+
+            return NextResponse.json({
+                id: order.id,
+                payment_type: "pix",
+            });
+        }
+
+
 
         const preference = await new Preference(client).create({
             body: {
