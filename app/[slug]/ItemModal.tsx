@@ -243,14 +243,16 @@ export default function ItemModal({
                                     </div>
 
                                     {sc.min_select > 0 && (
-                                        <span className="text-[11px] 2xl:text-lg bg-black text-white px-2 py-1 rounded-full">
+                                        <span className="text-[11px] 2xl:text-lg  text-gray-600 px-2 py-1 rounded-full">
                                             OBRIGATÓRIO
                                         </span>
                                     )}
                                 </div>
 
-                                {sc.subitems.map((si) => {
-                                    const isSelected = set?.has(si.id);
+                                {[...sc.subitems]
+                                    .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+                                    .map((si) => {
+                                        const isSelected = set?.has(si.id);
 
                                     return (
                                         <button
@@ -415,10 +417,11 @@ export default function ItemModal({
                 >
                     <span>Adicionar</span>
                     <span>
-                        {(item.promotion && item.promotion.value > 0) ? <><span>{formatPrice(promotionPrice(item) || item.price_cents)}</span></>
-                            : formatPrice(item.price_cents)
-                        }
-                    </span>
+  {(item.promotion && item.promotion.value > 0)
+      ? formatPrice(qty > 1 ? total : unitTotal)
+      : formatPrice(qty > 1 ? total : unitTotal)
+  }
+</span>
                 </button>
             </div>
         </ModalMobile>

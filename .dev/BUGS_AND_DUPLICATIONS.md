@@ -107,3 +107,5 @@ Acho que faz sentido os pedidos aparecerem em ordem crescente de tempo, não o c
 
 
 remover o github actions bug testing
+
+nao atualizar o slug nunca (autaliza sozinho no /loja)

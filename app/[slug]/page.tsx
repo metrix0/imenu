@@ -7,12 +7,17 @@ import TrackingScripts from "@/components/costumer/TrackingScripts";
 
 
 import { createSupabaseServerClient } from "@/lib/database/supabaseServerClient";
+import { Metadata } from "next";
+import { headers } from "next/headers";
+
 
 const getPublicUrl = (supabase: any, bucket: string, path: string | null) => {
     if (!path) return null;
     const { data } = supabase.storage.from(bucket).getPublicUrl(path);
     return data?.publicUrl || null;
 };
+
+
 
 
 export default async function Page({
@@ -121,7 +126,6 @@ export default async function Page({
         promotion: promotionByItemId.get(item.id) ?? undefined,
     }));
 
-    console.log(allItems)
 
 
 
@@ -144,8 +148,19 @@ export default async function Page({
 
     const tracking = restaurantData.tracking_integrations?.[0];
 
+    console.log("slug")
+    console.log(slug)
+
+    const { data } = await supabase
+        .from("restaurants")
+        .select("name")
+        .eq("url_slug", slug)
+        .maybeSingle();
+
+
     return (
         <>
+            <title>{data?.name ?? "Menu"}</title>
             {tracking && (
             <TrackingScripts
                 ga4Id={tracking?.ga4_id}
