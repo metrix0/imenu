@@ -70,7 +70,7 @@ export default function AdminLogin() {
         // ⭐ ADDED — fetch user's restaurantId
         const { data: restaurant, error: restError } = await supabase
             .from("restaurants")
-            .select("id, slug_url")
+            .select("id, url_slug")
             .eq("user_id", userId)
             .single();
 
@@ -83,7 +83,7 @@ export default function AdminLogin() {
         // ⭐ ADDED — save in Zustand
         setRestaurantId(restaurant.id);
         setZustandEmail(email);
-        setRestaurantSlug(restaurant.slug_url)
+        setRestaurantSlug(restaurant.url_slug)
 
         // ⭐ show toast and redirect
         setShowToast(true);
