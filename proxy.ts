@@ -17,7 +17,7 @@ export function proxy(req: Request) {
     pathname.startsWith("/_next") ||
     pathname.startsWith("/fonts") ||
     pathname.startsWith("/images") ||
-    pathname === "/favicon.ico" ||
+    pathname === "/icons/dominos_favicon.ico" ||
     /\.[a-zA-Z0-9]+$/.test(pathname); // any file extension
 
   if (isDominos && !isAsset) {
