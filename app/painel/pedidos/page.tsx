@@ -75,7 +75,7 @@ export default function PedidosPage() {
 
             // Filtro por Aba
             if (activeTab === "Em aberto") {
-                query = query.in("status", ["pending_online_payment", "pending_physical_payment", "preparing", "delivering"]);
+                query = query.in("status", ["pending_online_payment", "paid", "pending_physical_payment", "preparing", "delivering"]);
             } else if (activeTab === "Concluídos") {
                 query = query.eq("status", "done");
             } else if (activeTab === "Cancelados") {

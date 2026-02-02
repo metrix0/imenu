@@ -286,10 +286,10 @@ export default function CartBar({
         }
 
         if (data.payment_type === "online") {
+
             window.location.href = data.init_point;
             return;
         }
-
         if (data.id) {
             window.location.href = `/pedido/${data.id}`;
         }

@@ -1,7 +1,7 @@
 // app/api/checkout/finalize/route.ts
 import { NextResponse } from "next/server";
 import { query } from "@/lib/database/sql";
-import { MercadoPagoConfig, Preference } from "mercadopago";
+import { MercadoPagoConfig, Preference, Payment } from "mercadopago";
 
 // (Configuração do MercadoPago - sem mudança)
 if (!process.env.MERCADO_PAGO_ACCESS_TOKEN)
@@ -12,6 +12,7 @@ const client = new MercadoPagoConfig({
 
 export async function POST(req: Request) {
     const body = await req.json();
+
     const {
         orderId,
         customer_name,
@@ -29,6 +30,8 @@ export async function POST(req: Request) {
         paymentMethod: "machine" | "online";
         isDelivery: boolean;
     } = body;
+
+    console.log(body)
 
     if (!orderId || !customer_name || !customer_phone || !paymentMethod)
         return NextResponse.json({ error: "Dados incompletos" }, { status: 400 });
@@ -85,6 +88,44 @@ export async function POST(req: Request) {
 
         const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
 
+
+        // ✅ PIX DIRECT: create QR/code without redirect
+        if (body.paymentMethod === "pix") {
+            const payment = await new Payment(client).create({
+                body: {
+                    transaction_amount: total / 100,
+                    description: `Pedido ${orderId}`,
+                    payment_method_id: "pix",
+                    external_reference: orderId,
+                    notification_url: `${baseUrl}/api/webhooks/mercadopago`,
+                    payer: {
+                        first_name: customer_name,
+                        phone: { number: customer_phone },
+                    },
+                },
+            });
+
+            const pix_qr_base64 =
+                payment.point_of_interaction?.transaction_data?.qr_code_base64 ?? null;
+
+            const pix_copia_cola =
+                payment.point_of_interaction?.transaction_data?.qr_code ?? null;
+
+            // save payment id
+            await query(`UPDATE orders SET payment_ref = $1 WHERE id = $2`, [
+                payment.id?.toString() ?? null,
+                orderId,
+            ]);
+
+            return NextResponse.json({
+                order_id: orderId,
+                payment_type: "pix",
+                pix_qr_base64,
+                pix_copia_cola,
+            });
+        }
+
+
         const preference = await new Preference(client).create({
             body: {
                 items: dbItems.map((s) => ({
@@ -94,6 +135,11 @@ export async function POST(req: Request) {
                     currency_id: "BRL",
                     unit_price: s.price_cents / 100,
                 })),
+                payment_methods: {
+                    default_payment_method_id: "pix",
+                    excluded_payment_methods: [{ id: "account_money" }],
+                    excluded_payment_types: [{ id: "ticket" }, { id: "debit_card" }],
+                },
                 shipments: {
                     cost: delivery_fee_cents / 100,
                 },
