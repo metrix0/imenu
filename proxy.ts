@@ -12,36 +12,38 @@ export function proxy(req: Request) {
     host === "dominoslimeira.com.br" ||
     host === "www.dominoslimeira.com.br";
 
-  // 🚫 NEVER rewrite assets
-const isAsset =
-  pathname.startsWith("/_next") ||
-  pathname.startsWith("/fonts") ||
-  pathname.startsWith("/images") ||
-  pathname.startsWith("/icons") || // ✅ REQUIRED (your favicon lives here)
-  pathname === "/favicon.ico" ||
-  pathname === "/favicon.png" ||
-  pathname === "/apple-touch-icon.png" ||
-  pathname === "/site.webmanifest" ||
-  /\.(css|js|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot|webmanifest)$/.test(pathname);
+  // 🚫 NEVER rewrite non-page requests
+  const isInternal =
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/api") ||
+    pathname.startsWith("/_rsc") ||
+    pathname.startsWith("/_actions");
 
-  if (isDominos && !isAsset) {
-    // Rewrite root
-    if (pathname === "/") {
-      url.pathname = "/dominos-limeira";
-    }
-    // Rewrite all other routes
-    else if (!pathname.startsWith("/dominos-limeira")) {
-      url.pathname = `/dominos-limeira${pathname}`;
-    }
+  const isAsset =
+    pathname.startsWith("/fonts") ||
+    pathname.startsWith("/images") ||
+    pathname.startsWith("/icons") ||
+    /\.(css|js|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot|webmanifest)$/.test(
+      pathname
+    );
 
-    return new Response(null, {
-      status: 200,
-      headers: {
-        "x-middleware-rewrite": url.toString(),
-      },
-    });
+  if (!isDominos || isInternal || isAsset) {
+    return;
   }
 
-  // Let assets & other domains pass untouched
-  return;
+  // Rewrite root
+  if (pathname === "/") {
+    url.pathname = "/dominos-limeira";
+  }
+  // Rewrite page routes only
+  else if (!pathname.startsWith("/dominos-limeira")) {
+    url.pathname = `/dominos-limeira${pathname}`;
+  }
+
+  return new Response(null, {
+    status: 200,
+    headers: {
+      "x-middleware-rewrite": url.toString(),
+    },
+  });
 }
