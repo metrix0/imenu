@@ -48,11 +48,16 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
     // Cálculo de tempo decorrido
     const getElapsedTime = () => {
         const start = new Date(order.created_at).getTime();
-        const now = new Date().getTime();
-        const diffMins = Math.floor((now - start) / 60000);
+        const now = Date.now();
+
+        const diffMins = Math.max(
+            0,
+            Math.floor((now - start) / 60000)
+        );
+
         if (diffMins < 60) return `${diffMins} min`;
-        const hours = Math.floor(diffMins / 60);
-        return `${Math.max(0, hours)}h`;    };
+        return `${Math.floor(diffMins / 60)}h`;
+    };
 
     // Formatação de Moeda
     const fmtMoney = (cents: number) => (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -127,7 +132,7 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
             borderColor: "border-l-yellow-500", 
             btn: "Confirmar", 
             btnColor: "primary" ,
-            extra: "Pagar na Entrega"
+            extra: "Pgt. Entrega"
         },
         paid: {
             label: "Pendente",

@@ -42,7 +42,7 @@ export default function PainelPedidosAtivosPage() {
             .eq("restaurant_id", restId)
             // Filtra apenas pedidos ativos (fila de produção)
             .in("status", ["paid", "pending_physical_payment", "preparing", "delivering"])
-            .order("created_at", { ascending: true }); // Mais antigos primeiro (FIFO)
+            .order("created_at", { ascending: false }); // Mais antigos primeiro (FIFO)
 
         if (error) {
             console.error("Erro ao buscar pedidos:", error);
