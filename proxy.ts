@@ -12,22 +12,23 @@ export function proxy(req: Request) {
     host === "www.dominoslimeira.com.br";
 
   if (isDominos) {
-    // Se acessar /, vira /dominos-limeira
+    // Rewrite root
     if (url.pathname === "/") {
       url.pathname = "/dominos-limeira";
     }
-    // Se acessar qualquer outra rota (/menu, /pedido, etc)
+    // Rewrite all other paths
     else if (!url.pathname.startsWith("/dominos-limeira")) {
       url.pathname = `/dominos-limeira${url.pathname}`;
     }
 
     return new Response(null, {
-      status: 307,
+      status: 200, // ✅ CRITICAL FIX
       headers: {
         "x-middleware-rewrite": url.toString(),
       },
     });
   }
 
+  // Let everything else pass
   return;
 }
