@@ -13,12 +13,16 @@ export function proxy(req: Request) {
     host === "www.dominoslimeira.com.br";
 
   // 🚫 NEVER rewrite assets
-  const isAsset =
-    pathname.startsWith("/_next") ||
-    pathname.startsWith("/fonts") ||
-    pathname.startsWith("/images") ||
-    pathname === "/icons/dominos_favicon.ico" ||
-    /\.[a-zA-Z0-9]+$/.test(pathname); // any file extension
+const isAsset =
+  pathname.startsWith("/_next") ||
+  pathname.startsWith("/fonts") ||
+  pathname.startsWith("/images") ||
+  pathname.startsWith("/icons") || // ✅ REQUIRED (your favicon lives here)
+  pathname === "/favicon.ico" ||
+  pathname === "/favicon.png" ||
+  pathname === "/apple-touch-icon.png" ||
+  pathname === "/site.webmanifest" ||
+  /\.(css|js|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot|webmanifest)$/.test(pathname);
 
   if (isDominos && !isAsset) {
     // Rewrite root
