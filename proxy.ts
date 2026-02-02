@@ -1,28 +1,33 @@
 import * as Sentry from "@sentry/nextjs";
 
 export function proxy(req: Request) {
-    const url = new URL(req.url);
-    const host = req.headers.get("host") ?? "";
+  const url = new URL(req.url);
+  const host = req.headers.get("host") ?? "";
 
-    // Mantém o tracking atual
-    Sentry.setTag("path", url.pathname);
-    Sentry.setTag("host", host);
+  Sentry.setTag("host", host);
+  Sentry.setTag("path", url.pathname);
 
-    const isDominos =
-        host === "dominoslimeira.com.br" ||
-        host === "www.dominoslimeira.com.br";
+  const isDominos =
+    host === "dominoslimeira.com.br" ||
+    host === "www.dominoslimeira.com.br";
 
-    // Rewrite interno: / → /dominos-limeira
-    if (isDominos && url.pathname === "/") {
-        url.pathname = "/dominos-limeira";
-        return new Response(null, {
-            status: 307,
-            headers: {
-                "x-middleware-rewrite": url.toString(),
-            },
-        });
+  if (isDominos) {
+    // Se acessar /, vira /dominos-limeira
+    if (url.pathname === "/") {
+      url.pathname = "/dominos-limeira";
+    }
+    // Se acessar qualquer outra rota (/menu, /pedido, etc)
+    else if (!url.pathname.startsWith("/dominos-limeira")) {
+      url.pathname = `/dominos-limeira${url.pathname}`;
     }
 
-    // Segue fluxo normal
-    return;
+    return new Response(null, {
+      status: 307,
+      headers: {
+        "x-middleware-rewrite": url.toString(),
+      },
+    });
+  }
+
+  return;
 }
