@@ -994,8 +994,13 @@ export default function MenuClientPage({
                             if (!orderId) return;
                             setTimeout(() => {
                                 try {
-                                    router.push(`${pathname}/${orderId}`);
-                                } catch (err) {
+                                    const base =
+                                        window.location.host === "dominoslimeira.com.br" ||
+                                        window.location.host === "www.dominoslimeira.com.br"
+                                            ? "https://www.imenuapp.com.br"
+                                            : "";
+
+                                    router.push(`${base}/pedido/${orderId}`);                                } catch (err) {
                                     console.error("navigate error:", err);
                                 }
                             }, 180);
