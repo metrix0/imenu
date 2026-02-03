@@ -12,33 +12,26 @@ export function proxy(req: Request) {
     host === "dominoslimeira.com.br" ||
     host === "www.dominoslimeira.com.br";
 
-  // ❌ Only skip REAL internals
-  const isInternal =
-    pathname.startsWith("/_next") ||
-    pathname.startsWith("/api");
+  if (!isDominos) return;
 
-  // ❌ Only skip real static assets
-  const isAsset =
-    pathname.startsWith("/fonts") ||
-    pathname.startsWith("/images") ||
-    pathname.startsWith("/icons") ||
-    /\.(css|js|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot|webmanifest)$/.test(
-      pathname
+  // 🔁 Redirect problematic dynamic routes
+  if (pathname.startsWith("/pedido/")) {
+    return Response.redirect(
+      `https://www.imenuapp.com.br${pathname}`,
+      302
     );
-
-  if (!isDominos || isInternal || isAsset) {
-    return;
   }
 
-  // ✅ ALWAYS rewrite pages + RSC requests
-  if (!pathname.startsWith("/dominos-limeira")) {
-    url.pathname = `/dominos-limeira${pathname}`;
+  // ✅ Safe rewrite only for root
+  if (pathname === "/") {
+    url.pathname = "/dominos-limeira";
+    return new Response(null, {
+      status: 200,
+      headers: {
+        "x-middleware-rewrite": url.toString(),
+      },
+    });
   }
 
-  return new Response(null, {
-    status: 200,
-    headers: {
-      "x-middleware-rewrite": url.toString(),
-    },
-  });
+  return;
 }
