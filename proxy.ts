@@ -12,13 +12,14 @@ export function proxy(req: Request) {
     host === "dominoslimeira.com.br" ||
     host === "www.dominoslimeira.com.br";
 
-  // 🚫 NEVER rewrite non-page requests
+  // 🚫 NEVER rewrite internals
   const isInternal =
     pathname.startsWith("/_next") ||
     pathname.startsWith("/api") ||
     pathname.startsWith("/_rsc") ||
     pathname.startsWith("/_actions");
 
+  // 🚫 NEVER rewrite assets
   const isAsset =
     pathname.startsWith("/fonts") ||
     pathname.startsWith("/images") ||
@@ -31,12 +32,8 @@ export function proxy(req: Request) {
     return;
   }
 
-  // Rewrite root
-  if (pathname === "/") {
-    url.pathname = "/dominos-limeira";
-  }
-  // Rewrite page routes only
-  else if (!pathname.startsWith("/dominos-limeira")) {
+  // 🔑 ALWAYS prefix tenant for page routes (root included)
+  if (!pathname.startsWith("/dominos-limeira")) {
     url.pathname = `/dominos-limeira${pathname}`;
   }
 
