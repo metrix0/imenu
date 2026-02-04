@@ -442,6 +442,30 @@ export default function MenuClientPage({
 
         const now = new Date();
 
+        // ---- CLOSED DAY (empty or missing) ----
+        if (!Array.isArray(slots) || slots.length === 0) {
+            setTodaySlots([]);
+
+            // find next day with slots
+            for (let i = 1; i <= 7; i++) {
+                const nextDay = (today + i) % 7;
+                const nextSlots = availability[nextDay];
+
+                if (Array.isArray(nextSlots) && nextSlots.length > 0) {
+                    const [openH, openM] = nextSlots[0].open.split(":").map(Number);
+                    const next = new Date();
+                    next.setDate(now.getDate() + i);
+                    next.setHours(openH, openM, 0, 0);
+                    setNextOpening(next);
+                    return;
+                }
+            }
+
+            setNextOpening(null);
+            return;
+        }
+
+
         for (let slot of slots) {
             const [openH, openM] = slot.open.split(":").map(Number);
             const [closeH, closeM] = slot.close.split(":").map(Number);
@@ -451,6 +475,8 @@ export default function MenuClientPage({
 
             const closeDate = new Date();
             closeDate.setHours(closeH, closeM, 0, 0);
+
+            console.log("NOW",now,"open", openDate, closeDate, now >= openDate && now <= closeDate)
 
             if (now >= openDate && now <= closeDate) {
 
@@ -463,6 +489,8 @@ export default function MenuClientPage({
                 return;
             }
         }
+
+        console.log(slots)
 
         if (slots[0]) {
             const [openH, openM] = slots[0].open.split(":").map(Number);
@@ -576,6 +604,8 @@ export default function MenuClientPage({
         return () => observer.disconnect();
     }, [categories, manualScrollLock]);
 
+    console.log(nextOpening, closedForToday)
+
     return (
 
         <div className="min-h-screen bg-white text-gray-900 pb-10">
@@ -675,23 +705,34 @@ export default function MenuClientPage({
                     {closedForToday && (
                         "Hoje o restaurante está fechado no horário comum de funcionamento, devido à possíveis feriados ou eventos especiais."
                         )}
-                    {(nextOpening !== null && !closedForToday) && (
-                        <>
-                            Restaurante fechado. Abre em <b>
-                            {" "}
-                            {Math.floor((nextOpening.getTime() - new Date().getTime()) / 3600000)
-                                .toString()
-                                .padStart(1, "0")}
-                            h{" "}
-                            {Math.floor(
-                                ((nextOpening.getTime() - new Date().getTime()) % 3600000) / 60000
-                            )
-                                .toString()
-                                .padStart(2, "0")}
-                            min
-                        </b>.
-                        </>
-                    )}
+                    {nextOpening !== null && !closedForToday && (() => {
+                        const diffMs = nextOpening.getTime() - Date.now();
+
+                        if (diffMs <= 0) return null;
+
+                        const totalMinutes = Math.floor(diffMs / 60000);
+                        const days = Math.floor(totalMinutes / (60 * 24));
+
+                        if (days >= 1) {
+                            return (
+                                <>
+                                    Restaurante fechado. Abre em <b>{days}d</b>.
+                                </>
+                            );
+                        }
+
+                        const hours = Math.floor((totalMinutes % (60 * 24)) / 60);
+                        const minutes = totalMinutes % 60;
+
+                        return (
+                            <>
+                                Restaurante fechado. Abre em <b>
+                                {hours}h {minutes.toString().padStart(2, "0")}min
+                            </b>.
+                            </>
+                        );
+                    })()}
+
 
                     {todaySlots.length > 0 && (
                         <div className="text-sm mt-2">
