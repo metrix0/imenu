@@ -14,13 +14,11 @@ const PAGE_SIZE = 5;
 
 interface Payout {
     id: string;
-    start_date: string;
-    end_date: string;
+    restaurant_id: string;
     amount_cents: number;
-    status: "pending_payment" | "paid";
-    paid_at: string | null;
-    order_count: number;
+    created_at: string;
 }
+
 
 interface PayoutsDashboardProps {
     menuId: string;
@@ -49,22 +47,6 @@ const formatPrice = (priceInCents: number) => {
     });
 };
 
-const PayoutStatus = ({ status }: { status: Payout["status"] }) => {
-    if (status === "paid") {
-        return (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                <FontAwesomeIcon icon={icons.faCheck} className="w-3 h-3" />
-                Pago
-            </span>
-        );
-    }
-    return (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-            <FontAwesomeIcon icon={faClock} className="w-3 h-3" />
-            Pendente
-        </span>
-    );
-};
 
 export default function PayoutsDashboard({ menuId, startDate, endDate }: PayoutsDashboardProps) {
     const [payouts, setPayouts] = useState<Payout[]>([]);
@@ -90,15 +72,10 @@ export default function PayoutsDashboard({ menuId, startDate, endDate }: Payouts
                     .from("payouts")
                     .select("*", { count: "exact" })
                     .eq("restaurant_id", menuId)
-                    .order("start_date", { ascending: false })
+                    .order("created_at", { ascending: false })
                     .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
 
                 // Aplica filtros nas colunas da tabela payouts
-                if (startDate && endDate) {
-                    query = query
-                        .gte("start_date", startDate) // Maior ou igual data inicial
-                        .lte("end_date", endDate);   // Menor ou igual data final
-                }
 
                 const { data, error, count } = await query;
 
@@ -131,7 +108,7 @@ export default function PayoutsDashboard({ menuId, startDate, endDate }: Payouts
         <Card>
             <div className="mb-6">
                 <h2 className="text-lg font-bold text-gray-900 2xl:text-xl">Histórico de Repasses</h2>
-                <p className="text-sm text-gray-500 2xl:text-lg">Acompanhe os valores transferidos semanalmente.</p>
+                <p className="text-sm text-gray-500 2xl:text-lg">Acompanhe os valores transferidos semanalmente, <b>todo domingo no Pix cadastrado</b>.</p>
             </div>
 
             <div className="space-y-3">
@@ -146,19 +123,15 @@ export default function PayoutsDashboard({ menuId, startDate, endDate }: Payouts
                             className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-lg border border-gray-100 hover:border-gray-200 hover:bg-gray-50 transition-colors gap-4"
                         >
                             <div>
-                                <h5 className="font-semibold text-gray-900">
-                                    Semana {formatWeek(payout.start_date, payout.end_date)}
+                                <h5 className="font-semibold text-gray-600 flex items-center gap-2">
+                                    <div className={"w-3 h-3 bg-green rounded-full"}></div>{new Date(payout.created_at).toLocaleDateString("pt-BR")}
                                 </h5>
-                                <p className="text-sm text-gray-500 mt-1">
-                                    {payout.order_count} {payout.order_count === 1 ? "pedido processado" : "pedidos processados"}
-                                </p>
                             </div>
 
                             <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto">
                                 <span className="text-lg font-bold text-gray-900">
                                     {formatPrice(payout.amount_cents)}
                                 </span>
-                                <PayoutStatus status={payout.status} />
                             </div>
                         </div>
                     ))
