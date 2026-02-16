@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import {useEffect, useState} from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { 
     faClock, 
@@ -13,7 +13,7 @@ import Card from "@/components/ui/Card";
 import { supabase } from "@/lib/database/supabaseClient";
 
 // Tipos baseados no seu schema
-export type OrderStatus = "pending_online_payment" | "pending_physical_payment" | "preparing" | "delivering" | "done" | "canceled";
+export type OrderStatus = "pending_online_payment" | "pending_physical_payment" | "preparing" | "delivering" | "done" | "canceled" | "paid";
 
 export interface OrderItemData {
     id: string;
@@ -59,6 +59,9 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
         return `${Math.floor(diffMins / 60)}h`;
     };
 
+
+    const [isPgtEntrega, setIsPgtEntrega] = useState(false);
+
     // Formatação de Moeda
     const fmtMoney = (cents: number) => (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
@@ -66,7 +69,9 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
     const advanceStatus = async () => {
         let nextStatus: OrderStatus | null = null;
 
-        if (order.status === "pending_online_payment" || order.status === "pending_physical_payment") {
+        console.log(order)
+
+        if (order.status === "pending_online_payment" || order.status === "pending_physical_payment" || order.status === "paid") {
             nextStatus = "preparing";
         }
         else if (order.status === "preparing") nextStatus = "delivering"; 
@@ -87,8 +92,8 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
             prevStatus = "delivering";
         }
         else if (order.status === "preparing") {
-            const isPhysical = ["money", "card_machine"].includes(order.payment_method || "");
-            prevStatus = isPhysical ? "pending_physical_payment" : "pending_online_payment";
+            const isPhysical = ["trazer-maquininha", "dinheiro"].includes(order.payment_method || "");
+            prevStatus = isPhysical ? "pending_physical_payment" : "paid";
         }
 
         if (!prevStatus) return;
@@ -171,6 +176,11 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
         }
     };
 
+
+    useEffect(() => {
+        setIsPgtEntrega(order.payment_method === "dinheiro" || order.payment_method === "trazer-maquininha");
+    }, [statusConfig]);
+
     const config = statusConfig[order.status] || statusConfig.pending_online_payment;
     const showBackButton = ["preparing", "delivering", "done"].includes(order.status);
 
@@ -191,9 +201,9 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
                         <span className={`text-xs px-2 py-0.5 rounded-full font-medium 2xl:text-base 2xl:px-3 2xl:py-1 ${config.color}`}>
                             {config.label}
                         </span>
-                        {config.extra && (
+                        {isPgtEntrega && (
                             <span className={`text-xs -ml-1 px-2 py-0.5 rounded-full font-medium 2xl:text-base 2xl:px-3 2xl:py-1 color-gray-500 bg-gray-200`}>
-                            {config.extra}
+                            Pgt. Entrega
                         </span>
                         )}
                     </div>
