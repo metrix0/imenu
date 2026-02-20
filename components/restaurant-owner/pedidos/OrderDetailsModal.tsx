@@ -104,6 +104,8 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
         }
     };
 
+    console.log(order)
+
     const renderStatus = (status: string) => {
         const labels: Record<string, string> = {
             pending_online_payment: "À Pagar",
@@ -113,6 +115,10 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
             delivering: "Em Rota",
             done: "Concluído",
             canceled: "Cancelado",
+            dinheiro: "Dinheiro",
+            cartao: "Cartão",
+            pix: "Pix",
+            "trazer-maquininha": "Trazer Maquininha",
         };
         const colors: Record<string, string> = {
             pending_online_payment: "bg-yellow-100 text-yellow-800",
@@ -121,7 +127,11 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
             preparing: "bg-blue-100 text-blue-800 border-blue-200",
             delivering: "bg-purple-100 text-purple-800",
             done: "bg-green-100 text-green-800 border-green-200",
-            canceled: "bg-red-100 text-red-800 border-red-200",
+            canceled: "bg-red-200 text-red-800 border-red-200",
+            dinheiro: "bg-gray-200 text-gray-800",
+            cartao: "bg-gray-200 text-gray-800",
+            pix: "bg-gray-200 text-gray-800",
+            "trazer-maquininha": "bg-gray-200 text-gray-800",
         };
         return (
             <span className={`2xl:text-base 2xl:px-3 px-2.5 py-0.5 rounded-full text-xs font-medium ${colors[status] || "bg-gray-100"}`}>
@@ -175,6 +185,7 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
                                 Pedido #{order?.display_id}
                             </h2>
                             {(details || order) && renderStatus(details?.status || order!.status)}
+                            {order && (renderStatus(order.payment_method))}
                         </div>
                         <p className="text-xs text-gray-500 flex items-center gap-1 2xl:text-base">
                             <FontAwesomeIcon icon={faClock} /> Realizado em {order && fmtDate(order.created_at)}
