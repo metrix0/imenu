@@ -114,3 +114,12 @@ quando a categoria for a 0 no cardapio, colocar um "primeira categoria: em desta
 https://search.google.com/search-console/index/drilldown?resource_id=sc-domain%3Aimenuapp.com.br&item_key=CAMYCyAC&hl=pt erro SEO pagina nao indexada
 
 PEDIDO MINIMO NAO ATUALIZA
+
+
+IA tentando pegar imagem do ifood? (just overwrite)
+
+texto do email de codigo zoado
+
+nao da pra scrollar pra cima nequanot carrega uma categoria ou item
+
+porra do tempo e taxa rafael mudou dn v

@@ -4,7 +4,7 @@ import {use, useEffect, useRef, useState} from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/database/supabaseClient";
 import {FontAwesomeIcon} from "@fortawesome/react-fontawesome";
-import { icons } from "@/lib/utils/fontawesome";
+import {icons} from "@/lib/utils/fontawesome";
 import {faPix, faWhatsappSquare} from "@fortawesome/free-brands-svg-icons"
 import ListLoader from "@/components/ui/ListLoader";
 import {formatPrice, promotionPrice} from "@/lib/utils/formatPrice"
@@ -245,9 +245,8 @@ export default function PedidoPage({
         pix: faPix,
         cartao: icons.faCreditCard,
         dinheiro: icons.faMoneyBill,
-        maquininha: icons.faPersonBiking
+        'trazer-maquininha': icons.faPersonBiking
     }
-
     const statusMap: Record<string, any> = {
         pending_online_payment: "Aguardando pagamento",
         pending_physical_payment: "Aguardando confirmação do restaurante",
