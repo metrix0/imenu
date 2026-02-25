@@ -27,6 +27,13 @@ type OrderDetail = Order & {
         quantity: number;
         price_cents: number;
         name: string;
+        observation: string | null;
+        order_item_subitems: Array<{
+            id: string;
+            name: string;
+            price_cents: number;
+            quantity: number;
+        }>;
     }>;
 };
 
@@ -54,14 +61,21 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
             const { data, error } = await supabase
                 .from("orders")
                 .select(`
-                    *,
-                    order_items (
-                        id,
-                        quantity,
-                        price_cents,
-                        name
-                    )
-                `)
+    *,
+    order_items (
+      id,
+      quantity,
+      price_cents,
+      name,
+      observation,
+      order_item_subitems (
+        id,
+        name,
+        price_cents,
+        quantity
+      )
+    )
+  `)
                 .eq("id", order.id)
                 .single();
 
@@ -103,6 +117,7 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
             setIsUpdating(false);
         }
     };
+
 
     const renderStatus = (status: string) => {
         const labels: Record<string, string> = {
@@ -231,19 +246,50 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
                                 </h4>
                                 <div className="bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">
                                     {details.order_items.map((item, idx) => (
-                                        <div key={item.id} className={`flex justify-between items-start p-3 ${idx !== details.order_items.length - 1 ? 'border-b border-gray-200' : ''}`}>
+                                        <div
+                                            key={item.id}
+                                            className={`flex justify-between items-start p-3 ${
+                                                idx !== details.order_items.length - 1 ? "border-b border-gray-200" : ""
+                                            }`}
+                                        >
                                             <div className="flex gap-3">
-                                                <span className="font-bold text-gray-900 w-6 text-right 2xl:text-lg">{item.quantity}x</span>
+      <span className="font-bold text-gray-900 w-6 text-right 2xl:text-lg">
+        {item.quantity}x
+      </span>
+
                                                 <div className="flex flex-col">
                                                     <span className="text-gray-800 font-medium 2xl:text-lg">{item.name}</span>
+
+                                                    {/* Observação */}
+                                                    {item.observation && item.observation.trim() !== "" && (
+                                                        <span className="mt-1 text-xs 2xl:text-sm text-gray-600 italic">
+            Obs: {item.observation}
+          </span>
+                                                    )}
+
+                                                    {/* Subitems */}
+                                                    {item.order_item_subitems?.length > 0 && (
+                                                        <div className="mt-2 space-y-1">
+                                                            {item.order_item_subitems.map((sub) => (
+                                                                <div key={sub.id} className="flex items-start justify-between gap-3">
+                <span className="text-xs 2xl:text-sm text-gray-600">
+                  • {sub.quantity}x {sub.name}
+                </span>
+                                                                    <span className="text-xs 2xl:text-sm text-gray-600 whitespace-nowrap">
+                  {fmtMoney(sub.price_cents * sub.quantity)}
+                </span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
+
                                             <span className="font-medium text-gray-700 2xl:text-lg">
-                                                {fmtMoney(item.price_cents * item.quantity)}
-                                            </span>
+      {fmtMoney(item.price_cents * item.quantity)}
+    </span>
                                         </div>
-                                    ))}
-                                </div>
+                                    ))}                                </div>
                             </div>
 
                             {/* Totais */}
