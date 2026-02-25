@@ -138,7 +138,7 @@ export default function DraggableModal({
                 onClick={(e) => e.stopPropagation()}
                 className={`fixed left-0 right-0 mx-auto bg-white rounded-t-xl overflow-hidden ${props.className ?? ""}`}
                 style={{
-                    height: `${height * 100}vh`,
+                    height: `${height * 100}svh`,
                     bottom: 0,
                     transform: `translateY(${translateY}px)`,
                     transition: animating ? "transform 0.25s ease-out" : "none",
