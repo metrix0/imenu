@@ -1,7 +1,7 @@
 // app/painel/page.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/database/supabaseClient"; // Ajustado para o seu import padrão
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore"; // Ajustado para o seu import padrão
 import Loader from "@/components/ui/Loader";
@@ -25,6 +25,15 @@ export default function PainelPedidosAtivosPage() {
     // Novo: Estado para detalhes do pedido
     const [selectedOrder, setSelectedOrder] = useState<any | null>(null); 
     const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+
+    const audioRef = useRef<HTMLAudioElement>(
+        typeof window !== "undefined" ? new Audio("/sounds/new-order.mp3") : (null as any)
+    );
+    if (audioRef.current) {
+        audioRef.current.preload = "auto";
+    }
+    const [soundEnabled, setSoundEnabled] = useState(false);
+    const knownOrderIdsRef = useRef<Set<string>>(new Set());
 
     // --- FETCH ORDERS ---
     const fetchOrders = async (restId: string) => {
@@ -141,7 +150,25 @@ export default function PainelPedidosAtivosPage() {
                     table: "orders",
                     filter: `restaurant_id=eq.${restaurantId}`
                 },
-                (payload) => {
+                async (payload) => {
+                    console.log("soundEnabled:", soundEnabled, "audioRef:", !!audioRef.current);
+                    if (payload.eventType === "INSERT") {
+                        const newId = String((payload.new as any)?.id);
+
+                        if (newId) {
+                            knownOrderIdsRef.current.add(newId);
+
+                            if (soundEnabled && audioRef.current) {
+                                try {
+                                    audioRef.current.currentTime = 0;
+                                    await audioRef.current.play();
+                                } catch (e) {
+                                    console.error("❌ audio play failed in realtime", e);
+                                }
+                            }
+                        }
+                    }
+
                     console.log("🔔 Atualização recebida:", payload);
                     fetchOrders(restaurantId);
                 }
@@ -151,8 +178,35 @@ export default function PainelPedidosAtivosPage() {
         return () => {
             supabase.removeChannel(channel);
         };
-    }, [restaurantId]);
+    }, [restaurantId, soundEnabled]);
 
+
+    useEffect(() => {
+        const enableSound = async () => {
+            if (!audioRef.current) return;
+
+            try {
+                await audioRef.current.play();
+                audioRef.current.pause();
+                audioRef.current.currentTime = 0;
+                setSoundEnabled(true);
+                console.log("🔓 Audio unlocked");
+            } catch (e) {
+                console.log("Still locked");
+            }
+        };
+
+        window.addEventListener("click", enableSound, { once: true });
+
+        return () => {
+            window.removeEventListener("click", enableSound);
+        };
+    }, []);
+    useEffect(() => {
+        // Keep a local set of what we've already seen
+        const set = knownOrderIdsRef.current;
+        for (const o of orders) set.add(String(o.id));
+    }, [orders]);
 
     if (isLoading) {
         return (
@@ -188,6 +242,27 @@ export default function PainelPedidosAtivosPage() {
                     Compartilhar Loja
                 </Button>
             </div>
+
+            {!soundEnabled && (
+                <div className="mb-4 p-4 bg-yellow-100 border border-warning rounded-lg">
+                    <button
+                        onClick={async () => {
+                            try {
+                                await audioRef.current?.play();
+                                audioRef.current?.pause();
+                                audioRef.current!.currentTime = 0;
+                                setSoundEnabled(true);
+                                console.log("🔓 Sound enabled");
+                            } catch (e) {
+                                console.error("Still blocked", e);
+                            }
+                        }}
+                        className="bg-black text-white px-4 py-2 rounded cursor-pointer"
+                    >
+                        🔊 Clique para Ativar o som dos pedidos
+                    </button>
+                </div>
+            )}
 
             {/* Grid de Pedidos */}
             {orders.length === 0 ? (
