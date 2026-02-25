@@ -40,28 +40,35 @@ export default function PainelPedidosAtivosPage() {
         const { data, error } = await supabase
             .from("orders")
             .select(`
-                *,
-                order_items (
-                    id,
-                    quantity,
-                    price_cents,
-                    name
-                )
-            `)
+      *,
+      order_items (
+        id,
+        item_id,
+        quantity,
+        price_cents,
+        name,
+        observation,
+        total_cents,
+        order_item_subitems (
+          id,
+          subitem_id,
+          name,
+          price_cents,
+          quantity
+        )
+      )
+    `)
             .eq("restaurant_id", restId)
-            // Filtra apenas pedidos ativos (fila de produção)
             .in("status", ["paid", "pending_physical_payment", "preparing", "delivering"])
-            .order("created_at", { ascending: false }); // Mais antigos primeiro (FIFO)
+            .order("created_at", { ascending: false });
 
         if (error) {
             console.error("Erro ao buscar pedidos:", error);
-        } else {
-            // Mapeamento para garantir compatibilidade com OrderCard se necessário
-            // Se o backend já retorna 'name' no order_items (como vimos no fix anterior), isso funciona direto.
-            setOrders(data as any[] || []);
+            return;
         }
-    };
 
+        setOrders((data as any[]) || []);
+    };
     // --- HELPER PARA TRATAR FIRST TIME ---
     const handleFirstTime = async (restId: string, isFirstTime: boolean) => {
         if (isFirstTime) {
