@@ -244,7 +244,7 @@ export default function PainelPedidosAtivosPage() {
             </div>
 
             {!soundEnabled && (
-                <div className="mb-4 p-4 bg-yellow-100 border border-yellow-300 rounded-lg">
+                <div className="mb-4 p-4 bg-yellow-100 border border-warning rounded-lg">
                     <button
                         onClick={async () => {
                             try {
