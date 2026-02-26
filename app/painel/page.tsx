@@ -189,6 +189,32 @@ export default function PainelPedidosAtivosPage() {
         };
     }, [restaurantId, soundEnabled]);
 
+    useEffect(() => {
+        const enableSound = async () => {
+            if (!audioRef.current) return;
+
+            try {
+                await audioRef.current.play();
+                audioRef.current.pause();
+                audioRef.current.currentTime = 0;
+                setSoundEnabled(true);
+                console.log("🔓 Audio unlocked");
+            } catch (e) {
+                console.log("Still locked");
+            }
+        };
+
+        window.addEventListener("click", enableSound, { once: true });
+
+        return () => {
+            window.removeEventListener("click", enableSound);
+        };
+    }, []);
+    useEffect(() => {
+        // Keep a local set of what we've already seen
+        const set = knownOrderIdsRef.current;
+        for (const o of orders) set.add(String(o.id));
+    }, [orders]);
 
     useEffect(() => {
         const enableSound = async () => {
