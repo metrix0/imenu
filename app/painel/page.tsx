@@ -7,7 +7,7 @@ import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore"; 
 import Loader from "@/components/ui/Loader";
 import Button from "@/components/ui/Button";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faShareAlt } from "@fortawesome/free-solid-svg-icons";
+import { faShareAlt, faVolumeHigh } from "@fortawesome/free-solid-svg-icons";
 
 import OrderCard, { OrderData } from "@/components/restaurant-owner/OrderCard"; // Ajustado imports
 import ShareMenuModal from "@/components/restaurant-owner/ShareMenuModal";
@@ -87,6 +87,8 @@ export default function PainelPedidosAtivosPage() {
         setSelectedOrder(order);
         setIsDetailsOpen(true);
     };
+
+
 
     // --- INIT ---
     useEffect(() => {
@@ -249,31 +251,50 @@ export default function PainelPedidosAtivosPage() {
                     Compartilhar Loja
                 </Button>
             </div>
-
-            {!soundEnabled && (
-                <div className="mb-4 p-4 bg-yellow-100 border border-warning rounded-lg">
-                    <button
+            <div className={`delay-600 duration-300
+                ${soundEnabled
+                ? "max-h-0"
+                : "max-h-40"}
+                `}>
+                <div className={` delay-600 duration-300
+                    ${soundEnabled
+                    ? "opacity-0 -translate-y-2"
+                    : "opacity-100 translate-y-0"}
+                    `}>
+                    <div
+                        className={`
+        p-4 cursor-pointer w-fit px-8 rounded-2xl mt-10 mb-6
+        duration-300 ease-in-out 
+        ${soundEnabled
+                            ? "bg-green/10 text-green-800"
+                            : "bg-warning-bg text-warning"}
+      `}
                         onClick={async () => {
-                            try {
-                                await audioRef.current?.play();
-                                audioRef.current?.pause();
-                                audioRef.current!.currentTime = 0;
-                                setSoundEnabled(true);
-                                console.log("🔓 Sound enabled");
-                            } catch (e) {
-                                console.error("Still blocked", e);
-                            }
-                        }}
-                        className="bg-black text-white px-4 py-2 rounded cursor-pointer"
-                    >
-                        🔊 Clique para Ativar o som dos pedidos
-                    </button>
-                </div>
-            )}
+                             try {
+                                 await audioRef.current?.play();
+                                 audioRef.current?.pause();
+                                 audioRef.current!.currentTime = 0;
+                                 setSoundEnabled(true);
+                                 console.log("🔓 Sound enabled");
+                             } catch (e) {
+                                 console.error("Still blocked", e);
+                             }
+                         }}>
 
+                        {soundEnabled ? (
+                            <><FontAwesomeIcon icon={faVolumeHigh} className="mr-2" /> Som ativado!</>
+                        ) : (
+                            <>
+                                <FontAwesomeIcon icon={faVolumeHigh} className="mr-2" />
+                                Clique para Ativar o <b>som dos pedidos</b>.
+                            </>
+                        )}
+                    </div>
+                </div>
+            </div>
             {/* Grid de Pedidos */}
             {orders.length === 0 ? (
-                <div className="text-center flex flex-col items-center py-20 2xl:py-30 bg-white rounded-xl border border-dashed border-gray-300">
+                <div className="truncate text-center flex flex-col items-center py-20 2xl:py-30 bg-white rounded-xl border border-dashed border-gray-300">
                     <div className="h-25 w-25 2xl:h-30 2xl:w-30 mb-4 ">
                         <img src={"images/sleeping_emoji.png"} alt="Sem pedidos" className="h-full w-full object-contain" />
                     </div>
