@@ -19,6 +19,8 @@ type Props = {
     deliveryTax: { lowest: number; highest: number  };
     deliveryTime: { lowest: number; highest: number  };
     onAdd?: () => void;
+    trackMeta?: (slug: string, eventName: string, data: Record<string, any>) => void;
+    slug?: string;
 };
 
 export default function ItemModal({
@@ -29,7 +31,7 @@ export default function ItemModal({
                                       onClose,
                                         deliveryTax,
                                       deliveryTime,
-    onAdd,
+    onAdd, trackMeta, slug
                                   }: Props) {
     const [qty, setQty] = useState(1);
     const [observation, setObservation] = useState("");
@@ -170,6 +172,14 @@ export default function ItemModal({
             selectedSubitems,
             promotion: item.promotion ?? undefined
         });
+
+        if (trackMeta && slug) {
+            trackMeta(slug, "AddToCart", {
+                content_ids: [item.id],
+                value: item.price_cents / 100,
+                currency: "BRL",
+            });
+        }
 
         if (onAdd) {
             closeWithAnimation();

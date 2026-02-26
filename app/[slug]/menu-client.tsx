@@ -71,6 +71,31 @@ export default function MenuClientPage({
     const [couponUsed, setCouponUsed] = useState("");
     const isItemModalOpen = Boolean(openedItem);
 
+    function trackMeta(slug: string, eventName: string, customData?: any) {
+        const eventID =
+            crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
+
+        // Browser Pixel
+        const fbq = (window as any).fbq;
+        if (typeof fbq === "function") {
+            fbq("track", eventName, customData ?? {}, { eventID });
+        }
+
+        // Server CAPI
+        fetch("/api/meta", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+                slug,
+                event_name: eventName,
+                event_id: eventID,
+                custom_data: customData ?? {},
+                fbp: document.cookie.match(/_fbp=([^;]+)/)?.[1],
+                fbc: document.cookie.match(/_fbc=([^;]+)/)?.[1],
+            }),
+        }).catch(() => {});
+    }
+
     useEffect(() => {
         const shouldLockScroll = cartOpen || isItemModalOpen;
 
@@ -955,6 +980,8 @@ export default function MenuClientPage({
                     onClose={() => setOpenedItem(null)}
                     deliveryTax={deliveryTax}
                     deliveryTime={deliveryTime}
+                    trackMeta={trackMeta}
+                    slug={slug}
                 />
             )}
 
@@ -981,6 +1008,8 @@ export default function MenuClientPage({
                     setCartOpenAction={setCartOpen}
                     restaurant={restaurant}
                     closeItemModalOpen={() => setOpenedItem(null)}
+                    trackMeta={trackMeta}
+                    slug={slug}
                 />
             )}
 
@@ -995,6 +1024,7 @@ export default function MenuClientPage({
                     step={cartStep}
                     setStep={setCartStep}
                     selectedCouponCode={selectedCouponCode}
+
 
                     onSelectItem={(item: Item) => {
                         // 1️⃣ close cart
