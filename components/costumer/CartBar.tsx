@@ -22,7 +22,7 @@ export default function CartBar({
     setCartOpenAction: React.Dispatch<React.SetStateAction<boolean>>;
     closeItemModalOpen: () => void;
     trackMeta?: (slug: string, eventName: string, customData: Record<string, any>) => void;
-    slug: string;
+    slug?: string;
 }) {
     const items = useCartStore((s) => s.items);
 
@@ -202,12 +202,15 @@ export default function CartBar({
         const total_cents =
             subtotal_cents + delivery_fee_cents - discount_cents;
 
-        trackMeta?.(slug, "Purchase", {
-            content_ids: cart.items.map(i => i.id),
-            content_type: "product",
-            value: total_cents / 100,
-            currency: "BRL"
-        });
+        if (trackMeta && slug) {
+            trackMeta?.(slug, "Purchase", {
+                content_ids: cart.items.map(i => i.id),
+                content_type: "product",
+                value: total_cents / 100,
+                currency: "BRL"
+            });
+        }
+
 
         const body = {
             restaurantId: checkout.restaurantId,

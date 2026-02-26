@@ -20,7 +20,7 @@ type Props = {
     deliveryTime: { lowest: number; highest: number  };
     onAdd?: () => void;
     trackMeta?: (slug: string, eventName: string, data: Record<string, any>) => void;
-    slug: string;
+    slug?: string;
 };
 
 export default function ItemModal({
@@ -173,7 +173,7 @@ export default function ItemModal({
             promotion: item.promotion ?? undefined
         });
 
-        if (trackMeta) {
+        if (trackMeta && slug) {
             trackMeta(slug, "AddToCart", {
                 content_ids: [item.id],
                 value: item.price_cents / 100,
