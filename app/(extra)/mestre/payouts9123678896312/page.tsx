@@ -113,6 +113,11 @@ export default function AdminPayoutsPage() {
             currency: "BRL",
         });
 
+    const totalToPayAll = restaurants.reduce(
+        (acc, r) => acc + r.value_to_pay_cents,
+        0
+    );
+
     if (loading) {
         return (
             <div className="flex justify-center items-center h-64">
@@ -127,6 +132,13 @@ export default function AdminPayoutsPage() {
 
             <div className={"mb-8 text-2xl font-bold text-red-600 text-center"}>
                 <FontAwesomeIcon icon={icons.faLock}/> ANALISAR PAGAMENTOS CANCELADOS ANTES E DELETAR OS PEDIDOS.
+            </div>
+
+            <div className="mb-6 p-6 bg-green-50 border border-green-200 rounded-xl text-center">
+                <p className="text-sm text-gray-500">TOTAL A PAGAR (GERAL)</p>
+                <p className="text-3xl font-bold text-green-700">
+                    {formatMoney(totalToPayAll)}
+                </p>
             </div>
 
             <div className="grid gap-6">

@@ -141,8 +141,18 @@ export default function CartBar({
         }
 
         if (step === "checkout") {
-            await createOrder();
+            if (isContinueBlocked) return;   // guard
+
+            useCheckoutStore.setState({ isContinueBlocked: true });
+
+            try {
+                await createOrder();
+            } finally {
+            }
         }
+
+
+
     }
 
     function showCartWarning(show: boolean) {
