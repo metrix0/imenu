@@ -123,3 +123,10 @@ texto do email de codigo zoado
 nao da pra scrollar pra cima nequanot carrega uma categoria ou item
 
 porra do tempo e taxa rafael mudou dn v
+
+
+
+Adicionar 20R$ quando promo = 18 bug
+
+
+a porra da opção do cartão ta bugada. *obs ja desativei, mas bro

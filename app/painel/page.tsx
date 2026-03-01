@@ -161,13 +161,23 @@ export default function PainelPedidosAtivosPage() {
                 },
                 async (payload) => {
                     console.log("soundEnabled:", soundEnabled, "audioRef:", !!audioRef.current);
+                    console.log("STATUS DEBUG:", status);
+
+                    const isRelevantStatus = (status: string) =>
+                        status === "paid" || status === "pending_physical_payment";
+
                     if (payload.eventType === "INSERT") {
-                        const newId = String((payload.new as any)?.id);
+                        const newOrder = payload.new as any;
+                        const newId = String(newOrder?.id);
+                        const status = newOrder?.status;
+
+                        const shouldPlaySound = isRelevantStatus(status);
 
                         if (newId) {
-                            knownOrderIdsRef.current.add(newId);
+                            const alreadySeen = knownOrderIdsRef.current.has(newId);
 
-                            if (soundEnabled && audioRef.current) {
+                            // 👇 only play if it's NEW and relevant
+                            if (!alreadySeen && shouldPlaySound && soundEnabled && audioRef.current) {
                                 try {
                                     audioRef.current.currentTime = 0;
                                     await audioRef.current.play();
@@ -175,13 +185,39 @@ export default function PainelPedidosAtivosPage() {
                                     console.error("❌ audio play failed in realtime", e);
                                 }
                             }
+
+                            knownOrderIdsRef.current.add(newId);
+                        }
+                    }
+
+                    else if (payload.eventType === "UPDATE") {
+                        const updated = payload.new as any;
+                        const id = String(updated?.id);
+
+                        const isRelevant =
+                            updated.status === "paid" ||
+                            updated.status === "pending_physical_payment";
+
+                        const alreadySeen = knownOrderIdsRef.current.has(id);
+
+                        if (isRelevant && !alreadySeen && soundEnabled && audioRef.current) {
+                            try {
+                                audioRef.current.currentTime = 0;
+                                await audioRef.current.play();
+                            } catch (e) {
+                                console.error("❌ audio play failed on update", e);
+                            }
+                        }
+
+                        if (id) {
+                            knownOrderIdsRef.current.add(id);
                         }
                     }
 
                     console.log("🔔 Atualização recebida:", payload);
                     fetchOrders(restaurantId);
                 }
-            )
+                )
             .subscribe();
 
         return () => {
