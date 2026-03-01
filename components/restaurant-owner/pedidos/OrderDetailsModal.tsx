@@ -129,8 +129,8 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
             done: "Concluído",
             canceled: "Cancelado",
             dinheiro: "Dinheiro",
-            cartao: "Cartão",
-            pix: "Pix",
+            cartao: "Cartão (Online)",
+            pix: "Pix (Online)",
             "trazer-maquininha": "Trazer Maquininha",
         };
         const colors: Record<string, string> = {
@@ -186,6 +186,7 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
                 return null;
         }
     };
+    console.log(order)
 
     return (
         <Modal open={isOpen} onClose={onClose}>

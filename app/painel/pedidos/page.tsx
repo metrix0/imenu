@@ -68,14 +68,15 @@ export default function PedidosPage() {
         try {
             let query = supabase
                 .from("orders")
-                .select("id, display_id, created_at, customer_name, status, total_cents", { count: 'exact' })
+                .select("id, display_id, created_at, customer_name, status, payment_method, total_cents", { count: 'exact' })
                 .eq("restaurant_id", restId)
+                .neq("status", "pending_online_payment")
                 .order("created_at", { ascending: false })
                 .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
 
             // Filtro por Aba
             if (activeTab === "Em aberto") {
-                query = query.in("status", ["pending_online_payment", "paid", "pending_physical_payment", "preparing", "delivering"]);
+                query = query.in("status", ["paid", "pending_physical_payment", "preparing", "delivering"]);
             } else if (activeTab === "Concluídos") {
                 query = query.eq("status", "done");
             } else if (activeTab === "Cancelados") {

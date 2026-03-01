@@ -148,6 +148,9 @@ export default function CartBar({
             try {
                 await createOrder();
             } finally {
+                setTimeout(() => {
+                    useCheckoutStore.setState({ isContinueBlocked: false });
+                },6000)
             }
         }
 
