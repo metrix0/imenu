@@ -12,6 +12,7 @@ dist
 out
 .vscode/
 .idea/
+.dev/IMPRESSORA-IMENU
 /Backup.rar
 
 # Sentry Config File

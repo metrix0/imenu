@@ -6,6 +6,7 @@ import Card from "@/components/ui/Card";
 import ListLoader from "@/components/ui/ListLoader";
 
 export type Order = {
+    payment_method: "dinheiro" | "cartao" | "pix" | "trazer-maquininha";
     id: string;
     display_id: number;
     created_at: string;

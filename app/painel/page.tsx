@@ -1,13 +1,13 @@
 // app/painel/page.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/database/supabaseClient"; // Ajustado para o seu import padrão
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore"; // Ajustado para o seu import padrão
 import Loader from "@/components/ui/Loader";
 import Button from "@/components/ui/Button";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faShareAlt } from "@fortawesome/free-solid-svg-icons";
+import { faShareAlt, faVolumeHigh } from "@fortawesome/free-solid-svg-icons";
 
 import OrderCard, { OrderData } from "@/components/restaurant-owner/OrderCard"; // Ajustado imports
 import ShareMenuModal from "@/components/restaurant-owner/ShareMenuModal";
@@ -26,33 +26,49 @@ export default function PainelPedidosAtivosPage() {
     const [selectedOrder, setSelectedOrder] = useState<any | null>(null); 
     const [isDetailsOpen, setIsDetailsOpen] = useState(false);
 
+    const audioRef = useRef<HTMLAudioElement>(
+        typeof window !== "undefined" ? new Audio("/sounds/new-order.mp3") : (null as any)
+    );
+    if (audioRef.current) {
+        audioRef.current.preload = "auto";
+    }
+    const [soundEnabled, setSoundEnabled] = useState(false);
+    const knownOrderIdsRef = useRef<Set<string>>(new Set());
+
     // --- FETCH ORDERS ---
     const fetchOrders = async (restId: string) => {
         const { data, error } = await supabase
             .from("orders")
             .select(`
-                *,
-                order_items (
-                    id,
-                    quantity,
-                    price_cents,
-                    name
-                )
-            `)
+      *,
+      order_items (
+        id,
+        item_id,
+        quantity,
+        price_cents,
+        name,
+        observation,
+        total_cents,
+        order_item_subitems (
+          id,
+          subitem_id,
+          name,
+          price_cents,
+          quantity
+        )
+      )
+    `)
             .eq("restaurant_id", restId)
-            // Filtra apenas pedidos ativos (fila de produção)
             .in("status", ["paid", "pending_physical_payment", "preparing", "delivering"])
-            .order("created_at", { ascending: false }); // Mais antigos primeiro (FIFO)
+            .order("created_at", { ascending: false });
 
         if (error) {
             console.error("Erro ao buscar pedidos:", error);
-        } else {
-            // Mapeamento para garantir compatibilidade com OrderCard se necessário
-            // Se o backend já retorna 'name' no order_items (como vimos no fix anterior), isso funciona direto.
-            setOrders(data as any[] || []);
+            return;
         }
-    };
 
+        setOrders((data as any[]) || []);
+    };
     // --- HELPER PARA TRATAR FIRST TIME ---
     const handleFirstTime = async (restId: string, isFirstTime: boolean) => {
         if (isFirstTime) {
@@ -71,6 +87,8 @@ export default function PainelPedidosAtivosPage() {
         setSelectedOrder(order);
         setIsDetailsOpen(true);
     };
+
+
 
     // --- INIT ---
     useEffect(() => {
@@ -141,18 +159,125 @@ export default function PainelPedidosAtivosPage() {
                     table: "orders",
                     filter: `restaurant_id=eq.${restaurantId}`
                 },
-                (payload) => {
+                async (payload) => {
+                    console.log("soundEnabled:", soundEnabled, "audioRef:", !!audioRef.current);
+                    console.log("STATUS DEBUG:", status);
+
+                    const isRelevantStatus = (status: string) =>
+                        status === "paid" || status === "pending_physical_payment";
+
+                    if (payload.eventType === "INSERT") {
+                        const newOrder = payload.new as any;
+                        const newId = String(newOrder?.id);
+                        const status = newOrder?.status;
+
+                        const shouldPlaySound = isRelevantStatus(status);
+
+                        if (newId) {
+                            const alreadySeen = knownOrderIdsRef.current.has(newId);
+
+                            // 👇 only play if it's NEW and relevant
+                            if (!alreadySeen && shouldPlaySound && soundEnabled && audioRef.current) {
+                                try {
+                                    audioRef.current.currentTime = 0;
+                                    await audioRef.current.play();
+                                } catch (e) {
+                                    console.error("❌ audio play failed in realtime", e);
+                                }
+                            }
+
+                            knownOrderIdsRef.current.add(newId);
+                        }
+                    }
+
+                    else if (payload.eventType === "UPDATE") {
+                        const updated = payload.new as any;
+                        const id = String(updated?.id);
+
+                        const isRelevant =
+                            updated.status === "paid" ||
+                            updated.status === "pending_physical_payment";
+
+                        const alreadySeen = knownOrderIdsRef.current.has(id);
+
+                        if (isRelevant && !alreadySeen && soundEnabled && audioRef.current) {
+                            try {
+                                audioRef.current.currentTime = 0;
+                                await audioRef.current.play();
+                            } catch (e) {
+                                console.error("❌ audio play failed on update", e);
+                            }
+                        }
+
+                        if (id) {
+                            knownOrderIdsRef.current.add(id);
+                        }
+                    }
+
                     console.log("🔔 Atualização recebida:", payload);
                     fetchOrders(restaurantId);
                 }
-            )
+                )
             .subscribe();
 
         return () => {
             supabase.removeChannel(channel);
         };
-    }, [restaurantId]);
+    }, [restaurantId, soundEnabled]);
 
+    useEffect(() => {
+        const enableSound = async () => {
+            if (!audioRef.current) return;
+
+            try {
+                await audioRef.current.play();
+                audioRef.current.pause();
+                audioRef.current.currentTime = 0;
+                setSoundEnabled(true);
+                console.log("🔓 Audio unlocked");
+            } catch (e) {
+                console.log("Still locked");
+            }
+        };
+
+        window.addEventListener("click", enableSound, { once: true });
+
+        return () => {
+            window.removeEventListener("click", enableSound);
+        };
+    }, []);
+    useEffect(() => {
+        // Keep a local set of what we've already seen
+        const set = knownOrderIdsRef.current;
+        for (const o of orders) set.add(String(o.id));
+    }, [orders]);
+
+    useEffect(() => {
+        const enableSound = async () => {
+            if (!audioRef.current) return;
+
+            try {
+                await audioRef.current.play();
+                audioRef.current.pause();
+                audioRef.current.currentTime = 0;
+                setSoundEnabled(true);
+                console.log("🔓 Audio unlocked");
+            } catch (e) {
+                console.log("Still locked");
+            }
+        };
+
+        window.addEventListener("click", enableSound, { once: true });
+
+        return () => {
+            window.removeEventListener("click", enableSound);
+        };
+    }, []);
+    useEffect(() => {
+        // Keep a local set of what we've already seen
+        const set = knownOrderIdsRef.current;
+        for (const o of orders) set.add(String(o.id));
+    }, [orders]);
 
     if (isLoading) {
         return (
@@ -188,10 +313,50 @@ export default function PainelPedidosAtivosPage() {
                     Compartilhar Loja
                 </Button>
             </div>
+            <div className={`delay-600 duration-300
+                ${soundEnabled
+                ? "max-h-0"
+                : "max-h-40"}
+                `}>
+                <div className={` delay-600 duration-300
+                    ${soundEnabled
+                    ? "opacity-0 -translate-y-2"
+                    : "opacity-100 translate-y-0"}
+                    `}>
+                    <div
+                        className={`
+        p-4 cursor-pointer w-fit px-8 rounded-2xl mt-10 mb-6
+        duration-300 ease-in-out 
+        ${soundEnabled
+                            ? "bg-green/10 text-green-800"
+                            : "bg-warning-bg text-warning"}
+      `}
+                        onClick={async () => {
+                             try {
+                                 await audioRef.current?.play();
+                                 audioRef.current?.pause();
+                                 audioRef.current!.currentTime = 0;
+                                 setSoundEnabled(true);
+                                 console.log("🔓 Sound enabled");
+                             } catch (e) {
+                                 console.error("Still blocked", e);
+                             }
+                         }}>
 
+                        {soundEnabled ? (
+                            <><FontAwesomeIcon icon={faVolumeHigh} className="mr-2" /> Som ativado!</>
+                        ) : (
+                            <>
+                                <FontAwesomeIcon icon={faVolumeHigh} className="mr-2" />
+                                Clique para Ativar o <b>som dos pedidos</b>.
+                            </>
+                        )}
+                    </div>
+                </div>
+            </div>
             {/* Grid de Pedidos */}
             {orders.length === 0 ? (
-                <div className="text-center flex flex-col items-center py-20 2xl:py-30 bg-white rounded-xl border border-dashed border-gray-300">
+                <div className="truncate text-center flex flex-col items-center py-20 2xl:py-30 bg-white rounded-xl border border-dashed border-gray-300">
                     <div className="h-25 w-25 2xl:h-30 2xl:w-30 mb-4 ">
                         <img src={"images/sleeping_emoji.png"} alt="Sem pedidos" className="h-full w-full object-contain" />
                     </div>

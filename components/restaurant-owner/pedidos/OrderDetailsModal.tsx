@@ -27,6 +27,13 @@ type OrderDetail = Order & {
         quantity: number;
         price_cents: number;
         name: string;
+        observation: string | null;
+        order_item_subitems: Array<{
+            id: string;
+            name: string;
+            price_cents: number;
+            quantity: number;
+        }>;
     }>;
 };
 
@@ -54,14 +61,21 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
             const { data, error } = await supabase
                 .from("orders")
                 .select(`
-                    *,
-                    order_items (
-                        id,
-                        quantity,
-                        price_cents,
-                        name
-                    )
-                `)
+    *,
+    order_items (
+      id,
+      quantity,
+      price_cents,
+      name,
+      observation,
+      order_item_subitems (
+        id,
+        name,
+        price_cents,
+        quantity
+      )
+    )
+  `)
                 .eq("id", order.id)
                 .single();
 
@@ -104,6 +118,7 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
         }
     };
 
+
     const renderStatus = (status: string) => {
         const labels: Record<string, string> = {
             pending_online_payment: "À Pagar",
@@ -113,6 +128,10 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
             delivering: "Em Rota",
             done: "Concluído",
             canceled: "Cancelado",
+            dinheiro: "Dinheiro",
+            cartao: "Cartão (Online)",
+            pix: "Pix (Online)",
+            "trazer-maquininha": "Trazer Maquininha",
         };
         const colors: Record<string, string> = {
             pending_online_payment: "bg-yellow-100 text-yellow-800",
@@ -121,7 +140,11 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
             preparing: "bg-blue-100 text-blue-800 border-blue-200",
             delivering: "bg-purple-100 text-purple-800",
             done: "bg-green-100 text-green-800 border-green-200",
-            canceled: "bg-red-100 text-red-800 border-red-200",
+            canceled: "bg-red-200 text-red-800 border-red-200",
+            dinheiro: "bg-gray-200 text-gray-800",
+            cartao: "bg-gray-200 text-gray-800",
+            pix: "bg-gray-200 text-gray-800",
+            "trazer-maquininha": "bg-gray-200 text-gray-800",
         };
         return (
             <span className={`2xl:text-base 2xl:px-3 px-2.5 py-0.5 rounded-full text-xs font-medium ${colors[status] || "bg-gray-100"}`}>
@@ -163,6 +186,7 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
                 return null;
         }
     };
+    console.log(order)
 
     return (
         <Modal open={isOpen} onClose={onClose}>
@@ -175,6 +199,7 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
                                 Pedido #{order?.display_id}
                             </h2>
                             {(details || order) && renderStatus(details?.status || order!.status)}
+                            {order && (renderStatus(order.payment_method))}
                         </div>
                         <p className="text-xs text-gray-500 flex items-center gap-1 2xl:text-base">
                             <FontAwesomeIcon icon={faClock} /> Realizado em {order && fmtDate(order.created_at)}
@@ -231,19 +256,50 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
                                 </h4>
                                 <div className="bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">
                                     {details.order_items.map((item, idx) => (
-                                        <div key={item.id} className={`flex justify-between items-start p-3 ${idx !== details.order_items.length - 1 ? 'border-b border-gray-200' : ''}`}>
+                                        <div
+                                            key={item.id}
+                                            className={`flex justify-between items-start p-3 ${
+                                                idx !== details.order_items.length - 1 ? "border-b border-gray-200" : ""
+                                            }`}
+                                        >
                                             <div className="flex gap-3">
-                                                <span className="font-bold text-gray-900 w-6 text-right 2xl:text-lg">{item.quantity}x</span>
+      <span className="font-bold text-gray-900 w-6 text-right 2xl:text-lg">
+        {item.quantity}x
+      </span>
+
                                                 <div className="flex flex-col">
                                                     <span className="text-gray-800 font-medium 2xl:text-lg">{item.name}</span>
+
+                                                    {/* Observação */}
+                                                    {item.observation && item.observation.trim() !== "" && (
+                                                        <span className="mt-1 text-xs 2xl:text-sm text-gray-600 italic">
+            Obs: {item.observation}
+          </span>
+                                                    )}
+
+                                                    {/* Subitems */}
+                                                    {item.order_item_subitems?.length > 0 && (
+                                                        <div className="mt-2 space-y-1">
+                                                            {item.order_item_subitems.map((sub) => (
+                                                                <div key={sub.id} className="flex items-start justify-between gap-3">
+                <span className="text-xs 2xl:text-sm text-gray-600">
+                  • {sub.quantity}x {sub.name}
+                </span>
+                                                                    <span className="text-xs 2xl:text-sm text-gray-600 whitespace-nowrap">
+                  {fmtMoney(sub.price_cents * sub.quantity)}
+                </span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
+
                                             <span className="font-medium text-gray-700 2xl:text-lg">
-                                                {fmtMoney(item.price_cents * item.quantity)}
-                                            </span>
+      {fmtMoney(item.price_cents * item.quantity)}
+    </span>
                                         </div>
-                                    ))}
-                                </div>
+                                    ))}                                </div>
                             </div>
 
                             {/* Totais */}

@@ -783,7 +783,7 @@ export default function CartModal({
                                 Pix
                             </button>
 
-                            <button
+{/*                            <button
                                 className={`border cursor-pointer p-3 rounded-xl duration-200 text-left flex items-center gap-3 ${
                                     pagamento === "cartao"
                                         ? "border-brand"
@@ -793,7 +793,7 @@ export default function CartModal({
                             >
                                 <FontAwesomeIcon icon={icons.faCreditCard} />
                                 Cartão de crédito
-                            </button>
+                            </button>*/}
                             <button
                                 className={`border cursor-pointer p-3 rounded-xl duration-200 text-left flex items-center gap-3 ${
                                     pagamento === "dinheiro"
