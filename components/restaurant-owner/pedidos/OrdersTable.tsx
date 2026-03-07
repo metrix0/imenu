@@ -93,8 +93,8 @@ export default function OrdersTable({ orders, isLoading, onViewOrder }: OrdersTa
                                 <div className="col-span-2 font-medium">
                                     {fmtMoney(order.total_cents)}
                                 </div>
-                                <div className="col-span-2">
-                                    {getStatusBadge(order.status)}
+                                <div className="col-span-2 ">
+                                    <span className={"truncate"}>{getStatusBadge(order.status)}</span>
                                 </div>
                                 <div className="col-span-1 text-right">
                                     <button 

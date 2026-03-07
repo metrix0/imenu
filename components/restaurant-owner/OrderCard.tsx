@@ -202,7 +202,7 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
                             {config.label}
                         </span>
                         {isPgtEntrega && (
-                            <span className={`text-xs -ml-1 px-2 py-0.5 rounded-full font-medium 2xl:text-base 2xl:px-3 2xl:py-1 color-gray-500 bg-gray-200`}>
+                            <span className={`truncate text-xs -ml-1 px-2 py-0.5 rounded-full font-medium 2xl:text-base 2xl:px-3 2xl:py-1 color-gray-500 bg-gray-200`}>
                             Pgt. Entrega
                         </span>
                         )}
