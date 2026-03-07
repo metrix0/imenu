@@ -7,11 +7,11 @@ import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore"; 
 import Loader from "@/components/ui/Loader";
 import Button from "@/components/ui/Button";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faShareAlt, faVolumeHigh } from "@fortawesome/free-solid-svg-icons";
-
+import { faShareAlt, faVolumeHigh, faPlus } from "@fortawesome/free-solid-svg-icons";
 import OrderCard, { OrderData } from "@/components/restaurant-owner/OrderCard"; // Ajustado imports
 import ShareMenuModal from "@/components/restaurant-owner/ShareMenuModal";
 import OrderDetailsModal from "@/components/restaurant-owner/pedidos/OrderDetailsModal";
+import CreatePanelOrderModal from "@/components/restaurant-owner/CreatePanelOrderModal";
 
 export default function PainelPedidosAtivosPage() {
     const [isLoading, setIsLoading] = useState(true);
@@ -34,6 +34,7 @@ export default function PainelPedidosAtivosPage() {
     }
     const [soundEnabled, setSoundEnabled] = useState(false);
     const knownOrderIdsRef = useRef<Set<string>>(new Set());
+    const [isCreateOrderOpen, setIsCreateOrderOpen] = useState(false);
 
     // --- FETCH ORDERS ---
     const fetchOrders = async (restId: string) => {
@@ -305,13 +306,25 @@ export default function PainelPedidosAtivosPage() {
                     <p className="text-gray-500 mt-1 2xl:text-lg 2xl:mt-2">Acompanhe a fila de produção em tempo real.</p>
                 </div>
 
-                <Button
-                    onClick={() => setIsShareModalOpen(true)}
-                    className="bg-brand text-white border-transparent hover:opacity-90 shadow-sm"
-                >
-                    <FontAwesomeIcon icon={faShareAlt} className="mr-2" />
-                    Compartilhar Loja
-                </Button>
+                <div className="flex flex-col sm:flex-row gap-3">
+                    <Button
+                        onClick={() => setIsCreateOrderOpen(true)}
+                        className=""
+                        variant={"primary"}
+                    >
+                        <FontAwesomeIcon icon={faPlus} className="mr-2" />
+                        Adicionar Pedido
+                    </Button>
+
+                    <Button
+                        onClick={() => setIsShareModalOpen(true)}
+                        className="bg-gray-200 hover:bg-gray-300 text-gray-800 focus:ring-gray-300"
+                        variant={"secondary"}
+                    >
+                        <FontAwesomeIcon icon={faShareAlt} className="mr-2" />
+                        Compartilhar Loja
+                    </Button>
+                </div>
             </div>
             <div className={`delay-600 duration-300
                 ${soundEnabled
@@ -391,6 +404,16 @@ export default function PainelPedidosAtivosPage() {
                     order={selectedOrder}
                 />
             )}
+
+            <CreatePanelOrderModal
+                isOpen={isCreateOrderOpen}
+                onClose={() => setIsCreateOrderOpen(false)}
+                restaurantId={restaurantId}
+                onCreated={async () => {
+                    await fetchOrders(restaurantId);
+                    setIsCreateOrderOpen(false);
+                }}
+            />
         </div>
     );
 }
