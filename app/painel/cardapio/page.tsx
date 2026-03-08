@@ -25,7 +25,7 @@ type Category = { id: string; name: string; position: number };
 const TABS = ["Cardápio", "Produtos", "Complemento", "Upsells", "Promoções e Cupons", "Estoque"];
 
 export default function MenuManagerPage() {
-    // 1. Usa Zustand para ID imediato
+    // 1. Usa Zustand para ID imediato /
     const { restaurantId, setRestaurantId } = useCreationStore();
     
     const [activeTab, setActiveTab] = useState("Cardápio");
