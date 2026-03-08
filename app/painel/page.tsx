@@ -321,8 +321,7 @@ export default function PainelPedidosAtivosPage() {
                         className="bg-gray-200 hover:bg-gray-300 text-gray-800 focus:ring-gray-300"
                         variant={"secondary"}
                     >
-                        <FontAwesomeIcon icon={faShareAlt} className="mr-2" />
-                        Compartilhar Loja
+                        <FontAwesomeIcon icon={faShareAlt} className="" />
                     </Button>
                 </div>
             </div>

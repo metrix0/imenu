@@ -18,14 +18,14 @@ import ManageCategoryModal from "@/components/restaurant-owner/cardapio/ManageCa
 import ItemDetailsModal from "@/components/restaurant-owner/cardapio/ItemDetailsModal";
 import { MenuItemType } from "@/components/restaurant-owner/cardapio/MenuItemRow";
 import { useRouter } from "next/navigation";
-
+import EstoqueTab from "@/components/restaurant-owner/cardapio/tabs/EstoqueTabs";
 
 type Category = { id: string; name: string; position: number };
 
-const TABS = ["Cardápio", "Produtos", "Complemento", "Upsells", "Promoções e Cupons"];
+const TABS = ["Cardápio", "Produtos", "Complemento", "Upsells", "Promoções e Cupons", "Estoque"];
 
 export default function MenuManagerPage() {
-    // 1. Usa Zustand para ID imediato
+    // 1. Usa Zustand para ID imediato /
     const { restaurantId, setRestaurantId } = useCreationStore();
     
     const [activeTab, setActiveTab] = useState("Cardápio");
@@ -187,6 +187,17 @@ export default function MenuManagerPage() {
                      <UpsellTab
                          restaurantId={restaurantId}
                          items={items}
+                     />
+                 )}
+                 {activeTab === "Estoque" && (
+                     <EstoqueTab
+                         items={items}
+                         categories={categories}
+                         restaurantId={restaurantId}
+                         onRefresh={() => loadMenuData(restaurantId)}
+                         onToast={(message: string, type: "success" | "error" | "info" = "info") =>
+                             setToast({ message, type })
+                         }
                      />
                  )}
              </div>

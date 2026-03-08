@@ -10,17 +10,20 @@ import ConfirmModal from "@/components/ui/ConfirmModal";
 import Button from "@/components/ui/Button";
 import Tooltip from "@/components/ui/Tooltip";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
+import Toast from "@/components/ui/Toast";
 
 export type MenuItemType = {
     id: string;
     name: string;
     price_cents: number;
     description?: string | null;
-    image_url?: string | null; 
+    image_url?: string | null;
     image_path?: string | null;
     is_available: boolean;
     category_id: string;
-    position?: number; // Adicionado para tipagem correta
+    position?: number;
+    stock_enabled?: boolean | null;
+    stock_quantity?: number | null;
 };
 
 interface MenuItemRowProps {
@@ -62,6 +65,10 @@ export default function MenuItemRow({
     const [imagePath, setImagePath] = useState(item.image_path ?? null);
     const [isAvailable, setIsAvailable] = useState(item.is_available ?? false);
     const [copied, setCopied] = useState(false);
+    const [toast, setToast] = useState<{
+        message: string;
+        type?: "success" | "error" | "info";
+    } | null>(null);
 
     const nameInputRef = useRef<HTMLInputElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -148,7 +155,16 @@ export default function MenuItemRow({
     const handleToggleAvailability = async (e: React.MouseEvent) => {
         e.stopPropagation();
 
-        const newState = !isAvailable;
+
+        if(item.stock_enabled && Number(item.stock_quantity ?? 0) <= 0){
+            setToast({
+                message: "Não é possível ativar um item sem estoque. Ajuste na aba Estoque.",
+                type: "error",
+            });
+            return
+        }
+
+        var newState = !isAvailable;
         setIsAvailable(newState);
 
         if (!isNew) {
@@ -256,15 +272,31 @@ export default function MenuItemRow({
                     )}
 
                     {renderImageArea()}
-                    
+
                     <div className="flex flex-col min-w-0 2xl:text-lg">
-                        <span className="font-medium text-gray-900 truncate">{name}</span>
+                        <div className="flex items-center gap-2 min-w-0">
+                            <span className="font-medium text-gray-900 truncate">{name}</span>
+
+                            {item.stock_enabled && Number(item.stock_quantity ?? 0) <= 0 && (
+                                <span className="shrink-0 text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-red-100 text-red-600">
+                Sem estoque
+            </span>
+                            )}
+                        </div>
+
                         {description ? (
-                            <span className="text-xs 2xl:text-base text-gray-500 truncate block max-w-[200px] sm:max-w-xs">{description}</span>
+                            <span className="text-xs 2xl:text-base text-gray-500 truncate block max-w-[200px] sm:max-w-xs">
+            {description}
+        </span>
                         ) : (
                             <span className="text-xs 2xl:text-base text-gray-300 italic">Sem descrição...</span>
                         )}
-                        {!isAvailable && <span className="text-[10px] font-bold text-red-500 uppercase mt-1">Pausado</span>}
+
+                        {!isAvailable && (
+                            <span className="text-[10px] font-bold text-red-500 uppercase mt-1">
+            Pausado
+        </span>
+                        )}
                     </div>
                 </div>
 
@@ -348,6 +380,13 @@ export default function MenuItemRow({
                 confirmLabel="Excluir"
                 variant="danger"
             />
+                {toast && (
+                    <Toast
+                        message={toast.message}
+                        type={toast.type}
+                        onClose={() => setToast(null)}
+                    />
+                )}
             </>
         );
     }

@@ -167,29 +167,64 @@ export async function POST(req: Request) {
 
         // 5. INSERÇÃO DE ITENS
         for (const cartItem of items) {
-            // Garante que temos um item_id (fallback para base_item_id se necessário)
             const finalItemId = cartItem.item_id || cartItem.base_item_id;
 
+            // 1. Validate stock before inserting item
+            const { rows: [stockItem] } = await query(
+                `SELECT stock_enabled, stock_quantity
+         FROM items
+         WHERE id = $1`,
+                [finalItemId]
+            );
+
+            if (stockItem?.stock_enabled === true) {
+                const currentQty = Number(stockItem.stock_quantity ?? 0);
+                const requestedQty = Number(cartItem.qty ?? 0);
+
+                if (requestedQty <= 0) {
+                    return NextResponse.json(
+                        { error: `Quantidade inválida para o item ${cartItem.name}.` },
+                        { status: 400 }
+                    );
+                }
+
+                if (currentQty < requestedQty) {
+                    return NextResponse.json(
+                        { error: `Estoque insuficiente para ${cartItem.name}. Disponível: ${currentQty}.` },
+                        { status: 400 }
+                    );
+                }
+            }
+
+            // 2. Insert order item
             const { rows: [oi] } = await query(
                 `INSERT INTO order_items (order_id, item_id, name, price_cents, quantity, observation, total_cents, original_value)
-                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
-                [order.id, finalItemId, cartItem.name, (promotionPrice(cartItem, false) ||  cartItem.unit_price_cents), cartItem.qty, cartItem.observation ?? null, (promotionPrice(cartItem) ||  cartItem.total_cents), cartItem.unit_price_cents]
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
+                [
+                    order.id,
+                    finalItemId,
+                    cartItem.name,
+                    (promotionPrice(cartItem, false) || cartItem.unit_price_cents),
+                    cartItem.qty,
+                    cartItem.observation ?? null,
+                    (promotionPrice(cartItem) || cartItem.total_cents),
+                    cartItem.unit_price_cents
+                ]
             );
 
             console.log("🧩 Created order_item:", oi);
 
-            // Subitems
-// Subitems (correct schema)
+            // 3. Insert subitems
             for (const sub of cartItem.selectedSubitems) {
                 await query(
                     `INSERT INTO order_item_subitems (
-            order_item_id,
-            subitem_id,
-            name,
-            price_cents,
-            quantity
-        )
-        VALUES ($1,$2,$3,$4,$5)`,
+                order_item_id,
+                subitem_id,
+                name,
+                price_cents,
+                quantity
+            )
+            VALUES ($1,$2,$3,$4,$5)`,
                     [
                         oi.id,
                         sub.subitemId,
@@ -201,8 +236,21 @@ export async function POST(req: Request) {
 
                 console.log("   ➕ Inserted subitem:", sub);
             }
-        }
 
+            // 4. Decrement stock after successful item insert
+            await query(
+                `UPDATE items
+                 SET
+                     stock_quantity = GREATEST(stock_quantity - $1, 0),
+                     is_available = CASE
+                                        WHEN stock_quantity - $1 <= 0 THEN false
+                                        ELSE is_available
+                         END
+                 WHERE id = $2
+                   AND stock_enabled = true`,
+                [cartItem.qty, finalItemId]
+            );
+        }
         // -------------------------------
         // Get restaurant slug
         // -------------------------------

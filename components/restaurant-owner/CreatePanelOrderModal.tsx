@@ -24,6 +24,8 @@ type Item = {
     image_path?: string | null;
     is_available: boolean;
     position?: number | null;
+    stock_enabled?: boolean | null;
+    stock_quantity?: number | null;
 };
 
 type Subitem = {
@@ -110,7 +112,7 @@ export default function CreatePanelOrderModal({
                         .order("position", { ascending: true }),
                     supabase
                         .from("items")
-                        .select("id, category_id, name, description, price_cents, image_path, is_available, position")
+                        .select("id, category_id, name, description, price_cents, image_path, is_available, position, stock_enabled, stock_quantity")
                         .eq("restaurant_id", restaurantId)
                         .eq("is_available", true)
                         .order("position", { ascending: true }),
@@ -504,27 +506,29 @@ export default function CreatePanelOrderModal({
                                                 {cat.name}
                                             </h4>
 
-                                            <div className="space-y-4">
+                                            <div className="space-y-0 mr-4 ml-2">
                                                 {(itemsByCategory[cat.id] || []).map((item) => (
                                                     <button
                                                         key={item.id}
                                                         type="button"
                                                         onClick={() => handleAddItem(item)}
-                                                        className="cursor-pointer w-full flex justify-between items-start text-left border-b border-gray-200 pb-4"
+                                                        className="hover:bg-gray-200 duration-200 cursor-pointer w-full flex justify-between items-start text-left border-b border-gray-200 p-4 pt-5 pb-5 rounded-xl"
                                                     >
-                                                        <div className="flex flex-col pr-4 flex-1 items-start justify-start max-w-[100%]">
-                                                            <p className="text-sm font-semibold leading-tight">
-                                                                {item.name}
-                                                            </p>
+                                                        <div className={"flex justify-between w-full"}>
+                                                            <div className="flex flex-col pr-4 flex-1 items-start justify-start max-w-[100%]">
+                                                                <p className="text-sm font-normal leading-tight">
+                                                                    {item.name}
+                                                                </p>
 
-                                                            <p className="text-sm text-gray-600 line-clamp-2 mt-1 leading-tight">
-                                                                {(item.description ?? "").slice(0, 60)}
-                                                                {item.description && item.description.length > 60 ? "…" : ""}
-                                                            </p>
-
-                                                            <p className="text-sm font-bold mt-2">
-                                                                {formatPrice(item.price_cents)}
-                                                            </p>
+                                                                <p className="text-sm font-bold mt-2">
+                                                                    {formatPrice(item.price_cents)}
+                                                                </p>
+                                                            </div>
+                                                            {item.stock_enabled && (
+                                                                <div>
+                                                                    <p className="text-sm font-normal leading-tight text-gray-500">Estoque: {item.stock_quantity}</p>
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     </button>
                                                 ))}
