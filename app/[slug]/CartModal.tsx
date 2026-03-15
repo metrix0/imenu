@@ -780,7 +780,7 @@ export default function CartModal({
                                 onClick={() => setField("pagamento", "pix")}
                             >
                                 <FontAwesomeIcon icon={faPix} />
-                                Pix
+                                Pix (Online)
                             </button>
 
 {/*                            <button
