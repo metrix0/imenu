@@ -2,7 +2,7 @@ const { withSentryConfig } = require("@sentry/nextjs");
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  async redirects() = {
+  async redirects() {
     return [
       {
         source: '/saborosas-massas-947',
