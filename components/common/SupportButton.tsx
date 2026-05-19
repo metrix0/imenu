@@ -42,7 +42,7 @@ export interface SupportButtonRef {
 const SupportButton = forwardRef<SupportButtonRef>((props, ref) => {
     const [isOpen, setIsOpen] = useState(false);
 
-    const phone = "5519997235394"; 
+    const phone = "5519988760900";
     const message = "Olá! Preciso de ajuda com um problema!";
     const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
 

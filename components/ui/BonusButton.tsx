@@ -13,7 +13,7 @@ export default function BonusButton({
                                     }: BonusButtonProps) {
     return (
         <button
-            className={`bg-text text-white px-3 py-1 2xl:px-4 2xl:py-[6px]  rounded-full text-sm 2xl:text-[1.1rem] font-medium cursor-pointer relative overflow-hidden flex items-center gap-2 2xl:gap-3 ${className ?? ""}`}
+            className={`hidden bg-text text-white px-3 py-1 2xl:px-4 2xl:py-[6px]  rounded-full text-sm 2xl:text-[1.1rem] font-medium cursor-pointer relative overflow-hidden flex items-center gap-2 2xl:gap-3 ${className ?? ""}`}
             {...props}
         >
             {/* Colored circle */}

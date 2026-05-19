@@ -19,6 +19,8 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faWandMagicSparkles } from "@fortawesome/free-solid-svg-icons";
 import Dropdown from "@/components/ui/Dropdown";
 import Input from "@/components/ui/Input";
+import WarningBox from "@/components/ui/WarningBox";
+import { faCircleInfo } from "@fortawesome/free-solid-svg-icons";
 
 type Category = { id: string; name: string; position: number };
 
@@ -291,7 +293,13 @@ export default function CriarCardapioPage() {
                         )}
                     </div>
 
+
+                    <WarningBox icon={faCircleInfo} className="mb-8 bg-brand! text-white! mt-9">
+                        <b>AVISO:</b> Repasses de pagamentos em Pix e Cartão são realizados semanalmente, sempre aos domingos a partir das 14h. O repasse é realizado na Chave Pix cadastrada acima.
+                    </WarningBox>
+
                 </Card>
+
 
                 <div className="flex justify-between items-center mb-4 2xl:mb-6 px-2">
                     <h2 className="text-xl font-bold text-gray-800 2xl:text-2xl">Cardápio</h2>
