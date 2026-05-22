@@ -401,36 +401,43 @@ export default function LandingPage() {
 
                         <tr>
                             <td className=" border-r border-gray-200">Google Analytics Integrado</td>
-                            <td className=" border-r border-gray-200 text-center"><Tooltip text={<span>Funcionalidade em desenvolvimento.</span>} color={"bg-orange"}><FontAwesomeIcon icon={icons.faClock}  className={"text-orange"}/></Tooltip></td>
+                            <td className=" border-r border-gray-200 text-center">
+                                <FontAwesomeIcon icon={icons.faCheck} className={"text-green"}/>
+                            </td>
                             <td className=" text-center">Limitado</td>
                         </tr>
 
                         <tr>
-                            <td className=" border-r border-gray-200">Pixel Facebook Integrado</td>
-                            <td className=" border-r border-gray-200 text-center"><Tooltip text={<span>Funcionalidade em desenvolvimento.</span>} color={"bg-orange"}><FontAwesomeIcon icon={icons.faClock}  className={"text-orange"}/></Tooltip></td>
+                            <td className=" border-r border-gray-200">Pixel Meta (Facebook/Instagram) Integrado</td>
+                            <td className=" border-r border-gray-200 text-center">
+                                <FontAwesomeIcon icon={icons.faCheck} className={"text-green"}/>
+                            </td>
                             <td className=" text-center">Limitado</td>
                         </tr>
 
                         <tr>
                             <td className=" border-r border-gray-200">Impressão dos pedidos</td>
-                            <td className=" border-r border-gray-200 text-center"><Tooltip text={<span>Funcionalidade em desenvolvimento.</span>} color={"bg-orange"}><FontAwesomeIcon icon={icons.faClock}  className={"text-orange"}/></Tooltip></td>
+                            <td className=" border-r border-gray-200 text-center">Manual</td>
                             <td className=" text-center">Não</td>
                         </tr>
 
-                        <tr>
-                            <td className=" border-r border-gray-200">QR Code na mesa</td>
-                            <td className=" border-r border-gray-200 text-center"><Tooltip text={<span>Funcionalidade em desenvolvimento.</span>} color={"bg-orange"}><FontAwesomeIcon icon={icons.faClock}  className={"text-orange"}/></Tooltip></td>
-                            <td className=" text-center">Nem sempre disponível</td>
-                        </tr>
+
                         <tr>
                             <td className=" border-r border-gray-200">Cupons de desconto</td>
-                            <td className=" border-r border-gray-200 text-center"><Tooltip text={<span>Funcionalidade em desenvolvimento.</span>} color={"bg-orange"}><FontAwesomeIcon icon={icons.faClock} className={"text-orange"}/></Tooltip></td>
+                            <td className=" border-r border-gray-200 text-center">
+                                <FontAwesomeIcon icon={icons.faCheck} className={"text-green"}/>
+                            </td>
                             <td className=" text-center">Pouca customização</td>
                         </tr>
                         <tr>
                             <td className=" border-r border-gray-200">Agendamento de pedido</td>
                             <td className=" border-r border-gray-200 text-center"><Tooltip text={<span>Funcionalidade em desenvolvimento.</span>} color={"bg-orange"}><FontAwesomeIcon icon={icons.faClock} className={"text-orange"}/></Tooltip></td>
                             <td className=" text-center">Não</td>
+                        </tr>
+                        <tr>
+                            <td className=" border-r border-gray-200">QR Code na mesa</td>
+                            <td className=" border-r border-gray-200 text-center"><Tooltip text={<span>Funcionalidade em desenvolvimento.</span>} color={"bg-orange"}><FontAwesomeIcon icon={icons.faClock}  className={"text-orange"}/></Tooltip></td>
+                            <td className=" text-center">Nem sempre disponível</td>
                         </tr>
                         <tr>
                             <td className=" border-r border-gray-200">Pedidos via Instagram / Facebook</td>
@@ -444,11 +451,6 @@ export default function LandingPage() {
                         </tr>
                         <tr>
                             <td className=" border-r border-gray-200">Comanda Mobile</td>
-                            <td className=" border-r border-gray-200 text-center"><Tooltip text={<span>Funcionalidade em desenvolvimento.</span>} color={"bg-orange"}><FontAwesomeIcon icon={icons.faClock}  className={"text-orange"}/></Tooltip></td>
-                            <td className=" text-center">Taxas adicionais</td>
-                        </tr>
-                        <tr>
-                            <td className=" border-r border-gray-200">Gestor de Pedidos</td>
                             <td className=" border-r border-gray-200 text-center"><Tooltip text={<span>Funcionalidade em desenvolvimento.</span>} color={"bg-orange"}><FontAwesomeIcon icon={icons.faClock}  className={"text-orange"}/></Tooltip></td>
                             <td className=" text-center">Taxas adicionais</td>
                         </tr>

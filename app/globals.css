@@ -63,6 +63,7 @@ html, body {
     font-family: 'iFoodRCTextos', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
     color: #1d1d1d;
     background-color: #fff;
+    scroll-behavior: smooth;
 }
 
 
@@ -172,3 +173,4 @@ html, body {
 .hidden-x-scroll::-webkit-scrollbar {
     display: none; /* Chrome/Safari */
 }
+
