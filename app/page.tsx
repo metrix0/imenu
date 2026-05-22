@@ -10,6 +10,8 @@ import Button from "@/components/ui/Button";
 import Tooltip from "@/components/ui/Tooltip";
 import Footer from "@/components/common/Footer";
 import "@/app/reveal.css"
+import SupportButton, {SupportButtonRef} from "@/components/common/SupportButton";
+import {faCircleQuestion} from "@fortawesome/free-solid-svg-icons";
 
 export default function LandingPage() {
     // SECTION 2 – troca de imagem
@@ -22,6 +24,15 @@ export default function LandingPage() {
     const [restCount, setRestCount] = useState<number>(0);
     let shouldRun = useRef<boolean>(true);
     const router = useRouter();
+    const supportBtnRef = useRef<SupportButtonRef>(null);
+    const [expanded, setExpanded] = useState(false);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        setTimeout(() => {
+            setLoading(false);
+        }, 1000);
+    }, []);
 
     useEffect(() => {
         (async () => {
@@ -472,6 +483,27 @@ export default function LandingPage() {
             </section>
 
             <Footer /> {/* ✅ FOOTER AQUI */}
+
+            <SupportButton ref={supportBtnRef} bottomClassName={`!transition-normal duration-300 ${loading ? "-bottom-24" : "bottom-6"}`} />
+
+            {/* === BOTÃO DE AJUDA/SUPORTE (Abre via Ref) === */}
+            <button
+                onClick={() => supportBtnRef.current?.open()}
+                className={`group flex items-center relative py-3 cursor-pointer transition-all duration-200 w-full text-gray-600 hover:bg-gray-50 hover:text-gray-900 ${
+                    expanded ? "justify-start px-5 gap-3" : "justify-center px-0"
+                }`}
+                title={!expanded ? "Ajuda" : ""}
+            >
+                <div className="flex items-center justify-center w-6 h-6 2xl:w-12 2xl:h-10">
+                    <FontAwesomeIcon
+                        icon={faCircleQuestion}
+                        className="text-lg 2xl:text-2xl text-gray-400 group-hover:text-gray-600 transition-colors"
+                    />
+                </div>
+                <span className={`2xl:text-lg whitespace-nowrap overflow-hidden text-sm transition-all duration-300 ${expanded ? "w-auto opacity-100 ml-0" : "w-0 opacity-0 ml-0"}`}>
+                                Ajuda
+                            </span>
+            </button>
 
         </div>
     );
