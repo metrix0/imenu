@@ -94,9 +94,7 @@ export default function AdminLogin() {
 
     return (
         <div className="min-h-screen flex flex-col">
-            <div className="w-full bg-red-600 text-white text-center text-sm sm:text-base font-medium py-2 px-4">
-                Estamos enfrentando instabilidades no servidor. Falhas podem ocorrer. Nossa equipe já está trabalhando para resolver o problema o mais rápido possível. Agradecemos sua compreensão e paciência!
-            </div>
+
             {/* HEADER */}
             <header className="w-full  px-2 py-7 flex items-center justify-between sticky top-0 bg-white z-10">
                 <div className="relative h-6 w-32 ml-4">
