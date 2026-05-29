@@ -83,9 +83,7 @@ export default function LandingPage() {
 
     return (
         <div className="w-full max-w-screen overflow-x-hidden">
-            <div className="w-full bg-red-600 text-white text-center text-sm sm:text-base font-medium py-2 px-4">
-                Estamos enfrentando instabilidades no servidor. Falhas podem ocorrer. Nossa equipe já está trabalhando para resolver o problema o mais rápido possível. Agradecemos sua compreensão e paciência!
-            </div>
+
 
             {/* ================= NAVBAR ================= */}
             <header className="w-full flex flex-col md:flex-row gap-4 md:gap-0 items-center justify-between py-7 md:py-5 2xl:py-8 px-8 border-gray-200 bg-white">
