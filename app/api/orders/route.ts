@@ -148,8 +148,8 @@ export async function POST(req: Request) {
         const deliveryTime = delivery_time_minutes ?? 40;
         const eta = new Date(Date.now() + deliveryTime * 60000);
 
-        const isOfflinePayment = paymentMethod === "dinheiro" || paymentMethod === "trazer-maquininha";
-        const orderStatus = isOfflinePayment ? "pending_physical_payment" : "pending_online_payment";
+        const isOnlinePix = paymentMethod === "pix";
+        const orderStatus = isOnlinePix ? "pending_online_payment" : "pending_physical_payment";
 
         const { rows: [order] } = await query<{ id: string }>(
             `INSERT INTO orders (
@@ -260,7 +260,7 @@ export async function POST(req: Request) {
         );
         const slug = restaurantInfo?.url_slug;
 
-        if (isOfflinePayment) {
+        if (!isOnlinePix) {
             return NextResponse.json({
                 order_id: order.id,
                 payment_type: "offline",

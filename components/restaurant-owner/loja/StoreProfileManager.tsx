@@ -120,7 +120,7 @@ export default function StoreProfileManager({ restaurant, compact = false }: Sto
     };
 
     return (
-        <div className={compact ? "mb-8" : "flex-1 w-full max-w-6xl mx-auto px-6 pt-8 pb-32 space-y-8"}>
+        <div className={compact ? "mb-8" : "flex-1 w-full max-w-6xl mx-auto px-6 pt-8 space-y-8"}>
             
             {!compact && (
                 <div className="flex justify-between items-end px-2">

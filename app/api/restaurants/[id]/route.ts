@@ -49,9 +49,11 @@ export async function PATCH(
         first_time: "first_time",
         payment_method: "payment_method",
         payment_info: "payment_info",
+        allowed_payment_methods: "allowed_payment_methods",
     };
 
     const jsonFields = ["address", "delivery_fee_json", "availability_json"];
+    const arrayFields = ["allowed_payment_methods"];
 
     const fieldsToUpdate = [];
     const values = [id]; // $1 será sempre o ID
@@ -69,7 +71,13 @@ export async function PATCH(
             let value = body[key];
 
             if (jsonFields.includes(dbColumn) || dbColumn.includes("_json")) {
-                value = JSON.stringify(value); 
+                value = JSON.stringify(value);
+            }
+
+            if (arrayFields.includes(dbColumn)) {
+                value = Array.isArray(value) && value.length > 0
+                    ? value
+                    : ["pix", "dinheiro", "trazer-maquininha"];
             }
 
             values.push(value);
@@ -133,7 +141,7 @@ export async function GET(
     try {
         const { rows } = await query(
             `
-            SELECT id, name, phone, address, latitude, longitude, url_slug
+            SELECT id, name, phone, address, latitude, longitude, url_slug, allowed_payment_methods
             FROM public.restaurants
             WHERE id = $1
             LIMIT 1

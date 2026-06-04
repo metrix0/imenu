@@ -29,6 +29,7 @@ export type Restaurant = {
     longitude: number;
     is_closed: any;
     url_slug?: string;
+    allowed_payment_methods?: string[] | null;
 };
 
 export type Menu = {

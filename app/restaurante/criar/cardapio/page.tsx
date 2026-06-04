@@ -21,6 +21,9 @@ import Dropdown from "@/components/ui/Dropdown";
 import Input from "@/components/ui/Input";
 import WarningBox from "@/components/ui/WarningBox";
 import { faCircleInfo } from "@fortawesome/free-solid-svg-icons";
+import AllowedPaymentMethods, {
+    DEFAULT_ALLOWED_PAYMENT_METHODS,
+} from "@/components/restaurant-owner/configuracoes/AllowedPaymentMethods";
 
 type Category = { id: string; name: string; position: number };
 
@@ -39,8 +42,8 @@ export default function CriarCardapioPage() {
     const [toast, setToast] = useState<{ message: string; type?: "success" | "error" | "info" } | null>(null);
 
     const [visuals, setVisuals] = useState<RestaurantVisuals>({ logo_url: null, banner_url: null });
-    const [name, setName] = useState(""); 
-    
+    const [name, setName] = useState("");
+
     const [categories, setCategories] = useState<Category[]>([]);
     const [items, setItems] = useState<MenuItemType[]>([]);
 
@@ -49,7 +52,9 @@ export default function CriarCardapioPage() {
     const [isItemDetailsOpen, setIsItemDetailsOpen] = useState(false);
     const [itemToEditDetails, setItemToEditDetails] = useState<MenuItemType | null>(null);
     const [aiModalOpen, setAiModalOpen] = useState(false);
-    const [paymentMethod, setPaymentMethod] = useState("pix");
+    const [allowedPaymentMethods, setAllowedPaymentMethods] = useState<string[]>(
+        DEFAULT_ALLOWED_PAYMENT_METHODS
+    );
     const [paymentInfo, setPaymentInfo] = useState("");
 
     const isFormValid = name.trim().length > 0;
@@ -82,7 +87,7 @@ export default function CriarCardapioPage() {
             // Leitura permitida via Supabase Client (conforme CONVENTIONS.md)
             const { data: restaurant, error: rError } = await supabase
                 .from("restaurants")
-                .select("id, name, logo_url, banner_url, payment_method, payment_info")
+                .select("id, name, logo_url, banner_url, allowed_payment_methods, payment_info")
                 .eq("id", restaurantId)
                 .single();
 
@@ -90,7 +95,12 @@ export default function CriarCardapioPage() {
             
             setName(restaurant.name || "");
 
-            setPaymentMethod(restaurant.payment_method || "pix");
+            setAllowedPaymentMethods(
+                Array.isArray(restaurant.allowed_payment_methods) &&
+                restaurant.allowed_payment_methods.length > 0
+                    ? restaurant.allowed_payment_methods
+                    : DEFAULT_ALLOWED_PAYMENT_METHODS
+            );
             setPaymentInfo(restaurant.payment_info || "");
             const logoPublic = restaurant.logo_url ? supabase.storage.from("restaurant-logos").getPublicUrl(restaurant.logo_url).data.publicUrl : null;
             const bannerPublic = restaurant.banner_url ? supabase.storage.from("menu-banners").getPublicUrl(restaurant.banner_url).data.publicUrl : null;
@@ -220,6 +230,16 @@ export default function CriarCardapioPage() {
         setIsItemDetailsOpen(true);
     };
 
+    const handleAllowedPaymentMethodsChange = async (methods: string[]) => {
+        setAllowedPaymentMethods(methods);
+
+        await fetch(`/api/restaurants/${restaurantId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ allowed_payment_methods: methods }),
+        });
+    };
+
     const handleVisualError = (msg: string) => setToast({ message: msg, type: "error" });
 
     if (isLoading) return (
@@ -259,44 +279,22 @@ export default function CriarCardapioPage() {
                         />
                     </div>
 
-                    <div className={"flex gap-6 mb-4"}>
-                        {/* MÉTODO DE PAGAMENTO */}
-                        <Dropdown
-                            label="Método de pagamento"
-                            options={[
-                                { value: "pix", label: "PIX" },
-                            ]}
-                            value={paymentMethod}
-                            onChange={(e) => {
-                                const method = (e.target.value as unknown) as "pix" | "deposit";
-                                setPaymentMethod(method);
-                            }}
-                        />
-
-                        {/* CAMPOS DINÂMICOS */}
-                        {(paymentMethod !== "pix" || paymentMethod) ? (
-                            <Input
-                                label="Chave PIX"
-                                placeholder="Ex: 123456789"
-                                value={paymentInfo}
-                                onChange={(e) => setPaymentInfo(e.target.value)}
-                                onBlur={() => autoSave("payment_info", paymentInfo)}
-                            />
-                        ) : (
-                            <Input
-                                label="Dados para Depósito"
-                                placeholder={`Banco, Agência, Conta, Tipo, Titular...`}
-                                value={paymentInfo}
-                                onChange={(e) => setPaymentInfo(e.target.value)}
-                                onBlur={() => autoSave("payment_info", paymentInfo)}
-                            />
-                        )}
-                    </div>
 
 
-                    <WarningBox icon={faCircleInfo} className="mb-8 bg-brand! text-white! mt-9">
-                        <b>AVISO:</b> Repasses de pagamentos em Pix e Cartão são realizados semanalmente, sempre aos domingos a partir das 14h. O repasse é realizado na Chave Pix cadastrada acima.
-                    </WarningBox>
+                    <Input
+                        label="Chave PIX"
+                        placeholder="Ex: 123456789"
+                        value={paymentInfo}
+                        onChange={(e) => setPaymentInfo(e.target.value)}
+                        onBlur={() => autoSave("payment_info", paymentInfo)}
+                    />
+
+                    <AllowedPaymentMethods
+                        value={allowedPaymentMethods}
+                        onChange={handleAllowedPaymentMethodsChange}
+                    />
+
+
 
                 </Card>
 
@@ -402,3 +400,4 @@ export default function CriarCardapioPage() {
         </main>
     );
 }
+

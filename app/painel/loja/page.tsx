@@ -5,11 +5,42 @@ import { supabase } from "@/lib/database/supabaseClient";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore"; // Store Global
 import Loader from "@/components/ui/Loader";
 import StoreProfileManager from "@/components/restaurant-owner/loja/StoreProfileManager";
+import AllowedPaymentMethods, {
+    DEFAULT_ALLOWED_PAYMENT_METHODS,
+} from "@/components/restaurant-owner/configuracoes/AllowedPaymentMethods";
 
 export default function LojaPage() {
     const { restaurantId, setRestaurantId } = useCreationStore();
     const [isLoading, setIsLoading] = useState(true);
     const [restaurant, setRestaurant] = useState<any>(null);
+    const [allowedPaymentMethods, setAllowedPaymentMethods] = useState<string[]>(
+        DEFAULT_ALLOWED_PAYMENT_METHODS
+    );
+
+    useEffect(() => {
+        if (!restaurant) return;
+
+        setAllowedPaymentMethods(
+            Array.isArray(restaurant.allowed_payment_methods) &&
+            restaurant.allowed_payment_methods.length > 0
+                ? restaurant.allowed_payment_methods
+                : DEFAULT_ALLOWED_PAYMENT_METHODS
+        );
+    }, [restaurant]);
+
+    const handleAllowedPaymentMethodsChange = async (methods: string[]) => {
+        if (!restaurant?.id) return;
+
+        setAllowedPaymentMethods(methods);
+
+        await fetch(`/api/restaurants/${restaurant.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                allowed_payment_methods: methods,
+            }),
+        });
+    };
 
     useEffect(() => {
         const load = async () => {
@@ -41,7 +72,7 @@ export default function LojaPage() {
             if (targetId) {
                 const { data } = await supabase
                     .from("restaurants")
-                    .select("id, name, description, logo_url, banner_url, payment_method, payment_info")
+                    .select("id, name, description, logo_url, banner_url, payment_method, payment_info, allowed_payment_methods")
                     .eq("id", targetId)
                     .single();
 
@@ -64,6 +95,14 @@ export default function LojaPage() {
     return (
         <div>
             <StoreProfileManager restaurant={restaurant} />
+            <div className={"w-full flex justify-center"}>
+            <AllowedPaymentMethods
+                value={allowedPaymentMethods}
+                onChange={handleAllowedPaymentMethodsChange}
+                className="mt-6 w-[90%]"
+            />
+            </div>
         </div>
-    ); 
+    );
+
 }

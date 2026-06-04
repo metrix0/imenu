@@ -17,6 +17,34 @@ import {formatPriceNoRS, formatPrice, promotionPrice} from "@/lib/utils/formatPr
 import { supabase } from "@/lib/database/supabaseClient";
 import { MenuItemType } from "@/components/restaurant-owner/cardapio/MenuItemRow";
 import { Item } from "@/lib/types/types";
+const DEFAULT_ALLOWED_PAYMENT_METHODS = [
+    "pix",
+    "dinheiro",
+    "trazer-maquininha",
+];
+
+const PAYMENT_OPTIONS = [
+    {
+        value: "pix",
+        label: "Pix (Online)",
+        icon: faPix,
+    },
+    {
+        value: "pix-entrega",
+        label: "Pix (Na entrega)",
+        icon: faPix,
+    },
+    {
+        value: "dinheiro",
+        label: "Dinheiro",
+        icon: icons.faMoneyBill,
+    },
+    {
+        value: "trazer-maquininha",
+        label: "Trazer Maquininha",
+        icon: icons.faPersonBiking,
+    },
+];
 
 export default function CartModal({
                                       onClose,
@@ -429,6 +457,12 @@ export default function CartModal({
         checkCoupons();
     },[] );
 
+    const allowedPaymentMethods =
+        Array.isArray(restaurant?.allowed_payment_methods) &&
+        restaurant.allowed_payment_methods.length > 0
+            ? restaurant.allowed_payment_methods
+            : DEFAULT_ALLOWED_PAYMENT_METHODS;
+
 
     return (
         <div className={`fixed inset-0 z-41 flex justify-center items-end`}>
@@ -771,52 +805,25 @@ export default function CartModal({
                         </h2>
 
                         <div className="flex flex-col gap-3 mb-5 2xl:text-lg">
-                            <button
-                                className={`border cursor-pointer p-3 rounded-xl duration-200 text-left flex items-center gap-3 ${
-                                    pagamento === "pix"
-                                        ? "border-brand"
-                                        : "border-gray-300"
-                                }`}
-                                onClick={() => setField("pagamento", "pix")}
-                            >
-                                <FontAwesomeIcon icon={faPix} />
-                                Pix (Online)
-                            </button>
-
-{/*                            <button
-                                className={`border cursor-pointer p-3 rounded-xl duration-200 text-left flex items-center gap-3 ${
-                                    pagamento === "cartao"
-                                        ? "border-brand"
-                                        : "border-gray-300"
-                                }`}
-                                onClick={() => setField("pagamento", "cartao")}
-                            >
-                                <FontAwesomeIcon icon={icons.faCreditCard} />
-                                Cartão de crédito
-                            </button>*/}
-                            <button
-                                className={`border cursor-pointer p-3 rounded-xl duration-200 text-left flex items-center gap-3 ${
-                                    pagamento === "dinheiro"
-                                        ? "border-brand"
-                                        : "border-gray-300"
-                                }`}
-                                onClick={() => setField("pagamento", "dinheiro")}
-                            >
-                                <FontAwesomeIcon icon={icons.faMoneyBill} />
-                                Dinheiro
-                            </button>
-                            <button
-                                className={`border cursor-pointer p-3 rounded-xl duration-200 text-left flex items-center gap-3 ${
-                                    pagamento === "trazer-maquininha"
-                                        ? "border-brand"
-                                        : "border-gray-300"
-                                }`}
-                                onClick={() => setField("pagamento", "trazer-maquininha")}
-                            >
-                                <FontAwesomeIcon icon={icons.faPersonBiking} />
-                                Trazer Maquininha
-                            </button>
+                            {PAYMENT_OPTIONS
+                                .filter((option) => allowedPaymentMethods.includes(option.value))
+                                .map((option) => (
+                                    <button
+                                        key={option.value}
+                                        type="button"
+                                        className={`border cursor-pointer p-3 rounded-xl duration-200 text-left flex items-center gap-3 ${
+                                            pagamento === option.value
+                                                ? "border-brand"
+                                                : "border-gray-300"
+                                        }`}
+                                        onClick={() => setField("pagamento", option.value)}
+                                    >
+                                        <FontAwesomeIcon icon={option.icon} />
+                                        {option.label}
+                                    </button>
+                                ))}
                         </div>
+
 
                         {showDiscountInput && (<div className="mb-6">
                             <Input

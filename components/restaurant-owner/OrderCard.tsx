@@ -92,7 +92,7 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
             prevStatus = "delivering";
         }
         else if (order.status === "preparing") {
-            const isPhysical = ["trazer-maquininha", "dinheiro"].includes(order.payment_method || "");
+            const isPhysical = ["trazer-maquininha", "dinheiro", "pix-entrega"].includes(order.payment_method || "");
             prevStatus = isPhysical ? "pending_physical_payment" : "paid";
         }
 
@@ -178,7 +178,7 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
 
 
     useEffect(() => {
-        setIsPgtEntrega(order.payment_method === "dinheiro" || order.payment_method === "trazer-maquininha");
+        setIsPgtEntrega(order.payment_method === "dinheiro" || order.payment_method === "trazer-maquininha" || order.payment_method === "pix-entrega");
     }, [statusConfig]);
 
     const config = statusConfig[order.status] || statusConfig.pending_online_payment;

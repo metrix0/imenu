@@ -243,10 +243,12 @@ export default function PedidoPage({
 
     const iconMap: Record<string, any> = {
         pix: faPix,
+        "pix-entrega": faPix,
         cartao: icons.faCreditCard,
         dinheiro: icons.faMoneyBill,
-        'trazer-maquininha': icons.faPersonBiking
-    }
+        "trazer-maquininha": icons.faPersonBiking,
+    };
+
     const statusMap: Record<string, any> = {
         pending_online_payment: "Aguardando pagamento",
         pending_physical_payment: "Aguardando confirmação do restaurante",
@@ -312,11 +314,13 @@ export default function PedidoPage({
     const paymentText =
         pm === "pix"
             ? "Pix"
-            : pm === "cartao"
-                ? "Cartão"
-                : pm === "dinheiro"
-                    ? "Dinheiro"
-                    : "Maquininha";
+            : pm === "pix-entrega"
+                ? "Pix na entrega"
+                : pm === "cartao"
+                    ? "Cartão"
+                    : pm === "dinheiro"
+                        ? "Dinheiro"
+                        : "Maquininha";
 
     const totalDisplay =
         typeof order.total_cents === "number"
@@ -443,7 +447,7 @@ export default function PedidoPage({
             {/* PAYMENT */}
             <section className="bg-white rounded-xl p-5 shadow space-y-3 mt-5">
                 <p className="text-gray-500 text-sm  2xl:text-lg">
-                    {paymentText === "Pix" || paymentText === "Cartão"
+                    {pm === "pix" || pm === "cartao"
                         ? "Pago pelo site"
                         : "Pagamento na entrega"}
                 </p>

@@ -20,7 +20,7 @@ interface CheckoutState {
     nome: string;
     celular: string;
 
-    pagamento: "pix" | "cartao" | "dinheiro" | "trazer-maquininha";
+    pagamento: "pix" | "pix-entrega" | "cartao" | "dinheiro" | "trazer-maquininha";
 
     delivery_fee_cents: number | null | boolean;
     delivery_time_minutes: number | null;
