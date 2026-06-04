@@ -1,7 +1,17 @@
 const { withSentryConfig } = require("@sentry/nextjs");
 
 /** @type {import('next').NextConfig} */
-const nextConfig = {};
+const nextConfig = {
+  async redirects() {
+    return [
+      {
+        source: '/saborosas-massas-947',
+        destination: '/saborosas-massas',
+        permanent: false
+      }
+    ]
+  }
+};
 
 module.exports = withSentryConfig(
   nextConfig,

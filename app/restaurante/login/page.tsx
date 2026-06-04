@@ -94,6 +94,7 @@ export default function AdminLogin() {
 
     return (
         <div className="min-h-screen flex flex-col">
+
             {/* HEADER */}
             <header className="w-full  px-2 py-7 flex items-center justify-between sticky top-0 bg-white z-10">
                 <div className="relative h-6 w-32 ml-4">

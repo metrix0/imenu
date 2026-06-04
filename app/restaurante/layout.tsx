@@ -1,11 +1,21 @@
 // app/restaurante/layout.tsx
-
+"use client"
 import Script from "next/script";
+import SupportButton, {SupportButtonRef} from "@/components/common/SupportButton";
+import {useState, useRef} from "react";
+import {FontAwesomeIcon} from "@fortawesome/react-fontawesome";
+import {faCircleQuestion} from "@fortawesome/free-solid-svg-icons";
+
+
+
 
 export default function RestauranteLayout({ children }: { children: React.ReactNode }) {
+    const supportBtnRef = useRef<SupportButtonRef>(null);
+    const [expanded, setExpanded] = useState(false);
     return (
         <>
             <div className="fixed h-screen w-screen inset-0 z-[9999] flex items-center justify-center bg-white  text-black px-6 text-center overflow-hidden md:hidden">
+
                 <p className="text-lg font-normal leading-relaxed">
                     O painel de administrador ainda não pode ser utilizado em celulares. <br /> <br />
                     Continue em um computador ou notebook.
@@ -21,7 +31,33 @@ export default function RestauranteLayout({ children }: { children: React.ReactN
               `}
             </Script>
             <div className={"w-screen h-screen overflow-x-hidden"}>
-            {children}</div>
+                <div className={"z-[9999] fixed"}>
+                    <SupportButton ref={supportBtnRef} bottomClassName={"bottom-24"} />
+                </div>
+
+                {children}
+                {/* === BOTÃO DE AJUDA/SUPORTE (Abre via Ref) === */}
+                <button
+                    onClick={() => supportBtnRef.current?.open()}
+                    className={`group flex items-center relative py-3 cursor-pointer transition-all duration-200 w-full text-gray-600 hover:bg-gray-50 hover:text-gray-900 ${
+                        expanded ? "justify-start px-5 gap-3" : "justify-center px-0"
+                    }`}
+                    title={!expanded ? "Ajuda" : ""}
+                >
+                    <div className="flex items-center justify-center w-6 h-6 2xl:w-12 2xl:h-10">
+                        <FontAwesomeIcon
+                            icon={faCircleQuestion}
+                            className="text-lg 2xl:text-2xl text-gray-400 group-hover:text-gray-600 transition-colors"
+                        />
+                    </div>
+                    <span className={`2xl:text-lg whitespace-nowrap overflow-hidden text-sm transition-all duration-300 ${expanded ? "w-auto opacity-100 ml-0" : "w-0 opacity-0 ml-0"}`}>
+                                Ajuda
+                            </span>
+                </button>
+
+            </div>
+
+
         </>
     );
 }
