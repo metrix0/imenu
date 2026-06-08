@@ -421,8 +421,7 @@ export default function LandingPage() {
 
                         <tr>
                             <td className=" border-r border-gray-200">Pixel Meta (Facebook/Instagram) Integrado</td>
-                            <td className=" border-r border-gray-200 text-center">
-C                            </td>
+                            <td className=" border-r border-gray-200 text-center">                                <FontAwesomeIcon icon={icons.faCheck} className={"text-green"}/>                            </td>
                             <td className=" text-center">Limitado</td>
                         </tr>
 
