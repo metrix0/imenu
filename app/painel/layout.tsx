@@ -22,7 +22,8 @@ import {
     faPowerOff,
     faPercent,
     faPuzzlePiece,
-    faGift
+    faGift,
+    faPrint
 } from "@fortawesome/free-solid-svg-icons";
 import { createClient } from "@supabase/supabase-js";
 
@@ -178,6 +179,7 @@ useEffect(() => {
         { label: "Horários", icon: faClock, href: `${base}/disponibilidade` },
         { label: "Loja", icon: faStore, href: `${base}/loja` },
         { type: "divider" },
+        { label: "Impressora", icon: faPrint, href: `${base}/impressora` },
         { label: "Integrações", icon: faPuzzlePiece, href: `${base}/integracoes` },
         { label: "Configurações", icon: faGear, href: configuracoesHref },
     ];
