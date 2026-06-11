@@ -464,6 +464,22 @@ export default function CartModal({
             : DEFAULT_ALLOWED_PAYMENT_METHODS;
 
 
+    const availablePaymentOptions = PAYMENT_OPTIONS.filter((option) =>
+        allowedPaymentMethods.includes(option.value)
+    );
+
+    useEffect(() => {
+        if (availablePaymentOptions.length === 0) return;
+
+        const isCurrentPaymentAllowed = availablePaymentOptions.some(
+            (option) => option.value === pagamento
+        );
+
+        if (!isCurrentPaymentAllowed) {
+            setField("pagamento", availablePaymentOptions[0].value);
+        }
+    }, [pagamento, allowedPaymentMethods]);
+
     return (
         <div className={`fixed inset-0 z-41 flex justify-center items-end`}>
             <ModalMobile
@@ -805,9 +821,7 @@ export default function CartModal({
                         </h2>
 
                         <div className="flex flex-col gap-3 mb-5 2xl:text-lg">
-                            {PAYMENT_OPTIONS
-                                .filter((option) => allowedPaymentMethods.includes(option.value))
-                                .map((option) => (
+                            {availablePaymentOptions.map((option) => (
                                     <button
                                         key={option.value}
                                         type="button"
