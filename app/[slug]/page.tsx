@@ -38,12 +38,22 @@ export default async function Page({
     const { data: restaurantData } = await supabase
         .from("restaurants")
         .select(
-            "id, name, is_closed, logo_url, rating, min_order_cents, description, banner_url, availability_json,delivery_fee_json, latitude, longitude, allowed_payment_methods, tracking_integrations (ga4_id, gtm_id, meta_pixel_id)"
+            "id, name, is_closed, logo_url, rating, min_order_cents, description, banner_url, availability_json,delivery_fee_json, latitude, longitude, allowed_payment_methods"
         )
         .eq("url_slug", slug)
         .maybeSingle();
 
     if (!restaurantData) return notFound();
+
+    // Keep tracking independent from the restaurant relation. This safely picks
+    // the most recently saved row even before the duplicate-cleanup SQL is run.
+    const { data: tracking } = await supabase
+        .from("tracking_integrations")
+        .select("ga4_id, gtm_id, meta_pixel_id")
+        .eq("restaurant_id", restaurantData.id)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
     const restaurant: Restaurant = {
         id: restaurantData.id,
@@ -81,6 +91,7 @@ export default async function Page({
         .eq("restaurant_id", restaurant.id);
 
     const itemIds = (menuItems || []).map((m) => m.id);
+
 
     let allItems: Item[] = [];
     if (itemIds.length > 0) {
@@ -122,6 +133,7 @@ export default async function Page({
         }
     });
 
+
     allItems = allItems.map((item) => ({
         ...item,
         promotion: promotionByItemId.get(item.id) ?? undefined,
@@ -143,11 +155,11 @@ export default async function Page({
         else itemsByCategory[uncategorized].push(it);
     });
 
+
     const categoriesWithItems = categories.filter(
         (c) => (itemsByCategory[c.id]?.length ?? 0) > 0
     );
 
-    const tracking = restaurantData.tracking_integrations?.[0];
 
     console.log("slug")
     console.log(slug)
@@ -167,7 +179,6 @@ export default async function Page({
                 ga4Id={tracking?.ga4_id}
                 gtmId={tracking?.gtm_id}
                 metaPixelId={tracking?.meta_pixel_id}
-                enabled={tracking.ga4_id !== null || tracking.gtm_id !== null || tracking.meta_pixel_id !== null}
             />)}
             <MenuClientPage
                 slug={slug}
