@@ -22,6 +22,7 @@ type OrderDetail = Order & {
     customer_phone: string | null;
     customer_address: string | null;
     payment_ref: string | null;
+    is_delivery?: string | null;
     order_items: Array<{
         id: string;
         quantity: number;
@@ -41,6 +42,7 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
     const [isLoading, setIsLoading] = useState(true);
     const [isUpdating, setIsUpdating] = useState(false);
     const [details, setDetails] = useState<OrderDetail | null>(null);
+    const isPickup = details?.is_delivery === "retirada" || (order as any)?.is_delivery === "retirada";
 
     const fmtMoney = (cents: number) => (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
     const fmtDate = (dateStr: string) => new Date(dateStr).toLocaleString("pt-BR");
@@ -122,24 +124,25 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
     const renderStatus = (status: string) => {
         const labels: Record<string, string> = {
             pending_online_payment: "À Pagar",
-            pending_physical_payment: "Pendente (Pgt. Entrega)",
+            pending_physical_payment: isPickup ? "Pendente" : "Pendente (Pgt. Entrega)",
             paid: "Pendente (Pago)",
             preparing: "Preparando",
-            delivering: "Em Rota",
+            delivering: isPickup ? "Pronto" : "Em Rota",
             done: "Concluído",
             canceled: "Cancelado",
             dinheiro: "Dinheiro",
             "pix-entrega": "Pix Entrega",
             cartao: "Cartão (Online)",
             pix: "Pix (Online)",
-            "trazer-maquininha": "Trazer Maquininha",
+            "trazer-maquininha": "Maquininha",
+            retirada: "Retirada",
         };
         const colors: Record<string, string> = {
             pending_online_payment: "bg-yellow-100 text-yellow-800",
             pending_physical_payment: "bg-yellow-100 text-yellow-800",
             paid: "bg-yellow-100 text-yellow-800",
             preparing: "bg-blue-100 text-blue-800 border-blue-200",
-            delivering: "bg-purple-100 text-purple-800",
+            delivering: isPickup ? "bg-green-100 text-green-800 border-green-200" : "bg-purple-100 text-purple-800",
             done: "bg-green-100 text-green-800 border-green-200",
             canceled: "bg-red-200 text-red-800 border-red-200",
             dinheiro: "bg-gray-200 text-gray-800",
@@ -147,6 +150,7 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
             cartao: "bg-gray-200 text-gray-800",
             pix: "bg-gray-200 text-gray-800",
             "trazer-maquininha": "bg-gray-200 text-gray-800",
+            retirada: "bg-gray-200 text-gray-800 font-bold",
         };
         return (
             <span className={`2xl:text-base 2xl:px-3 px-2.5 py-0.5 rounded-full text-xs font-medium ${colors[status] || "bg-gray-100"}`}>
@@ -173,7 +177,11 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
 
         switch (details.status) {
             case "preparing":
-                return (
+                return isPickup ? (
+                    <Button variant="primary" className="bg-green-600 hover:bg-green-700 border-green-600" onClick={() => handleStatusUpdate("delivering")}>
+                        <FontAwesomeIcon icon={faCheck} className="mr-2" /> Marcar como pronto
+                    </Button>
+                ) : (
                     <Button variant="primary" onClick={() => handleStatusUpdate("delivering")}>
                         <FontAwesomeIcon icon={faMotorcycle} className="mr-2" /> Saiu para Entrega
                     </Button>
@@ -181,7 +189,7 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
             case "delivering":
                 return (
                     <Button variant="primary" className="bg-green-600 hover:bg-green-700 border-green-600" onClick={() => handleStatusUpdate("done")}>
-                        <FontAwesomeIcon icon={faCheck} className="mr-2" /> Concluir Pedido
+                        <FontAwesomeIcon icon={faCheck} className="mr-2" /> {isPickup ? "Entregue" : "Concluir Pedido"}
                     </Button>
                 );
             default:
@@ -201,7 +209,7 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
                                 Pedido #{order?.display_id}
                             </h2>
                             {(details || order) && renderStatus(details?.status || order!.status)}
-                            {order && (renderStatus(order.payment_method))}
+                            {order && renderStatus(isPickup ? "retirada" : order.payment_method)}
                         </div>
                         <p className="text-xs text-gray-500 flex items-center gap-1 2xl:text-base">
                             <FontAwesomeIcon icon={faClock} /> Realizado em {order && fmtDate(order.created_at)}
@@ -237,9 +245,11 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
                                     </div>
                                 </div>
                                 <div className="space-y-3 2xl:space-y-6">
-                                    <h4 className="text-sm 2xl:text-base font-bold text-gray-900 uppercase tracking-wider border-b border-gray-100 pb-1">Entrega</h4>
+                                    <h4 className="text-sm 2xl:text-base font-bold text-gray-900 uppercase tracking-wider border-b border-gray-100 pb-1">{isPickup ? "Retirada" : "Entrega"}</h4>
                                     <div className="text-sm 2xl:text-[1.1rem]">
-                                        {details.customer_address ? (
+                                        {isPickup ? (
+                                            <p className="text-gray-600 font-medium">Retirada no balcão</p>
+                                        ) : details.customer_address ? (
                                             <p className="text-gray-600 flex items-start gap-2">
                                                 <FontAwesomeIcon icon={faMapMarkerAlt} className="text-gray-400 w-4 mt-0.5 2xl:mt-0.8" />
                                                 {details.customer_address}
@@ -265,43 +275,28 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
                                             }`}
                                         >
                                             <div className="flex gap-3">
-      <span className="font-bold text-gray-900 w-6 text-right 2xl:text-lg">
-        {item.quantity}x
-      </span>
-
+                                                <span className="font-bold text-gray-900 w-6 text-right 2xl:text-lg">{item.quantity}x</span>
                                                 <div className="flex flex-col">
                                                     <span className="text-gray-800 font-medium 2xl:text-lg">{item.name}</span>
-
-                                                    {/* Observação */}
                                                     {item.observation && item.observation.trim() !== "" && (
-                                                        <span className="mt-1 text-xs 2xl:text-sm text-gray-600 italic">
-            Obs: {item.observation}
-          </span>
+                                                        <span className="mt-1 text-xs 2xl:text-sm text-gray-600 italic">Obs: {item.observation}</span>
                                                     )}
-
-                                                    {/* Subitems */}
                                                     {item.order_item_subitems?.length > 0 && (
                                                         <div className="mt-2 space-y-1">
                                                             {item.order_item_subitems.map((sub) => (
                                                                 <div key={sub.id} className="flex items-start justify-between gap-3">
-                <span className="text-xs 2xl:text-sm text-gray-600">
-                  • {sub.quantity}x {sub.name}
-                </span>
-                                                                    <span className="text-xs 2xl:text-sm text-gray-600 whitespace-nowrap">
-                  {fmtMoney(sub.price_cents * sub.quantity)}
-                </span>
+                                                                    <span className="text-xs 2xl:text-sm text-gray-600">• {sub.quantity}x {sub.name}</span>
+                                                                    <span className="text-xs 2xl:text-sm text-gray-600 whitespace-nowrap">{fmtMoney(sub.price_cents * sub.quantity)}</span>
                                                                 </div>
                                                             ))}
                                                         </div>
                                                     )}
                                                 </div>
                                             </div>
-
-                                            <span className="font-medium text-gray-700 2xl:text-lg">
-      {fmtMoney(item.price_cents * item.quantity)}
-    </span>
+                                            <span className="font-medium text-gray-700 2xl:text-lg">{fmtMoney(item.price_cents * item.quantity)}</span>
                                         </div>
-                                    ))}                                </div>
+                                    ))}
+                                </div>
                             </div>
 
                             {/* Totais */}
@@ -312,7 +307,7 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
                                         <span>{fmtMoney(details.total_cents - (details.delivery_cents || 0))}</span>
                                     </div>
                                     <div className="flex justify-between text-sm 2xl:text-base text-gray-500">
-                                        <span>Taxa de Entrega</span>
+                                        <span>{isPickup ? "Retirada" : "Taxa de Entrega"}</span>
                                         <span>{fmtMoney(details.delivery_cents || 0)}</span>
                                     </div>
                                     <div className="flex justify-between text-lg 2xl:text-xl font-bold text-gray-900 border-t border-gray-200 pt-2 mt-2">

@@ -217,7 +217,6 @@ useEffect(() => {
 
                 {/* Renderiza o botão flutuante e conecta a ref */}
                 <SupportButton ref={supportBtnRef} />
-
                 {/* === SIDEBAR === */}
                 <aside
                     className={`fixed h-full flex flex-col border-r border-gray-200 bg-white transition-all duration-300 z-20 ${
@@ -235,7 +234,11 @@ useEffect(() => {
                         />
                     </button>
 
-                    <div className="flex items-center justify-center mt-4 mb-0 2xl:mb-2 h-[70px] 2xl:h-[90px] relative">
+                    <Link
+                        href="/painel"
+                        aria-label="Ir para o painel"
+                        className="flex items-center justify-center mt-4 mb-0 2xl:mb-2 h-[70px] 2xl:h-[90px] relative cursor-pointer"
+                    >
                         <div
                             className={`transition-all duration-300 flex items-center justify-center ${
                                 expanded ? "scale-100 opacity-100" : "scale-0 opacity-0 absolute"
@@ -263,7 +266,7 @@ useEffect(() => {
                                 className="transition-all duration-300  2xl:w-10"
                             />
                         </div>
-                    </div>
+                    </Link>
 
                     {/* --- BOTÃO DE STATUS DA LOJA --- */}
                     <div className={`mt-2 2xl:mt-8 transition-all duration-300 ${expanded ? "w-full px-4" : "w-auto"}`}>

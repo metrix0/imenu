@@ -37,6 +37,26 @@ interface MenuItemRowProps {
     dragHandle?: ReactNode; // NOVA PROP PARA O ÍCONE DE ARRASTAR
 }
 
+const formatPriceInput = (cents: number) => (Math.max(0, cents) / 100).toFixed(2).replace(".", ",");
+
+const sanitizePriceInput = (value: string) => {
+    const cleaned = value.replace(/[^\d,.]/g, "");
+    const separatorIndex = Math.max(cleaned.lastIndexOf(","), cleaned.lastIndexOf("."));
+
+    if (separatorIndex === -1) {
+        return cleaned.replace(/\D/g, "").slice(0, 9);
+    }
+
+    const integerPart = cleaned.slice(0, separatorIndex).replace(/\D/g, "").slice(0, 9);
+    const decimals = cleaned.slice(separatorIndex + 1).replace(/\D/g, "").slice(0, 2);
+    return `${integerPart},${decimals}`;
+};
+
+const priceInputToCents = (value: string) => {
+    const parsed = Number.parseFloat(value.replace(",", "."));
+    return Number.isFinite(parsed) && parsed >= 0 ? Math.round(parsed * 100) : 0;
+};
+
 export default function MenuItemRow({ 
     item, 
     isNew = false, 
@@ -61,6 +81,7 @@ export default function MenuItemRow({
     const [name, setName] = useState(item.name ?? "");
     const [description, setDescription] = useState(item.description ?? "");
     const [priceCents, setPriceCents] = useState(item.price_cents ?? 0);
+    const [priceInput, setPriceInput] = useState(formatPriceInput(item.price_cents ?? 0));
     const [imageUrl, setImageUrl] = useState(item.image_url ?? null); 
     const [imagePath, setImagePath] = useState(item.image_path ?? null);
     const [isAvailable, setIsAvailable] = useState(item.is_available ?? false);
@@ -106,6 +127,12 @@ export default function MenuItemRow({
         if (isNew && nameInputRef.current) nameInputRef.current.focus();
     }, [isNew]);
 
+    useEffect(() => {
+        const nextPrice = item.price_cents ?? 0;
+        setPriceCents(nextPrice);
+        setPriceInput(formatPriceInput(nextPrice));
+    }, [item.price_cents]);
+
     // --- AÇÕES ---
     const autoSave = async (overrideData?: Partial<MenuItemType>) => {
         if (isNew) return; 
@@ -128,6 +155,13 @@ export default function MenuItemRow({
         } finally {
             setIsLoading(false);
         }
+    };
+
+    const handlePriceBlur = async () => {
+        const nextPriceCents = priceInputToCents(priceInput);
+        setPriceCents(nextPriceCents);
+        setPriceInput(formatPriceInput(nextPriceCents));
+        await autoSave({ price_cents: nextPriceCents });
     };
 
     const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -187,13 +221,16 @@ export default function MenuItemRow({
 
     const handleSave = async () => {
         if (!name.trim()) return;
+        const nextPriceCents = priceInputToCents(priceInput);
+        setPriceCents(nextPriceCents);
+        setPriceInput(formatPriceInput(nextPriceCents));
         setIsLoading(true);
         try {
             await onSave({
                 ...item,
                 name,
                 description,
-                price_cents: priceCents,
+                price_cents: nextPriceCents,
                 image_path: imagePath,
                 image_url: imageUrl,
                 is_available: isAvailable
@@ -202,6 +239,7 @@ export default function MenuItemRow({
             if (isNew) {
                 setName("");
                 setPriceCents(0);
+                setPriceInput(formatPriceInput(0));
                 setDescription("");
                 setImageUrl(null);
                 setImagePath(null);
@@ -226,17 +264,26 @@ export default function MenuItemRow({
             else {
                 setName(item.name);
                 setPriceCents(item.price_cents);
+                setPriceInput(formatPriceInput(item.price_cents));
                 setIsEditing(false);
             }
         }
     };
 
     const renderImageArea = () => (
-        <div 
+        <div
+            key={`menu-item-image-${item.id || "new"}-${isEditing ? "editing" : "viewing"}`}
             onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
             className="w-12 h-12 2xl:h-18 2xl:w-18 shrink-0 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 overflow-hidden border border-gray-200 cursor-pointer hover:bg-gray-200 transition-all relative group/img"
         >
-            <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleImageUpload} />
+            <input
+                key={`menu-item-file-input-${item.id || "new"}-${isEditing ? "editing" : "viewing"}`}
+                type="file"
+                ref={fileInputRef}
+                className="hidden"
+                accept="image/*"
+                onChange={handleImageUpload}
+            />
             {isUploading ? (
                 <FontAwesomeIcon icon={faSpinner} className="animate-spin text-brand" />
             ) : imageUrl ? (
@@ -423,18 +470,19 @@ export default function MenuItemRow({
                 <div className="relative w-24 2xl:w-26 flex items-center">
                     <span className="text-sm text-gray-500 2xl:mr-2 2xl:text-lg">R$</span>
                     <input
-                        type="number"
-                        step="0.5"
-                        min="0"
-                        value={(priceCents / 100).toFixed(2)}
+                        type="text"
+                        inputMode="decimal"
+                        value={priceInput}
+                        onFocus={(e) => e.currentTarget.select()}
                         onChange={(e) => {
-                            const val = Math.round(parseFloat(e.target.value) * 100);
-                            if (!isNaN(val)) setPriceCents(val);
+                            const nextValue = sanitizePriceInput(e.target.value);
+                            setPriceInput(nextValue);
+                            setPriceCents(priceInputToCents(nextValue));
                         }}
-                        onBlur={() => autoSave()}
+                        onBlur={handlePriceBlur}
                         onKeyDown={handleKeyDown}
                         className="w-full 2xl:text-lg text-right font-medium text-gray-900 border-b border-gray-300 focus:border-brand p-1 outline-none text-sm bg-transparent"
-                        placeholder="0.00"
+                        placeholder="0,00"
                         disabled={isLoading}
                     />
                 </div>

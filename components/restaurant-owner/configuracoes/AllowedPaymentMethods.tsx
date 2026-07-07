@@ -33,7 +33,7 @@ const PAYMENT_OPTIONS = [
     },
     {
         value: "trazer-maquininha",
-        label: "Trazer Maquininha",
+        label: "Maquininha",
         icon: icons.faPersonBiking,
     },
 ];

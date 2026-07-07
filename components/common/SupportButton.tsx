@@ -47,7 +47,7 @@ const SupportButton = forwardRef<SupportButtonRef, SupportButtonProps>(
         const [isOpen, setIsOpen] = useState(false);
 
         const phone = "5519988760900";
-        const message = "Olá! Preciso de ajuda com um problema!";
+        const message = "Olá! Preciso de ajuda com um problema!\n Descreva seu problema aqui: ";
         const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
 
         const openSupport = () => {

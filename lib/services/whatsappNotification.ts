@@ -10,6 +10,7 @@ export async function notifyOrderStatusUpdate(orderId: string, newStatus: string
                 o.id, 
                 o.customer_phone, 
                 o.customer_name,
+                o.is_delivery,
                 r.name as restaurant_name
              FROM orders o
              JOIN restaurants r ON o.restaurant_id = r.id
@@ -20,7 +21,8 @@ export async function notifyOrderStatusUpdate(orderId: string, newStatus: string
         if (result.rows.length === 0) return;
 
         const order = result.rows[0];
-        
+        const isPickup = order.is_delivery === "retirada";
+
         // Verifica se tem telefone (usando o nome correto da coluna do banco)
         if (!order.customer_phone) {
              console.log(`[WhatsApp Service] Pedido ${orderId} sem telefone (customer_phone).`);
@@ -28,12 +30,19 @@ export async function notifyOrderStatusUpdate(orderId: string, newStatus: string
         }
 
         // 2. Traduzir status
-        const statusMessages: Record<string, string> = {
-            "preparing": "está sendo preparado 👨‍🍳",
-            "delivering": "saiu para entrega 🛵",
-            "done": "foi entregue. Bom apetite! 😋",
-            "canceled": "foi cancelado ❌"
-        };
+        const statusMessages: Record<string, string> = isPickup
+            ? {
+                "preparing": "está sendo preparado 👨‍🍳",
+                "delivering": "está pronto para retirada ✅",
+                "done": "foi retirado. Bom apetite! 😋",
+                "canceled": "foi cancelado ❌"
+            }
+            : {
+                "preparing": "está sendo preparado 👨‍🍳",
+                "delivering": "saiu para entrega 🛵",
+                "done": "foi entregue. Bom apetite! 😋",
+                "canceled": "foi cancelado ❌"
+            };
 
         const statusText = statusMessages[newStatus];
         if (!statusText) return;
@@ -52,7 +61,6 @@ export async function notifyOrderStatusUpdate(orderId: string, newStatus: string
 
         // 4. Enviar usando o helper de template
         await sendWhatsAppTemplate(order.customer_phone, "order_status_update", variables);
-
         
 
     } catch (error) {

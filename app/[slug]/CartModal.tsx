@@ -41,16 +41,16 @@ const PAYMENT_OPTIONS = [
     },
     {
         value: "trazer-maquininha",
-        label: "Trazer Maquininha",
+        label: "Maquininha",
         icon: icons.faPersonBiking,
     },
 ];
 
 export default function CartModal({
-                                      onClose,
-                                      restaurant,
+                                       onClose,
+                                       restaurant,
     selectedCouponCode, onSelectItem
-                                  }: {
+                                   }: {
     onClose: () => void;
     restaurant: any;
     step: "cart" | "info" | "checkout";
@@ -74,6 +74,7 @@ export default function CartModal({
         pagamento,
         setField,
     } = useCheckoutStore();
+    const isPickup = useCheckoutStore((state: any) => Boolean(state.is_pickup));
 
     const [openModal, setOpenModal] = useState(false);
 
@@ -94,7 +95,36 @@ export default function CartModal({
     const [upsells, setUpsells] = useState<Item[]>([]);
     const [loadingUpsells, setLoadingUpsells] = useState(false);
     const coupon_code = useCheckoutStore((s) => s.coupon_code);
+    const coupon_type = useCheckoutStore((s) => s.coupon_type);
     const coupon_discount_cents = useCheckoutStore((s) => s.coupon_discount_cents);
+
+    const restaurantAddress = (() => {
+        const rawAddress = restaurant?.address;
+        if (!rawAddress) return null;
+        if (typeof rawAddress === "string") {
+            try {
+                return JSON.parse(rawAddress);
+            } catch {
+                return null;
+            }
+        }
+        return typeof rawAddress === "object" ? rawAddress : null;
+    })();
+
+    const hasRestaurantAddress = Boolean(
+        restaurantAddress &&
+        [restaurantAddress.street, restaurantAddress.number, restaurantAddress.neighborhood, restaurantAddress.city, restaurantAddress.state, restaurantAddress.cep]
+            .some((value) => String(value ?? "").trim().length > 0)
+    );
+
+    const formattedRestaurantAddress = restaurantAddress
+        ? [
+            [restaurantAddress.street, restaurantAddress.number].filter(Boolean).join(", "),
+            restaurantAddress.neighborhood,
+            [restaurantAddress.city, restaurantAddress.state].filter(Boolean).join(" - "),
+            restaurantAddress.cep ? `CEP ${restaurantAddress.cep}` : null,
+        ].filter(Boolean).join(" • ")
+        : "";
 
     function getDeliveryTiers() {
         try {
@@ -117,8 +147,6 @@ export default function CartModal({
         const { data } = supabase.storage.from(bucket).getPublicUrl(path);
         return data?.publicUrl || null;
     };
-
-
 
     function computeFeeFromTiers(distanceKm: number, tiersAny: any): number | null {
         if (!tiersAny) return null;
@@ -151,11 +179,17 @@ export default function CartModal({
     }
 
     async function recalcDeliveryFeeFromAddress() {
+        const st = useCheckoutStore.getState() as any;
+        if (st.is_pickup) {
+            setDeliveryFeeCents(0);
+            setField("delivery_fee_cents", "0");
+            setField("delivery_time_minutes", null);
+            return;
+        }
+
         setField("showAddressWarning", false);
         setCepLocationError(false);
 
-
-        const st = useCheckoutStore.getState();
         if (!st.cep) return;
 
         const fullAddress = `${st.rua}, ${st.bairro}, ${st.cidade} - ${st.estado}, ${st.cep}, Brasil    `;
@@ -214,6 +248,7 @@ export default function CartModal({
     }
 
     async function handleCepInput(value: string) {
+        if (isPickup) return;
         setCepLocationError(false);
         setContinueBlocked(true)
 
@@ -254,6 +289,7 @@ export default function CartModal({
     }
 
     async function handleUseMyLocation() {
+        if (isPickup) return;
         if (!("geolocation" in navigator)){
             console.log("no geo")
             setShowNoGeolocationToast(true)
@@ -273,7 +309,6 @@ export default function CartModal({
 
                     setField("lat", String(lat));
                     setField("lon", String(lon));
-
 
                     const addr = await fetchAddressByCoordinates(lat, lon);
 
@@ -316,6 +351,37 @@ export default function CartModal({
 
     }
 
+    const handlePickupChange = (checked: boolean) => {
+        useCheckoutStore.setState({ is_pickup: checked } as any);
+        setField("showAddressWarning", false);
+        setCepLocationError(false);
+
+        if (checked) {
+            setDeliveryFeeCents(0);
+            setField("delivery_fee_cents", "0");
+            setField("delivery_time_minutes", null);
+            if (coupon_type === "delivery") {
+                setField("coupon_discount_cents", 0);
+            }
+            setContinueBlocked(false);
+            return;
+        }
+
+        setDeliveryFeeCents(null);
+        setField("delivery_fee_cents", null);
+        setField("delivery_time_minutes", null);
+        if (cep.replace(/\D/g, "").length === 8) {
+            window.setTimeout(() => recalcDeliveryFeeFromAddress(), 0);
+        }
+    };
+
+    useEffect(() => {
+        if (!hasRestaurantAddress && isPickup) {
+            useCheckoutStore.setState({ is_pickup: false } as any);
+            setDeliveryFeeCents(null);
+            setField("delivery_fee_cents", null);
+        }
+    }, [hasRestaurantAddress, isPickup]);
 
     useEffect(() => {
         if (!restaurant?.id) return;
@@ -366,8 +432,6 @@ export default function CartModal({
                 })
                 .filter((i): i is Item => i !== null);
 
-
-
             setUpsells(ordered);
             setLoadingUpsells(false);
         };
@@ -375,14 +439,18 @@ export default function CartModal({
         loadUpsells();
     }, [restaurant?.id]);
 
-
-
     useEffect(() => {
         requestAnimationFrame(() => setOpenModal(true));
     }, []);
 
     useEffect(() => {
         if (step === "checkout") {
+            if (isPickup) {
+                setDeliveryFeeCents(0);
+                setField("delivery_fee_cents", "0");
+                return;
+            }
+
             const saved = useCheckoutStore.getState().delivery_fee_cents;
             if (saved !== undefined && saved !== null) {
                 const feeNumber = Number(saved);
@@ -391,7 +459,7 @@ export default function CartModal({
                 }
             }
         }
-    }, [step]);
+    }, [step, isPickup]);
 
     // keep matching timeout so backdrop/slide finish
     const closeWithAnimation = () => {
@@ -423,15 +491,13 @@ export default function CartModal({
 
     const ruaEBairro = bairro ? `${rua}, ${bairro}` : rua;
 
-
-
     useEffect(() => {
-        if (!cepTrigger) return;
+        if (!cepTrigger || isPickup) return;
 
         handleCepInput(cep);
 
         useCheckoutStore.setState({ cepTrigger: false });
-    }, [cepTrigger]);
+    }, [cepTrigger, isPickup]);
 
     useEffect(() => {
         console.log("checkout coupons")
@@ -463,9 +529,9 @@ export default function CartModal({
             ? restaurant.allowed_payment_methods
             : DEFAULT_ALLOWED_PAYMENT_METHODS;
 
-
     const availablePaymentOptions = PAYMENT_OPTIONS.filter((option) =>
-        allowedPaymentMethods.includes(option.value)
+        allowedPaymentMethods.includes(option.value) &&
+        !(isPickup && option.value === "pix-entrega")
     );
 
     useEffect(() => {
@@ -478,7 +544,9 @@ export default function CartModal({
         if (!isCurrentPaymentAllowed) {
             setField("pagamento", availablePaymentOptions[0].value);
         }
-    }, [pagamento, allowedPaymentMethods]);
+    }, [pagamento, allowedPaymentMethods, isPickup]);
+
+    const effectiveDeliveryFeeCents = isPickup ? 0 : deliveryFeeCents;
 
     return (
         <div className={`fixed inset-0 z-41 flex justify-center items-end`}>
@@ -490,7 +558,6 @@ export default function CartModal({
                 xPadding={false}
                 className={"md:!h-[80vh] md:!mb-[12vh]"}
             >
-
 
                 {showNoGeolocationToast && (
                     <Toast
@@ -598,7 +665,6 @@ export default function CartModal({
                                 .toFixed(2)
                                 .replace(".", ",")}</b>
                         </WarningBox>
-
                     }
 
                     <h2 className="font-semibold text-md 2xl:text-lg mt-8">
@@ -701,7 +767,6 @@ export default function CartModal({
                                         {item.name}
                                     </p>
 
-
                                 </button>
                             ))}
                         </div>
@@ -712,76 +777,102 @@ export default function CartModal({
 
                 {/* PAGE 2 — INFO */}
                 <form className="w-full px-4 overflow-y-auto pt-4 pb-32 2xl:pb-10 2xl:px-8" autoComplete="on">
-                    <div className={"md:flex md:justify-between md:pr-4 md:mx-1 md:mb-4"}>
-                        <h2 className="font-semibold text-md 2xl:text-lg mb-4 md:mb-0">
-                            Entregar no endereço
-                        </h2>
+                    {hasRestaurantAddress && (
+                        <label className={`mb-5 flex cursor-pointer items-center gap-3 rounded-xl border p-4 transition-colors ${isPickup ? "border-brand bg-brand/5" : "border-gray-200 bg-white hover:border-gray-300"}`}>
+                            <input
+                                type="checkbox"
+                                checked={isPickup}
+                                onChange={(event) => handlePickupChange(event.target.checked)}
+                                className="sr-only"
+                            />
+                            <span
+                                aria-hidden="true"
+                                className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors ${isPickup ? "border-brand bg-brand" : "border-gray-300 bg-white"}`}
+                            >
+                                {isPickup && <FontAwesomeIcon icon={icons.faCheck} className="text-[11px] text-white" />}
+                            </span>
+                            <span className="flex min-w-0 flex-col">
+                                <span className="font-semibold text-md 2xl:text-lg">Retirar pedido no balcão</span>
+                                <span className="mt-1 text-sm text-gray-500 2xl:text-base">{formattedRestaurantAddress}</span>
+                            </span>
+                        </label>
+                    )}
 
-                        <button
-                            className={`relative inline-flex justify-center items-center gap-1 text-brand text-md 2xl:text-lg cursor-pointer mb-5 md:mb-0`}
-                            onClick={handleUseMyLocation}
-                            type="button"
-                        >
-                            {loadingUseMyLocation && (<Loader className={"scale-75 absolute !border-brand/20 !border-t-brand -right-9 md:-left-9 md:right-0"}/>)}
-                            <FontAwesomeIcon icon={icons.faLocationCrosshairs}/> Usar minha localização
-                        </button>
-                    </div>
+                    <fieldset
+                        disabled={isPickup}
+                        className={`transition-opacity ${isPickup ? "pointer-events-none opacity-40" : "opacity-100"}`}
+                    >
+                        <div className={"md:flex md:justify-between md:pr-4 md:mx-1 md:mb-4"}>
+                            <h2 className="font-semibold text-md 2xl:text-lg mb-4 md:mb-0">
+                                Entregar no endereço
+                            </h2>
 
-                    {showAddressWarning &&
-                        <WarningBox
-                            icon={icons.faTriangleExclamation}
-                            className="mt-2 mb-8 p-4 2xl:text-lg"
-                        >
-                            {!cepLocationError
-                                ? "O restaurante está muito longe deste endereço para entrega!"
-                                : "Verifique se o endereço está correto ou tente usar sua localização."}
-                        </WarningBox>
-                    }
+                            <button
+                                className={`relative inline-flex justify-center items-center gap-1 text-brand text-md 2xl:text-lg cursor-pointer mb-5 md:mb-0`}
+                                onClick={handleUseMyLocation}
+                                type="button"
+                            >
+                                {loadingUseMyLocation && (<Loader className={"scale-75 absolute !border-brand/20 !border-t-brand -right-9 md:-left-9 md:right-0"}/>)}
+                                <FontAwesomeIcon icon={icons.faLocationCrosshairs}/> Usar minha localização
+                            </button>
+                        </div>
 
-                    <div className="flex-1 2xl:mt-2 md:text-sm ">
+                        {showAddressWarning && !isPickup &&
+                            <WarningBox
+                                icon={icons.faTriangleExclamation}
+                                className="mt-2 mb-8 p-4 2xl:text-lg"
+                            >
+                                {!cepLocationError
+                                    ? "O restaurante está muito longe deste endereço para entrega!"
+                                    : "Verifique se o endereço está correto ou tente usar sua localização."}
+                            </WarningBox>
+                        }
+
+                        <div className="flex-1 2xl:mt-2 md:text-sm ">
+                            <Input
+                                autoComplete="postal-code"
+                                label={"CEP"}
+                                placeholder="12345-123"
+                                value={formatCep(cep)}
+                                onChange={(e) => handleCepInput(formatCep(e.target.value))}
+                                className="mb-3 2xl:text-lg 2xl:mb-6"
+                            />
+
+                        </div>
+
                         <Input
-                            autoComplete="postal-code"
-                            label={"CEP"}
-                            placeholder="12345-123"
-                            value={formatCep(cep)}
-                            onChange={(e) => handleCepInput(formatCep(e.target.value))}
-                            className="mb-3 2xl:text-lg 2xl:mb-6"
+                            autoComplete="address-line1 "
+                            label="Rua e Bairro"
+                            placeholder="Rua 123, Bairro XYZ"
+                            value={ruaEBairro}
+                            onChange={(e) => {
+                                const [r, ...b] = e.target.value.split(",");
+                                setField("rua", r.trim());
+                                setField("bairro", b.join(",").trim());
+                            }}
+                            className="mb-3 2xl:text-lg 2xl:mb-6 md:text-sm "
                         />
 
-                    </div>
-
-                    <Input
-                        autoComplete="address-line1 "
-                        label="Rua e Bairro"
-                        placeholder="Rua 123, Bairro XYZ"
-                        value={ruaEBairro}
-                        onChange={(e) => {
-                            const [r, ...b] = e.target.value.split(",");
-                            setField("rua", r.trim());
-                            setField("bairro", b.join(",").trim());
-                        }}
-                        className="mb-3 2xl:text-lg 2xl:mb-6 md:text-sm "
-                    />
-
-                    <div className="flex  gap-3 2xl:gap-6 md:text-sm ">
-                        <Input
-                            autoComplete="address-line2"
-                            label={"Número"}
-                            placeholder="1234"
-                            value={numero}
-                            onChange={(e) => setField("numero", e.target.value)}
-                            className="mb-3 2xl:text-lg 2xl:mb-6"
-                        />
-                        <Input
-                            autoComplete="address-line3"
-                            label={"Complemento"}
-                            placeholder="Apto 123 (Opcional)"
-                            value={complemento}
-                            onChange={(e) =>
-                                setField("complemento", e.target.value)
-                            }
-                        />
-                    </div>
+                        <div className="flex  gap-3 2xl:gap-6 md:text-sm ">
+                            <Input
+                                autoComplete="address-line2"
+                                label={"Número"}
+                                placeholder="1234"
+                                value={numero}
+                                onChange={(e) => setField("numero", e.target.value)}
+                                className="mb-3 2xl:text-lg 2xl:mb-6"
+                            />
+                            <Input
+                                autoComplete="address-line3"
+                                label={"Complemento"}
+                                placeholder="Apto 123 (Opcional)"
+                                value={complemento}
+                                onChange={(e) =>
+                                    setField("complemento", e.target.value)
+                                }
+                            />
+                        </div>
+                    </fieldset>
 
                     <h2 className="font-semibold text-md mt-3 mb-5 md:text-sm 2xl:text-lg">
                         Informações pessoais
@@ -838,7 +929,6 @@ export default function CartModal({
                                 ))}
                         </div>
 
-
                         {showDiscountInput && (<div className="mb-6">
                             <Input
                                 readOnly={!!selectedCouponCode && !!coupon_discount_cents}
@@ -863,7 +953,6 @@ export default function CartModal({
                             />
                         </div>)}
 
-
                             <h2 className="font-semibold text-md mb-4 mt-5 2xl:text-lg">
                             Resumo de valores
                         </h2>
@@ -883,12 +972,12 @@ export default function CartModal({
                         </div>
 
                         <div className="flex justify-between text-[15px] mb-2 2xl:text-lg">
-                            <span>Taxa de entrega</span>
+                            <span>{isPickup ? "Retirada" : "Taxa de entrega"}</span>
 
                             <span className="text-green-700">
-                                {deliveryFeeCents === null
+                                {effectiveDeliveryFeeCents === null
                                     ? "—"
-                                    : `R$ ${(deliveryFeeCents / 100).toFixed(2).replace(".", ",")}`}
+                                    : `R$ ${(effectiveDeliveryFeeCents / 100).toFixed(2).replace(".", ",")}`}
                             </span>
                         </div>
 
@@ -910,7 +999,7 @@ export default function CartModal({
                                         0
                                     ) /
                                     100 +
-                                    ((deliveryFeeCents ? deliveryFeeCents / 100 : 0)-(coupon_discount_cents ? coupon_discount_cents / 100 : 0))
+                                    (((effectiveDeliveryFeeCents ?? 0) / 100)-(coupon_discount_cents ? coupon_discount_cents / 100 : 0))
                                 )
                                     .toFixed(2)
                                     .replace(".", ",")}

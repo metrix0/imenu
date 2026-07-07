@@ -1,32 +1,36 @@
 "use client";
 
-import {use, useEffect, useRef, useState} from "react";
+import { use, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/database/supabaseClient";
-import {FontAwesomeIcon} from "@fortawesome/react-fontawesome";
-import {icons} from "@/lib/utils/fontawesome";
-import {faPix, faWhatsappSquare} from "@fortawesome/free-brands-svg-icons"
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { icons } from "@/lib/utils/fontawesome";
+import { faPix, faWhatsappSquare } from "@fortawesome/free-brands-svg-icons";
 import ListLoader from "@/components/ui/ListLoader";
-import {formatPrice, promotionPrice} from "@/lib/utils/formatPrice"
+import { formatPrice, promotionPrice } from "@/lib/utils/formatPrice";
 
 export default function PedidoPage({
-                                       params,
-                                   }: {
+    params,
+}: {
     params: Promise<{ slug: string; id: string }>;
 }) {
     const { id } = use(params);
+    const router = useRouter();
+    const didRunClearOnce = useRef(false);
+
     const [status, setStatus] = useState<string>("pending_online_payment");
     const [order, setOrder] = useState<any>(null);
-    const didRunClearOnce = useRef(false);
-    const router = useRouter();
     const [restaurantName, setRestaurantName] = useState("");
     const [restaurantPhone, setRestaurantPhone] = useState("");
     const [restaurantId, setRestaurantId] = useState<string | null>(null);
     const [copiedPix, setCopiedPix] = useState(false);
 
-
     useEffect(() => {
-        if(id.length < 10 ){router.push("/404")}
+        if (id.length < 10) {
+            router.push("/404");
+            return;
+        }
+
         const channel = supabase
             .channel(`orders-${id}`)
             .on(
@@ -39,207 +43,125 @@ export default function PedidoPage({
                 },
                 (payload) => {
                     const next = payload.new;
-
                     if (next && typeof next === "object" && "status" in next) {
                         setStatus(next.status as string);
                     }
-
-                    setOrder((prev: any) => ({ ...(prev ?? {}), ...(next ?? {}) }));
+                    setOrder((previous: any) => ({ ...(previous ?? {}), ...(next ?? {}) }));
                 }
             )
             .subscribe();
 
-        // Wrapped async logic so cleanup stays sync
         (async () => {
             try {
-                // 1) Load initial order
-                const orderRes = await fetch(`/api/orders/${id}`);
-                const orderData = await orderRes.json();
+                const orderResponse = await fetch(`/api/orders/${id}`);
+                const orderData = await orderResponse.json();
 
                 if (orderData && typeof orderData === "object" && "status" in orderData) {
                     setStatus(orderData.status);
                 }
-
                 setOrder(orderData);
-                // 2) Extract restaurantId from order
-                const restaurantId = orderData?.restaurant_id ||
+
+                const currentRestaurantId =
+                    orderData?.restaurant_id ||
                     orderData?.restaurantId ||
                     orderData?.restaurant_id_fk;
-                setRestaurantId(restaurantId)
 
-                if (!restaurantId) return;
-                // 3) Fetch restaurant data (phone, name)
-                const restRes = await fetch(`/api/restaurants/${restaurantId}`);
-                const restData = await restRes.json();
+                setRestaurantId(currentRestaurantId);
+                if (!currentRestaurantId) return;
 
-
-                if (restData) {
-                    setRestaurantName(restData.name);
-                    setRestaurantPhone(restData.phone);
+                const restaurantResponse = await fetch(`/api/restaurants/${currentRestaurantId}`);
+                const restaurantData = await restaurantResponse.json();
+                if (restaurantData) {
+                    setRestaurantName(restaurantData.name ?? "");
+                    setRestaurantPhone(restaurantData.phone ?? "");
                 }
-
-
-            } catch (_) {}
+            } catch (error) {
+                console.error("Erro ao carregar pedido:", error);
+            }
         })();
-
 
         return () => {
             try {
                 supabase.removeChannel(channel);
-            } catch (_) {}
+            } catch {}
         };
-    }, [id]);
-
+    }, [id, router]);
 
     useEffect(() => {
-        if(!restaurantId || restaurantPhone === null) return
-        if (!status) return;
+        if (!restaurantId || restaurantPhone === null || !status) return;
 
-        const shouldClear =
-            status === "paid" ||
-            status === "pending_physical_payment" ||
-            status === "preparing" ||
-            status === "delivering" ||
-            status === "done";
+        const shouldClear = [
+            "paid",
+            "pending_physical_payment",
+            "preparing",
+            "delivering",
+            "done",
+        ].includes(status);
 
-        // 👇 Only run ONCE per page load
         if (shouldClear && !didRunClearOnce.current) {
             didRunClearOnce.current = true;
-
-            console.log(
-                `%c[CART] One-time clear triggered (status = ${status})`,
-                "color:red;font-weight:bold"
-            );
-
-            // CLEAR CART
             try {
                 localStorage.removeItem("cart-storage");
-            } catch (err) {
-                console.error("[CART] Failed to clear cart-storage:", err);
+            } catch (error) {
+                console.error("[CART] Failed to clear cart-storage:", error);
             }
 
-            // SET COOKIE to remember user visited this page
-            console.log(restaurantId)
             try {
                 document.cookie = `order_page_entered_id_${restaurantId}=${id}; path=/; max-age=${60 * 60 * 5}`;
-            } catch (err) {
-                console.error("[COOKIE] Failed to set order_page_entered cookie:", err);
+            } catch (error) {
+                console.error("[COOKIE] Failed to set order_page_entered cookie:", error);
             }
         }
-    }, [restaurantId, status]);
-
-
-
-    // --------------------------------------------------------------------
-    // 🟢 POLLING EVERY X SECONDS (MINIMUM CHANGE)
-    // --------------------------------------------------------------------
+    }, [id, restaurantId, restaurantPhone, status]);
 
     useEffect(() => {
-        if (!status) return;
+        if (!status || status === "done" || status === "canceled") return;
 
-        // Decide polling frequency
-        let intervalTime = 7000; // default: normal speed
-
-        if (status === "preparing") {
-            intervalTime = 13000;
-        }
-
-        if (status === "delivering") {
-            intervalTime = 30000;
-        }
-
-        // 🚫 STOP polling completely for FINAL states
-        if (status === "done" || status === "canceled") {
-            console.log(
-                `%c[Polling] Disabled (final state: ${status})`,
-                "color:red;font-weight:bold"
-            );
-            return; // <-- STOP: no interval created
-        }
-
-        console.log(
-            `%c[Polling] Status=${status} → interval=${intervalTime / 1000}s`,
-            "color:#09f;font-weight:bold"
-        );
-
-        const interval = setInterval(() => {
-            console.log(
-                `%c[Polling] GET /api/orders/${id} @ ${new Date().toLocaleTimeString()}`,
-                "color:#888"
-            );
-
+        const intervalTime = status === "delivering" ? 30000 : status === "preparing" ? 13000 : 7000;
+        const interval = window.setInterval(() => {
             fetch(`/api/orders/${id}/status`)
-                .then((res) => res.json())
+                .then((response) => response.json())
                 .then((data) => {
-                    console.log(
-                        "%c[Polling] Response:",
-                        "color:#0a0;font-weight:bold",
-                        data
-                    );
-
-                    if (!data) return;
-
-                    // Update status
-                    if (data.status && data.status !== status) {
-                        console.log(
-                            `%c[Polling] Status changed → ${data.status}`,
-                            "color:orange;font-weight:bold"
-                        );
+                    if (data?.status && data.status !== status) {
                         setStatus(data.status);
                     }
-
                 })
-                .catch((err) => {
-                    console.error("[Polling] ERROR:", err);
-                });
+                .catch((error) => console.error("[Polling] ERROR:", error));
         }, intervalTime);
 
-        return () => clearInterval(interval);
+        return () => window.clearInterval(interval);
     }, [id, status]);
 
     if (!order) {
         return (
             <main className="p-6 max-w-xl mx-auto min-h-screen flex flex-col gap-8">
-
-                {/* ETA skeleton */}
                 <section className="p-5">
                     <ListLoader lines={1} />
-                    <div className="mt-4 w-2/3">
-                        <ListLoader lines={1} />
-                    </div>
+                    <div className="mt-4 w-2/3"><ListLoader lines={1} /></div>
                 </section>
-                {/* Status row skeleton */}
                 <section className="p-5 flex items-center gap-6">
-                    <div className="flex-1">
-                        <ListLoader lines={1} />
-                    </div>
+                    <div className="flex-1"><ListLoader lines={1} /></div>
                 </section>
-
-                {/* Payment card skeleton */}
                 <section className="bg-white rounded-xl p-5 shadow space-y-3">
                     <ListLoader lines={1} />
                     <ListLoader lines={2} />
                 </section>
-
-                {/* Order items skeleton */}
                 <section className="bg-white rounded-xl p-5 shadow space-y-4">
                     <ListLoader lines={1} />
-
                     <div className="space-y-4 mt-3">
                         <ListLoader lines={2} />
                         <ListLoader lines={2} />
                     </div>
                 </section>
-
-                {/* Footer logo skeleton */}
                 <div className="mt-auto flex justify-center pt-8 pb-6">
                     <div className="w-[30%] h-6 bg-gray-200 rounded" />
                 </div>
-
             </main>
         );
     }
 
+    const isPickup = order.is_delivery === "retirada";
+    const paymentMethod = order.payment_method ?? order.paymentMethod;
 
     const iconMap: Record<string, any> = {
         pix: faPix,
@@ -254,8 +176,8 @@ export default function PedidoPage({
         pending_physical_payment: "Aguardando confirmação do restaurante",
         paid: <><b>Pagamento aprovado</b>, aguardando confirmação do restaurante</>,
         preparing: "Preparando pedido",
-        delivering: "Pedido a caminho",
-        done: "Pedido entregue, bom apetite!",
+        delivering: isPickup ? "Pedido pronto para retirada" : "Pedido a caminho",
+        done: isPickup ? "Pedido retirado, bom apetite!" : "Pedido entregue, bom apetite!",
         canceled: "Pedido cancelado",
     };
 
@@ -263,132 +185,97 @@ export default function PedidoPage({
 
     function formatEtaFromTimestamp(iso: string | null | undefined) {
         if (!iso) return "Calculando...";
-
         const center = new Date(iso);
         if (Number.isNaN(center.getTime())) return "Calculando...";
 
         const start = new Date(center.getTime() - 10 * 60_000);
         const end = new Date(center.getTime() + 10 * 60_000);
-
         const now = new Date();
-
-        // Helper to check if two dates share Y/M/D
-        const isSameDay = (a: Date, b: Date) =>
-            a.getFullYear() === b.getFullYear() &&
-            a.getMonth() === b.getMonth() &&
-            a.getDate() === b.getDate();
+        const isSameDay = (first: Date, second: Date) =>
+            first.getFullYear() === second.getFullYear() &&
+            first.getMonth() === second.getMonth() &&
+            first.getDate() === second.getDate();
 
         let label: string;
-
         if (isSameDay(start, now)) {
             label = "Hoje";
         } else {
             const tomorrow = new Date(now);
             tomorrow.setDate(now.getDate() + 1);
-
-            if (isSameDay(start, tomorrow)) {
-                label = "Amanhã";
-            } else {
-                // dd/MM
-                label = start.toLocaleDateString("pt-BR", {
-                    day: "2-digit",
-                    month: "2-digit",
-                });
-            }
+            label = isSameDay(start, tomorrow)
+                ? "Amanhã"
+                : start.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
         }
 
-        const fmt = (d: Date) =>
-            d.toLocaleTimeString("pt-BR", {
-                hour: "2-digit",
-                minute: "2-digit",
-            });
+        const formatTime = (date: Date) =>
+            date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 
-        return `${label}, ${fmt(start)} - ${fmt(end)}`;
+        return `${label}, ${formatTime(start)} - ${formatTime(end)}`;
     }
 
-
     const eta = formatEtaFromTimestamp(order.delivery_eta);
-
-    const pm = order.payment_method ?? order.paymentMethod;
-    const paymentIcon = iconMap[pm];
+    const paymentIcon = iconMap[paymentMethod];
     const paymentText =
-        pm === "pix"
+        paymentMethod === "pix"
             ? "Pix"
-            : pm === "pix-entrega"
-                ? "Pix na entrega"
-                : pm === "cartao"
+            : paymentMethod === "pix-entrega"
+                ? isPickup ? "Pix na retirada" : "Pix na entrega"
+                : paymentMethod === "cartao"
                     ? "Cartão"
-                    : pm === "dinheiro"
+                    : paymentMethod === "dinheiro"
                         ? "Dinheiro"
                         : "Maquininha";
 
     const totalDisplay =
         typeof order.total_cents === "number"
-            ? `R$ ${(order.total_cents / 100)
-                .toFixed(2)
-                .replace(".", ",")}`
+            ? `R$ ${(order.total_cents / 100).toFixed(2).replace(".", ",")}`
             : "...";
 
     return (
         <main className="p-6 max-w-xl mx-auto min-h-screen flex flex-col">
-
-            {/* ------- everything below is untouched ------- */}
-
-            {/* ETA */}
             <section className="p-5">
-                <h2 className="text-gray-500 text-lg 2xl:text-xl">Previsão de entrega</h2>
+                <h2 className="text-gray-500 text-lg 2xl:text-xl">
+                    {isPickup ? "Previsão de retirada" : "Previsão de entrega"}
+                </h2>
                 <p className="font-semibold text-text text-2xl 2xl:text-3xl 2xl:mt-3 mt-1">{eta}</p>
             </section>
 
-            {!status.includes("pending") && status !== "paid"
-                ?
+            {!status.includes("pending") && status !== "paid" ? (
                 <div className="flex gap-2 w-[94%] ml-[3%] h-1 rounded-full overflow-hidden relative mt-2 mb-2">
-
-                    {status === "preparing" ?
-                    <div className="relative inset-0 bg-gray-200 overflow-hidden rounded-full min-w-[25%] w-full max-w-[50%] border-white left-0">
-                        <div  className="absolute inset-0 animate-[sweep_1.5s_linear_infinite] bg-gradient-to-r from-green/0 via-green to-green/0" />
-                    </div>
-                        :
-                    <div className="relative inset-0 bg-green rounded-full min-w-[25%] w-full max-w-[50%] border-white left-0">
-                    </div>
-                    }
-                    {status === "done" ?
-                        <div className="relative inset-0 bg-green overflow-hidden rounded-full min-w-[25%] w-full max-w-[50%] border-white left-0">
+                    {status === "preparing" ? (
+                        <div className="relative inset-0 bg-gray-200 overflow-hidden rounded-full min-w-[25%] w-full max-w-[50%] border-white left-0">
+                            <div className="absolute inset-0 animate-[sweep_1.5s_linear_infinite] bg-gradient-to-r from-green/0 via-green to-green/0" />
                         </div>
-                        :
-                    <div className="relative inset-0 bg-gray-200 overflow-hidden rounded-full min-w-[25%] w-full max-w-[50%] border-white left-0">
-                        {status === "delivering" &&
-                        <div  className="absolute inset-0 animate-[sweep_1.5s_linear_infinite] bg-gradient-to-r from-green/0 via-green to-green/0" />
-                        }
-                    </div>
-                    }
-
+                    ) : (
+                        <div className="relative inset-0 bg-green rounded-full min-w-[25%] w-full max-w-[50%] border-white left-0" />
+                    )}
+                    {status === "done" ? (
+                        <div className="relative inset-0 bg-green overflow-hidden rounded-full min-w-[25%] w-full max-w-[50%] border-white left-0" />
+                    ) : (
+                        <div className="relative inset-0 bg-gray-200 overflow-hidden rounded-full min-w-[25%] w-full max-w-[50%] border-white left-0">
+                            {status === "delivering" && (
+                                <div className="absolute inset-0 animate-[sweep_1.5s_linear_infinite] bg-gradient-to-r from-green/0 via-green to-green/0" />
+                            )}
+                        </div>
+                    )}
                 </div>
-                :
+            ) : (
                 <div className="w-[94%] ml-[3%] h-1 bg-gray-200 rounded-full overflow-hidden relative mt-2 mb-2">
-                <div
-                className="absolute inset-0 animate-[sweep_1.5s_linear_infinite]
-                    bg-gradient-to-r from-green/0 via-green to-green/0" />
+                    <div className="absolute inset-0 animate-[sweep_1.5s_linear_infinite] bg-gradient-to-r from-green/0 via-green to-green/0" />
                 </div>
-            }
+            )}
 
             <section className="p-5 flex items-center gap-6">
                 <div className="relative">
                     <div className="w-3 h-3 bg-green rounded-full" />
-
-                    {/* halo */}
-                    <div className="
-      absolute inset-0 rounded-full
-      bg-green
-      opacity-40
-      animate-[pulseHalo_2s_ease-out_infinite]
-  "></div>
-                </div>                <div>
+                    <div className="absolute inset-0 rounded-full bg-green opacity-40 animate-[pulseHalo_2s_ease-out_infinite]" />
+                </div>
+                <div>
                     <p className="font-medium text-[15px] 2xl:text-lg leading-tight">{readableStatus}</p>
                 </div>
             </section>
 
-            {pm === "pix" && status === "pending_online_payment" && (
+            {paymentMethod === "pix" && status === "pending_online_payment" && (
                 <section className="bg-white rounded-xl p-5 pb-7 shadow space-y-3 mt-3 mb-3">
                     <p className="font-semibold text-lg text-center">Pix</p>
                     {order?.pix_qr_base64 && (
@@ -398,7 +285,6 @@ export default function PedidoPage({
                             alt="QR Code Pix"
                         />
                     )}
-
                     {order?.pix_copia_cola && (
                         <div
                             className="cursor-pointer"
@@ -406,106 +292,76 @@ export default function PedidoPage({
                                 try {
                                     await navigator.clipboard.writeText(order.pix_copia_cola);
                                 } catch {
-                                    const el = document.createElement("textarea");
-                                    el.value = order.pix_copia_cola;
-                                    document.body.appendChild(el);
-                                    el.select();
+                                    const element = document.createElement("textarea");
+                                    element.value = order.pix_copia_cola;
+                                    document.body.appendChild(element);
+                                    element.select();
                                     document.execCommand("copy");
-                                    document.body.removeChild(el);
+                                    document.body.removeChild(element);
                                 }
-
                                 setCopiedPix(true);
-                                setTimeout(() => setCopiedPix(false), 1200);
+                                window.setTimeout(() => setCopiedPix(false), 1200);
                             }}
                         >
                             <p className="text-gray-500 text-sm mb-3 mt-4">
                                 Copia e cola <FontAwesomeIcon icon={icons.faCopy} />
                             </p>
-
                             <div className="relative">
-      <textarea
-          className="w-full p-3 rounded text-sm border-gray-200 border overflow-hidden focus:outline-none focus:ring-0 "
-          readOnly
-          value={order.pix_copia_cola}
-      />
-
+                                <textarea
+                                    className="w-full p-3 rounded text-sm border-gray-200 border overflow-hidden focus:outline-none focus:ring-0"
+                                    readOnly
+                                    value={order.pix_copia_cola}
+                                />
                                 {copiedPix && (
                                     <div className="absolute inset-0 flex items-center justify-center rounded bg-black/10">
-          <span className="text-sm font-semibold text-gray-700 bg-white px-3 py-1 rounded">
-            Copiado
-          </span>
+                                        <span className="text-sm font-semibold text-gray-700 bg-white px-3 py-1 rounded">Copiado</span>
                                     </div>
                                 )}
                             </div>
                         </div>
                     )}
-
                 </section>
             )}
 
-
-            {/* PAYMENT */}
             <section className="bg-white rounded-xl p-5 shadow space-y-3 mt-5">
-                <p className="text-gray-500 text-sm  2xl:text-lg">
-                    {pm === "pix" || pm === "cartao"
+                <p className="text-gray-500 text-sm 2xl:text-lg">
+                    {paymentMethod === "pix" || paymentMethod === "cartao"
                         ? "Pago pelo site"
-                        : "Pagamento na entrega"}
+                        : isPickup ? "Pagamento na retirada" : "Pagamento na entrega"}
                 </p>
-
                 <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2  2xl:text-lg">
-                        <FontAwesomeIcon icon={paymentIcon}/>
-                        <span className="font-medium ">{paymentText}</span>
+                    <div className="flex items-center gap-2 2xl:text-lg">
+                        <FontAwesomeIcon icon={paymentIcon} />
+                        <span className="font-medium">{paymentText}</span>
                     </div>
-
-                    <span className="font-semibold text-lg  2xl:text-lg">{totalDisplay}</span>
+                    <span className="font-semibold text-lg 2xl:text-lg">{totalDisplay}</span>
                 </div>
             </section>
 
-            {/* ORDER ITEMS */}
             <section className="bg-white rounded-xl p-5 shadow space-y-4 mt-6">
-                <h3 className="font-semibold text-lg  text-gray-700">
-                    Itens do Pedido <span className={"text-sm font-normal text-gray-500  2xl:text-lg"}>{restaurantName}</span>
+                <h3 className="font-semibold text-lg text-gray-700">
+                    Itens do Pedido <span className="text-sm font-normal text-gray-500 2xl:text-lg">{restaurantName}</span>
                 </h3>
-
-                {(!order.items || order.items.length === 0) ? (
-                    <p className="text-gray-400 text-sm  2xl:text-lg">Carregando itens...</p>
+                {!order.items || order.items.length === 0 ? (
+                    <p className="text-gray-400 text-sm 2xl:text-lg">Carregando itens...</p>
                 ) : (
-                    order.items.map((it: any) => (
-                        <div
-                            key={it.id}
-                            className="border-b last:border-b-0 pb-3 mb-3"
-                        >
-                            <div className="flex justify-between  2xl:text-lg">
-                                <p className="font-medium">
-                                    {it.quantity}× {it.name}
-                                </p>
-                                <p className="font-semibold ">
-                                    {formatPrice(promotionPrice(it) || it.total_cents)}
-                                </p>
+                    order.items.map((item: any) => (
+                        <div key={item.id} className="border-b last:border-b-0 pb-3 mb-3">
+                            <div className="flex justify-between 2xl:text-lg">
+                                <p className="font-medium">{item.quantity}× {item.name}</p>
+                                <p className="font-semibold">{formatPrice(promotionPrice(item) || item.total_cents)}</p>
                             </div>
-
-                            {it.observation && (
-                                <p className="text-sm  2xl:text-lg text-gray-600 mt-1">
-                                    <span className="font-medium">Obs:</span>{" "}
-                                    {it.observation}
+                            {item.observation && (
+                                <p className="text-sm 2xl:text-lg text-gray-600 mt-1">
+                                    <span className="font-medium">Obs:</span> {item.observation}
                                 </p>
                             )}
-
-                            {it.subitems?.length > 0 && (
+                            {item.subitems?.length > 0 && (
                                 <ul className="ml-4 mt-2 space-y-1">
-                                    {it.subitems.map((sub: any) => (
-                                        <li
-                                            key={sub.id}
-                                            className="text-sm text-gray-600 flex justify-between"
-                                        >
-                                            <span>- {sub.subitem_name}</span>
-                                            <span>
-                                                +R$
-                                                {(sub.price_cents / 100)
-                                                    .toFixed(2)
-                                                    .replace(".", ",")}
-                                            </span>
+                                    {item.subitems.map((subitem: any) => (
+                                        <li key={subitem.id} className="text-sm text-gray-600 flex justify-between">
+                                            <span>- {subitem.subitem_name}</span>
+                                            <span>+R$ {(subitem.price_cents / 100).toFixed(2).replace(".", ",")}</span>
                                         </li>
                                     ))}
                                 </ul>
@@ -515,19 +371,17 @@ export default function PedidoPage({
                 )}
             </section>
 
-
-            <div className={" mt-6 mb-3 mx-1 text-sm text-gray-400  2xl:text-lg flex gap-1 items-center justify-center cursor-pointer"}
-            onClick={() => router.push("https://wa.me/"+restaurantPhone)}
+            <div
+                className="mt-6 mb-3 mx-1 text-sm text-gray-400 2xl:text-lg flex gap-1 items-center justify-center cursor-pointer"
+                onClick={() => router.push("https://wa.me/" + restaurantPhone)}
             >
-                Entre em contato com este restaurante <FontAwesomeIcon icon={faWhatsappSquare} className={"text-2xl text-green"}/>
+                Entre em contato com este restaurante <FontAwesomeIcon icon={faWhatsappSquare} className="text-2xl text-green" />
             </div>
 
-            {/* FOOTER IMAGE */}
             <div className="mt-auto flex justify-center pt-8 pb-6">
                 <img
                     src="/logos/CombinationMarkLogo_Black.png"
                     alt="Logo"
-
                     className="opacity-30 w-26 2xl:w-40 cursor-pointer"
                     onClick={() => router.push("/")}
                 />

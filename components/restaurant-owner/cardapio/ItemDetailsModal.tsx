@@ -47,27 +47,46 @@ type ImportableItem = {
     groups: ImportableGroup[];
 };
 
+const formatPriceInput = (cents: number) => (Math.max(0, cents) / 100).toFixed(2).replace(".", ",");
+
+const sanitizePriceInput = (value: string) => {
+    const cleaned = value.replace(/[^\d,.]/g, "");
+    const separatorIndex = Math.max(cleaned.lastIndexOf(","), cleaned.lastIndexOf("."));
+
+    if (separatorIndex === -1) {
+        return cleaned.replace(/\D/g, "").slice(0, 9);
+    }
+
+    const integerPart = cleaned.slice(0, separatorIndex).replace(/\D/g, "").slice(0, 9);
+    const decimals = cleaned.slice(separatorIndex + 1).replace(/\D/g, "").slice(0, 2);
+    return `${integerPart},${decimals}`;
+};
+
 const SubitemPriceInput = ({ priceCents, onChange }: { priceCents: number; onChange: (newCents: number) => void }) => {
-    const [localValue, setLocalValue] = useState((priceCents / 100).toFixed(2));
-    useEffect(() => { setLocalValue((priceCents / 100).toFixed(2)); }, [priceCents]);
+    const [localValue, setLocalValue] = useState(formatPriceInput(priceCents));
+    useEffect(() => { setLocalValue(formatPriceInput(priceCents)); }, [priceCents]);
+
     const handleBlur = () => {
-        const floatVal = parseFloat(localValue.replace(",", "."));
-        if (!isNaN(floatVal)) {
-            const newCents = Math.round(floatVal * 100);
-            onChange(newCents);
-            setLocalValue((newCents / 100).toFixed(2));
-        } else { setLocalValue((priceCents / 100).toFixed(2)); }
+        const floatVal = Number.parseFloat(localValue.replace(",", "."));
+        const newCents = Number.isFinite(floatVal) && floatVal >= 0
+            ? Math.round(floatVal * 100)
+            : priceCents;
+        onChange(newCents);
+        setLocalValue(formatPriceInput(newCents));
     };
 
     return (
         <input 
             className="w-full pl-6 pr-1 py-1 text-sm 2xl:text-base text-right border rounded border-gray-200 focus:border-brand focus:outline-none"
-            type="number" 
-            step="0.5" 
-            min="0"
+            type="text"
+            inputMode="decimal"
             value={localValue}
-            onChange={(e) => setLocalValue(e.target.value)}
+            onFocus={(e) => e.currentTarget.select()}
+            onChange={(e) => setLocalValue(sanitizePriceInput(e.target.value))}
             onBlur={handleBlur}
+            onKeyDown={(e) => {
+                if (e.key === "Enter") e.currentTarget.blur();
+            }}
         />
     );
 };
@@ -338,7 +357,7 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId }
     // 3. HANDLER ATUALIZADO: APENAS ABRE O MODAL
     const handleDeleteGroupClick = (groupId: string) => {
         setGroupToDelete(groupId);
-    };
+    }
 
     const confirmDeleteGroup = async () => {
         if (!groupToDelete) return;

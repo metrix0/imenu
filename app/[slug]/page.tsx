@@ -38,7 +38,7 @@ export default async function Page({
     const { data: restaurantData } = await supabase
         .from("restaurants")
         .select(
-            "id, name, is_closed, logo_url, rating, min_order_cents, description, banner_url, availability_json,delivery_fee_json, latitude, longitude, allowed_payment_methods"
+            "id, name, is_closed, logo_url, rating, min_order_cents, description, banner_url, availability_json,delivery_fee_json, latitude, longitude, allowed_payment_methods, address"
         )
         .eq("url_slug", slug)
         .maybeSingle();
@@ -55,7 +55,7 @@ export default async function Page({
         .limit(1)
         .maybeSingle();
 
-    const restaurant: Restaurant = {
+    const restaurant: Restaurant & { address: any } = {
         id: restaurantData.id,
         name: restaurantData.name,
         logo_url: getPublicUrl(supabase, "restaurant-logos", restaurantData.logo_url),
@@ -68,6 +68,7 @@ export default async function Page({
         longitude: restaurantData.longitude,
         is_closed: restaurantData.is_closed,
         allowed_payment_methods: restaurantData.allowed_payment_methods,
+        address: restaurantData.address,
     };
 
 

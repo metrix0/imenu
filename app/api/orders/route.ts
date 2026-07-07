@@ -33,6 +33,8 @@ export async function POST(req: Request) {
             delivery_time_minutes,
             paymentMethod,
             coupon_discount_cents,
+            coupon_type,
+            is_delivery,
         } = body;
 
         // 1. Log inicial para debug
@@ -42,17 +44,23 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "Incomplete fields" }, { status: 400 });
         }
 
+        const isPickup = is_delivery === "retirada";
+        const safeDeliveryFeeCents = isPickup
+            ? 0
+            : Math.max(Number(delivery_fee_cents) || 0, 0);
+
         // 2. Cálculo de totais
         let subtotal = 0;
 
         items.forEach((item: any) => { subtotal += ((promotionPrice(item) || item.total_cents) || 0); });
 
+        const safeCouponDiscount = coupon_type === "delivery" && isPickup
+                ? 0
+                : coupon_discount_cents && coupon_discount_cents > 0
+                    ? Math.min(coupon_discount_cents, subtotal)
+                    : 0;
 
-        const safeCouponDiscount = coupon_discount_cents && coupon_discount_cents > 0
-                ? Math.min(coupon_discount_cents, subtotal)
-                : 0;
-
-        const total = subtotal + delivery_fee_cents - safeCouponDiscount;
+        const total = subtotal + safeDeliveryFeeCents - safeCouponDiscount;
         
         // ============================================================
         // 🕵️ 3. FIDELIDADE (DETECÇÃO AVANÇADA & DEBUG)
@@ -155,12 +163,12 @@ export async function POST(req: Request) {
             `INSERT INTO orders (
                 restaurant_id, status, subtotal_cents, delivery_cents, total_cents,
                 customer_name, customer_phone, customer_address, delivery_eta, payment_method,
-                loyalty_points_used
-            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10, $11) RETURNING id`,
+                is_delivery, loyalty_points_used
+            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id`,
             [
-                restaurantId, orderStatus, subtotal, delivery_fee_cents, total,
-                customer_name ?? null, customer_phone ?? null, customer_address ?? null,
-                eta, paymentMethod,
+                restaurantId, orderStatus, subtotal, safeDeliveryFeeCents, total,
+                customer_name ?? null, customer_phone ?? null, isPickup ? null : (customer_address ?? null),
+                eta, paymentMethod, isPickup ? "retirada" : (is_delivery ?? null),
                 pointsToDeduce // Salva no histórico
             ]
         );
@@ -335,7 +343,7 @@ export async function POST(req: Request) {
                     unit_price: s.unit_price_cents / 100,
                 })),
                 shipments: {
-                    cost: delivery_fee_cents / 100,
+                    cost: safeDeliveryFeeCents / 100,
                     mode: "not_specified",
                 },
                 external_reference: order.id.toString(),

@@ -32,7 +32,8 @@ export interface OrderData {
     address_line1?: string; 
     delivery_cents: number;
     total_cents: number;
-    payment_method?: string; 
+    payment_method?: string;
+    is_delivery?: string | null;
     order_items: OrderItemData[];
 }
 
@@ -44,6 +45,7 @@ interface OrderCardProps {
 
 export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderCardProps) {
     const [loading, setLoading] = useState(false);
+    const isPickup = order.is_delivery === "retirada";
 
     // Cálculo de tempo decorrido
     const getElapsedTime = () => {
@@ -74,7 +76,7 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
         if (order.status === "pending_online_payment" || order.status === "pending_physical_payment" || order.status === "paid") {
             nextStatus = "preparing";
         }
-        else if (order.status === "preparing") nextStatus = "delivering"; 
+        else if (order.status === "preparing") nextStatus = "delivering";
         else if (order.status === "delivering") nextStatus = "done";
 
         if (!nextStatus) return;
@@ -150,15 +152,15 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
             label: "Preparando", 
             color: "bg-blue-100 text-blue-800 border-blue-200", 
             borderColor: "border-l-blue-500",
-            btn: "Enviar Entrega", 
+            btn: isPickup ? "Marcar como pronto" : "Enviar Entrega", 
             btnColor: "primary" 
         },
-        delivering: { 
-            label: "Em Rota", 
-            color: "bg-purple-100 text-purple-800 border-purple-800",
-            borderColor: "border-l-purple-500", 
-            btn: "Concluir", 
-            btnColor: "primary" 
+        delivering: {
+            label: isPickup ? "Pronto" : "Em Rota",
+            color: isPickup ? "bg-green-100 text-green-800 border-green-200" : "bg-purple-100 text-purple-800 border-purple-800",
+            borderColor: isPickup ? "border-l-green-500" : "border-l-purple-500",
+            btn: isPickup ? "Entregue" : "Concluir",
+            btnColor: "primary"
         },
         done: { 
             label: "Concluído", 
@@ -179,7 +181,7 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
 
     useEffect(() => {
         setIsPgtEntrega(order.payment_method === "dinheiro" || order.payment_method === "trazer-maquininha" || order.payment_method === "pix-entrega");
-    }, [statusConfig]);
+    }, [order.payment_method]);
 
     const config = statusConfig[order.status] || statusConfig.pending_online_payment;
     const showBackButton = ["preparing", "delivering", "done"].includes(order.status);
@@ -201,7 +203,11 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
                         <span className={`text-xs px-2 py-0.5 rounded-full font-medium 2xl:text-base 2xl:px-3 2xl:py-1 ${config.color}`}>
                             {config.label}
                         </span>
-                        {isPgtEntrega && (
+                        {isPickup ? (
+                            <span className="truncate text-xs -ml-1 px-2 py-0.5 rounded-full font-bold 2xl:text-base 2xl:px-3 2xl:py-1 text-gray-700 bg-gray-200">
+                                Retirada
+                            </span>
+                        ) : isPgtEntrega && (
                             <span className={`truncate text-xs -ml-1 px-2 py-0.5 rounded-full font-medium 2xl:text-base 2xl:px-3 2xl:py-1 color-gray-500 bg-gray-200`}>
                             Pgt. Entrega
                         </span>
@@ -250,14 +256,19 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
 
                 {/* Dados de Entrega e Totais */}
                 <div className="text-sm space-y-1 2xl:space-y-2">
-                    {order.address_line1 && (
+                    {isPickup ? (
+                        <div className="flex items-start gap-2 text-gray-600 font-medium">
+                            <FontAwesomeIcon icon={faMapMarkerAlt} className="mt-1 text-gray-400" />
+                            <span>Retirada no balcão</span>
+                        </div>
+                    ) : order.address_line1 && (
                         <div className="flex items-start gap-2 text-gray-600 ">
                             <FontAwesomeIcon icon={faMapMarkerAlt} className="mt-1 text-gray-400" />
                             <span className="line-clamp-2">{order.address_line1}</span>
                         </div>
                     )}
                     <div className="flex justify-between text-gray-500 pt-2 2xl:text-base">
-                        <span>Taxa de Entrega</span>
+                        <span>{isPickup ? "Retirada" : "Taxa de Entrega"}</span>
                         <span>{fmtMoney(order.delivery_cents)}</span>
                     </div>
                     <div className="flex justify-between font-bold text-lg 2xl:text-xl text-gray-900">

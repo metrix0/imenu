@@ -13,6 +13,7 @@ export type Order = {
     customer_name: string;
     status: "pending_online_payment" | "pending_physical_payment" | "preparing" | "delivering" | "done" | "canceled";
     total_cents: number;
+    is_delivery?: string | null;
 };
 
 interface OrdersTableProps {
@@ -26,22 +27,22 @@ export default function OrdersTable({ orders, isLoading, onViewOrder }: OrdersTa
     const fmtMoney = (cents: number) => (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
     const fmtDate = (dateStr: string) => new Date(dateStr).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 
-    const getStatusBadge = (status: string) => {
+    const getStatusBadge = (status: string, isPickup: boolean) => {
         const map: Record<string, string> = {
             pending_online_payment: "bg-yellow-100 text-yellow-800",
             pending_physical_payment: "bg-yellow-100 text-yellow-800",
             pending: "bg-yellow-100 text-yellow-800",
             preparing: "bg-blue-100 text-blue-800 border-blue-200",
-            delivering: "bg-purple-100 text-purple-800",
+            delivering: isPickup ? "bg-green-100 text-green-800 border-green-200" : "bg-purple-100 text-purple-800",
             done: "bg-green-100 text-green-800 border-green-200",
             canceled: "bg-red-100 text-red-800 border-red-200",
         };
         const label: Record<string, string> = {
             pending_online_payment: "À Pagar",
-            pending_physical_payment: "Pendente (Pgt. Entrega)",
+            pending_physical_payment: isPickup ? "Pendente" : "Pendente (Pgt. Entrega)",
             paid: "Pendente (Pago)",
             preparing: "Preparando",
-            delivering: "Em Rota",
+            delivering: isPickup ? "Pronto" : "Em Rota",
             done: "Concluído",
             canceled: "Cancelado",
         };
@@ -94,12 +95,12 @@ export default function OrdersTable({ orders, isLoading, onViewOrder }: OrdersTa
                                     {fmtMoney(order.total_cents)}
                                 </div>
                                 <div className="col-span-2 ">
-                                    <span className={"truncate"}>{getStatusBadge(order.status)}</span>
+                                    <span className={"truncate"}>{getStatusBadge(order.status, order.is_delivery === "retirada")}</span>
                                 </div>
                                 <div className="col-span-1 text-right">
                                     <button 
                                         onClick={() => onViewOrder && onViewOrder(order)}
-                                        className="cursor-pointer text-gray-400 hover:text-brand transition-colors p-2"
+                                        className="text-gray-400 hover:text-brand p-2 transition-colors cursor-pointer"
                                         title="Ver Detalhes"
                                     >
                                         <FontAwesomeIcon icon={faEye} />

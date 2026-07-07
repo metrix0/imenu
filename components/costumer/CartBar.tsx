@@ -36,6 +36,7 @@ export default function CartBar({
     const [backdropVisible, setBackdropVisible] = useState(false);
 
     const checkoutState = useCheckoutStore((s) => s);
+    const isPickup = Boolean((checkoutState as any).is_pickup);
     const [closedByDrag, setClosedByDrag] = useState(false);
     const [translateY, setTranslateY] = useState(0);
     const [dragging, setDragging] = useState(false);
@@ -48,28 +49,34 @@ export default function CartBar({
     const total = items.reduce((acc, i) => acc + (promotionPrice(i) || i.total_cents), 0);
     const itemCount = items.reduce((acc, i) => acc + i.qty, 0);
 
-    const delivery_fee_cents = checkoutState.delivery_fee_cents
-        ? Number(checkoutState.delivery_fee_cents)
-        : 0;
+    const delivery_fee_cents = isPickup
+        ? 0
+        : checkoutState.delivery_fee_cents
+            ? Number(checkoutState.delivery_fee_cents)
+            : 0;
 
     const discount_cents = checkoutState.coupon_discount_cents || 0;
 
     const allRequiredFilled = Boolean(
-        checkoutState.cep?.length >= 8 &&
-        checkoutState.rua &&
-        checkoutState.numero &&
         checkoutState.nome &&
-        checkoutState.celular
+        checkoutState.celular &&
+        (isPickup || (
+            checkoutState.cep?.length >= 8 &&
+            checkoutState.rua &&
+            checkoutState.numero
+        ))
     );
 
     const disabledContinue = cartOpen && step === "info" && !allRequiredFilled;
 
     const missingFields: string[] = [];
-    if (!checkoutState.cep || checkoutState.cep.length < 8) {
-        missingFields.push("CEP");
+    if (!isPickup) {
+        if (!checkoutState.cep || checkoutState.cep.length < 8) {
+            missingFields.push("CEP");
+        }
+        if (!checkoutState.rua) missingFields.push("Rua");
+        if (!checkoutState.numero) missingFields.push("Número");
     }
-    if (!checkoutState.rua) missingFields.push("Rua");
-    if (!checkoutState.numero) missingFields.push("Número");
     if (!checkoutState.nome) missingFields.push("Nome");
     if (!checkoutState.celular) missingFields.push("Celular");
 
@@ -117,15 +124,13 @@ export default function CartBar({
         }
 
         const fee = useCheckoutStore.getState().delivery_fee_cents;
-        const deliveryFeeCents = fee !== null ? Number(fee) : null;
 
-
-        if (cartOpen && step === "info" && fee === false) {
+        if (!isPickup && cartOpen && step === "info" && fee === false) {
             useCheckoutStore.setState({ cepTrigger: true });
             return;
         }
 
-        if (cartOpen && step === "info" && fee === null) {
+        if (!isPickup && cartOpen && step === "info" && fee === null) {
             setShowAddressWarning(true)
             return;
         }
@@ -153,9 +158,6 @@ export default function CartBar({
                 },6000)
             }
         }
-
-
-
     }
 
     function showCartWarning(show: boolean) {
@@ -197,7 +199,7 @@ export default function CartBar({
     async function createOrder() {
         const cart = useCartStore.getState();
         const checkout = useCheckoutStore.getState();
-
+        const pickup = Boolean((checkout as any).is_pickup);
 
         // ✅ derived values (frontend preview only)
         const subtotal_cents = cart.items.reduce(
@@ -205,8 +207,9 @@ export default function CartBar({
             0
         );
 
-        const delivery_fee_cents =
-            checkout.delivery_fee_cents && checkout.delivery_fee_cents !== true
+        const delivery_fee_cents = pickup
+            ? 0
+            : checkout.delivery_fee_cents && checkout.delivery_fee_cents !== true
                 ? Number(checkout.delivery_fee_cents)
                 : 0;
 
@@ -224,15 +227,17 @@ export default function CartBar({
             });
         }
 
-
         const body = {
             restaurantId: checkout.restaurantId,
             customer_name: checkout.nome,
             customer_phone: checkout.celular,
-            customer_address: `${checkout.rua}, ${checkout.numero} - ${checkout.cep} (${checkout.complemento})`,
+            customer_address: pickup
+                ? null
+                : `${checkout.rua}, ${checkout.numero} - ${checkout.cep} (${checkout.complemento})`,
             delivery_fee_cents,
+            is_delivery: pickup ? "retirada" : "entrega",
             paymentMethod: checkout.pagamento,
-            delivery_time_minutes: checkout.delivery_time_minutes,
+            delivery_time_minutes: pickup ? null : checkout.delivery_time_minutes,
 
             // 👇 cart items (unchanged)
             items: cart.items.map((i) => ({
@@ -250,6 +255,7 @@ export default function CartBar({
             // 👇 coupon info (unchanged)
             coupon_id: checkout.coupon_id || null,
             coupon_code: checkout.coupon_code || null,
+            coupon_type: checkout.coupon_type || null,
             coupon_discount_cents: discount_cents,
 
             // ✅ added (preview / UI / debugging)
@@ -304,6 +310,7 @@ export default function CartBar({
             console.error("[CART] Failed to clear cart-storage:", err);
         }
 
+        useCheckoutStore.setState({ is_pickup: false } as any);
         console.log("removed cart-storage and created cookie");
 
         if (data.payment_type === "offline") {
@@ -320,7 +327,6 @@ export default function CartBar({
             window.location.href = `/pedido/${data.id}`;
         }
     }
-
 
     const displayTotalCents = total + (delivery_fee_cents || 0);
 
@@ -377,10 +383,12 @@ export default function CartBar({
                 <div className="flex items-center justify-between w-full md:px-7 2xl:px-12">
                     <div className="flex flex-col text-left text-[12px] 2xl:text-lg text-gray-600">
                         <span>
-                            {checkoutState.delivery_fee_cents === null ||
-                            checkoutState.delivery_fee_cents === undefined || !checkoutState.delivery_fee_cents
-                                ? "Total sem a entrega "
-                                : "Total com a entrega "}
+                            {isPickup
+                                ? "Total para retirada "
+                                : checkoutState.delivery_fee_cents === null ||
+                                  checkoutState.delivery_fee_cents === undefined || !checkoutState.delivery_fee_cents
+                                    ? "Total sem a entrega "
+                                    : "Total com a entrega "}
                         </span>
                         <span>
                             <span className={`${hasDiscount && ("line-through text-gray-400 !text-sm 2xl:!text-base")} font-semibold text-black text-lg  2xl:text-xl leading-tight tracking-tighter`}>
