@@ -1,12 +1,16 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/database/supabaseServerClient";
 
+const getPosition = (value: unknown) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : Number.MAX_SAFE_INTEGER;
+};
+
 export async function GET(
     req: Request,
     context: { params: Promise<{ id: string }> }
 ) {
     try {
-        // FIX HERE: unwrap params
         const { id } = await context.params;
 
         const supabase = createSupabaseServerClient();
@@ -37,7 +41,20 @@ export async function GET(
             return NextResponse.json({ error: error.message }, { status: 500 });
         }
 
-        return NextResponse.json(data ?? []);
+        const orderedData = (data ?? [])
+            .map((subcategory) => ({
+                ...subcategory,
+                subitems: [...(subcategory.subitems ?? [])].sort(
+                    (a, b) => getPosition(a.position) - getPosition(b.position)
+                ),
+            }))
+            .sort((a, b) => getPosition(a.position) - getPosition(b.position));
+
+        return NextResponse.json(orderedData, {
+            headers: {
+                "Cache-Control": "no-store",
+            },
+        });
     } catch (err: any) {
         console.error("ROUTE CRASH:", err);
         return NextResponse.json({ error: err.message }, { status: 500 });
