@@ -3,63 +3,67 @@
 import Image from "next/image";
 import Footer from "@/components/common/Footer";
 import Link from "next/link";
-import Tooltip from "@/components/ui/Tooltip";
-import BonusButton from "@/components/ui/BonusButton";
-import {FontAwesomeIcon} from "@fortawesome/react-fontawesome";
-import {icons} from "@/lib/utils/fontawesome";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { icons } from "@/lib/utils/fontawesome";
 import Button from "@/components/ui/Button";
-import {useRouter} from "next/navigation";
+import { useRouter } from "next/navigation";
 
 export default function SeoLayout({
-                                      children,
-                                  }: {
+    children,
+}: {
     children: React.ReactNode;
 }) {
     const router = useRouter();
+
     return (
-        <div className="w-screen relative min-h-screen overflow-x-hidden flex flex-col ">
-            <header className="w-full flex flex-col md:flex-row gap-4 md:gap-0 items-center justify-between py-7 md:py-5 2xl:py-8 px-8 border-gray-200 bg-white">
-                {/* Left – Logo */}
-                <div className={"flex justify-between w-[90vw] md:flex "}>
-                    <div className="flex items-center gap-2 text-xl font-bold text-brand">
-                        {/* Logo placeholder */}
+        <div className="relative flex min-h-screen w-full max-w-full flex-col overflow-x-clip">
+            <header className="w-full border-gray-200 bg-white px-4 py-7 md:px-8 md:py-5 2xl:py-8">
+                <div className="mx-auto flex w-full max-w-7xl min-w-0 items-center justify-between gap-3">
+                    {/* Left – Logo */}
+                    <div className="flex min-w-0 shrink items-center gap-2 text-xl font-bold text-brand">
                         <Image
                             src="/logos/CombinationMarkLogo_Brand.png"
                             alt="iMenu Logo"
                             width={120}
                             height={32}
-                            className="h-6 w-auto ml-4 cursor-pointer 2xl:h-10 2xl:ml-8"
+                            className="h-6 w-auto max-w-[120px] cursor-pointer 2xl:h-10 2xl:max-w-none"
                             onClick={() => router.push("#")}
                         />
                     </div>
 
                     {/* Right */}
-                    <nav className="flex z-30 md:z-auto items-center gap-4 md:gap-8 text-sm font-medium 2xl:text-[1.2rem] 2xl:gap-11">
-                        <a href="#" className="hover:text-gray-500 transition hidden md:block">Home</a>
-                        <a href="#recursos" className="hover:text-gray-500 transition hidden md:block">Recursos</a>
+                    <nav className="flex min-w-0 shrink-0 items-center gap-2 text-sm font-medium sm:gap-4 md:gap-8 2xl:gap-11 2xl:text-[1.2rem]">
+                        <a href="#" className="hidden transition hover:text-gray-500 md:block">Home</a>
+                        <a href="#recursos" className="hidden transition hover:text-gray-500 md:block">Recursos</a>
 
-                        <div className="w-[1px] h-6 2xl:h-8 bg-gray-300 hidden md:block" />
+                        <div className="hidden h-6 w-px bg-gray-300 md:block 2xl:h-8" />
 
-                        <a onClick={() => router.push("/restaurante/login")} className="cursor-pointer items-center gap-1 hover:text-gray-500 transition text-gray-600">
+                        <a
+                            onClick={() => router.push("/restaurante/login")}
+                            className="flex cursor-pointer items-center gap-1 whitespace-nowrap text-gray-600 transition hover:text-gray-500"
+                        >
                             <FontAwesomeIcon icon={icons.faUser} />
                             Login
                         </a>
 
-                        <Button className={""} variant="primary" onClick={() => router.push("/restaurante/registrar")}>
+                        <Button
+                            className="whitespace-nowrap px-3 sm:px-4"
+                            variant="primary"
+                            onClick={() => router.push("/restaurante/registrar")}
+                        >
                             Registrar Grátis
                         </Button>
                     </nav>
                 </div>
             </header>
 
-
             {/* PAGE */}
-            <main className="flex-1">
+            <main className="min-w-0 w-full max-w-full flex-1">
                 {children}
 
                 {/* INTERNAL LINKING */}
-                <section className="mt-20 border-t -mb-20 border-gray-200 bg-gray-50">
-                    <div className="mx-24 px-6 py-12">
+                <section className="mt-20 -mb-20 w-full border-t border-gray-200 bg-gray-50">
+                    <div className="mx-auto w-full max-w-6xl px-6 py-12">
                         <h3 className="font-semibold text-lg mb-4">
                             Explore outras soluções do iMenu
                         </h3>
