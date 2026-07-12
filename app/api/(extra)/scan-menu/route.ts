@@ -190,6 +190,7 @@ Regras:
                 },
             ],
             max_output_tokens: 8000,
+            store: false
         });
 
         const outputText = response.output_text?.trim();
