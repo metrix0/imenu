@@ -1,14 +1,73 @@
 import { query } from "@/lib/database/sql";
 import { NextResponse } from "next/server";
 
-// Helper simples para gerar slug
-function generateSlug(name: string): string {
-    return name
+function normalizeSlug(value: string): string {
+    return String(value || "")
+        .trim()
         .toLowerCase()
-        .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Remove acentos
-        .replace(/[^a-z0-9]+/g, "-") // Substitui chars especiais por hífen
-        .replace(/^-+|-+$/g, "") // Remove hífens do começo/fim
-        + "-" + Math.floor(Math.random() * 1000); // Adiciona sufixo random para evitar colisão simples
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 80);
+}
+
+function normalizeStoredPhone(value: unknown): string | null {
+    const digits = String(value ?? "").replace(/\D/g, "").slice(0, 13);
+    return digits || null;
+}
+
+function normalizePublicWhatsApp(value: unknown): string {
+    const digits = String(value ?? "").replace(/\D/g, "");
+
+    if (!digits) return "";
+    if (digits.startsWith("55") && digits.length >= 12) return digits;
+    if (digits.length === 10 || digits.length === 11) return `55${digits}`;
+
+    return digits;
+}
+
+async function slugExists(slug: string, restaurantId: string): Promise<boolean> {
+    const { rows } = await query(
+        `
+        SELECT 1
+        FROM public.restaurants
+        WHERE url_slug = $1
+          AND id <> $2
+        LIMIT 1
+        `,
+        [slug, restaurantId]
+    );
+
+    return rows.length > 0;
+}
+
+async function generateUniqueSlug(
+    source: string,
+    restaurantId: string
+): Promise<string> {
+    const base = normalizeSlug(source) || "restaurante";
+
+    if (!(await slugExists(base, restaurantId))) {
+        return base;
+    }
+
+    for (let attempt = 0; attempt < 40; attempt += 1) {
+        const suffix = Math.floor(1000 + Math.random() * 9000);
+        const candidate = `${base}-${suffix}`;
+
+        if (!(await slugExists(candidate, restaurantId))) {
+            return candidate;
+        }
+    }
+
+    const fallback = `${base}-${Date.now().toString().slice(-7)}`;
+
+    if (!(await slugExists(fallback, restaurantId))) {
+        return fallback;
+    }
+
+    throw new Error("Não foi possível gerar um endereço único para a loja.");
 }
 
 export async function PATCH(
@@ -18,56 +77,114 @@ export async function PATCH(
     const { id } = await context.params;
 
     if (!id) {
-        return NextResponse.json({ error: "Restaurant ID is required" }, { status: 400 });
+        return NextResponse.json(
+            { error: "Restaurant ID is required" },
+            { status: 400 }
+        );
     }
 
-    let body;
+    let body: Record<string, unknown>;
+
     try {
         body = await request.json();
-    } catch (e) {
-        return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    } catch {
+        return NextResponse.json(
+            { error: "Invalid JSON body" },
+            { status: 400 }
+        );
     }
 
-    // --- DYNAMIC UPDATE CONFIG ---
+    try {
+        const currentResult = await query(
+            `
+            SELECT id, url_slug
+            FROM public.restaurants
+            WHERE id = $1
+            LIMIT 1
+            `,
+            [id]
+        );
 
-    const allowedFields: { [key: string]: string } = {
-        latitude: "latitude",
-        longitude: "longitude",
-        address: "address", 
-        delivery_fee_json: "delivery_fee_json",
-        availability_json: "availability_json",
-        name: "name",   
-        phone: "phone",
-        user_id: "user_id",
-        logo_url: "logo_url",
-        banner_url: "banner_url",
-        description: "description",
-        min_order_cents: "min_order_cents",
-        rating: "rating",
-        url_slug: "url_slug", // Permitir atualização explícita se necessário
-        is_closed: "is_closed",
-        first_time: "first_time",
-        payment_method: "payment_method",
-        payment_info: "payment_info",
-        allowed_payment_methods: "allowed_payment_methods",
-    };
+        if (currentResult.rows.length === 0) {
+            return NextResponse.json(
+                { error: "Restaurant not found" },
+                { status: 404 }
+            );
+        }
 
-    const jsonFields = ["address", "delivery_fee_json", "availability_json"];
-    const arrayFields = ["allowed_payment_methods"];
+        const currentRestaurant = currentResult.rows[0];
+        const hasExplicitSlug = Object.prototype.hasOwnProperty.call(
+            body,
+            "url_slug"
+        );
 
-    const fieldsToUpdate = [];
-    const values = [id]; // $1 será sempre o ID
+        if (hasExplicitSlug) {
+            const requestedSlug = normalizeSlug(String(body.url_slug ?? ""));
 
-    // Lógica de Slug Automático
-    // Se o usuário mandou 'name', mas não mandou 'url_slug', geramos um.
-    if (body.name && !body.url_slug) {
-        body.url_slug = generateSlug(body.name);
-    }
+            if (requestedSlug.length < 3) {
+                return NextResponse.json(
+                    {
+                        error:
+                            "O endereço da loja precisa ter pelo menos 3 caracteres.",
+                    },
+                    { status: 400 }
+                );
+            }
 
-    // --- BUILD QUERY ---
-    for (const key in body) {
-        if (Object.prototype.hasOwnProperty.call(body, key) && allowedFields[key]) {
+            if (await slugExists(requestedSlug, id)) {
+                return NextResponse.json(
+                    {
+                        error:
+                            "Este endereço já está sendo usado por outro restaurante.",
+                    },
+                    { status: 409 }
+                );
+            }
+
+            body.url_slug = requestedSlug;
+        } else if (
+            body.name &&
+            !String(currentRestaurant.url_slug ?? "").trim()
+        ) {
+            body.url_slug = await generateUniqueSlug(String(body.name), id);
+        }
+
+        const allowedFields: Record<string, string> = {
+            latitude: "latitude",
+            longitude: "longitude",
+            address: "address",
+            delivery_fee_json: "delivery_fee_json",
+            availability_json: "availability_json",
+            name: "name",
+            phone: "phone",
+            store_whatsapp: "store_whatsapp",
+            user_id: "user_id",
+            logo_url: "logo_url",
+            banner_url: "banner_url",
+            description: "description",
+            min_order_cents: "min_order_cents",
+            rating: "rating",
+            url_slug: "url_slug",
+            is_closed: "is_closed",
+            first_time: "first_time",
+            payment_method: "payment_method",
+            payment_info: "payment_info",
+            allowed_payment_methods: "allowed_payment_methods",
+        };
+
+        const jsonFields = [
+            "address",
+            "delivery_fee_json",
+            "availability_json",
+        ];
+        const arrayFields = ["allowed_payment_methods"];
+        const fieldsToUpdate: string[] = [];
+        const values: unknown[] = [id];
+
+        for (const key of Object.keys(body)) {
             const dbColumn = allowedFields[key];
+            if (!dbColumn) continue;
+
             let value = body[key];
 
             if (jsonFields.includes(dbColumn) || dbColumn.includes("_json")) {
@@ -75,51 +192,54 @@ export async function PATCH(
             }
 
             if (arrayFields.includes(dbColumn)) {
-                value = Array.isArray(value) && value.length > 0
-                    ? value
-                    : ["pix", "dinheiro", "trazer-maquininha"];
+                value =
+                    Array.isArray(value) && value.length > 0
+                        ? value
+                        : ["pix", "dinheiro", "trazer-maquininha"];
+            }
+
+            if (dbColumn === "store_whatsapp") {
+                value = normalizeStoredPhone(value);
             }
 
             values.push(value);
             fieldsToUpdate.push(`${dbColumn} = $${values.length}`);
         }
-    }
 
-    if (fieldsToUpdate.length === 0) {
-        return NextResponse.json(
-            { error: "No valid fields provided to update" },
-            { status: 400 }
-        );
-    }
+        if (fieldsToUpdate.length === 0) {
+            return NextResponse.json(
+                { error: "No valid fields provided to update" },
+                { status: 400 }
+            );
+        }
 
-    try {
         const updateQuery = `
             UPDATE public.restaurants
-            SET 
+            SET
                 ${fieldsToUpdate.join(", ")},
                 updated_at = NOW()
-            WHERE 
-                id = $1
-            RETURNING id, url_slug; 
+            WHERE id = $1
+            RETURNING id, url_slug, store_whatsapp
         `;
 
         const { rows } = await query(updateQuery, values);
 
-        if (!rows || rows.length === 0) {
-            return NextResponse.json({ error: "Restaurant not found" }, { status: 404 });
-        }
-
-        // Retorna o slug atualizado para o frontend saber
-        return NextResponse.json({ 
-            success: true, 
+        return NextResponse.json({
+            success: true,
             updatedId: rows[0].id,
-            url_slug: rows[0].url_slug 
+            url_slug: rows[0].url_slug,
+            store_whatsapp: rows[0].store_whatsapp,
         });
-
     } catch (error) {
         console.error("Error updating restaurant:", error);
+
         return NextResponse.json(
-            { error: "Internal server error" },
+            {
+                error:
+                    error instanceof Error
+                        ? error.message
+                        : "Internal server error",
+            },
             { status: 500 }
         );
     }
@@ -141,7 +261,18 @@ export async function GET(
     try {
         const { rows } = await query(
             `
-            SELECT id, name, phone, address, latitude, longitude, url_slug, allowed_payment_methods
+            SELECT
+                id,
+                name,
+                phone,
+                store_whatsapp,
+                address,
+                latitude,
+                longitude,
+                url_slug,
+                payment_method,
+                payment_info,
+                allowed_payment_methods
             FROM public.restaurants
             WHERE id = $1
             LIMIT 1
@@ -156,9 +287,17 @@ export async function GET(
             );
         }
 
-        return NextResponse.json(rows[0]);
+        const restaurant = rows[0];
+
+        return NextResponse.json({
+            ...restaurant,
+            phone: normalizePublicWhatsApp(
+                restaurant.store_whatsapp || restaurant.phone
+            ),
+        });
     } catch (error) {
         console.error("Error fetching restaurant:", error);
+
         return NextResponse.json(
             { error: "Internal server error" },
             { status: 500 }

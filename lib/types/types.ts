@@ -1,5 +1,3 @@
-// lib/types/types.ts
-
 export type PromotionType = "fixed" | "percent";
 
 export interface Promotion {
@@ -17,8 +15,8 @@ export type Restaurant = {
     name: string;
     logo_url: string | null;
     banner_url: string | null;
-    rating: number | null,
-    min_order_cents: number,
+    rating: number | null;
+    min_order_cents: number;
     prep_time_min_minutes?: number | null;
     prep_time_max_minutes?: number | null;
     prep_time_source?: "manual" | "auto" | null;
@@ -29,6 +27,8 @@ export type Restaurant = {
     longitude: number;
     is_closed: any;
     url_slug?: string;
+    phone?: string | null;
+    store_whatsapp?: string | null;
     allowed_payment_methods?: string[] | null;
 };
 
@@ -86,7 +86,7 @@ export type ItemsByCategory = {
 };
 
 export type CartItem = {
-    id: string; // unique id for the cart row
+    id: string;
     base_item_id: string;
     name: string;
     image: string | null;
@@ -94,7 +94,7 @@ export type CartItem = {
     unit_price_cents: number;
     total_cents: number;
     observation?: string;
-    is_reward?: boolean; // NOVO CAMPO
+    is_reward?: boolean;
     selectedSubitems: {
         subcategoryId: string;
         subcategoryName: string;
@@ -129,7 +129,7 @@ export type AddressData = {
 export type Order = {
     id: string;
     restaurant_id: string;
-    status: string; // "pending", "preparing", etc
+    status: string;
     subtotal_cents: number;
     delivery_cents: number;
     total_cents: number;
@@ -137,9 +137,9 @@ export type Order = {
     customer_phone: string;
     customer_address: string;
     payment_ref: string | null;
-    created_at: string; // timestamp with time zone
+    created_at: string;
     updated_at: string;
-    is_delivery: string; // "true" | "false" text in DB
+    is_delivery: string;
     display_id: number;
     payment_method: string;
     delivery_eta: string | null;
@@ -147,7 +147,7 @@ export type Order = {
     coupon_code: string | null;
     coupon_discount_cents: number | null;
     owner_notified: boolean;
-    loyalty_credited: boolean; // Novo campo
+    loyalty_credited: boolean;
     loyalty_points_used: number;
 };
 
@@ -157,12 +157,9 @@ export type LoyaltyProgram = {
     goal_count: number;
     active: boolean;
     min_order_value_cents: number;
-    
     reward_item_id: string | null;
-    reward_subitem_ids: string[]; // <--- ALTERADO: Lista de IDs dos subitens grátis
-    
-    reward_description: string | null; 
-    
+    reward_subitem_ids: string[];
+    reward_description: string | null;
     created_at?: string;
     updated_at?: string;
 };

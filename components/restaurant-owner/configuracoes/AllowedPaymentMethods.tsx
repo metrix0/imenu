@@ -1,12 +1,8 @@
-// components/restaurant-owner/configuracoes/AllowedPaymentMethods.tsx
-
 "use client";
 
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faPix } from "@fortawesome/free-brands-svg-icons";
 import { icons } from "@/lib/utils/fontawesome";
-import WarningBox from "@/components/ui/WarningBox";
-import { faCircleInfo } from "@fortawesome/free-solid-svg-icons";
 import ToggleInput from "@/components/ui/ToggleInput";
 
 export const DEFAULT_ALLOWED_PAYMENT_METHODS = [
@@ -45,10 +41,10 @@ type Props = {
 };
 
 export default function AllowedPaymentMethods({
-                                                  value,
-                                                  onChange,
-                                                  className = "",
-                                              }: Props) {
+    value,
+    onChange,
+    className = "",
+}: Props) {
     const selected =
         Array.isArray(value) && value.length > 0
             ? value
@@ -56,11 +52,10 @@ export default function AllowedPaymentMethods({
 
     const toggle = (method: string) => {
         const next = selected.includes(method)
-            ? selected.filter((m) => m !== method)
+            ? selected.filter((current) => current !== method)
             : [...selected, method];
 
         if (next.length === 0) return;
-
         onChange(next);
     };
 
@@ -73,14 +68,9 @@ export default function AllowedPaymentMethods({
             </h2>
 
             <p className="text-sm text-gray-500 mb-5">
-                Escolha quais formas de pagamento aparecem para o cliente no checkout.
+                Escolha quais formas de pagamento aparecem para o cliente no
+                checkout.
             </p>
-
-            <WarningBox icon={faCircleInfo} className="mb-8 bg-brand! text-white! mt-4">
-                <b>AVISO:</b> Repasses de pagamentos em Pix (ONLINE) são realizados
-                semanalmente, sempre aos domingos a partir das 14h. O repasse é
-                realizado na Chave Pix cadastrada acima.
-            </WarningBox>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 gap-x-12">
                 {PAYMENT_OPTIONS.map((option) => {
@@ -98,7 +88,11 @@ export default function AllowedPaymentMethods({
                             <div className="flex items-center gap-3">
                                 <FontAwesomeIcon
                                     icon={option.icon}
-                                    className={active ? "text-brand" : "text-gray-500"}
+                                    className={
+                                        active
+                                            ? "text-brand"
+                                            : "text-gray-500"
+                                    }
                                 />
 
                                 <span className="font-medium text-gray-800">

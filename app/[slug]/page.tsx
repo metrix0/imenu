@@ -7,19 +7,53 @@ import {
   Category,
   Item,
   ItemsByCategory,
-  Menu,
   Restaurant,
 } from "@/lib/types/types";
 import TrackingScripts from "@/components/costumer/TrackingScripts";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
 
 import { createSupabaseServerClient } from "@/lib/database/supabaseServerClient";
-import { Metadata } from "next";
-import { headers } from "next/headers";
 
 const getPublicUrl = (supabase: any, bucket: string, path: string | null) => {
   if (!path) return null;
   const { data } = supabase.storage.from(bucket).getPublicUrl(path);
   return data?.publicUrl || null;
+};
+
+const getStoreWhatsapp = (value: unknown) => {
+  const rawDigits = String(value ?? "").replace(/\D/g, "");
+
+  if (!rawDigits) {
+    return null;
+  }
+
+  const localDigits =
+    rawDigits.startsWith("55") &&
+    (rawDigits.length === 12 || rawDigits.length === 13)
+      ? rawDigits.slice(2)
+      : rawDigits;
+
+  if (localDigits.length !== 10 && localDigits.length !== 11) {
+    return null;
+  }
+
+  const linkDigits = `55${localDigits}`;
+  const formatted =
+    localDigits.length === 11
+      ? `(${localDigits.slice(0, 2)}) ${localDigits.slice(
+          2,
+          7,
+        )}-${localDigits.slice(7)}`
+      : `(${localDigits.slice(0, 2)}) ${localDigits.slice(
+          2,
+          6,
+        )}-${localDigits.slice(6)}`;
+
+  return {
+    href: `https://wa.me/${linkDigits}`,
+    formatted,
+  };
 };
 
 export default async function Page({
@@ -38,12 +72,22 @@ export default async function Page({
   const { data: restaurantData } = await supabase
     .from("restaurants")
     .select(
-      "id, name, is_closed, logo_url, rating, min_order_cents, description, banner_url, availability_json,delivery_fee_json, latitude, longitude, allowed_payment_methods, address",
+      "id, name, is_closed, logo_url, rating, min_order_cents, description, banner_url, availability_json,delivery_fee_json, latitude, longitude, allowed_payment_methods, address, store_whatsapp",
     )
     .eq("url_slug", slug)
     .maybeSingle();
 
   if (!restaurantData) return notFound();
+
+  const storeWhatsapp = getStoreWhatsapp(restaurantData.store_whatsapp);
+
+  const { data: loyaltyProgram } = await supabase
+    .from("loyalty_programs")
+    .select("active")
+    .eq("restaurant_id", restaurantData.id)
+    .maybeSingle();
+
+  const loyaltyProgramActive = loyaltyProgram?.active === true;
 
   // Keep tracking independent from the restaurant relation. This safely picks
   // the most recently saved row even before the duplicate-cleanup SQL is run.
@@ -219,9 +263,6 @@ export default async function Page({
     (c) => (itemsByCategory[c.id]?.length ?? 0) > 0,
   );
 
-  console.log("slug");
-  console.log(slug);
-
   const { data } = await supabase
     .from("restaurants")
     .select("name")
@@ -231,6 +272,7 @@ export default async function Page({
   return (
     <>
       <title>{data?.name ?? "Menu"}</title>
+
       {tracking && (
         <TrackingScripts
           ga4Id={tracking?.ga4_id}
@@ -238,14 +280,32 @@ export default async function Page({
           metaPixelId={tracking?.meta_pixel_id}
         />
       )}
-      <MenuClientPage
-        slug={slug}
-        restaurant={restaurant}
-        categories={categoriesWithItems}
-        itemsByCategory={itemsByCategory}
-        openedProductId={p.p}
-        selectedCouponCode={p.c?.toUpperCase()}
-      />
+
+      <div
+        data-loyalty-history-enabled={
+          loyaltyProgramActive ? "true" : "false"
+        }
+      >
+        {!loyaltyProgramActive && (
+          <style>{`
+            [data-loyalty-history-enabled="false"]
+            div.top-7.right-5.fixed.flex.gap-4
+            > div:first-child {
+              display: none !important;
+            }
+          `}</style>
+        )}
+
+        <MenuClientPage
+          slug={slug}
+          restaurant={restaurant}
+          categories={categoriesWithItems}
+          itemsByCategory={itemsByCategory}
+          openedProductId={p.p}
+          selectedCouponCode={p.c?.toUpperCase()}
+        />
+      </div>
+
       <StartingPriceLabels
         items={allItems
           .filter((item) => startingPriceItemIds.has(item.id))
@@ -255,6 +315,21 @@ export default async function Page({
             imageUrl: item.image_public_url,
           }))}
       />
+
+      {storeWhatsapp && (
+        <footer className="border-t border-gray-100 bg-white px-6 pt-7 pb-28 text-center">
+          <a
+            href={storeWhatsapp.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={`Abrir WhatsApp da loja no número ${storeWhatsapp.formatted}`}
+            className="inline-flex items-center gap-2 text-sm font-medium text-green-600 hover:underline"
+          >
+            <FontAwesomeIcon icon={faWhatsapp} className="text-xl" />
+            <span>{storeWhatsapp.formatted}</span>
+          </a>
+        </footer>
+      )}
     </>
   );
 }
