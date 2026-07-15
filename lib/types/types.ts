@@ -30,6 +30,7 @@ export type Restaurant = {
     phone?: string | null;
     store_whatsapp?: string | null;
     allowed_payment_methods?: string[] | null;
+    pickup_enabled?: boolean;
 };
 
 export type Menu = {

@@ -170,6 +170,7 @@ export async function PATCH(
             payment_method: "payment_method",
             payment_info: "payment_info",
             allowed_payment_methods: "allowed_payment_methods",
+            pickup_enabled: "pickup_enabled",
         };
 
         const jsonFields = [
@@ -272,7 +273,8 @@ export async function GET(
                 url_slug,
                 payment_method,
                 payment_info,
-                allowed_payment_methods
+                allowed_payment_methods,
+                pickup_enabled
             FROM public.restaurants
             WHERE id = $1
             LIMIT 1

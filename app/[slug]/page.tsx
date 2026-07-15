@@ -12,6 +12,7 @@ import {
 import TrackingScripts from "@/components/costumer/TrackingScripts";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
+import PickupAvailabilityGuard from "./PickupAvailabilityGuard";
 
 import { createSupabaseServerClient } from "@/lib/database/supabaseServerClient";
 
@@ -72,7 +73,7 @@ export default async function Page({
   const { data: restaurantData } = await supabase
     .from("restaurants")
     .select(
-      "id, name, is_closed, logo_url, rating, min_order_cents, description, banner_url, availability_json,delivery_fee_json, latitude, longitude, allowed_payment_methods, address, store_whatsapp",
+      "id, name, is_closed, logo_url, rating, min_order_cents, description, banner_url, availability_json,delivery_fee_json, latitude, longitude, allowed_payment_methods, address, store_whatsapp, pickup_enabled",
     )
     .eq("url_slug", slug)
     .maybeSingle();
@@ -119,6 +120,7 @@ export default async function Page({
     is_closed: restaurantData.is_closed,
     allowed_payment_methods: restaurantData.allowed_payment_methods,
     address: restaurantData.address,
+    pickup_enabled: restaurantData.pickup_enabled === true,
   };
 
   // --- 3. Categorias ---
@@ -280,6 +282,10 @@ export default async function Page({
           metaPixelId={tracking?.meta_pixel_id}
         />
       )}
+
+      <PickupAvailabilityGuard
+        enabled={restaurant.pickup_enabled === true}
+      />
 
       <div
         data-loyalty-history-enabled={
