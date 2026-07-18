@@ -1,25 +1,242 @@
 // app/api/orders/route.ts
 import { NextResponse } from "next/server";
-import { query } from "@/lib/database/sql";
-import { MercadoPagoConfig, Preference, Payment } from "mercadopago";
-import {promotionPrice} from "@/lib/utils/formatPrice";
+import { MercadoPagoConfig, Payment } from "mercadopago";
+
+import {
+    query,
+    withTransaction,
+} from "@/lib/database/sql";
+import { promotionPrice } from "@/lib/utils/formatPrice";
+
 export const dynamic = "force-dynamic";
 
-if (!process.env.MERCADO_PAGO_ACCESS_TOKEN)
-    throw new Error("MERCADO_PAGO_ACCESS_TOKEN missing");
+if (!process.env.MERCADO_PAGO_ACCESS_TOKEN) {
+    throw new Error(
+        "MERCADO_PAGO_ACCESS_TOKEN missing"
+    );
+}
 
-const client = new MercadoPagoConfig({
-    accessToken: process.env.MERCADO_PAGO_ACCESS_TOKEN!,
+const mercadoPago = new MercadoPagoConfig({
+    accessToken:
+        process.env.MERCADO_PAGO_ACCESS_TOKEN!,
 });
 
-export async function POST(req: Request) {
-    console.log("📩 [ORDERS] Recebendo requisição...");
+class OrderRequestError extends Error {
+    status: number;
 
-    let body: any = {};
+    constructor(message: string, status = 400) {
+        super(message);
+        this.name = "OrderRequestError";
+        this.status = status;
+    }
+}
+
+function normalizePhone(value: unknown): string {
+    let digits = String(value ?? "").replace(/\D/g, "");
+
+    if (
+        digits.startsWith("55") &&
+        (digits.length === 12 || digits.length === 13)
+    ) {
+        digits = digits.slice(2);
+    }
+
+    return digits;
+}
+
+function parseIdArray(value: unknown): string[] {
+    if (Array.isArray(value)) {
+        return value
+            .map((item) => String(item))
+            .filter(Boolean);
+    }
+
+    if (typeof value === "string") {
+        try {
+            const parsed = JSON.parse(value);
+
+            return Array.isArray(parsed)
+                ? parsed
+                      .map((item) => String(item))
+                      .filter(Boolean)
+                : [];
+        } catch {
+            return [];
+        }
+    }
+
+    return [];
+}
+
+function getCartItemId(item: any): string {
+    return String(
+        item?.item_id || item?.base_item_id || ""
+    );
+}
+
+function getSelectedSubitems(item: any): any[] {
+    return Array.isArray(item?.selectedSubitems)
+        ? item.selectedSubitems
+        : [];
+}
+
+async function cancelUnpaidOnlineOrder(
+    orderId: string
+): Promise<void> {
+    await withTransaction(async (client) => {
+        const orderResult = await client.query(
+            `
+                SELECT
+                    id,
+                    restaurant_id,
+                    customer_phone,
+                    status,
+                    payment_ref,
+                    loyalty_points_used
+                FROM orders
+                WHERE id = $1
+                FOR UPDATE
+            `,
+            [orderId]
+        );
+
+        const order = orderResult.rows[0];
+
+        if (
+            !order ||
+            order.status !==
+                "pending_online_payment" ||
+            order.payment_ref
+        ) {
+            return;
+        }
+
+        const orderItemsResult =
+            await client.query(
+                `
+                    SELECT item_id, quantity
+                    FROM order_items
+                    WHERE order_id = $1
+                `,
+                [orderId]
+            );
+
+        for (const orderItem of orderItemsResult.rows) {
+            await client.query(
+                `
+                    UPDATE items
+                    SET
+                        stock_quantity =
+                            stock_quantity + $1,
+                        is_available = true
+                    WHERE id = $2
+                      AND stock_enabled = true
+                `,
+                [
+                    Number(orderItem.quantity) || 0,
+                    orderItem.item_id,
+                ]
+            );
+        }
+
+        const pointsUsed =
+            Number(order.loyalty_points_used) || 0;
+        const cleanPhone = normalizePhone(
+            order.customer_phone
+        );
+
+        if (
+            pointsUsed > 0 &&
+            (cleanPhone.length === 10 ||
+                cleanPhone.length === 11)
+        ) {
+            const phoneCandidates = [
+                cleanPhone,
+                `55${cleanPhone}`,
+            ];
+
+            const balanceResult =
+                await client.query(
+                    `
+                        SELECT customer_phone
+                        FROM loyalty_balances
+                        WHERE restaurant_id = $1
+                          AND customer_phone =
+                              ANY($2::text[])
+                        ORDER BY
+                            CASE
+                                WHEN customer_phone = $3
+                                    THEN 0
+                                ELSE 1
+                            END
+                        LIMIT 1
+                        FOR UPDATE
+                    `,
+                    [
+                        order.restaurant_id,
+                        phoneCandidates,
+                        cleanPhone,
+                    ]
+                );
+
+            const storedPhone =
+                balanceResult.rows[0]
+                    ?.customer_phone ||
+                cleanPhone;
+
+            await client.query(
+                `
+                    INSERT INTO loyalty_balances (
+                        restaurant_id,
+                        customer_phone,
+                        current_count,
+                        total_lifetime_count,
+                        last_order_at
+                    )
+                    VALUES ($1, $2, $3, 0, NOW())
+                    ON CONFLICT (
+                        restaurant_id,
+                        customer_phone
+                    )
+                    DO UPDATE SET
+                        current_count =
+                            loyalty_balances.current_count +
+                            EXCLUDED.current_count,
+                        last_order_at = NOW()
+                `,
+                [
+                    order.restaurant_id,
+                    storedPhone,
+                    pointsUsed,
+                ]
+            );
+        }
+
+        await client.query(
+            `
+                UPDATE orders
+                SET
+                    status =
+                        'canceled'::public.order_status,
+                    loyalty_points_used = 0,
+                    updated_at = NOW()
+                WHERE id = $1
+            `,
+            [orderId]
+        );
+    });
+}
+
+export async function POST(request: Request) {
+    let body: any;
+
     try {
-        body = await req.json();
-    } catch (err) {
-        return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+        body = await request.json();
+    } catch {
+        return NextResponse.json(
+            { error: "Invalid JSON" },
+            { status: 400 }
+        );
     }
 
     try {
@@ -37,338 +254,723 @@ export async function POST(req: Request) {
             is_delivery,
         } = body;
 
-        // 1. Log inicial para debug
-        console.log(`📦 [ORDERS] Payload recebido. Itens: ${items?.length}`);
-        
-        if (!items?.length || !restaurantId || !paymentMethod) {
-            return NextResponse.json({ error: "Incomplete fields" }, { status: 400 });
+        if (
+            !Array.isArray(items) ||
+            items.length === 0 ||
+            !restaurantId ||
+            !paymentMethod
+        ) {
+            throw new OrderRequestError(
+                "Campos obrigatórios incompletos."
+            );
         }
 
-        const isPickup = is_delivery === "retirada";
+        const isPickup =
+            is_delivery === "retirada";
         const safeDeliveryFeeCents = isPickup
             ? 0
-            : Math.max(Number(delivery_fee_cents) || 0, 0);
+            : Math.max(
+                  Number(delivery_fee_cents) || 0,
+                  0
+              );
 
-        // 2. Cálculo de totais
-        let subtotal = 0;
+        const subtotal = items.reduce(
+            (totalValue: number, item: any) =>
+                totalValue +
+                (promotionPrice(item) ||
+                    Number(item?.total_cents) ||
+                    0),
+            0
+        );
 
-        items.forEach((item: any) => { subtotal += ((promotionPrice(item) || item.total_cents) || 0); });
-
-        const safeCouponDiscount = coupon_type === "delivery" && isPickup
+        const safeCouponDiscount =
+            coupon_type === "delivery" &&
+            isPickup
                 ? 0
-                : coupon_discount_cents && coupon_discount_cents > 0
-                    ? Math.min(coupon_discount_cents, subtotal)
-                    : 0;
+                : Number(coupon_discount_cents) >
+                    0
+                  ? Math.min(
+                        Number(
+                            coupon_discount_cents
+                        ),
+                        subtotal
+                    )
+                  : 0;
 
-        const total = subtotal + safeDeliveryFeeCents - safeCouponDiscount;
-        
-        // ============================================================
-        // 🕵️ 3. FIDELIDADE (DETECÇÃO AVANÇADA & DEBUG)
-        // ============================================================
-        let pointsToDeduce = 0;
-        
-        // A. Busca regras do programa
-        const { rows: [prog] } = await query(
-            `SELECT goal_count, reward_item_id FROM loyalty_programs WHERE restaurant_id = $1 AND active = true`,
+        const total = Math.max(
+            subtotal +
+                safeDeliveryFeeCents -
+                safeCouponDiscount,
+            0
+        );
+
+        const programResult = await query(
+            `
+                SELECT
+                    goal_count,
+                    reward_item_id,
+                    reward_subitem_ids
+                FROM loyalty_programs
+                WHERE restaurant_id = $1
+                  AND active = true
+                LIMIT 1
+            `,
             [restaurantId]
         );
 
-        if (prog) {
-            console.log(`🎯 [FIDELIDADE] Programa Ativo. ID do Prêmio no Banco: ${prog.reward_item_id}`);
-        } else {
-            console.log(`⚠️ [FIDELIDADE] Nenhum programa ativo encontrado para restaurant_id: ${restaurantId}`);
-        }
+        const program =
+            programResult.rows[0] || null;
 
-        // B. Tenta encontrar o item de prêmio
-        // Normalizamos os dados (String/Number) para evitar erros bobos de comparação
-        let rewardItemRequest = items.find((i: any) => {
-            const isFlagged = i.is_reward === true;
-            
-            // Fallback robusto: Checa se ID bate e Preço é Zero
-            // Usa 'base_item_id' se 'item_id' não existir (caso o frontend mande diferente)
-            const itemId = i.item_id || i.base_item_id;
-            const isIdMatch = prog && String(itemId) === String(prog.reward_item_id);
-            const isFree = Number(i.total_cents) === 0;
+        const rewardItems = items.filter(
+            (item: any) => {
+                const itemId = getCartItemId(item);
+                const matchesConfiguredReward =
+                    program &&
+                    String(itemId) ===
+                        String(
+                            program.reward_item_id
+                        ) &&
+                    Number(item.total_cents) === 0;
 
-            if (isIdMatch && isFree) {
-                console.log(`✅ [FIDELIDADE] Item detectado pelo ID+Preço! (${i.name})`);
-                return true;
+                return (
+                    item?.is_reward === true ||
+                    matchesConfiguredReward
+                );
             }
-            if (isFlagged) {
-                console.log(`✅ [FIDELIDADE] Item detectado pela flag 'is_reward'! (${i.name})`);
-                return true;
-            }
-            
-            // Log para entender por que falhou nos outros itens
-            if (isFree) {
-                console.log(`ℹ️ [FIDELIDADE] Item grátis ignorado (ID não bate): Item=${itemId} vs Esperado=${prog?.reward_item_id}`);
-            }
-
-            return false;
-        });
-
-        if (rewardItemRequest) {
-            console.log("🔒 [FIDELIDADE] Iniciando processo de dedução de pontos...");
-
-            if (!prog) {
-                return NextResponse.json({ error: "Programa de fidelidade inativo." }, { status: 400 });
-            }
-
-            if (!customer_phone) {
-                return NextResponse.json({ error: "Telefone necessário para resgate." }, { status: 400 });
-            }
-            const cleanPhone = customer_phone.replace(/\D/g, "");
-
-            // Validação final de segurança
-            const reqItemId = rewardItemRequest.item_id || rewardItemRequest.base_item_id;
-            if (String(prog.reward_item_id) !== String(reqItemId)) {
-                console.error(`🛑 [FIDELIDADE] Erro de Segurança: ID ${reqItemId} não é o prêmio oficial.`);
-                return NextResponse.json({ error: "Item inválido para resgate." }, { status: 400 });
-            }
-
-            pointsToDeduce = prog.goal_count;
-
-            // C. DEDUÇÃO NO BANCO
-            const deductionResult = await query(
-                `UPDATE loyalty_balances 
-                 SET current_count = current_count - $1
-                 WHERE restaurant_id = $2 
-                   AND customer_phone = $3 
-                   AND current_count >= $1`,
-                [pointsToDeduce, restaurantId, cleanPhone]
-            );
-
-            if (deductionResult.rowCount === 0) {
-                console.error(`🛑 [FIDELIDADE] Falha na dedução. Saldo insuficiente ou telefone não encontrado. Phone: ${cleanPhone}`);
-                return NextResponse.json({ 
-                    error: "Saldo de fidelidade insuficiente para este prêmio." 
-                }, { status: 400 });
-            }
-
-            console.log(`✅ [FIDELIDADE] SUCESSO! ${pointsToDeduce} pontos deduzidos.`);
-        } else {
-            console.log("🤷‍♂️ [FIDELIDADE] Nenhum item de recompensa identificado neste pedido.");
-        }
-
-        // ============================================================
-        // 4. CRIAÇÃO DO PEDIDO
-        // ============================================================
-        const deliveryTime = delivery_time_minutes ?? 40;
-        const eta = new Date(Date.now() + deliveryTime * 60000);
-
-        const isOnlinePix = paymentMethod === "pix";
-        const orderStatus = isOnlinePix ? "pending_online_payment" : "pending_physical_payment";
-
-        const { rows: [order] } = await query<{ id: string }>(
-            `INSERT INTO orders (
-                restaurant_id, status, subtotal_cents, delivery_cents, total_cents,
-                customer_name, customer_phone, customer_address, delivery_eta, payment_method,
-                is_delivery, loyalty_points_used
-            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id`,
-            [
-                restaurantId, orderStatus, subtotal, safeDeliveryFeeCents, total,
-                customer_name ?? null, customer_phone ?? null, isPickup ? null : (customer_address ?? null),
-                eta, paymentMethod, isPickup ? "retirada" : (is_delivery ?? null),
-                pointsToDeduce // Salva no histórico
-            ]
         );
 
-        // 5. INSERÇÃO DE ITENS
-        for (const cartItem of items) {
-            const finalItemId = cartItem.item_id || cartItem.base_item_id;
-
-            // 1. Validate stock before inserting item
-            const { rows: [stockItem] } = await query(
-                `SELECT stock_enabled, stock_quantity
-         FROM items
-         WHERE id = $1`,
-                [finalItemId]
+        if (rewardItems.length > 1) {
+            throw new OrderRequestError(
+                "Apenas uma recompensa pode ser usada por pedido."
             );
+        }
 
-            if (stockItem?.stock_enabled === true) {
-                const currentQty = Number(stockItem.stock_quantity ?? 0);
-                const requestedQty = Number(cartItem.qty ?? 0);
+        const rewardItem =
+            rewardItems[0] || null;
+        const cleanPhone = normalizePhone(
+            customer_phone
+        );
+        let pointsToDeduct = 0;
+        let rewardSubitemIds = new Set<string>();
 
-                if (requestedQty <= 0) {
-                    return NextResponse.json(
-                        { error: `Quantidade inválida para o item ${cartItem.name}.` },
-                        { status: 400 }
-                    );
-                }
-
-                if (currentQty < requestedQty) {
-                    return NextResponse.json(
-                        { error: `Estoque insuficiente para ${cartItem.name}. Disponível: ${currentQty}.` },
-                        { status: 400 }
-                    );
-                }
+        if (rewardItem) {
+            if (!program) {
+                throw new OrderRequestError(
+                    "Programa de fidelidade inativo."
+                );
             }
 
-            // 2. Insert order item
-            const { rows: [oi] } = await query(
-                `INSERT INTO order_items (order_id, item_id, name, price_cents, quantity, observation, total_cents, original_value)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
-                [
-                    order.id,
-                    finalItemId,
-                    cartItem.name,
-                    (promotionPrice(cartItem, false) || cartItem.unit_price_cents),
-                    cartItem.qty,
-                    cartItem.observation ?? null,
-                    (promotionPrice(cartItem) || cartItem.total_cents),
-                    cartItem.unit_price_cents
-                ]
+            if (
+                cleanPhone.length !== 10 &&
+                cleanPhone.length !== 11
+            ) {
+                throw new OrderRequestError(
+                    "Telefone necessário para resgate."
+                );
+            }
+
+            const rewardItemId =
+                getCartItemId(rewardItem);
+
+            if (
+                String(program.reward_item_id) !==
+                rewardItemId
+            ) {
+                throw new OrderRequestError(
+                    "Item inválido para resgate."
+                );
+            }
+
+            if (
+                Number(rewardItem.qty) !== 1 ||
+                Number(rewardItem.total_cents) !==
+                    0 ||
+                Number(
+                    rewardItem.unit_price_cents
+                ) !== 0
+            ) {
+                throw new OrderRequestError(
+                    "A recompensa deve ter quantidade 1 e valor zero."
+                );
+            }
+
+            rewardSubitemIds = new Set(
+                parseIdArray(
+                    program.reward_subitem_ids
+                )
             );
 
-            console.log("🧩 Created order_item:", oi);
-
-            // 3. Insert subitems
-            for (const sub of cartItem.selectedSubitems) {
-                await query(
-                    `INSERT INTO order_item_subitems (
-                order_item_id,
-                subitem_id,
-                name,
-                price_cents,
-                quantity
-            )
-            VALUES ($1,$2,$3,$4,$5)`,
-                    [
-                        oi.id,
-                        sub.subitemId,
-                        sub.subitemName,
-                        sub.price_cents,
-                        1
-                    ]
+            const selectedRewardSubitems =
+                getSelectedSubitems(rewardItem);
+            const selectedRewardIds =
+                selectedRewardSubitems.map(
+                    (subitem: any) =>
+                        String(
+                            subitem?.subitemId || ""
+                        )
                 );
 
-                console.log("   ➕ Inserted subitem:", sub);
+            if (
+                new Set(selectedRewardIds).size !==
+                selectedRewardIds.length
+            ) {
+                throw new OrderRequestError(
+                    "A recompensa possui complementos duplicados."
+                );
             }
 
-            // 4. Decrement stock after successful item insert
-            await query(
-                `UPDATE items
-                 SET
-                     stock_quantity = GREATEST(stock_quantity - $1, 0),
-                     is_available = CASE
-                                        WHEN stock_quantity - $1 <= 0 THEN false
-                                        ELSE is_available
-                         END
-                 WHERE id = $2
-                   AND stock_enabled = true`,
-                [cartItem.qty, finalItemId]
+            const invalidRewardSubitem =
+                selectedRewardIds.some(
+                    (subitemId: string) =>
+                        !rewardSubitemIds.has(
+                            subitemId
+                        )
+                );
+
+            if (invalidRewardSubitem) {
+                throw new OrderRequestError(
+                    "A recompensa contém um complemento não configurado."
+                );
+            }
+
+            pointsToDeduct = Math.max(
+                1,
+                Math.round(
+                    Number(program.goal_count) ||
+                        10
+                )
             );
         }
-        // -------------------------------
-        // Get restaurant slug
-        // -------------------------------
-        const { rows: [restaurantInfo] } = await query(
-            `SELECT url_slug FROM restaurants WHERE id = $1`,
-            [restaurantId]
+
+        const deliveryTime = Math.max(
+            Number(delivery_time_minutes) || 40,
+            0
         );
-        const slug = restaurantInfo?.url_slug;
+        const eta = new Date(
+            Date.now() +
+                deliveryTime * 60_000
+        );
+        const isOnlinePix =
+            paymentMethod === "pix" &&
+            total > 0;
+        const orderStatus = isOnlinePix
+            ? "pending_online_payment"
+            : "pending_physical_payment";
+
+        const transactionResult =
+            await withTransaction(
+                async (client) => {
+                    const lockedItems =
+                        new Map<string, any>();
+                    const requestedQuantities =
+                        new Map<string, number>();
+
+                    for (const cartItem of items) {
+                        const itemId =
+                            getCartItemId(cartItem);
+                        const requestedQuantity =
+                            Number(cartItem?.qty);
+
+                        if (!itemId) {
+                            throw new OrderRequestError(
+                                "Um item do pedido não foi identificado."
+                            );
+                        }
+
+                        if (
+                            !Number.isInteger(
+                                requestedQuantity
+                            ) ||
+                            requestedQuantity <= 0
+                        ) {
+                            throw new OrderRequestError(
+                                `Quantidade inválida para ${
+                                    cartItem?.name ||
+                                    "um item"
+                                }.`
+                            );
+                        }
+
+                        requestedQuantities.set(
+                            itemId,
+                            (requestedQuantities.get(
+                                itemId
+                            ) || 0) +
+                                requestedQuantity
+                        );
+                    }
+
+                    for (const [
+                        itemId,
+                        requestedQuantity,
+                    ] of requestedQuantities) {
+                        const itemResult =
+                            await client.query(
+                                `
+                                    SELECT
+                                        id,
+                                        restaurant_id,
+                                        name,
+                                        stock_enabled,
+                                        stock_quantity,
+                                        is_available
+                                    FROM items
+                                    WHERE id = $1
+                                    FOR UPDATE
+                                `,
+                                [itemId]
+                            );
+
+                        const databaseItem =
+                            itemResult.rows[0];
+
+                        if (
+                            !databaseItem ||
+                            String(
+                                databaseItem.restaurant_id
+                            ) !==
+                                String(
+                                    restaurantId
+                                )
+                        ) {
+                            throw new OrderRequestError(
+                                "Um item não pertence a este restaurante."
+                            );
+                        }
+
+                        if (
+                            databaseItem.is_available ===
+                            false
+                        ) {
+                            throw new OrderRequestError(
+                                `${databaseItem.name} não está disponível.`
+                            );
+                        }
+
+                        if (
+                            databaseItem.stock_enabled ===
+                                true &&
+                            Number(
+                                databaseItem.stock_quantity
+                            ) <
+                                requestedQuantity
+                        ) {
+                            throw new OrderRequestError(
+                                `Estoque insuficiente para ${databaseItem.name}. Disponível: ${Number(
+                                    databaseItem.stock_quantity
+                                ) || 0}.`
+                            );
+                        }
+
+                        lockedItems.set(
+                            itemId,
+                            databaseItem
+                        );
+                    }
+
+                    if (rewardItem) {
+                        const phoneCandidates = [
+                            cleanPhone,
+                            `55${cleanPhone}`,
+                        ];
+
+                        const balanceResult =
+                            await client.query(
+                                `
+                                    SELECT customer_phone
+                                    FROM loyalty_balances
+                                    WHERE restaurant_id = $1
+                                      AND customer_phone =
+                                          ANY($2::text[])
+                                      AND current_count >= $3
+                                    ORDER BY
+                                        CASE
+                                            WHEN customer_phone =
+                                                $4
+                                                THEN 0
+                                            ELSE 1
+                                        END
+                                    LIMIT 1
+                                    FOR UPDATE
+                                `,
+                                [
+                                    restaurantId,
+                                    phoneCandidates,
+                                    pointsToDeduct,
+                                    cleanPhone,
+                                ]
+                            );
+
+                        const balancePhone =
+                            balanceResult.rows[0]
+                                ?.customer_phone;
+
+                        if (!balancePhone) {
+                            throw new OrderRequestError(
+                                "Saldo de fidelidade insuficiente para este prêmio."
+                            );
+                        }
+
+                        const deductionResult =
+                            await client.query(
+                                `
+                                    UPDATE loyalty_balances
+                                    SET current_count =
+                                        current_count - $1
+                                    WHERE restaurant_id = $2
+                                      AND customer_phone = $3
+                                      AND current_count >= $1
+                                    RETURNING current_count
+                                `,
+                                [
+                                    pointsToDeduct,
+                                    restaurantId,
+                                    balancePhone,
+                                ]
+                            );
+
+                        if (
+                            deductionResult.rowCount ===
+                            0
+                        ) {
+                            throw new OrderRequestError(
+                                "Saldo de fidelidade insuficiente para este prêmio."
+                            );
+                        }
+                    }
+
+                    const orderResult =
+                        await client.query(
+                            `
+                                INSERT INTO orders (
+                                    restaurant_id,
+                                    status,
+                                    subtotal_cents,
+                                    delivery_cents,
+                                    total_cents,
+                                    customer_name,
+                                    customer_phone,
+                                    customer_address,
+                                    delivery_eta,
+                                    payment_method,
+                                    is_delivery,
+                                    loyalty_points_used
+                                )
+                                VALUES (
+                                    $1,
+                                    $2,
+                                    $3,
+                                    $4,
+                                    $5,
+                                    $6,
+                                    $7,
+                                    $8,
+                                    $9,
+                                    $10,
+                                    $11,
+                                    $12
+                                )
+                                RETURNING id
+                            `,
+                            [
+                                restaurantId,
+                                orderStatus,
+                                subtotal,
+                                safeDeliveryFeeCents,
+                                total,
+                                customer_name ?? null,
+                                customer_phone ?? null,
+                                isPickup
+                                    ? null
+                                    : customer_address ??
+                                      null,
+                                eta,
+                                paymentMethod,
+                                isPickup
+                                    ? "retirada"
+                                    : is_delivery ??
+                                      null,
+                                pointsToDeduct,
+                            ]
+                        );
+
+                    const orderId =
+                        orderResult.rows[0].id;
+
+                    for (const cartItem of items) {
+                        const itemId =
+                            getCartItemId(cartItem);
+                        const selectedSubitems =
+                            getSelectedSubitems(
+                                cartItem
+                            );
+                        const isRewardItem =
+                            rewardItem === cartItem;
+
+                        const orderItemResult =
+                            await client.query(
+                                `
+                                    INSERT INTO order_items (
+                                        order_id,
+                                        item_id,
+                                        name,
+                                        price_cents,
+                                        quantity,
+                                        observation,
+                                        total_cents,
+                                        original_value
+                                    )
+                                    VALUES (
+                                        $1,
+                                        $2,
+                                        $3,
+                                        $4,
+                                        $5,
+                                        $6,
+                                        $7,
+                                        $8
+                                    )
+                                    RETURNING id
+                                `,
+                                [
+                                    orderId,
+                                    itemId,
+                                    cartItem.name,
+                                    isRewardItem
+                                        ? 0
+                                        : promotionPrice(
+                                              cartItem,
+                                              false
+                                          ) ||
+                                          Number(
+                                              cartItem.unit_price_cents
+                                          ) ||
+                                          0,
+                                    Number(
+                                        cartItem.qty
+                                    ),
+                                    cartItem.observation ??
+                                        null,
+                                    isRewardItem
+                                        ? 0
+                                        : promotionPrice(
+                                              cartItem
+                                          ) ||
+                                          Number(
+                                              cartItem.total_cents
+                                          ) ||
+                                          0,
+                                    isRewardItem
+                                        ? 0
+                                        : Number(
+                                              cartItem.unit_price_cents
+                                          ) ||
+                                          0,
+                                ]
+                            );
+
+                        const orderItemId =
+                            orderItemResult.rows[0].id;
+
+                        for (const subitem of selectedSubitems) {
+                            const subitemId = String(
+                                subitem?.subitemId ||
+                                    ""
+                            );
+
+                            if (!subitemId) {
+                                throw new OrderRequestError(
+                                    "Um complemento do pedido não foi identificado."
+                                );
+                            }
+
+                            await client.query(
+                                `
+                                    INSERT INTO order_item_subitems (
+                                        order_item_id,
+                                        subitem_id,
+                                        name,
+                                        price_cents,
+                                        quantity
+                                    )
+                                    VALUES (
+                                        $1,
+                                        $2,
+                                        $3,
+                                        $4,
+                                        1
+                                    )
+                                `,
+                                [
+                                    orderItemId,
+                                    subitemId,
+                                    subitem.subitemName,
+                                    isRewardItem
+                                        ? 0
+                                        : Number(
+                                              subitem.price_cents
+                                          ) ||
+                                          0,
+                                ]
+                            );
+                        }
+
+                        const lockedItem =
+                            lockedItems.get(itemId);
+
+                        if (
+                            lockedItem?.stock_enabled ===
+                            true
+                        ) {
+                            await client.query(
+                                `
+                                    UPDATE items
+                                    SET
+                                        stock_quantity =
+                                            GREATEST(
+                                                stock_quantity -
+                                                    $1,
+                                                0
+                                            ),
+                                        is_available =
+                                            CASE
+                                                WHEN
+                                                    stock_quantity -
+                                                        $1 <=
+                                                    0
+                                                    THEN false
+                                                ELSE
+                                                    is_available
+                                            END
+                                    WHERE id = $2
+                                `,
+                                [
+                                    Number(
+                                        cartItem.qty
+                                    ),
+                                    itemId,
+                                ]
+                            );
+                        }
+                    }
+
+                    const restaurantResult =
+                        await client.query(
+                            `
+                                SELECT url_slug
+                                FROM restaurants
+                                WHERE id = $1
+                            `,
+                            [restaurantId]
+                        );
+
+                    return {
+                        orderId,
+                        slug:
+                            restaurantResult.rows[0]
+                                ?.url_slug,
+                    };
+                }
+            );
+
+        const {
+            orderId,
+            slug,
+        } = transactionResult;
 
         if (!isOnlinePix) {
             return NextResponse.json({
-                order_id: order.id,
+                order_id: orderId,
                 payment_type: "offline",
-                redirect: `/${slug}/${order.id}`,
+                redirect: `/${slug}/${orderId}`,
             });
         }
 
-        // -------------------------------
-        // Mercado Pago
-        // -------------------------------
-        console.log("💳 Creating Mercado Pago payment...");
+        let payment;
 
-        const baseUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/${slug}`;
-
-        // ✅ PIX: create payment and redirect to Mercado Pago PIX ticket page (QR)
-        if (paymentMethod === "pix") {
-            const payment = await new Payment(client).create({
+        try {
+            payment = await new Payment(
+                mercadoPago
+            ).create({
                 body: {
-                    transaction_amount: total / 100,
-                    description: `Pedido ${order.id}`,
+                    transaction_amount:
+                        total / 100,
+                    description: `Pedido ${orderId}`,
                     payment_method_id: "pix",
-                    external_reference: order.id.toString(),
+                    external_reference:
+                        orderId.toString(),
                     notification_url: `${process.env.NEXT_PUBLIC_BASE_URL}/api/webhooks/mercadopago`,
                     payer: {
-                        email: `cliente_${order.id}@fake.com`,
+                        email: `cliente_${orderId}@fake.com`,
                         first_name: customer_name,
                     },
                 },
             });
+        } catch (paymentError) {
+            try {
+                await cancelUnpaidOnlineOrder(
+                    orderId
+                );
+            } catch (compensationError) {
+                console.error(
+                    "[FIDELIDADE] Falha ao restaurar pedido após erro no PIX:",
+                    compensationError
+                );
+            }
 
-            const pix_qr_base64 =
-                payment.point_of_interaction?.transaction_data?.qr_code_base64 ?? null;
-
-            const pix_copia_cola =
-                payment.point_of_interaction?.transaction_data?.qr_code ?? null;
-
-// save payment id + pix data in the order
-            await query(
-                `UPDATE orders 
-   SET payment_ref = $1, pix_qr_base64 = $2, pix_copia_cola = $3 
-   WHERE id = $4`,
-                [
-                    payment.id?.toString() ?? null,
-                    pix_qr_base64,
-                    pix_copia_cola,
-                    order.id,
-                ]
-            );
-
-// send user to /pedido/:id (your frontend already does this with data.id)
-            return NextResponse.json({
-                id: order.id,
-                payment_type: "pix",
-            });
-
-
-            return NextResponse.json({
-                id: order.id,
-                payment_type: "pix",
-            });
+            throw paymentError;
         }
 
+        const pixQrBase64 =
+            payment.point_of_interaction
+                ?.transaction_data
+                ?.qr_code_base64 ?? null;
+        const pixCopyPaste =
+            payment.point_of_interaction
+                ?.transaction_data?.qr_code ??
+            null;
 
-
-        const preference = await new Preference(client).create({
-            body: {
-                items: items.map((s: any) => ({
-                    id: s.item_id || s.base_item_id,
-                    title: s.name,
-                    quantity: s.qty,
-                    currency_id: "BRL",
-                    unit_price: s.unit_price_cents / 100,
-                })),
-                shipments: {
-                    cost: safeDeliveryFeeCents / 100,
-                    mode: "not_specified",
-                },
-                external_reference: order.id.toString(),
-                back_urls: {
-                    success: `${baseUrl}/${order.id}`,
-                    failure: `${baseUrl}/${order.id}`,
-                    pending: `${baseUrl}/${order.id}`,
-                },
-                auto_return: "approved",
-                notification_url: `${baseUrl}/api/mercadopago/webhook`,
-            },
-        });
-
-        await query(`UPDATE orders SET payment_ref = $1 WHERE id = $2`, [preference.id ?? null, order.id]);
+        await query(
+            `
+                UPDATE orders
+                SET
+                    payment_ref = $1,
+                    pix_qr_base64 = $2,
+                    pix_copia_cola = $3
+                WHERE id = $4
+            `,
+            [
+                payment.id?.toString() ?? null,
+                pixQrBase64,
+                pixCopyPaste,
+                orderId,
+            ]
+        );
 
         return NextResponse.json({
-            order_id: order.id,
-            init_point: preference.init_point || preference.sandbox_init_point,
-            payment_type: "online",
+            id: orderId,
+            payment_type: "pix",
         });
+    } catch (error) {
+        console.error(
+            "[ORDERS] Falha ao criar pedido:",
+            error
+        );
 
-    } catch (err: any) {
-        console.error("❌ FATAL ERROR /api/orders:", err);
+        if (error instanceof OrderRequestError) {
+            return NextResponse.json(
+                { error: error.message },
+                { status: error.status }
+            );
+        }
+
         return NextResponse.json(
-            { error: err.message || "Erro interno" },
+            {
+                error:
+                    error instanceof Error
+                        ? error.message
+                        : "Erro interno",
+            },
             { status: 500 }
         );
     }

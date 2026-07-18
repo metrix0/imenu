@@ -1,149 +1,148 @@
 import { create } from "zustand";
-import { Order, LoyaltyBalance, LoyaltyProgram } from "@/lib/types/types";
+import {
+    LoyaltyBalance,
+    LoyaltyProgram,
+    Order,
+} from "@/lib/types/types";
 
-type HistoryStep = "input_phone" | "waiting_code" | "view_history";
+type HistoryStep = "input_phone" | "view_history";
 
 type HistoryStore = {
-  // UI State
-  isOpen: boolean;
-  step: HistoryStep;
-  loading: boolean;
-  error: string | null;
+    isOpen: boolean;
+    step: HistoryStep;
+    loading: boolean;
+    error: string | null;
 
-  // Data State
-  customer_phone: string;
-  loyaltyBalance: LoyaltyBalance | null;
-  program: LoyaltyProgram | null; // ✅ Novo campo adicionado para as regras (meta/recompensa)
-  orders: Order[]; 
+    customer_phone: string;
+    loyaltyBalance: LoyaltyBalance | null;
+    program: LoyaltyProgram | null;
+    orders: Order[];
 
-  // Actions
-  openModal: () => void;
-  closeModal: () => void;
-  setPhone: (phone: string) => void;
-  reset: () => void;
-
-  // AUTH Actions (Novas)
-  requestOtp: () => Promise<void>;
-  validateOtp: (code: string, restaurantId: string) => Promise<void>;
-
-  // Async Actions (Calls API)
-  fetchHistory: (restaurantId: string) => Promise<void>;
+    openModal: () => void;
+    closeModal: () => void;
+    setPhone: (phone: string) => void;
+    reset: () => void;
+    fetchHistory: (restaurantId: string) => Promise<void>;
 };
 
-export const useHistoryStore = create<HistoryStore>((set, get) => ({
-  isOpen: false,
-  step: "input_phone",
-  loading: false,
-  error: null,
+function normalizePhone(value: string): string {
+    let digits = String(value || "").replace(/\D/g, "");
 
-  customer_phone: "",
-  loyaltyBalance: null,
-  program: null, // ✅ Inicializa como null
-  orders: [],
-
-  openModal: () => set({ isOpen: true }),
-  
-  closeModal: () => set({ isOpen: false }),
-
-  setPhone: (phone) => set({ customer_phone: phone, error: null }),
-
-  reset: () => set({ 
-    step: "input_phone", 
-    customer_phone: "", 
-    loyaltyBalance: null, 
-    program: null, // ✅ Reseta o programa
-    orders: [], 
-    error: null,
-    loading: false 
-  }),
-
-  // 1. Enviar Código via WhatsApp
-  requestOtp: async () => {
-    const { customer_phone } = get();
-    
-    if (!customer_phone || customer_phone.length < 8) {
-        set({ error: "Digite um número válido." });
-        return;
+    if (
+        digits.startsWith("55") &&
+        (digits.length === 12 || digits.length === 13)
+    ) {
+        digits = digits.slice(2);
     }
 
-    set({ loading: true, error: null });
+    return digits.slice(0, 11);
+}
 
-    try {
-        const res = await fetch("/api/auth/send-otp", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ phone: customer_phone }),
-        });
+export const useHistoryStore = create<HistoryStore>(
+    (set, get) => ({
+        isOpen: false,
+        step: "input_phone",
+        loading: false,
+        error: null,
 
-        if (!res.ok) throw new Error("Erro ao enviar código.");
+        customer_phone: "",
+        loyaltyBalance: null,
+        program: null,
+        orders: [],
 
-        set({ step: "waiting_code", loading: false });
+        openModal: () => set({ isOpen: true }),
 
-    } catch (error) {
-        console.error(error);
-        set({ error: "Erro ao enviar SMS. Tente novamente.", loading: false });
-    }
-  },
+        closeModal: () => set({ isOpen: false }),
 
-  // 2. Validar Código e Gerar Cookie
-  validateOtp: async (code: string, restaurantId: string) => {
-      const { customer_phone } = get();
-      set({ loading: true, error: null });
+        setPhone: (phone) =>
+            set({
+                customer_phone: phone,
+                error: null,
+            }),
 
-      try {
-          // Verifica o código
-          const res = await fetch("/api/auth/verify-otp", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ phone: customer_phone, code }),
-          });
+        reset: () =>
+            set({
+                step: "input_phone",
+                customer_phone: "",
+                loyaltyBalance: null,
+                program: null,
+                orders: [],
+                error: null,
+                loading: false,
+            }),
 
-          if (!res.ok) {
-              const data = await res.json();
-              throw new Error(data.error || "Código inválido");
-          }
+        fetchHistory: async (restaurantId: string) => {
+            const cleanPhone = normalizePhone(
+                get().customer_phone
+            );
 
-          // Se deu certo, o Cookie já foi criado pelo backend.
-          // Agora buscamos os dados.
-          await get().fetchHistory(restaurantId);
+            if (
+                !restaurantId ||
+                (cleanPhone.length !== 10 &&
+                    cleanPhone.length !== 11)
+            ) {
+                set({
+                    error: "Digite um número de WhatsApp válido.",
+                    loading: false,
+                });
+                return;
+            }
 
-      } catch (error: any) {
-          console.error(error);
-          set({ error: error.message, loading: false });
-      }
-  },
+            set({
+                loading: true,
+                error: null,
+            });
 
-  fetchHistory: async (restaurantId: string) => {
-    set({ loading: true, error: null });
-    
-    try {
-      // NOTE: Não enviamos mais o 'phone' no body. O backend pega do Cookie.
-      const res = await fetch("/api/loyalty/status", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ restaurant_id: restaurantId }), 
-      });
+            try {
+                const response = await fetch(
+                    "/api/loyalty/status",
+                    {
+                        method: "POST",
+                        headers: {
+                            "Content-Type":
+                                "application/json",
+                        },
+                        body: JSON.stringify({
+                            restaurant_id: restaurantId,
+                            phone: cleanPhone,
+                        }),
+                    }
+                );
 
-      if (res.status === 401) {
-          // Se der 401, o cookie expirou ou é inválido
-          set({ step: "input_phone", error: "Sessão expirada. Identifique-se novamente." });
-          return;
-      }
+                const result = await response.json();
 
-      if (!res.ok) throw new Error("Erro ao buscar histórico");
+                if (!response.ok) {
+                    throw new Error(
+                        result?.error ||
+                            "Erro ao buscar histórico."
+                    );
+                }
 
-      const data = await res.json();
-      
-      set({
-        loyaltyBalance: data.balance, // Pode ser null se cliente nunca comprou
-        orders: data.orders || [],
-        program: data.program || null, // ✅ Salva as regras vindas da API
-        step: "view_history",
-      });
+                set({
+                    loyaltyBalance:
+                        result.balance || null,
+                    orders: Array.isArray(result.orders)
+                        ? result.orders
+                        : [],
+                    program: result.program || null,
+                    step: "view_history",
+                    loading: false,
+                    error: null,
+                });
+            } catch (error) {
+                console.error(
+                    "[FIDELIDADE] Falha ao carregar histórico:",
+                    error
+                );
 
-    } catch (error) {
-      console.error(error);
-      set({ error: "Ocorreu um erro ao carregar seus pontos.", loading: false });
-    }
-  },
-}));
+                set({
+                    error:
+                        error instanceof Error
+                            ? error.message
+                            : "Ocorreu um erro ao carregar seus pontos.",
+                    loading: false,
+                });
+            }
+        },
+    })
+);
