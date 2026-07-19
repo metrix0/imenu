@@ -6,9 +6,6 @@ import SupportButton from "@/components/common/SupportButton";
 import Footer from "@/components/common/Footer";
 import PosthogProvider from "@/components/common/PosthogProvider";
 import Script from "next/script";
-import * as Sentry from "@sentry/nextjs";
-
-Sentry.setTag("app", "imenu");
 
 export async function generateMetadata(): Promise<Metadata> {
     const h = await headers();

@@ -1,12 +1,7 @@
-import * as Sentry from "@sentry/nextjs";
-
 export function proxy(req: Request) {
   const url = new URL(req.url);
   const host = req.headers.get("host") ?? "";
   const pathname = url.pathname;
-
-  Sentry.setTag("host", host);
-  Sentry.setTag("path", pathname);
 
   const isDominos =
     host === "dominoslimeira.com.br" ||
@@ -35,3 +30,8 @@ export function proxy(req: Request) {
 
   return;
 }
+
+// The existing proxy has behavior only for these two path groups.
+export const config = {
+  matcher: ["/", "/pedido/:path*"],
+};
