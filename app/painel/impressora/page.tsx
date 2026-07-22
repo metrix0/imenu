@@ -63,7 +63,7 @@ export default function ImpressoraPage() {
                             </div>
 
                             <a
-                                href="/downloads/iMenu%20Impressora%20Setup%201.0.5.exe"
+                                href="/downloads/iMenu%20Impressora%20Setup%201.0.6.exe"
                                 download
                                 className="inline-flex w-fit items-center gap-2 bg-brand text-white px-6 py-3 rounded-xl font-semibold hover:bg-brand/90 transition"
                             >
