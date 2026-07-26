@@ -200,11 +200,11 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
 
     return (
         <Modal open={isOpen} onClose={onClose}>
-            <div className="w-full max-w-2xl bg-white rounded-lg flex flex-col max-h-[85vh]">
+            <div className="w-full max-w-2xl bg-white rounded-lg flex flex-col max-h-[92dvh] sm:max-h-[85vh]">
                 {/* Header */}
-                <div className="p-5 border-b border-gray-100 flex justify-between items-start">
+                <div className="p-4 sm:p-5 border-b border-gray-100 flex justify-between items-start gap-3">
                     <div>
-                        <div className="flex items-center gap-3 mb-1">
+                        <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3 mb-1">
                             <h2 className="text-xl 2xl:text-2xl font-bold text-gray-900">
                                 Pedido #{order?.display_id}
                             </h2>
@@ -221,7 +221,7 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
                 </div>
 
                 {/* Body */}
-                <div className="p-6 overflow-y-auto flex-1">
+                <div className="p-4 sm:p-6 overflow-y-auto flex-1">
                     {isLoading || !details ? (
                         <div className="space-y-4">
                             <ListLoader lines={2} />
@@ -270,13 +270,13 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
                                     {details.order_items.map((item, idx) => (
                                         <div
                                             key={item.id}
-                                            className={`flex justify-between items-start p-3 ${
+                                            className={`flex justify-between items-start gap-3 p-3 ${
                                                 idx !== details.order_items.length - 1 ? "border-b border-gray-200" : ""
                                             }`}
                                         >
-                                            <div className="flex gap-3">
+                                            <div className="flex min-w-0 gap-3">
                                                 <span className="font-bold text-gray-900 w-6 text-right 2xl:text-lg">{item.quantity}x</span>
-                                                <div className="flex flex-col">
+                                                <div className="flex min-w-0 flex-col">
                                                     <span className="text-gray-800 font-medium 2xl:text-lg">{item.name}</span>
                                                     {item.observation && item.observation.trim() !== "" && (
                                                         <span className="mt-1 text-xs 2xl:text-sm text-gray-600 italic">Obs: {item.observation}</span>
@@ -293,7 +293,7 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
                                                     )}
                                                 </div>
                                             </div>
-                                            <span className="font-medium text-gray-700 2xl:text-lg">{fmtMoney(item.price_cents * item.quantity)}</span>
+                                            <span className="shrink-0 font-medium text-gray-700 2xl:text-lg">{fmtMoney(item.price_cents * item.quantity)}</span>
                                         </div>
                                     ))}
                                 </div>
@@ -301,7 +301,7 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
 
                             {/* Totais */}
                             <div className="flex justify-end">
-                                <div className="w-full md:w-1/2 space-y-2 2xl:space-y-3 mx-4">
+                                <div className="w-full md:w-1/2 space-y-2 2xl:space-y-3 sm:mx-4">
                                     <div className="flex justify-between text-sm 2xl:text-base text-gray-500">
                                         <span>Subtotal</span>
                                         <span>{fmtMoney(details.total_cents - (details.delivery_cents || 0))}</span>
@@ -326,7 +326,7 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
                 </div>
 
                 {/* Footer */}
-                <div className="p-5 border-t border-gray-100 flex justify-end gap-3 bg-gray-50/50">
+                <div className="p-4 sm:p-5 border-t border-gray-100 flex flex-col sm:flex-row justify-end gap-3 bg-gray-50/50 [&>button]:w-full sm:[&>button]:w-auto">
                     {renderActions()}
                     {(!renderActions() || isUpdating) && (
                         <Button variant="secondary" onClick={onClose} disabled={isUpdating}>Fechar</Button>

@@ -1,0 +1,237 @@
+@media (max-width: 767px) {
+    .panel-mobile-content {
+        width: 100%;
+        min-width: 0;
+        overflow-x: hidden;
+    }
+
+    .panel-mobile-content > div,
+    .panel-mobile-content section,
+    .panel-mobile-content article {
+        min-width: 0;
+    }
+
+    .panel-mobile-content h1 {
+        overflow-wrap: anywhere;
+    }
+
+    /* Financeiro */
+    .panel-mobile-content[data-panel-path^="/painel/financeiro"] .h-\[300px\] {
+        height: 260px;
+    }
+
+    /* Cardápio */
+    .panel-mobile-content[data-panel-path^="/painel/cardapio"] .py-20 .flex.gap-4 {
+        width: 100%;
+        flex-direction: column;
+    }
+
+    .panel-mobile-content[data-panel-path^="/painel/cardapio"] .py-20 .flex.gap-4 > button {
+        width: 100%;
+    }
+
+    .panel-mobile-content[data-panel-path^="/painel/cardapio"] .group.flex.items-center.justify-between.p-4 {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.75rem;
+    }
+
+    .panel-mobile-content[data-panel-path^="/painel/cardapio"] .group.flex.items-center.justify-between.p-4 > .flex.items-center.gap-4 {
+        justify-content: flex-end;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        padding-left: 0;
+    }
+
+    .panel-mobile-content[data-panel-path^="/painel/cardapio"] .flex.items-center.justify-between.mb-3 {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    /* Promoções e cupons */
+    .panel-mobile-content[data-panel-path^="/painel/promocoes"] .grid.grid-cols-4,
+    .panel-mobile-content[data-panel-path^="/painel/promocoes"] .grid.grid-cols-2 {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .panel-mobile-content[data-panel-path^="/painel/promocoes"] .\!w-85 {
+        width: 100% !important;
+    }
+
+    .panel-mobile-content[data-panel-path^="/painel/promocoes"] .flex.gap-6.items-center {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .panel-mobile-content[data-panel-path^="/painel/promocoes"] .flex.gap-6.mt-4,
+    .panel-mobile-content[data-panel-path^="/painel/promocoes"] .flex.gap-6 {
+        flex-wrap: wrap;
+    }
+
+    .panel-mobile-content[data-panel-path^="/painel/promocoes"] .flex.justify-end.gap-3 > button,
+    .panel-mobile-content[data-panel-path^="/painel/promocoes"] .flex.justify-end.gap-4 > button {
+        flex: 1 1 100%;
+    }
+
+    .panel-mobile-content[data-panel-path^="/painel/promocoes"] .px-4.pr-6.flex.items-center.gap-4.justify-between {
+        flex-direction: column;
+        align-items: stretch;
+        padding: 1rem;
+    }
+
+    .panel-mobile-content[data-panel-path^="/painel/promocoes"] .px-4.pr-6.flex.items-center.gap-4.justify-between > .flex.items-center.gap-4 {
+        flex-wrap: wrap;
+    }
+
+    .panel-mobile-content[data-panel-path^="/painel/promocoes"] .flex.items-center.justify-between.px-5.py-4 {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 1rem;
+        padding: 1rem;
+    }
+
+    .panel-mobile-content[data-panel-path^="/painel/promocoes"] .flex.items-center.justify-between.px-5.py-4 > .flex.items-center.gap-2 {
+        justify-content: flex-end;
+        flex-wrap: wrap;
+    }
+
+    /* Fidelidade */
+    .panel-mobile-content[data-panel-path^="/painel/fidelidade"] .flex.justify-between.items-center {
+        flex-wrap: wrap;
+        gap: 0.75rem;
+    }
+
+    .panel-mobile-content[data-panel-path^="/painel/fidelidade"] .pt-4.flex.justify-end > button {
+        width: 100%;
+    }
+
+    /* Taxa e tempo: mantém a matriz de faixas legível com rolagem horizontal */
+    .panel-mobile-content[data-panel-path^="/painel/tempo-e-taxa"] .max-w-2xl {
+        max-width: 100%;
+    }
+
+    .panel-mobile-content[data-panel-path^="/painel/tempo-e-taxa"] .max-w-2xl > .p-6:first-of-type {
+        overflow-x: auto;
+        padding: 1rem;
+    }
+
+    .panel-mobile-content[data-panel-path^="/painel/tempo-e-taxa"] .max-w-2xl > .p-6:first-of-type > .flex,
+    .panel-mobile-content[data-panel-path^="/painel/tempo-e-taxa"] .max-w-2xl > .p-6:first-of-type > .space-y-3 {
+        min-width: 520px;
+    }
+
+    .panel-mobile-content[data-panel-path^="/painel/tempo-e-taxa"] .flex.items-center.justify-between.gap-6 {
+        align-items: flex-start;
+        gap: 1rem;
+    }
+
+    /* Horários */
+    .panel-mobile-content[data-panel-path^="/painel/disponibilidade"] .flex.items-center.gap-2 {
+        flex-wrap: wrap;
+    }
+
+    .panel-mobile-content[data-panel-path^="/painel/disponibilidade"] .overflow-x-auto {
+        overscroll-behavior-x: contain;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .panel-mobile-content[data-panel-path^="/painel/disponibilidade"] .flex.flex-col.select-none.relative {
+        overflow-x: auto;
+        overscroll-behavior-x: contain;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .panel-mobile-content[data-panel-path^="/painel/disponibilidade"] .flex.flex-col.select-none.relative > .flex.pb-4,
+    .panel-mobile-content[data-panel-path^="/painel/disponibilidade"] .flex.flex-col.select-none.relative > .flex.relative {
+        min-width: 720px;
+    }
+
+    /* Loja */
+    .panel-mobile-content[data-panel-path^="/painel/loja"] .flex.justify-between.items-end {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.75rem;
+    }
+
+    .panel-mobile-content[data-panel-path^="/painel/loja"] .max-w-6xl {
+        min-width: 0;
+    }
+
+    /* Integrações */
+    .panel-mobile-content[data-panel-path^="/painel/integracoes"] .p-7 {
+        padding: 1rem;
+    }
+
+    .panel-mobile-content[data-panel-path^="/painel/integracoes"] .pr-10 {
+        padding-right: 1rem;
+    }
+
+    .panel-mobile-content[data-panel-path^="/painel/integracoes"] .flex.gap-4.items-center {
+        align-items: flex-start;
+    }
+
+    .panel-mobile-content[data-panel-path^="/painel/integracoes"] .flex.gap-4.items-center > img {
+        flex-shrink: 0;
+        margin-top: 1.5rem;
+    }
+
+    .panel-mobile-content[data-panel-path^="/painel/integracoes"] .pt-4 > button {
+        width: 100%;
+    }
+
+    /* Configurações */
+    .panel-mobile-content[data-panel-path^="/painel/configuracoes"] .min-h-screen.bg-gray-50.px-2 {
+        padding: 1rem;
+    }
+
+    .panel-mobile-content[data-panel-path^="/painel/configuracoes"] .flex.justify-between.items-center,
+    .panel-mobile-content[data-panel-path^="/painel/configuracoes"] .flex.justify-between.items-end {
+        flex-wrap: wrap;
+        gap: 0.75rem;
+    }
+
+    .panel-mobile-content[data-panel-path^="/painel/configuracoes"] .grid.grid-cols-2 {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .panel-mobile-content[data-panel-path^="/painel/configuracoes"] .col-span-2 {
+        grid-column: span 1 / span 1;
+    }
+
+    .panel-mobile-content[data-panel-path^="/painel/configuracoes"] .flex.gap-3,
+    .panel-mobile-content[data-panel-path^="/painel/configuracoes"] .flex.gap-6 {
+        flex-wrap: wrap;
+    }
+
+    .panel-mobile-content[data-panel-path^="/painel/configuracoes"] .flex.justify-end.gap-3 {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .panel-mobile-content[data-panel-path^="/painel/configuracoes"] .flex.justify-end.gap-3 > button {
+        width: 100%;
+    }
+
+    .panel-mobile-content[data-panel-path^="/painel/configuracoes"] .flex.justify-center.gap-4 {
+        flex-direction: column;
+    }
+
+    .panel-mobile-content[data-panel-path^="/painel/configuracoes"] .flex.justify-center.gap-4 > button {
+        width: 100%;
+    }
+
+    .panel-mobile-content[data-panel-path^="/painel/configuracoes"] .mt-4.p-3.flex.justify-between.items-center {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .panel-mobile-content[data-panel-path^="/painel/configuracoes"] .flex.gap-3 > .flex-grow {
+        min-width: min(100%, 14rem);
+    }
+
+    /* Home: ações lado a lado somente no mobile */
+    .panel-mobile-content[data-panel-path="/painel"] .flex.flex-col.sm\:flex-row.gap-3 {
+        flex-direction: row;
+    }
+
+}

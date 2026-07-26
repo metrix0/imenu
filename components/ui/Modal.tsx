@@ -1,3 +1,4 @@
+
 "use client";
 
 import { ReactNode, useEffect, useState } from "react";
@@ -21,7 +22,7 @@ export default function Modal({ open, onClose, children, className = "" }: Modal
         } else {
             // Inicia animação de saída
             setIsAnimatingOut(true);
-            
+
             // Aguarda o tempo da animação (ex: 200ms) para remover do DOM
             const timer = setTimeout(() => {
                 setIsVisible(false);
@@ -51,7 +52,7 @@ export default function Modal({ open, onClose, children, className = "" }: Modal
     if (!isVisible) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6">
             {/* Backdrop com animação de fade in/out */}
             <div
                 className={`absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-200 ${
@@ -62,7 +63,7 @@ export default function Modal({ open, onClose, children, className = "" }: Modal
 
             {/* Conteúdo com animação de scale/fade */}
             <div
-                className={`relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden transform transition-all duration-200 ${
+                className={`relative bg-white rounded-xl sm:rounded-2xl shadow-2xl w-full max-w-2xl max-h-[92dvh] sm:max-h-[90vh] flex flex-col overflow-y-auto md:overflow-hidden transform transition-all duration-200 ${
                     isAnimatingOut 
                         ? "scale-95 opacity-0 translate-y-4" // Estado Final (Saída)
                         : "scale-100 opacity-100 translate-y-0 animate-fadeUp" // Estado Inicial (Entrada) - ou classes padrão

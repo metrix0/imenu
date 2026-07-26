@@ -11,16 +11,16 @@ import {
 export default function ImpressoraPage() {
     return (
         <div className="min-h-screen bg-gray-50">
-            <div className="max-w-6xl mx-auto px-8 py-10">
+            <div className="max-w-6xl mx-auto px-4 py-6 sm:px-8 sm:py-10">
                 {/* Header */}
                 <div className="mb-8">
-                    <div className="flex items-center gap-3 mb-3">
-                        <div className="w-11 h-11 rounded-xl bg-brand/10 text-brand flex items-center justify-center">
+                    <div className="flex items-start sm:items-center gap-3 mb-3">
+                        <div className="w-11 h-11 shrink-0 rounded-xl bg-brand/10 text-brand flex items-center justify-center">
                             <FontAwesomeIcon icon={faPrint} className="text-xl" />
                         </div>
 
                         <div>
-                            <h1 className="text-3xl font-extrabold text-brand leading-tight">
+                            <h1 className="text-2xl sm:text-3xl font-extrabold text-brand leading-tight">
                                 iMenu Impressora
                             </h1>
                             <p className="text-gray-500 mt-1">
@@ -34,8 +34,8 @@ export default function ImpressoraPage() {
                 <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
                         {/* Left */}
-                        <div className="p-8 lg:p-10 flex flex-col justify-center">
-                            <h2 className="text-2xl font-extrabold text-gray-900 mb-4">
+                        <div className="p-5 sm:p-8 lg:p-10 flex flex-col justify-center">
+                            <h2 className="text-xl sm:text-2xl font-extrabold text-gray-900 mb-4">
                                 Baixe o aplicativo de impressão
                             </h2>
 
@@ -46,18 +46,18 @@ export default function ImpressoraPage() {
                             </p>
 
                             <div className="space-y-3 mb-8">
-                                <div className="flex items-center gap-3 text-gray-700">
-                                    <FontAwesomeIcon icon={faCircleCheck} className="text-brand" />
+                                <div className="flex items-start gap-3 text-gray-700">
+                                    <FontAwesomeIcon icon={faCircleCheck} className="text-brand mt-1 shrink-0" />
                                     <span>Funciona com impressoras Bluetooth, USB e rede/Wi-Fi.</span>
                                 </div>
 
-                                <div className="flex items-center gap-3 text-gray-700">
-                                    <FontAwesomeIcon icon={faCircleCheck} className="text-brand" />
-                                    <span>Configuração salva automaticamente.</span>
+                                <div className="flex items-start gap-3 text-gray-700">
+                                    <FontAwesomeIcon icon={faCircleCheck} className="text-brand mt-1 shrink-0" />
+                                    <span>Computador e Laptop.</span>
                                 </div>
 
-                                <div className="flex items-center gap-3 text-gray-700">
-                                    <FontAwesomeIcon icon={faCircleCheck} className="text-brand" />
+                                <div className="flex items-start gap-3 text-gray-700">
+                                    <FontAwesomeIcon icon={faCircleCheck} className="text-brand mt-1 shrink-0" />
                                     <span>Impressão automática dos novos pedidos.</span>
                                 </div>
                             </div>
@@ -65,7 +65,7 @@ export default function ImpressoraPage() {
                             <a
                                 href="/downloads/iMenu%20Impressora%20Setup%201.0.6.exe"
                                 download
-                                className="inline-flex w-fit items-center gap-2 bg-brand text-white px-6 py-3 rounded-xl font-semibold hover:bg-brand/90 transition"
+                                className="inline-flex w-full sm:w-fit items-center justify-center gap-2 bg-brand text-white px-6 py-3 rounded-xl font-semibold hover:bg-brand/90 transition"
                             >
                                 <FontAwesomeIcon icon={faDownload} />
                                 Baixar iMenu Impressora
@@ -77,7 +77,7 @@ export default function ImpressoraPage() {
                         </div>
 
                         {/* Right */}
-                        <div className="bg-gray-50 border-l border-gray-a100 p-8 lg:p-10 flex items-center justify-center">
+                        <div className="bg-gray-50 border-t lg:border-t-0 lg:border-l border-gray-100 p-5 sm:p-8 lg:p-10 flex items-center justify-center">
                             <div className="relative w-full max-w-md aspect-[4/3] rounded-2xl overflow-hidden border border-gray-200 bg-white shadow-sm">
                                 <Image
                                     src="/images/printerpreview.png"
@@ -91,7 +91,7 @@ export default function ImpressoraPage() {
                 </div>
 
                 {/* Small instructions */}
-                <div className="mt-6 bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
+                <div className="mt-6 bg-white border border-gray-200 rounded-2xl p-5 sm:p-6 shadow-sm">
                     <h3 className="font-bold text-gray-900 mb-3">
                         Como usar
                     </h3>

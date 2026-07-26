@@ -1,3 +1,4 @@
+
 "use client";
 
 import Modal from "@/components/ui/Modal";
@@ -28,24 +29,24 @@ export default function ConfirmModal({
     isLoading = false,
     variant = "danger"
 }: ConfirmModalProps) {
-    
+
     return (
         <Modal open={open} onClose={onClose} className="max-w-md 2xl:max-w-lg">
-            <div className="p-6 2xl:p-7 text-center">
+            <div className="p-4 sm:p-6 2xl:p-7 text-center">
                 <div className={`mx-auto mb-4 flex h-12 w-12 2xl:h-16 2xl:w-16 items-center justify-center rounded-full ${variant === 'danger' ? 'bg-red-100' : 'bg-blue-100'}`}>
                     <FontAwesomeIcon 
                         icon={faExclamationTriangle} 
                         className={`text-xl 2xl:text-2xl ${variant === 'danger' ? 'text-red-600' : 'text-brand'}`}
                     />
                 </div>
-                
+
                 <h3 className="mb-2 text-lg font-bold text-gray-900 2xl:text-xl">{title}</h3>
-                
+
                 {description && (
                     <p className="mb-6 text-sm text-gray-500 2xl:text-lg">{description}</p>
                 )}
 
-                <div className="flex justify-center gap-3">
+                <div className="flex flex-col sm:flex-row justify-center gap-3">
                     <Button 
                         variant="secondary" 
                         onClick={onClose} 
@@ -54,7 +55,7 @@ export default function ConfirmModal({
                     >
                         {cancelLabel}
                     </Button>
-                    
+
                     <Button 
                         // Assumindo que seu componente Button aceita estilos customizados ou variants
                         // Se seu Button não tiver variant="danger", usamos className

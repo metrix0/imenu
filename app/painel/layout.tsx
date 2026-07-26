@@ -23,7 +23,9 @@ import {
     faPercent,
     faPuzzlePiece,
     faGift,
-    faPrint
+    faPrint,
+    faBars,
+    faTimes
 } from "@fortawesome/free-solid-svg-icons";
 import { createClient } from "@supabase/supabase-js";
 
@@ -36,6 +38,7 @@ import SupportButton, { SupportButtonRef } from "@/components/common/SupportButt
 import { supabase } from "@/lib/database/supabaseClient";
 import Loader from "@/components/ui/Loader";
 import Script from "next/script";
+import "./mobile.css";
 
 type MenuItem =
     | { type: "divider" }
@@ -47,6 +50,7 @@ export default function PainelLayout({ children}: { children: React.ReactNode })
     const base = `/painel`;
     const { restaurantId } = useCreationStore();
     const [expanded, setExpanded] = useState(false);
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [menuId, setMenuId] = useState<string | null>(null);
     const [isStoreClosed, setIsStoreClosed] = useState<boolean>(false); // Estado da loja
     const [showCloseModal, setShowCloseModal] = useState(false); // Modal de fechar
@@ -130,6 +134,21 @@ useEffect(() => {
         checkAuth();
     }, [router]);
 
+    useEffect(() => {
+        setMobileMenuOpen(false);
+    }, [pathname]);
+
+    useEffect(() => {
+        if (!mobileMenuOpen) return;
+
+        const previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = "hidden";
+
+        return () => {
+            document.body.style.overflow = previousOverflow;
+        };
+    }, [mobileMenuOpen]);
+
     if (isChecking) {
         return <div className="min-h-screen bg-gray-50 flex items-center justify-center">
             <Loader />
@@ -195,7 +214,7 @@ useEffect(() => {
                 })(window, document, "clarity", "script", "uk4ichh2nj");
               `}
             </Script>
-            {/* Modal de Confirmação para Fechar */}
+
             <ConfirmModal
                 open={showCloseModal}
                 onClose={() => setShowCloseModal(false)}
@@ -206,20 +225,182 @@ useEffect(() => {
                 variant="danger"
                 isLoading={isTogglingStore}
             />
-            <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-white text-black px-6 text-center overflow-hidden md:hidden">
-                <p className="text-lg font-semibold leading-relaxed">
-                    O painel ainda não pode ser utilizado em celulares. <br />
-                    Use um computador ou notebook.
-                </p>
-            </div>
 
-            <div className="hidden md:flex min-h-screen bg-gray-50">
-
-                {/* Renderiza o botão flutuante e conecta a ref */}
+            <div className="min-h-screen bg-gray-50 md:flex">
                 <SupportButton ref={supportBtnRef} />
+
+            <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-gray-200 bg-white px-4 md:hidden">
+                <button
+                    type="button"
+                    onClick={() => setMobileMenuOpen(true)}
+                    className="flex h-10 w-10 items-center justify-center rounded-lg text-gray-700 hover:bg-gray-100"
+                    aria-label="Abrir menu"
+                >
+                    <FontAwesomeIcon icon={faBars} className="text-xl" />
+                </button>
+
+                <Link href="/painel" aria-label="Ir para o painel">
+                    <Image
+                        src="/logos/CombinationMarkLogo_Brand.png"
+                        alt="Logo"
+                        width={104}
+                        height={35}
+                    />
+                </Link>
+
+                <button
+                    type="button"
+                    onClick={() =>
+                        isStoreClosed
+                            ? handleStoreToggle("open")
+                            : setShowCloseModal(true)
+                    }
+                    disabled={isTogglingStore}
+                    className={`flex h-10 items-center gap-2 rounded-lg border px-3 text-xs font-medium ${
+                        isStoreClosed
+                            ? "border-red-200 bg-red-50 text-red-600"
+                            : "border-green-200 bg-green-50 text-green-700"
+                    }`}
+                >
+                    <span
+                        className={`h-2.5 w-2.5 rounded-full ${
+                            isStoreClosed ? "bg-red-500" : "bg-green-500"
+                        }`}
+                    />
+                    {isStoreClosed ? "Fechada" : "Aberta"}
+                </button>
+            </header>
+
+            <div
+                className={`fixed inset-0 z-40 bg-black/40 transition-opacity duration-200 md:hidden ${
+                    mobileMenuOpen
+                        ? "opacity-100"
+                        : "pointer-events-none opacity-0"
+                }`}
+                onClick={() => setMobileMenuOpen(false)}
+                aria-hidden="true"
+            />
+
+            <aside
+                className={`fixed inset-y-0 left-0 z-50 flex w-[min(84vw,20rem)] flex-col border-r border-gray-200 bg-white shadow-xl transition-transform duration-200 md:hidden ${
+                    mobileMenuOpen
+                        ? "translate-x-0"
+                        : "-translate-x-full"
+                }`}
+                aria-hidden={!mobileMenuOpen}
+            >
+                <div className="flex h-16 items-center justify-between border-b border-gray-100 px-4">
+                    <Link
+                        href="/painel"
+                        aria-label="Ir para o painel"
+                        className="flex items-center"
+                    >
+                        <Image
+                            src="/logos/CombinationMarkLogo_Brand.png"
+                            alt="Logo"
+                            width={112}
+                            height={38}
+                        />
+                    </Link>
+
+                    <button
+                        type="button"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="flex h-10 w-10 items-center justify-center rounded-lg text-gray-600 hover:bg-gray-100"
+                        aria-label="Fechar menu"
+                    >
+                        <FontAwesomeIcon icon={faTimes} className="text-xl" />
+                    </button>
+                </div>
+
+                <div className="px-4 py-4">
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setMobileMenuOpen(false);
+                            if (isStoreClosed) {
+                                void handleStoreToggle("open");
+                            } else {
+                                setShowCloseModal(true);
+                            }
+                        }}
+                        disabled={isTogglingStore}
+                        className={`flex w-full items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium ${
+                            isStoreClosed
+                                ? "border-red-200 bg-red-50 text-red-600"
+                                : "border-green-200 bg-green-50 text-green-700"
+                        }`}
+                    >
+                        <FontAwesomeIcon
+                            icon={isStoreClosed ? faDoorOpen : faPowerOff}
+                        />
+                        {isStoreClosed ? "Abrir Loja" : "Loja Aberta"}
+                    </button>
+                </div>
+
+                <nav className="flex-1 overflow-y-auto px-2 pb-4">
+                    {menuItems.map((item, idx) => {
+                        if (item.type === "divider") {
+                            return (
+                                <hr
+                                    key={`mobile-div-${idx}`}
+                                    className="my-2 border-gray-100"
+                                />
+                            );
+                        }
+
+                        const isHome = item.href === `${base}/`;
+                        const isActive = isHome
+                            ? pathname === base || pathname === `${base}/`
+                            : pathname?.startsWith(item.href);
+
+                        return (
+                            <Link
+                                key={`mobile-${item.href}`}
+                                href={item.href}
+                                className={`flex items-center gap-3 rounded-lg px-4 py-3 text-sm transition-colors ${
+                                    isActive
+                                        ? "bg-brand/10 font-medium text-brand"
+                                        : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                                }`}
+                            >
+                                <span className="flex h-6 w-6 items-center justify-center">
+                                    <FontAwesomeIcon
+                                        icon={item.icon}
+                                        className={
+                                            isActive
+                                                ? "text-brand"
+                                                : "text-gray-400"
+                                        }
+                                    />
+                                </span>
+                                {item.label}
+                            </Link>
+                        );
+                    })}
+
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setMobileMenuOpen(false);
+                            supportBtnRef.current?.open();
+                        }}
+                        className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-left text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                    >
+                        <span className="flex h-6 w-6 items-center justify-center">
+                            <FontAwesomeIcon
+                                icon={faCircleQuestion}
+                                className="text-gray-400"
+                            />
+                        </span>
+                        Ajuda
+                    </button>
+                </nav>
+            </aside>
+
                 {/* === SIDEBAR === */}
                 <aside
-                    className={`fixed h-full flex flex-col border-r border-gray-200 bg-white transition-all duration-300 z-20 ${
+                    className={`hidden md:flex fixed h-full flex-col border-r border-gray-200 bg-white transition-all duration-300 z-20 ${
                         expanded ? "w-60 2xl:w-70" : "w-[5.2vw] min-w-15"
                     }`}
                 >
@@ -369,8 +550,13 @@ useEffect(() => {
                     </nav>
                 </aside>
 
-                <main className={`flex-1 p-8 transition-all duration-300 bg-gray-50 min-h-screen ${expanded ? "ml-60" : "ml-[4.5rem]"}`}>
-                    <div className="max-w-7xl mx-auto">
+                <main
+                    data-panel-path={pathname || base}
+                    className={`panel-mobile-content min-h-screen min-w-0 bg-gray-50 transition-all duration-300 md:flex-1 md:p-8 ${
+                        expanded ? "md:ml-60" : "md:ml-[4.5rem]"
+                    }`}
+                >
+                    <div className="w-full min-w-0 md:mx-auto md:max-w-7xl">
                         {children}
                     </div>
                 </main>

@@ -113,7 +113,7 @@ export default function LojaPage() {
                 <AllowedPaymentMethods
                     value={allowedPaymentMethods}
                     onChange={handleAllowedPaymentMethodsChange}
-                    className="mt-6 w-[90%] max-w-6xl"
+                    className="mt-6 w-full max-w-6xl px-4 sm:px-0"
                 />
             </div>
         </div>

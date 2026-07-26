@@ -330,10 +330,10 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
                 {/* Itens */}
                 <div className="space-y-2 2xl:space-y-3">
                     {order.order_items.map((item, idx) => (
-                        <div key={`${order.id}-item-${idx}`} className="flex justify-between text-sm 2xl:text-base">
-                            <div className="flex gap-2">
+                        <div key={`${order.id}-item-${idx}`} className="flex min-w-0 justify-between gap-3 text-sm 2xl:text-base">
+                            <div className="flex min-w-0 gap-2">
                                 <span className="font-bold text-gray-900">{item.quantity}x</span>
-                                <span className="text-gray-700 line-clamp-1">{item.name}</span>
+                                <span className="min-w-0 text-gray-700 line-clamp-1">{item.name}</span>
                             </div>
                             <span className="text-gray-500 whitespace-nowrap">{fmtMoney(item.price_cents * item.quantity)}</span>
                         </div>

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { usePathname } from "next/navigation";
@@ -17,8 +18,8 @@ export default function CreationStepper() {
   );
 
   return (
-    <div className="bg-white pb-10 flex w-full justify-center">
-      <nav className="flex items-center w-full gap-2 mx-4">
+    <div className="bg-white pb-6 sm:pb-10 flex w-full justify-center">
+      <nav className="flex items-center w-full gap-2 mx-3 sm:mx-4">
         {steps.map((step, index) => {
           const isActive = index <= currentStepIndex;
 
