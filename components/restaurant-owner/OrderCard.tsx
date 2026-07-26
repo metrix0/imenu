@@ -1,12 +1,14 @@
 "use client";
 
-import {useEffect, useState} from "react";
+import {useRef, useState} from "react";
+import { createPortal } from "react-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { 
     faClock, 
     faMapMarkerAlt, 
     faArrowLeft, 
-    faEye
+    faEye,
+    faCircleInfo
 } from "@fortawesome/free-solid-svg-icons";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
@@ -19,7 +21,8 @@ export interface OrderItemData {
     id: string;
     quantity: number;
     price_cents: number;
-    name: string; 
+    name: string;
+    observation?: string | null;
 }
 
 export interface OrderData {
@@ -43,6 +46,82 @@ interface OrderCardProps {
     onViewOrder?: (order: OrderData) => void; // NOVA PROP
 }
 
+
+function CashChangeInfo({ text }: { text: string }) {
+    const triggerRef = useRef<HTMLButtonElement>(null);
+    const [open, setOpen] = useState(false);
+    const [position, setPosition] = useState({ left: 0, top: 0 });
+
+    const showTooltip = () => {
+        const trigger = triggerRef.current;
+        if (!trigger) return;
+
+        const rect = trigger.getBoundingClientRect();
+        const estimatedWidth = Math.min(
+            Math.max(text.length * 7 + 24, 170),
+            280
+        );
+        const halfWidth = estimatedWidth / 2;
+        const viewportPadding = 8;
+        const centeredLeft = rect.left + rect.width / 2;
+        const left = Math.max(
+            viewportPadding + halfWidth,
+            Math.min(
+                window.innerWidth - viewportPadding - halfWidth,
+                centeredLeft
+            )
+        );
+
+        setPosition({
+            left,
+            top: rect.bottom + 8,
+        });
+        setOpen(true);
+    };
+
+    const hideTooltip = () => {
+        setOpen(false);
+    };
+
+    return (
+        <>
+            <button
+                ref={triggerRef}
+                type="button"
+                onMouseEnter={showTooltip}
+                onMouseLeave={hideTooltip}
+                onFocus={showTooltip}
+                onBlur={hideTooltip}
+                className="inline-flex items-center justify-center text-gray-500 hover:text-gray-700 focus:text-gray-700 focus:outline-none"
+                aria-label="Informações sobre troco"
+                aria-describedby={open ? `troco-tooltip-${text}` : undefined}
+            >
+                <FontAwesomeIcon icon={faCircleInfo} />
+            </button>
+
+            {open && typeof document !== "undefined" &&
+                createPortal(
+                    <div
+                        id={`troco-tooltip-${text}`}
+                        role="tooltip"
+                        className="pointer-events-none fixed z-[9999] max-w-[280px] -translate-x-1/2 rounded-lg bg-gray-900 px-3 py-2 text-center text-xs font-medium leading-snug text-white shadow-lg"
+                        style={{
+                            left: position.left,
+                            top: position.top,
+                        }}
+                    >
+                        {text}
+                        <span
+                            className="absolute bottom-full left-1/2 -translate-x-1/2 border-x-4 border-b-4 border-x-transparent border-b-gray-900"
+                            aria-hidden="true"
+                        />
+                    </div>,
+                    document.body
+                )}
+        </>
+    );
+}
+
 export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderCardProps) {
     const [loading, setLoading] = useState(false);
     const isPickup = order.is_delivery === "retirada";
@@ -61,8 +140,6 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
         return `${Math.floor(diffMins / 60)}h`;
     };
 
-
-    const [isPgtEntrega, setIsPgtEntrega] = useState(false);
 
     // Formatação de Moeda
     const fmtMoney = (cents: number) => (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -179,9 +256,20 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
     };
 
 
-    useEffect(() => {
-        setIsPgtEntrega(order.payment_method === "dinheiro" || order.payment_method === "trazer-maquininha" || order.payment_method === "pix-entrega");
-    }, [order.payment_method]);
+    const paymentLabels: Record<string, string> = {
+        cartao: "Cartão",
+        "trazer-maquininha": "Cartão",
+        dinheiro: "Dinheiro",
+        "pix-entrega": "Pix (Entrega)",
+        pix: "Pix (Pago)",
+    };
+
+    const paymentMethod = order.payment_method || "";
+    const paymentLabel = paymentLabels[paymentMethod] || paymentMethod || "Pagamento";
+    const cashChangeObservation = order.order_items
+        .map((item) => String(item.observation ?? ""))
+        .map((observation) => observation.match(/Troco\s+para\s*:\s*[^\r\n]*/i)?.[0]?.trim())
+        .find(Boolean) || "Cliente não pediu troco";
 
     const config = statusConfig[order.status] || statusConfig.pending_online_payment;
     const showBackButton = ["preparing", "delivering", "done"].includes(order.status);
@@ -196,21 +284,31 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
             {/* Header do Card */}
             <div className="p-4 2xl:py-5 bg-gray-50 border-b border-gray-100 flex justify-between items-start">
                 <div className="flex flex-col gap-1">
-                    <div className="flex items-center gap-2 2xl:gap-4">
-                        <span className="font-bold text-gray-900 text-lg">
+                    <div className="flex items-center gap-2 2xl:gap-4 whitespace-nowrap">
+                        <span className="shrink-0 font-bold text-gray-900 text-lg">
                             #{order.display_id || order.id.slice(0, 4)}
                         </span>
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium 2xl:text-base 2xl:px-3 2xl:py-1 ${config.color}`}>
+                        <span className={`shrink-0 text-xs px-2 py-0.5 rounded-full font-medium 2xl:text-base 2xl:px-3 2xl:py-1 ${config.color}`}>
                             {config.label}
                         </span>
-                        {isPickup ? (
-                            <span className="truncate text-xs -ml-1 px-2 py-0.5 rounded-full font-bold 2xl:text-base 2xl:px-3 2xl:py-1 text-gray-700 bg-gray-200">
+                        <div
+                            className={`flex shrink-0 items-center text-xs -ml-1 px-2 py-0.5 rounded-full font-medium 2xl:text-base 2xl:px-3 2xl:py-1 ${
+                                paymentMethod === "pix"
+                                    ? "bg-green-100 text-green-800"
+                                    : "bg-gray-200 text-gray-700"
+                            }`}
+                        >
+                            <span>{paymentLabel}</span>
+                            {paymentMethod === "dinheiro" && (
+                                <span className="ml-1.5 inline-flex leading-none">
+                                    <CashChangeInfo text={cashChangeObservation} />
+                                </span>
+                            )}
+                        </div>
+                        {isPickup && (
+                            <span className="shrink-0 text-xs -ml-1 px-2 py-0.5 rounded-full font-bold 2xl:text-base 2xl:px-3 2xl:py-1 text-gray-700 bg-gray-200">
                                 Retirada
                             </span>
-                        ) : isPgtEntrega && (
-                            <span className={`truncate text-xs -ml-1 px-2 py-0.5 rounded-full font-medium 2xl:text-base 2xl:px-3 2xl:py-1 color-gray-500 bg-gray-200`}>
-                            Pgt. Entrega
-                        </span>
                         )}
                     </div>
                     <span className="text-sm 2xl:text-base font-medium text-gray-700 truncate max-w-[200px]" title={order.customer_name}>

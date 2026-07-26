@@ -97,6 +97,7 @@ export default function CartModal({
     const coupon_code = useCheckoutStore((s) => s.coupon_code);
     const coupon_type = useCheckoutStore((s) => s.coupon_type);
     const coupon_discount_cents = useCheckoutStore((s) => s.coupon_discount_cents);
+    const troco = useCheckoutStore((s: any) => String(s.troco ?? ""));
 
     const restaurantAddress = (() => {
         const rawAddress = restaurant?.address;
@@ -913,10 +914,10 @@ export default function CartModal({
 
                         <div className="flex flex-col gap-3 mb-5 2xl:text-lg">
                             {availablePaymentOptions.map((option) => (
+                                <div key={option.value}>
                                     <button
-                                        key={option.value}
                                         type="button"
-                                        className={`border cursor-pointer p-3 rounded-xl duration-200 text-left flex items-center gap-3 ${
+                                        className={`w-full border cursor-pointer p-3 rounded-xl duration-200 text-left flex items-center gap-3 ${
                                             pagamento === option.value
                                                 ? "border-brand"
                                                 : "border-gray-300"
@@ -926,7 +927,30 @@ export default function CartModal({
                                         <FontAwesomeIcon icon={option.icon} />
                                         {option.label}
                                     </button>
-                                ))}
+
+                                    {option.value === "dinheiro" && (
+                                        <div
+                                            aria-hidden={pagamento !== "dinheiro"}
+                                            className={`overflow-hidden transition-all duration-300 ease-out ${
+                                                pagamento === "dinheiro"
+                                                    ? "max-h-28 opacity-100 translate-y-0 mt-3"
+                                                    : "max-h-0 opacity-0 -translate-y-1 mt-0 pointer-events-none"
+                                            }`}
+                                        >
+                                            <Input
+                                                label="Troco para quanto?"
+                                                placeholder="50,00"
+                                                value={troco}
+                                                inputMode="decimal"
+                                                icon="R$"
+                                                tabIndex={pagamento === "dinheiro" ? 0 : -1}
+                                                onChange={(e) => setField("troco", e.target.value)}
+                                                className="2xl:text-lg"
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
                         </div>
 
                         {showDiscountInput && (<div className="mb-6">

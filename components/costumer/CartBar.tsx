@@ -214,6 +214,14 @@ export default function CartBar({
                 : 0;
 
         const discount_cents = checkout.coupon_discount_cents || 0;
+        const changeFor = checkout.pagamento === "dinheiro"
+            ? String((checkout as any).troco ?? "")
+                .replace(/^R\$\s*/i, "")
+                .trim()
+            : "";
+        const changeObservation = changeFor
+            ? `Troco para: R$ ${changeFor}`
+            : "";
 
         const total_cents =
             subtotal_cents + delivery_fee_cents - discount_cents;
@@ -239,18 +247,27 @@ export default function CartBar({
             paymentMethod: checkout.pagamento,
             delivery_time_minutes: pickup ? null : checkout.delivery_time_minutes,
 
-            // 👇 cart items (unchanged)
-            items: cart.items.map((i) => ({
-                cart_row_id: i.id,
-                base_item_id: i.base_item_id,
-                name: i.name,
-                qty: i.qty,
-                unit_price_cents: i.unit_price_cents,
-                total_cents: i.total_cents,
-                observation: i.observation ?? null,
-                selectedSubitems: i.selectedSubitems,
-                promotion: i.promotion
-            })),
+            // 👇 cart items (unchanged, except the first observation may include cash change)
+            items: cart.items.map((i, index) => {
+                const existingObservation = i.observation ?? null;
+                const observation = index === 0 && changeObservation
+                    ? existingObservation
+                        ? `${existingObservation}\n${changeObservation}`
+                        : changeObservation
+                    : existingObservation;
+
+                return {
+                    cart_row_id: i.id,
+                    base_item_id: i.base_item_id,
+                    name: i.name,
+                    qty: i.qty,
+                    unit_price_cents: i.unit_price_cents,
+                    total_cents: i.total_cents,
+                    observation,
+                    selectedSubitems: i.selectedSubitems,
+                    promotion: i.promotion
+                };
+            }),
 
             // 👇 coupon info (unchanged)
             coupon_id: checkout.coupon_id || null,
