@@ -62,6 +62,7 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
         const [rules, setRules] = useState<RadiusRule[]>([]);
         const [pickupEnabled, setPickupEnabled] = useState(false);
         const [initialDataLoaded, setInitialDataLoaded] = useState(false);
+        const [minOrderRevision, setMinOrderRevision] = useState(0);
         const [status, setStatus] = useState<
             "idle" | "saving" | "saved"
         >("idle");
@@ -434,6 +435,7 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
         }, [
             rules,
             pickupEnabled,
+            minOrderRevision,
             initialDataLoaded,
             isNew,
         ]);
@@ -672,6 +674,12 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                         iconPosition="left"
                         defaultValue="20"
                         ref={minOrderRef}
+                        onChange={() =>
+                            setMinOrderRevision(
+                                (currentRevision) =>
+                                    currentRevision + 1
+                            )
+                        }
                         className="w-full"
                     />
                 </div>
