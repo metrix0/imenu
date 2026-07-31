@@ -1,167 +1,18 @@
-// app/restaurante/criar/disponibilidade/page.tsx
 "use client";
-
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 import { supabase } from "@/lib/database/supabaseClient";
-import Button from "@/components/ui/Button";
-import posthog from "posthog-js";
-
-
-// UPDATE IMPORT TO THE CLICK VERSION
+import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 import WeeklyScheduleClick, { Availability, TimeSlot } from "@/components/restaurant-owner/configuracoes/WeeklyScheduleClick";
+import Button from "@/components/ui/Button";
+import Loader from "@/components/ui/Loader";
 
 export default function DisponibilidadePage() {
-    const router = useRouter();
-    const { setRestaurantId } = useCreationStore();
-
-    useEffect(() => {
-        posthog.capture("admin_access_create_restaurant_availability_page", {
-            page: "/restaurante/criar/disponibilidade",
-            timestamp: new Date().toISOString(),
-        });
-    }, []);
-
-    const [availability, setAvailability] = useState<Availability>({});
-    const [isLoading, setIsLoading] = useState(false);
-    const [isFetchingData, setIsFetchingData] = useState(true);
-    const [localRestaurantId, setLocalRestaurantId] = useState<string | null>(null);
-
-    // 1. Load Data
-    useEffect(() => {
-        const loadData = async () => {
-            try {
-                const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-                if (sessionError || !session?.user) {
-                    router.push("/restaurante/login");
-                    return;
-                }
-
-                const { data, error } = await supabase
-                    .from("restaurants")
-                    .select("id, availability_json")
-                    .eq("user_id", session.user.id)
-                    .single();
-
-                if (error) {
-                    console.error("Erro ao carregar:", error);
-                    return;
-                }
-
-                if (data) {
-                    setLocalRestaurantId(data.id);
-                    setRestaurantId(data.id);
-                    
-                    if (data.availability_json) {
-                        setAvailability(data.availability_json as Availability);
-                    } else {
-                        setAvailability({});
-                    }
-                }
-            } catch (err) {
-                console.error(err);
-            } finally {
-                setIsFetchingData(false);
-            }
-        };
-
-        loadData();
-    }, [router, setRestaurantId]);
-
-    // Use Recommended Logic
-    const handleUseRecommended = () => {
-        const recommendedSlots: TimeSlot[] = [
-            { open: "11:00", close: "15:00" },
-            { open: "18:00", close: "23:00" }
-        ];
-
-        const newAvailability: Availability = {};
-        ["0", "1", "2", "3", "4", "5", "6"].forEach(dayKey => {
-            newAvailability[dayKey] = [...recommendedSlots];
-        });
-
-        setAvailability(newAvailability);
-    };
-
-    const handleSave = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!localRestaurantId) return;
-
-        setIsLoading(true);
-        try {
-            const response = await fetch(`/api/restaurants/${localRestaurantId}`, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ availability_json: availability }),
-            });
-
-            if (!response.ok) throw new Error("Erro ao salvar.");
-
-            router.push("/restaurante/criar/cardapio");
-        } catch (err) {
-            console.error(err);
-            alert("Erro ao salvar disponibilidade.");
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    if (isFetchingData) {
-         return (
-            <main className="flex items-center justify-center min-h-[50vh]">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand"></div>
-            </main>
-        );
-    }
-
-    return (
-        <div className="min-h-screen bg-white flex flex-col">
-            {/* Main Content */}
-            <div className="flex-1 w-full max-w-6xl 2xl:max-w-[85rem] mx-auto px-6 pt-8 pb-32">
-                <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4">
-                    <div>
-                        <h1 className="text-3xl 2xl:text-4xl font-bold text-gray-900 mb-2">Horário de Funcionamento</h1>
-                        <p className="text-gray-500 2xl:text-lg">
-                            Clique nos espaços vazios para adicionar horários ou nos blocos para editar.
-                        </p>
-                    </div>
-                    
-                    <button
-                        type="button"
-                        onClick={handleUseRecommended}
-                        className="text-brand font-medium hover:bg-red-50 px-4 py-2 rounded-md border 2xl:text-lg border-brand transition-colors text-sm cursor-pointer"
-                    >
-                         Usar horários recomendados
-                    </button>
-                </div>
-
-                {/* CLICK/POPUP COMPONENT */}
-                <WeeklyScheduleClick 
-                    value={availability} 
-                    onChange={setAvailability} 
-                />
-            </div>
-
-            {/* Footer Bar */}
-            <div className="fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 p-4 2xl:p-5 z-40 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-                <div className="max-w-4xl mx-auto flex items-center justify-between 2xl:text-lg ">
-                    <button
-                        onClick={() => router.back()}
-                        className="text-brand font-medium text-base hover:opacity-80 transition-opacity flex items-center gap-1 cursor-pointer 2xl:text-lg"
-                    >
-                        Voltar
-                    </button>
-                    <Button
-                        variant="primary"
-                        loading={isLoading}
-                        onClick={handleSave}
-                        className="px-8 2xl:px-10 2xl:py-4"
-                    >
-                        Salvar e Continuar
-                    </Button>
-                </div>
-            </div>
-        </div>
-    );
+    const router = useRouter(); const { setRestaurantId } = useCreationStore();
+    const [availability, setAvailability] = useState<Availability>({}); const [id, setId] = useState<string | null>(null); const [loading, setLoading] = useState(true); const [saving, setSaving] = useState(false);
+    useEffect(() => { void (async () => { const { data: { session } } = await supabase.auth.getSession(); if (!session) return router.replace("/restaurante/login"); const { data } = await supabase.from("restaurants").select("id,availability_json").eq("user_id", session.user.id).single(); if (data) { setId(data.id); setRestaurantId(data.id); setAvailability((data.availability_json as Availability) || {}); } setLoading(false); })(); }, []);
+    const recommended = () => { const slots: TimeSlot[] = [{ open: "11:00", close: "15:00" }, { open: "18:00", close: "23:00" }]; setAvailability(Object.fromEntries(["0","1","2","3","4","5","6"].map((key) => [key, slots.map((slot) => ({ ...slot }))]))); };
+    const save = async () => { if (!id) return; setSaving(true); try { const response = await fetch(`/api/restaurants/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ availability_json: availability, creation_step: 4 }) }); if (!response.ok) throw new Error(); router.push("/restaurante/criar/cardapio"); } catch { alert("Erro ao salvar horários."); } finally { setSaving(false); } };
+    if (loading) return <main className="flex min-h-[50vh] items-center justify-center"><Loader className="border-t-brand" /></main>;
+    return <div className="flex min-h-screen flex-col bg-white"><div className="mx-auto w-full max-w-6xl flex-1 overflow-x-auto px-4 pb-32 pt-8 sm:px-6"><div className="mb-8 flex flex-col justify-between gap-4 md:flex-row md:items-end"><div><p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-brand">Etapa 3/4</p><h1 className="text-3xl font-bold">Horário de Funcionamento</h1><p className="mt-1 text-gray-500">Arraste os blocos para mover ou redimensionar os horários.</p></div><button onClick={recommended} className="rounded-md border border-brand px-4 py-2 text-sm font-medium text-brand hover:bg-brand/5">Usar horários recomendados</button></div><WeeklyScheduleClick value={availability} onChange={setAvailability} /></div><div className="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white p-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]"><div className="mx-auto flex max-w-4xl items-center justify-between"><button onClick={() => router.back()} className="font-medium text-brand">Voltar</button><Button onClick={save} loading={saving} className="px-8">Salvar e Continuar</Button></div></div></div>;
 }

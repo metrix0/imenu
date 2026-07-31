@@ -5,6 +5,11 @@
         overflow-x: hidden;
     }
 
+    .creation-mobile-content > * {
+        min-width: 0;
+        max-width: 100%;
+    }
+
     .creation-mobile-content h1.text-3xl {
         font-size: 1.5rem;
         line-height: 2rem;
@@ -24,7 +29,6 @@
         width: 100% !important;
     }
 
-    /* Tabela de faixas de entrega */
     .creation-mobile-content[data-creation-path^="/restaurante/criar/tempo-e-taxa"] .max-w-2xl {
         max-width: 100%;
     }
@@ -32,6 +36,8 @@
     .creation-mobile-content[data-creation-path^="/restaurante/criar/tempo-e-taxa"] .max-w-2xl > .p-6:first-of-type {
         overflow-x: auto;
         padding: 1rem;
+        overscroll-behavior-x: contain;
+        -webkit-overflow-scrolling: touch;
     }
 
     .creation-mobile-content[data-creation-path^="/restaurante/criar/tempo-e-taxa"] .max-w-2xl > .p-6:first-of-type > .flex,
@@ -44,17 +50,16 @@
         gap: 1rem;
     }
 
-    /* Horários mantém as colunas acessíveis por toque */
-    .creation-mobile-content[data-creation-path^="/restaurante/criar/disponibilidade"] .overflow-x-auto {
+    .creation-mobile-content[data-creation-path^="/restaurante/criar/disponibilidade"] > div > div:first-child {
+        overflow-x: auto;
         overscroll-behavior-x: contain;
         -webkit-overflow-scrolling: touch;
     }
 
-    .creation-mobile-content main.p-6 {
-        padding: 1rem;
+    .creation-mobile-content[data-creation-path^="/restaurante/criar/disponibilidade"] .flex.flex-col.select-none.relative {
+        min-width: 720px;
     }
 
-    /* Cadastro do cardápio */
     .creation-mobile-content[data-creation-path^="/restaurante/criar/cardapio"] .flex.justify-between.items-center.mb-4 {
         flex-direction: column;
         align-items: stretch;
@@ -73,35 +78,5 @@
 
     .creation-mobile-content[data-creation-path^="/restaurante/criar/cardapio"] .py-20 .flex.gap-4 > button {
         width: 100%;
-    }
-
-    .creation-mobile-content[data-creation-path^="/restaurante/criar/cardapio"] .group.flex.items-center.justify-between.p-4 {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 0.75rem;
-    }
-
-    .creation-mobile-content[data-creation-path^="/restaurante/criar/cardapio"] .group.flex.items-center.justify-between.p-4 > .flex.items-center.gap-4 {
-        justify-content: flex-end;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-        padding-left: 0;
-    }
-
-    .creation-mobile-content[data-creation-path^="/restaurante/criar/cardapio"] .flex.items-center.justify-between.mb-3 {
-        flex-wrap: wrap;
-        gap: 0.5rem;
-    }
-
-    /* Grade semanal */
-    .creation-mobile-content[data-creation-path^="/restaurante/criar/disponibilidade"] .flex.flex-col.select-none.relative {
-        overflow-x: auto;
-        overscroll-behavior-x: contain;
-        -webkit-overflow-scrolling: touch;
-    }
-
-    .creation-mobile-content[data-creation-path^="/restaurante/criar/disponibilidade"] .flex.flex-col.select-none.relative > .flex.pb-4,
-    .creation-mobile-content[data-creation-path^="/restaurante/criar/disponibilidade"] .flex.flex-col.select-none.relative > .flex.relative {
-        min-width: 720px;
     }
 }

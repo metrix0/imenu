@@ -1,12 +1,10 @@
-
-// app/restaurante/criar/layout.tsx
-"use client"; // 👈 Necessário para usar usePathname
+"use client";
 
 import CreationStepper from "@/components/restaurant-owner/configuracoes/CreationStepper";
 import Loader from "@/components/ui/Loader";
 import { supabase } from "@/lib/database/supabaseClient";
 import Image from "next/image";
-import { usePathname, useRouter } from "next/navigation"; // 👈 Importar o hook
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import "./mobile.css";
 
@@ -16,58 +14,55 @@ export default function CreationLayout({
     children: React.ReactNode;
 }) {
     const pathname = usePathname();
-
-    // Verifica se a rota atual contém "/info/otp"
-    const isOtpPage = pathname?.includes("/info/otp");
-
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(true);
+    const isConfirmationPage = pathname?.includes("/info/otp");
 
     useEffect(() => {
         const checkStatus = async () => {
-            const { data: { session } } = await supabase.auth.getSession();
+            if (isConfirmationPage) {
+                setIsLoading(false);
+                return;
+            }
 
-            // 1. Se não tiver sessão, manda pro login
+            const {
+                data: { session },
+            } = await supabase.auth.getSession();
+
             if (!session) {
                 router.replace("/restaurante/login");
                 return;
             }
 
-            // 2. Verifica o status do restaurante
             const { data: restaurant } = await supabase
                 .from("restaurants")
                 .select("first_time")
                 .eq("user_id", session.user.id)
                 .maybeSingle();
 
-            // 3. Se o restaurante já finalizou o cadastro (first_time === false),
-            // ele não deve estar aqui. Manda pro painel.
-            if (restaurant && restaurant.first_time === false) {
+            if (restaurant?.first_time === false) {
                 router.replace("/painel");
                 return;
             }
 
-            // Se chegou aqui, é first_time = true (ou null), então pode continuar criando.
             setIsLoading(false);
         };
 
-        checkStatus();
-    }, [router]);
+        void checkStatus();
+    }, [isConfirmationPage, router]);
 
     if (isLoading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-50">
-                <Loader />
-                <p className="ml-3 text-gray-500">Verificando acesso...</p>
+            <div className="flex min-h-screen items-center justify-center bg-gray-50">
+                <Loader className="border-t-brand" />
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-white flex flex-col overflow-x-hidden">
-            {/* Header stays visible */}
-            <header className="w-full px-4 py-5 sm:px-2 sm:py-7 2xl:px-4 2xl:py-10 flex items-center justify-between top-0 bg-white z-10">
-                <div className="relative h-6 w-32 2xl:w-60 2xl:h-8 sm:ml-4">
+        <div className="flex min-h-screen w-full min-w-0 flex-col overflow-x-hidden bg-white">
+            <header className="top-0 z-10 flex w-full items-center justify-between bg-white px-4 py-5 sm:px-2 sm:py-7 2xl:px-4 2xl:py-10">
+                <div className="relative h-6 w-32 sm:ml-4 2xl:h-8 2xl:w-60">
                     <Image
                         src="/logos/CombinationMarkLogo_Brand.png"
                         alt="iMenu Logo"
@@ -77,13 +72,10 @@ export default function CreationLayout({
                 </div>
             </header>
 
-            {/* Só renderiza o Stepper se NÃO for a página de OTP.
-               Isso mantém o layout limpo para o usuário focar no código.
-            */}
-            {!isOtpPage && <CreationStepper />}
+            {!isConfirmationPage && <CreationStepper />}
 
             <div
-                className="creation-mobile-content flex-1 min-w-0"
+                className="creation-mobile-content min-w-0 flex-1"
                 data-creation-path={pathname || "/restaurante/criar"}
             >
                 {children}

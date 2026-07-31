@@ -19,11 +19,9 @@ function normalizeStoredPhone(value: unknown): string | null {
 
 function normalizePublicWhatsApp(value: unknown): string {
     const digits = String(value ?? "").replace(/\D/g, "");
-
     if (!digits) return "";
     if (digits.startsWith("55") && digits.length >= 12) return digits;
     if (digits.length === 10 || digits.length === 11) return `55${digits}`;
-
     return digits;
 }
 
@@ -38,7 +36,6 @@ async function slugExists(slug: string, restaurantId: string): Promise<boolean> 
         `,
         [slug, restaurantId]
     );
-
     return rows.length > 0;
 }
 
@@ -47,26 +44,16 @@ async function generateUniqueSlug(
     restaurantId: string
 ): Promise<string> {
     const base = normalizeSlug(source) || "restaurante";
-
-    if (!(await slugExists(base, restaurantId))) {
-        return base;
-    }
+    if (!(await slugExists(base, restaurantId))) return base;
 
     for (let attempt = 0; attempt < 40; attempt += 1) {
         const suffix = Math.floor(1000 + Math.random() * 9000);
         const candidate = `${base}-${suffix}`;
-
-        if (!(await slugExists(candidate, restaurantId))) {
-            return candidate;
-        }
+        if (!(await slugExists(candidate, restaurantId))) return candidate;
     }
 
     const fallback = `${base}-${Date.now().toString().slice(-7)}`;
-
-    if (!(await slugExists(fallback, restaurantId))) {
-        return fallback;
-    }
-
+    if (!(await slugExists(fallback, restaurantId))) return fallback;
     throw new Error("Não foi possível gerar um endereço único para a loja.");
 }
 
@@ -84,24 +71,15 @@ export async function PATCH(
     }
 
     let body: Record<string, unknown>;
-
     try {
         body = await request.json();
     } catch {
-        return NextResponse.json(
-            { error: "Invalid JSON body" },
-            { status: 400 }
-        );
+        return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
     }
 
     try {
         const currentResult = await query(
-            `
-            SELECT id, url_slug
-            FROM public.restaurants
-            WHERE id = $1
-            LIMIT 1
-            `,
+            `SELECT id, url_slug FROM public.restaurants WHERE id = $1 LIMIT 1`,
             [id]
         );
 
@@ -120,7 +98,6 @@ export async function PATCH(
 
         if (hasExplicitSlug) {
             const requestedSlug = normalizeSlug(String(body.url_slug ?? ""));
-
             if (requestedSlug.length < 3) {
                 return NextResponse.json(
                     {
@@ -130,7 +107,6 @@ export async function PATCH(
                     { status: 400 }
                 );
             }
-
             if (await slugExists(requestedSlug, id)) {
                 return NextResponse.json(
                     {
@@ -140,7 +116,6 @@ export async function PATCH(
                     { status: 409 }
                 );
             }
-
             body.url_slug = requestedSlug;
         } else if (
             body.name &&
@@ -167,10 +142,14 @@ export async function PATCH(
             url_slug: "url_slug",
             is_closed: "is_closed",
             first_time: "first_time",
+            creation_step: "creation_step",
             payment_method: "payment_method",
             payment_info: "payment_info",
             allowed_payment_methods: "allowed_payment_methods",
             pickup_enabled: "pickup_enabled",
+            prep_time_min_minutes: "prep_time_min_minutes",
+            prep_time_max_minutes: "prep_time_max_minutes",
+            prep_time_source: "prep_time_source",
         };
 
         const jsonFields = [
@@ -199,8 +178,14 @@ export async function PATCH(
                         : ["pix", "dinheiro", "trazer-maquininha"];
             }
 
-            if (dbColumn === "store_whatsapp") {
+            if (dbColumn === "store_whatsapp" || dbColumn === "phone") {
                 value = normalizeStoredPhone(value);
+            }
+
+            if (dbColumn === "creation_step") {
+                const step = Number(value);
+                if (![1, 2, 3, 4].includes(step)) continue;
+                value = step;
             }
 
             values.push(value);
@@ -214,26 +199,26 @@ export async function PATCH(
             );
         }
 
-        const updateQuery = `
+        const { rows } = await query(
+            `
             UPDATE public.restaurants
-            SET
-                ${fieldsToUpdate.join(", ")},
-                updated_at = NOW()
+            SET ${fieldsToUpdate.join(", ")}, updated_at = NOW()
             WHERE id = $1
-            RETURNING id, url_slug, store_whatsapp
-        `;
-
-        const { rows } = await query(updateQuery, values);
+            RETURNING id, url_slug, store_whatsapp, creation_step, first_time
+            `,
+            values
+        );
 
         return NextResponse.json({
             success: true,
             updatedId: rows[0].id,
             url_slug: rows[0].url_slug,
             store_whatsapp: rows[0].store_whatsapp,
+            creation_step: rows[0].creation_step,
+            first_time: rows[0].first_time,
         });
     } catch (error) {
         console.error("Error updating restaurant:", error);
-
         return NextResponse.json(
             {
                 error:
@@ -247,7 +232,7 @@ export async function PATCH(
 }
 
 export async function GET(
-    request: Request,
+    _request: Request,
     context: { params: Promise<{ id: string }> }
 ) {
     const { id } = await context.params;
@@ -274,7 +259,12 @@ export async function GET(
                 payment_method,
                 payment_info,
                 allowed_payment_methods,
-                pickup_enabled
+                pickup_enabled,
+                creation_step,
+                first_time,
+                prep_time_min_minutes,
+                prep_time_max_minutes,
+                prep_time_source
             FROM public.restaurants
             WHERE id = $1
             LIMIT 1
@@ -290,7 +280,6 @@ export async function GET(
         }
 
         const restaurant = rows[0];
-
         return NextResponse.json({
             ...restaurant,
             phone: normalizePublicWhatsApp(
@@ -299,7 +288,6 @@ export async function GET(
         });
     } catch (error) {
         console.error("Error fetching restaurant:", error);
-
         return NextResponse.json(
             { error: "Internal server error" },
             { status: 500 }

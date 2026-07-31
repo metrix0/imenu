@@ -1,300 +1,42 @@
-// components/restaurant-owner/configuracoes/AddressForm.tsx
 "use client";
-
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import {
-    faLocationCrosshairs
-} from "@fortawesome/free-solid-svg-icons";
-
+import { faLocationCrosshairs } from "@fortawesome/free-solid-svg-icons";
 import Input from "@/components/ui/Input";
-import { fetchAddressByCEP, fetchCoordinates, fetchAddressByCoordinates } from "@/lib/api/geocoding";
-
-import { AddressData } from "@/lib/types/types";
 import Button from "@/components/ui/Button";
+import Tooltip from "@/components/ui/Tooltip";
+import { fetchAddressByCEP, fetchAddressByCoordinates, fetchCoordinates } from "@/lib/api/geocoding";
+import { AddressData } from "@/lib/types/types";
 
-interface AddressFormProps {
-    initialData?: Partial<AddressData>;
-    onSubmit: (data: AddressData) => Promise<void>;
-    onValidityChange: (isValid: boolean) => void;
-    isLoading?: boolean;
-    submitLabel?: string;
-}
+interface Props { initialData?: Partial<AddressData>; onSubmit: (data: AddressData) => Promise<void>; onValidityChange: (valid: boolean) => void; isLoading?: boolean; submitLabel?: string; }
+type RequiredField = "cep" | "state" | "city" | "neighborhood" | "street" | "number";
 
-export default function AddressForm({ 
-    initialData, 
-    onSubmit, 
-    isLoading = false, 
-    submitLabel = "Continuar",
-    onValidityChange  
-}: AddressFormProps) {
-    
-    const [cep, setCep] = useState(initialData?.cep || "");
-    const [state, setState] = useState(initialData?.state || "");
-    const [city, setCity] = useState(initialData?.city || "");
-    const [neighborhood, setNeighborhood] = useState(initialData?.neighborhood || "");
-    const [street, setStreet] = useState(initialData?.street || "");
-    const [number, setNumber] = useState(initialData?.number || "");
-    const [complement, setComplement] = useState(initialData?.complement || "");
-    const [latitude, setLatitude] = useState<number | null>(initialData?.latitude || null);
-    const [longitude, setLongitude] = useState<number | null>(initialData?.longitude || null);
+export default function AddressForm({ initialData, onSubmit, onValidityChange, isLoading = false, submitLabel = "Salvar e Continuar" }: Props) {
+    const [form, setForm] = useState({ cep: "", state: "", city: "", neighborhood: "", street: "", number: "", complement: "", latitude: null as number | null, longitude: null as number | null });
+    const [fetching, setFetching] = useState(false); const [error, setError] = useState(""); const [invalid, setInvalid] = useState<RequiredField[]>([]);
+    useEffect(() => { if (initialData) setForm((v) => ({ ...v, ...initialData, latitude: initialData.latitude ?? null, longitude: initialData.longitude ?? null })); }, [initialData]);
+    const missing = useMemo(() => (["cep", "state", "city", "neighborhood", "street", "number"] as RequiredField[]).filter((key) => !String(form[key]).trim()), [form]);
+    const valid = missing.length === 0;
+    useEffect(() => onValidityChange(valid), [valid, onValidityChange]);
+    const set = (key: keyof typeof form, value: string | number | null) => { setForm((v) => ({ ...v, [key]: value })); setInvalid((v) => v.filter((item) => item !== key)); };
+    const fieldClass = (key: RequiredField) => invalid.includes(key) ? "!border-red-500 focus:!border-red-500 focus:!ring-red-500" : "";
 
-    const [isFetchingCep, setIsFetchingCep] = useState(false);
-    const [errorMsg, setErrorMsg] = useState("");
-
-    const isValid = !!(cep && state && city && neighborhood && street && number);
-
-    useEffect(() => {
-        onValidityChange(isValid);
-    }, [isValid, onValidityChange]);
-
-    useEffect(() => {
-        if (initialData) {
-            setCep(initialData.cep || "");
-            setState(initialData.state || "");
-            setCity(initialData.city || "");
-            setNeighborhood(initialData.neighborhood || "");
-            setStreet(initialData.street || "");
-            setNumber(initialData.number || "");
-            setComplement(initialData.complement || "");
-            setLatitude(initialData.latitude || null);
-            setLongitude(initialData.longitude || null);
-        }
-    }, [initialData]);
-
-    const handleCepBlur = async () => {
-        const cleanCep = cep.replace(/\D/g, "");
-        if (cleanCep.length !== 8) return;
-
-        setIsFetchingCep(true);
-        setErrorMsg("");
-
-        try {
-            // 1. Busca dados do CEP
-            const address = await fetchAddressByCEP(cleanCep);
-            if (!address) throw new Error("CEP não encontrado.");
-
-            setState(address.state);
-            setCity(address.city);
-            setNeighborhood(address.neighborhood);
-            setStreet(address.street);
-
-            // 2. Se a API de CEP não trouxe lat/lon, busca no Nominatim via endereço completo
-            if (address.latitude && address.longitude) {
-                setLatitude(address.latitude);
-                setLongitude(address.longitude);
-            } else {
-                const fullAddr = `${address.street}, ${address.neighborhood}, ${address.city} - ${address.state}, Brasil`;
-                const coords = await fetchCoordinates(fullAddr);
-                if (coords) {
-                    setLatitude(coords.latitude);
-                    setLongitude(coords.longitude);
-                } else {
-                    setLatitude(null);
-                    setLongitude(null);
-                }
-            }
-
-        } catch (err) {
-            console.error(err);
-            setErrorMsg("Erro ao buscar CEP. Preencha manualmente.");
-        } finally {
-            setIsFetchingCep(false);
-        }
+    const cepBlur = async () => {
+        const clean = form.cep.replace(/\D/g, ""); if (clean.length !== 8) return;
+        setFetching(true); setError("");
+        try { const address = await fetchAddressByCEP(clean); if (!address) throw new Error(); setForm((v) => ({ ...v, cep: address.cep || v.cep, state: address.state, city: address.city, neighborhood: address.neighborhood, street: address.street, latitude: address.latitude ?? v.latitude, longitude: address.longitude ?? v.longitude })); if (!address.latitude || !address.longitude) { const coords = await fetchCoordinates(`${address.street}, ${address.neighborhood}, ${address.city} - ${address.state}, Brasil`); if (coords) setForm((v) => ({ ...v, ...coords })); } } catch { setError("CEP não encontrado. Preencha o endereço manualmente."); } finally { setFetching(false); }
+    };
+    const useLocation = () => {
+        if (!navigator.geolocation) return setError("Geolocalização não suportada.");
+        setFetching(true); setError(""); navigator.geolocation.getCurrentPosition(async ({ coords }) => { try { const address = await fetchAddressByCoordinates(coords.latitude, coords.longitude); if (!address) throw new Error(); setForm((v) => ({ ...v, ...address, number: address.number || v.number, latitude: coords.latitude, longitude: coords.longitude })); } catch { setError("Não foi possível obter o endereço completo."); } finally { setFetching(false); } }, () => { setFetching(false); setError("Permissão de localização negada."); });
+    };
+    const submit = async (event: React.FormEvent) => {
+        event.preventDefault();
+        if (!valid) { setInvalid(missing); const names: Record<RequiredField, string> = { cep: "CEP", state: "Estado", city: "Cidade", neighborhood: "Bairro", street: "Rua", number: "Número" }; setError(`Preencha: ${missing.map((item) => names[item]).join(", ")}.`); return; }
+        let latitude = form.latitude; let longitude = form.longitude;
+        if (!latitude || !longitude) { const coords = await fetchCoordinates(`${form.street}, ${form.number}, ${form.neighborhood}, ${form.city} - ${form.state}, Brasil`); if (!coords) return setError("Não conseguimos identificar a localização. Verifique o endereço."); latitude = coords.latitude; longitude = coords.longitude; }
+        await onSubmit({ ...form, latitude, longitude } as AddressData);
     };
 
-    const handleUseMyLocation = () => {
-        if (!navigator.geolocation) {
-            setErrorMsg("Geolocalização não suportada.");
-            return;
-        }
-
-        setIsFetchingCep(true);
-        setErrorMsg("");
-
-        navigator.geolocation.getCurrentPosition(
-            async (position) => {
-                const { latitude: lat, longitude: lon } = position.coords;
-                setLatitude(lat);
-                setLongitude(lon);
-
-                try {
-                    const address = await fetchAddressByCoordinates(lat, lon);
-                    if (!address) throw new Error("Endereço não encontrado.");
-
-                    setStreet(address.street);
-                    setNeighborhood(address.neighborhood);
-                    setCity(address.city);
-                    setState(address.state);
-                    setCep(address.cep);
-                    if(address.number) setNumber(address.number);
-
-                } catch (err) {
-                    setErrorMsg("Não foi possível obter o endereço completo.");
-                } finally {
-                    setIsFetchingCep(false);
-                }
-            },
-            () => {
-                setIsFetchingCep(false);
-                setErrorMsg("Permissão de localização negada.");
-            }
-        );
-    };
-
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!isValid) {
-            setErrorMsg("Preencha o endereço completo.");
-            return;
-        }
-
-        if (!latitude || !longitude) {
-            // Tenta uma última vez obter coordenadas antes de enviar
-            const fullAddr = `${street}, ${neighborhood}, ${city} - ${state}, Brasil`;
-            fetchCoordinates(fullAddr).then(coords => {
-                 if (coords) {
-                     onSubmit({
-                         cep, state, city, neighborhood, street, number, complement, 
-                         latitude: coords.latitude, longitude: coords.longitude
-                     });
-                 } else {
-                     setErrorMsg("Não conseguimos identificar a localização exata. Verifique o endereço.");
-                 }
-            });
-            return;
-        }
-
-        onSubmit({
-            cep,
-            state,
-            city,
-            neighborhood,
-            street,
-            number,
-            complement,
-            latitude,
-            longitude
-        });
-    };
-
-    return (
-        <div className="w-full max-w-2xl mx-auto px-4">
-            <div className="mb-8 text-center sm:text-left mt-8">
-                <h1 className="text-3xl font-bold text-gray-900">Onde fica sua loja?</h1>
-                <p className="text-gray-500 mt-1">Digite o CEP e complete as informações.</p>
-            </div>
-
-            <div className="mb-8">
-                <button
-                    type="button"
-                    onClick={handleUseMyLocation}
-                    disabled={isFetchingCep || isLoading}
-                    className="w-full py-3 border border-gray-300 rounded-md text-brand font-medium hover:bg-gray-50 transition-colors focus:ring-2 focus:ring-brand focus:outline-none cursor-pointer 2xl:text-lg"
-                >
-                    {isFetchingCep ? "Buscando..." : <><FontAwesomeIcon icon={faLocationCrosshairs}/> Usar minha localização</>}
-                </button>
-            </div>
-
-            <form id="address-form" onSubmit={handleSubmit} className="space-y-6">
-                <div className="relative">
-                    <div className="flex justify-between items-center mb-1">
-                        <label className="text-sm font-medium text-gray-700">CEP*</label>
-                        <a 
-                            href="https://buscacepinter.correios.com.br/app/endereco/index.php" 
-                            target="_blank" 
-                            rel="noreferrer"
-                            className="text-xs 2xl:text-sm text-brand hover:underline font-medium"
-                        >
-                            Descubra seu CEP
-                        </a>
-                    </div>
-                    <Input
-                        value={cep}
-                        onChange={(e) => setCep(e.target.value)}
-                        onBlur={handleCepBlur}
-                        placeholder="00000-000"
-                        required
-                    />
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div className="sm:col-span-1">
-                        <Input
-                            label="Estado*"
-                            value={state}
-                            onChange={(e) => setState(e.target.value)}
-                            required
-                            disabled={isFetchingCep}
-                        />
-                    </div>
-                    <div className="sm:col-span-2">
-                        <Input
-                            label="Cidade*"
-                            value={city}
-                            onChange={(e) => setCity(e.target.value)}
-                            required
-                            disabled={isFetchingCep}
-                        />
-                    </div>
-                </div>
-
-                <Input
-                    label="Bairro*"
-                    value={neighborhood}
-                    onChange={(e) => setNeighborhood(e.target.value)}
-                    placeholder="Ex: Centro"
-                    required
-                />
-
-                <Input
-                    label="Rua*"
-                    value={street}
-                    onChange={(e) => setStreet(e.target.value)}
-                    placeholder="Ex: Avenida Paulista"
-                    required
-                />
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div className="sm:col-span-1">
-                        <Input
-                            label="Número*"
-                            value={number}
-                            onChange={(e) => setNumber(e.target.value)}
-                            required
-                        />
-                    </div>
-                    <div className="sm:col-span-2">
-                        <Input
-                            label="Complemento"
-                            value={complement}
-                            onChange={(e) => setComplement(e.target.value)}
-                            placeholder="Apto 101, Bloco B"
-                        />
-                    </div>
-                </div>
-
-                {errorMsg && (
-                    <p className="text-sm text-red-600 text-center bg-red-50 p-2 rounded">
-                        {errorMsg}
-                    </p>
-                )}
-
-                {/* BOTÃO FIXO NO RODAPÉ */}
-                <div className="fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 p-4 2xl:p-5 flex justify-end z-50 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-                     <div className="w-full max-w-4xl mx-auto flex justify-end">
-                        <Button
-                            variant={!isValid ? "secondary" : "primary"}
-                            disabled={!isValid || isLoading}
-                            loading={isLoading}
-                            type="submit"
-                            className="w-full sm:w-auto px-8 2xl:px-10 py-3 2xl:py-4 2xl:text-lg text-base disabled:pointer-events-none"
-                        >
-                            {submitLabel}
-                        </Button>
-                     </div>
-                </div>
-            </form>
-        </div>
-    );
+    return <div className="mx-auto w-full min-w-0 max-w-2xl overflow-x-hidden px-0 sm:px-4"><div className="mb-8 mt-4 text-center sm:text-left"><p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-brand">Etapa 1/4</p><h1 className="text-3xl font-bold text-gray-900">Onde fica sua loja?</h1><p className="mt-1 text-gray-500">Digite o CEP e complete as informações.</p></div><button type="button" onClick={useLocation} disabled={fetching || isLoading} className="mb-8 w-full cursor-pointer rounded-md border border-gray-300 py-3 font-medium text-brand transition-colors hover:bg-gray-50 disabled:cursor-not-allowed"><FontAwesomeIcon icon={faLocationCrosshairs} /> {fetching ? "Buscando..." : "Usar minha localização"}</button><form onSubmit={submit} className="space-y-6"><div><div className="mb-1 flex items-center justify-between"><label className="text-sm font-medium">CEP*</label><a href="https://buscacepinter.correios.com.br/app/endereco/index.php" target="_blank" rel="noreferrer" className="text-xs font-medium text-brand hover:underline">Descubra seu CEP</a></div><Input value={form.cep} onChange={(e) => set("cep", e.target.value)} onBlur={cepBlur} placeholder="00000-000" className={fieldClass("cep")} /></div><div className="grid grid-cols-1 gap-4 sm:grid-cols-3"><Input label="Estado*" value={form.state} onChange={(e) => set("state", e.target.value)} className={fieldClass("state")} disabled={fetching} /><div className="sm:col-span-2"><Input label="Cidade*" value={form.city} onChange={(e) => set("city", e.target.value)} className={fieldClass("city")} disabled={fetching} /></div></div><Input label="Bairro*" value={form.neighborhood} onChange={(e) => set("neighborhood", e.target.value)} className={fieldClass("neighborhood")} /><Input label="Rua*" value={form.street} onChange={(e) => set("street", e.target.value)} className={fieldClass("street")} /><div className="grid grid-cols-1 gap-4 sm:grid-cols-3"><Input label="Número*" value={form.number} onChange={(e) => set("number", e.target.value)} className={fieldClass("number")} /><div className="sm:col-span-2"><Input label="Complemento" value={form.complement} onChange={(e) => set("complement", e.target.value)} /></div></div>{error && <p className="rounded-md bg-red-50 p-3 text-center text-sm text-red-700">{error}</p>}<div className="fixed inset-x-0 bottom-0 z-50 border-t border-gray-200 bg-white p-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]"><div className="mx-auto flex w-full max-w-4xl justify-end"><Tooltip text={!valid ? "Você precisa completar os dados primeiro" : ""} parentClassName="w-full sm:w-auto"><Button type="submit" loading={isLoading} className={`w-full px-8 sm:w-auto ${!valid ? "!bg-brand/55 hover:!bg-brand/55" : ""}`}>{submitLabel}</Button></Tooltip></div></div></form></div>;
 }

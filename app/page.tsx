@@ -1,44 +1,67 @@
 "use client";
 
-import { useRouter } from 'next/navigation';
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faCircleQuestion } from "@fortawesome/free-solid-svg-icons";
 import { icons } from "@/lib/utils/fontawesome";
 import BonusButton from "@/components/ui/BonusButton";
 import Button from "@/components/ui/Button";
 import Tooltip from "@/components/ui/Tooltip";
 import Footer from "@/components/common/Footer";
-import "@/app/reveal.css"
-import SupportButton, {SupportButtonRef} from "@/components/common/SupportButton";
-import {faCircleQuestion} from "@fortawesome/free-solid-svg-icons";
+import SupportButton, {
+    SupportButtonRef,
+} from "@/components/common/SupportButton";
+import BestSellers from "@/components/landing/BestSellers";
+import SignupConfirmationHandler from "@/components/auth/SignupConfirmationHandler";
+import "@/app/reveal.css";
+
+const LOGOS = [
+    {
+        id: 1,
+        name: "Restaurante 1",
+        src: "/images/Menu_Mockup_Logo_3.png",
+        secondSrc: "/images/Menu_Mockup_3.png",
+    },
+    {
+        id: 2,
+        name: "Restaurante 2",
+        src: "/images/Menu_Mockup_Logo_2.png",
+        secondSrc: "/images/Menu_Mockup_2.png",
+    },
+    {
+        id: 3,
+        name: "Restaurante 3",
+        src: "/images/Menu_Mockup_Logo_1.png",
+        secondSrc: "/images/Menu_Mockup_1.png",
+    },
+];
 
 export default function LandingPage() {
-    // SECTION 2 – troca de imagem
-    const logos = [
-        { id: 1, name: "Logo 1", src: "/images/Menu_Mockup_Logo_3.png", second_src:"/images/Menu_Mockup_3.png" },
-        { id: 2, name: "Logo 1", src: "/images/Menu_Mockup_Logo_2.png", second_src:"/images/Menu_Mockup_2.png" },
-        { id: 3, name: "Logo 1", src: "/images/Menu_Mockup_Logo_1.png", second_src:"/images/Menu_Mockup_1.png" },
-    ];
-    const [selected, setSelected] = useState(1);
-    const [restCount, setRestCount] = useState<number>(0);
-    let shouldRun = useRef<boolean>(true);
     const router = useRouter();
     const supportBtnRef = useRef<SupportButtonRef>(null);
-    const [expanded, setExpanded] = useState(false);
+    const [selected, setSelected] = useState(1);
+    const [autoRotate, setAutoRotate] = useState(true);
+    const [restCount, setRestCount] = useState(0);
+    const [expanded] = useState(false);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        setTimeout(() => {
-            setLoading(false);
-        }, 1000);
+        const timer = window.setTimeout(() => setLoading(false), 1000);
+        return () => window.clearTimeout(timer);
     }, []);
 
     useEffect(() => {
-        (async () => {
-            const totalBonus = 20 + 10 //+10 for test restaurants
-            setRestCount(totalBonus - ((await fetch("/api/restaurants/count").then(r => r.json())).count))
-        })();
+        void fetch("/api/restaurants/count")
+            .then((response) => response.json())
+            .then((payload) => {
+                const totalBonus = 30;
+                setRestCount(
+                    Math.max(0, totalBonus - Number(payload?.count || 0))
+                );
+            })
+            .catch(() => setRestCount(0));
     }, []);
 
     useEffect(() => {
@@ -46,464 +69,487 @@ export default function LandingPage() {
     }, []);
 
     useEffect(() => {
-        const els = document.querySelectorAll(".reveal");
-
-        const obs = new IntersectionObserver(
-            entries => {
-                entries.forEach(entry => {
+        const elements = document.querySelectorAll(".reveal");
+        const observer = new IntersectionObserver(
+            (entries) => {
+                entries.forEach((entry) => {
                     if (entry.isIntersecting) {
                         entry.target.classList.add("visible");
-                        if(entry.target.id === "logos"){
-                            setTimeout(() => autoPassLogos(), 4500)
-                        }
-                        obs.unobserve(entry.target); // animate once
+                        observer.unobserve(entry.target);
                     }
                 });
             },
             { threshold: 0.5 }
         );
 
-        els.forEach(el => obs.observe(el));
+        elements.forEach((element) => observer.observe(element));
+        return () => observer.disconnect();
     }, []);
 
-    function autoPassLogos(delay = 4500) {
-        let currentIndex = logos.findIndex((l) => l.id === selected);
-        if (currentIndex === -1) currentIndex = 0;
+    useEffect(() => {
+        LOGOS.forEach((logo) => {
+            const image = new window.Image();
+            image.src = logo.secondSrc;
+        });
+    }, []);
 
-        function step() {
-            if(!shouldRun.current) return
-            currentIndex = (currentIndex + 1) % logos.length; // always forward
-            setSelected(logos[currentIndex].id);
-            setTimeout(step, delay);
-        }
-        if(!shouldRun.current) return
+    useEffect(() => {
+        if (!autoRotate) return;
 
-        step();
-    }
+        const timer = window.setInterval(() => {
+            setSelected((current) => {
+                const index = LOGOS.findIndex((logo) => logo.id === current);
+                return LOGOS[(index + 1) % LOGOS.length].id;
+            });
+        }, 4500);
+
+        return () => window.clearInterval(timer);
+    }, [autoRotate]);
 
     return (
         <div className="w-full max-w-screen overflow-x-hidden">
-
-
-            {/* ================= NAVBAR ================= */}
-            <header className="w-full flex flex-col md:flex-row gap-4 md:gap-0 items-center justify-between py-7 md:py-5 2xl:py-8 px-8 border-gray-200 bg-white">
-                {/* Left – Logo */}
+            <SignupConfirmationHandler />
+            <header className="flex w-full flex-col items-center justify-between gap-4 border-gray-200 bg-white px-8 py-7 md:flex-row md:gap-0 md:py-5 2xl:py-8">
                 <div className="flex items-center gap-2 text-xl font-bold text-brand">
-                    {/* Logo placeholder */}
                     <Image
                         src="/logos/CombinationMarkLogo_Brand.png"
                         alt="iMenu Logo"
                         width={120}
                         height={32}
-                        className="h-6 w-auto ml-4 cursor-pointer 2xl:h-10 2xl:ml-8"
+                        className="ml-4 h-6 w-auto cursor-pointer 2xl:ml-8 2xl:h-10"
                         onClick={() => router.push("#")}
                     />
                 </div>
 
-                {/* Right */}
-                <nav className="flex z-30 md:z-auto items-center gap-8 text-sm font-medium 2xl:text-[1.2rem] 2xl:gap-11">
-                    <a href="#" className="hover:text-gray-500 transition hidden md:block">Home</a>
-                    <a href="#recursos" className="hover:text-gray-500 transition hidden md:block">Recursos</a>
+                <nav className="z-30 flex items-center gap-8 text-sm font-medium md:z-auto 2xl:gap-11 2xl:text-[1.2rem]">
+                    <a href="#" className="hidden transition hover:text-gray-500 md:block">
+                        Home
+                    </a>
+                    <a
+                        href="#recursos"
+                        className="hidden transition hover:text-gray-500 md:block"
+                    >
+                        Recursos
+                    </a>
+
                     {restCount > 0 && (
-                        <Tooltip text={<span>Para os próximos {restCount} restaurantes que se cadastrarem: Consultoria grátis de 30 minutos com time que já assessorou 1M+/mês. <u className={"cursor-pointer"} onClick={() => router.push("/restaurante/registrar")}>Cadastre-se agora</u></span>} size={"medium"} padding={"p-4 2xl:p-6"} position={"bottom"}>
-                            <BonusButton><span className="inline-block"><span className={"text-[0.8rem] 2xl:text-[1.1rem]"}>BÔNUS</span> <span className="font-light">para prox. {restCount} restaurantes</span></span></BonusButton>
+                        <Tooltip
+                            text={
+                                <span>
+                                    Para os próximos {restCount} restaurantes que se
+                                    cadastrarem: Consultoria grátis de 30 minutos com
+                                    time que já assessorou 1M+/mês.{" "}
+                                    <u
+                                        className="cursor-pointer"
+                                        onClick={() =>
+                                            router.push("/restaurante/registrar")
+                                        }
+                                    >
+                                        Cadastre-se agora
+                                    </u>
+                                </span>
+                            }
+                            size="medium"
+                            padding="p-4 2xl:p-6"
+                            position="bottom"
+                        >
+                            <BonusButton>
+                                <span className="inline-block">
+                                    <span className="text-[0.8rem] 2xl:text-[1.1rem]">
+                                        BÔNUS
+                                    </span>{" "}
+                                    <span className="font-light">
+                                        para prox. {restCount} restaurantes
+                                    </span>
+                                </span>
+                            </BonusButton>
                         </Tooltip>
                     )}
 
-                    <div className="w-[1px] h-6 2xl:h-8 bg-gray-300 hidden md:block" />
+                    <div className="hidden h-6 w-px bg-gray-300 md:block 2xl:h-8" />
 
-                    <a onClick={() => router.push("/restaurante/login")} className="hidden md:flex cursor-pointer items-center gap-1 hover:text-gray-500 transition text-gray-600">
-                        <FontAwesomeIcon icon={icons.faUser} />
-                        Login
-                    </a>
+                    <button
+                        type="button"
+                        onClick={() => router.push("/restaurante/login")}
+                        className="hidden cursor-pointer items-center gap-1 text-gray-600 transition hover:text-gray-500 md:flex"
+                    >
+                        <FontAwesomeIcon icon={icons.faUser} /> Login
+                    </button>
 
-                    <Button className={"!hidden md:!block"} variant="primary" onClick={() => router.push("/restaurante/registrar")}>
+                    <Button
+                        className="!hidden md:!block"
+                        onClick={() => router.push("/restaurante/registrar")}
+                    >
                         Registrar Grátis
                     </Button>
                 </nav>
             </header>
 
-            {/* ================= SECTION 1 ================= */}
-            <section className=" relative text-center md:text-left mx-auto grid grid-cols-1 md:grid-cols-2 gap-10 px-6 md:px-15 2xl:px-20 py-0 md:py-20 h-full md:h-[89svh] ">
-
-                {/* Left – Text */}
-                <div className="flex flex-col justify-start md:justify-center -mt-10 md:mt-0">
-
-                    <div className="flex items-center justify-center">
-
-                            <div className="h-120 w-100 relative overflow-hidden md:hidden top-0 2xl:mt-1 z-1">
-                                <video
-                                    src="/images/CellphoneVideo.webm"
-                                    autoPlay
-                                    loop
-                                    muted
-                                    playsInline
-                                    className="absolute inset-0 w-full h-full object-cover"
-                                />
-                            </div>
-
+            <section className="relative mx-auto grid h-full grid-cols-1 gap-10 px-6 py-0 text-center md:h-[89svh] md:grid-cols-2 md:px-15 md:py-20 md:text-left 2xl:px-20">
+                <div className="-mt-10 flex flex-col justify-start md:mt-0 md:justify-center">
+                    <div className="flex items-center justify-center md:hidden">
+                        <div className="relative top-0 z-1 h-120 w-100 overflow-hidden">
+                            <video
+                                src="/images/CellphoneVideo.webm"
+                                autoPlay
+                                loop
+                                muted
+                                playsInline
+                                className="absolute inset-0 h-full w-full object-cover"
+                            />
+                        </div>
                     </div>
 
-                    <h1 className="text-2xl md:text-5xl 2xl:text-[4rem]  font-extrabold mb-2 mt-6 md:-mt-4 text-brand leading-tight ">
+                    <h1 className="mt-6 mb-2 text-2xl leading-tight font-extrabold text-brand md:-mt-4 md:text-5xl 2xl:text-[4rem]">
                         O novo Cardápio Digital
-                        <br/><span className={"text-text"}>100% Gratuito</span>
+                        <br />
+                        <span className="text-text">100% Gratuito</span>
                     </h1>
-
-
-                    <h2 className="text-gray-500 leading-normal mt-4 md:mt-0 md:leading-15 2xl:leadin-24 2xl:text-[1.4rem]">
-                        Cardápio digital para Restaurantes e Delivery. Pronto em 5 minutos.
+                    <h2 className="mt-4 leading-normal text-gray-500 md:mt-0 md:leading-15 2xl:text-[1.4rem]">
+                        Cardápio digital para Restaurantes e Delivery. Pronto em 5
+                        minutos.
                     </h2>
-
-
-
-                    <div className="text-gray-500 2xl:text-[1.4rem] mt-5 md:mt-0 hidden md:block">
+                    <div className="mt-5 hidden text-gray-500 md:block 2xl:text-[1.4rem]">
                         Sem taxas, sem pegadinhas.{" "}
-                        <Tooltip text={"O iMenu é completamente grátis, para sempre."} position={"right"}><a href={"#recursos"} className="underline cursor-pointer">Para sempre.</a></Tooltip>
+                        <Tooltip
+                            text="O iMenu é completamente grátis, para sempre."
+                            position="right"
+                        >
+                            <a href="#recursos" className="cursor-pointer underline">
+                                Para sempre.
+                            </a>
+                        </Tooltip>
                     </div>
 
-                    <div className="flex items-center justify-center md:justify-start gap-4 mt-6 2xl:mt-9 2xl:gap-6">
-                        <Button variant="primary" onClick={() => router.push("/restaurante/registrar")} className="px-6 py-3 text-lg 2xl:px-10 2xl:py-4 2xl:text-[1.6rem]">
+                    <div className="mt-6 flex items-center justify-center gap-4 md:justify-start 2xl:mt-9 2xl:gap-6">
+                        <Button
+                            onClick={() => router.push("/restaurante/registrar")}
+                            className="px-6 py-3 text-lg 2xl:px-10 2xl:py-4 2xl:text-[1.6rem]"
+                        >
                             Registrar Grátis
                         </Button>
-                        {restCount > 0 && (
-                            <Tooltip text={<span>Para os próximos {restCount} restaurantes que se cadastrarem: Consultoria grátis de 30 minutos com time que já assessorou 1M+/mês. <u className={"cursor-pointer"} onClick={() => router.push("/restaurante/registrar")}>Cadastre-se agora</u></span>} size={"medium"} padding={"p-4 2xl:p-6"} position={"bottom"}><BonusButton className={"hidden md:inline-flex"}><span className=" font-regular text-xs 2xl:text-[1.1rem]">BÔNUS</span></BonusButton></Tooltip>
-                        )}
-                        <div className="w-[1px] h-6 bg-gray-300" />
-
-                        <a onClick={() => router.push("/restaurante/login")} className="cursor-pointer flex items-center gap-1 hover:text-gray-500 transition text-gray-600 2xl:text-xl">
-                            <FontAwesomeIcon icon={icons.faUser} />
-                            Login
-                        </a>
-
+                        <div className="h-6 w-px bg-gray-300" />
+                        <button
+                            type="button"
+                            onClick={() => router.push("/restaurante/login")}
+                            className="flex cursor-pointer items-center gap-1 text-gray-600 transition hover:text-gray-500 2xl:text-xl"
+                        >
+                            <FontAwesomeIcon icon={icons.faUser} /> Login
+                        </button>
                     </div>
-
                 </div>
-                {/* Right – Video placeholder (image) */}
+
                 <div className="flex items-center justify-center">
-                    <div className="absolute h-[100%] w-100 overflow-hidden hidden md:block top-0 2xl:mt-1">
+                    <div className="absolute top-0 hidden h-full w-100 overflow-hidden md:block">
                         <video
                             src="/images/CellphoneVideo.webm"
                             autoPlay
                             loop
                             muted
                             playsInline
-                            className="absolute inset-0 w-full h-full object-cover"
+                            className="absolute inset-0 h-full w-full object-cover"
                         />
                     </div>
-
                 </div>
             </section>
 
-            {/* ================= SECTION 2 ================= */}
-            <section className="py-16 2xl:py-26 px-8 h-auto md:h-[100vh] ">
-                <h2 className="text-center text-3xl md:text-4xl 2xl:text-[3.2rem] font-extrabold text-brand mb-4 md:mb-13 2xl:mb-20 reveal fade-up">
-                    Totalmente Grátis<br/>
-                    <span className={"text-text text-2xl md:text-[100%]"}>sem taxas, sem pegadinhas</span>
+            <section className="h-auto px-8 py-16 md:min-h-[100vh] 2xl:py-26">
+                <h2 className="reveal fade-up mb-4 text-center text-3xl font-extrabold text-brand md:mb-13 md:text-4xl 2xl:mb-20 2xl:text-[3.2rem]">
+                    Totalmente Grátis
+                    <br />
+                    <span className="text-2xl text-text md:text-[100%]">
+                        sem taxas, sem pegadinhas
+                    </span>
                 </h2>
 
-                <div className="x-4 md:mx-18 flex flex-col md:flex-row gap-4 md:gap-12">
-
-                    {/* LEFT – Logos + Image */}
-                    <div className="flex gap-8 md:gap-10 2xl:gap-16 items-center md:items-start h-auto flex-1 flex-col md:flex-row">
-
-                        {/* Logos */}
-                        <div id={"logos"} className="reveal fade-up h-[100%] flex flex-row md:flex-col gap-5 2xl:gap-8 pt-4 items-center justify-center">
-                            {logos.map((l) => (
+                <div className="flex flex-col gap-4 md:mx-18 md:flex-row md:gap-12">
+                    <div className="flex h-auto flex-1 flex-col items-center gap-8 md:flex-row md:items-start md:gap-10 2xl:gap-16">
+                        <div
+                            id="logos"
+                            className="reveal fade-up flex h-full flex-row items-center justify-center gap-5 pt-4 md:flex-col 2xl:gap-8"
+                        >
+                            {LOGOS.map((logo) => (
                                 <button
-                                    key={l.id}
-                                    onClick={() => setSelected(l.id)}
-                                    className={`transition rounded-full p-1 ${
-                                        selected === l.id ? "scale-125 md:scale-115 opacity-100" : "opacity-66"
+                                    key={logo.id}
+                                    type="button"
+                                    onClick={() => {
+                                        setSelected(logo.id);
+                                        setAutoRotate(false);
+                                    }}
+                                    className={`cursor-pointer rounded-full p-1 transition-transform duration-300 ${
+                                        selected === logo.id
+                                            ? "scale-125 opacity-100 md:scale-115"
+                                            : "opacity-60"
                                     }`}
                                 >
-                                    <div onClick={() => shouldRun.current = false} className="cursor-pointer w-12 h-12 2xl:w-20 2xl:h-20 rounded-full  hover:scale-110 duration-200 overflow-hidden bg-gray-200 flex items-center justify-center">
+                                    <span className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-gray-200 duration-200 hover:scale-110 2xl:h-20 2xl:w-20">
                                         <Image
-                                            src={l.src}
-                                            alt={l.name}
-                                            width={50}
-                                            height={50}
-                                            className={`w-full h-full object-contain transition ${
-                                                selected === l.id ? "grayscale-0" : "grayscale-75 md:grayscale-50"
-                                            }`}                                        />
-                                    </div>
+                                            src={logo.src}
+                                            alt={logo.name}
+                                            width={80}
+                                            height={80}
+                                            className={`h-full w-full object-contain transition duration-300 ${
+                                                selected === logo.id
+                                                    ? "grayscale-0"
+                                                    : "grayscale-75 md:grayscale-50"
+                                            }`}
+                                        />
+                                    </span>
                                 </button>
                             ))}
                         </div>
 
-                        {/* Main image */}
-                        <div className="md:reveal md:fade-right delay-300 flex-1 flex flex-col md:flex-row  gap-8 2xl:gap-12 relative h-full z-50">
-                            <div className={"w-full md:w-[45%] 2xl:w-[50%]"}>
-                                <div
-                                    key={selected}
-                                    className="
-                relative h-[100%]
-                animate-fadeUp
-            "
-                                >
-                                    <Image
-                                        src={logos.find(l => l.id === selected)?.second_src || "/iMenu Menu.png"}
-                                        alt="Preview do cardápio digital"
-                                        width={1080}
-                                        height={1920}
-                                        className="h-full w-auto drop-shadow-[-5px_-5px_5px_rgba(0,0,0,0.1)] md:drop-shadow-[0px_5px_5px_rgba(0,0,0,0.1)] rounded-xl 2xl:rounded-2xl"
-                                    />
+                        <div className="delay-300 md:reveal md:fade-right relative z-50 flex h-full flex-1 flex-col gap-8 md:flex-row 2xl:gap-12">
+                            <div className="w-full md:w-[45%] 2xl:w-[50%]">
+                                <div className="relative mx-auto aspect-[9/16] h-full max-h-[65svh] w-full max-w-sm overflow-hidden">
+                                    <div
+                                        key={selected}
+                                        className="absolute inset-0 animate-fadeUp"
+                                    >
+                                        <Image
+                                            src={
+                                                LOGOS.find(
+                                                    (logo) =>
+                                                        logo.id === selected
+                                                )?.secondSrc ||
+                                                "/iMenu Menu.png"
+                                            }
+                                            alt="Preview do cardápio digital"
+                                            fill
+                                            sizes="(max-width: 768px) 90vw, 35vw"
+                                            priority
+                                            className="rounded-xl object-contain drop-shadow-[0_5px_5px_rgba(0,0,0,0.1)] 2xl:rounded-2xl"
+                                        />
+                                    </div>
                                 </div>
                             </div>
-                            <div className="flex flex-col gap-12 2xl:gap-20 w-full  md:w-[43%] ml-0 mt-4 md:mt-0 md:ml-3  text-center md:text-left  justify-center z-40">
-                                <div>
-                                    <h3 className="text-lg 2xl:text-[1.5rem] font-bold mb-1">Venda sem taxas</h3>
-                                    <p className="text-gray-500 2xl:text-xl">Receba 100% do valor que você vendeu.</p>
-                                </div>
-                                <div>
-                                    <h3 className="text-lg 2xl:text-[1.5rem] font-bold mb-1">Criado em 5 minutos</h3>
-                                    <div className="text-gray-500 z-50 2xl:text-xl">A <Tooltip className={"z-50"} text={"Nossa IA realiza o scan da foto ou PDF do seu cardápio."} position={"right"}><u className={"cursor-pointer"}>Inteligência Artificial</u></Tooltip> reconhece a foto do seu cardápio.</div>
-                                </div>
 
-                                <Button variant="primary" onClick={() => router.push("/restaurante/registrar")} className="px-6 py-3 text-lg mb-3 2xl:px-10 2xl:py-4 2xl:text-[1.6rem]">
+                            <div className="z-40 mt-4 ml-0 flex w-full flex-col justify-center gap-12 text-center md:mt-0 md:ml-3 md:w-[43%] md:text-left 2xl:gap-20">
+                                <div>
+                                    <h3 className="mb-1 text-lg font-bold 2xl:text-[1.5rem]">
+                                        Venda sem taxas
+                                    </h3>
+                                    <p className="text-gray-500 2xl:text-xl">
+                                        Receba 100% do valor que você vendeu.
+                                    </p>
+                                </div>
+                                <div>
+                                    <h3 className="mb-1 text-lg font-bold 2xl:text-[1.5rem]">
+                                        Criado em 5 minutos
+                                    </h3>
+                                    <div className="z-50 text-gray-500 2xl:text-xl">
+                                        A{" "}
+                                        <Tooltip
+                                            text="Nossa IA realiza o scan da foto ou PDF do seu cardápio."
+                                            position="right"
+                                        >
+                                            <u className="cursor-pointer">
+                                                Inteligência Artificial
+                                            </u>
+                                        </Tooltip>{" "}
+                                        reconhece a foto do seu cardápio.
+                                    </div>
+                                </div>
+                                <Button
+                                    onClick={() =>
+                                        router.push("/restaurante/registrar")
+                                    }
+                                    className="mb-3 px-6 py-3 text-lg 2xl:px-10 2xl:py-4 2xl:text-[1.6rem]"
+                                >
                                     Registrar Grátis
                                 </Button>
-
                             </div>
                         </div>
                     </div>
 
-                    {/* RIGHT – Big image */}
-                    <div className="flex items-center justify-center relative md:h-[63svh] flex-1 z-1 mt-10 md:mt-0">
-                        <div className="relative h-full w-full delay-500 reveal fade-left z-1">
+                    <div className="relative z-1 mt-10 flex flex-1 items-center justify-center md:mt-0 md:h-[63svh]">
+                        <div className="reveal fade-left delay-500 relative z-1 h-full w-full">
                             <Image
                                 src="/images/MonitorGraph.png"
                                 alt="Destaque do painel e resultados"
                                 width={1080}
                                 height={1920}
-                                className="h-[105%] ml-0 mt-0 md:-mt-5 md:ml-7 w-auto z-1 2xl:ml-20 2xl:-mt-10"
+                                className="z-1 mt-0 ml-0 h-[105%] w-auto md:-mt-5 md:ml-7 2xl:-mt-10 2xl:ml-20"
                             />
                         </div>
                     </div>
                 </div>
             </section>
 
-            {/* ================= SECTION 3 ================= */}
-            <section id={"recursos"} className="mx-0 md:mx-24 2xl:mx-38 px-4 md:px-8 pt-30 md:py-20">
-                <h2 className="text-4xl 2xl:text-[3.2rem] font-extrabold text-brand mb-3 reveal fade-left text-center md:text-left">
-                    Venda mais <span className={"hidden md:inline-block"}>com iMenu</span>
-                    <br/><span className={"text-text"}>e lucre mais</span>
+            <BestSellers />
+
+            <section
+                id="recursos"
+                className="mx-0 px-4 pt-30 md:mx-24 md:px-8 md:py-20 2xl:mx-38"
+            >
+                <h2 className="reveal fade-left mb-3 text-center text-4xl font-extrabold text-brand md:text-left 2xl:text-[3.2rem]">
+                    Venda mais <span className="hidden md:inline-block">com iMenu</span>
+                    <br />
+                    <span className="text-text">e lucre mais</span>
                 </h2>
-                <h2 className="text-gray-500 mb-12 md:mb-18 2xl:text-xl 2xl:mb-24 reveal fade-left delay-200 text-center md:text-left">
+                <h2 className="reveal fade-left delay-200 mb-12 text-center text-gray-500 md:mb-18 md:text-left 2xl:mb-24 2xl:text-xl">
                     Compare os benefícios entre o iMenu e outros cardápios digitais:
                 </h2>
 
-                {/* Table */}
                 <div className="overflow-x-auto">
-                    <table className="w-auto md:w-[80%] m-auto border-collapse rounded-sm 2xl:rounded-lg 2xl:text-[1.4rem] overflow-hidden">
-                        <thead className="text-left border-b border-gray-200">
-                        <tr className="bg-gray-100">
-                            <th className="p-4 2xl:p-6 font-medium border-r border-gray-200">Recursos</th>
-                            <th className="p-4 2xl:p-6 font-medium border-r border-gray-200"><img src={"/logos/CombinationMarkLogo_Black.png"} className="w-18 opacity-70 2xl:w-24"/></th>
-                            <th className="p-4 2xl:p-6 font-medium">Concorrentes</th>
-                        </tr>
+                    <table className="m-auto w-auto min-w-[620px] border-collapse overflow-hidden rounded-sm md:w-[80%] 2xl:rounded-lg 2xl:text-[1.4rem]">
+                        <thead className="border-b border-gray-200 text-left">
+                            <tr className="bg-gray-100">
+                                <th className="border-r border-gray-200 p-4 font-medium 2xl:p-6">
+                                    Recursos
+                                </th>
+                                <th className="border-r border-gray-200 p-4 font-medium 2xl:p-6">
+                                    <img
+                                        src="/logos/CombinationMarkLogo_Black.png"
+                                        alt="iMenu"
+                                        className="w-18 opacity-70 2xl:w-24"
+                                    />
+                                </th>
+                                <th className="p-4 font-medium 2xl:p-6">Concorrentes</th>
+                            </tr>
                         </thead>
+                        <tbody className="[&>tr>td]:p-4 [&>tr>td]:2xl:p-6 [&>tr:nth-child(even)]:bg-gray-50">
+                            {restCount > 0 && (
+                                <tr>
+                                    <td className="border-r border-gray-200 text-sm md:text-[100%] md:font-light">
+                                        <BonusButton className="hidden md:inline-flex">
+                                            <span>
+                                                <span className="font-medium">BÔNUS</span>{" "}
+                                                <span className="font-light">
+                                                    para os prox. {restCount} restaurantes
+                                                </span>
+                                            </span>
+                                        </BonusButton>
+                                        <span className="block md:hidden">
+                                            <b>BÔNUS</b> para os prox. {restCount} restaurantes
+                                        </span>
+                                    </td>
+                                    <td className="border-r border-gray-200 text-center text-xs leading-tight md:text-[100%]">
+                                        Consultoria com time
+                                        <br /> que já assessorou 1M+/mês
+                                    </td>
+                                    <td className="text-center">-</td>
+                                </tr>
+                            )}
+                            {[
+                                ["Totalmente grátis, para sempre", "check", "Mensalidade e taxas"],
+                                ["Pedidos ilimitados", "check", "Cada vez mais caro"],
+                                ["Converte o cliente", "check", "Baixa Conversão"],
+                                ["Gestor de pedidos (balcão)", "check", "Limitado"],
+                                ["Suporte humanizado", "Todos os dias", "Robô, fila ou e-mail"],
+                                ["Integração com iFood", "Sincronização contínua", "Limitado"],
+                                ["Acompanhamento do pedido", "Notificações via WhatsApp", "Clientes ficam perdidos"],
+                                ["Calcular Taxa de Entrega", "Pelo Raio", "Configurações confusas"],
+                                ["Taxa por Transação", "0.99%", "5%, 15%, 30%"],
+                                ["Scan de Cardápio com IA", "Pronto em segundos", "Manual"],
+                                ["Fotos e Vídeos dos produtos", "check", "Baixa qualidade"],
+                                ["Customização de opcionais", "check", "Limitado"],
+                                ["Identidade visual personalizada", "check", "Limitado"],
+                                ["Sem marca d'água", "check", "Com marca d'água"],
+                                ["Link para WhatsApp e redes", "check", "Limitado"],
+                                ["Painel Financeiro", "check", "Limitado"],
+                                ["Sistema em nuvem", "check", "Não"],
+                                ["Google Analytics Integrado", "check", "Limitado"],
+                                ["Pixel Meta (Facebook/Instagram) Integrado", "check", "Limitado"],
+                                ["Impressão dos pedidos", "check", "Não"],
+                                ["Cupons de desconto", "check", "Pouca customização"],
+                                ["Sistema disponível para celulares", "check", "Indisponível"],
+                            ].map(([feature, imenu, competitor]) => (
+                                <tr key={feature}>
+                                    <td className="border-r border-gray-200">{feature}</td>
+                                    <td className="border-r border-gray-200 text-center">
+                                        {imenu === "check" ? (
+                                            <FontAwesomeIcon
+                                                icon={icons.faCheck}
+                                                className="text-green"
+                                            />
+                                        ) : (
+                                            imenu
+                                        )}
+                                    </td>
+                                    <td className="text-center">{competitor}</td>
+                                </tr>
+                            ))}
 
-                        <tbody className="[&>tr>td]:p-4 [&>tr>td]:2xl:p-6 [&>tr:nth-child(even)]:bg-gray-50 [&>tr:nth-child(odd)]:">
-                        {restCount > 0 && (
-                        <tr >
-                            <td className=" border-r border-gray-200 md:font-light text-sm md:text-[100%]"><BonusButton className={"hidden md:inline-flex"}><span className={"inline-block"}><span className={"font-medium"}>BÔNUS</span> <span className={"font-light"}>para os prox. {restCount} restaurantes</span></span></BonusButton><span className={"block md:hidden"}><b>BÔNUS</b> para os prox. {restCount} restaurantes</span></td>
-                            <td className=" border-r border-gray-200 text-center leading-tight text-xs md:text-[100%]">Consultoria com time<br/> que já assessorou 1M+/mês</td>
-                            <td className=" border-gray-200 text-center">-</td>
-                        </tr>
-                        )}
-                        <tr>
-                            <td className=" border-r border-gray-200 ">Totalmente grátis, para sempre</td>
-                            <td className=" border-r border-gray-200 text-center"><FontAwesomeIcon icon={icons.faCheck} className={"text-green"}/></td>
-                            <td className="  border-gray-200 text-center">Mensalidade e taxas</td>
-                        </tr>
-                        <tr>
-                            <td className=" border-r border-gray-200">Pedidos ilimitados</td>
-                            <td className=" border-r border-gray-200 text-center"><FontAwesomeIcon icon={icons.faCheck} className={"text-green"}/></td>
-                            <td className="  border-gray-200 text-center">Cada vez mais caro</td>
-                        </tr>
-                        <tr>
-                            <td className=" border-r border-gray-200">Converte o cliente</td>
-                            <td className=" border-r border-gray-200 text-center"><FontAwesomeIcon icon={icons.faCheck} className={"text-green"}/></td>
-                            <td className="  border-gray-200 text-center">Baixa Conversão</td>
-                        </tr>
-                        <tr>
-                            <td className=" border-r border-gray-200">Gestor de pedidos (balcão)</td>
-                            <td className=" border-r border-gray-200 text-center"><FontAwesomeIcon icon={icons.faCheck} className={"text-green"}/></td>
-                            <td className="  border-gray-200 text-center">Limitado</td>
-                        </tr>
-                        <tr>
-                            <td className=" border-r border-gray-200">Suporte humanizado</td>
-                            <td className=" border-r border-gray-200 text-center"><Tooltip size={"medium"} text={<span>Suporte <b>humanizado</b> em horário comercial via Whatsapp. Todos os dias.</span>}><u className={"cursor-pointer"}>Todos os dias</u></Tooltip></td>
-                            <td className=" text-center">Robô, fila ou e-mail</td>
-                        </tr>
-                        <tr>
-                            <td className=" border-r border-gray-200">Integração com iFood</td>
-                            <td className=" border-r border-gray-200 text-center">Sincronização contínua</td>
-                            <td className=" text-center">Limitado</td>
-                        </tr>
-                        <tr>
-                            <td className=" border-r border-gray-200">Acompanhamento do pedido</td>
-                            <td className=" border-r border-gray-200 text-center">Notificações via Whatsapp</td>
-                            <td className="  border-gray-200 text-center">Clientes ficam perdidos</td>
-                        </tr>
-                        <tr>
-                            <td className=" border-r border-gray-200">Calcular Taxa de Entrega</td>
-                            <td className=" border-r border-gray-200 text-center">Pelo Raio</td>
-                            <td className=" text-center">Configurações confusas</td>
-                        </tr>
-                        <tr>
-                            <td className=" border-r border-gray-200">Taxa por Transação</td>
-                            <td className=" border-r border-gray-200 text-center"><Tooltip text={<span>Taxa de transação bancária.</span>}><u className={"cursor-pointer"}>0.99%</u></Tooltip></td>
-                            <td className="  border-gray-200 text-center">5%, 15%, 30%</td>
-                        </tr>
+                            {[
+                                ["Agendamento de pedido", "Não"],
+                                ["QR Code na mesa", "Nem sempre disponível"],
+                                ["Pedidos via Instagram / Facebook", "Não"],
+                                ["Rastreio de Motoboy", "Clientes ficam perdidos"],
+                                ["Comanda Mobile", "Taxas adicionais"],
+                            ].map(([feature, competitor]) => (
+                                <tr key={feature}>
+                                    <td className="border-r border-gray-200">{feature}</td>
+                                    <td className="border-r border-gray-200 text-center">
+                                        <Tooltip
+                                            text="Funcionalidade em desenvolvimento."
+                                            color="bg-orange"
+                                        >
+                                            <FontAwesomeIcon
+                                                icon={icons.faClock}
+                                                className="text-orange"
+                                            />
+                                        </Tooltip>
+                                    </td>
+                                    <td className="text-center">{competitor}</td>
+                                </tr>
+                            ))}
 
-                        <tr>
-                            <td className=" border-r border-gray-200">Scan de Cardápio com IA</td>
-                            <td className=" border-r border-gray-200 text-center"><Tooltip text={<span>Nossa IA realiza o Scan da foto ou PDF do seu cardápio.</span>}><u className={"cursor-pointer"}>Pronto em segundos</u></Tooltip></td>
-                            <td className=" text-center">Manual</td>
-                        </tr>
-                        <tr>
-                            <td className=" border-r border-gray-200">Fotos e Vídeos dos produtos</td>
-                            <td className=" border-r border-gray-200 text-center"><FontAwesomeIcon icon={icons.faCheck} className={"text-green"}/></td>
-                            <td className=" text-center">Baixa qualidade</td>
-                        </tr>
-
-                        <tr>
-                            <td className=" border-r border-gray-200">Customização de opcionais</td>
-                            <td className=" border-r border-gray-200 text-center"><FontAwesomeIcon icon={icons.faCheck} className={"text-green"}/></td>
-                            <td className=" text-center">Limitado</td>
-                        </tr>
-
-                        <tr>
-                            <td className=" border-r border-gray-200">Identidade visual personalizada</td>
-                            <td className=" border-r border-gray-200 text-center"><FontAwesomeIcon icon={icons.faCheck} className={"text-green"}/></td>
-                            <td className=" text-center">Limitado</td>
-                        </tr>
-                        <tr>
-                            <td className=" border-r border-gray-200">Sem marca d'água</td>
-                            <td className=" border-r border-gray-200 text-center"><FontAwesomeIcon icon={icons.faCheck} className={"text-green"}/></td>
-                            <td className=" text-center">Com marca d'água</td>
-                        </tr>
-
-
-                        <tr>
-                            <td className=" border-r border-gray-200">Link para WhatsApp e redes</td>
-                            <td className=" border-r border-gray-200 text-center"><FontAwesomeIcon icon={icons.faCheck} className={"text-green"}/></td>
-                            <td className=" text-center">Limitado</td>
-                        </tr>
-
-
-
-
-
-                        <tr>
-                            <td className=" border-r border-gray-200">Painel Financeiro</td>
-                            <td className=" border-r border-gray-200 text-center"><FontAwesomeIcon icon={icons.faCheck} className={"text-green"}/></td>
-                            <td className=" text-center">Limitado</td>
-                        </tr>
-
-
-
-                        <tr>
-                            <td className=" border-r border-gray-200">Sistema em nuvem</td>
-                            <td className=" border-r border-gray-200 text-center"><FontAwesomeIcon icon={icons.faCheck} className={"text-green"}/></td>
-                            <td className=" text-center">Não</td>
-                        </tr>
-
-
-                        <tr>
-                            <td className=" border-r border-gray-200">Google Analytics Integrado</td>
-                            <td className=" border-r border-gray-200 text-center">
-                                <FontAwesomeIcon icon={icons.faCheck} className={"text-green"}/>
-                            </td>
-                            <td className=" text-center">Limitado</td>
-                        </tr>
-
-                        <tr>
-                            <td className=" border-r border-gray-200">Pixel Meta (Facebook/Instagram) Integrado</td>
-                            <td className=" border-r border-gray-200 text-center">                                <FontAwesomeIcon icon={icons.faCheck} className={"text-green"}/>                            </td>
-                            <td className=" text-center">Limitado</td>
-                        </tr>
-
-                        <tr>
-                            <td className=" border-r border-gray-200">Impressão dos pedidos</td>
-                            <td className=" border-r border-gray-200 text-center">                                <FontAwesomeIcon icon={icons.faCheck} className={"text-green"}/></td>
-                            <td className=" text-center">Não</td>
-                        </tr>
-
-
-                        <tr>
-                            <td className=" border-r border-gray-200">Cupons de desconto</td>
-                            <td className=" border-r border-gray-200 text-center">
-                                <FontAwesomeIcon icon={icons.faCheck} className={"text-green"}/>
-                            </td>
-                            <td className=" text-center">Pouca customização</td>
-                        </tr>
-                        <tr>
-                            <td className=" border-r border-gray-200">Agendamento de pedido</td>
-                            <td className=" border-r border-gray-200 text-center"><Tooltip text={<span>Funcionalidade em desenvolvimento.</span>} color={"bg-orange"}><FontAwesomeIcon icon={icons.faClock} className={"text-orange"}/></Tooltip></td>
-                            <td className=" text-center">Não</td>
-                        </tr>
-                        <tr>
-                            <td className=" border-r border-gray-200">QR Code na mesa</td>
-                            <td className=" border-r border-gray-200 text-center"><Tooltip text={<span>Funcionalidade em desenvolvimento.</span>} color={"bg-orange"}><FontAwesomeIcon icon={icons.faClock}  className={"text-orange"}/></Tooltip></td>
-                            <td className=" text-center">Nem sempre disponível</td>
-                        </tr>
-                        <tr>
-                            <td className=" border-r border-gray-200">Pedidos via Instagram / Facebook</td>
-                            <td className=" border-r border-gray-200 text-center"><Tooltip text={<span>Funcionalidade em desenvolvimento.</span>} color={"bg-orange"}><FontAwesomeIcon icon={icons.faClock} className={"text-orange"}/></Tooltip></td>
-                            <td className=" text-center">Não</td>
-                        </tr>
-                        <tr>
-                            <td className=" border-r border-gray-200">Rastreio de Motoboy</td>
-                            <td className=" border-r border-gray-200 text-center"><Tooltip text={<span>Funcionalidade em desenvolvimento.</span>} color={"bg-orange"}><FontAwesomeIcon icon={icons.faClock} className={"text-orange"}/></Tooltip></td>
-                            <td className=" text-center">Clientes ficam perdidos</td>
-                        </tr>
-                        <tr>
-                            <td className=" border-r border-gray-200">Comanda Mobile</td>
-                            <td className=" border-r border-gray-200 text-center"><Tooltip text={<span>Funcionalidade em desenvolvimento.</span>} color={"bg-orange"}><FontAwesomeIcon icon={icons.faClock}  className={"text-orange"}/></Tooltip></td>
-                            <td className=" text-center">Taxas adicionais</td>
-                        </tr>
-                        <tr>
-                            <td className=" border-r border-gray-200">ChatBot & Robô WhatsApp</td>
-                            <td className=" border-r border-gray-200 text-center"><Tooltip text={<span>Não é uma prioridade no momento.</span>} color={"bg-red"}><FontAwesomeIcon icon={icons.faClock} className={"text-red"}/></Tooltip></td>
-                            <td className=" text-center">Taxas adicionais</td>
-                        </tr>
-                        <tr>
-                            <td className=" border-r border-gray-200">CRM</td>
-                            <td className=" border-r border-gray-200 text-center"><Tooltip text={<span>Não é uma prioridade no momento.</span>} color={"bg-red"}><FontAwesomeIcon icon={icons.faClock} className={"text-red"}/></Tooltip></td>
-                            <td className=" text-center">Limitado</td>
-                        </tr>
-
+                            {[
+                                ["ChatBot & Robô WhatsApp", "Taxas adicionais"],
+                                ["CRM", "Limitado"],
+                            ].map(([feature, competitor]) => (
+                                <tr key={feature}>
+                                    <td className="border-r border-gray-200">{feature}</td>
+                                    <td className="border-r border-gray-200 text-center">
+                                        <Tooltip
+                                            text="Não é uma prioridade no momento."
+                                            color="bg-red"
+                                        >
+                                            <FontAwesomeIcon
+                                                icon={icons.faClock}
+                                                className="text-red"
+                                            />
+                                        </Tooltip>
+                                    </td>
+                                    <td className="text-center">{competitor}</td>
+                                </tr>
+                            ))}
                         </tbody>
                     </table>
                 </div>
-
             </section>
 
-            <Footer /> {/* ✅ FOOTER AQUI */}
+            <Footer />
+            <SupportButton
+                ref={supportBtnRef}
+                bottomClassName={`!transition-normal duration-300 ${
+                    loading ? "-bottom-24" : "bottom-6"
+                }`}
+            />
 
-            <SupportButton ref={supportBtnRef} bottomClassName={`!transition-normal duration-300 ${loading ? "-bottom-24" : "bottom-6"}`} />
-
-            {/* === BOTÃO DE AJUDA/SUPORTE (Abre via Ref) === */}
             <button
+                type="button"
                 onClick={() => supportBtnRef.current?.open()}
-                className={`group flex items-center relative py-3 cursor-pointer transition-all duration-200 w-full text-gray-600 hover:bg-gray-50 hover:text-gray-900 ${
-                    expanded ? "justify-start px-5 gap-3" : "justify-center px-0"
+                className={`group relative flex w-full cursor-pointer items-center py-3 text-gray-600 transition-all duration-200 hover:bg-gray-50 hover:text-gray-900 ${
+                    expanded ? "justify-start gap-3 px-5" : "justify-center px-0"
                 }`}
                 title={!expanded ? "Ajuda" : ""}
             >
-                <div className="flex items-center justify-center w-6 h-6 2xl:w-12 2xl:h-10">
+                <div className="flex h-6 w-6 items-center justify-center 2xl:h-10 2xl:w-12">
                     <FontAwesomeIcon
                         icon={faCircleQuestion}
-                        className="text-lg 2xl:text-2xl text-gray-400 group-hover:text-gray-600 transition-colors"
+                        className="text-lg text-gray-400 transition-colors group-hover:text-gray-600 2xl:text-2xl"
                     />
                 </div>
-                <span className={`2xl:text-lg whitespace-nowrap overflow-hidden text-sm transition-all duration-300 ${expanded ? "w-auto opacity-100 ml-0" : "w-0 opacity-0 ml-0"}`}>
-                                Ajuda
-                            </span>
+                <span
+                    className={`overflow-hidden text-sm whitespace-nowrap transition-all duration-300 2xl:text-lg ${
+                        expanded ? "ml-0 w-auto opacity-100" : "ml-0 w-0 opacity-0"
+                    }`}
+                >
+                    Ajuda
+                </span>
             </button>
-
         </div>
     );
 }

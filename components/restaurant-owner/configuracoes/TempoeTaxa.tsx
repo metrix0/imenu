@@ -261,17 +261,10 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
 
         const handleAddRule = () => {
             setRules((currentRules) => {
-                const existingRadii = new Set(
-                    currentRules.map(
-                        (rule) => rule.radius_km
-                    )
-                );
-
-                let nextRadius = 0.5;
-
-                while (existingRadii.has(nextRadius)) {
-                    nextRadius += 0.5;
-                }
+                const lastRadius = currentRules.length > 0
+                    ? Math.max(...currentRules.map((rule) => Number(rule.radius_km) || 0))
+                    : 0;
+                const nextRadius = lastRadius + 1;
 
                 const lastRule =
                     currentRules.length > 0

@@ -1,349 +1,131 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faTrash, faStar } from "@fortawesome/free-solid-svg-icons";
+import { faTrash } from "@fortawesome/free-solid-svg-icons";
 import Button from "@/components/ui/Button";
-
-// Importando componentes padrão do projeto
 import Modal from "@/components/ui/Modal";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 
-// --- Types ---
-export type TimeSlot = {
-    open: string;  // "HH:mm"
-    close: string; // "HH:mm"
-};
-
+export type TimeSlot = { open: string; close: string };
 export type Availability = Record<string, TimeSlot[]>;
 
 const DAYS = [
-    { key: "0", label: "Domingo" },
-    { key: "1", label: "Segunda" },
-    { key: "2", label: "Terça" },
-    { key: "3", label: "Quarta" },
-    { key: "4", label: "Quinta" },
-    { key: "5", label: "Sexta" },
-    { key: "6", label: "Sábado" },
+    { key: "0", label: "Domingo", blockLabel: "DOMINGO" },
+    { key: "1", label: "Segunda", blockLabel: "SEGUNDA-FEIRA" },
+    { key: "2", label: "Terça", blockLabel: "TERÇA-FEIRA" },
+    { key: "3", label: "Quarta", blockLabel: "QUARTA-FEIRA" },
+    { key: "4", label: "Quinta", blockLabel: "QUINTA-FEIRA" },
+    { key: "5", label: "Sexta", blockLabel: "SEXTA-FEIRA" },
+    { key: "6", label: "Sábado", blockLabel: "SÁBADO" },
 ];
+const PX_PER_HOUR = 28;
+const SNAP_MINUTES = 30;
+const TOTAL_HEIGHT = 24 * PX_PER_HOUR;
 
-// Grid Configuration
-const PX_PER_HOUR = 28; 
-const SNAP_MINUTES = 30; 
-const TOTAL_HOURS = 24;
-const TOTAL_HEIGHT = TOTAL_HOURS * PX_PER_HOUR;
+const timeToMin = (time: string) => { const [h, m] = time.split(":").map(Number); return h * 60 + m; };
+const minToTime = (minutes: number) => `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+const snap = (minutes: number) => Math.round(minutes / SNAP_MINUTES) * SNAP_MINUTES;
+const TIME_OPTIONS = Array.from({ length: 96 }, (_, i) => minToTime(i * 15));
 
-// --- Helpers ---
-const timeToMin = (t: string) => {
-    const [h, m] = t.split(":").map(Number);
-    return h * 60 + m;
-};
+type DragMode = "move" | "resize-start" | "resize-end";
+type DragState = { dayKey: string; index: number; mode: DragMode; startY: number; originalStart: number; originalEnd: number; moved: boolean };
 
-const minToTime = (m: number) => {
-    const h = Math.floor(m / 60);
-    const min = m % 60;
-    return `${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
-};
-
-const snapToGrid = (minutes: number) => {
-    return Math.round(minutes / SNAP_MINUTES) * SNAP_MINUTES;
-};
-
-const generateTimeOptions = () => {
-    const options = [];
-    for (let i = 0; i < 24 * 60; i += 15) { 
-        options.push(minToTime(i));
-    }
-    return options;
-};
-const TIME_OPTIONS = generateTimeOptions();
-
-
-interface WeeklyScheduleClickProps {
-    value: Availability;
-    onChange: (newVal: Availability) => void;
-}
-
-export default function WeeklyScheduleClick({ value, onChange }: WeeklyScheduleClickProps) {
-    const containerRef = useRef<HTMLDivElement>(null);
-
-    // --- State for Popups ---
-    const [editModal, setEditModal] = useState<{
-        isOpen: boolean;
-        dayKey: string;
-        slotIndex: number | null; 
-        startTime: string;
-        endTime: string;
-    }>({ isOpen: false, dayKey: "0", slotIndex: null, startTime: "00:00", endTime: "01:00" });
-
-    // Estado simples apenas para controlar se o modal de delete está aberto
+export default function WeeklyScheduleClick({ value, onChange }: { value: Availability; onChange: (newVal: Availability) => void }) {
+    const dragRef = useRef<DragState | null>(null);
+    const ignoreClickRef = useRef(false);
+    const [editModal, setEditModal] = useState({ isOpen: false, dayKey: "0", slotIndex: null as number | null, startTime: "00:00", endTime: "01:00" });
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
-    // --- Handlers ---
+    useEffect(() => {
+        const handleMove = (event: PointerEvent) => {
+            const drag = dragRef.current;
+            if (!drag) return;
+            const delta = snap(((event.clientY - drag.startY) / PX_PER_HOUR) * 60);
+            if (Math.abs(event.clientY - drag.startY) > 3) drag.moved = true;
+            let start = drag.originalStart;
+            let end = drag.originalEnd;
+            const duration = end - start;
+            if (drag.mode === "move") { start = clamp(start + delta, 0, 1440 - duration); end = start + duration; }
+            if (drag.mode === "resize-start") start = clamp(start + delta, 0, end - SNAP_MINUTES);
+            if (drag.mode === "resize-end") end = clamp(end + delta, start + SNAP_MINUTES, 1440);
+            const current = value[drag.dayKey] || [];
+            onChange({ ...value, [drag.dayKey]: current.map((slot, index) => index === drag.index ? { open: minToTime(start), close: minToTime(end) } : slot) });
+        };
+        const handleUp = () => {
+            if (dragRef.current?.moved) {
+                ignoreClickRef.current = true;
+                window.setTimeout(() => { ignoreClickRef.current = false; }, 0);
+            }
+            dragRef.current = null;
+            document.body.style.userSelect = "";
+        };
+        window.addEventListener("pointermove", handleMove);
+        window.addEventListener("pointerup", handleUp);
+        return () => { window.removeEventListener("pointermove", handleMove); window.removeEventListener("pointerup", handleUp); };
+    }, [onChange, value]);
 
-    const handleEmptyClick = (e: React.MouseEvent, dayKey: string) => {
-        const target = e.currentTarget as HTMLDivElement;
-        const rect = target.getBoundingClientRect();
-        const offsetY = e.clientY - rect.top;
-        
-        const rawMinutes = (offsetY / PX_PER_HOUR) * 60;
-        
-        const startMin = snapToGrid(rawMinutes);
-        const endMin = Math.min(startMin + 60, 24 * 60 - 1);
-
-        setEditModal({
-            isOpen: true,
-            dayKey,
-            slotIndex: null, 
-            startTime: minToTime(startMin),
-            endTime: minToTime(endMin)
-        });
+    const beginDrag = (event: React.PointerEvent, dayKey: string, index: number, slot: TimeSlot, mode: DragMode) => {
+        event.preventDefault(); event.stopPropagation();
+        dragRef.current = { dayKey, index, mode, startY: event.clientY, originalStart: timeToMin(slot.open), originalEnd: timeToMin(slot.close), moved: false };
+        document.body.style.userSelect = "none";
     };
 
-    const handleBlockClick = (e: React.MouseEvent, dayKey: string, index: number, slot: TimeSlot) => {
-        e.stopPropagation(); 
-        setEditModal({
-            isOpen: true,
-            dayKey,
-            slotIndex: index,
-            startTime: slot.open,
-            endTime: slot.close
-        });
+    const openEmpty = (event: React.MouseEvent, dayKey: string) => {
+        const rect = event.currentTarget.getBoundingClientRect();
+        const start = clamp(snap(((event.clientY - rect.top) / PX_PER_HOUR) * 60), 0, 1380);
+        setEditModal({ isOpen: true, dayKey, slotIndex: null, startTime: minToTime(start), endTime: minToTime(start + 60) });
     };
-
-    const handleSaveSlot = () => {
-        const { dayKey, slotIndex, startTime, endTime } = editModal;
-        
-        if (timeToMin(startTime) >= timeToMin(endTime)) {
-            alert("O horário de término deve ser depois do início.");
-            return;
-        }
-
-        const currentSlots = value[dayKey] || [];
-        let newSlots = [...currentSlots];
-
-        if (slotIndex === null) {
-            newSlots.push({ open: startTime, close: endTime });
-        } else {
-            newSlots[slotIndex] = { open: startTime, close: endTime };
-        }
-
-        onChange({ ...value, [dayKey]: newSlots });
-        setEditModal(prev => ({ ...prev, isOpen: false }));
+    const openSlot = (event: React.MouseEvent, dayKey: string, index: number, slot: TimeSlot) => {
+        event.stopPropagation();
+        if (ignoreClickRef.current) return;
+        setEditModal({ isOpen: true, dayKey, slotIndex: index, startTime: slot.open, endTime: slot.close });
     };
-
-    const handleDeleteRequest = () => {
-        // Apenas abre o confirm modal, mantendo o editModal "vivo" em background (ou fechando-o se preferir UX diferente)
-        // Aqui optamos por abrir o confirm por cima
-        setIsDeleteModalOpen(true);
+    const saveSlot = () => {
+        if (timeToMin(editModal.startTime) >= timeToMin(editModal.endTime)) return alert("O horário de término deve ser depois do início.");
+        const slots = [...(value[editModal.dayKey] || [])];
+        if (editModal.slotIndex === null) slots.push({ open: editModal.startTime, close: editModal.endTime });
+        else slots[editModal.slotIndex] = { open: editModal.startTime, close: editModal.endTime };
+        onChange({ ...value, [editModal.dayKey]: slots.sort((a, b) => timeToMin(a.open) - timeToMin(b.open)) });
+        setEditModal((prev) => ({ ...prev, isOpen: false }));
     };
-
-    const handleCloseConfirm = () => {
-        setIsDeleteModalOpen(false);
-        // HACK: Re-trava o scroll logo após o ConfirmModal destravar (após a animação dele de 200ms)
-        // Como sabemos que o EditModal ainda está aberto
-        if (editModal.isOpen) {
-            setTimeout(() => {
-                document.body.style.overflow = "hidden";
-            }, 250); // 250ms para garantir que rode DEPOIS do cleanup do ConfirmModal
-        }
-    }
-
-    const handleConfirmDelete = () => {
-        const { dayKey, slotIndex } = editModal;
-        
-        if (slotIndex !== null) {
-            const currentSlots = value[dayKey] || [];
-            const newSlots = currentSlots.filter((_, i) => i !== slotIndex);
-            onChange({ ...value, [dayKey]: newSlots });
-        }
-
-        setIsDeleteModalOpen(false);
-        setEditModal(prev => ({ ...prev, isOpen: false }));
+    const deleteSlot = () => {
+        if (editModal.slotIndex !== null) onChange({ ...value, [editModal.dayKey]: (value[editModal.dayKey] || []).filter((_, i) => i !== editModal.slotIndex) });
+        setIsDeleteModalOpen(false); setEditModal((prev) => ({ ...prev, isOpen: false }));
     };
-
-
-    // --- Rendering ---
-    const gridHours = Array.from({ length: 12 }, (_, i) => i * 2); // 0, 2, 4...
-
-    const renderSlot = (slot: TimeSlot, index: number, dayKey: string) => {
-        const startMin = timeToMin(slot.open);
-        const endMin = timeToMin(slot.close);
-        const top = (startMin / 60) * PX_PER_HOUR;
-        const height = ((endMin - startMin) / 60) * PX_PER_HOUR;
-        
-        const isTooSmall = height < 25;
-        const isLargeBlock = (endMin - startMin) >= 180;
-
-        return (
-            <div
-                key={index}
-                onClick={(e) => handleBlockClick(e, dayKey, index, slot)}
-                className="absolute left-1 right-1 rounded-md flex flex-col justify-center items-center shadow-sm border select-none overflow-hidden p-1 bg-gray-800 border-gray-900 text-white z-10 cursor-pointer hover:bg-gray-700 transition-colors group"
-                style={{ top: `${top}px`, height: `${height}px`, minHeight: '20px' }}
-            >
-                {isLargeBlock && (
-                    <div className="flex items-center gap-1 mb-1 opacity-90">
-                        <FontAwesomeIcon icon={faStar} className="w-3 h-3 text-yellow-400 text-xs 2xl:text-sm" />
-                        <span className="text-[10px] font-medium uppercase tracking-wide 2xl:text-sm">Melhor horário</span>
-                    </div>
-                )}
-                {!isTooSmall && (
-                    <span className="font-bold text-[10px] 2xl:text-sm leading-tight text-center">
-                        {slot.open} - {slot.close}
-                    </span>
-                )}
-            </div>
-        );
-    };
-
-    const getDayLabel = (key: string) => DAYS.find(d => d.key === key)?.label || "Dia";
+    const gridHours = Array.from({ length: 12 }, (_, i) => i * 2);
+    const dayName = (key: string) => DAYS.find((day) => day.key === key)?.label || "Dia";
 
     return (
-        <div className="flex flex-col select-none relative">
-            
-            {/* --- Header Row (Dias + Status) --- */}
+        <div className="relative flex min-w-[720px] flex-col select-none">
             <div className="flex pb-4">
-                <div className="w-14 flex-shrink-0"></div>
-
-                {DAYS.map(day => {
-                    const daySlots = value[day.key] || [];
-                    const isClosed = daySlots.length === 0;
-
-                    return (
-                        <div key={day.key} className="flex-1 text-center flex flex-col gap-1">
-                            <span className="text-lg font-bold text-gray-900">{day.label}</span>
-                            <span className={`text-sm font-medium ${isClosed ? 'text-gray-400' : 'text-brand'}`}>
-                                {isClosed ? 'Fechada' : 'Aberta'}
-                            </span>
-                        </div>
-                    );
-                })}
+                <div className="w-14 shrink-0" />
+                {DAYS.map((day) => <div key={day.key} className="flex flex-1 flex-col gap-1 text-center"><span className="text-lg font-bold text-gray-900">{day.label}</span><span className={`text-sm font-medium ${(value[day.key] || []).length ? "text-brand" : "text-gray-400"}`}>{(value[day.key] || []).length ? "Aberta" : "Fechada"}</span></div>)}
             </div>
-
-            {/* --- Body Row (Horas + Grid) --- */}
-            <div className="flex relative">
-                
-                {/* Coluna de Horários */}
-                <div className="w-14 flex-shrink-0 relative border-r border-transparent">
-                    {gridHours.map((h) => (
-                        <div 
-                            key={h} 
-                            className="absolute w-full text-[11px] font-medium text-gray-400 text-right pr-3 -mt-2 2xl:text-base 2xl:pr-5"
-                            style={{ top: `${h * PX_PER_HOUR}px` }}
-                        >
-                            {String(h).padStart(2, "0")}h
-                        </div>
-                    ))}
+            <div className="relative flex">
+                <div className="relative w-14 shrink-0 border-r border-transparent">
+                    {gridHours.map((hour) => <div key={hour} className="absolute w-full -mt-2 pr-3 text-right text-[11px] font-medium text-gray-400 2xl:pr-5 2xl:text-base" style={{ top: hour * PX_PER_HOUR }}>{String(hour).padStart(2, "0")}h</div>)}
                 </div>
-
-                {/* Área da Matriz (Grid) */}
-                <div className="flex-1 flex border border-gray-200 rounded-lg bg-white overflow-hidden relative" style={{ height: `${TOTAL_HEIGHT}px` }}>
-                    
-                    {/* Linhas de Fundo */}
-                    <div className="absolute inset-0 pointer-events-none z-0">
-                        {gridHours.map((h) => (
-                            <div 
-                                key={h} 
-                                className="border-b border-gray-100 w-full absolute"
-                                style={{ top: `${h * PX_PER_HOUR}px` }}
-                            />
-                        ))}
-                    </div>
-
-                    {/* Colunas dos Dias */}
-                    {DAYS.map(day => (
-                        <div 
-                            key={day.key} 
-                            className="flex-1 relative border-r border-gray-100 last:border-0 z-10 hover:bg-gray-50 transition-colors cursor-pointer"
-                            onClick={(e) => handleEmptyClick(e, day.key)}
-                        >
-                            {(value[day.key] || []).map((slot, idx) => 
-                                renderSlot(slot, idx, day.key)
-                            )}
-                        </div>
-                    ))}
+                <div className="relative flex flex-1 overflow-hidden rounded-lg border border-gray-200 bg-white" style={{ height: TOTAL_HEIGHT }}>
+                    <div className="pointer-events-none absolute inset-0 z-0">{gridHours.map((hour) => <div key={hour} className="absolute w-full border-b border-gray-100" style={{ top: hour * PX_PER_HOUR }} />)}</div>
+                    {DAYS.map((day) => <div key={day.key} onClick={(e) => openEmpty(e, day.key)} className="relative z-10 flex-1 cursor-pointer border-r border-gray-100 transition-colors last:border-0 hover:bg-gray-50">
+                        {(value[day.key] || []).map((slot, index) => {
+                            const start = timeToMin(slot.open); const end = timeToMin(slot.close); const height = ((end - start) / 60) * PX_PER_HOUR;
+                            return <div key={`${slot.open}-${slot.close}-${index}`} onClick={(e) => openSlot(e, day.key, index, slot)} onPointerDown={(e) => beginDrag(e, day.key, index, slot, "move")} className="group absolute left-1 right-1 z-10 flex cursor-move flex-col items-center justify-center overflow-hidden rounded-md border border-gray-900 bg-gray-800 p-1 text-white shadow-sm transition-colors hover:bg-gray-700" style={{ top: (start / 60) * PX_PER_HOUR, height, minHeight: 24 }}>
+                                <button type="button" aria-label="Alterar início" onPointerDown={(e) => beginDrag(e, day.key, index, slot, "resize-start")} className="absolute inset-x-0 top-0 h-2 cursor-ns-resize bg-white/0 transition-colors hover:bg-white/25" />
+                                {height >= 60 && <span className="mb-1 text-[10px] font-bold uppercase tracking-wide opacity-80">{day.blockLabel}</span>}
+                                {height >= 26 && <span className="text-center text-sm font-bold leading-tight 2xl:text-lg">{slot.open}–{slot.close}</span>}
+                                <button type="button" aria-label="Alterar término" onPointerDown={(e) => beginDrag(e, day.key, index, slot, "resize-end")} className="absolute inset-x-0 bottom-0 h-2 cursor-ns-resize bg-white/0 transition-colors hover:bg-white/25" />
+                            </div>;
+                        })}
+                    </div>)}
                 </div>
             </div>
-
-
-            {/* --- MODAL 1: EDIT / ADD TIME (Usando componente Modal padrão) --- */}
-            <Modal 
-                open={editModal.isOpen} 
-                onClose={() => setEditModal(prev => ({ ...prev, isOpen: false }))}
-            >
-                <div className="p-6 text-left">
-                    <div className="flex justify-between items-center mb-6">
-                        <h3 className="text-xl font-bold text-gray-900">
-                            {getDayLabel(editModal.dayKey)}
-                        </h3>
-                    </div>
-
-                    <div className="flex items-end gap-4 mb-8">
-                        <div className="flex-1">
-                            <label className="block text-sm 2xl:text-lg font-medium text-gray-500 mb-1">Das</label>
-                            <div className="relative">
-                                <select
-                                    value={editModal.startTime}
-                                    onChange={(e) => setEditModal(p => ({ ...p, startTime: e.target.value }))}
-                                    className="w-full appearance-none border border-gray-300 rounded-lg py-3 pl-3 pr-8 text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent transition-shadow"
-                                >
-                                    {TIME_OPTIONS.map(t => (
-                                        <option key={t} value={t}>{t}</option>
-                                    ))}
-                                </select>
-                            </div>
-                        </div>
-                        
-                        <div className="flex-1">
-                            <label className="block text-sm font-medium 2xl:text-lg  text-gray-500 mb-1">Até</label>
-                            <div className="relative">
-                                <select
-                                    value={editModal.endTime}
-                                    onChange={(e) => setEditModal(p => ({ ...p, endTime: e.target.value }))}
-                                    className="w-full appearance-none border border-gray-300 rounded-lg py-3 pl-3 pr-8 text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent transition-shadow"
-                                >
-                                    {TIME_OPTIONS.map(t => (
-                                        <option key={t} value={t}>{t}</option>
-                                    ))}
-                                </select>
-                            </div>
-                        </div>
-
-                        {editModal.slotIndex !== null && (
-                            <button 
-                                onClick={handleDeleteRequest}
-                                className="mb-3 p-2 text-brand hover:text-red-700 hover:bg-red-50 rounded-full transition-colors"
-                                title="Excluir horário"
-                            >
-                                <FontAwesomeIcon icon={faTrash} className="w-5 h-5 2xl:text-lg cursor-pointer" />
-                            </button>
-                        )}
-                    </div>
-
-                    <div className="flex gap-3 2xl:gap-5 justify-end">
-                        <Button variant={"secondary"}
-                            onClick={() => setEditModal(prev => ({ ...prev, isOpen: false }))}
-                        >
-                            Cancelar
-                        </Button>
-                        <Button onClick={handleSaveSlot} >
-                            {editModal.slotIndex === null ? "Adicionar" : "Salvar"}
-                        </Button>
-                    </div>
-                </div>
+            <Modal open={editModal.isOpen} onClose={() => setEditModal((prev) => ({ ...prev, isOpen: false }))}>
+                <div className="p-6 text-left"><h3 className="mb-6 text-xl font-bold text-gray-900">{dayName(editModal.dayKey)}</h3><div className="mb-8 flex items-end gap-4"><div className="flex-1"><label className="mb-1 block text-sm font-medium text-gray-500">Das</label><select value={editModal.startTime} onChange={(e) => setEditModal((p) => ({ ...p, startTime: e.target.value }))} className="w-full rounded-lg border border-gray-300 bg-white py-3 pl-3 pr-8">{TIME_OPTIONS.map((t) => <option key={t}>{t}</option>)}</select></div><div className="flex-1"><label className="mb-1 block text-sm font-medium text-gray-500">Até</label><select value={editModal.endTime} onChange={(e) => setEditModal((p) => ({ ...p, endTime: e.target.value }))} className="w-full rounded-lg border border-gray-300 bg-white py-3 pl-3 pr-8">{TIME_OPTIONS.map((t) => <option key={t}>{t}</option>)}</select></div>{editModal.slotIndex !== null && <button type="button" onClick={() => setIsDeleteModalOpen(true)} className="mb-3 rounded-full p-2 text-brand transition-colors hover:bg-red-50 hover:text-red-700"><FontAwesomeIcon icon={faTrash} /></button>}</div><div className="flex justify-end gap-3"><Button variant="secondary" onClick={() => setEditModal((p) => ({ ...p, isOpen: false }))}>Cancelar</Button><Button onClick={saveSlot}>{editModal.slotIndex === null ? "Adicionar" : "Salvar"}</Button></div></div>
             </Modal>
-
-            {/* --- MODAL 2: CONFIRM DELETE (Usando ConfirmModal padrão) --- */}
-            <ConfirmModal
-                open={isDeleteModalOpen}
-                onClose={handleCloseConfirm}
-                onConfirm={handleConfirmDelete}
-                title="Excluir horário?"
-                description={`Tem certeza que deseja excluir o horário ${editModal.startTime} - ${editModal.endTime} de ${getDayLabel(editModal.dayKey)}?`}
-                confirmLabel="Excluir"
-                variant="danger"
-            />
+            <ConfirmModal open={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} onConfirm={deleteSlot} title="Excluir horário?" description={`Excluir ${editModal.startTime}–${editModal.endTime} de ${dayName(editModal.dayKey)}?`} confirmLabel="Excluir" variant="danger" />
         </div>
     );
 }

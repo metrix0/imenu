@@ -5,6 +5,7 @@ import { supabase } from "@/lib/database/supabaseClient";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 import Loader from "@/components/ui/Loader";
 import StoreProfileManager from "@/components/restaurant-owner/loja/StoreProfileManager";
+import PreparationTimeCard from "@/components/restaurant-owner/loja/PreparationTimeCard";
 import AllowedPaymentMethods, {
     DEFAULT_ALLOWED_PAYMENT_METHODS,
 } from "@/components/restaurant-owner/configuracoes/AllowedPaymentMethods";
@@ -19,7 +20,6 @@ export default function LojaPage() {
 
     useEffect(() => {
         if (!restaurant) return;
-
         setAllowedPaymentMethods(
             Array.isArray(restaurant.allowed_payment_methods) &&
                 restaurant.allowed_payment_methods.length > 0
@@ -27,20 +27,6 @@ export default function LojaPage() {
                 : DEFAULT_ALLOWED_PAYMENT_METHODS
         );
     }, [restaurant]);
-
-    const handleAllowedPaymentMethodsChange = async (methods: string[]) => {
-        if (!restaurant?.id) return;
-
-        setAllowedPaymentMethods(methods);
-
-        await fetch(`/api/restaurants/${restaurant.id}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                allowed_payment_methods: methods,
-            }),
-        });
-    };
 
     useEffect(() => {
         const load = async () => {
@@ -50,7 +36,6 @@ export default function LojaPage() {
                 const {
                     data: { session },
                 } = await supabase.auth.getSession();
-
                 if (!session) {
                     setIsLoading(false);
                     return;
@@ -61,12 +46,10 @@ export default function LojaPage() {
                     .select("id")
                     .eq("user_id", session.user.id)
                     .single();
-
                 if (!rest) {
                     setIsLoading(false);
                     return;
                 }
-
                 targetId = rest.id;
                 setRestaurantId(rest.id);
             }
@@ -74,25 +57,32 @@ export default function LojaPage() {
             const { data, error } = await supabase
                 .from("restaurants")
                 .select(
-                    "id, name, description, logo_url, banner_url, payment_method, payment_info, allowed_payment_methods, url_slug, store_whatsapp"
+                    "id, name, description, logo_url, banner_url, payment_method, payment_info, allowed_payment_methods, url_slug, store_whatsapp, prep_time_min_minutes, prep_time_max_minutes"
                 )
                 .eq("id", targetId)
                 .single();
 
-            if (!error && data) {
-                setRestaurant(data);
-            }
-
+            if (!error && data) setRestaurant(data);
             setIsLoading(false);
         };
 
         void load();
     }, [restaurantId, setRestaurantId]);
 
+    const handleAllowedPaymentMethodsChange = async (methods: string[]) => {
+        if (!restaurant?.id) return;
+        setAllowedPaymentMethods(methods);
+        await fetch(`/api/restaurants/${restaurant.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ allowed_payment_methods: methods }),
+        });
+    };
+
     if (isLoading) {
         return (
             <div className="flex justify-center p-10">
-                <Loader />
+                <Loader className="border-t-brand" />
             </div>
         );
     }
@@ -106,16 +96,19 @@ export default function LojaPage() {
     }
 
     return (
-        <div>
+        <div className="mx-auto w-full max-w-6xl space-y-8 px-4 pb-20 pt-8 sm:px-6">
             <StoreProfileManager restaurant={restaurant} />
 
-            <div className="w-full flex justify-center">
-                <AllowedPaymentMethods
-                    value={allowedPaymentMethods}
-                    onChange={handleAllowedPaymentMethodsChange}
-                    className="mt-6 w-full max-w-6xl px-4 sm:px-0"
-                />
-            </div>
+            <AllowedPaymentMethods
+                value={allowedPaymentMethods}
+                onChange={handleAllowedPaymentMethodsChange}
+            />
+
+            <PreparationTimeCard
+                restaurantId={restaurant.id}
+                initialMin={restaurant.prep_time_min_minutes}
+                initialMax={restaurant.prep_time_max_minutes}
+            />
         </div>
     );
 }

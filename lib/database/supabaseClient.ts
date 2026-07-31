@@ -7,5 +7,11 @@ const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_A
 if (!url || !anon) throw new Error("Supabase public envs missing");
 
 export const supabase = createClient(url, anon, {
-    auth: { persistSession: true, autoRefreshToken: true },
+    auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        // The app handles signup confirmation fragments itself so the tokens
+        // cannot be consumed and removed before the confirmation UI runs.
+        detectSessionInUrl: false,
+    },
 });

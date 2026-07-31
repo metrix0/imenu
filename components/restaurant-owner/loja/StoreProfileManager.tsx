@@ -4,14 +4,13 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/database/supabaseClient";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCircleInfo } from "@fortawesome/free-solid-svg-icons";
-import { icons } from "@/lib/utils/fontawesome";
 import Card from "@/components/ui/Card";
 import Toast from "@/components/ui/Toast";
 import Input from "@/components/ui/Input";
 import Dropdown from "@/components/ui/Dropdown";
+import Tooltip from "@/components/ui/Tooltip";
 import WarningBox from "@/components/ui/WarningBox";
 import StoreVisuals from "./StoreVisuals";
-import StoreName from "./StoreName";
 
 interface StoreProfileProps {
     restaurant: {
@@ -41,24 +40,15 @@ function sanitizeSlug(value: string): string {
 
 function formatPhone(value: string): string {
     let digits = value.replace(/\D/g, "");
-
-    if (digits.startsWith("55") && digits.length > 11) {
-        digits = digits.slice(2);
-    }
-
+    if (digits.startsWith("55") && digits.length > 11) digits = digits.slice(2);
     digits = digits.slice(0, 11);
-
     if (digits.length <= 2) return digits ? `(${digits}` : "";
-    if (digits.length <= 7) {
-        return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
-    }
-
+    if (digits.length <= 7) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
     return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
 }
 
 export default function StoreProfileManager({
     restaurant,
-    compact = false,
 }: StoreProfileProps) {
     const [name, setName] = useState(restaurant.name);
     const [logoUrl, setLogoUrl] = useState<string | null>(null);
@@ -80,19 +70,6 @@ export default function StoreProfileManager({
     const [urlSlug, setUrlSlug] = useState(restaurant.url_slug || "");
 
     useEffect(() => {
-        const handleBeforeUnload = (event: BeforeUnloadEvent) => {
-            if (isSaving) {
-                event.preventDefault();
-                event.returnValue = "";
-            }
-        };
-
-        window.addEventListener("beforeunload", handleBeforeUnload);
-        return () =>
-            window.removeEventListener("beforeunload", handleBeforeUnload);
-    }, [isSaving]);
-
-    useEffect(() => {
         if (restaurant.logo_url) {
             setLogoUrl(
                 supabase.storage
@@ -100,7 +77,6 @@ export default function StoreProfileManager({
                     .getPublicUrl(restaurant.logo_url).data.publicUrl
             );
         }
-
         if (restaurant.banner_url) {
             setBannerUrl(
                 supabase.storage
@@ -110,30 +86,31 @@ export default function StoreProfileManager({
         }
     }, [restaurant.banner_url, restaurant.logo_url]);
 
+    useEffect(() => {
+        const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+            if (isSaving) {
+                event.preventDefault();
+                event.returnValue = "";
+            }
+        };
+        window.addEventListener("beforeunload", handleBeforeUnload);
+        return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+    }, [isSaving]);
+
     const saveFields = async (fields: Record<string, unknown>) => {
         setIsSaving(true);
-
         try {
-            const response = await fetch(
-                `/api/restaurants/${restaurant.id}`,
-                {
-                    method: "PATCH",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(fields),
-                }
-            );
-
-            const json = await response.json();
-
-            if (!response.ok) {
-                throw new Error(json?.error || "Erro ao salvar");
+            const response = await fetch(`/api/restaurants/${restaurant.id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(fields),
+            });
+            const payload = await response.json();
+            if (!response.ok) throw new Error(payload?.error || "Erro ao salvar");
+            if (typeof payload.url_slug === "string") {
+                setUrlSlug(payload.url_slug);
             }
-
-            if (typeof json.url_slug === "string") {
-                setUrlSlug(json.url_slug);
-            }
-
-            return json;
+            return payload;
         } catch (error) {
             const message =
                 error instanceof Error ? error.message : "Erro ao salvar.";
@@ -144,17 +121,8 @@ export default function StoreProfileManager({
         }
     };
 
-    const autoSave = async (field: string, value: unknown) => {
-        try {
-            await saveFields({ [field]: value });
-        } catch {
-            // saveFields already shows the error.
-        }
-    };
-
     const saveSlug = async () => {
         const normalized = sanitizeSlug(urlSlug);
-
         if (normalized.length < 3) {
             setToast({
                 msg: "O endereço precisa ter pelo menos 3 caracteres.",
@@ -162,12 +130,10 @@ export default function StoreProfileManager({
             });
             return;
         }
-
         setUrlSlug(normalized);
-
         try {
             await saveFields({ url_slug: normalized });
-            setToast({ msg: "Endereço da loja atualizado!", type: "success" });
+            setToast({ msg: "Endereço atualizado!", type: "success" });
         } catch {
             setUrlSlug(restaurant.url_slug || "");
         }
@@ -179,13 +145,12 @@ export default function StoreProfileManager({
         dbPath: string
     ) => {
         if (type === "logo") setLogoUrl(publicUrl);
-        if (type === "banner") setBannerUrl(publicUrl);
+        else setBannerUrl(publicUrl);
 
         try {
             await saveFields({
                 [type === "logo" ? "logo_url" : "banner_url"]: dbPath,
             });
-
             setToast({
                 msg: `${type === "logo" ? "Logo" : "Capa"} atualizada!`,
                 type: "success",
@@ -196,43 +161,26 @@ export default function StoreProfileManager({
     };
 
     return (
-        <div
-            className={
-                compact
-                    ? "mb-8"
-                    : "flex-1 w-full max-w-6xl mx-auto px-6 pt-8 space-y-8"
-            }
-        >
-            {!compact && (
-                <div className="flex justify-between items-end px-2">
-                    <div>
-                        <h1 className="text-3xl font-bold text-gray-900">
-                            Perfil da Loja
-                        </h1>
-                        <p className="text-gray-500 mt-1 2xl:text-lg">
-                            Como seu restaurante aparece para os clientes.
-                        </p>
-                    </div>
-
-                    <div className="h-6 text-sm font-medium">
-                        {isSaving ? (
-                            <span className="text-brand animate-pulse">
-                                Salvando...
-                            </span>
-                        ) : (
-                            <span className="text-green-600 flex items-center gap-1">
-                                <FontAwesomeIcon
-                                    icon={icons.faCheck}
-                                    className="text-xs"
-                                />
-                                Salvo
-                            </span>
-                        )}
-                    </div>
+        <div className="space-y-8">
+            <div className="flex items-end justify-between gap-4 px-2">
+                <div>
+                    <h1 className="text-3xl font-bold text-gray-900">
+                        Perfil da Loja
+                    </h1>
+                    <p className="mt-1 text-gray-500 2xl:text-lg">
+                        Como seu restaurante aparece para os clientes.
+                    </p>
                 </div>
-            )}
+                <div className="h-6 text-sm font-medium">
+                    {isSaving ? (
+                        <span className="animate-pulse text-brand">Salvando...</span>
+                    ) : (
+                        <span className="text-green-600">Tudo salvo</span>
+                    )}
+                </div>
+            </div>
 
-            <Card className="px-4 overflow-hidden pb-8 border border-gray-200 shadow-sm">
+            <Card className="overflow-hidden border border-gray-200 px-4 pb-8 shadow-sm">
                 <StoreVisuals
                     restaurantId={restaurant.id}
                     logoUrl={logoUrl}
@@ -244,90 +192,90 @@ export default function StoreProfileManager({
                 />
 
                 <div className="space-y-6">
-                    <StoreName
+                    <Input
+                        label="Nome do Restaurante"
                         value={name}
-                        onChange={setName}
-                        onBlur={() => autoSave("name", name)}
+                        onChange={(event) => setName(event.target.value)}
+                        onBlur={() => void saveFields({ name: name.trim() })}
+                        placeholder="Ex: Burger King"
+                        className="text-lg font-medium"
                     />
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                        <div className="min-w-0">
-                            <Input
-                                label="Endereço do cardápio"
-                                value={urlSlug}
-                                placeholder="nome-da-loja"
-                                onChange={(event) =>
-                                    setUrlSlug(sanitizeSlug(event.target.value))
-                                }
-                                onBlur={saveSlug}
-                                autoComplete="off"
-                            />
-                            <p className="text-xs text-gray-500 mt-1 break-all">
-                                imenuapp.com.br/{urlSlug || "nome-da-loja"}
-                            </p>
-                        </div>
+                    <Input
+                        label="WhatsApp da loja"
+                        placeholder="(00) 00000-0000"
+                        type="tel"
+                        inputMode="tel"
+                        value={storeWhatsapp}
+                        onChange={(event) =>
+                            setStoreWhatsapp(formatPhone(event.target.value))
+                        }
+                        onBlur={() =>
+                            void saveFields({
+                                store_whatsapp: storeWhatsapp.replace(/\D/g, ""),
+                            })
+                        }
+                        maxLength={15}
+                        autoComplete="tel"
+                    />
 
-                        <div className="min-w-0">
-                            <Input
-                                label="WhatsApp da loja"
-                                placeholder="(00) 00000-0000"
-                                type="tel"
-                                inputMode="tel"
-                                value={storeWhatsapp}
-                                onChange={(event) =>
-                                    setStoreWhatsapp(
-                                        formatPhone(event.target.value)
-                                    )
-                                }
-                                onBlur={() =>
-                                    autoSave(
-                                        "store_whatsapp",
-                                        storeWhatsapp.replace(/\D/g, "")
-                                    )
-                                }
-                                maxLength={15}
-                                autoComplete="tel"
+                    <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                        <div>
+                            <div className="mb-1 flex items-center gap-2 text-xs font-medium 2xl:text-base">
+                                <span>Método de Repasse</span>
+                                <Tooltip text="Repasses apenas para pagamentos por Pix (ONLINE).">
+                                    <FontAwesomeIcon
+                                        icon={faCircleInfo}
+                                        className="cursor-help text-gray-500"
+                                    />
+                                </Tooltip>
+                            </div>
+                            <Dropdown
+                                options={[{ value: "pix", label: "PIX" }]}
+                                value={paymentMethod}
+                                onChange={(event) => {
+                                    const nextMethod = event.target.value;
+                                    setPaymentMethod(nextMethod);
+                                    void saveFields({ payment_method: nextMethod });
+                                }}
                             />
-                            <p className="text-xs text-gray-500 mt-1">
-                                Número público usado pelos clientes para falar
-                                com o restaurante.
-                            </p>
                         </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <Dropdown
-                            label="Método de pagamento"
-                            options={[{ value: "pix", label: "PIX" }]}
-                            value={paymentMethod}
-                            onChange={(event) => {
-                                const nextMethod = event.target.value;
-                                setPaymentMethod(nextMethod);
-                                void autoSave("payment_method", nextMethod);
-                            }}
-                        />
 
                         <Input
                             label="Chave PIX"
                             placeholder="Ex: 123456789"
                             value={paymentInfo}
-                            onChange={(event) =>
-                                setPaymentInfo(event.target.value)
-                            }
+                            onChange={(event) => setPaymentInfo(event.target.value)}
                             onBlur={() =>
-                                autoSave("payment_info", paymentInfo)
+                                void saveFields({ payment_info: paymentInfo })
                             }
                         />
                     </div>
 
+                    <div className="min-w-0">
+                        <Input
+                            label="Endereço do cardápio"
+                            value={urlSlug}
+                            placeholder="nome-da-loja"
+                            onChange={(event) =>
+                                setUrlSlug(sanitizeSlug(event.target.value))
+                            }
+                            onBlur={saveSlug}
+                            autoComplete="off"
+                        />
+                        <p className="mt-1 break-all text-xs text-gray-500">
+                            imenuapp.com.br/{urlSlug || "nome-da-loja"}
+                        </p>
+                    </div>
+
                     <WarningBox
                         icon={faCircleInfo}
-                        className="bg-brand! text-white! mt-4"
+                        className="mt-4 bg-brand! text-white!"
                     >
-                        <b>AVISO:</b> Repasses de pagamentos em Pix (ONLINE)
-                        são realizados semanalmente, sempre aos domingos a
-                        partir das 14h. O repasse é realizado na Chave Pix
-                        cadastrada acima.
+                        <b>AVISO:</b> Repasses de pagamentos em Pix (ONLINE) são
+                        realizados semanalmente, sempre aos domingos a partir
+                        das 14h. O repasse é realizado na Chave Pix cadastrada
+                        acima.
                     </WarningBox>
                 </div>
             </Card>

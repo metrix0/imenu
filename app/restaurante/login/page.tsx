@@ -2,199 +2,301 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Card from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
-import { supabase } from "@/lib/database/supabaseClient";
 import Toast from "@/components/ui/Toast";
+import { supabase } from "@/lib/database/supabaseClient";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
+import { getCreationStepPath } from "@/lib/restaurantCreation";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faEye, faEyeSlash } from "@fortawesome/free-solid-svg-icons";
 
+type AuthFailure = {
+    code?: string;
+    message?: string;
+    status?: number;
+};
+
+type AuthUser = {
+    id: string;
+    email?: string | null;
+    email_confirmed_at?: string | null;
+    confirmed_at?: string | null;
+};
+
+type RestaurantRecord = {
+    id: string;
+    url_slug: string | null;
+    first_time: boolean | null;
+    creation_step: number | null;
+};
+
+const PENDING_EMAIL_KEY = "imenu-pending-signup-email";
+
+function isEmailNotConfirmed(error: AuthFailure | null): boolean {
+    return (
+        error?.code === "email_not_confirmed" ||
+        error?.message?.toLowerCase().includes("email not confirmed") === true
+    );
+}
+
+function isRateLimitError(error: AuthFailure | null): boolean {
+    const message = error?.message?.toLowerCase() || "";
+
+    return (
+        error?.status === 429 ||
+        message.includes("rate limit") ||
+        message.includes("security purposes")
+    );
+}
+
+function formatAuthError(message: string): string {
+    if (message.toLowerCase().includes("email address not authorized")) {
+        return "Não foi possível enviar o e-mail de confirmação para este endereço.";
+    }
+
+    return message;
+}
+
+function isEmailConfirmed(user: AuthUser): boolean {
+    return Boolean(user.email_confirmed_at || user.confirmed_at);
+}
+
 export default function AdminLogin() {
     const router = useRouter();
-
-    const [email, setEmail] = useState("");
+    const { setRestaurantId, setEmail, setRestaurantSlug } =
+        useCreationStore();
+    const [email, setLocalEmail] = useState("");
     const [password, setPassword] = useState("");
-
-    const [passwordFocused, setPasswordFocused] = useState(false);
-    const [showPassword, setShowPassword] = useState(false);
-
     const [loading, setLoading] = useState(false);
-    const [errorMsg, setErrorMsg] = useState("");
-    const [showToast, setShowToast] = useState(false);
+    const [error, setError] = useState("");
+    const [show, setShow] = useState(false);
+    const [toast, setToast] = useState(false);
 
-    // ⭐ ADDED — Zustand setters
-    const { setRestaurantId, setEmail: setZustandEmail, setRestaurantSlug } = useCreationStore();
+    const redirectUser = async (user: AuthUser) => {
+        const userEmail = user.email?.trim().toLowerCase() || "";
+        setEmail(userEmail);
 
-    const isValid = email.includes("@") && email.includes(".") && password.length >= 6;
+        if (!isEmailConfirmed(user)) {
+            router.replace("/restaurante/criar/info/otp");
+            return;
+        }
 
-    // 👉 #1 Auto redirect if user already logged in
+        const { data: restaurant, error: restaurantError } = await supabase
+            .from("restaurants")
+            .select("id, url_slug, first_time, creation_step")
+            .eq("user_id", user.id)
+            .maybeSingle();
+
+        if (restaurantError) {
+            throw new Error("Não foi possível carregar o restaurante.");
+        }
+
+        if (!restaurant) {
+            router.replace("/restaurante/criar/info/otp");
+            return;
+        }
+
+        setRestaurantId(restaurant.id);
+        setRestaurantSlug(restaurant.url_slug);
+
+        const target =
+            restaurant.first_time === false
+                ? "/painel"
+                : getCreationStepPath(restaurant.creation_step);
+
+        setToast(true);
+        window.setTimeout(() => router.replace(target), 500);
+    };
+
     useEffect(() => {
-        const checkSession = async () => {
-            const { data } = await supabase.auth.getSession();
-            if (data.session) {
-                router.replace("/painel");
+        let active = true;
+
+        void supabase.auth.getSession().then(async ({ data }) => {
+            if (!active || !data.session?.user) return;
+
+            try {
+                await redirectUser(data.session.user);
+            } catch (caught) {
+                if (!active) return;
+                setError(
+                    caught instanceof Error
+                        ? caught.message
+                        : "Não foi possível entrar."
+                );
             }
-        };
-        checkSession();
-    }, [router]);
-
-    const handleLogin = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!isValid) return;
-
-        setLoading(true);
-        setErrorMsg("");
-
-        const { data: signInData, error } = await supabase.auth.signInWithPassword({
-            email,
-            password,
         });
 
-        if (error) {
-            setErrorMsg(error.message);
+        return () => {
+            active = false;
+        };
+    }, []);
+
+    const continueEmailConfirmation = async (normalizedEmail: string) => {
+        setEmail(normalizedEmail);
+        window.localStorage.setItem(PENDING_EMAIL_KEY, normalizedEmail);
+
+        const { error: resendError } = await supabase.auth.resend({
+            type: "signup",
+            email: normalizedEmail,
+            options: {
+                emailRedirectTo: `${window.location.origin}/restaurante/confirmar-email`,
+            },
+        });
+
+        if (resendError && !isRateLimitError(resendError)) {
+            throw new Error(formatAuthError(resendError.message));
+        }
+
+        router.push("/restaurante/criar/info/otp");
+    };
+
+    const login = async (event: React.FormEvent) => {
+        event.preventDefault();
+
+        const normalizedEmail = email.trim().toLowerCase();
+
+        if (
+            !/^\S+@\S+\.\S+$/.test(normalizedEmail) ||
+            password.length < 6
+        ) {
+            setError("Preencha e-mail e senha corretamente.");
+            return;
+        }
+
+        setLoading(true);
+        setError("");
+
+        const { data, error: signInError } =
+            await supabase.auth.signInWithPassword({
+                email: normalizedEmail,
+                password,
+            });
+
+        if (isEmailNotConfirmed(signInError)) {
+            try {
+                await continueEmailConfirmation(normalizedEmail);
+            } catch (caught) {
+                setError(
+                    caught instanceof Error
+                        ? caught.message
+                        : "Não foi possível reenviar o código."
+                );
+                setLoading(false);
+            }
+            return;
+        }
+
+        if (signInError || !data.user) {
+            setError(signInError?.message || "Login inválido.");
             setLoading(false);
             return;
         }
 
-        // ⭐ ADDED — get logged user id
-        const userId = signInData.user?.id;
-        if (!userId) {
-            setErrorMsg("Usuário inválido.");
+        try {
+            await redirectUser(data.user);
+        } catch (caught) {
+            setError(
+                caught instanceof Error
+                    ? caught.message
+                    : "Não foi possível entrar."
+            );
             setLoading(false);
-            return;
         }
-
-        // ⭐ ADDED — fetch user's restaurantId
-        const { data: restaurant, error: restError } = await supabase
-            .from("restaurants")
-            .select("id, url_slug")
-            .eq("user_id", userId)
-            .single();
-
-        if (restError) {
-            setErrorMsg("Não foi possível encontrar o restaurante.");
-            setLoading(false);
-            return;
-        }
-
-        // ⭐ ADDED — save in Zustand
-        setRestaurantId(restaurant.id);
-        setZustandEmail(email);
-        setRestaurantSlug(restaurant.url_slug)
-
-        // ⭐ show toast and redirect
-        setShowToast(true);
-        setTimeout(() => router.replace("/painel"), 1000);
-
-        setLoading(false);
     };
 
     return (
-        <div className="min-h-screen flex flex-col">
-
-            {/* HEADER */}
-            <header className="w-full  px-2 py-7 flex items-center justify-between sticky top-0 bg-white z-10">
-                <div className="relative h-6 w-32 ml-4">
-                    <Image
-                        src="/logos/CombinationMarkLogo_Brand.png"
-                        alt="iMenu Logo"
-                        fill
-                        className="object-contain object-left"
-                    />
-                </div>
+        <div className="flex min-h-screen flex-col">
+            <header className="px-6 py-7">
+                <Image
+                    src="/logos/CombinationMarkLogo_Brand.png"
+                    alt="iMenu"
+                    width={128}
+                    height={32}
+                />
             </header>
-            <div className="relative flex justify-center w-full min-h-[75vh] items-center px-4 2xl:py-8">
 
-            {/* MAIN */}
-            <main className="flex-1 flex flex-col items-center justify-start sm:pt-8 px-4 pb-16 ">
-                <Card className="w-full max-w-lg 2xl:max-w-xl space-y-8 p-8 2xl:p-12 2xl:shadow-lg border border-gray-200 shadow-sm">
+            <main className="flex flex-1 items-center justify-center px-4 pb-16">
+                <Card className="w-full max-w-lg space-y-7 border border-gray-200 p-8 shadow-sm">
+                    <h1 className="text-center text-2xl font-bold">
+                        Entrar no Painel
+                    </h1>
 
-                    <div className="text-center space-y-2">
-                        <h1 className="text-xl sm:text-2xl 2xl:text-3xl font-bold text-gray-900">
-                            Entrar no Painel Administrativo
-                        </h1>
-                    </div>
-
-                    <form className="space-y-6" onSubmit={handleLogin}>
+                    <form onSubmit={login} className="space-y-6">
                         <Input
                             label="E-mail"
-                            placeholder="admin@exemplo.com"
                             type="email"
-                            autoComplete={"email"}
+                            autoComplete="email"
                             value={email}
-                            onChange={(e) => setEmail(e.target.value)}
+                            onChange={(event) =>
+                                setLocalEmail(event.target.value)
+                            }
                         />
 
                         <div className="relative">
                             <Input
                                 label="Senha"
-                                placeholder="Digite sua senha"
-                                type={showPassword ? "text" : "password"}
-                                autoComplete={"current-password"}
+                                type={show ? "text" : "password"}
+                                autoComplete="current-password"
                                 value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                onFocus={() => setPasswordFocused(true)}
-                                onBlur={() => setPasswordFocused(false)}
+                                onChange={(event) =>
+                                    setPassword(event.target.value)
+                                }
                             />
-                            {(passwordFocused || showPassword) && (
-                                <button
-                                    type="button"
-                                    onMouseDown={(e) => {
-                                    e.preventDefault(); // 🔑 NÃO perde o foco do input
-                                    setShowPassword(prev => !prev);
-                                }}
-                                    className="tabIndex={-1} cursor-pointer absolute right-3 top-[38px] text-gray-500 hover:text-gray-700 text-sm"
-                                >
-                                    {showPassword ? <FontAwesomeIcon icon={faEyeSlash} className="mr-2" /> : <FontAwesomeIcon icon={faEye} className="mr-2" />}
-                                </button>
-                            )}
-                            <div className="text-left pt-1">
-                                <button
-                                    type="button"
-                                    onClick={() => router.push("/restaurante/login/esqueci-senha")}
-                                    className="text-xs 2xl:text-sm underline mt-2 text-gray-500 hover:text-gray-700 transition cursor-pointer"
-                                >
-                                    Esqueci minha senha
-                                </button>
-                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setShow((current) => !current)}
+                                className="absolute right-3 top-9 cursor-pointer text-gray-500"
+                            >
+                                <FontAwesomeIcon
+                                    icon={show ? faEyeSlash : faEye}
+                                />
+                            </button>
+                            <Link
+                                href="/restaurante/login/esqueci-senha"
+                                className="mt-2 block text-xs text-gray-500 underline"
+                            >
+                                Esqueci minha senha
+                            </Link>
                         </div>
 
-                        {errorMsg && (
-                            <div className="p-3 bg-red-50 border border-red-100 rounded-md text-sm text-red-600 text-center">
-                                {errorMsg}
+                        {error && (
+                            <div className="animate-fadeUp rounded-md border border-red-200 bg-red-50 p-3 text-center text-sm text-red-700">
+                                {error}
                             </div>
                         )}
 
                         <Button
-                            variant="primary"
+                            type="submit"
                             loading={loading}
-                            disabled={!isValid}
-                            className="w-full mt-4 2xl:text-xl"
-                            onClick={handleLogin}
+                            className="w-full"
                         >
                             Entrar
                         </Button>
-                        <p className={"text-sm 2xl:text-base"}>
-                            Novo no iMenu? <a className={"text-blue-500 hover:text-blue-700 duration-200 cursor-pointer"} onClick={()=>router.replace("registrar")}>Registre-se agora</a>
+
+                        <p className="text-sm">
+                            Novo no iMenu?{" "}
+                            <Link
+                                href="/restaurante/registrar"
+                                className="text-brand underline"
+                            >
+                                Registre-se agora
+                            </Link>
                         </p>
                     </form>
-
                 </Card>
             </main>
 
-            {/* TOAST + POPUP */}
-            {showToast && (
+            {toast && (
                 <Toast
                     message="Login realizado com sucesso!"
                     type="success"
-                    onClose={() => setShowToast(false)}
+                    onClose={() => setToast(false)}
                 />
             )}
-
-        </div>
         </div>
     );
 }
