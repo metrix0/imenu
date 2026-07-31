@@ -490,8 +490,6 @@ export default function CartModal({
         return v;
     }
 
-    const ruaEBairro = bairro ? `${rua}, ${bairro}` : rua;
-
     useEffect(() => {
         if (!cepTrigger || isPickup) return;
 
@@ -842,15 +840,20 @@ export default function CartModal({
                         </div>
 
                         <Input
-                            autoComplete="address-line1 "
-                            label="Rua e Bairro"
-                            placeholder="Rua 123, Bairro XYZ"
-                            value={ruaEBairro}
-                            onChange={(e) => {
-                                const [r, ...b] = e.target.value.split(",");
-                                setField("rua", r.trim());
-                                setField("bairro", b.join(",").trim());
-                            }}
+                            autoComplete="address-line1"
+                            label="Rua"
+                            placeholder="Rua das Flores"
+                            value={rua}
+                            onChange={(e) => setField("rua", e.target.value)}
+                            className="mb-3 2xl:text-lg 2xl:mb-6 md:text-sm "
+                        />
+
+                        <Input
+                            autoComplete="address-level3"
+                            label="Bairro"
+                            placeholder="Centro"
+                            value={bairro}
+                            onChange={(e) => setField("bairro", e.target.value)}
                             className="mb-3 2xl:text-lg 2xl:mb-6 md:text-sm "
                         />
 

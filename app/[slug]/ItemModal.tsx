@@ -127,6 +127,12 @@ export default function ItemModal({
 
     const unitTotal = item.price_cents + extrasTotal;
     const total = unitTotal * qty;
+    const displayedTotal =
+        promotionPrice({
+            ...item,
+            unit_price_cents: unitTotal,
+            qty,
+        }) ?? total;
 
     const missingRequired = useMemo(() => {
         return subcategories.some((sc) => {
@@ -426,12 +432,7 @@ export default function ItemModal({
                     }`}
                 >
                     <span>Adicionar</span>
-                    <span>
-  {(item.promotion && item.promotion.value > 0)
-      ? formatPrice(qty > 1 ? total : unitTotal)
-      : formatPrice(qty > 1 ? total : unitTotal)
-  }
-</span>
+                    <span>{formatPrice(displayedTotal)}</span>
                 </button>
             </div>
         </ModalMobile>

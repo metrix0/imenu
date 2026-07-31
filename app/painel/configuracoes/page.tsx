@@ -40,9 +40,7 @@ export default function ConfiguracoesPage() {
     const [user, setUser] = useState<User | null>(null);
     const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
     const [loading, setLoading] = useState(true);
-    const [savingField, setSavingField] = useState<"name" | "phone" | null>(null);
-    const [userName, setUserName] = useState("");
-    const [savedUserName, setSavedUserName] = useState("");
+    const [savingField, setSavingField] = useState<"phone" | null>(null);
     const [phone, setPhone] = useState("");
     const [savedPhone, setSavedPhone] = useState("");
     const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -67,10 +65,6 @@ export default function ConfiguracoesPage() {
                 }
 
                 setUser(session.user);
-                const initialName =
-                    String(session.user.user_metadata?.full_name || "");
-                setUserName(initialName);
-                setSavedUserName(initialName);
 
                 let targetId = restaurantId;
                 if (!targetId) {
@@ -114,25 +108,6 @@ export default function ConfiguracoesPage() {
 
         void loadData();
     }, [restaurantId, router, setRestaurantId]);
-
-    const saveName = async () => {
-        const normalized = userName.trim();
-        if (!user || !normalized || normalized === savedUserName) return;
-
-        setSavingField("name");
-        const { error } = await supabase.auth.updateUser({
-            data: { full_name: normalized },
-        });
-        setSavingField(null);
-
-        if (error) {
-            setToast({ message: error.message, type: "error" });
-            return;
-        }
-
-        setSavedUserName(normalized);
-        setToast({ message: "Nome atualizado!", type: "success" });
-    };
 
     const savePhone = async () => {
         if (!restaurant || phone === savedPhone) return;
@@ -293,23 +268,6 @@ export default function ConfiguracoesPage() {
                         <div className="space-y-6">
                             <div>
                                 <Input
-                                    label="Nome do Responsável"
-                                    value={userName}
-                                    onChange={(event) =>
-                                        setUserName(event.target.value)
-                                    }
-                                    onBlur={saveName}
-                                    placeholder="Nome do responsável"
-                                />
-                                {savingField === "name" && (
-                                    <p className="mt-1 text-xs text-brand">
-                                        Salvando...
-                                    </p>
-                                )}
-                            </div>
-
-                            <div>
-                                <Input
                                     label="Celular do Responsável"
                                     value={phone}
                                     onChange={(event) =>
@@ -382,9 +340,19 @@ export default function ConfiguracoesPage() {
                                 Divulgue seu link ou use o QR Code.
                             </p>
 
-                            <div className="flex flex-col gap-3 sm:flex-row">
-                                <Input value={shareableUrl} readOnly />
-                                <Button variant="secondary" onClick={copyLink}>
+                            <div className="flex min-w-0 flex-col gap-3 sm:flex-row">
+                                <div className="min-w-0 flex-1">
+                                    <Input
+                                        value={shareableUrl}
+                                        readOnly
+                                        className="min-w-0"
+                                    />
+                                </div>
+                                <Button
+                                    variant="secondary"
+                                    onClick={copyLink}
+                                    className="shrink-0"
+                                >
                                     <FontAwesomeIcon icon={faCopy} className="mr-2" />
                                     Copiar
                                 </Button>

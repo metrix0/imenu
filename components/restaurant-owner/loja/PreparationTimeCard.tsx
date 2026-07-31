@@ -1,9 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Card from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
-import Button from "@/components/ui/Button";
 import Toast from "@/components/ui/Toast";
 
 interface PreparationTimeCardProps {
@@ -12,70 +11,127 @@ interface PreparationTimeCardProps {
     initialMax?: number | null;
 }
 
+function getValidationMessage(minimum: string, maximum: string): string {
+    const min = Number(minimum);
+    const max = Number(maximum);
+
+    if (!Number.isFinite(min) || !Number.isFinite(max) || min <= 0) {
+        return "Informe tempos válidos maiores que zero.";
+    }
+
+    if (max < min + 20) {
+        return "O tempo máximo deve ser pelo menos 20 minutos maior que o mínimo.";
+    }
+
+    return "";
+}
+
 export default function PreparationTimeCard({
     restaurantId,
     initialMin,
     initialMax,
 }: PreparationTimeCardProps) {
-    const [minimum, setMinimum] = useState(String(initialMin ?? 40));
-    const [maximum, setMaximum] = useState(String(initialMax ?? 50));
+    const initialMinimum = String(initialMin ?? 40);
+    const initialMaximum = String(initialMax ?? 50);
+    const [minimum, setMinimum] = useState(initialMinimum);
+    const [maximum, setMaximum] = useState(initialMaximum);
     const [saving, setSaving] = useState(false);
+    const [validationMessage, setValidationMessage] = useState(() =>
+        getValidationMessage(initialMinimum, initialMaximum)
+    );
     const [toast, setToast] = useState<{
         message: string;
-        type: "success" | "error";
+        type: "error";
     } | null>(null);
+    const lastSavedRef = useRef(
+        `${Number(initialMinimum)}:${Number(initialMaximum)}`
+    );
+    const saveVersionRef = useRef(0);
 
-    const save = async () => {
-        const min = Number(minimum);
-        const max = Number(maximum);
+    useEffect(() => {
+        const validation = getValidationMessage(minimum, maximum);
+        setValidationMessage(validation);
 
-        if (!Number.isFinite(min) || !Number.isFinite(max) || min <= 0 || max < min + 20) {
-            setToast({
-                message: "O tempo máximo deve ser pelo menos 20 minutos maior que o mínimo.",
-                type: "error",
-            });
+        if (validation) {
+            setSaving(false);
             return;
         }
 
+        const min = Number(minimum);
+        const max = Number(maximum);
+        const valueKey = `${min}:${max}`;
+
+        if (valueKey === lastSavedRef.current) {
+            setSaving(false);
+            return;
+        }
+
+        const version = saveVersionRef.current + 1;
+        saveVersionRef.current = version;
         setSaving(true);
 
-        try {
-            const response = await fetch(
-                `/api/restaurants/${restaurantId}/set-prep-time`,
-                {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ min, max, source: "manual" }),
+        const timeoutId = window.setTimeout(async () => {
+            try {
+                const response = await fetch(
+                    `/api/restaurants/${restaurantId}/set-prep-time`,
+                    {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ min, max, source: "manual" }),
+                    }
+                );
+
+                const payload = await response.json();
+                if (!response.ok) {
+                    throw new Error(payload?.error || "Erro ao salvar o tempo.");
                 }
-            );
 
-            const payload = await response.json();
-            if (!response.ok) {
-                throw new Error(payload?.error || "Erro ao salvar o tempo.");
+                lastSavedRef.current = valueKey;
+            } catch (error) {
+                setToast({
+                    message:
+                        error instanceof Error
+                            ? error.message
+                            : "Erro ao salvar o tempo.",
+                    type: "error",
+                });
+            } finally {
+                if (saveVersionRef.current === version) {
+                    setSaving(false);
+                }
             }
+        }, 700);
 
-            setToast({ message: "Tempo de preparo salvo!", type: "success" });
-        } catch (error) {
-            setToast({
-                message:
-                    error instanceof Error
-                        ? error.message
-                        : "Erro ao salvar o tempo.",
-                type: "error",
-            });
-        } finally {
-            setSaving(false);
-        }
-    };
+        return () => window.clearTimeout(timeoutId);
+    }, [maximum, minimum, restaurantId]);
 
     return (
         <>
             <Card className="border border-gray-200 shadow-sm">
-                <h2 className="mb-2 text-xl font-semibold">
-                    Tempo médio de preparo
-                </h2>
+                <div className="mb-2 flex items-start justify-between gap-4">
+                    <h2 className="text-xl font-semibold">
+                        Tempo médio de preparo
+                    </h2>
+                    <span
+                        className={`shrink-0 text-sm font-medium ${
+                            validationMessage
+                                ? "text-red-600"
+                                : saving
+                                  ? "animate-pulse text-brand"
+                                  : "text-green-600"
+                        }`}
+                    >
+                        {validationMessage
+                            ? "Não salvo"
+                            : saving
+                              ? "Salvando..."
+                              : "Tudo salvo"}
+                    </span>
+                </div>
+
                 <p className="mb-5 text-sm text-gray-500">
-                    Defina a estimativa exibida aos clientes.
+                    Defina a estimativa exibida aos clientes. As alterações são
+                    salvas automaticamente.
                 </p>
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -93,15 +149,14 @@ export default function PreparationTimeCard({
                     />
                 </div>
 
-                <p className="mt-2 text-xs text-gray-500">
-                    A diferença deve ser de pelo menos 20 minutos.
+                <p
+                    className={`mt-2 text-xs ${
+                        validationMessage ? "text-red-600" : "text-gray-500"
+                    }`}
+                >
+                    {validationMessage ||
+                        "A diferença deve ser de pelo menos 20 minutos."}
                 </p>
-
-                <div className="mt-5 flex justify-end">
-                    <Button onClick={save} loading={saving}>
-                        Salvar
-                    </Button>
-                </div>
             </Card>
 
             {toast && (

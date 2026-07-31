@@ -44,6 +44,8 @@ type MenuItem =
     | { type: "divider" }
     | { label: string; icon: IconDefinition; href: string; type?: undefined };
 
+const SIDEBAR_EXPANDED_STORAGE_KEY = "imenu-panel-sidebar-expanded";
+
 export default function PainelLayout({ children}: { children: React.ReactNode }) {
     const params = useParams();
     const pathname = usePathname();
@@ -57,6 +59,7 @@ export default function PainelLayout({ children}: { children: React.ReactNode })
     const [isTogglingStore, setIsTogglingStore] = useState(false); // Loading do botão
     const router = useRouter();
     const [isChecking, setIsChecking] = useState(true); // Evita piscar conteúdo protegido
+    const [isPasswordRecoveryFlow, setIsPasswordRecoveryFlow] = useState(false);
 
 
     // Ref para controlar o botão de suporte
@@ -120,19 +123,51 @@ useEffect(() => {
         // --- PROTEÇÃO DE ROTA ---
     useEffect(() => {
         const checkAuth = async () => {
-            const { data: { session } } = await supabase.auth.getSession();
+            const isRecoveryCallback =
+                pathname === "/painel/configuracoes/nova-senha" &&
+                (new URLSearchParams(window.location.search).has("code") ||
+                    window.location.hash.includes("type=recovery"));
+
+            if (isRecoveryCallback) {
+                setIsPasswordRecoveryFlow(true);
+                setIsChecking(false);
+                return;
+            }
+
+            const {
+                data: { session },
+            } = await supabase.auth.getSession();
 
             if (!session) {
-                // Não está logado -> Login
                 router.replace("/restaurante/login");
                 return;
             }
 
-            setIsChecking(false); // Libera a renderização
+            setIsChecking(false);
         };
 
-        checkAuth();
-    }, [router]);
+        void checkAuth();
+    }, [pathname, router]);
+
+    useEffect(() => {
+        const savedExpanded = window.localStorage.getItem(
+            SIDEBAR_EXPANDED_STORAGE_KEY
+        );
+        if (savedExpanded !== null) {
+            setExpanded(savedExpanded === "true");
+        }
+    }, []);
+
+    const toggleSidebar = () => {
+        setExpanded((current) => {
+            const next = !current;
+            window.localStorage.setItem(
+                SIDEBAR_EXPANDED_STORAGE_KEY,
+                String(next)
+            );
+            return next;
+        });
+    };
 
     useEffect(() => {
         setMobileMenuOpen(false);
@@ -153,6 +188,14 @@ useEffect(() => {
         return <div className="min-h-screen bg-gray-50 flex items-center justify-center">
             <Loader />
         </div>;
+    }
+
+    if (isPasswordRecoveryFlow) {
+        return (
+            <main className="min-h-screen bg-gray-50">
+                {children}
+            </main>
+        );
     }
 
     // Função de Toggle (Chamada pelo botão/modal)
@@ -401,17 +444,20 @@ useEffect(() => {
                 {/* === SIDEBAR === */}
                 <aside
                     className={`hidden md:flex fixed h-full flex-col border-r border-gray-200 bg-white transition-all duration-300 z-20 ${
-                        expanded ? "w-60 2xl:w-70" : "w-[5.2vw] min-w-15"
+                        expanded ? "w-60 2xl:w-70" : "w-[4.5rem] 2xl:w-20"
                     }`}
                 >
                     {/* Botão Expandir/Contrair */}
                     <button
-                        onClick={() => setExpanded(!expanded)}
-                        className="cursor-pointer absolute -right-4 2xl:-right-5 top-20 z-10 flex h-8 w-8 2xl:h-10 2xl:w-10 items-center justify-center rounded-full bg-white border border-gray-200 shadow hover:bg-gray-50 text-sm 2xl:text-base"
+                        type="button"
+                        onClick={toggleSidebar}
+                        aria-label={expanded ? "Recolher menu lateral" : "Expandir menu lateral"}
+                        aria-expanded={expanded}
+                        className="text-brand hover:text-brand/66 absolute -right-4 top-20 z-10 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border border-gray-200 bg-white text-sm shadow transition-colors hover:bg-gray-50 2xl:-right-5 2xl:h-10 2xl:w-10 2xl:text-base"
                     >
                         <FontAwesomeIcon
                             icon={expanded ? faChevronLeft : faChevronRight}
-                            className="text-brand"
+                            className=""
                         />
                     </button>
 
@@ -450,7 +496,7 @@ useEffect(() => {
                     </Link>
 
                     {/* --- BOTÃO DE STATUS DA LOJA --- */}
-                    <div className={`mt-2 2xl:mt-8 transition-all duration-300 ${expanded ? "w-full px-4" : "w-auto"}`}>
+                    <div className={`mt-2 pb-1 2xl:mt-8 transition-all duration-300 ${expanded ? "w-full px-4" : "w-auto"}`}>
                         {expanded ? (
                             // GAVETA ABERTA: Botão com Texto
                             <button
@@ -553,7 +599,7 @@ useEffect(() => {
                 <main
                     data-panel-path={pathname || base}
                     className={`panel-mobile-content min-h-screen min-w-0 bg-gray-50 transition-all duration-300 md:flex-1 md:p-8 ${
-                        expanded ? "md:ml-60" : "md:ml-[4.5rem]"
+                        expanded ? "md:ml-60 2xl:ml-70" : "md:ml-[4.5rem] 2xl:ml-20"
                     }`}
                 >
                     <div className="w-full min-w-0 md:mx-auto md:max-w-7xl">

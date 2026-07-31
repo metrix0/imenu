@@ -180,7 +180,7 @@ export default function StoreProfileManager({
                 </div>
             </div>
 
-            <Card className="overflow-hidden border border-gray-200 px-4 pb-8 shadow-sm">
+            <Card className="overflow-visible border border-gray-200 px-4 pb-8 shadow-sm">
                 <StoreVisuals
                     restaurantId={restaurant.id}
                     logoUrl={logoUrl}
@@ -220,8 +220,8 @@ export default function StoreProfileManager({
                     />
 
                     <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                        <div>
-                            <div className="mb-1 flex items-center gap-2 text-xs font-medium 2xl:text-base">
+                        <div className="relative z-10 flex min-w-0 flex-col gap-1">
+                            <div className="relative z-20 flex items-center gap-2 text-xs font-medium 2xl:text-base">
                                 <span>Método de Repasse</span>
                                 <Tooltip text="Repasses apenas para pagamentos por Pix (ONLINE).">
                                     <FontAwesomeIcon
@@ -230,15 +230,17 @@ export default function StoreProfileManager({
                                     />
                                 </Tooltip>
                             </div>
-                            <Dropdown
-                                options={[{ value: "pix", label: "PIX" }]}
-                                value={paymentMethod}
-                                onChange={(event) => {
-                                    const nextMethod = event.target.value;
-                                    setPaymentMethod(nextMethod);
-                                    void saveFields({ payment_method: nextMethod });
-                                }}
-                            />
+                            <div className="relative z-10">
+                                <Dropdown
+                                    options={[{ value: "pix", label: "PIX" }]}
+                                    value={paymentMethod}
+                                    onChange={(event) => {
+                                        const nextMethod = event.target.value;
+                                        setPaymentMethod(nextMethod);
+                                        void saveFields({ payment_method: nextMethod });
+                                    }}
+                                />
+                            </div>
                         </div>
 
                         <Input

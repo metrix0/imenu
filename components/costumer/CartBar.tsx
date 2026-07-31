@@ -63,6 +63,7 @@ export default function CartBar({
         (isPickup || (
             checkoutState.cep?.length >= 8 &&
             checkoutState.rua &&
+            checkoutState.bairro &&
             checkoutState.numero
         ))
     );
@@ -75,6 +76,7 @@ export default function CartBar({
             missingFields.push("CEP");
         }
         if (!checkoutState.rua) missingFields.push("Rua");
+        if (!checkoutState.bairro) missingFields.push("Bairro");
         if (!checkoutState.numero) missingFields.push("Número");
     }
     if (!checkoutState.nome) missingFields.push("Nome");
@@ -241,7 +243,9 @@ export default function CartBar({
             customer_phone: checkout.celular,
             customer_address: pickup
                 ? null
-                : `${checkout.rua}, ${checkout.numero} - ${checkout.cep} (${checkout.complemento})`,
+                : `${checkout.rua}, ${checkout.numero} - ${checkout.bairro} - ${checkout.cep}${
+                      checkout.complemento ? ` (${checkout.complemento})` : ""
+                  }`,
             delivery_fee_cents,
             is_delivery: pickup ? "retirada" : "entrega",
             paymentMethod: checkout.pagamento,

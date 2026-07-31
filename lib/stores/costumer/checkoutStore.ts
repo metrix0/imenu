@@ -109,6 +109,7 @@ export const useCheckoutStore = create<CheckoutState>()(
 
                 cep: state.cep,
                 rua: state.rua,
+                bairro: state.bairro,
                 numero: state.numero,
                 cidade: state.cidade,
                 estado: state.estado,
