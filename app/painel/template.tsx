@@ -6,6 +6,7 @@ import { supabase } from "@/lib/database/supabaseClient";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 import { getCreationStepPath } from "@/lib/restaurantCreation";
 import Loader from "@/components/ui/Loader";
+import WhatsAppConnectionPopup from "@/components/restaurant-owner/WhatsAppConnectionPopup";
 
 export default function PanelTemplate({
     children,
@@ -79,5 +80,10 @@ export default function PanelTemplate({
         );
     }
 
-    return <>{children}</>;
+    return (
+        <>
+            {children}
+            <WhatsAppConnectionPopup />
+        </>
+    );
 }

@@ -1,6 +1,7 @@
 // app/api/orders/[id]/route.ts
 import { NextResponse } from "next/server";
 import { query } from "@/lib/database/sql";
+import { notifyWhatsAppAgentOrderStatus } from "@/lib/services/whatsappAgentEvents";
 
 // ================================
 // GET — returns order + items + subitems
@@ -15,7 +16,9 @@ export async function GET(
         // --------------------------
         // 1) Load order
         // --------------------------
-        const { rows: [order] } = await query(
+        const {
+            rows: [order],
+        } = await query(
             `
     SELECT 
         id,
@@ -157,6 +160,11 @@ export async function PATCH(
             `UPDATE orders SET ${fieldsToUpdate.join(", ")} WHERE id = $1`,
             values
         );
+
+        if (typeof body.status === "string" && body.status) {
+            await notifyWhatsAppAgentOrderStatus(id, body.status);
+        }
+
         return NextResponse.json({ ok: true });
     } catch (error) {
         console.error(`Erro ao atualizar pedido ${id}:`, error);

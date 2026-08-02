@@ -1,140 +1,333 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { supabase } from "@/lib/database/supabaseClient";
-import Loader from "@/components/ui/Loader";
-import Button from "@/components/ui/Button";
+import { useEffect, useMemo, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import {icons} from "@/lib/utils/fontawesome";
+import {
+    faCheck,
+    faCopy,
+    faLink,
+    faLock,
+} from "@fortawesome/free-solid-svg-icons";
+
+import Button from "@/components/ui/Button";
+import Loader from "@/components/ui/Loader";
+import { supabase } from "@/lib/database/supabaseClient";
 
 type RestaurantFinancial = {
     id: string;
     name: string;
-    phone: string;
-    payment_info: string;
+    phone: string | null;
+    payment_info: string | null;
     total_paid_cents: number;
     total_payouts_cents: number;
     value_to_pay_cents: number;
 };
 
+const formatMoney = (cents: number) =>
+    (cents / 100).toLocaleString("pt-BR", {
+        style: "currency",
+        currency: "BRL",
+    });
+
+const getWhatsAppNumber = (phone: string | null) => {
+    let digits = String(phone ?? "").replace(/\D/g, "");
+
+    digits = digits.replace(/^0+/, "");
+
+    if (digits.length === 10 || digits.length === 11) {
+        digits = `55${digits}`;
+    }
+
+    return digits.length === 12 || digits.length === 13 ? digits : null;
+};
+
+const getWhatsAppPayoutUrl = (restaurant: RestaurantFinancial) => {
+    const phone = getWhatsAppNumber(restaurant.phone);
+    if (!phone) return null;
+
+    const message = `Repasse iMenu - ${restaurant.name}: ${formatMoney(
+        restaurant.value_to_pay_cents
+    )}`;
+
+    return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+};
+
 export default function AdminPayoutsPage() {
     const [restaurants, setRestaurants] = useState<RestaurantFinancial[]>([]);
     const [loading, setLoading] = useState(true);
-    const [payingId, setPayingId] = useState<string | null>(null);
+    const [payingIds, setPayingIds] = useState<Set<string>>(new Set());
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [copiedPixId, setCopiedPixId] = useState<string | null>(null);
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-    const fetchData = async () => {
-        setLoading(true);
+    const fetchData = async (showLoader = true) => {
+        if (showLoader) setLoading(true);
+        setErrorMessage(null);
 
-        // 1️⃣ Get all restaurants
-        const res = await fetch("/api/mestre/payouts");
-        const restData = await res.json();
+        try {
+            const response = await fetch("/api/mestre/payouts");
 
+            if (!response.ok) {
+                throw new Error("Não foi possível carregar os restaurantes.");
+            }
 
+            const restData = await response.json();
 
-        const results: RestaurantFinancial[] = [];
+            if (!Array.isArray(restData)) {
+                throw new Error("Resposta inválida ao carregar os restaurantes.");
+            }
 
-        for (const restaurant of restData) {
-            // 2️⃣ Sum orders (done + cartao/pix)
-            const { data: ordersData } = await supabase
-                .from("orders")
-                .select("total_cents, payment_method")
-                .eq("restaurant_id", restaurant.id)
-                .neq("status", "pending_online_payment")
-                .neq("status", "canceled")
-                .in("payment_method", ["cartao", "pix"]);
+            const results = await Promise.all(
+                restData.map(async (restaurant: any) => {
+                    const [ordersResult, payoutsResult] = await Promise.all([
+                        supabase
+                            .from("orders")
+                            .select("total_cents, payment_method")
+                            .eq("restaurant_id", restaurant.id)
+                            .neq("status", "pending_online_payment")
+                            .neq("status", "canceled")
+                            .in("payment_method", ["cartao", "pix"]),
+                        supabase
+                            .from("payouts")
+                            .select("amount_cents")
+                            .eq("restaurant_id", restaurant.id),
+                    ]);
 
+                    if (ordersResult.error) throw ordersResult.error;
+                    if (payoutsResult.error) throw payoutsResult.error;
 
-            const totalPaid =
-                ordersData?.reduce((acc, o: any) => {
-                    let value = o.total_cents;
+                    const totalPaid =
+                        ordersResult.data?.reduce((total, order: any) => {
+                            let value = Number(order.total_cents) || 0;
 
-                    if (o.payment_method === "cartao") {
-                        value = Math.round(value * 0.97);
-                    }
+                            if (order.payment_method === "cartao") {
+                                value = Math.round(value * 0.97);
+                            }
 
-                    if (o.payment_method === "pix") {
-                        value = Math.round(value * 0.99);
-                    }
+                            if (order.payment_method === "pix") {
+                                value = Math.round(value * 0.99);
+                            }
 
-                    return acc + value;
-                }, 0) || 0;
-            // 3️⃣ Sum payouts
-            const { data: payoutsData } = await supabase
-                .from("payouts")
-                .select("amount_cents")
-                .eq("restaurant_id", restaurant.id);
+                            return total + value;
+                        }, 0) || 0;
 
-            const totalPayouts =
-                payoutsData?.reduce((acc, p) => acc + p.amount_cents, 0) || 0;
+                    const totalPayouts =
+                        payoutsResult.data?.reduce(
+                            (total, payout) =>
+                                total + (Number(payout.amount_cents) || 0),
+                            0
+                        ) || 0;
 
+                    return {
+                        id: String(restaurant.id),
+                        name: String(restaurant.name || "Restaurante"),
+                        phone: restaurant.phone
+                            ? String(restaurant.phone)
+                            : null,
+                        payment_info: restaurant.payment_info
+                            ? String(restaurant.payment_info)
+                            : null,
+                        total_paid_cents: totalPaid,
+                        total_payouts_cents: totalPayouts,
+                        value_to_pay_cents: totalPaid - totalPayouts,
+                    } satisfies RestaurantFinancial;
+                })
+            );
 
-            results.push({
-                id: restaurant.id,
-                name: restaurant.name,
-                phone: restaurant.phone,
-                payment_info: restaurant.payment_info,
-                total_paid_cents: totalPaid,
-                total_payouts_cents: totalPayouts,
-                value_to_pay_cents: totalPaid - totalPayouts,
+            setRestaurants(results);
+            setSelectedIds((current) => {
+                const payableIds = new Set(
+                    results
+                        .filter((restaurant) => restaurant.value_to_pay_cents > 0)
+                        .map((restaurant) => restaurant.id)
+                );
+
+                return new Set(
+                    [...current].filter((restaurantId) =>
+                        payableIds.has(restaurantId)
+                    )
+                );
             });
-            console.log(results)
+        } catch (error) {
+            console.error("Erro ao carregar pagamentos:", error);
+            setErrorMessage(
+                error instanceof Error
+                    ? error.message
+                    : "Não foi possível carregar os pagamentos."
+            );
+        } finally {
+            if (showLoader) setLoading(false);
         }
-
-        setRestaurants(results);
-        setLoading(false);
     };
 
     useEffect(() => {
-        fetchData();
+        void fetchData();
     }, []);
 
-    const handleMarkAsPaid = async (restaurant: RestaurantFinancial) => {
-        if (restaurant.value_to_pay_cents <= 0) return;
+    const payableRestaurants = useMemo(
+        () =>
+            restaurants.filter(
+                (restaurant) => restaurant.value_to_pay_cents > 0
+            ),
+        [restaurants]
+    );
 
-        setPayingId(restaurant.id);
+    const selectedRestaurants = useMemo(
+        () =>
+            payableRestaurants.filter((restaurant) =>
+                selectedIds.has(restaurant.id)
+            ),
+        [payableRestaurants, selectedIds]
+    );
 
-        const { error } = await supabase.from("payouts").insert({
-            restaurant_id: restaurant.id,
-            amount_cents: restaurant.value_to_pay_cents,
-            created_at: new Date().toISOString(),
-        });
-
-        if (error) {
-            console.error("Erro ao criar payout:", error);
-        }
-
-        await fetchData();
-        setPayingId(null);
-    };
-
-    const formatMoney = (cents: number) =>
-        (cents / 100).toLocaleString("pt-BR", {
-            style: "currency",
-            currency: "BRL",
-        });
-
-    const totalToPayAll = restaurants.reduce(
-        (acc, r) => acc + r.value_to_pay_cents,
+    const totalToPayAll = payableRestaurants.reduce(
+        (total, restaurant) => total + restaurant.value_to_pay_cents,
         0
     );
 
+    const totalSelected = selectedRestaurants.reduce(
+        (total, restaurant) => total + restaurant.value_to_pay_cents,
+        0
+    );
+
+    const allPayableSelected =
+        payableRestaurants.length > 0 &&
+        payableRestaurants.every((restaurant) => selectedIds.has(restaurant.id));
+
+    const toggleRestaurant = (restaurantId: string) => {
+        setSelectedIds((current) => {
+            const next = new Set(current);
+
+            if (next.has(restaurantId)) {
+                next.delete(restaurantId);
+            } else {
+                next.add(restaurantId);
+            }
+
+            return next;
+        });
+    };
+
+    const toggleAllPayable = () => {
+        setSelectedIds(
+            allPayableSelected
+                ? new Set()
+                : new Set(payableRestaurants.map((restaurant) => restaurant.id))
+        );
+    };
+
+    const createPayouts = async (items: RestaurantFinancial[]) => {
+        const payableItems = items.filter(
+            (restaurant) => restaurant.value_to_pay_cents > 0
+        );
+
+        if (payableItems.length === 0) return;
+
+        const ids = payableItems.map((restaurant) => restaurant.id);
+        setPayingIds(new Set(ids));
+        setErrorMessage(null);
+
+        const createdAt = new Date().toISOString();
+        const { error } = await supabase.from("payouts").insert(
+            payableItems.map((restaurant) => ({
+                restaurant_id: restaurant.id,
+                amount_cents: restaurant.value_to_pay_cents,
+                created_at: createdAt,
+            }))
+        );
+
+        if (error) {
+            console.error("Erro ao criar repasses:", error);
+            setErrorMessage("Não foi possível registrar o pagamento.");
+            setPayingIds(new Set());
+            return;
+        }
+
+        setSelectedIds((current) => {
+            const next = new Set(current);
+            ids.forEach((id) => next.delete(id));
+            return next;
+        });
+
+        await fetchData(false);
+        setPayingIds(new Set());
+    };
+
+    const copyPix = async (restaurant: RestaurantFinancial) => {
+        if (!restaurant.payment_info) return;
+
+        try {
+            await navigator.clipboard.writeText(restaurant.payment_info);
+            setCopiedPixId(restaurant.id);
+            window.setTimeout(() => {
+                setCopiedPixId((current) =>
+                    current === restaurant.id ? null : current
+                );
+            }, 1800);
+        } catch (error) {
+            console.error("Erro ao copiar PIX:", error);
+            setErrorMessage("Não foi possível copiar a chave PIX.");
+        }
+    };
+
     if (loading) {
         return (
-            <div className="flex justify-center items-center h-64">
+            <div className="flex h-64 items-center justify-center">
                 <Loader />
             </div>
         );
     }
 
     return (
-        <div className="max-w-7xl mx-auto px-6 py-10">
-            <h1 className="text-3xl font-bold mb-8">Controle de Pagamentos</h1>
+        <div className="mx-auto max-w-7xl px-6 py-10">
+            <div className="mb-8 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+                <div>
+                    <h1 className="text-3xl font-bold">Controle de Pagamentos</h1>
+                    <p className="mt-2 text-sm text-gray-500">
+                        Selecione os restaurantes para registrar vários repasses
+                        de uma vez.
+                    </p>
+                </div>
 
-            <div className={"mb-8 text-2xl font-bold text-red-600 text-center"}>
-                <FontAwesomeIcon icon={icons.faLock}/> ANALISAR PAGAMENTOS CANCELADOS ANTES E DELETAR OS PEDIDOS.
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                    <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm">
+                        <input
+                            type="checkbox"
+                            checked={allPayableSelected}
+                            onChange={toggleAllPayable}
+                            disabled={payableRestaurants.length === 0}
+                            className="h-4 w-4 cursor-pointer accent-green-600 disabled:cursor-not-allowed"
+                        />
+                        Selecionar todos
+                    </label>
+
+                    <Button
+                        onClick={() => void createPayouts(selectedRestaurants)}
+                        disabled={
+                            selectedRestaurants.length === 0 ||
+                            payingIds.size > 0
+                        }
+                        loading={payingIds.size > 1}
+                        className="min-w-52 bg-green-600 text-white hover:opacity-90 disabled:opacity-40"
+                    >
+                        Pagar selecionados ({selectedRestaurants.length}) —{" "}
+                        {formatMoney(totalSelected)}
+                    </Button>
+                </div>
             </div>
 
-            <div className="mb-6 p-6 bg-green-50 border border-green-200 rounded-xl text-center">
+            <div className="mb-8 text-center text-2xl font-bold text-red-600">
+                <FontAwesomeIcon icon={faLock} /> ANALISAR PAGAMENTOS CANCELADOS
+                ANTES E DELETAR OS PEDIDOS.
+            </div>
+
+            {errorMessage && (
+                <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+                    {errorMessage}
+                </div>
+            )}
+
+            <div className="mb-6 rounded-xl border border-green-200 bg-green-50 p-6 text-center">
                 <p className="text-sm text-gray-500">TOTAL A PAGAR (GERAL)</p>
                 <p className="text-3xl font-bold text-green-700">
                     {formatMoney(totalToPayAll)}
@@ -142,56 +335,147 @@ export default function AdminPayoutsPage() {
             </div>
 
             <div className="grid gap-6">
-                {restaurants.sort((a, b) => b.value_to_pay_cents - a.value_to_pay_cents).map((r) => (
-                    <div
-                        key={r.id}
-                        className="bg-white rounded-xl shadow border p-6 flex flex-col gap-4"
-                    >
-                        <div className="flex justify-between items-start">
-                            <div>
-                                <h2 className="text-xl font-bold">{r.name}</h2>
-                                <p className="text-sm text-gray-500">📞 {r.phone}</p>
-                                <p className="text-sm text-gray-500">
-                                    💳 PIX: {r.payment_info}
-                                </p>
-                                <p className="text-sm text-gray-500">
-                                    {r.id}
-                                </p>
-                            </div>
+                {[...restaurants]
+                    .sort(
+                        (first, second) =>
+                            second.value_to_pay_cents -
+                            first.value_to_pay_cents
+                    )
+                    .map((restaurant) => {
+                        const canPay = restaurant.value_to_pay_cents > 0;
+                        const isPaying = payingIds.has(restaurant.id);
+                        const whatsappUrl = getWhatsAppPayoutUrl(restaurant);
 
-                            <Button
-                                onClick={() => handleMarkAsPaid(r)}
-                                disabled={
-                                    r.value_to_pay_cents <= 0 || payingId === r.id
-                                }
-                                className="bg-green-600 text-white hover:opacity-90 disabled:opacity-40"
+                        return (
+                            <div
+                                key={restaurant.id}
+                                className={`flex flex-col gap-4 rounded-xl border bg-white p-6 shadow transition-colors ${
+                                    selectedIds.has(restaurant.id)
+                                        ? "border-green-400 ring-2 ring-green-100"
+                                        : "border-gray-200"
+                                }`}
                             >
-                                {payingId === r.id ? "Processando..." : "PAID"}
-                            </Button>
-                        </div>
+                                <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                                    <div className="flex min-w-0 items-start gap-4">
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedIds.has(restaurant.id)}
+                                            onChange={() =>
+                                                toggleRestaurant(restaurant.id)
+                                            }
+                                            disabled={!canPay || payingIds.size > 0}
+                                            aria-label={`Selecionar ${restaurant.name}`}
+                                            className="mt-1 h-5 w-5 shrink-0 cursor-pointer accent-green-600 disabled:cursor-not-allowed disabled:opacity-40"
+                                        />
 
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                                        <div className="min-w-0">
+                                            <h2 className="text-xl font-bold">
+                                                {restaurant.name}
+                                            </h2>
+                                            <p className="text-sm text-gray-500">
+                                                📞 {restaurant.phone || "Sem telefone"}
+                                            </p>
 
-                            <div>
-                                <p className="text-sm text-gray-500">
-                                    Total Já Pago ao Restaurante
-                                </p>
-                                <p className="text-lg font-bold">
-                                    {formatMoney(r.total_payouts_cents)}
-                                </p>
+                                            <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-gray-500">
+                                                <span className="break-all">
+                                                    💳 PIX:{" "}
+                                                    {restaurant.payment_info ||
+                                                        "Não cadastrado"}
+                                                </span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                        void copyPix(restaurant)
+                                                    }
+                                                    disabled={!restaurant.payment_info}
+                                                    className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-xs font-medium text-gray-700 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
+                                                    title="Copiar chave PIX"
+                                                >
+                                                    <FontAwesomeIcon
+                                                        icon={
+                                                            copiedPixId ===
+                                                            restaurant.id
+                                                                ? faCheck
+                                                                : faCopy
+                                                        }
+                                                    />
+                                                    {copiedPixId === restaurant.id
+                                                        ? "Copiado"
+                                                        : "Copiar PIX"}
+                                                </button>
+                                            </div>
+
+                                            <p className="mt-1 break-all text-sm text-gray-500">
+                                                {restaurant.id}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex shrink-0 items-center gap-2 self-end lg:self-start">
+                                        <Button
+                                            onClick={() =>
+                                                void createPayouts([restaurant])
+                                            }
+                                            disabled={
+                                                !canPay ||
+                                                payingIds.size > 0
+                                            }
+                                            loading={isPaying}
+                                            className="bg-green-600 text-white hover:opacity-90 disabled:opacity-40"
+                                        >
+                                            Pagar
+                                        </Button>
+
+                                        {whatsappUrl ? (
+                                            <a
+                                                href={whatsappUrl}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                aria-label={`Enviar comprovante de repasse para ${restaurant.name} pelo WhatsApp`}
+                                                title="Abrir mensagem de repasse no WhatsApp"
+                                                className="inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-md bg-gray-100 text-gray-800 transition-colors hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2"
+                                            >
+                                                <FontAwesomeIcon icon={faLink} />
+                                            </a>
+                                        ) : (
+                                            <button
+                                                type="button"
+                                                disabled
+                                                title="Telefone inválido ou não cadastrado"
+                                                className="inline-flex h-10 w-10 cursor-not-allowed items-center justify-center rounded-md bg-gray-100 text-gray-400 opacity-50"
+                                            >
+                                                <FontAwesomeIcon icon={faLink} />
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+                                    <div>
+                                        <p className="text-sm text-gray-500">
+                                            Total Já Pago ao Restaurante
+                                        </p>
+                                        <p className="text-lg font-bold">
+                                            {formatMoney(
+                                                restaurant.total_payouts_cents
+                                            )}
+                                        </p>
+                                    </div>
+
+                                    <div>
+                                        <p className="text-sm text-gray-500">
+                                            Valor a Pagar Agora
+                                        </p>
+                                        <p className="text-lg font-bold text-green-600">
+                                            {formatMoney(
+                                                restaurant.value_to_pay_cents
+                                            )}
+                                        </p>
+                                    </div>
+                                </div>
                             </div>
-
-                            <div>
-                                <p className="text-sm text-gray-500">
-                                    Valor a Pagar Agora
-                                </p>
-                                <p className="text-lg font-bold text-green-600">
-                                    {formatMoney(r.value_to_pay_cents)}
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                ))}
+                        );
+                    })}
             </div>
         </div>
     );

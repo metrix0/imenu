@@ -839,23 +839,25 @@ export default function CartModal({
 
                         </div>
 
-                        <Input
-                            autoComplete="address-line1"
-                            label="Rua"
-                            placeholder="Rua das Flores"
-                            value={rua}
-                            onChange={(e) => setField("rua", e.target.value)}
-                            className="mb-3 2xl:text-lg 2xl:mb-6 md:text-sm "
-                        />
+                        <div className="grid grid-cols-2 gap-3 2xl:gap-6 md:text-sm">
+                            <Input
+                                autoComplete="address-line1"
+                                label="Rua"
+                                placeholder="Rua das Flores"
+                                value={rua}
+                                onChange={(e) => setField("rua", e.target.value)}
+                                className="min-w-0 mb-3 2xl:text-lg 2xl:mb-6"
+                            />
 
-                        <Input
-                            autoComplete="address-level3"
-                            label="Bairro"
-                            placeholder="Centro"
-                            value={bairro}
-                            onChange={(e) => setField("bairro", e.target.value)}
-                            className="mb-3 2xl:text-lg 2xl:mb-6 md:text-sm "
-                        />
+                            <Input
+                                autoComplete="address-level3"
+                                label="Bairro"
+                                placeholder="Centro"
+                                value={bairro}
+                                onChange={(e) => setField("bairro", e.target.value)}
+                                className="min-w-0 mb-3 2xl:text-lg 2xl:mb-6"
+                            />
+                        </div>
 
                         <div className="flex  gap-3 2xl:gap-6 md:text-sm ">
                             <Input

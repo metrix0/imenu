@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 
 import { withTransaction } from "@/lib/database/sql";
 import { notifyOrderStatusUpdate } from "@/lib/services/whatsappNotification";
+import { notifyWhatsAppAgentOrderStatus } from "@/lib/services/whatsappAgentEvents";
 
 const VALID_STATUSES = [
     "pending_online_payment",
@@ -63,9 +64,7 @@ async function findBalancePhone(
         ]
     );
 
-    return (
-        result.rows[0]?.customer_phone || null
-    );
+    return result.rows[0]?.customer_phone || null;
 }
 
 export async function PATCH(
@@ -81,20 +80,15 @@ export async function PATCH(
 
         if (
             !VALID_STATUSES.includes(
-                status as
-                    (typeof VALID_STATUSES)[number]
+                status as (typeof VALID_STATUSES)[number]
             )
         ) {
-            throw new OrderStatusError(
-                "Invalid status provided",
-                400
-            );
+            throw new OrderStatusError("Invalid status provided", 400);
         }
 
         await withTransaction(async (client) => {
-            const orderResult =
-                await client.query(
-                    `
+            const orderResult = await client.query(
+                `
                         SELECT
                             id,
                             restaurant_id,
@@ -107,28 +101,19 @@ export async function PATCH(
                         WHERE id = $1
                         FOR UPDATE
                     `,
-                    [id]
-                );
+                [id]
+            );
 
             const order = orderResult.rows[0];
 
             if (!order) {
-                throw new OrderStatusError(
-                    "Order not found",
-                    404
-                );
+                throw new OrderStatusError("Order not found", 404);
             }
 
-            const cleanPhone = normalizePhone(
-                order.customer_phone
-            );
+            const cleanPhone = normalizePhone(order.customer_phone);
             const hasValidPhone =
-                cleanPhone.length === 10 ||
-                cleanPhone.length === 11;
-            const pointsUsed =
-                Number(
-                    order.loyalty_points_used
-                ) || 0;
+                cleanPhone.length === 10 || cleanPhone.length === 11;
+            const pointsUsed = Number(order.loyalty_points_used) || 0;
 
             if (
                 status === "done" &&
@@ -137,9 +122,8 @@ export async function PATCH(
                 !order.loyalty_credited &&
                 pointsUsed === 0
             ) {
-                const programResult =
-                    await client.query(
-                        `
+                const programResult = await client.query(
+                    `
                             SELECT
                                 min_order_value_cents,
                                 goal_count
@@ -148,54 +132,41 @@ export async function PATCH(
                               AND active = true
                             LIMIT 1
                         `,
-                        [order.restaurant_id]
-                    );
+                    [order.restaurant_id]
+                );
 
-                const program =
-                    programResult.rows[0];
+                const program = programResult.rows[0];
 
                 if (
                     program &&
                     Number(order.total_cents) >=
-                        (Number(
-                            program.min_order_value_cents
-                        ) || 0)
+                        (Number(program.min_order_value_cents) || 0)
                 ) {
                     const goal = Math.max(
                         1,
-                        Number(
-                            program.goal_count
-                        ) || 10
+                        Number(program.goal_count) || 10
                     );
 
-                    const storedPhone =
-                        await findBalancePhone(
-                            client,
-                            order.restaurant_id,
-                            cleanPhone
-                        );
+                    const storedPhone = await findBalancePhone(
+                        client,
+                        order.restaurant_id,
+                        cleanPhone
+                    );
 
                     if (storedPhone) {
-                        const balanceResult =
-                            await client.query(
-                                `
+                        const balanceResult = await client.query(
+                            `
                                     SELECT current_count
                                     FROM loyalty_balances
                                     WHERE restaurant_id = $1
                                       AND customer_phone = $2
                                     FOR UPDATE
                                 `,
-                                [
-                                    order.restaurant_id,
-                                    storedPhone,
-                                ]
-                            );
+                            [order.restaurant_id, storedPhone]
+                        );
 
                         const currentCount =
-                            Number(
-                                balanceResult.rows[0]
-                                    ?.current_count
-                            ) || 0;
+                            Number(balanceResult.rows[0]?.current_count) || 0;
 
                         if (currentCount < goal) {
                             await client.query(
@@ -210,10 +181,7 @@ export async function PATCH(
                                     WHERE restaurant_id = $1
                                       AND customer_phone = $2
                                 `,
-                                [
-                                    order.restaurant_id,
-                                    storedPhone,
-                                ]
+                                [order.restaurant_id, storedPhone]
                             );
 
                             await client.query(
@@ -243,10 +211,7 @@ export async function PATCH(
                                     NOW()
                                 )
                             `,
-                            [
-                                order.restaurant_id,
-                                cleanPhone,
-                            ]
+                            [order.restaurant_id, cleanPhone]
                         );
 
                         await client.query(
@@ -261,18 +226,13 @@ export async function PATCH(
                 }
             }
 
-            if (
-                status === "canceled" &&
-                hasValidPhone
-            ) {
-                const storedPhone =
-                    await findBalancePhone(
-                        client,
-                        order.restaurant_id,
-                        cleanPhone
-                    );
-                const balancePhone =
-                    storedPhone || cleanPhone;
+            if (status === "canceled" && hasValidPhone) {
+                const storedPhone = await findBalancePhone(
+                    client,
+                    order.restaurant_id,
+                    cleanPhone
+                );
+                const balancePhone = storedPhone || cleanPhone;
 
                 if (order.loyalty_credited) {
                     if (storedPhone) {
@@ -293,10 +253,7 @@ export async function PATCH(
                                 WHERE restaurant_id = $1
                                   AND customer_phone = $2
                             `,
-                            [
-                                order.restaurant_id,
-                                storedPhone,
-                            ]
+                            [order.restaurant_id, storedPhone]
                         );
                     }
 
@@ -338,11 +295,7 @@ export async function PATCH(
                                     EXCLUDED.current_count,
                                 last_order_at = NOW()
                         `,
-                        [
-                            order.restaurant_id,
-                            balancePhone,
-                            pointsUsed,
-                        ]
+                        [order.restaurant_id, balancePhone, pointsUsed]
                     );
 
                     await client.query(
@@ -370,12 +323,16 @@ export async function PATCH(
             );
         });
 
-        void notifyOrderStatusUpdate(
-            id,
-            status
-        ).catch((error) => {
+        void notifyOrderStatusUpdate(id, status).catch((error) => {
             console.error(
                 "[ORDERS] Falha ao enviar atualização de status:",
+                error
+            );
+        });
+
+        void notifyWhatsAppAgentOrderStatus(id, status).catch((error) => {
+            console.error(
+                "[ORDERS] Falha ao enviar evento ao agente do WhatsApp:",
                 error
             );
         });
@@ -385,10 +342,7 @@ export async function PATCH(
             status,
         });
     } catch (error) {
-        console.error(
-            "[ORDERS] Erro ao atualizar status:",
-            error
-        );
+        console.error("[ORDERS] Erro ao atualizar status:", error);
 
         if (error instanceof OrderStatusError) {
             return NextResponse.json(
