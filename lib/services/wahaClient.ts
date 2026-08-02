@@ -17,6 +17,12 @@ export type WahaSession = {
     config?: Record<string, unknown> | null;
 };
 
+export type WahaListRow = {
+    title: string;
+    rowId: string;
+    description?: string | null;
+};
+
 type WahaQrResponse = {
     mimetype?: string;
     data?: string;
@@ -126,8 +132,6 @@ function sessionConfig(restaurantId: string) {
                 events: [
                     "message",
                     "message.any",
-                    "poll.vote",
-                    "poll.vote.failed",
                     "session.status",
                 ],
                 hmac: {
@@ -261,21 +265,32 @@ export async function sendWahaText(
     });
 }
 
-export async function sendWahaPoll(
+export async function sendWahaList(
     sessionName: string,
     chatId: string,
-    name: string,
-    options: string[]
+    rows: WahaListRow[]
 ): Promise<void> {
-    await wahaRequest<void>("/api/sendPoll", {
+    await wahaRequest<void>("/api/sendList", {
         method: "POST",
         body: JSON.stringify({
             session: sessionName,
             chatId,
-            poll: {
-                name,
-                options,
-                multipleAnswers: false,
+            reply_to: null,
+            message: {
+                title: "Atendimento iMenu",
+                description: "Escolha uma opção para continuar:",
+                footer: "Toque em uma opção abaixo",
+                button: "Ver opções",
+                sections: [
+                    {
+                        title: "Como posso ajudar?",
+                        rows: rows.map((row) => ({
+                            title: row.title,
+                            rowId: row.rowId,
+                            description: row.description ?? null,
+                        })),
+                    },
+                ],
             },
         }),
     });

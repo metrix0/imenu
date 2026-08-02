@@ -1,5 +1,9 @@
 import { query } from "@/lib/database/sql";
-import { sendWahaPoll, sendWahaText } from "@/lib/services/wahaClient";
+import {
+    sendWahaList,
+    sendWahaText,
+    type WahaListRow,
+} from "@/lib/services/wahaClient";
 
 type RestaurantAutomationData = {
     id: string;
@@ -36,13 +40,33 @@ type ConversationState = "human" | "welcome" | "continue";
 const HUMAN_HANDOFF_MINUTES = 30;
 const BOT_SESSION_MINUTES = 30;
 
-const MENU_OPTIONS = [
-    "Ver o cardápio",
-    "Onde está meu pedido?",
-    "Entrega e retirada",
-    "Formas de pagamento",
-    "Falar com atendente",
-] as const;
+const MENU_ROWS: WahaListRow[] = [
+    {
+        title: "Ver o cardápio",
+        rowId: "menu",
+        description: "Abrir o cardápio e fazer um pedido",
+    },
+    {
+        title: "Onde está meu pedido?",
+        rowId: "order_status",
+        description: "Consultar o pedido deste número",
+    },
+    {
+        title: "Entrega e retirada",
+        rowId: "delivery",
+        description: "Ver taxas, prazo e retirada",
+    },
+    {
+        title: "Formas de pagamento",
+        rowId: "payment",
+        description: "Consultar os pagamentos aceitos",
+    },
+    {
+        title: "Falar com atendente",
+        rowId: "handoff",
+        description: "Transferir para a equipe do restaurante",
+    },
+];
 
 const PAYMENT_LABELS: Record<string, string> = {
     pix: "Pix online",
@@ -53,13 +77,15 @@ const PAYMENT_LABELS: Record<string, string> = {
 
 const FLOW_BY_TEXT = new Map<string, BotFlow>([
     ["1", "menu"],
+    ["menu", "menu"],
     ["ver o cardapio", "menu"],
     ["cardapio", "menu"],
-    ["menu", "menu"],
     ["fazer pedido", "menu"],
     ["quero pedir", "menu"],
 
     ["2", "order_status"],
+    ["order status", "order_status"],
+    ["order_status", "order_status"],
     ["onde esta meu pedido", "order_status"],
     ["onde esta o meu pedido", "order_status"],
     ["meu pedido", "order_status"],
@@ -67,17 +93,20 @@ const FLOW_BY_TEXT = new Map<string, BotFlow>([
     ["acompanhar pedido", "order_status"],
 
     ["3", "delivery"],
+    ["delivery", "delivery"],
     ["entrega e retirada", "delivery"],
     ["entrega", "delivery"],
     ["retirada", "delivery"],
 
     ["4", "payment"],
+    ["payment", "payment"],
     ["formas de pagamento", "payment"],
     ["forma de pagamento", "payment"],
     ["pagamento", "payment"],
     ["pagamentos", "payment"],
 
     ["5", "handoff"],
+    ["handoff", "handoff"],
     ["falar com atendente", "handoff"],
     ["atendente", "handoff"],
     ["falar com uma pessoa", "handoff"],
@@ -88,7 +117,7 @@ function normalize(value: unknown): string {
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "")
         .toLowerCase()
-        .replace(/[^a-z0-9\s]/g, " ")
+        .replace(/[^a-z0-9_\s]/g, " ")
         .replace(/\s+/g, " ")
         .trim();
 }
@@ -296,7 +325,6 @@ function buildGreetingMessage(restaurant: RestaurantAutomationData): string {
         `Pedido online: ${getOrderingUrl(restaurant.url_slug)}`,
         "",
         "Para atendimento humano, escolha *Falar com atendente* ou escreva *atendente*.",
-        "Escolha uma opção abaixo:",
     ].join("\n");
 }
 
@@ -313,15 +341,10 @@ function buildTextMenuFallback(): string {
 
 async function sendMainMenu(sessionName: string, chatId: string): Promise<void> {
     try {
-        await sendWahaPoll(
-            sessionName,
-            chatId,
-            "Como posso ajudar?",
-            [...MENU_OPTIONS]
-        );
+        await sendWahaList(sessionName, chatId, MENU_ROWS);
     } catch (error) {
         console.warn(
-            "[WHATSAPP_AUTOMATION] Interactive menu unavailable; using text fallback:",
+            "[WHATSAPP_AUTOMATION] WhatsApp list unavailable; using text fallback:",
             error
         );
         await sendWahaText(sessionName, chatId, buildTextMenuFallback());
@@ -340,7 +363,7 @@ async function sendWelcome(
 function buildMenuLinkMessage(restaurant: RestaurantAutomationData): string {
     return [
         `🍽️ *Cardápio — ${restaurant.name}*`,
-        "Veja todos os itens, preços e promoções e faça seu pedido aqui:",
+        "Veja o cardápio e faça seu pedido aqui:",
         getOrderingUrl(restaurant.url_slug),
     ].join("\n");
 }
@@ -603,6 +626,7 @@ export async function processIncomingWhatsAppMessage({
     });
 }
 
+// Kept for compatibility with deployments that still send queued poll events.
 export async function processWhatsAppMenuSelection({
     restaurantId,
     sessionName,
@@ -614,32 +638,16 @@ export async function processWhatsAppMenuSelection({
     chatId: string;
     selection: string;
 }): Promise<void> {
-    const state = await prepareConversation(restaurantId, chatId);
-    if (state === "human") return;
-
-    const restaurant = await getRestaurant(restaurantId);
-    if (!restaurant) return;
-
-    if (state === "welcome") {
-        await sendWelcome(sessionName, chatId, restaurant);
-        return;
-    }
-
-    const flow = detectFlow(selection);
-    if (!flow) {
-        await sendMainMenu(sessionName, chatId);
-        return;
-    }
-
-    await answerFlow({
-        flow,
-        restaurant,
+    await processIncomingWhatsAppMessage({
         restaurantId,
         sessionName,
         chatId,
+        body: selection,
+        hasMedia: false,
     });
 }
 
+// Kept for compatibility with deployments that still send queued poll failures.
 export async function processWhatsAppMenuVoteFailed({
     restaurantId,
     sessionName,
@@ -660,10 +668,5 @@ export async function processWhatsAppMenuVoteFailed({
         return;
     }
 
-    await sendWahaText(
-        sessionName,
-        chatId,
-        "Não consegui identificar a opção selecionada. Escolha novamente:"
-    );
     await sendMainMenu(sessionName, chatId);
 }
