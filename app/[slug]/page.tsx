@@ -265,16 +265,8 @@ export default async function Page({
     (c) => (itemsByCategory[c.id]?.length ?? 0) > 0,
   );
 
-  const { data } = await supabase
-    .from("restaurants")
-    .select("name")
-    .eq("url_slug", slug)
-    .maybeSingle();
-
   return (
     <>
-      <title>{data?.name ?? "Menu"}</title>
-
       {tracking && (
         <TrackingScripts
           ga4Id={tracking?.ga4_id}
