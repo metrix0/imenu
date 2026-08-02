@@ -1,5 +1,5 @@
 import { query } from "@/lib/database/sql";
-import { sendWahaText } from "@/lib/services/wahaClient";
+import { sendWahaPoll, sendWahaText } from "@/lib/services/wahaClient";
 
 type RestaurantAutomationData = {
     id: string;
@@ -11,23 +11,38 @@ type RestaurantAutomationData = {
     pickup_enabled: boolean | null;
 };
 
-type MenuRow = {
-    name: string;
-    description: string | null;
-    price_cents: number;
-    category_name: string | null;
-    promotion_type: "fixed" | "percent" | null;
-    promotion_value: number | null;
-};
-
 type ConversationRow = {
     mode: "bot" | "human";
     human_until: string | null;
+    last_inbound_at: string | null;
 };
 
-const HUMAN_HANDOFF_HOURS = 24;
-const MAX_MENU_ITEMS = 30;
-const MAX_MESSAGE_LENGTH = 3900;
+type OrderStatusRow = {
+    id: string;
+    status: string;
+    is_delivery: boolean | string | null;
+    created_at: string;
+};
+
+type BotFlow =
+    | "menu"
+    | "order_status"
+    | "delivery"
+    | "payment"
+    | "handoff";
+
+type ConversationState = "human" | "welcome" | "continue";
+
+const HUMAN_HANDOFF_MINUTES = 30;
+const BOT_SESSION_MINUTES = 30;
+
+const MENU_OPTIONS = [
+    "Ver o cardápio",
+    "Onde está meu pedido?",
+    "Entrega e retirada",
+    "Formas de pagamento",
+    "Falar com atendente",
+] as const;
 
 const PAYMENT_LABELS: Record<string, string> = {
     pix: "Pix online",
@@ -36,33 +51,36 @@ const PAYMENT_LABELS: Record<string, string> = {
     "trazer-maquininha": "Cartão na maquininha",
 };
 
-const GENERIC_MENU_WORDS = new Set([
-    "cardapio",
-    "menu",
-    "itens",
-    "item",
-    "opcoes",
-    "opcao",
-    "produtos",
-    "produto",
-    "preco",
-    "precos",
-    "valor",
-    "valores",
-    "quanto",
-    "custa",
-    "tem",
-    "voces",
-    "voces",
-    "qual",
-    "quais",
-    "me",
-    "manda",
-    "mandar",
-    "ver",
-    "queria",
-    "quero",
-    "gostaria",
+const FLOW_BY_TEXT = new Map<string, BotFlow>([
+    ["1", "menu"],
+    ["ver o cardapio", "menu"],
+    ["cardapio", "menu"],
+    ["menu", "menu"],
+    ["fazer pedido", "menu"],
+    ["quero pedir", "menu"],
+
+    ["2", "order_status"],
+    ["onde esta meu pedido", "order_status"],
+    ["onde esta o meu pedido", "order_status"],
+    ["meu pedido", "order_status"],
+    ["status do pedido", "order_status"],
+    ["acompanhar pedido", "order_status"],
+
+    ["3", "delivery"],
+    ["entrega e retirada", "delivery"],
+    ["entrega", "delivery"],
+    ["retirada", "delivery"],
+
+    ["4", "payment"],
+    ["formas de pagamento", "payment"],
+    ["forma de pagamento", "payment"],
+    ["pagamento", "payment"],
+    ["pagamentos", "payment"],
+
+    ["5", "handoff"],
+    ["falar com atendente", "handoff"],
+    ["atendente", "handoff"],
+    ["falar com uma pessoa", "handoff"],
 ]);
 
 function normalize(value: unknown): string {
@@ -73,10 +91,6 @@ function normalize(value: unknown): string {
         .replace(/[^a-z0-9\s]/g, " ")
         .replace(/\s+/g, " ")
         .trim();
-}
-
-function containsAny(text: string, terms: string[]): boolean {
-    return terms.some((term) => text.includes(term));
 }
 
 function formatCurrency(cents: number | null | undefined): string {
@@ -98,21 +112,6 @@ function getOrderingUrl(slug: string): string {
     }
 
     return `${base}/${encodeURIComponent(slug)}`;
-}
-
-function getEffectivePrice(item: MenuRow): number {
-    const price = Number(item.price_cents) || 0;
-    const value = Number(item.promotion_value) || 0;
-
-    if (item.promotion_type === "percent" && value > 0) {
-        return Math.max(0, Math.round(price * (1 - value / 100)));
-    }
-
-    if (item.promotion_type === "fixed" && value > 0) {
-        return Math.max(0, price - value);
-    }
-
-    return price;
 }
 
 async function getRestaurant(
@@ -138,54 +137,13 @@ async function getRestaurant(
     return result.rows[0] || null;
 }
 
-async function getLiveMenu(restaurantId: string): Promise<MenuRow[]> {
-    const result = await query<MenuRow>(
-        `
-            SELECT
-                items.name,
-                items.description,
-                items.price_cents,
-                categories.name AS category_name,
-                active_promotion.type AS promotion_type,
-                active_promotion.value AS promotion_value
-            FROM items
-            LEFT JOIN categories
-              ON categories.id = items.category_id
-            LEFT JOIN LATERAL (
-                SELECT
-                    promotions.type,
-                    promotions.value
-                FROM promotions
-                WHERE promotions.item_id = items.id
-                  AND promotions.starts_at <= NOW()
-                  AND (
-                      promotions.ends_at IS NULL
-                      OR promotions.ends_at >= NOW()
-                  )
-                ORDER BY promotions.starts_at DESC
-                LIMIT 1
-            ) AS active_promotion ON TRUE
-            WHERE items.restaurant_id = $1
-              AND items.is_available = TRUE
-            ORDER BY
-                categories.position ASC NULLS LAST,
-                items.position ASC,
-                items.name ASC
-            LIMIT 100
-        `,
-        [restaurantId]
-    );
-
-    return result.rows;
-}
-
 async function getConversation(
     restaurantId: string,
     chatId: string
 ): Promise<ConversationRow | null> {
     const result = await query<ConversationRow>(
         `
-            SELECT mode, human_until
+            SELECT mode, human_until, last_inbound_at
             FROM whatsapp_conversations
             WHERE restaurant_id = $1
               AND chat_id = $2
@@ -251,98 +209,55 @@ async function handoffConversation(
                 $1,
                 $2,
                 'human',
-                NOW() + ($3 * INTERVAL '1 hour'),
+                NOW() + ($3 * INTERVAL '1 minute'),
                 CASE WHEN $4 THEN NOW() ELSE NULL END,
                 NOW()
             )
             ON CONFLICT (restaurant_id, chat_id)
             DO UPDATE SET
                 mode = 'human',
-                human_until = NOW() + ($3 * INTERVAL '1 hour'),
+                human_until = NOW() + ($3 * INTERVAL '1 minute'),
                 last_owner_message_at = CASE
                     WHEN $4 THEN NOW()
                     ELSE whatsapp_conversations.last_owner_message_at
                 END,
                 updated_at = NOW()
         `,
-        [restaurantId, chatId, HUMAN_HANDOFF_HOURS, ownerMessage]
+        [restaurantId, chatId, HUMAN_HANDOFF_MINUTES, ownerMessage]
     );
 }
 
 function isConversationWithOwner(conversation: ConversationRow | null): boolean {
     if (!conversation || conversation.mode !== "human") return false;
     if (!conversation.human_until) return true;
-    return new Date(conversation.human_until).getTime() > Date.now();
+
+    const humanUntil = new Date(conversation.human_until).getTime();
+    return Number.isFinite(humanUntil) && humanUntil > Date.now();
 }
 
-function buildMenuSearchTerms(incomingText: string): string[] {
-    return normalize(incomingText)
-        .split(" ")
-        .filter((word) => word.length >= 3 && !GENERIC_MENU_WORDS.has(word));
+function hasSessionExpired(conversation: ConversationRow | null): boolean {
+    if (!conversation?.last_inbound_at) return true;
+
+    const lastInbound = new Date(conversation.last_inbound_at).getTime();
+    if (!Number.isFinite(lastInbound)) return true;
+
+    return Date.now() - lastInbound >= BOT_SESSION_MINUTES * 60_000;
 }
 
-function buildMenuMessage(
-    restaurant: RestaurantAutomationData,
-    items: MenuRow[],
-    incomingText: string
-): string {
-    const searchTerms = buildMenuSearchTerms(incomingText);
-    const matchingItems = searchTerms.length
-        ? items.filter((item) => {
-              const haystack = normalize(
-                  `${item.name} ${item.description || ""} ${
-                      item.category_name || ""
-                  }`
-              );
-              return searchTerms.some((term) => haystack.includes(term));
-          })
-        : items;
+async function prepareConversation(
+    restaurantId: string,
+    chatId: string
+): Promise<ConversationState> {
+    const previous = await getConversation(restaurantId, chatId);
+    const humanActive = isConversationWithOwner(previous);
+    const expiredHumanHandoff = previous?.mode === "human" && !humanActive;
+    const shouldWelcome =
+        !previous || expiredHumanHandoff || hasSessionExpired(previous);
 
-    const selectedItems = (matchingItems.length ? matchingItems : items).slice(
-        0,
-        MAX_MENU_ITEMS
-    );
-    const lines: string[] = [`🍽️ *Cardápio — ${restaurant.name}*`];
-    let lastCategory = "";
+    await touchInboundConversation(restaurantId, chatId);
 
-    for (const item of selectedItems) {
-        const category = item.category_name || "Outros";
-        if (category !== lastCategory) {
-            lines.push("", `*${category}*`);
-            lastCategory = category;
-        }
-
-        const original = Number(item.price_cents) || 0;
-        const effective = getEffectivePrice(item);
-        const priceText =
-            effective < original
-                ? `~${formatCurrency(original)}~ ${formatCurrency(effective)}`
-                : formatCurrency(effective);
-
-        lines.push(`• ${item.name} — ${priceText}`);
-    }
-
-    if (selectedItems.length === 0) {
-        lines.push("", "O cardápio não tem itens disponíveis neste momento.");
-    } else if (matchingItems.length > selectedItems.length) {
-        lines.push("", "Há mais opções no cardápio completo.");
-    } else if (searchTerms.length && matchingItems.length === 0) {
-        lines.push(
-            "",
-            "Não encontrei exatamente esse item, então mostrei as opções disponíveis."
-        );
-    }
-
-    lines.push(
-        "",
-        "Veja todos os detalhes e faça seu pedido aqui:",
-        getOrderingUrl(restaurant.url_slug)
-    );
-
-    const message = lines.join("\n");
-    return message.length <= MAX_MESSAGE_LENGTH
-        ? message
-        : `${message.slice(0, MAX_MESSAGE_LENGTH - 4)}...`;
+    if (humanActive) return "human";
+    return shouldWelcome ? "welcome" : "continue";
 }
 
 function parseDeliveryRules(value: unknown): Array<{
@@ -373,9 +288,66 @@ function parseDeliveryRules(value: unknown): Array<{
         .sort((first, second) => first.radius_km - second.radius_km);
 }
 
+function buildGreetingMessage(restaurant: RestaurantAutomationData): string {
+    return [
+        `Olá! 👋 Sou o atendimento automático do *${restaurant.name}*.`,
+        "Posso enviar o cardápio, consultar o status do seu pedido e explicar entrega, retirada e pagamentos.",
+        "",
+        `Pedido online: ${getOrderingUrl(restaurant.url_slug)}`,
+        "",
+        "Para atendimento humano, escolha *Falar com atendente* ou escreva *atendente*.",
+        "Escolha uma opção abaixo:",
+    ].join("\n");
+}
+
+function buildTextMenuFallback(): string {
+    return [
+        "Responda com o número da opção:",
+        "1. Ver o cardápio",
+        "2. Onde está meu pedido?",
+        "3. Entrega e retirada",
+        "4. Formas de pagamento",
+        "5. Falar com atendente",
+    ].join("\n");
+}
+
+async function sendMainMenu(sessionName: string, chatId: string): Promise<void> {
+    try {
+        await sendWahaPoll(
+            sessionName,
+            chatId,
+            "Como posso ajudar?",
+            [...MENU_OPTIONS]
+        );
+    } catch (error) {
+        console.warn(
+            "[WHATSAPP_AUTOMATION] Interactive menu unavailable; using text fallback:",
+            error
+        );
+        await sendWahaText(sessionName, chatId, buildTextMenuFallback());
+    }
+}
+
+async function sendWelcome(
+    sessionName: string,
+    chatId: string,
+    restaurant: RestaurantAutomationData
+): Promise<void> {
+    await sendWahaText(sessionName, chatId, buildGreetingMessage(restaurant));
+    await sendMainMenu(sessionName, chatId);
+}
+
+function buildMenuLinkMessage(restaurant: RestaurantAutomationData): string {
+    return [
+        `🍽️ *Cardápio — ${restaurant.name}*`,
+        "Veja todos os itens, preços e promoções e faça seu pedido aqui:",
+        getOrderingUrl(restaurant.url_slug),
+    ].join("\n");
+}
+
 function buildDeliveryMessage(restaurant: RestaurantAutomationData): string {
     const rules = parseDeliveryRules(restaurant.delivery_fee_json);
-    const lines = [`🛵 *Entrega — ${restaurant.name}*`];
+    const lines = [`🛵 *Entrega e retirada — ${restaurant.name}*`];
 
     if (rules.length) {
         for (const rule of rules.slice(0, 8)) {
@@ -397,14 +369,12 @@ function buildDeliveryMessage(restaurant: RestaurantAutomationData): string {
         );
     }
 
-    if (restaurant.pickup_enabled) {
-        lines.push("• Retirada no local também está disponível.");
-    }
-
     lines.push(
+        restaurant.pickup_enabled
+            ? "• Retirada no local está disponível."
+            : "• Retirada no local não está disponível neste momento.",
         "",
-        "Informe seu endereço e finalize o pedido para ver a opção exata:",
-        getOrderingUrl(restaurant.url_slug)
+        `Confira a opção exata no pedido: ${getOrderingUrl(restaurant.url_slug)}`
     );
 
     return lines.join("\n");
@@ -422,135 +392,151 @@ function buildPaymentMessage(restaurant: RestaurantAutomationData): string {
             ? `Aceitamos: ${labels.join(", ")}.`
             : "As formas disponíveis aparecem na finalização do pedido.",
         "",
-        "Faça o pedido aqui:",
-        getOrderingUrl(restaurant.url_slug),
+        `Faça o pedido aqui: ${getOrderingUrl(restaurant.url_slug)}`,
     ].join("\n");
 }
 
-function buildGreetingMessage(restaurant: RestaurantAutomationData): string {
+function getPhoneCandidates(chatId: string): string[] {
+    const digits = String(chatId).split("@")[0].replace(/\D/g, "");
+    if (!digits) return [];
+
+    const candidates = new Set<string>([digits]);
+
+    if (digits.startsWith("55") && (digits.length === 12 || digits.length === 13)) {
+        candidates.add(digits.slice(2));
+    } else if (digits.length === 10 || digits.length === 11) {
+        candidates.add(`55${digits}`);
+    }
+
+    return [...candidates];
+}
+
+async function getLatestOrder(
+    restaurantId: string,
+    chatId: string
+): Promise<OrderStatusRow | null> {
+    const phoneCandidates = getPhoneCandidates(chatId);
+    if (!phoneCandidates.length) return null;
+
+    const result = await query<OrderStatusRow>(
+        `
+            SELECT
+                id,
+                status,
+                is_delivery,
+                created_at
+            FROM orders
+            WHERE restaurant_id = $1
+              AND regexp_replace(
+                    COALESCE(customer_phone, ''),
+                    '[^0-9]',
+                    '',
+                    'g'
+                  ) = ANY($2::text[])
+              AND created_at >= NOW() - INTERVAL '7 days'
+            ORDER BY
+                CASE
+                    WHEN status IN (
+                        'pending_online_payment',
+                        'pending_physical_payment',
+                        'preparing',
+                        'delivering'
+                    ) THEN 0
+                    ELSE 1
+                END,
+                created_at DESC
+            LIMIT 1
+        `,
+        [restaurantId, phoneCandidates]
+    );
+
+    return result.rows[0] || null;
+}
+
+function isPickup(value: unknown): boolean {
+    if (value === false) return true;
+
+    const normalized = normalize(value);
+    return ["retirada", "pickup", "false", "0"].includes(normalized);
+}
+
+function getOrderStatusLabel(order: OrderStatusRow): string {
+    const pickup = isPickup(order.is_delivery);
+    const labels: Record<string, string> = {
+        pending_online_payment: "aguardando a confirmação do pagamento online",
+        pending_physical_payment: "recebido e aguardando o preparo",
+        preparing: "em preparo 👨‍🍳",
+        delivering: pickup
+            ? "pronto para retirada ✅"
+            : "a caminho da entrega 🛵",
+        done: pickup ? "retirado ✅" : "entregue ✅",
+        canceled: "cancelado ❌",
+    };
+
+    return labels[order.status] || order.status;
+}
+
+async function buildOrderStatusMessage(
+    restaurant: RestaurantAutomationData,
+    chatId: string
+): Promise<string> {
+    const order = await getLatestOrder(restaurant.id, chatId);
+
+    if (!order) {
+        return [
+            `🔎 *Status do pedido — ${restaurant.name}*`,
+            "Não encontrei um pedido recente vinculado a este número de WhatsApp.",
+            "Caso tenha usado outro número ou precise de ajuda, escolha *Falar com atendente*.",
+        ].join("\n");
+    }
+
     return [
-        `Olá! 👋 Este é o atendimento automático do *${restaurant.name}*.`,
-        "Posso mostrar o cardápio e preços, explicar entrega e pagamentos ou enviar o link para pedir.",
-        "",
-        `Pedido online: ${getOrderingUrl(restaurant.url_slug)}`,
-        "",
-        "Para falar com a equipe, escreva *atendente*.",
+        `🔎 *Status do pedido — ${restaurant.name}*`,
+        `Pedido *#${order.id.slice(0, 4).toUpperCase()}*: ${getOrderStatusLabel(order)}.`,
     ].join("\n");
 }
 
-function buildOrderLinkMessage(restaurant: RestaurantAutomationData): string {
-    return [
-        `Faça seu pedido no cardápio do *${restaurant.name}*:`,
-        getOrderingUrl(restaurant.url_slug),
-        "",
-        "Lá você escolhe os itens, endereço, entrega e pagamento.",
-    ].join("\n");
+function detectFlow(value: unknown): BotFlow | null {
+    return FLOW_BY_TEXT.get(normalize(value)) || null;
 }
 
-function detectIntent(text: string):
-    | "greeting"
-    | "menu"
-    | "delivery"
-    | "payment"
-    | "order"
-    | "handoff"
-    | "unknown" {
-    if (
-        containsAny(text, [
-            "atendente",
-            "humano",
-            "uma pessoa",
-            "falar com alguem",
-            "falar com o dono",
-            "falar com a loja",
-            "responsavel",
-            "reclamacao",
-            "reembolso",
-            "estorno",
-            "cancelar pedido",
-            "alterar pedido",
-            "trocar pedido",
-            "pedido errado",
-            "problema com pedido",
-        ])
-    ) {
-        return "handoff";
+async function answerFlow({
+    flow,
+    restaurant,
+    restaurantId,
+    sessionName,
+    chatId,
+}: {
+    flow: BotFlow;
+    restaurant: RestaurantAutomationData;
+    restaurantId: string;
+    sessionName: string;
+    chatId: string;
+}): Promise<void> {
+    if (flow === "handoff") {
+        await handoffConversation(restaurantId, chatId);
+        await sendWahaText(
+            sessionName,
+            chatId,
+            "Certo — a conversa ficará com a equipe do restaurante pelos próximos 30 minutos. O bot não responderá durante esse período."
+        );
+        return;
     }
 
-    if (
-        containsAny(text, [
-            "entrega",
-            "delivery",
-            "taxa",
-            "frete",
-            "demora",
-            "tempo de entrega",
-            "prazo",
-            "retirada",
-            "buscar no local",
-            "pedido minimo",
-        ])
-    ) {
-        return "delivery";
+    let message: string;
+
+    if (flow === "menu") {
+        message = buildMenuLinkMessage(restaurant);
+    } else if (flow === "order_status") {
+        message = await buildOrderStatusMessage(restaurant, chatId);
+    } else if (flow === "delivery") {
+        message = buildDeliveryMessage(restaurant);
+    } else {
+        message = buildPaymentMessage(restaurant);
     }
 
-    if (
-        containsAny(text, [
-            "pagamento",
-            "pagar",
-            "pix",
-            "dinheiro",
-            "cartao",
-            "maquininha",
-            "credito",
-            "debito",
-        ])
-    ) {
-        return "payment";
-    }
-
-    if (
-        containsAny(text, [
-            "fazer pedido",
-            "pedir",
-            "comprar",
-            "quero pedir",
-            "link do pedido",
-            "link para pedir",
-            "onde peco",
-        ])
-    ) {
-        return "order";
-    }
-
-    if (
-        containsAny(text, [
-            "cardapio",
-            "menu",
-            "preco",
-            "precos",
-            "quanto custa",
-            "valor",
-            "valores",
-            "tem pizza",
-            "tem lanche",
-            "tem comida",
-            "opcoes",
-            "produtos",
-        ])
-    ) {
-        return "menu";
-    }
-
-    if (
-        /^(oi|ola|opa|bom dia|boa tarde|boa noite|e ai|hey|hello)(\s|$)/.test(
-            text
-        )
-    ) {
-        return "greeting";
-    }
-
-    return "unknown";
+    await sendWahaText(sessionName, chatId, message);
+    await sendMainMenu(sessionName, chatId);
 }
 
 export async function markOwnerTookOverConversation({
@@ -576,110 +562,108 @@ export async function processIncomingWhatsAppMessage({
     body: string;
     hasMedia: boolean;
 }): Promise<void> {
-    await touchInboundConversation(restaurantId, chatId);
-
-    const conversation = await getConversation(restaurantId, chatId);
-    if (isConversationWithOwner(conversation)) return;
+    const state = await prepareConversation(restaurantId, chatId);
+    if (state === "human") return;
 
     const restaurant = await getRestaurant(restaurantId);
     if (!restaurant) return;
 
-    const normalizedText = normalize(body);
-
-    if (hasMedia && !normalizedText) {
-        await handoffConversation(restaurantId, chatId);
-        await sendWahaText(
-            sessionName,
-            chatId,
-            "Recebi seu arquivo. Vou deixar esta conversa com a equipe do restaurante para que possam responder por aqui."
-        );
+    if (state === "welcome") {
+        await sendWelcome(sessionName, chatId, restaurant);
         return;
     }
 
-    const intent = detectIntent(normalizedText);
-
-    if (intent === "handoff") {
-        await handoffConversation(restaurantId, chatId);
+    if (hasMedia && !normalize(body)) {
         await sendWahaText(
             sessionName,
             chatId,
-            "Certo — vou deixar esta conversa com a equipe do restaurante. Eles podem responder por aqui."
+            "Não consigo analisar arquivos automaticamente. Escolha *Falar com atendente* para enviar isso à equipe."
         );
+        await sendMainMenu(sessionName, chatId);
         return;
     }
 
-    if (intent === "unknown") {
-        const items = await getLiveMenu(restaurantId);
-        const terms = buildMenuSearchTerms(body);
-        const hasMatchingItem =
-            terms.length > 0 &&
-            items.some((item) => {
-                const haystack = normalize(
-                    `${item.name} ${item.description || ""} ${
-                        item.category_name || ""
-                    }`
-                );
-                return terms.some((term) => haystack.includes(term));
-            });
-
-        if (hasMatchingItem) {
-            await sendWahaText(
-                sessionName,
-                chatId,
-                buildMenuMessage(restaurant, items, body)
-            );
-            return;
-        }
-
-        await handoffConversation(restaurantId, chatId);
+    const flow = detectFlow(body);
+    if (!flow) {
         await sendWahaText(
             sessionName,
             chatId,
-            "Essa pergunta precisa da equipe do restaurante. Vou deixar a conversa com eles para responderem por aqui."
+            "Este atendimento funciona por opções prontas. Escolha uma das alternativas abaixo."
         );
+        await sendMainMenu(sessionName, chatId);
         return;
     }
 
-    if (intent === "greeting") {
-        await sendWahaText(
-            sessionName,
-            chatId,
-            buildGreetingMessage(restaurant)
-        );
+    await answerFlow({
+        flow,
+        restaurant,
+        restaurantId,
+        sessionName,
+        chatId,
+    });
+}
+
+export async function processWhatsAppMenuSelection({
+    restaurantId,
+    sessionName,
+    chatId,
+    selection,
+}: {
+    restaurantId: string;
+    sessionName: string;
+    chatId: string;
+    selection: string;
+}): Promise<void> {
+    const state = await prepareConversation(restaurantId, chatId);
+    if (state === "human") return;
+
+    const restaurant = await getRestaurant(restaurantId);
+    if (!restaurant) return;
+
+    if (state === "welcome") {
+        await sendWelcome(sessionName, chatId, restaurant);
         return;
     }
 
-    if (intent === "menu") {
-        const items = await getLiveMenu(restaurantId);
-        await sendWahaText(
-            sessionName,
-            chatId,
-            buildMenuMessage(restaurant, items, body)
-        );
+    const flow = detectFlow(selection);
+    if (!flow) {
+        await sendMainMenu(sessionName, chatId);
         return;
     }
 
-    if (intent === "delivery") {
-        await sendWahaText(
-            sessionName,
-            chatId,
-            buildDeliveryMessage(restaurant)
-        );
-        return;
-    }
+    await answerFlow({
+        flow,
+        restaurant,
+        restaurantId,
+        sessionName,
+        chatId,
+    });
+}
 
-    if (intent === "payment") {
-        await sendWahaText(
-            sessionName,
-            chatId,
-            buildPaymentMessage(restaurant)
-        );
+export async function processWhatsAppMenuVoteFailed({
+    restaurantId,
+    sessionName,
+    chatId,
+}: {
+    restaurantId: string;
+    sessionName: string;
+    chatId: string;
+}): Promise<void> {
+    const state = await prepareConversation(restaurantId, chatId);
+    if (state === "human") return;
+
+    const restaurant = await getRestaurant(restaurantId);
+    if (!restaurant) return;
+
+    if (state === "welcome") {
+        await sendWelcome(sessionName, chatId, restaurant);
         return;
     }
 
     await sendWahaText(
         sessionName,
         chatId,
-        buildOrderLinkMessage(restaurant)
+        "Não consegui identificar a opção selecionada. Escolha novamente:"
     );
+    await sendMainMenu(sessionName, chatId);
 }

@@ -193,7 +193,10 @@ export async function GET(request: NextRequest) {
         // went offline without being able to send the final webhook.
         if (connection?.desired_state === "connected") {
             try {
-                const session = await getWahaSession(connection.session_name);
+                const session = await ensureWahaSession(
+                    restaurantId,
+                    connection.session_name
+                );
 
                 if (session) {
                     connection = await updateFromWahaSession({

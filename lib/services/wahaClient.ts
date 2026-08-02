@@ -123,7 +123,13 @@ function sessionConfig(restaurantId: string) {
         webhooks: [
             {
                 url: `${getIMenuPublicUrl()}/api/webhooks/waha`,
-                events: ["message", "message.any", "session.status"],
+                events: [
+                    "message",
+                    "message.any",
+                    "poll.vote",
+                    "poll.vote.failed",
+                    "session.status",
+                ],
                 hmac: {
                     key: getWahaWebhookHmacKey(),
                 },
@@ -251,6 +257,26 @@ export async function sendWahaText(
             chatId,
             text,
             linkPreview: true,
+        }),
+    });
+}
+
+export async function sendWahaPoll(
+    sessionName: string,
+    chatId: string,
+    name: string,
+    options: string[]
+): Promise<void> {
+    await wahaRequest<void>("/api/sendPoll", {
+        method: "POST",
+        body: JSON.stringify({
+            session: sessionName,
+            chatId,
+            poll: {
+                name,
+                options,
+                multipleAnswers: false,
+            },
         }),
     });
 }

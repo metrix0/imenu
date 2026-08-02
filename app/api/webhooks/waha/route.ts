@@ -13,6 +13,8 @@ import {
 import {
     markOwnerTookOverConversation,
     processIncomingWhatsAppMessage,
+    processWhatsAppMenuSelection,
+    processWhatsAppMenuVoteFailed,
 } from "@/lib/services/whatsappAutomation";
 
 export const runtime = "nodejs";
@@ -68,10 +70,7 @@ function verifyWebhook(rawBody: string, request: NextRequest): boolean {
     );
 }
 
-function getCustomerChatId(payload: Record<string, any>): string | null {
-    const candidate = payload.fromMe
-        ? payload.to || payload.from
-        : payload.from || payload.chatId;
+function normalizeDirectChatId(candidate: unknown): string | null {
     const value = String(candidate || "");
 
     if (
@@ -85,6 +84,20 @@ function getCustomerChatId(payload: Record<string, any>): string | null {
     }
 
     return value.replace("@s.whatsapp.net", "@c.us");
+}
+
+function getCustomerChatId(payload: Record<string, any>): string | null {
+    const candidate = payload.fromMe
+        ? payload.to || payload.from
+        : payload.from || payload.chatId;
+
+    return normalizeDirectChatId(candidate);
+}
+
+function getPollVoteChatId(payload: Record<string, any>): string | null {
+    return normalizeDirectChatId(
+        payload.vote?.from || payload.poll?.to || payload.chatId
+    );
 }
 
 async function claimEvent(
@@ -258,11 +271,19 @@ export async function POST(request: NextRequest) {
         }
 
         const supabase = createSupabaseServerClient();
+        const pollVoteDiscriminator = payload.vote?.id
+            ? `${String(payload.vote.id)}:${String(
+                  payload.vote.timestamp || "unknown"
+              )}:${JSON.stringify(payload.vote.selectedOptions || [])}`
+            : null;
         const eventId =
             event.id ||
             request.headers.get("x-webhook-request-id") ||
             `${eventName}:${sessionName}:${String(
-                payload.id || payload.timestamp || rawBody.length
+                pollVoteDiscriminator ||
+                    payload.id ||
+                    payload.timestamp ||
+                    rawBody.length
             )}`;
 
         if (!(await claimEvent(eventId, supabase))) {
@@ -279,6 +300,52 @@ export async function POST(request: NextRequest) {
 
         if (eventName === "session.status") {
             await updateSessionStatus({ event, connection, supabase });
+            return NextResponse.json({ ok: true });
+        }
+
+        if (eventName === "poll.vote" || eventName === "poll.vote.failed") {
+            const chatId = getPollVoteChatId(payload);
+            if (!chatId) {
+                return NextResponse.json({
+                    ok: true,
+                    ignored: "unsupported_poll_chat",
+                });
+            }
+
+            if (payload.poll?.fromMe !== true || payload.vote?.fromMe === true) {
+                return NextResponse.json({
+                    ok: true,
+                    ignored: "external_poll",
+                });
+            }
+
+            if (eventName === "poll.vote.failed") {
+                await processWhatsAppMenuVoteFailed({
+                    restaurantId: connection.restaurant_id,
+                    sessionName,
+                    chatId,
+                });
+                return NextResponse.json({ ok: true });
+            }
+
+            const selectedOptions = Array.isArray(
+                payload.vote?.selectedOptions
+            )
+                ? payload.vote.selectedOptions.map((option: unknown) =>
+                      String(option)
+                  )
+                : [];
+            const selection = selectedOptions.at(-1);
+
+            if (selection) {
+                await processWhatsAppMenuSelection({
+                    restaurantId: connection.restaurant_id,
+                    sessionName,
+                    chatId,
+                    selection,
+                });
+            }
+
             return NextResponse.json({ ok: true });
         }
 
