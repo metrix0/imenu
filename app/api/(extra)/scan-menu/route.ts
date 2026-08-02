@@ -261,7 +261,7 @@ async function throwForGeminiError(response: Response): Promise<void> {
 }
 
 async function fetchSourceFile(url: string): Promise<{
-    bytes: Uint8Array;
+    bytes: ArrayBuffer;
     mimeType: string;
     displayName: string;
 }> {
@@ -310,7 +310,7 @@ async function fetchSourceFile(url: string): Promise<{
     }
 
     return {
-        bytes: new Uint8Array(arrayBuffer),
+        bytes: arrayBuffer,
         mimeType,
         displayName,
     };
