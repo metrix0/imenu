@@ -3,7 +3,6 @@ import { NextResponse } from "next/server";
 
 import { withTransaction } from "@/lib/database/sql";
 import { notifyOrderStatusUpdate } from "@/lib/services/whatsappNotification";
-import { notifyWhatsAppAgentOrderStatus } from "@/lib/services/whatsappAgentEvents";
 
 const VALID_STATUSES = [
     "pending_online_payment",
@@ -330,12 +329,6 @@ export async function PATCH(
             );
         });
 
-        void notifyWhatsAppAgentOrderStatus(id, status).catch((error) => {
-            console.error(
-                "[ORDERS] Falha ao enviar evento ao agente do WhatsApp:",
-                error
-            );
-        });
 
         return NextResponse.json({
             ok: true,

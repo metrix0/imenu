@@ -1,7 +1,6 @@
 // app/api/orders/[id]/route.ts
 import { NextResponse } from "next/server";
 import { query } from "@/lib/database/sql";
-import { notifyWhatsAppAgentOrderStatus } from "@/lib/services/whatsappAgentEvents";
 
 // ================================
 // GET — returns order + items + subitems
@@ -161,9 +160,6 @@ export async function PATCH(
             values
         );
 
-        if (typeof body.status === "string" && body.status) {
-            await notifyWhatsAppAgentOrderStatus(id, body.status);
-        }
 
         return NextResponse.json({ ok: true });
     } catch (error) {
