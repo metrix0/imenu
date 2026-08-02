@@ -38,6 +38,14 @@ type ConnectionRow = {
     last_connected_at: string | null;
 };
 
+function parseConnectionRow(value: unknown): ConnectionRow {
+    if (!value || typeof value !== "object") {
+        throw new Error("Invalid WhatsApp connection response");
+    }
+
+    return value as ConnectionRow;
+}
+
 function verifyWebhook(rawBody: string, request: NextRequest): boolean {
     const received = request.headers.get("x-webhook-hmac")?.trim();
     const algorithm = request.headers
@@ -121,7 +129,7 @@ async function getConnection(
         .maybeSingle();
 
     if (error) throw error;
-    return (data as ConnectionRow | null) || null;
+    return data ? parseConnectionRow(data) : null;
 }
 
 async function updateSessionStatus({

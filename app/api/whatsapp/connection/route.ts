@@ -34,23 +34,16 @@ type ConnectionRow = {
     updated_at: string;
 };
 
-const CONNECTION_SELECT = [
-    "restaurant_id",
-    "session_name",
-    "desired_state",
-    "status",
-    "status_data",
-    "phone",
-    "push_name",
-    "qr_code_data",
-    "qr_updated_at",
-    "last_connected_at",
-    "last_disconnected_at",
-    "last_restart_at",
-    "last_event_at",
-    "last_error",
-    "updated_at",
-].join(",");
+const CONNECTION_SELECT =
+    "restaurant_id,session_name,desired_state,status,status_data,phone,push_name,qr_code_data,qr_updated_at,last_connected_at,last_disconnected_at,last_restart_at,last_event_at,last_error,updated_at" as const;
+
+function parseConnectionRow(value: unknown): ConnectionRow {
+    if (!value || typeof value !== "object") {
+        throw new Error("Invalid WhatsApp connection response");
+    }
+
+    return value as ConnectionRow;
+}
 
 function getBearerToken(request: NextRequest): string | null {
     const authorization = request.headers.get("authorization") || "";
@@ -103,7 +96,7 @@ async function readConnection(
         .maybeSingle();
 
     if (error) throw error;
-    return (data as ConnectionRow | null) || null;
+    return data ? parseConnectionRow(data) : null;
 }
 
 async function updateFromWahaSession({
@@ -156,7 +149,7 @@ async function updateFromWahaSession({
         .single();
 
     if (error) throw error;
-    return data as ConnectionRow;
+    return parseConnectionRow(data);
 }
 
 function jsonError(error: unknown) {
