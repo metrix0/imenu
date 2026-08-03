@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
-import { query } from "@/lib/database/sql";
 import { MercadoPagoConfig, Payment } from "mercadopago";
 
-// ✅ create Mercado Pago client
+import { query } from "@/lib/database/sql";
+import { notifyOrderReady } from "@/lib/push/server";
+
 const client = new MercadoPagoConfig({
     accessToken: process.env.MERCADO_PAGO_ACCESS_TOKEN!,
 });
@@ -15,10 +16,9 @@ export async function POST(req: Request) {
     try {
         body = await req.json();
     } catch {
-        // ignore empty body
+        // Mercado Pago can send an empty body and put the ID in the query string.
     }
 
-    // ✅ detect payment ID from multiple possible fields
     const paymentId =
         body?.data?.id ||
         body?.resource ||
@@ -30,7 +30,9 @@ export async function POST(req: Request) {
     if (topic === "payment" && paymentId) {
         try {
             const paymentClient = new Payment(client);
-            const payment = await paymentClient.get({ id: paymentId.toString() });
+            const payment = await paymentClient.get({
+                id: paymentId.toString(),
+            });
 
             const orderId = payment.external_reference;
             const status = payment.status;
@@ -42,10 +44,25 @@ export async function POST(req: Request) {
             });
 
             if (status === "approved" && orderId) {
-                await query(`UPDATE orders SET status = 'paid' WHERE id = $1`, [
-                    orderId,
-                ]);
+                await query(
+                    `
+                        UPDATE orders
+                        SET status = 'paid', updated_at = NOW()
+                        WHERE id = $1
+                    `,
+                    [orderId]
+                );
                 console.log("✅ Order marked paid:", orderId);
+
+                try {
+                    await notifyOrderReady(orderId);
+                } catch (pushError) {
+                    // Payment confirmation must never be retried because push failed.
+                    console.error(
+                        "[OWNER_PUSH] Failed after approved payment:",
+                        pushError
+                    );
+                }
             }
         } catch (err) {
             console.error("❌ Payment lookup failed:", err);

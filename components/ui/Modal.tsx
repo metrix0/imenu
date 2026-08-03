@@ -10,6 +10,8 @@ interface ModalProps {
     className?: string;
 }
 
+const ANIMATION_DURATION_MS = 280;
+
 export default function Modal({
     open,
     onClose,
@@ -23,36 +25,45 @@ export default function Modal({
 
     function lockPageScroll() {
         previousBodyOverflow.current = document.body.style.overflow;
-        previousHtmlOverflow.current =
-            document.documentElement.style.overflow;
-
+        previousHtmlOverflow.current = document.documentElement.style.overflow;
         document.body.style.overflow = "hidden";
         document.documentElement.style.overflow = "hidden";
     }
 
     function restorePageScroll() {
         document.body.style.overflow = previousBodyOverflow.current;
-        document.documentElement.style.overflow =
-            previousHtmlOverflow.current;
+        document.documentElement.style.overflow = previousHtmlOverflow.current;
     }
 
     useEffect(() => {
+        let firstFrame = 0;
+        let secondFrame = 0;
+        let timer = 0;
+
         if (open) {
             setMounted(true);
+            setActive(false);
             lockPageScroll();
 
-            const frame = requestAnimationFrame(() => setActive(true));
-            return () => cancelAnimationFrame(frame);
+            // Two frames guarantee that the browser paints the hidden state first.
+            // A single frame could be collapsed on fast desktop renders, making the
+            // WhatsApp/Ajuda modal appear with no visible transition.
+            firstFrame = requestAnimationFrame(() => {
+                secondFrame = requestAnimationFrame(() => setActive(true));
+            });
+        } else {
+            setActive(false);
+            timer = window.setTimeout(() => {
+                setMounted(false);
+                restorePageScroll();
+            }, ANIMATION_DURATION_MS);
         }
 
-        setActive(false);
-
-        const timer = window.setTimeout(() => {
-            setMounted(false);
-            restorePageScroll();
-        }, 200);
-
-        return () => window.clearTimeout(timer);
+        return () => {
+            cancelAnimationFrame(firstFrame);
+            cancelAnimationFrame(secondFrame);
+            window.clearTimeout(timer);
+        };
     }, [open]);
 
     useEffect(() => {
@@ -81,7 +92,7 @@ export default function Modal({
                 type="button"
                 aria-label="Fechar modal"
                 onClick={onClose}
-                className={`fixed inset-0 min-h-[100dvh] bg-black/40 backdrop-blur-sm transition-opacity duration-200 ${
+                className={`fixed inset-0 min-h-[100dvh] bg-black/40 backdrop-blur-sm transition-opacity duration-300 ease-out motion-reduce:transition-none ${
                     active ? "opacity-100" : "opacity-0"
                 }`}
             />
@@ -92,10 +103,10 @@ export default function Modal({
                 onClick={(event: { stopPropagation(): void }) =>
                     event.stopPropagation()
                 }
-                className={`relative flex max-h-[92dvh] w-full max-w-2xl flex-col overflow-y-auto rounded-xl bg-white shadow-2xl transition-all duration-200 sm:max-h-[90dvh] sm:rounded-2xl ${
+                className={`relative flex max-h-[92dvh] w-full max-w-2xl flex-col overflow-y-auto rounded-xl bg-white shadow-2xl will-change-transform transition-[opacity,transform] duration-300 ease-out motion-reduce:transition-none sm:max-h-[90dvh] sm:rounded-2xl ${
                     active
                         ? "translate-y-0 scale-100 opacity-100"
-                        : "translate-y-3 scale-95 opacity-0"
+                        : "translate-y-4 scale-[0.96] opacity-0"
                 } ${className}`}
             >
                 {children}

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import OpenAI from "openai";
 
 export const runtime = "nodejs";
 
@@ -120,6 +121,13 @@ class GeminiHttpError extends Error {
     }
 }
 
+class MenuJsonParseError extends Error {
+    constructor(message: string) {
+        super(message);
+        this.name = "MenuJsonParseError";
+    }
+}
+
 function getGeminiErrorMessage(responseBody: string): string | null {
     if (!responseBody) return null;
 
@@ -190,33 +198,46 @@ function parseMenuJson(outputText: string): ParsedMenu {
 
     try {
         parsed = JSON.parse(cleaned);
-    } catch {
+    } catch (firstError) {
         const firstBrace = cleaned.indexOf("{");
         const lastBrace = cleaned.lastIndexOf("}");
 
         if (firstBrace === -1 || lastBrace <= firstBrace) {
-            throw new Error("A IA não retornou um JSON válido.");
+            throw new MenuJsonParseError(
+                firstError instanceof Error
+                    ? firstError.message
+                    : "A IA não retornou um JSON válido."
+            );
         }
 
-        parsed = JSON.parse(cleaned.slice(firstBrace, lastBrace + 1));
+        try {
+            parsed = JSON.parse(cleaned.slice(firstBrace, lastBrace + 1));
+        } catch (secondError) {
+            throw new MenuJsonParseError(
+                secondError instanceof Error
+                    ? secondError.message
+                    : "A IA não retornou um JSON válido."
+            );
+        }
     }
 
     if (!parsed || typeof parsed !== "object") {
-        throw new Error("A IA retornou uma resposta vazia.");
+        throw new MenuJsonParseError("A IA retornou uma resposta vazia.");
     }
 
     const candidate = parsed as Partial<ParsedMenu>;
 
     if (!Array.isArray(candidate.items) || !Array.isArray(candidate.categories)) {
-        throw new Error("A IA retornou um formato de cardápio inválido.");
+        throw new MenuJsonParseError(
+            "A IA retornou um formato de cardápio inválido."
+        );
     }
 
     return {
         categories: candidate.categories
             .filter(
                 (category) =>
-                    category &&
-                    typeof category.name === "string"
+                    category && typeof category.name === "string"
             )
             .map((category) => ({ name: category.name.trim() }))
             .filter((category) => category.name.length > 0),
@@ -349,10 +370,7 @@ async function waitForGeminiFile(
 
     const deadline = Date.now() + FILE_PROCESSING_TIMEOUT_MS;
 
-    while (
-        current.state === "PROCESSING" &&
-        Date.now() < deadline
-    ) {
+    while (current.state === "PROCESSING" && Date.now() < deadline) {
         await new Promise((resolve) => setTimeout(resolve, 500));
         current = await getGeminiFile(apiKey, current.name);
     }
@@ -464,7 +482,7 @@ async function deleteGeminiFile(
     }
 }
 
-async function generateMenuJson(
+async function generateGeminiMenuJson(
     apiKey: string,
     model: string,
     files: GeminiFile[]
@@ -518,7 +536,7 @@ Regras:
                     },
                 ],
                 generationConfig: {
-                    maxOutputTokens: 8000,
+                    maxOutputTokens: 65536,
                     responseMimeType: "application/json",
                     responseJsonSchema: MENU_RESPONSE_SCHEMA,
                 },
@@ -548,20 +566,182 @@ Regras:
     return outputText;
 }
 
-export async function POST(req: Request) {
-    const apiKey = process.env.GEMINI_API_KEY;
+async function scanWithGemini(
+    apiKey: string,
+    urls: string[]
+): Promise<ParsedMenu> {
+    const uploadedFiles: GeminiFile[] = [];
 
-    if (!apiKey) {
+    try {
+        for (const url of urls) {
+            uploadedFiles.push(await uploadGeminiFile(apiKey, url));
+        }
+
+        const outputText = await generateGeminiMenuJson(
+            apiKey,
+            process.env.GEMINI_MENU_SCAN_MODEL || "gemini-3.5-flash",
+            uploadedFiles
+        );
+
+        return parseMenuJson(outputText);
+    } finally {
+        await Promise.allSettled(
+            uploadedFiles.map((file) => deleteGeminiFile(apiKey, file.name))
+        );
+    }
+}
+
+async function scanWithOpenAI(
+    apiKey: string,
+    urls: string[]
+): Promise<ParsedMenu> {
+    const client = new OpenAI({ apiKey });
+
+    const fileContent = urls.map((url) =>
+        isPdfUrl(url)
+            ? {
+                  type: "input_file" as const,
+                  file_url: url,
+              }
+            : {
+                  type: "input_image" as const,
+                  image_url: url,
+                  detail: "high" as const,
+              }
+    );
+
+    const response = await client.responses.create({
+        model: process.env.OPENAI_MENU_SCAN_MODEL || "gpt-4.1",
+        input: [
+            {
+                role: "system",
+                content: [
+                    {
+                        type: "input_text",
+                        text: `
+Você analisa fotos, capturas e PDFs de cardápios de restaurantes.
+
+Retorne somente um objeto JSON neste formato:
+{
+  "items": [
+    {
+      "name": "string",
+      "description": "string ou null",
+      "price_cents": 0,
+      "image_path": null,
+      "category_name": "string"
+    }
+  ],
+  "categories": [
+    { "name": "string" }
+  ]
+}
+
+Regras:
+- Converta todos os preços para centavos inteiros.
+- Todo item deve pertencer a uma categoria.
+- Quando a categoria não estiver explícita, infira uma categoria coerente.
+- Não inclua markdown, comentários, explicações ou blocos de código.
+- Não invente itens que não estejam visíveis no cardápio.
+- image_path deve ser sempre null.
+`,
+                    },
+                ],
+            },
+            {
+                role: "user",
+                content: [
+                    {
+                        type: "input_text",
+                        text: "Extraia o cardápio completo dos arquivos enviados.",
+                    },
+                    ...fileContent,
+                ],
+            },
+        ],
+        max_output_tokens: 8000,
+        store: false,
+    });
+
+    const outputText = response.output_text?.trim();
+
+    if (!outputText) {
+        throw new Error("A resposta do modelo OpenAI veio vazia.");
+    }
+
+    return parseMenuJson(outputText);
+}
+
+function shouldUseOpenAIFallback(error: unknown): boolean {
+    if (error instanceof MenuJsonParseError) return true;
+
+    if (
+        error instanceof GeminiHttpError &&
+        [429, 500, 502, 503, 504].includes(error.status)
+    ) {
+        return true;
+    }
+
+    const message =
+        error instanceof Error ? error.message.toLowerCase() : String(error);
+
+    return [
+        "high demand",
+        "temporarily unavailable",
+        "overloaded",
+        "resource_exhausted",
+        "rate limit",
+        "quota",
+        "expected ',' or ']'",
+        "expected ',' or '}'",
+        "unterminated string",
+        "unexpected end of json",
+        "json válido",
+        "formato de cardápio inválido",
+    ].some((fragment) => message.includes(fragment));
+}
+
+function buildResponse(parsed: ParsedMenu, restaurantId: string) {
+    const categoryNames = new Set(
+        parsed.categories.map((category) => category.name)
+    );
+
+    parsed.items.forEach((item) => categoryNames.add(item.category_name));
+
+    const categories = Array.from(categoryNames).map((name, index) => ({
+        name,
+        restaurant_id: restaurantId,
+        position: index + 1,
+    }));
+
+    const items = parsed.items.map((item, index) => ({
+        name: item.name,
+        description: item.description,
+        price_cents: item.price_cents,
+        image_path: null,
+        category_name: item.category_name,
+        restaurant_id: restaurantId,
+        is_available: true,
+        position: index,
+    }));
+
+    return { items, categories };
+}
+
+export async function POST(req: Request) {
+    const geminiApiKey = process.env.GEMINI_API_KEY?.trim();
+    const openAiApiKey = process.env.OPENAI_API_KEY?.trim();
+
+    if (!geminiApiKey && !openAiApiKey) {
         return NextResponse.json(
             {
                 error: "A análise por IA está temporariamente indisponível.",
-                details: "GEMINI_API_KEY não está configurada.",
+                details:
+                    "GEMINI_API_KEY e OPENAI_API_KEY não estão configuradas.",
             },
             { status: 503 }
         );
     }
-
-    const uploadedFiles: GeminiFile[] = [];
 
     try {
         const { urls, restaurantId } = (await req.json()) as ScanRequest;
@@ -571,8 +751,7 @@ export async function POST(req: Request) {
             urls.length === 0 ||
             urls.some(
                 (url) =>
-                    typeof url !== "string" ||
-                    !url.startsWith("http")
+                    typeof url !== "string" || !url.startsWith("http")
             )
         ) {
             return NextResponse.json(
@@ -588,17 +767,28 @@ export async function POST(req: Request) {
             );
         }
 
-        for (const url of urls) {
-            uploadedFiles.push(await uploadGeminiFile(apiKey, url));
+        let parsed: ParsedMenu;
+
+        if (geminiApiKey) {
+            try {
+                parsed = await scanWithGemini(geminiApiKey, urls);
+            } catch (geminiError) {
+                if (!openAiApiKey || !shouldUseOpenAIFallback(geminiError)) {
+                    throw geminiError;
+                }
+
+                console.warn(
+                    "[SCAN_MENU] Gemini failed; using OpenAI fallback:",
+                    geminiError instanceof Error
+                        ? geminiError.message
+                        : geminiError
+                );
+
+                parsed = await scanWithOpenAI(openAiApiKey, urls);
+            }
+        } else {
+            parsed = await scanWithOpenAI(openAiApiKey!, urls);
         }
-
-        const outputText = await generateMenuJson(
-            apiKey,
-            process.env.GEMINI_MENU_SCAN_MODEL || "gemini-3.5-flash",
-            uploadedFiles
-        );
-
-        const parsed = parseMenuJson(outputText);
 
         if (parsed.items.length === 0) {
             return NextResponse.json(
@@ -611,34 +801,7 @@ export async function POST(req: Request) {
             );
         }
 
-        const categoryNames = new Set(
-            parsed.categories.map((category) => category.name)
-        );
-
-        parsed.items.forEach((item) =>
-            categoryNames.add(item.category_name)
-        );
-
-        const categories = Array.from(categoryNames).map(
-            (name, index) => ({
-                name,
-                restaurant_id: restaurantId,
-                position: index + 1,
-            })
-        );
-
-        const items = parsed.items.map((item, index) => ({
-            name: item.name,
-            description: item.description,
-            price_cents: item.price_cents,
-            image_path: null,
-            category_name: item.category_name,
-            restaurant_id: restaurantId,
-            is_available: true,
-            position: index,
-        }));
-
-        return NextResponse.json({ items, categories });
+        return NextResponse.json(buildResponse(parsed, restaurantId));
     } catch (error: unknown) {
         const message =
             error instanceof Error ? error.message : "Erro desconhecido";
@@ -652,6 +815,8 @@ export async function POST(req: Request) {
         const isQuotaError =
             httpStatus === 429 ||
             lowerMessage.includes("quota") ||
+            lowerMessage.includes("billing") ||
+            lowerMessage.includes("insufficient_quota") ||
             lowerMessage.includes("resource_exhausted") ||
             lowerMessage.includes("rate limit");
 
@@ -660,7 +825,8 @@ export async function POST(req: Request) {
             httpStatus === 403 ||
             lowerMessage.includes("api key") ||
             lowerMessage.includes("authentication") ||
-            lowerMessage.includes("permission_denied");
+            lowerMessage.includes("permission_denied") ||
+            lowerMessage.includes("401");
 
         return NextResponse.json(
             {
@@ -672,12 +838,6 @@ export async function POST(req: Request) {
                 details: message,
             },
             { status: isQuotaError || isAuthError ? 503 : 500 }
-        );
-    } finally {
-        await Promise.allSettled(
-            uploadedFiles.map((file) =>
-                deleteGeminiFile(apiKey, file.name)
-            )
         );
     }
 }
