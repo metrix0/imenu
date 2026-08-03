@@ -17,10 +17,6 @@ import { useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faMagnifyingGlass } from "@fortawesome/free-solid-svg-icons";
 
-if (process.env.NODE_ENV === "production") {
-    throw new Error("This page is for development only");
-}
-
 export default function UIShowcase() {
     const [checked, setChecked] = useState(false);
     const [tab, setTab] = useState("Hoje");
