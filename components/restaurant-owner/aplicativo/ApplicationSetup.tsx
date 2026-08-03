@@ -431,9 +431,10 @@ export default function ApplicationSetup() {
                             <ol className="mt-5 space-y-3 text-sm leading-6 text-gray-700">
                                 <li><strong>1.</strong> Abra o painel no <strong>Safari</strong>.</li>
                                 <li><strong>2.</strong> Toque no botão de compartilhar.</li>
-                                <li><strong>3.</strong> Escolha <strong>Adicionar à Tela de Início</strong>.</li>
-                                <li><strong>4.</strong> Abra o novo ícone do iMenu e volte a esta página.</li>
-                                <li><strong>5.</strong> Toque em <strong>Ativar notificações</strong>.</li>
+                                <li><strong>3.</strong> Caso a opção não apareça, toque em <strong>Mais opções</strong>.</li>
+                                <li><strong>4.</strong> Escolha <strong>Adicionar à Tela de Início</strong>.</li>
+                                <li><strong>5.</strong> Abra o novo ícone do iMenu e volte a esta página.</li>
+                                <li><strong>6.</strong> Toque em <strong>Ativar notificações</strong>.</li>
                             </ol>
                         </>
                     ) : (
@@ -473,6 +474,15 @@ export default function ApplicationSetup() {
                             )}
                         </>
                     )}
+
+                    <a
+                        href="https://wa.me/5519988760900?text=Ol%C3%A1%2C%20preciso%20de%20ajuda%20para%20instalar%20o%20aplicativo%20do%20iMenu!"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-6 block text-center text-sm font-medium text-brand underline underline-offset-4"
+                    >
+                        Não conseguiu? Entre em contato por WhatsApp
+                    </a>
                 </div>
             </Modal>
 

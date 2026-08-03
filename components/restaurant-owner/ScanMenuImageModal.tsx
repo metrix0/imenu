@@ -46,6 +46,8 @@ type CategoryMapping = {
     createNew: boolean;
 };
 
+const MAX_MENU_FILES = 4;
+
 export default function ScanMenuModal({
     open,
     onClose,
@@ -116,6 +118,21 @@ function ScanModal({
         const selected = Array.from(selectedFiles);
         if (selected.length === 0) return;
 
+        const remainingSlots = MAX_MENU_FILES - uploads.length;
+
+        if (remainingSlots <= 0 || selected.length > remainingSlots) {
+            setToast({
+                type: "error",
+                message: `Você pode enviar no máximo ${MAX_MENU_FILES} PDFs e/ou imagens.`,
+            });
+            scheduleToastClear(3500);
+
+            if (fileInputRef.current) {
+                fileInputRef.current.value = "";
+            }
+            return;
+        }
+
         const newUploads: SelectedUpload[] = selected.map((file) => {
             const previewUrl = URL.createObjectURL(file);
             previewUrlsRef.current.add(previewUrl);
@@ -177,6 +194,15 @@ function ScanModal({
     }
 
     function openFilePicker() {
+        if (uploads.length >= MAX_MENU_FILES) {
+            setToast({
+                type: "error",
+                message: `Você pode enviar no máximo ${MAX_MENU_FILES} PDFs e/ou imagens.`,
+            });
+            scheduleToastClear(3500);
+            return;
+        }
+
         fileInputRef.current?.click();
     }
 
@@ -252,6 +278,15 @@ function ScanModal({
                 type: "error",
             });
             scheduleToastClear(2500);
+            return;
+        }
+
+        if (uploads.length > MAX_MENU_FILES) {
+            setToast({
+                message: `Você pode enviar no máximo ${MAX_MENU_FILES} PDFs e/ou imagens.`,
+                type: "error",
+            });
+            scheduleToastClear(3500);
             return;
         }
 
@@ -472,6 +507,15 @@ function ScanModal({
     }
 
     function openCamera() {
+        if (uploads.length >= MAX_MENU_FILES) {
+            setToast({
+                type: "error",
+                message: `Você pode enviar no máximo ${MAX_MENU_FILES} PDFs e/ou imagens.`,
+            });
+            scheduleToastClear(3500);
+            return;
+        }
+
         const input = document.createElement("input");
         input.type = "file";
         input.accept = "image/*";
@@ -494,7 +538,7 @@ function ScanModal({
                                         Adicione seu Cardápio
                                     </p>
                                     <p className="text-sm text-gray-500 2xl:text-base">
-                                        JPG, PNG, PDF. <b>Use os arquivos de imagem do seu cardápio para melhores resultados.</b>
+                                        JPG, PNG, PDF. <b>Use os arquivos de imagem do seu cardápio para melhores resultados.</b> Limite: 4 PDFs e/ou imagens.
                                     </p>
                                 </div>
 
@@ -564,34 +608,36 @@ function ScanModal({
                                             </div>
                                         ))}
 
-                                        <div
-                                            onDragOver={(event: DragEvent<HTMLDivElement>) => {
-                                                event.preventDefault();
-                                                setIsDraggingImage(true);
-                                            }}
-                                            onDragLeave={(event: DragEvent<HTMLDivElement>) => {
-                                                event.preventDefault();
-                                                setIsDraggingImage(false);
-                                            }}
-                                            onDrop={(event: DragEvent<HTMLDivElement>) => {
-                                                event.preventDefault();
-                                                setIsDraggingImage(false);
-                                                void handleFilesSelected(
-                                                    event.dataTransfer.files
-                                                );
-                                            }}
-                                            className={`rounded-lg border-dashed border-2 flex items-center justify-center flex-shrink-0
-                                                ${uploads.length === 0 ? "w-full h-38" : "w-28 h-28 2xl:w-36 2xl:h-36"}
-                                                ${isDraggingImage ? "border-brand text-brand" : "border-gray-300 text-gray-500"}`}
-                                        >
-                                            <button
-                                                type="button"
-                                                onClick={openFilePicker}
-                                                className="w-full h-full text-sm 2xl:text-lg cursor-pointer"
+                                        {uploads.length < MAX_MENU_FILES && (
+                                            <div
+                                                onDragOver={(event: DragEvent<HTMLDivElement>) => {
+                                                    event.preventDefault();
+                                                    setIsDraggingImage(true);
+                                                }}
+                                                onDragLeave={(event: DragEvent<HTMLDivElement>) => {
+                                                    event.preventDefault();
+                                                    setIsDraggingImage(false);
+                                                }}
+                                                onDrop={(event: DragEvent<HTMLDivElement>) => {
+                                                    event.preventDefault();
+                                                    setIsDraggingImage(false);
+                                                    void handleFilesSelected(
+                                                        event.dataTransfer.files
+                                                    );
+                                                }}
+                                                className={`rounded-lg border-dashed border-2 flex items-center justify-center flex-shrink-0
+                                                    ${uploads.length === 0 ? "w-full h-38" : "w-28 h-28 2xl:w-36 2xl:h-36"}
+                                                    ${isDraggingImage ? "border-brand text-brand" : "border-gray-300 text-gray-500"}`}
                                             >
-                                                + Arraste suas fotos aqui
-                                            </button>
-                                        </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={openFilePicker}
+                                                    className="w-full h-full text-sm 2xl:text-lg cursor-pointer"
+                                                >
+                                                    + Arraste suas fotos aqui
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>
