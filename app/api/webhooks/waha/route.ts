@@ -3,18 +3,14 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { createSupabaseServerClient } from "@/lib/database/supabaseServerClient";
 import {
-    ensureWahaSession,
     extractWahaPhone,
     getWahaQrCode,
     getWahaWebhookHmacKey,
-    logoutWahaSession,
     restartWahaSession,
 } from "@/lib/services/wahaClient";
 import {
     markOwnerTookOverConversation,
     processIncomingWhatsAppMessage,
-    processWhatsAppMenuSelection,
-    processWhatsAppMenuVoteFailed,
 } from "@/lib/services/whatsappAutomation";
 
 export const runtime = "nodejs";
@@ -24,6 +20,7 @@ type WahaEvent = {
     id?: string;
     event?: string;
     session?: string;
+    timestamp?: number | string;
     metadata?: Record<string, unknown> | null;
     me?: {
         id?: string | null;
@@ -36,8 +33,10 @@ type ConnectionRow = {
     restaurant_id: string;
     session_name: string;
     desired_state: "connected" | "disconnected";
+    status: string;
     last_restart_at: string | null;
     last_connected_at: string | null;
+    last_event_at: string | null;
 };
 
 function parseConnectionRow(value: unknown): ConnectionRow {
@@ -60,7 +59,6 @@ function verifyWebhook(rawBody: string, request: NextRequest): boolean {
     const expected = createHmac("sha512", getWahaWebhookHmacKey())
         .update(rawBody)
         .digest("hex");
-
     const receivedBuffer = Buffer.from(received, "utf8");
     const expectedBuffer = Buffer.from(expected, "utf8");
 
@@ -89,15 +87,45 @@ function normalizeDirectChatId(candidate: unknown): string | null {
 function getCustomerChatId(payload: Record<string, any>): string | null {
     const candidate = payload.fromMe
         ? payload.to || payload.from
-        : payload.from || payload.chatId;
+        : payload.from ||
+          payload.chatId ||
+          payload._data?.Info?.Chat ||
+          payload._data?.key?.remoteJid;
 
     return normalizeDirectChatId(candidate);
 }
 
-function getPollVoteChatId(payload: Record<string, any>): string | null {
-    return normalizeDirectChatId(
-        payload.vote?.from || payload.poll?.to || payload.chatId
-    );
+function firstNonEmptyString(values: unknown[]): string {
+    for (const value of values) {
+        if (typeof value === "string" && value.trim()) return value.trim();
+    }
+    return "";
+}
+
+function extractIncomingBody(payload: Record<string, any>): string {
+    return firstNonEmptyString([
+        payload.body,
+        payload.selectedRowId,
+        payload.selectedRowID,
+        payload.listResponse?.singleSelectReply?.selectedRowId,
+        payload.listResponse?.singleSelectReply?.selectedRowID,
+        payload.listResponseMessage?.singleSelectReply?.selectedRowId,
+        payload.listResponseMessage?.singleSelectReply?.selectedRowID,
+        payload._data?.selectedRowId,
+        payload._data?.selectedRowID,
+        payload._data?.listResponse?.singleSelectReply?.selectedRowId,
+        payload._data?.listResponse?.singleSelectReply?.selectedRowID,
+        payload._data?.listResponseMessage?.singleSelectReply?.selectedRowId,
+        payload._data?.listResponseMessage?.singleSelectReply?.selectedRowID,
+        payload._data?.message?.listResponseMessage?.singleSelectReply
+            ?.selectedRowId,
+        payload._data?.message?.listResponseMessage?.singleSelectReply
+            ?.selectedRowID,
+        payload._data?.Message?.ListResponseMessage?.SingleSelectReply
+            ?.SelectedRowID,
+        payload._data?.Message?.ListResponseMessage?.SingleSelectReply
+            ?.SelectedRowId,
+    ]);
 }
 
 async function claimEvent(
@@ -115,7 +143,6 @@ async function claimEvent(
         throw error;
     }
 
-    // Keep the idempotency table small without requiring a cron job.
     if (Math.random() < 0.02) {
         void supabase
             .from("whatsapp_webhook_events")
@@ -136,13 +163,21 @@ async function getConnection(
     const { data, error } = await supabase
         .from("whatsapp_connections")
         .select(
-            "restaurant_id, session_name, desired_state, last_restart_at, last_connected_at"
+            "restaurant_id,session_name,desired_state,status,last_restart_at,last_connected_at,last_event_at"
         )
         .eq("session_name", sessionName)
         .maybeSingle();
 
     if (error) throw error;
     return data ? parseConnectionRow(data) : null;
+}
+
+function getSourceEventTime(event: WahaEvent): number | null {
+    const raw = event.timestamp ?? event.payload?.timestamp;
+    const numeric = Number(raw);
+    if (!Number.isFinite(numeric)) return null;
+
+    return numeric < 10_000_000_000 ? numeric * 1000 : numeric;
 }
 
 async function updateSessionStatus({
@@ -156,6 +191,17 @@ async function updateSessionStatus({
 }) {
     const payload = event.payload || {};
     const status = String(payload.status || "FAILED");
+    const sourceEventTime = getSourceEventTime(event);
+
+    // WAHA retries can deliver an older QR/status event after a newer WORKING
+    // event. Do not let that regress the UI back to QR mode.
+    if (sourceEventTime && connection.last_event_at) {
+        const lastEventTime = new Date(connection.last_event_at).getTime();
+        if (Number.isFinite(lastEventTime) && sourceEventTime + 5_000 < lastEventTime) {
+            return;
+        }
+    }
+
     const now = new Date().toISOString();
     const update: Record<string, unknown> = {
         status,
@@ -164,34 +210,28 @@ async function updateSessionStatus({
         updated_at: now,
     };
 
-    if (event.me?.id) {
-        update.phone = extractWahaPhone(event.me.id);
-    }
-    if (event.me?.pushName) {
-        update.push_name = event.me.pushName;
-    }
+    if (event.me?.id) update.phone = extractWahaPhone(event.me.id);
+    if (event.me?.pushName) update.push_name = event.me.pushName;
 
     if (status === "SCAN_QR_CODE") {
         const qrCode = await getWahaQrCode(connection.session_name);
         update.qr_code_data = qrCode;
         update.qr_updated_at = qrCode ? now : null;
         update.last_error = null;
-    } else if (status === "WORKING") {
+    } else {
         update.qr_code_data = null;
         update.qr_updated_at = null;
-        update.last_connected_at = now;
-        update.last_error = null;
-    } else if (status === "FAILED" || status === "STOPPED") {
-        update.qr_code_data = null;
-        update.qr_updated_at = null;
-        update.last_disconnected_at = now;
-        update.last_error =
-            status === "FAILED"
-                ? "A sessão não conseguiu se reconectar."
-                : null;
-    } else if (status === "PASSKEY_REQUIRED") {
-        update.qr_code_data = null;
-        update.qr_updated_at = null;
+
+        if (status === "WORKING") {
+            update.last_connected_at = now;
+            update.last_error = null;
+        } else if (status === "FAILED" || status === "STOPPED") {
+            update.last_disconnected_at = now;
+            update.last_error =
+                status === "FAILED"
+                    ? "A sessão não conseguiu se reconectar."
+                    : null;
+        }
     }
 
     const { error } = await supabase
@@ -208,9 +248,8 @@ async function updateSessionStatus({
         const lastRestart = connection.last_restart_at
             ? new Date(connection.last_restart_at).getTime()
             : 0;
-        const canRestart = Date.now() - lastRestart > 60_000;
 
-        if (canRestart) {
+        if (Date.now() - lastRestart > 60_000) {
             await supabase
                 .from("whatsapp_connections")
                 .update({
@@ -221,29 +260,22 @@ async function updateSessionStatus({
                 .eq("restaurant_id", connection.restaurant_id);
 
             try {
-                const restarted = await restartWahaSession(
-                    connection.session_name
-                );
-
-                if (restarted.status === "FAILED") {
-                    throw new Error("WAHA remained in FAILED after restart");
-                }
+                await restartWahaSession(connection.session_name);
             } catch (restartError) {
-                console.warn(
-                    "[WAHA_WEBHOOK] Restart failed, recreating session:",
-                    restartError
-                );
+                // Never logout automatically here. Logout deletes saved WhatsApp
+                // authorization and was causing healthy linked devices to return
+                // to QR mode after a transient restart failure.
+                console.warn("[WAHA_WEBHOOK] Session restart failed:", restartError);
 
-                try {
-                    await logoutWahaSession(connection.session_name);
-                } catch {
-                    // The failed session may already have been removed.
-                }
-
-                await ensureWahaSession(
-                    connection.restaurant_id,
-                    connection.session_name
-                );
+                await supabase
+                    .from("whatsapp_connections")
+                    .update({
+                        status,
+                        last_error:
+                            "A reconexão automática falhou. Tente novamente sem gerar um novo QR.",
+                        updated_at: new Date().toISOString(),
+                    })
+                    .eq("restaurant_id", connection.restaurant_id);
             }
         }
     }
@@ -271,20 +303,13 @@ export async function POST(request: NextRequest) {
         }
 
         const supabase = createSupabaseServerClient();
-        const pollVoteDiscriminator = payload.vote?.id
-            ? `${String(payload.vote.id)}:${String(
-                  payload.vote.timestamp || "unknown"
-              )}:${JSON.stringify(payload.vote.selectedOptions || [])}`
-            : null;
-        const eventId =
+        const baseEventId =
             event.id ||
             request.headers.get("x-webhook-request-id") ||
-            `${eventName}:${sessionName}:${String(
-                pollVoteDiscriminator ||
-                    payload.id ||
-                    payload.timestamp ||
-                    rawBody.length
-            )}`;
+            payload.id ||
+            payload.timestamp ||
+            rawBody.length;
+        const eventId = `${eventName}:${sessionName}:${String(baseEventId)}`;
 
         if (!(await claimEvent(eventId, supabase))) {
             return NextResponse.json({ ok: true, duplicate: true });
@@ -300,52 +325,6 @@ export async function POST(request: NextRequest) {
 
         if (eventName === "session.status") {
             await updateSessionStatus({ event, connection, supabase });
-            return NextResponse.json({ ok: true });
-        }
-
-        if (eventName === "poll.vote" || eventName === "poll.vote.failed") {
-            const chatId = getPollVoteChatId(payload);
-            if (!chatId) {
-                return NextResponse.json({
-                    ok: true,
-                    ignored: "unsupported_poll_chat",
-                });
-            }
-
-            if (payload.poll?.fromMe !== true || payload.vote?.fromMe === true) {
-                return NextResponse.json({
-                    ok: true,
-                    ignored: "external_poll",
-                });
-            }
-
-            if (eventName === "poll.vote.failed") {
-                await processWhatsAppMenuVoteFailed({
-                    restaurantId: connection.restaurant_id,
-                    sessionName,
-                    chatId,
-                });
-                return NextResponse.json({ ok: true });
-            }
-
-            const selectedOptions = Array.isArray(
-                payload.vote?.selectedOptions
-            )
-                ? payload.vote.selectedOptions.map((option: unknown) =>
-                      String(option)
-                  )
-                : [];
-            const selection = selectedOptions.at(-1);
-
-            if (selection) {
-                await processWhatsAppMenuSelection({
-                    restaurantId: connection.restaurant_id,
-                    sessionName,
-                    chatId,
-                    selection,
-                });
-            }
-
             return NextResponse.json({ ok: true });
         }
 
@@ -370,7 +349,7 @@ export async function POST(request: NextRequest) {
                 restaurantId: connection.restaurant_id,
                 sessionName,
                 chatId,
-                body: String(payload.body || ""),
+                body: extractIncomingBody(payload),
                 hasMedia: payload.hasMedia === true,
             });
         }
@@ -379,7 +358,6 @@ export async function POST(request: NextRequest) {
     } catch (error) {
         console.error("[WAHA_WEBHOOK]", error);
 
-        // Release the idempotency claim so WAHA's retry can process the event.
         if (claimedEventId && claimedSupabase) {
             try {
                 await claimedSupabase
@@ -394,7 +372,6 @@ export async function POST(request: NextRequest) {
             }
         }
 
-        // Return 500 so WAHA's configured retry policy retries transient errors.
         return NextResponse.json(
             {
                 error:

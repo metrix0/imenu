@@ -41,31 +41,11 @@ const HUMAN_HANDOFF_MINUTES = 30;
 const BOT_SESSION_MINUTES = 30;
 
 const MENU_ROWS: WahaListRow[] = [
-    {
-        title: "Ver o cardápio",
-        rowId: "menu",
-        description: "Abrir o cardápio e fazer um pedido",
-    },
-    {
-        title: "Onde está meu pedido?",
-        rowId: "order_status",
-        description: "Consultar o pedido deste número",
-    },
-    {
-        title: "Entrega e retirada",
-        rowId: "delivery",
-        description: "Ver taxas, prazo e retirada",
-    },
-    {
-        title: "Formas de pagamento",
-        rowId: "payment",
-        description: "Consultar os pagamentos aceitos",
-    },
-    {
-        title: "Falar com atendente",
-        rowId: "handoff",
-        description: "Transferir para a equipe do restaurante",
-    },
+    { title: "Ver o cardápio", rowId: "menu" },
+    { title: "Onde está meu pedido?", rowId: "order_status" },
+    { title: "Entrega e retirada", rowId: "delivery" },
+    { title: "Formas de pagamento", rowId: "payment" },
+    { title: "Falar com atendente", rowId: "handoff" },
 ];
 
 const PAYMENT_LABELS: Record<string, string> = {
@@ -520,7 +500,30 @@ async function buildOrderStatusMessage(
 }
 
 function detectFlow(value: unknown): BotFlow | null {
-    return FLOW_BY_TEXT.get(normalize(value)) || null;
+    const raw = String(value ?? "").trim();
+    const normalized = normalize(raw);
+    const direct = FLOW_BY_TEXT.get(normalized);
+    if (direct) return direct;
+
+    // Some WAHA/GOWS list replies expose the visible title together with the
+    // old description. Matching the first line keeps the flow deterministic.
+    const firstLine = normalize(raw.split(/\r?\n/)[0]);
+    const firstLineFlow = FLOW_BY_TEXT.get(firstLine);
+    if (firstLineFlow) return firstLineFlow;
+
+    const deterministicPrefixes: Array<[string, BotFlow]> = [
+        ["ver o cardapio", "menu"],
+        ["onde esta meu pedido", "order_status"],
+        ["entrega e retirada", "delivery"],
+        ["formas de pagamento", "payment"],
+        ["falar com atendente", "handoff"],
+    ];
+
+    return (
+        deterministicPrefixes.find(([prefix]) =>
+            normalized.startsWith(`${prefix} `)
+        )?.[1] || null
+    );
 }
 
 async function answerFlow({

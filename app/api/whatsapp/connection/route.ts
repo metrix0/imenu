@@ -47,8 +47,7 @@ function parseConnectionRow(value: unknown): ConnectionRow {
 
 function getBearerToken(request: NextRequest): string | null {
     const authorization = request.headers.get("authorization") || "";
-    const match = authorization.match(/^Bearer\s+(.+)$/i);
-    return match?.[1]?.trim() || null;
+    return authorization.match(/^Bearer\s+(.+)$/i)?.[1]?.trim() || null;
 }
 
 async function requireOwnedRestaurant(
@@ -56,9 +55,7 @@ async function requireOwnedRestaurant(
     restaurantId: string
 ) {
     const token = getBearerToken(request);
-    if (!token) {
-        throw new Response("Unauthorized", { status: 401 });
-    }
+    if (!token) throw new Response("Unauthorized", { status: 401 });
 
     const supabase = createSupabaseServerClient();
     const {
@@ -111,26 +108,24 @@ async function updateFromWahaSession({
     session: WahaSession;
 }): Promise<ConnectionRow> {
     const status = session.status || "STARTING";
-    const qrCode =
-        status === "SCAN_QR_CODE"
-            ? await getWahaQrCode(sessionName)
-            : null;
     const now = new Date().toISOString();
-
     const update: Record<string, unknown> = {
         restaurant_id: restaurantId,
         session_name: sessionName,
         desired_state: "connected",
         status,
         status_data: null,
-        phone: extractWahaPhone(session.me?.id),
-        push_name: session.me?.pushName || null,
         last_event_at: now,
         last_error: null,
         updated_at: now,
     };
 
+    const phone = extractWahaPhone(session.me?.id);
+    if (phone) update.phone = phone;
+    if (session.me?.pushName) update.push_name = session.me.pushName;
+
     if (status === "SCAN_QR_CODE") {
+        const qrCode = await getWahaQrCode(sessionName);
         update.qr_code_data = qrCode;
         update.qr_updated_at = qrCode ? now : null;
     } else {
@@ -139,6 +134,8 @@ async function updateFromWahaSession({
 
         if (status === "WORKING") {
             update.last_connected_at = now;
+        } else if (status === "FAILED" || status === "STOPPED") {
+            update.last_disconnected_at = now;
         }
     }
 
@@ -188,15 +185,12 @@ export async function GET(request: NextRequest) {
         );
         let connection = await readConnection(supabase, restaurantId);
 
-        // One status reconciliation on page load. This is not interval polling:
-        // it only prevents a stale "connected" badge when WAHA or its session
-        // went offline without being able to send the final webhook.
+        // Status checks must be read-only. Updating the WAHA session config while
+        // merely opening this page can restart a healthy GOWS session and make the
+        // UI incorrectly return to QR mode.
         if (connection?.desired_state === "connected") {
             try {
-                const session = await ensureWahaSession(
-                    restaurantId,
-                    connection.session_name
-                );
+                const session = await getWahaSession(connection.session_name);
 
                 if (session) {
                     connection = await updateFromWahaSession({
@@ -215,7 +209,8 @@ export async function GET(request: NextRequest) {
                             qr_updated_at: null,
                             last_disconnected_at: now,
                             last_event_at: now,
-                            last_error: "A sessão não foi encontrada no servidor do WhatsApp.",
+                            last_error:
+                                "A sessão não foi encontrada no servidor do WhatsApp.",
                             updated_at: now,
                         })
                         .eq("restaurant_id", restaurantId);
@@ -224,27 +219,12 @@ export async function GET(request: NextRequest) {
                     connection = await readConnection(supabase, restaurantId);
                 }
             } catch (error) {
+                // A temporary WAHA/API outage must not overwrite a valid connected
+                // state in Supabase. Realtime or the next page load will reconcile it.
                 console.warn(
-                    "[WHATSAPP_CONNECTION] WAHA status reconciliation failed:",
+                    "[WHATSAPP_CONNECTION] Read-only WAHA reconciliation failed:",
                     error
                 );
-
-                const now = new Date().toISOString();
-                const { error: updateError } = await supabase
-                    .from("whatsapp_connections")
-                    .update({
-                        status: "FAILED",
-                        qr_code_data: null,
-                        qr_updated_at: null,
-                        last_disconnected_at: now,
-                        last_event_at: now,
-                        last_error: "O servidor da conexão do WhatsApp está indisponível.",
-                        updated_at: now,
-                    })
-                    .eq("restaurant_id", restaurantId);
-
-                if (updateError) throw updateError;
-                connection = await readConnection(supabase, restaurantId);
             }
         }
 
@@ -260,7 +240,10 @@ export async function POST(request: NextRequest) {
         const restaurantId = String(body?.restaurantId || "");
         const action = String(body?.action || "") as ConnectionAction;
 
-        if (!restaurantId || !["connect", "refresh_qr", "disconnect"].includes(action)) {
+        if (
+            !restaurantId ||
+            !["connect", "refresh_qr", "disconnect"].includes(action)
+        ) {
             return NextResponse.json(
                 { error: "Invalid request" },
                 { status: 400 }
@@ -277,7 +260,7 @@ export async function POST(request: NextRequest) {
         const now = new Date().toISOString();
 
         if (action === "disconnect") {
-            const { error: disconnectStateError } = await supabase
+            const { error } = await supabase
                 .from("whatsapp_connections")
                 .upsert(
                     {
@@ -294,22 +277,24 @@ export async function POST(request: NextRequest) {
                     { onConflict: "restaurant_id" }
                 );
 
-            if (disconnectStateError) throw disconnectStateError;
+            if (error) throw error;
 
             try {
                 await logoutWahaSession(sessionName);
-            } catch (error) {
+            } catch (logoutError) {
                 console.warn(
                     "[WHATSAPP_CONNECTION] WAHA logout returned an error:",
-                    error
+                    logoutError
                 );
             }
 
-            const connection = await readConnection(supabase, restaurantId);
-            return NextResponse.json({ restaurant, connection });
+            return NextResponse.json({
+                restaurant,
+                connection: await readConnection(supabase, restaurantId),
+            });
         }
 
-        const { error: startingStateError } = await supabase
+        const { error: startingError } = await supabase
             .from("whatsapp_connections")
             .upsert(
                 {
@@ -329,29 +314,21 @@ export async function POST(request: NextRequest) {
                 { onConflict: "restaurant_id" }
             );
 
-        if (startingStateError) throw startingStateError;
-
-        let session: WahaSession;
+        if (startingError) throw startingError;
 
         if (action === "refresh_qr") {
-            // A fresh QR must discard the old WhatsApp authorization. Restarting
-            // alone can keep a failed credential and return FAILED again.
             try {
                 await logoutWahaSession(sessionName);
-            } catch (error) {
+            } catch (logoutError) {
                 console.warn(
                     "[WHATSAPP_CONNECTION] Old WAHA session was already absent:",
-                    error
+                    logoutError
                 );
             }
-
-            session = await ensureWahaSession(restaurantId, sessionName);
-        } else {
-            session = await ensureWahaSession(restaurantId, sessionName);
         }
 
-        // WAHA can return STARTING before the first QR is ready. The webhook
-        // updates this row through Realtime as soon as the status changes.
+        let session = await ensureWahaSession(restaurantId, sessionName);
+
         if (session.status === "STARTING") {
             await new Promise((resolve) => setTimeout(resolve, 700));
             session = (await getWahaSession(sessionName)) || session;

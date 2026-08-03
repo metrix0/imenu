@@ -180,6 +180,13 @@ export async function ensureWahaSession(
         });
     }
 
+    // Never update a healthy running session during a status check or a
+    // repeated connect request. Updating the GOWS session config can restart it
+    // and make an already linked account return to QR mode.
+    if (existing.status === "WORKING") {
+        return existing;
+    }
+
     const updated = await wahaRequest<WahaSession>(
         `/api/sessions/${encodeURIComponent(sessionName)}`,
         {
@@ -287,7 +294,9 @@ export async function sendWahaList(
                         rows: rows.map((row) => ({
                             title: row.title,
                             rowId: row.rowId,
-                            description: row.description ?? null,
+                            ...(row.description
+                                ? { description: row.description }
+                                : {}),
                         })),
                     },
                 ],
