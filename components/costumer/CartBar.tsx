@@ -400,8 +400,8 @@ export default function CartBar({
 
     return (
         <>
-            <div className="fixed pb-8 2xl:pb-6 2xl:pt-5 md:pb-4 bottom-0 left-0 right-0 z-50  bg-white shadow-[0_-4px_12px_rgba(0,0,0,0.12)] px-4 py-3 border-t border-gray-200">
-                <div className="flex items-center justify-between w-full md:px-7 2xl:px-12">
+            <div className="fixed pb-8 2xl:pb-6 2xl:pt-5 md:pb-4 bottom-0 left-0 right-0 z-[60] isolate bg-white shadow-[0_-4px_12px_rgba(0,0,0,0.12)] px-4 py-3 border-t border-gray-200">
+                <div className="relative z-10 flex items-center justify-between w-full md:px-7 2xl:px-12">
                     <div className="flex flex-col text-left text-[12px] 2xl:text-lg text-gray-600">
                         <span>
                             {isPickup
@@ -430,7 +430,7 @@ export default function CartBar({
                             onClick={handleClick}
                             loading={isContinueBlocked}
                             disabled={disabledContinue}
-                            className={`py-3 px-10 2xl:px-15 2xl:py-4 text-[13px] 2xl:text-lg tracking-wide font-normal ${
+                            className={`relative z-10 py-3 px-10 2xl:px-15 2xl:py-4 text-[13px] 2xl:text-lg tracking-wide font-normal ${
                                 disabledContinue ? "!bg-gray-300 focus:ring-transparent" : ""
                             }`}
                         >
@@ -449,7 +449,7 @@ export default function CartBar({
                     {/* 🔥 FIXED BACKDROP WITH FADE-IN & FADE-OUT */}
                     <div
                         onClick={() => showCartWarning(false)}
-                        className={`fixed inset-0 z-49 bg-black/40 backdrop-blur-[1px]
+                        className={`fixed inset-0 z-[70] bg-black/40 backdrop-blur-[1px]
                             transition-opacity duration-300
                             ${backdropVisible ? "opacity-100" : "opacity-0"}
                         `}
@@ -460,7 +460,7 @@ export default function CartBar({
                         onTouchMove={handleTouchMove}
                         onTouchEnd={handleTouchEnd}
                         className={`
-                            fixed bottom-0 left-0 right-0 z-50
+                            fixed bottom-0 left-0 right-0 z-[71]
                             bg-white rounded-t-2xl shadow-xl
                             h-[30vh]
                             p-6 
