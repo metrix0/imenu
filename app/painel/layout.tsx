@@ -18,6 +18,7 @@ import {
     faGift,
     faHome,
     faMoneyBillWave,
+    faMobileScreenButton,
     faPercent,
     faPowerOff,
     faPrint,
@@ -245,6 +246,11 @@ export default function PainelLayout({
             label: "Integrações",
             icon: faPuzzlePiece,
             href: `${base}/integracoes`,
+        },
+        {
+            label: "Aplicativo",
+            icon: faMobileScreenButton,
+            href: `${base}/aplicativo`,
         },
         {
             label: "Configurações",

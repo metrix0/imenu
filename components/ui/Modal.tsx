@@ -10,7 +10,7 @@ interface ModalProps {
     className?: string;
 }
 
-const ANIMATION_DURATION_MS = 280;
+const ANIMATION_DURATION_MS = 300;
 
 export default function Modal({
     open,
@@ -45,9 +45,7 @@ export default function Modal({
             setActive(false);
             lockPageScroll();
 
-            // Two frames guarantee that the browser paints the hidden state first.
-            // A single frame could be collapsed on fast desktop renders, making the
-            // WhatsApp/Ajuda modal appear with no visible transition.
+            // Paint the initial state before starting the transition.
             firstFrame = requestAnimationFrame(() => {
                 secondFrame = requestAnimationFrame(() => setActive(true));
             });
@@ -87,12 +85,12 @@ export default function Modal({
     if (!mounted) return null;
 
     return createPortal(
-        <div className="fixed inset-0 z-50 isolate flex min-h-[100dvh] w-full items-center justify-center overflow-y-auto p-3 sm:p-6">
+        <div className="fixed inset-0 z-50 isolate flex min-h-[100svh] w-full items-center justify-center overflow-y-auto p-3 sm:min-h-[100dvh] sm:p-6">
             <button
                 type="button"
                 aria-label="Fechar modal"
                 onClick={onClose}
-                className={`fixed inset-0 min-h-[100dvh] bg-black/40 backdrop-blur-sm transition-opacity duration-300 ease-out motion-reduce:transition-none ${
+                className={`fixed inset-0 min-h-[100svh] bg-black/40 backdrop-blur-sm transition-opacity duration-300 ease-out motion-reduce:transition-none sm:min-h-[100dvh] ${
                     active ? "opacity-100" : "opacity-0"
                 }`}
             />
@@ -103,10 +101,10 @@ export default function Modal({
                 onClick={(event: { stopPropagation(): void }) =>
                     event.stopPropagation()
                 }
-                className={`relative flex max-h-[92dvh] w-full max-w-2xl flex-col overflow-y-auto rounded-xl bg-white shadow-2xl will-change-transform transition-[opacity,transform] duration-300 ease-out motion-reduce:transition-none sm:max-h-[90dvh] sm:rounded-2xl ${
+                className={`relative flex max-h-[92svh] w-full max-w-2xl transform-gpu flex-col overflow-y-auto rounded-xl bg-white shadow-2xl transition-[opacity,transform] duration-300 ease-out will-change-transform motion-reduce:transition-none sm:max-h-[90dvh] sm:rounded-2xl ${
                     active
-                        ? "translate-y-0 scale-100 opacity-100"
-                        : "translate-y-4 scale-[0.96] opacity-0"
+                        ? "translate-y-0 opacity-100 sm:scale-100"
+                        : "translate-y-6 opacity-0 sm:translate-y-4 sm:scale-[0.96]"
                 } ${className}`}
             >
                 {children}

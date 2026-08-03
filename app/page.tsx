@@ -454,6 +454,8 @@ export default function LandingPage() {
                                 ["Impressão dos pedidos", "check", "Não"],
                                 ["Cupons de desconto", "check", "Pouca customização"],
                                 ["Sistema disponível para celulares", "check", "Indisponível"],
+                                ["Notificações no celular", "check", "Não"],
+                                ["Aplicativo para celular", "check", "Não"],
                             ].map(([feature, imenu, competitor]) => (
                                 <tr key={feature}>
                                     <td className="border-r border-gray-200">{feature}</td>

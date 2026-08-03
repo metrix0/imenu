@@ -26,7 +26,7 @@ export async function generateMetadata(): Promise<Metadata> {
         },
         icons: {
             icon: "/icons/favicon.ico",
-            apple: "/logos/LogoMark_Brand.png",
+            apple: "/icons/appIcon.png",
         },
         alternates: {
             canonical: baseUrl,

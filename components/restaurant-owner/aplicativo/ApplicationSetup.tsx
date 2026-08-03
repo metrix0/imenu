@@ -9,12 +9,13 @@ import {
     faCloudArrowDown,
     faMobileScreenButton,
     faPaperPlane,
-    faShareFromSquare,
     faTriangleExclamation,
+    faXmark,
 } from "@fortawesome/free-solid-svg-icons";
 
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
+import Modal from "@/components/ui/Modal";
 import Toast from "@/components/ui/Toast";
 import { supabase } from "@/lib/database/supabaseClient";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
@@ -136,6 +137,8 @@ export default function ApplicationSetup() {
         "install" | "enable" | "test" | "disable" | null
     >(null);
     const [toast, setToast] = useState<ToastState | null>(null);
+    const [installInstructionsOpen, setInstallInstructionsOpen] =
+        useState(false);
 
     const ios = useMemo(() => isIosDevice(), []);
 
@@ -195,22 +198,17 @@ export default function ApplicationSetup() {
         };
     }, [refreshStatus]);
 
-    const scrollToInstructions = () => {
-        document
-            .getElementById(ios ? "iphone-instructions" : "android-instructions")
-            ?.scrollIntoView({ behavior: "smooth", block: "center" });
-    };
-
-    const installApplication = async () => {
+    const openInstallInstructions = () => {
         if (installed) {
             showToast("O iMenu já está instalado neste aparelho.", "success");
             return;
         }
 
-        if (!installPrompt) {
-            scrollToInstructions();
-            return;
-        }
+        setInstallInstructionsOpen(true);
+    };
+
+    const installApplication = async () => {
+        if (!installPrompt) return;
 
         setBusyAction("install");
         try {
@@ -218,6 +216,7 @@ export default function ApplicationSetup() {
             const choice = await installPrompt.userChoice;
             if (choice.outcome === "accepted") {
                 setInstalled(true);
+                setInstallInstructionsOpen(false);
                 showToast("Aplicativo adicionado à tela inicial.", "success");
             }
             setInstallPrompt(null);
@@ -242,7 +241,7 @@ export default function ApplicationSetup() {
                 "No iPhone, adicione o iMenu à Tela de Início antes de ativar as notificações.",
                 "info"
             );
-            scrollToInstructions();
+            setInstallInstructionsOpen(true);
             return;
         }
 
@@ -405,6 +404,78 @@ export default function ApplicationSetup() {
                 />
             )}
 
+            <Modal
+                open={installInstructionsOpen}
+                onClose={() => setInstallInstructionsOpen(false)}
+                className="max-w-lg"
+            >
+                <div className="relative p-6">
+                    <button
+                        type="button"
+                        onClick={() => setInstallInstructionsOpen(false)}
+                        className="absolute right-3 top-3 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
+                        aria-label="Fechar instruções"
+                    >
+                        <FontAwesomeIcon icon={faXmark} />
+                    </button>
+
+                    <h2 className="pr-10 text-xl font-semibold text-gray-900">
+                        Adicionar o iMenu à tela inicial
+                    </h2>
+
+                    {ios ? (
+                        <>
+                            <p className="mt-2 text-sm leading-6 text-gray-600">
+                                Siga estes passos no iPhone ou iPad:
+                            </p>
+                            <ol className="mt-5 space-y-3 text-sm leading-6 text-gray-700">
+                                <li><strong>1.</strong> Abra o painel no <strong>Safari</strong>.</li>
+                                <li><strong>2.</strong> Toque no botão de compartilhar.</li>
+                                <li><strong>3.</strong> Escolha <strong>Adicionar à Tela de Início</strong>.</li>
+                                <li><strong>4.</strong> Abra o novo ícone do iMenu e volte a esta página.</li>
+                                <li><strong>5.</strong> Toque em <strong>Ativar notificações</strong>.</li>
+                            </ol>
+                        </>
+                    ) : (
+                        <>
+                            <p className="mt-2 text-sm leading-6 text-gray-600">
+                                Siga estes passos no Android:
+                            </p>
+                            <ol className="mt-5 space-y-3 text-sm leading-6 text-gray-700">
+                                <li><strong>1.</strong> Abra o painel no Chrome.</li>
+                                {installPrompt ? (
+                                    <>
+                                        <li><strong>2.</strong> Toque em <strong>Instalar aplicativo</strong> abaixo.</li>
+                                        <li><strong>3.</strong> Confirme a instalação.</li>
+                                    </>
+                                ) : (
+                                    <>
+                                        <li><strong>2.</strong> Abra o menu de três pontos do Chrome.</li>
+                                        <li><strong>3.</strong> Escolha <strong>Adicionar à tela inicial</strong> ou <strong>Instalar app</strong>.</li>
+                                    </>
+                                )}
+                                <li><strong>4.</strong> Abra o novo ícone do iMenu.</li>
+                                <li><strong>5.</strong> Toque em <strong>Ativar notificações</strong> e depois em <strong>Enviar teste</strong>.</li>
+                            </ol>
+
+                            {installPrompt && (
+                                <Button
+                                    onClick={() => void installApplication()}
+                                    loading={busyAction === "install"}
+                                    className="mt-6 w-full"
+                                >
+                                    <FontAwesomeIcon
+                                        icon={faMobileScreenButton}
+                                        className="mr-2"
+                                    />
+                                    Instalar aplicativo
+                                </Button>
+                            )}
+                        </>
+                    )}
+                </div>
+            </Modal>
+
             <div className="grid gap-5 lg:grid-cols-2">
                 <Card className="border border-gray-100 shadow-sm">
                     <div className="flex items-start gap-4">
@@ -433,8 +504,8 @@ export default function ApplicationSetup() {
                     </div>
 
                     <Button
-                        onClick={() => void installApplication()}
-                        loading={busyAction === "install"}
+                        onClick={openInstallInstructions}
+                        loading={false}
                         className="mt-5 w-full"
                     >
                         <FontAwesomeIcon icon={faMobileScreenButton} className="mr-2" />
@@ -522,41 +593,6 @@ export default function ApplicationSetup() {
                 </Card>
             </div>
 
-            <div className="mt-6 grid gap-5 lg:grid-cols-2">
-                <Card
-                    id="iphone-instructions"
-                    className="border border-gray-100 shadow-sm scroll-mt-20"
-                >
-                    <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900">
-                        <FontAwesomeIcon icon={faShareFromSquare} className="text-brand" />
-                        No iPhone ou iPad
-                    </h2>
-                    <ol className="mt-4 space-y-3 text-sm leading-6 text-gray-700">
-                        <li><strong>1.</strong> Abra o painel no Safari.</li>
-                        <li><strong>2.</strong> Toque no botão de compartilhar.</li>
-                        <li><strong>3.</strong> Escolha <strong>Adicionar à Tela de Início</strong>.</li>
-                        <li><strong>4.</strong> Abra o novo ícone do iMenu e volte a esta página.</li>
-                        <li><strong>5.</strong> Toque em <strong>Ativar notificações</strong>.</li>
-                    </ol>
-                </Card>
-
-                <Card
-                    id="android-instructions"
-                    className="border border-gray-100 shadow-sm scroll-mt-20"
-                >
-                    <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900">
-                        <FontAwesomeIcon icon={faMobileScreenButton} className="text-brand" />
-                        No Android
-                    </h2>
-                    <ol className="mt-4 space-y-3 text-sm leading-6 text-gray-700">
-                        <li><strong>1.</strong> Abra o painel no Chrome.</li>
-                        <li><strong>2.</strong> Toque em <strong>Adicionar à tela inicial</strong> acima.</li>
-                        <li><strong>3.</strong> Confirme a instalação.</li>
-                        <li><strong>4.</strong> Toque em <strong>Ativar notificações</strong>.</li>
-                        <li><strong>5.</strong> Use <strong>Enviar teste</strong> para confirmar.</li>
-                    </ol>
-                </Card>
-            </div>
         </>
     );
 }

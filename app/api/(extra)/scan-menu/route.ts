@@ -541,7 +541,7 @@ Regras:
                     responseJsonSchema: MENU_RESPONSE_SCHEMA,
                 },
             }),
-            signal: AbortSignal.timeout(120_000),
+            signal: AbortSignal.timeout(300_000),
         }
     );
 
