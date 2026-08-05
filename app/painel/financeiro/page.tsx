@@ -6,6 +6,7 @@ import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore"; 
 import SalesDashboard from "@/components/restaurant-owner/exibicoes/SalesDashboard";
 import PayoutsDashboard from "@/components/restaurant-owner/exibicoes/PayoutsDashboard";
 import DateFilterBar from "@/components/restaurant-owner/exibicoes/DateFilterBar"; 
+import ConsumerPipelineDashboard from "@/components/restaurant-owner/exibicoes/ConsumerPipelineDashboard";
 import Loader from "@/components/ui/Loader";
 
 const getISODate = (date: Date) => date.toISOString().split("T")[0];
@@ -84,6 +85,20 @@ export default function FinanceiroPage() {
                     menuId={restaurantId} 
                     startDate={startDate} 
                     endDate={endDate} 
+                />
+            </section>
+
+            <section>
+                <div className="mb-4">
+                    <h2 className="text-xl font-bold text-gray-900">Consumidor</h2>
+                    <p className="mt-1 text-sm text-gray-500">
+                        Funil do cardápio até a criação do pedido no período selecionado. Aguarde alguns dias para coletarmos dados.
+                    </p>
+                </div>
+                <ConsumerPipelineDashboard
+                    restaurantId={restaurantId}
+                    startDate={startDate}
+                    endDate={endDate}
                 />
             </section>
         </div>

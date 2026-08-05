@@ -9,6 +9,8 @@ import { icons } from "@/lib/utils/fontawesome";
 import {formatPrice, formatPriceNoRS, promotionPrice} from "@/lib/utils/formatPrice";
 import ModalMobile from "@/components/ui/HybridModal";
 import Loader from "@/components/ui/Loader";
+import { captureConsumerEvent } from "@/lib/analytics/captureConsumerEvent";
+import { CONSUMER_EVENTS } from "@/lib/analytics/consumerEvents";
 
 type Props = {
     restaurant: Restaurant;
@@ -44,6 +46,16 @@ export default function ItemModal({
     useEffect(() => {
         setTimeout(() => setOpen(true), 10);
     }, []);
+
+    useEffect(() => {
+        captureConsumerEvent(CONSUMER_EVENTS.itemViewed, {
+            restaurant_id: restaurant.id,
+            restaurant_slug: slug || null,
+            item_id: item.id,
+            item_name: item.name,
+            item_price_cents: item.price_cents,
+        });
+    }, [item.id, item.name, item.price_cents, restaurant.id, slug]);
 
     useEffect(() => {
         if (!restaurant.availability_json) return;
@@ -177,6 +189,28 @@ export default function ItemModal({
             observation,
             selectedSubitems,
             promotion: item.promotion ?? undefined
+        });
+
+        const cart = useCartStore.getState();
+        const cartTotalCents = cart.items.reduce(
+            (sum, cartItem) =>
+                sum + (promotionPrice(cartItem) || cartItem.total_cents),
+            0
+        );
+        const cartItemCount = cart.items.reduce(
+            (sum, cartItem) => sum + cartItem.qty,
+            0
+        );
+
+        captureConsumerEvent(CONSUMER_EVENTS.itemAddedToCart, {
+            restaurant_id: restaurant.id,
+            restaurant_slug: slug || null,
+            item_id: item.id,
+            item_name: item.name,
+            quantity: qty,
+            item_total_cents: displayedTotal,
+            cart_total_cents: cartTotalCents,
+            cart_item_count: cartItemCount,
         });
 
         if (trackMeta && slug) {

@@ -8,6 +8,8 @@ import { useState, useRef } from "react";
 import {FontAwesomeIcon} from "@fortawesome/react-fontawesome";
 import {icons} from "@/lib/utils/fontawesome";
 import {formatPrice, promotionPrice} from "@/lib/utils/formatPrice";
+import { captureConsumerEvent } from "@/lib/analytics/captureConsumerEvent";
+import { CONSUMER_EVENTS } from "@/lib/analytics/consumerEvents";
 
 export default function CartBar({
                                     onOpenCartAction,
@@ -91,6 +93,24 @@ export default function CartBar({
     const finalTotalCents = Math.max(originalTotalCents - discount_cents, 0);
     const hasDiscount = discount_cents > 0;
 
+    const consumerProperties = () => {
+        const currentItems = useCartStore.getState().items;
+
+        return {
+            restaurant_id: restaurant?.id || null,
+            restaurant_slug: slug || null,
+            cart_total_cents: currentItems.reduce(
+                (sum, item) =>
+                    sum + (promotionPrice(item) || item.total_cents),
+                0
+            ),
+            cart_item_count: currentItems.reduce(
+                (sum, item) => sum + item.qty,
+                0
+            ),
+        };
+    };
+
     const maybeWrap = (children: React.ReactNode) => {
         if (disabledContinue && step === "info") {
             return (
@@ -111,11 +131,19 @@ export default function CartBar({
                 showCartWarning(true)
                 return;
             }
+            captureConsumerEvent(
+                CONSUMER_EVENTS.addressStarted,
+                consumerProperties()
+            );
             setStep("info");
             return;
         }
 
         if (cartOpen && !allRequiredFilled && step !== "info") {
+            captureConsumerEvent(
+                CONSUMER_EVENTS.addressStarted,
+                consumerProperties()
+            );
             setStep("info");
             return;
         } //inutil?
@@ -138,11 +166,19 @@ export default function CartBar({
         }
 
         if (!cartOpen) {
+            captureConsumerEvent(
+                CONSUMER_EVENTS.informationStarted,
+                consumerProperties()
+            );
             onOpenCartAction();
             return;
         }
 
         if (step === "info") {
+            captureConsumerEvent(
+                CONSUMER_EVENTS.paymentStarted,
+                consumerProperties()
+            );
             setStep("checkout");
             return;
         }

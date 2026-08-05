@@ -3,6 +3,7 @@ import { cache, Suspense } from "react";
 import Script from "next/script";
 import MenuSkeleton from "./loading";
 import { createSupabaseServerClient } from "@/lib/database/supabaseServerClient";
+import ConsumerMenuViewTracker from "@/components/analytics/ConsumerMenuViewTracker";
 
 const SITE_URL = "https://www.imenuapp.com.br";
 
@@ -441,6 +442,10 @@ export default async function Layout({
                         ),
                     }}
                 />
+            )}
+
+            {restaurant?.name && (
+                <ConsumerMenuViewTracker restaurantSlug={slug} />
             )}
 
             <Suspense fallback={<MenuSkeleton />}>
