@@ -6,6 +6,16 @@ export type ConsumerPostHogFilter = {
     restaurantSlug: string;
 };
 
+export type ConsumerTrafficSource = {
+    source: string;
+    clicks: number;
+    uniqueConsumers: number;
+};
+
+type ConsumerPostHogMetrics = ConsumerTrackingMetrics & {
+    sources: ConsumerTrafficSource[];
+};
+
 function apiHost(value: string): string {
     return value
         .trim()
@@ -18,7 +28,7 @@ function hogqlString(value: string): string {
     return `'${value.replace(/\\/g, "\\\\").replace(/'/g, "\\'")}'`;
 }
 
-function unavailable(): ConsumerTrackingMetrics {
+function unavailable(): ConsumerPostHogMetrics {
     return {
         available: false,
         menuViews: null,
@@ -28,14 +38,52 @@ function unavailable(): ConsumerTrackingMetrics {
         informationStarted: null,
         addressStarted: null,
         paymentStarted: null,
+        sources: [],
     };
+}
+
+async function runHogQL(
+    host: string,
+    projectId: string,
+    personalApiKey: string,
+    hogql: string
+): Promise<unknown[][]> {
+    const response = await fetch(
+        `${apiHost(host)}/api/projects/${encodeURIComponent(projectId)}/query/`,
+        {
+            method: "POST",
+            headers: {
+                Authorization: `Bearer ${personalApiKey}`,
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                query: {
+                    kind: "HogQLQuery",
+                    query: hogql,
+                },
+            }),
+            signal: AbortSignal.timeout(15_000),
+            cache: "no-store",
+        }
+    );
+
+    if (!response.ok) {
+        const errorBody = (await response.text()).trim();
+        const details = errorBody ? `: ${errorBody.slice(0, 800)}` : "";
+        throw new Error(
+            `PostHog query failed with ${response.status}${details}`
+        );
+    }
+
+    const payload = (await response.json()) as { results?: unknown[][] };
+    return payload.results || [];
 }
 
 export async function loadPostHogConsumerMetrics(
     startAt: number,
     endAt: number,
     filter?: ConsumerPostHogFilter
-): Promise<ConsumerTrackingMetrics> {
+): Promise<ConsumerPostHogMetrics> {
     const personalApiKey = process.env.POSTHOG_PERSONAL_API_KEY?.trim();
     const projectId = process.env.POSTHOG_PROJECT_ID?.trim();
     const rawHost =
@@ -44,14 +92,8 @@ export async function loadPostHogConsumerMetrics(
 
     if (!personalApiKey || !projectId || !rawHost) return unavailable();
 
-    const start = new Date(startAt)
-        .toISOString()
-        .replace("T", " ")
-        .replace(/\.\d{3}Z$/, "");
-    const end = new Date(endAt)
-        .toISOString()
-        .replace("T", " ")
-        .replace(/\.\d{3}Z$/, "");
+    const start = new Date(startAt).toISOString();
+    const end = new Date(endAt).toISOString();
 
     const trackedEvents = [
         CONSUMER_EVENTS.menuViewed,
@@ -69,20 +111,20 @@ export async function loadPostHogConsumerMetrics(
           AND (
                 (
                     event = ${hogqlString(CONSUMER_EVENTS.menuViewed)}
-                    AND toString(properties.restaurant_slug) = ${hogqlString(
+                    AND properties.restaurant_slug = ${hogqlString(
                         filter.restaurantSlug
                     )}
                 )
                 OR (
                     event != ${hogqlString(CONSUMER_EVENTS.menuViewed)}
-                    AND toString(properties.restaurant_id) = ${hogqlString(
+                    AND properties.restaurant_id = ${hogqlString(
                         filter.restaurantId
                     )}
                 )
           )`
         : "";
 
-    const hogql = `
+    const pipelineHogql = `
         SELECT
             uniqIf(distinct_id, event = ${hogqlString(CONSUMER_EVENTS.menuViewed)}) AS menu_views,
             uniqIf(distinct_id, event = ${hogqlString(CONSUMER_EVENTS.itemViewed)}) AS item_views,
@@ -90,7 +132,7 @@ export async function loadPostHogConsumerMetrics(
                 CONSUMER_EVENTS.itemAddedToCart
             )}) AS added_to_cart,
             avgIf(
-                toFloat64OrZero(toString(properties.cart_total_cents)),
+                properties.cart_total_cents,
                 event = ${hogqlString(CONSUMER_EVENTS.informationStarted)}
             ) AS average_cart_cents,
             uniqIf(distinct_id, event = ${hogqlString(
@@ -103,41 +145,76 @@ export async function loadPostHogConsumerMetrics(
                 CONSUMER_EVENTS.paymentStarted
             )}) AS payment_started
         FROM events
-        WHERE timestamp >= toDateTime('${start}', 'UTC')
-          AND timestamp < toDateTime('${end}', 'UTC')
+        WHERE timestamp >= parseDateTimeBestEffort('${start}')
+          AND timestamp < parseDateTimeBestEffort('${end}')
           AND event IN (${trackedEvents})
           ${restaurantFilter}
     `;
 
+    const sourceRestaurantFilter = filter
+        ? `AND properties.restaurant_slug = ${hogqlString(
+              filter.restaurantSlug
+          )}`
+        : "";
+
+    const sourceHogql = `
+        SELECT
+            multiIf(
+                notEmpty(properties.utm_source),
+                lower(properties.utm_source),
+                notEmpty(properties.$utm_source),
+                lower(properties.$utm_source),
+                notEmpty(properties.referring_domain),
+                lower(properties.referring_domain),
+                notEmpty(properties.$referring_domain),
+                lower(properties.$referring_domain),
+                'Direto / sem UTM'
+            ) AS source,
+            count() AS clicks,
+            uniq(distinct_id) AS unique_consumers
+        FROM events
+        WHERE timestamp >= parseDateTimeBestEffort('${start}')
+          AND timestamp < parseDateTimeBestEffort('${end}')
+          AND event = ${hogqlString(CONSUMER_EVENTS.menuViewed)}
+          ${sourceRestaurantFilter}
+        GROUP BY source
+        ORDER BY clicks DESC, source ASC
+        LIMIT 20
+    `;
+
     try {
-        const response = await fetch(
-            `${apiHost(rawHost)}/api/projects/${encodeURIComponent(
-                projectId
-            )}/query/`,
-            {
-                method: "POST",
-                headers: {
-                    Authorization: `Bearer ${personalApiKey}`,
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    query: {
-                        kind: "HogQLQuery",
-                        query: hogql,
-                    },
-                }),
-                signal: AbortSignal.timeout(15_000),
-                cache: "no-store",
-            }
+        const pipelineRows = await runHogQL(
+            rawHost,
+            projectId,
+            personalApiKey,
+            pipelineHogql
         );
-
-        if (!response.ok) {
-            throw new Error(`PostHog query failed with ${response.status}.`);
-        }
-
-        const payload = (await response.json()) as { results?: unknown[][] };
-        const row = payload.results?.[0];
+        const row = pipelineRows[0];
         if (!row) throw new Error("PostHog returned no result row.");
+
+        let sources: ConsumerTrafficSource[] = [];
+
+        try {
+            const sourceRows = await runHogQL(
+                rawHost,
+                projectId,
+                personalApiKey,
+                sourceHogql
+            );
+
+            sources = sourceRows
+                .map((sourceRow) => ({
+                    source: String(sourceRow[0] || "Direto / sem UTM"),
+                    clicks: Number(sourceRow[1]) || 0,
+                    uniqueConsumers: Number(sourceRow[2]) || 0,
+                }))
+                .filter((source) => source.clicks > 0);
+        } catch (error) {
+            console.warn(
+                "[CONSUMER_PIPELINE] PostHog source metrics unavailable:",
+                error
+            );
+        }
 
         return {
             available: true,
@@ -148,6 +225,7 @@ export async function loadPostHogConsumerMetrics(
             informationStarted: Number(row[4]) || 0,
             addressStarted: Number(row[5]) || 0,
             paymentStarted: Number(row[6]) || 0,
+            sources,
         };
     } catch (error) {
         console.warn("[CONSUMER_PIPELINE] PostHog metrics unavailable:", error);

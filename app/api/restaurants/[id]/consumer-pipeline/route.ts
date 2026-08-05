@@ -178,6 +178,7 @@ export async function GET(
                     endAt: new Date(endAt).toISOString(),
                 },
                 pipeline: buildConsumerPipeline(tracking, ordersPlaced),
+                sources: tracking.sources,
                 tracking: {
                     postHogAvailable: tracking.available,
                 },

@@ -92,14 +92,10 @@ export default function FinanceiroPage() {
                 <div className="mb-4">
                     <h2 className="text-xl font-bold text-gray-900">Consumidor</h2>
                     <p className="mt-1 text-sm text-gray-500">
-                        Funil do cardápio até a criação do pedido no período selecionado. Aguarde alguns dias para coletarmos dados.
+                        Funil do cardápio até a criação do pedido no período selecionado.
                     </p>
                 </div>
-                <ConsumerPipelineDashboard
-                    restaurantId={restaurantId}
-                    startDate={startDate}
-                    endDate={endDate}
-                />
+                <ConsumerPipelineDashboard restaurantId={restaurantId} />
             </section>
         </div>
     );
