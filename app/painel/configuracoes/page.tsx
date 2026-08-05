@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -9,6 +9,7 @@ import {
     faDownload,
     faSignOutAlt,
     faTrash,
+    faVolumeHigh,
 } from "@fortawesome/free-solid-svg-icons";
 import { supabase } from "@/lib/database/supabaseClient";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
@@ -27,6 +28,148 @@ type Restaurant = {
     phone?: string | null;
 };
 
+type OrderDingleDuration = "short" | "medium" | "long";
+
+const ORDER_DINGLE_DURATION_STORAGE_KEY = "imenu:order-dingle-duration";
+const ORDER_DINGLE_DURATION_EVENT = "imenu:order-dingle-duration-changed";
+const ORDER_DINGLE_DURATION_VERSION_KEY = "imenu:order-dingle-duration-version";
+const ORDER_DINGLE_DURATION_VERSION = "2";
+
+const ORDER_DINGLE_OPTIONS: Array<{
+    value: OrderDingleDuration;
+    label: string;
+    description: string;
+}> = [
+    {
+        value: "short",
+        label: "Curto (Padrão)",
+        description: "Toca o som completo uma vez.",
+    },
+    {
+        value: "medium",
+        label: "Médio",
+        description: "Toca o som completo duas vezes.",
+    },
+    {
+        value: "long",
+        label: "Longo",
+        description: "Toca o som completo três vezes.",
+    },
+];
+
+function normalizeOrderDingleDuration(value: unknown): OrderDingleDuration {
+    return value === "medium" || value === "long" ? value : "short";
+}
+
+function resolveOrderDingleDuration(fallback?: unknown): OrderDingleDuration {
+    const storedDuration = window.localStorage.getItem(
+        ORDER_DINGLE_DURATION_STORAGE_KEY,
+    );
+    const isCurrentVersion =
+        window.localStorage.getItem(ORDER_DINGLE_DURATION_VERSION_KEY) ===
+        ORDER_DINGLE_DURATION_VERSION;
+
+    if (isCurrentVersion) {
+        return normalizeOrderDingleDuration(storedDuration ?? fallback);
+    }
+
+    const legacyDuration = normalizeOrderDingleDuration(
+        storedDuration ?? fallback,
+    );
+    const migratedDuration: OrderDingleDuration =
+        legacyDuration === "long" ? "medium" : "short";
+
+    window.localStorage.setItem(
+        ORDER_DINGLE_DURATION_STORAGE_KEY,
+        migratedDuration,
+    );
+    window.localStorage.setItem(
+        ORDER_DINGLE_DURATION_VERSION_KEY,
+        ORDER_DINGLE_DURATION_VERSION,
+    );
+
+    return migratedDuration;
+}
+
+function playAudioOnce(audio: HTMLAudioElement) {
+    return new Promise<void>((resolve, reject) => {
+        let settled = false;
+
+        const cleanup = () => {
+            audio.removeEventListener("ended", handleEnded);
+            audio.removeEventListener("error", handleError);
+        };
+
+        const finish = () => {
+            if (settled) return;
+            settled = true;
+            cleanup();
+            resolve();
+        };
+
+        const handleEnded = () => finish();
+        const handleError = () => {
+            if (settled) return;
+            settled = true;
+            cleanup();
+            reject(new Error("Falha ao reproduzir o som do pedido."));
+        };
+
+        audio.addEventListener("ended", handleEnded);
+        audio.addEventListener("error", handleError);
+        audio.currentTime = 0;
+
+        void audio.play().catch((error) => {
+            if (settled) return;
+            settled = true;
+            cleanup();
+            reject(error);
+        });
+    });
+}
+
+function playAudioAfterDelay(audio: HTMLAudioElement, delayMs: number) {
+    return new Promise<void>((resolve, reject) => {
+        window.setTimeout(() => {
+            void playAudioOnce(audio).then(resolve).catch(reject);
+        }, delayMs);
+    });
+}
+
+async function playOrderDingleWithDuration(
+    audio: HTMLAudioElement,
+    duration: OrderDingleDuration,
+) {
+    if (duration === "short") {
+        await playAudioOnce(audio);
+        return;
+    }
+
+    const secondAudio = audio.cloneNode(true) as HTMLAudioElement;
+    secondAudio.preload = "auto";
+
+    const playbacks = [
+        playAudioOnce(audio),
+        playAudioAfterDelay(secondAudio, 1000),
+    ];
+
+    let thirdAudio: HTMLAudioElement | null = null;
+    if (duration === "long") {
+        thirdAudio = audio.cloneNode(true) as HTMLAudioElement;
+        thirdAudio.preload = "auto";
+        playbacks.push(playAudioAfterDelay(thirdAudio, 2000));
+    }
+
+    try {
+        await Promise.all(playbacks);
+    } finally {
+        secondAudio.pause();
+        secondAudio.currentTime = 0;
+        thirdAudio?.pause();
+        if (thirdAudio) thirdAudio.currentTime = 0;
+    }
+}
+
 function formatPhone(value: string): string {
     const digits = value.replace(/\D/g, "").slice(0, 11);
     if (digits.length <= 2) return digits ? `(${digits}` : "";
@@ -43,6 +186,10 @@ export default function ConfiguracoesPage() {
     const [savingField, setSavingField] = useState<"phone" | null>(null);
     const [phone, setPhone] = useState("");
     const [savedPhone, setSavedPhone] = useState("");
+    const [orderDingleDuration, setOrderDingleDuration] =
+        useState<OrderDingleDuration>("short");
+    const [isTestingOrderDingle, setIsTestingOrderDingle] = useState(false);
+    const orderDingleAudioRef = useRef<HTMLAudioElement | null>(null);
     const [isLoggingOut, setIsLoggingOut] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -51,6 +198,18 @@ export default function ConfiguracoesPage() {
         message: string;
         type: "success" | "error" | "info";
     } | null>(null);
+
+    useEffect(() => {
+        const audio = new Audio("/sounds/new-order.mp3");
+        audio.preload = "auto";
+        orderDingleAudioRef.current = audio;
+
+        return () => {
+            audio.pause();
+            audio.currentTime = 0;
+            orderDingleAudioRef.current = null;
+        };
+    }, []);
 
     useEffect(() => {
         const loadData = async () => {
@@ -65,6 +224,11 @@ export default function ConfiguracoesPage() {
                 }
 
                 setUser(session.user);
+
+                const resolvedDuration = resolveOrderDingleDuration(
+                    session.user.user_metadata?.order_dingle_duration,
+                );
+                setOrderDingleDuration(resolvedDuration);
 
                 let targetId = restaurantId;
                 if (!targetId) {
@@ -88,12 +252,14 @@ export default function ConfiguracoesPage() {
 
                     if (restData) {
                         setRestaurant(restData);
-                        const formattedPhone = formatPhone(restData.phone || "");
+                        const formattedPhone = formatPhone(
+                            restData.phone || "",
+                        );
                         setPhone(formattedPhone);
                         setSavedPhone(formattedPhone);
                         if (restData.url_slug) {
                             setShareableUrl(
-                                `${window.location.origin}/${restData.url_slug}`
+                                `${window.location.origin}/${restData.url_slug}`,
                             );
                         }
                     }
@@ -132,6 +298,65 @@ export default function ConfiguracoesPage() {
         setSavedPhone(phone);
         setToast({ message: "Celular atualizado!", type: "success" });
     };
+
+    const saveOrderDingleDuration = (
+        nextDuration: OrderDingleDuration,
+    ) => {
+        if (nextDuration === orderDingleDuration) return;
+
+        try {
+            window.localStorage.setItem(
+                ORDER_DINGLE_DURATION_STORAGE_KEY,
+                nextDuration,
+            );
+            window.localStorage.setItem(
+                ORDER_DINGLE_DURATION_VERSION_KEY,
+                ORDER_DINGLE_DURATION_VERSION,
+            );
+            setOrderDingleDuration(nextDuration);
+            window.dispatchEvent(
+                new CustomEvent<OrderDingleDuration>(
+                    ORDER_DINGLE_DURATION_EVENT,
+                    { detail: nextDuration },
+                ),
+            );
+            setToast({
+                message: "Duração do som atualizada!",
+                type: "success",
+            });
+        } catch (error) {
+            console.error("Erro ao salvar duração do som:", error);
+            setToast({
+                message: "Erro ao salvar a duração do som.",
+                type: "error",
+            });
+        }
+    };
+
+    const testOrderDingle = useCallback(async () => {
+        const audio = orderDingleAudioRef.current;
+        if (!audio || isTestingOrderDingle) return;
+
+        setIsTestingOrderDingle(true);
+
+        try {
+            audio.pause();
+            audio.currentTime = 0;
+
+            await playOrderDingleWithDuration(
+                audio,
+                orderDingleDuration,
+            );
+        } catch (error) {
+            console.error("Erro ao testar som do pedido:", error);
+            setToast({
+                message: "Não foi possível reproduzir o som.",
+                type: "error",
+            });
+        } finally {
+            setIsTestingOrderDingle(false);
+        }
+    }, [isTestingOrderDingle, orderDingleDuration]);
 
     const handleLogout = async () => {
         setIsLoggingOut(true);
@@ -299,7 +524,7 @@ export default function ConfiguracoesPage() {
                                         variant="secondary"
                                         onClick={() =>
                                             router.push(
-                                                "/painel/configuracoes/atualizando-email"
+                                                "/painel/configuracoes/atualizando-email",
                                             )
                                         }
                                     >
@@ -320,7 +545,7 @@ export default function ConfiguracoesPage() {
                                         variant="secondary"
                                         onClick={() =>
                                             router.push(
-                                                "/painel/configuracoes/nova-senha"
+                                                "/painel/configuracoes/nova-senha",
                                             )
                                         }
                                     >
@@ -329,6 +554,70 @@ export default function ConfiguracoesPage() {
                                 </div>
                             </div>
                         </div>
+                    </Card>
+
+                    <Card className="border border-gray-200 shadow-sm">
+                        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                            <div>
+                                <h2 className="mb-2 text-xl font-medium text-gray-900">
+                                    Som de novos pedidos
+                                </h2>
+                                <p className="text-sm text-gray-500">
+                                    Escolha por quanto tempo o aviso sonoro de chegada de
+                                    pedido deve tocar.
+                                </p>
+                            </div>
+
+                            <Button
+                                type="button"
+                                variant="secondary"
+                                onClick={testOrderDingle}
+                                disabled={isTestingOrderDingle}
+                                className="shrink-0 cursor-pointer bg-white"
+                            >
+                                <FontAwesomeIcon
+                                    icon={faVolumeHigh}
+                                    className="mr-2"
+                                />
+                                {isTestingOrderDingle ? "Tocando..." : "Testar som"}
+                            </Button>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                            {ORDER_DINGLE_OPTIONS.map((option) => {
+                                const selected =
+                                    orderDingleDuration === option.value;
+
+                                return (
+                                    <button
+                                        key={option.value}
+                                        type="button"
+                                        onClick={() =>
+                                            saveOrderDingleDuration(option.value)
+                                        }
+                                        className={`cursor-pointer rounded-xl border p-4 text-left transition ${
+                                            selected
+                                                ? "border-brand bg-red-50 text-brand"
+                                                : "border-gray-200 bg-white text-gray-900 hover:border-gray-300 hover:bg-gray-50"
+                                        }`}
+                                    >
+                                        <span className="block font-semibold">
+                                            {option.label}
+                                        </span>
+                                        <span
+                                            className={`mt-1 block text-sm ${
+                                                selected
+                                                    ? "text-brand/80"
+                                                    : "text-gray-500"
+                                            }`}
+                                        >
+                                            {option.description}
+                                        </span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+
                     </Card>
 
                     {restaurant && shareableUrl && (
@@ -353,7 +642,10 @@ export default function ConfiguracoesPage() {
                                     onClick={copyLink}
                                     className="shrink-0"
                                 >
-                                    <FontAwesomeIcon icon={faCopy} className="mr-2" />
+                                    <FontAwesomeIcon
+                                        icon={faCopy}
+                                        className="mr-2"
+                                    />
                                     Copiar
                                 </Button>
                             </div>
@@ -364,7 +656,10 @@ export default function ConfiguracoesPage() {
                                     alt="QR Code do cardápio"
                                     className="mb-4 h-48 w-48 rounded-md border border-gray-200"
                                 />
-                                <Button variant="secondary" onClick={downloadQr}>
+                                <Button
+                                    variant="secondary"
+                                    onClick={downloadQr}
+                                >
                                     <FontAwesomeIcon
                                         icon={faDownload}
                                         className="mr-2"
@@ -391,7 +686,10 @@ export default function ConfiguracoesPage() {
                                 className="w-full bg-red-600 text-white hover:bg-red-700 md:w-auto"
                                 onClick={() => setDeleteModalOpen(true)}
                             >
-                                <FontAwesomeIcon icon={faTrash} className="mr-2" />
+                                <FontAwesomeIcon
+                                    icon={faTrash}
+                                    className="mr-2"
+                                />
                                 Deletar Conta
                             </Button>
                         </div>

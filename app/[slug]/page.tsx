@@ -57,6 +57,39 @@ const getStoreWhatsapp = (value: unknown) => {
   };
 };
 
+type AvailabilitySlot = {
+  open: string;
+  close: string;
+};
+
+const normalizeEndOfDayAvailability = (value: unknown) => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return value;
+  }
+
+  return Object.fromEntries(
+    Object.entries(value).map(([day, slots]) => [
+      day,
+      Array.isArray(slots)
+        ? slots.map((slot) => {
+            if (!slot || typeof slot !== "object" || Array.isArray(slot)) {
+              return slot;
+            }
+
+            const typedSlot = slot as AvailabilitySlot;
+            return {
+              ...typedSlot,
+              close:
+                typedSlot.close === "00:00" || typedSlot.close === "24:00"
+                  ? "23:59"
+                  : typedSlot.close,
+            };
+          })
+        : slots,
+    ]),
+  );
+};
+
 export default async function Page({
   params,
   searchParams,
@@ -113,7 +146,9 @@ export default async function Page({
       "/placeholders/banner.png",
     rating: restaurantData.rating,
     min_order_cents: restaurantData.min_order_cents,
-    availability_json: restaurantData.availability_json,
+    availability_json: normalizeEndOfDayAvailability(
+      restaurantData.availability_json,
+    ),
     delivery_fee_json: restaurantData.delivery_fee_json,
     latitude: restaurantData.latitude,
     longitude: restaurantData.longitude,

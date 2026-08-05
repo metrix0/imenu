@@ -151,7 +151,8 @@ export default function IntegracoesPage() {
     const { restaurantId, setRestaurantId } = useCreationStore();
 
     const [activeTab, setActiveTab] = useState<ActiveTab>("whatsapp");
-    const [loading, setLoading] = useState(!restaurantId);
+    const [isLocalhost, setIsLocalhost] = useState<boolean | null>(null);
+    const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [whatsAppAction, setWhatsAppAction] = useState<
         "connect" | "refresh_qr" | "disconnect" | null
@@ -180,6 +181,15 @@ export default function IntegracoesPage() {
         setShowToast(true);
     };
 
+    useEffect(() => {
+        const hostname = window.location.hostname;
+        setIsLocalhost(
+            hostname === "localhost" ||
+                hostname === "127.0.0.1" ||
+                hostname === "::1"
+        );
+    }, []);
+
     const getAuthenticatedSession = async () => {
         const {
             data: { session },
@@ -194,6 +204,8 @@ export default function IntegracoesPage() {
     };
 
     useEffect(() => {
+        if (isLocalhost === null) return;
+
         const loadRestaurantAndIntegrations = async () => {
             const session = await getAuthenticatedSession();
             if (!session?.user) {
@@ -227,23 +239,27 @@ export default function IntegracoesPage() {
 
             const resolvedRestaurantId = restId;
 
+            const trackingRequest = supabase
+                .from("tracking_integrations")
+                .select("*")
+                .eq("restaurant_id", resolvedRestaurantId)
+                .order("updated_at", { ascending: false })
+                .limit(1)
+                .maybeSingle();
+            const connectionRequest = isLocalhost
+                ? fetch(
+                      `/api/whatsapp/connection?restaurantId=${encodeURIComponent(resolvedRestaurantId)}`,
+                      {
+                          headers: {
+                              Authorization: `Bearer ${session.access_token}`,
+                          },
+                          cache: "no-store",
+                      }
+                  )
+                : Promise.resolve<Response | null>(null);
             const [trackingResult, connectionResponse] = await Promise.all([
-                supabase
-                    .from("tracking_integrations")
-                    .select("*")
-                    .eq("restaurant_id", resolvedRestaurantId)
-                    .order("updated_at", { ascending: false })
-                    .limit(1)
-                    .maybeSingle(),
-                fetch(
-                    `/api/whatsapp/connection?restaurantId=${encodeURIComponent(resolvedRestaurantId)}`,
-                    {
-                        headers: {
-                            Authorization: `Bearer ${session.access_token}`,
-                        },
-                        cache: "no-store",
-                    }
-                ),
+                trackingRequest,
+                connectionRequest,
             ]);
 
             if (trackingResult.data) {
@@ -261,11 +277,11 @@ export default function IntegracoesPage() {
                 });
             }
 
-            if (connectionResponse.ok) {
+            if (connectionResponse?.ok) {
                 const data = await connectionResponse.json();
                 setRestaurant(data.restaurant);
                 setConnection(data.connection);
-            } else {
+            } else if (connectionResponse) {
                 const data = await connectionResponse.json().catch(() => ({}));
                 showMessage(
                     data.error || "Não foi possível carregar a conexão do WhatsApp.",
@@ -277,10 +293,10 @@ export default function IntegracoesPage() {
         };
 
         void loadRestaurantAndIntegrations();
-    }, [restaurantId, setRestaurantId]);
+    }, [isLocalhost, restaurantId, setRestaurantId]);
 
     useEffect(() => {
-        if (!restaurantId) return;
+        if (!isLocalhost || !restaurantId) return;
 
         const channel = supabase
             .channel(`whatsapp-connection-page-${restaurantId}`)
@@ -306,7 +322,7 @@ export default function IntegracoesPage() {
         return () => {
             void supabase.removeChannel(channel);
         };
-    }, [restaurantId]);
+    }, [isLocalhost, restaurantId]);
 
     const saveTracking = async () => {
         if (!restaurantId || saving) return;
@@ -348,7 +364,7 @@ export default function IntegracoesPage() {
     const runWhatsAppAction = async (
         action: "connect" | "refresh_qr" | "disconnect"
     ) => {
-        if (!restaurantId || whatsAppAction) return;
+        if (!isLocalhost || !restaurantId || whatsAppAction) return;
 
         if (
             action === "disconnect" &&
@@ -544,8 +560,9 @@ export default function IntegracoesPage() {
                 </Card>
             )}
 
-            {activeTab === "whatsapp" && (
-                <div className="space-y-6">
+            {activeTab === "whatsapp" &&
+                (isLocalhost ? (
+                    <div className="space-y-6">
                     <Card className="border border-gray-200 p-7">
                         <div className="flex items-start gap-4">
                             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-green-50 text-2xl text-green-600">
@@ -730,8 +747,17 @@ export default function IntegracoesPage() {
                             ))}
                         </div>
                     </Card>
-                </div>
-            )}
+                    </div>
+                ) : (
+                    <Card className="border border-gray-200 p-7 text-center">
+                        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-50 text-2xl text-green-600">
+                            <FontAwesomeIcon icon={faWhatsapp} />
+                        </div>
+                        <p className="mt-4 font-medium text-gray-700">
+                            Em desenvolvimento, previsão de adição 3 dias
+                        </p>
+                    </Card>
+                ))}
 
             {showToast && (
                 <Toast
