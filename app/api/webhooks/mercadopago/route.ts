@@ -44,24 +44,28 @@ export async function POST(req: Request) {
             });
 
             if (status === "approved" && orderId) {
-                await query(
+                const updateResult = await query(
                     `
                         UPDATE orders
                         SET status = 'paid', updated_at = NOW()
                         WHERE id = $1
+                          AND status <> 'canceled'
                     `,
                     [orderId]
                 );
-                console.log("✅ Order marked paid:", orderId);
 
-                try {
-                    await notifyOrderReady(orderId);
-                } catch (pushError) {
-                    // Payment confirmation must never be retried because push failed.
-                    console.error(
-                        "[OWNER_PUSH] Failed after approved payment:",
-                        pushError
-                    );
+                if (updateResult.rowCount > 0) {
+                    console.log("✅ Order marked paid:", orderId);
+
+                    try {
+                        await notifyOrderReady(orderId);
+                    } catch (pushError) {
+                        // Payment confirmation must never be retried because push failed.
+                        console.error(
+                            "[OWNER_PUSH] Failed after approved payment:",
+                            pushError
+                        );
+                    }
                 }
             }
         } catch (err) {

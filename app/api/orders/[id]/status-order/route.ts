@@ -1,5 +1,6 @@
 // app/api/orders/[id]/status-order/route.ts
 import { NextResponse } from "next/server";
+import { MercadoPagoConfig, PaymentRefund } from "mercadopago";
 
 import { withTransaction } from "@/lib/database/sql";
 import { notifyOrderStatusUpdate } from "@/lib/services/whatsappNotification";
@@ -95,7 +96,9 @@ export async function PATCH(
                             loyalty_credited,
                             loyalty_points_used,
                             total_cents,
-                            status
+                            status,
+                            payment_method,
+                            payment_ref
                         FROM orders
                         WHERE id = $1
                         FOR UPDATE
@@ -107,6 +110,52 @@ export async function PATCH(
 
             if (!order) {
                 throw new OrderStatusError("Order not found", 404);
+            }
+
+            if (
+                status === "canceled" &&
+                order.status === "paid" &&
+                order.payment_method === "pix"
+            ) {
+                if (!order.payment_ref) {
+                    throw new OrderStatusError(
+                        "Pagamento PIX sem referência para reembolso.",
+                        409
+                    );
+                }
+
+                const accessToken =
+                    process.env.MERCADO_PAGO_ACCESS_TOKEN;
+
+                if (!accessToken) {
+                    throw new OrderStatusError(
+                        "Mercado Pago não configurado.",
+                        500
+                    );
+                }
+
+                try {
+                    const mercadoPago = new MercadoPagoConfig({
+                        accessToken,
+                    });
+
+                    await new PaymentRefund(mercadoPago).total({
+                        payment_id: String(order.payment_ref),
+                        requestOptions: {
+                            idempotencyKey: `order-${id}-full-refund`,
+                        },
+                    });
+                } catch (refundError) {
+                    console.error(
+                        "[ORDERS] Falha ao reembolsar PIX:",
+                        refundError
+                    );
+
+                    throw new OrderStatusError(
+                        "Não foi possível realizar o reembolso. O pedido não foi cancelado.",
+                        502
+                    );
+                }
             }
 
             const cleanPhone = normalizePhone(order.customer_phone);
@@ -328,7 +377,6 @@ export async function PATCH(
                 error
             );
         });
-
 
         return NextResponse.json({
             ok: true,
