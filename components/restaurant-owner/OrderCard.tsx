@@ -8,7 +8,9 @@ import {
     faMapMarkerAlt, 
     faArrowLeft, 
     faEye,
-    faCircleInfo
+    faCircleInfo,
+    faUser,
+    faPhone
 } from "@fortawesome/free-solid-svg-icons";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
@@ -144,6 +146,25 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
     // Formatação de Moeda
     const fmtMoney = (cents: number) => (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
+    const formatPhone = (value?: string) => {
+        if (!value) return "";
+
+        let digits = value.replace(/\D/g, "");
+        if (digits.startsWith("55") && (digits.length === 12 || digits.length === 13)) {
+            digits = digits.slice(2);
+        }
+
+        if (digits.length === 11) {
+            return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+        }
+
+        if (digits.length === 10) {
+            return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+        }
+
+        return value;
+    };
+
     // --- Lógica de AVANÇAR Status ---
     const advanceStatus = async () => {
         let nextStatus: OrderStatus | null = null;
@@ -229,7 +250,7 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
             label: "Preparando", 
             color: "bg-blue-100 text-blue-800 border-blue-200", 
             borderColor: "border-l-blue-500",
-            btn: isPickup ? "Pronto" : "Enviado",
+            btn: isPickup ? "Pronto" : "Enviado", 
             btnColor: "primary" 
         },
         delivering: {
@@ -280,48 +301,52 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
     const itemsToShow = order.order_items.slice(0, VISIBLE_ITEMS);
 
     return (
-        <Card className={`p-0 overflow-hidden border-l-4 ${config.borderColor} flex flex-col h-full`}>
+        <Card className={`!p-0 overflow-hidden border-l-4 ${config.borderColor} flex flex-col h-full`}>
             {/* Header do Card */}
-            <div className="p-4 2xl:py-5 bg-gray-50 border-b border-gray-100 flex justify-between items-start">
-                <div className="flex flex-col gap-1">
-                    <div className="flex items-center gap-2 2xl:gap-4 whitespace-nowrap">
-                        <span className="shrink-0 font-bold text-gray-900 text-lg">
-                            #{order.display_id || order.id.slice(0, 4)}
-                        </span>
-                        <span className={`shrink-0 text-xs px-2 py-0.5 rounded-full font-medium 2xl:text-base 2xl:px-3 2xl:py-1 ${config.color}`}>
-                            {config.label}
-                        </span>
-                        <div
-                            className={`flex shrink-0 items-center text-xs -ml-1 px-2 py-0.5 rounded-full font-medium 2xl:text-base 2xl:px-3 2xl:py-1 ${
-                                paymentMethod === "pix"
-                                    ? "bg-green-100 text-green-800"
-                                    : "bg-gray-200 text-gray-700"
-                            }`}
-                        >
-                            <span>{paymentLabel}</span>
-                            {paymentMethod === "dinheiro" && (
-                                <span className="ml-1.5 inline-flex leading-none">
-                                    <CashChangeInfo text={cashChangeObservation} />
-                                </span>
-                            )}
-                        </div>
+            <div className="rounded-t-xl bg-gray-50 border-b border-gray-100 px-5 py-4 2xl:px-6 2xl:py-5">
+                <div className="flex items-center gap-2 whitespace-nowrap 2xl:gap-4">
+                    <span className="shrink-0 font-bold text-gray-900 text-lg">
+                        #{order.display_id || order.id.slice(0, 4)}
+                    </span>
+                    <span className={`shrink-0 text-xs px-2 py-0.5 rounded-full font-medium 2xl:text-base 2xl:px-3 2xl:py-1 ${config.color}`}>
+                        {config.label}
+                    </span>
+                    <div
+                        className={`flex shrink-0 items-center text-xs -ml-1 px-2 py-0.5 rounded-full font-medium 2xl:text-base 2xl:px-3 2xl:py-1 ${
+                            paymentMethod === "pix"
+                                ? "bg-green-100 text-green-800"
+                                : "bg-gray-200 text-gray-700"
+                        }`}
+                    >
+                        <span>{paymentLabel}</span>
+                        {paymentMethod === "dinheiro" && (
+                            <span className="ml-1.5 inline-flex leading-none">
+                                <CashChangeInfo text={cashChangeObservation} />
+                            </span>
+                        )}
                     </div>
-                    <span className="text-sm 2xl:text-base font-medium text-gray-700 truncate max-w-[200px]" title={order.customer_name}>
-                        {order.customer_name}
-                    </span>
-                    <span className="text-sm font-medium text-gray-700 truncate max-w-[200px]" title={order.customer_phone}>
-                        {order.customer_phone}
-                    </span>
+                    <div className="ml-auto flex shrink-0 items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-600 2xl:px-3 2xl:py-1 2xl:text-base">
+                        <FontAwesomeIcon icon={faClock} />
+                        {getElapsedTime()}
+                    </div>
                 </div>
 
-                <div className="flex items-center gap-1 text-red-600 font-bold bg-red-50 px-2 py-1 2xl:px-3 2xl:py-1.5 2xl:text-base rounded text-sm whitespace-nowrap">
-                    <FontAwesomeIcon icon={faClock} />
-                    {getElapsedTime()}
+                <div className="mt-2 flex w-full min-w-0 items-center gap-3 text-sm font-medium text-gray-700 2xl:text-base">
+                    <span className="flex min-w-0 flex-1 items-center gap-1.5" title={order.customer_name}>
+                        <FontAwesomeIcon icon={faUser} className="shrink-0 text-gray-400" />
+                        <span className="min-w-0 truncate">{order.customer_name}</span>
+                    </span>
+                    {order.customer_phone && (
+                        <span className="flex shrink-0 items-center gap-1.5" title={formatPhone(order.customer_phone)}>
+                            <FontAwesomeIcon icon={faPhone} className="shrink-0 text-gray-400" />
+                            <span>{formatPhone(order.customer_phone)}</span>
+                        </span>
+                    )}
                 </div>
             </div>
 
             {/* Conteúdo */}
-            <div className="p-4 space-y-4 2xl:mt-2">
+            <div className="flex flex-1 flex-col px-5 py-4 2xl:px-6 2xl:mt-2">
                 {/* Itens */}
                 <div className="space-y-2 2xl:space-y-3">
                     {itemsToShow.map((item, idx) => (
@@ -345,68 +370,72 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
                     )}
                 </div>
 
-                <hr className="border-gray-100" />
+                <div className="mt-auto space-y-4 pt-4">
+                    <hr className="border-gray-100" />
 
-                {/* Dados de Entrega e Totais */}
-                <div className="text-sm space-y-1 2xl:space-y-2">
-                    <div className="flex min-w-0 items-center gap-2 text-gray-600 font-medium">
-                        <FontAwesomeIcon icon={faMapMarkerAlt} className="shrink-0 text-gray-400" />
-                        <span
-                            className="min-w-0 truncate"
-                            title={isPickup ? "Retirada no balcão" : order.customer_address || "Endereço não informado"}
-                        >
-                            {isPickup ? "Retirada no balcão" : order.customer_address || "Endereço não informado"}
-                        </span>
+                    {/* Dados de Entrega e Totais */}
+                    <div className="text-sm space-y-1 2xl:space-y-2">
+                        <div className="flex min-w-0 items-center gap-2 text-gray-600 font-medium">
+                            <FontAwesomeIcon icon={faMapMarkerAlt} className="shrink-0 text-gray-400" />
+                            <span
+                                className="min-w-0 truncate"
+                                title={isPickup ? "Retirada no balcão" : order.customer_address || "Endereço não informado"}
+                            >
+                                {isPickup ? "Retirada no balcão" : order.customer_address || "Endereço não informado"}
+                            </span>
+                        </div>
+                        {!isPickup && (
+                            <div className="flex justify-between text-gray-500 pt-2 2xl:text-base">
+                                <span>Taxa de Entrega</span>
+                                <span>{fmtMoney(order.delivery_cents)}</span>
+                            </div>
+                        )}
+                        <div className="flex justify-between font-bold text-lg 2xl:text-xl text-gray-900">
+                            <span>Total</span>
+                            <span>{fmtMoney(order.total_cents)}</span>
+                        </div>
                     </div>
-                    <div className="flex justify-between text-gray-500 pt-2 2xl:text-base">
-                        <span>{isPickup ? "Retirada" : "Taxa de Entrega"}</span>
-                        <span>{fmtMoney(order.delivery_cents)}</span>
-                    </div>
-                    <div className="flex justify-between font-bold text-lg 2xl:text-xl text-gray-900">
-                        <span>Total</span>
-                        <span>{fmtMoney(order.total_cents)}</span>
-                    </div>
-                </div>
 
-                {/* Botões de Ação */}
-                {config.btn && (
-                    <div className="flex gap-2 mt-2 2xl:mt-5">
-                        {showBackButton && (
+                    {/* Botões de Ação */}
+                    {config.btn && (
+                        <div className="flex gap-2 mt-2 2xl:mt-5">
+                            {showBackButton && (
+                                <Button 
+                                    variant="secondary"
+                                    className="px-4"
+                                    onClick={revertStatus}
+                                    loading={loading}
+                                    disabled={loading}
+                                    title="Voltar status anterior"
+                                >
+                                    <FontAwesomeIcon icon={faArrowLeft} />
+                                </Button>
+                            )}
+                            
+                            {/* Botão Principal (Avançar) */}
+                            <Button 
+                                variant={config.btnColor as "primary" | "secondary"} 
+                                className="flex-1"
+                                onClick={advanceStatus}
+                                loading={loading}
+                                disabled={loading}
+                            >
+                                {config.btn}
+                            </Button>
+
+                            {/* Botão de Ver Detalhes (Olho) */}
                             <Button 
                                 variant="secondary"
                                 className="px-4"
-                                onClick={revertStatus}
-                                loading={loading}
+                                onClick={() => onViewOrder && onViewOrder(order)}
+                                title="Ver detalhes do pedido"
                                 disabled={loading}
-                                title="Voltar status anterior"
                             >
-                                <FontAwesomeIcon icon={faArrowLeft} />
+                                <FontAwesomeIcon icon={faEye} />
                             </Button>
-                        )}
-                        
-                        {/* Botão Principal (Avançar) */}
-                        <Button 
-                            variant={config.btnColor as "primary" | "secondary"} 
-                            className="flex-1"
-                            onClick={advanceStatus}
-                            loading={loading}
-                            disabled={loading}
-                        >
-                            {config.btn}
-                        </Button>
-
-                        {/* Botão de Ver Detalhes (Olho) */}
-                        <Button 
-                            variant="secondary"
-                            className="px-4"
-                            onClick={() => onViewOrder && onViewOrder(order)}
-                            title="Ver detalhes do pedido"
-                            disabled={loading}
-                        >
-                            <FontAwesomeIcon icon={faEye} />
-                        </Button>
-                    </div>
-                )}
+                        </div>
+                    )}
+                </div>
             </div>
         </Card>
     );

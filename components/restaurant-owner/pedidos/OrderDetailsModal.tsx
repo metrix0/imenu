@@ -18,7 +18,8 @@ interface OrderDetailsModalProps {
     onOrderUpdate?: () => void; 
 }
 
-type OrderDetail = Order & {
+type OrderDetail = Omit<Order, "status"> & {
+    status: Order["status"] | "paid";
     delivery_cents: number;
     customer_phone: string | null;
     customer_address: string | null;
