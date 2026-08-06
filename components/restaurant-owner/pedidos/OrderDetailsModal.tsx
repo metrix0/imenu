@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/database/supabaseClient";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faTimes, faUser, faMapMarkerAlt, faClock, faReceipt, faCheck, faMotorcycle } from "@fortawesome/free-solid-svg-icons";
@@ -49,13 +49,29 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
     const fmtMoney = (cents: number) => (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
     const fmtDate = (dateStr: string) => new Date(dateStr).toLocaleString("pt-BR");
 
+    const wasOpenRef = useRef(isOpen);
+
     useEffect(() => {
+        const wasOpen = wasOpenRef.current;
+        wasOpenRef.current = isOpen;
+
         if (isOpen && order) {
             fetchDetails();
-        } else {
-            setDetails(null);
-            setShowRefundConfirmation(false);
+            return;
         }
+
+        setShowRefundConfirmation(false);
+
+        if (!wasOpen) {
+            setDetails(null);
+            return;
+        }
+
+        const closeTimer = window.setTimeout(() => {
+            setDetails(null);
+        }, 220);
+
+        return () => window.clearTimeout(closeTimer);
     }, [isOpen, order]);
 
     const fetchDetails = async () => {
@@ -201,7 +217,7 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
             case "preparing":
                 return isPickup ? (
                     <Button variant="primary" className="bg-green-600 hover:bg-green-700 border-green-600" onClick={() => handleStatusUpdate("delivering")}>
-                        <FontAwesomeIcon icon={faCheck} className="mr-2" /> Marcar como pronto
+                        <FontAwesomeIcon icon={faCheck} className="mr-2" /> Pronto
                     </Button>
                 ) : (
                     <Button variant="primary" onClick={() => handleStatusUpdate("delivering")}>

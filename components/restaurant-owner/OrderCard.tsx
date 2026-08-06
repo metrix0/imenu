@@ -32,7 +32,7 @@ export interface OrderData {
     status: OrderStatus;
     customer_name: string;
     customer_phone?: string;
-    address_line1?: string; 
+    customer_address?: string | null;
     delivery_cents: number;
     total_cents: number;
     payment_method?: string;
@@ -229,7 +229,7 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
             label: "Preparando", 
             color: "bg-blue-100 text-blue-800 border-blue-200", 
             borderColor: "border-l-blue-500",
-            btn: isPickup ? "Marcar como pronto" : "Enviar Entrega", 
+            btn: isPickup ? "Pronto" : "Enviado",
             btnColor: "primary" 
         },
         delivering: {
@@ -275,7 +275,7 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
     const showBackButton = ["preparing", "delivering", "done"].includes(order.status);
 
     // LÓGICA DE VISUALIZAÇÃO LIMITADA
-    const VISIBLE_ITEMS = 2;
+    const VISIBLE_ITEMS = 3;
     const remainingItems = order.order_items.length - VISIBLE_ITEMS;
     const itemsToShow = order.order_items.slice(0, VISIBLE_ITEMS);
 
@@ -305,11 +305,6 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
                                 </span>
                             )}
                         </div>
-                        {isPickup && (
-                            <span className="shrink-0 text-xs -ml-1 px-2 py-0.5 rounded-full font-bold 2xl:text-base 2xl:px-3 2xl:py-1 text-gray-700 bg-gray-200">
-                                Retirada
-                            </span>
-                        )}
                     </div>
                     <span className="text-sm 2xl:text-base font-medium text-gray-700 truncate max-w-[200px]" title={order.customer_name}>
                         {order.customer_name}
@@ -329,7 +324,7 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
             <div className="p-4 space-y-4 2xl:mt-2">
                 {/* Itens */}
                 <div className="space-y-2 2xl:space-y-3">
-                    {order.order_items.map((item, idx) => (
+                    {itemsToShow.map((item, idx) => (
                         <div key={`${order.id}-item-${idx}`} className="flex min-w-0 justify-between gap-3 text-sm 2xl:text-base">
                             <div className="flex min-w-0 gap-2">
                                 <span className="font-bold text-gray-900">{item.quantity}x</span>
@@ -354,17 +349,15 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
 
                 {/* Dados de Entrega e Totais */}
                 <div className="text-sm space-y-1 2xl:space-y-2">
-                    {isPickup ? (
-                        <div className="flex items-start gap-2 text-gray-600 font-medium">
-                            <FontAwesomeIcon icon={faMapMarkerAlt} className="mt-1 text-gray-400" />
-                            <span>Retirada no balcão</span>
-                        </div>
-                    ) : order.address_line1 && (
-                        <div className="flex items-start gap-2 text-gray-600 ">
-                            <FontAwesomeIcon icon={faMapMarkerAlt} className="mt-1 text-gray-400" />
-                            <span className="line-clamp-2">{order.address_line1}</span>
-                        </div>
-                    )}
+                    <div className="flex min-w-0 items-center gap-2 text-gray-600 font-medium">
+                        <FontAwesomeIcon icon={faMapMarkerAlt} className="shrink-0 text-gray-400" />
+                        <span
+                            className="min-w-0 truncate"
+                            title={isPickup ? "Retirada no balcão" : order.customer_address || "Endereço não informado"}
+                        >
+                            {isPickup ? "Retirada no balcão" : order.customer_address || "Endereço não informado"}
+                        </span>
+                    </div>
                     <div className="flex justify-between text-gray-500 pt-2 2xl:text-base">
                         <span>{isPickup ? "Retirada" : "Taxa de Entrega"}</span>
                         <span>{fmtMoney(order.delivery_cents)}</span>
