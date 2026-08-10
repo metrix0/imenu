@@ -754,7 +754,7 @@ export default function IntegracoesPage() {
                             <FontAwesomeIcon icon={faWhatsapp} />
                         </div>
                         <p className="mt-4 font-medium text-gray-700">
-                            Em desenvolvimento, previsão de adição 3 dias
+                            Em desenvolvimento, previsão de adição 1 dia
                         </p>
                     </Card>
                 ))}
