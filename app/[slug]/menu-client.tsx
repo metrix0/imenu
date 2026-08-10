@@ -726,7 +726,7 @@ export default function MenuClientPage({
 
 
             {(nextOpening !== null || closedForToday) && (
-                <WarningBox icon={icons.faTriangleExclamation} className="mt-10 mx-6 md:mx-48">
+                <WarningBox icon={icons.faTriangleExclamation} className="mt-10 mx-5 md:mx-48 2xl:mx-80">
                     {closedForToday && (
                         "Hoje o restaurante está fechado no horário comum de funcionamento, devido à possíveis feriados ou eventos especiais."
                         )}

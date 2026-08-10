@@ -464,7 +464,8 @@ export default function ItemModal({
                     text={disabledReason}
                     showOnClick
                     parentClassName="flex-1"
-                    size="medium"
+                    size="line"
+                    tooltipClassName="text-center"
                 >
                     <button
                         aria-disabled={!canAdd || !isRestaurantOpen}
