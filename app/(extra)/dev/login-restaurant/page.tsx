@@ -159,23 +159,90 @@ export default function DevRestaurantAccessPage() {
         }
     };
 
-    const enterRestaurant = (restaurant: RestaurantResult) => {
+    const enterRestaurant = async (restaurant: RestaurantResult) => {
         setEnteringRestaurantId(restaurant.id);
-        setRestaurantId(restaurant.id);
-        setRestaurantSlug(restaurant.url_slug);
+        setError("");
 
-        window.localStorage.setItem(
-            "imenu-dev-current-restaurant",
-            JSON.stringify({
-                id: restaurant.id,
-                name: restaurant.name,
-                urlSlug: restaurant.url_slug,
-                selectedAt: new Date().toISOString(),
-            })
-        );
+        try {
+            const {
+                data: { session },
+            } = await supabase.auth.getSession();
 
-        router.push("/painel");
-        router.refresh();
+            if (!session?.access_token) {
+                setAccessState("signed-out");
+                return;
+            }
+
+            const response = await fetch("/api/dev/restaurants", {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${session.access_token}`,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ restaurantId: restaurant.id }),
+                cache: "no-store",
+            });
+
+            const payload = (await response.json()) as {
+                token_hash?: string;
+                user_id?: string;
+                error?: string;
+            };
+
+            if (response.status === 401) {
+                setAccessState("signed-out");
+                return;
+            }
+
+            if (response.status === 403) {
+                setAccessState("forbidden");
+                return;
+            }
+
+            if (!response.ok || !payload.token_hash || !payload.user_id) {
+                throw new Error(
+                    payload.error ||
+                        "Não foi possível entrar neste restaurante."
+                );
+            }
+
+            const {
+                data: { user },
+                error: loginError,
+            } = await supabase.auth.verifyOtp({
+                token_hash: payload.token_hash,
+                type: "email",
+            });
+
+            if (loginError || !user || user.id !== payload.user_id) {
+                throw new Error(
+                    loginError?.message ||
+                        "Não foi possível iniciar a sessão do restaurante."
+                );
+            }
+
+            setRestaurantId(restaurant.id);
+            setRestaurantSlug(restaurant.url_slug);
+
+            window.localStorage.setItem(
+                "imenu-dev-current-restaurant",
+                JSON.stringify({
+                    id: restaurant.id,
+                    name: restaurant.name,
+                    urlSlug: restaurant.url_slug,
+                    selectedAt: new Date().toISOString(),
+                })
+            );
+
+            window.location.assign("/painel");
+        } catch (caught) {
+            setError(
+                caught instanceof Error
+                    ? caught.message
+                    : "Não foi possível entrar neste restaurante."
+            );
+            setEnteringRestaurantId(null);
+        }
     };
 
     if (accessState === "checking") {
@@ -327,7 +394,7 @@ export default function DevRestaurantAccessPage() {
 
                                 <button
                                     type="button"
-                                    onClick={() => enterRestaurant(restaurant)}
+                                    onClick={() => void enterRestaurant(restaurant)}
                                     disabled={enteringRestaurantId !== null}
                                     className="shrink-0 rounded-lg bg-brand px-5 py-3 text-sm font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                                 >

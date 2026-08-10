@@ -40,6 +40,23 @@ function getSupabasePublicConfig(): { url: string; anonKey: string } {
     return { url, anonKey };
 }
 
+function getSupabaseAdminConfig(): {
+    url: string;
+    serviceRoleKey: string;
+} {
+    const url =
+        process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ||
+        process.env.SUPABASE_URL?.trim();
+    const serviceRoleKey =
+        process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+
+    if (!url || !serviceRoleKey) {
+        throw new Error("Supabase admin environment variables are missing.");
+    }
+
+    return { url, serviceRoleKey };
+}
+
 async function authorizeDevRequest(request: Request): Promise<
     | { ok: true }
     | { ok: false; response: NextResponse }
@@ -178,6 +195,140 @@ export async function GET(request: Request) {
 
         return NextResponse.json(
             { error: "Não foi possível buscar os restaurantes." },
+            { status: 500 }
+        );
+    }
+}
+
+export async function POST(request: Request) {
+    try {
+        const authorization = await authorizeDevRequest(request);
+        if (!authorization.ok) return authorization.response;
+
+        let body: { restaurantId?: unknown };
+        try {
+            body = (await request.json()) as {
+                restaurantId?: unknown;
+            };
+        } catch {
+            return NextResponse.json(
+                { error: "Corpo da requisição inválido." },
+                { status: 400 }
+            );
+        }
+
+        const restaurantId =
+            typeof body.restaurantId === "string"
+                ? body.restaurantId.trim()
+                : "";
+
+        if (!restaurantId) {
+            return NextResponse.json(
+                { error: "Restaurante não informado." },
+                { status: 400 }
+            );
+        }
+
+        const result = await query<{
+            id: string;
+            user_id: string | null;
+        }>(
+            `
+                SELECT id, user_id
+                FROM restaurants
+                WHERE id = $1
+                LIMIT 1
+            `,
+            [restaurantId]
+        );
+
+        const restaurant = result.rows[0];
+
+        if (!restaurant) {
+            return NextResponse.json(
+                { error: "Restaurante não encontrado." },
+                { status: 404 }
+            );
+        }
+
+        if (!restaurant.user_id) {
+            return NextResponse.json(
+                {
+                    error:
+                        "Este restaurante não possui um usuário vinculado.",
+                },
+                { status: 409 }
+            );
+        }
+
+        const { url, serviceRoleKey } = getSupabaseAdminConfig();
+        const adminClient = createClient(url, serviceRoleKey, {
+            auth: {
+                persistSession: false,
+                autoRefreshToken: false,
+                detectSessionInUrl: false,
+            },
+        });
+
+        const {
+            data: { user },
+            error: userError,
+        } = await adminClient.auth.admin.getUserById(
+            restaurant.user_id
+        );
+
+        if (userError || !user?.email) {
+            return NextResponse.json(
+                {
+                    error:
+                        "O usuário vinculado ao restaurante não possui um e-mail válido.",
+                },
+                { status: 409 }
+            );
+        }
+
+        const { data: linkData, error: linkError } =
+            await adminClient.auth.admin.generateLink({
+                type: "magiclink",
+                email: user.email,
+            });
+
+        const tokenHash = linkData?.properties?.hashed_token;
+
+        if (linkError || !tokenHash) {
+            console.error(
+                "[DEV_RESTAURANT_ACCESS] Login link generation failed:",
+                linkError
+            );
+
+            return NextResponse.json(
+                {
+                    error:
+                        "Não foi possível iniciar a sessão do restaurante.",
+                },
+                { status: 500 }
+            );
+        }
+
+        return NextResponse.json(
+            {
+                token_hash: tokenHash,
+                user_id: restaurant.user_id,
+            },
+            {
+                headers: {
+                    "Cache-Control": "no-store",
+                },
+            }
+        );
+    } catch (error) {
+        console.error(
+            "[DEV_RESTAURANT_ACCESS] Restaurant login failed:",
+            error
+        );
+
+        return NextResponse.json(
+            { error: "Não foi possível entrar neste restaurante." },
             { status: 500 }
         );
     }
