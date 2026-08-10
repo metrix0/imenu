@@ -249,7 +249,7 @@ export default function AdminLogin() {
                             <button
                                 type="button"
                                 onClick={() => setShow((current) => !current)}
-                                className="absolute right-3 top-9 cursor-pointer text-gray-500"
+                                className="absolute right-3 top-12 -translate-y-1/2 cursor-pointer text-gray-500"
                             >
                                 <FontAwesomeIcon
                                     icon={show ? faEyeSlash : faEye}

@@ -9,6 +9,7 @@ import { icons } from "@/lib/utils/fontawesome";
 import {formatPrice, formatPriceNoRS, promotionPrice} from "@/lib/utils/formatPrice";
 import ModalMobile from "@/components/ui/HybridModal";
 import Loader from "@/components/ui/Loader";
+import Tooltip from "@/components/ui/Tooltip";
 import { captureConsumerEvent } from "@/lib/analytics/captureConsumerEvent";
 import { CONSUMER_EVENTS } from "@/lib/analytics/consumerEvents";
 
@@ -155,9 +156,14 @@ export default function ItemModal({
     }, [selected, subcategories]);
 
     const canAdd = !missingRequired;
+    const disabledReason = !isRestaurantOpen
+        ? "O restaurante está fechado no momento."
+        : missingRequired
+            ? "Selecione os adicionais obrigatórios antes de adicionar."
+            : "";
 
     const handleAdd = () => {
-        if (!canAdd) return;
+        if (!canAdd || !isRestaurantOpen) return;
 
         const selectedSubitems: any[] = [];
 
@@ -454,20 +460,27 @@ export default function ItemModal({
                     </button>
                 </div>
 
-                <button
-                    disabled={!canAdd || !isRestaurantOpen}
-                    onClick={handleAdd}
-                    className={`cursor-pointer w-full 2xl:text-lg flex-1 rounded-xl px-5 py-3 flex items-center justify-between text-[15px] font-semibold ${
-                        !isRestaurantOpen
-                            ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                            : canAdd
-                                ? "bg-brand text-white"
-                                : "bg-gray-200 text-gray-400"
-                    }`}
+                <Tooltip
+                    text={disabledReason}
+                    showOnClick
+                    parentClassName="flex-1"
+                    size="medium"
                 >
-                    <span>Adicionar</span>
-                    <span>{formatPrice(displayedTotal)}</span>
-                </button>
+                    <button
+                        aria-disabled={!canAdd || !isRestaurantOpen}
+                        onClick={handleAdd}
+                        className={`cursor-pointer w-full 2xl:text-lg rounded-xl px-5 py-3 flex items-center justify-between text-[15px] font-semibold ${
+                            !isRestaurantOpen
+                                ? "bg-gray-200 text-gray-400"
+                                : canAdd
+                                    ? "bg-brand text-white"
+                                    : "bg-gray-200 text-gray-400"
+                        }`}
+                    >
+                        <span>Adicionar</span>
+                        <span>{formatPrice(displayedTotal)}</span>
+                    </button>
+                </Tooltip>
             </div>
         </ModalMobile>
     );

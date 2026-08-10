@@ -20,6 +20,7 @@ type TooltipProps = {
     delayShow?: number;            // ms before showing
     delayHide?: number;            // ms before hiding
     disabled?: boolean;            // completely disable tooltip
+    showOnClick?: boolean;         // show on click/tap as well as hover
 } & HTMLAttributes<HTMLDivElement>; // allow any div props (id, style, data-*, etc.)
 
 export default function Tooltip({
@@ -36,6 +37,7 @@ export default function Tooltip({
                                     delayShow = 0,
                                     delayHide = 100,
                                     disabled = false,
+                                    showOnClick = false,
     parentClassName,
 
                                     ...rest
@@ -65,6 +67,17 @@ export default function Tooltip({
             setShow(false);
             setTimeout(() => setVisible(false), 150);
         }, delayHide);
+    };
+
+    const showForClick = () => {
+        if (!showOnClick || disabled) return;
+
+        safeShow();
+        clearTimeout(timeoutRef.current!);
+        timeoutRef.current = setTimeout(() => {
+            setShow(false);
+            setTimeout(() => setVisible(false), 150);
+        }, 1800);
     };
 
     let positionClasses = "";
@@ -104,6 +117,7 @@ export default function Tooltip({
             className={`relative inline-block ${parentClassName}`}
             onMouseEnter={safeShow}
             onMouseLeave={safeHide}
+            onClick={showForClick}
         >
             {children}
 
