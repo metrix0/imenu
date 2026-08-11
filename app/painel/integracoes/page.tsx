@@ -186,7 +186,8 @@ export default function IntegracoesPage() {
         setIsLocalhost(
             hostname === "localhost" ||
                 hostname === "127.0.0.1" ||
-                hostname === "::1"
+                hostname === "::1" ||
+                hostname === "preview.imenuapp.com.br"
         );
     }, []);
 
