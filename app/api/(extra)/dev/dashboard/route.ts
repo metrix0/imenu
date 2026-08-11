@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
 import { buildConsumerPipeline } from "@/lib/analytics/consumerPipeline";
+import { CONSUMER_EVENTS } from "@/lib/analytics/consumerEvents";
 import { loadPostHogConsumerMetrics } from "@/lib/analytics/posthogConsumer";
 import { query } from "@/lib/database/sql";
 
@@ -62,6 +63,12 @@ type PostHogMetrics = {
     landingViews: number | null;
     registerClicks: number | null;
     blogViews: number | null;
+};
+
+type ConsumerTimeline = {
+    menuViews: SeriesPoint[];
+    cartAdds: SeriesPoint[];
+    averageCartCents: SeriesPoint[];
 };
 
 function getBearerToken(request: Request): string | null {
@@ -451,6 +458,128 @@ async function loadPostHogMetrics(
     }
 }
 
+
+async function loadPostHogConsumerTimeline(
+    buckets: Bucket[]
+): Promise<ConsumerTimeline> {
+    const personalApiKey = process.env.POSTHOG_PERSONAL_API_KEY?.trim();
+    const projectId = process.env.POSTHOG_PROJECT_ID?.trim();
+    const rawHost =
+        process.env.POSTHOG_API_HOST?.trim() ||
+        process.env.NEXT_PUBLIC_POSTHOG_HOST?.trim();
+
+    if (!personalApiKey || !projectId || !rawHost || !buckets.length) {
+        return {
+            menuViews: [],
+            cartAdds: [],
+            averageCartCents: [],
+        };
+    }
+
+    const bucketExpression = buckets
+        .map(
+            (bucket, index) => `
+                timestamp >= parseDateTimeBestEffort('${new Date(
+                    bucket.start
+                ).toISOString()}')
+                AND timestamp < parseDateTimeBestEffort('${new Date(
+                    bucket.end
+                ).toISOString()}'), ${index}`
+        )
+        .join(",");
+
+    const start = new Date(buckets[0].start).toISOString();
+    const end = new Date(buckets[buckets.length - 1].end).toISOString();
+    const hogql = `
+        SELECT
+            multiIf(${bucketExpression}, -1) AS bucket_index,
+            countIf(event = '${CONSUMER_EVENTS.menuViewed}') AS menu_views,
+            countIf(event = '${CONSUMER_EVENTS.itemAddedToCart}') AS cart_adds,
+            avgIf(
+                properties.cart_total_cents,
+                event = '${CONSUMER_EVENTS.itemAddedToCart}'
+            ) AS average_cart_cents
+        FROM events
+        WHERE timestamp >= parseDateTimeBestEffort('${start}')
+          AND timestamp < parseDateTimeBestEffort('${end}')
+          AND event IN (
+              '${CONSUMER_EVENTS.menuViewed}',
+              '${CONSUMER_EVENTS.itemAddedToCart}'
+          )
+        GROUP BY bucket_index
+        HAVING bucket_index >= 0
+        ORDER BY bucket_index
+    `;
+
+    try {
+        const response = await fetch(
+            `${postHogApiHost(rawHost)}/api/projects/${encodeURIComponent(
+                projectId
+            )}/query/`,
+            {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${personalApiKey}`,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    query: {
+                        kind: "HogQLQuery",
+                        query: hogql,
+                    },
+                }),
+                signal: AbortSignal.timeout(15_000),
+                cache: "no-store",
+            }
+        );
+
+        if (!response.ok) {
+            throw new Error(`PostHog query failed with ${response.status}.`);
+        }
+
+        const payload = (await response.json()) as { results?: unknown[][] };
+        const rows = payload.results || [];
+        const byBucket = new Map<
+            number,
+            { menuViews: number; cartAdds: number; averageCartCents: number }
+        >(
+            rows.map(
+                (row) =>
+                    [
+                        Number(row[0]),
+                        {
+                            menuViews: Number(row[1]) || 0,
+                            cartAdds: Number(row[2]) || 0,
+                            averageCartCents: Number(row[3]) || 0,
+                        },
+                    ] as const
+            )
+        );
+
+        return {
+            menuViews: buckets.map((bucket, index) => ({
+                label: bucket.label,
+                value: byBucket.get(index)?.menuViews || 0,
+            })),
+            cartAdds: buckets.map((bucket, index) => ({
+                label: bucket.label,
+                value: byBucket.get(index)?.cartAdds || 0,
+            })),
+            averageCartCents: buckets.map((bucket, index) => ({
+                label: bucket.label,
+                value: byBucket.get(index)?.averageCartCents || 0,
+            })),
+        };
+    } catch (error) {
+        console.warn("[DEV_DASHBOARD] Consumer timeline unavailable:", error);
+        return {
+            menuViews: [],
+            cartAdds: [],
+            averageCartCents: [],
+        };
+    }
+}
+
 export async function GET(request: Request) {
     try {
         const authError = await authorize(request);
@@ -492,9 +621,11 @@ export async function GET(request: Request) {
         const endAt = toTimestamp(bounds.end_at);
         const startIso = new Date(startAt).toISOString();
         const endIso = new Date(endAt).toISOString();
+        const buckets = buildBuckets(startAt, endAt, range);
 
-        const [onboardingResult, postHog, consumerTracking] = await Promise.all([
-            query<OnboardingFunnelRow>(
+        const [onboardingResult, postHog, consumerTracking, consumerTimeline] =
+            await Promise.all([
+                query<OnboardingFunnelRow>(
                 `
                     WITH registration_cohort AS (
                         SELECT u.id
@@ -525,11 +656,12 @@ export async function GET(request: Request) {
                     LEFT JOIN restaurants AS restaurant
                         ON restaurant.user_id = cohort.id
                 `,
-                [startIso, endIso]
-            ),
-            loadPostHogMetrics(startAt, endAt),
-            loadPostHogConsumerMetrics(startAt, endAt),
-        ]);
+                    [startIso, endIso]
+                ),
+                loadPostHogMetrics(startAt, endAt),
+                loadPostHogConsumerMetrics(startAt, endAt),
+                loadPostHogConsumerTimeline(buckets),
+            ]);
 
         const onboardingRow = onboardingResult.rows[0];
         const onboarding = {
@@ -565,7 +697,6 @@ export async function GET(request: Request) {
         const firstOrders = firstOrderByAccount(history);
         const activatedAccounts = activatedAccountSet(firstOrders, startAt, endAt);
         const activeCustomerAccountSet = customerQualifiedAccounts(customerWindow);
-        const buckets = buildBuckets(startAt, endAt, range);
         const cards = {
             activatedUsers: activatedAccounts.size,
             activeUsers: distinctAccounts(
@@ -659,6 +790,11 @@ export async function GET(request: Request) {
                 label: paymentLabel(method),
                 values: paymentValuesByBucket.map((bucket) => bucket.get(method) || 0),
             }));
+
+        const orderSeries = buckets.map((bucket) => ({
+            label: bucket.label,
+            value: ordersInside(history, bucket.start, bucket.end).length,
+        }));
 
         const consumerPipeline = buildConsumerPipeline(
             consumerTracking,
@@ -758,6 +894,12 @@ export async function GET(request: Request) {
                 },
                 pipeline,
                 consumerPipeline,
+                consumerTimeline: {
+                    menuViews: consumerTimeline.menuViews,
+                    cartAdds: consumerTimeline.cartAdds,
+                    averageCartCents: consumerTimeline.averageCartCents,
+                    orders: orderSeries,
+                },
                 tracking: {
                     postHogAvailable: postHog.available,
                     blogViews: postHog.blogViews,

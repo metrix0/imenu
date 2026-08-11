@@ -69,6 +69,12 @@ type DashboardPayload = {
         note: string | null;
     }>;
     consumerPipeline: ConsumerPipelineStep[];
+    consumerTimeline: {
+        menuViews: SeriesPoint[];
+        cartAdds: SeriesPoint[];
+        averageCartCents: SeriesPoint[];
+        orders: SeriesPoint[];
+    };
     tracking: {
         postHogAvailable: boolean;
         blogViews: number | null;
@@ -592,6 +598,38 @@ export default function DevDashboardPage() {
                                     data.tracking.postHogAvailable
                                 }
                             />
+                        </section>
+
+                        <section>
+                            <SectionHeading
+                                title="Uso do cardápio ao longo do tempo"
+                                description={`Métricas agrupadas por ${
+                                    data.range.bucket === "week" ? "semana" : "dia"
+                                } no período selecionado.`}
+                            />
+                            <div className="grid gap-5 xl:grid-cols-2">
+                                <MetricChart
+                                    title="Visualizações do cardápio"
+                                    series={data.consumerTimeline.menuViews}
+                                    color="#f14400"
+                                />
+                                <MetricChart
+                                    title="Adições ao carrinho"
+                                    series={data.consumerTimeline.cartAdds}
+                                    color="#2563eb"
+                                />
+                                <MetricChart
+                                    title="Preço médio do carrinho"
+                                    series={data.consumerTimeline.averageCartCents}
+                                    color="#16a34a"
+                                    currency
+                                />
+                                <MetricChart
+                                    title="Pedidos"
+                                    series={data.consumerTimeline.orders}
+                                    color="#1d1d1d"
+                                />
+                            </div>
                         </section>
                     </>
                 ) : null}
