@@ -5,6 +5,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { icons } from "@/lib/utils/fontawesome";
 import { faGripVertical } from "@fortawesome/free-solid-svg-icons"; // Importando ícone
 import { supabase } from "@/lib/database/supabaseClient";
+import Button from "@/components/ui/Button";
 import MenuItemRow, { MenuItemType } from "./MenuItemRow";
 
 interface CategorySectionProps {
@@ -27,6 +28,8 @@ export default function CategorySection({
     dragHandle 
 }: CategorySectionProps) {
     const [isCreating, setIsCreating] = useState(false);
+    const [savingStockId, setSavingStockId] = useState<string | null>(null);
+    const [draftStock, setDraftStock] = useState<Record<string, string>>({});
     
     // Estados locais para Drag & Drop dos ITENS
     const [localItems, setLocalItems] = useState<MenuItemType[]>(items);
@@ -36,6 +39,47 @@ export default function CategorySection({
     useEffect(() => {
         setLocalItems(items);
     }, [items]);
+
+    const getStockDraftValue = (item: MenuItemType) => {
+        if (draftStock[item.id] !== undefined) return draftStock[item.id];
+        return String(item.stock_quantity ?? 0);
+    };
+
+    const handleSaveStock = async (item: MenuItemType) => {
+        const raw = getStockDraftValue(item).trim();
+        const parsed = Number(raw);
+
+        if (raw === "" || Number.isNaN(parsed) || parsed < 0 || !Number.isInteger(parsed)) {
+            alert("Informe uma quantidade válida.");
+            return;
+        }
+
+        setSavingStockId(item.id);
+
+        const { error } = await supabase
+            .from("items")
+            .update({
+                stock_quantity: parsed,
+                is_available: parsed > 0,
+            })
+            .eq("id", item.id)
+            .eq("restaurant_id", restaurantId);
+
+        setSavingStockId(null);
+
+        if (error) {
+            console.error("Erro ao salvar estoque:", error);
+            alert("Erro ao salvar quantidade.");
+            return;
+        }
+
+        setDraftStock((prev) => {
+            const next = { ...prev };
+            delete next[item.id];
+            return next;
+        });
+        onRefresh();
+    };
 
     // --- LÓGICA DE DRAG & DROP DE ITENS ---
     const handleDragStart = (e: React.DragEvent, itemId: string) => {
@@ -173,23 +217,55 @@ export default function CategorySection({
 
             <div className="bg-white border border-gray-200 rounded-xl 2xl:mt-4 overflow-hidden shadow-sm 2xl:sadow-lg">
                 {items.map((item) => (
-                    <div
-                        key={item.id}
-                        draggable={!isCreating} // Desabilita drag durante criação
-                        onDragStart={(e) => handleDragStart(e, item.id)}
-                        onDragOver={(e) => handleDragOver(e, item.id)}
-                        onDragEnd={handleDragEnd}
-                        className="transition-transform duration-200"
-                    >
-                        <MenuItemRow
-                            item={item}
-                            onSave={handleUpdateItem}
-                            onDelete={handleDeleteItem}
-                            onOpenDetails={() => onOpenItemDetails(item)}
-                            onDuplicate={handleDuplicateItem}
-                            // Passa o ícone de drag para o item
-                            dragHandle={!isCreating ? <FontAwesomeIcon icon={faGripVertical} className="text-sm" /> : null}
-                        />
+                    <div key={item.id}>
+                        <div
+                            draggable={!isCreating} // Desabilita drag durante criação
+                            onDragStart={(e) => handleDragStart(e, item.id)}
+                            onDragOver={(e) => handleDragOver(e, item.id)}
+                            onDragEnd={handleDragEnd}
+                            className="transition-transform duration-200"
+                        >
+                            <MenuItemRow
+                                item={item}
+                                onSave={handleUpdateItem}
+                                onDelete={handleDeleteItem}
+                                onOpenDetails={() => onOpenItemDetails(item)}
+                                onDuplicate={handleDuplicateItem}
+                                // Passa o ícone de drag para o item
+                                dragHandle={!isCreating ? <FontAwesomeIcon icon={faGripVertical} className="text-sm" /> : null}
+                            />
+                        </div>
+
+                        {item.stock_enabled && (
+                            <div className="flex items-center justify-end gap-2 border-b border-gray-100 bg-gray-50/50 px-4 py-2">
+                                <span className="text-xs font-medium text-gray-500 2xl:text-sm">
+                                    Estoque
+                                </span>
+                                <input
+                                    type="number"
+                                    min={0}
+                                    step={1}
+                                    inputMode="numeric"
+                                    value={getStockDraftValue(item)}
+                                    onChange={(e) =>
+                                        setDraftStock((prev) => ({
+                                            ...prev,
+                                            [item.id]: e.target.value,
+                                        }))
+                                    }
+                                    className="w-20 rounded-md border border-gray-200 bg-white px-2 py-1.5 text-right text-sm text-gray-900 outline-none focus:border-brand 2xl:text-base"
+                                    disabled={savingStockId === item.id}
+                                />
+                                <Button
+                                    variant="secondary"
+                                    onClick={() => handleSaveStock(item)}
+                                    loading={savingStockId === item.id}
+                                    className="h-8 px-3 py-1 text-xs 2xl:h-9 2xl:px-4 2xl:py-1.5 2xl:text-sm"
+                                >
+                                    Salvar
+                                </Button>
+                            </div>
+                        )}
                     </div>
                 ))}
 
