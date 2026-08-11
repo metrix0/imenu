@@ -1,0 +1,27 @@
+name: Sync preview after merge
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  sync-preview:
+    if: >
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.head.ref == 'preview'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Reset preview to main
+        run: git push origin HEAD:preview --force
