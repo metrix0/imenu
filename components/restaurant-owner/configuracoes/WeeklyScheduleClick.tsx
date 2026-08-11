@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faTrash } from "@fortawesome/free-solid-svg-icons";
+import { faChevronDown, faTrash } from "@fortawesome/free-solid-svg-icons";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import ConfirmModal from "@/components/ui/ConfirmModal";
@@ -370,45 +370,57 @@ export default function WeeklyScheduleClick({
                             <label className="mb-1 block text-sm font-medium text-gray-500">
                                 Das
                             </label>
-                            <select
-                                value={editModal.startTime}
-                                onChange={(e) =>
-                                    setEditModal((p) => ({
-                                        ...p,
-                                        startTime: e.target.value,
-                                    }))
-                                }
-                                className="w-full rounded-lg border border-gray-300 bg-white py-3 pl-3 pr-8"
-                            >
-                                {TIME_OPTIONS.map((t) => (
-                                    <option key={t}>{t}</option>
-                                ))}
-                            </select>
+                            <div className="relative">
+                                <select
+                                    value={editModal.startTime}
+                                    onChange={(e) =>
+                                        setEditModal((p) => ({
+                                            ...p,
+                                            startTime: e.target.value,
+                                        }))
+                                    }
+                                    className="w-full appearance-none rounded-lg border border-gray-300 bg-white py-3 pl-3 pr-10"
+                                >
+                                    {TIME_OPTIONS.map((t) => (
+                                        <option key={t}>{t}</option>
+                                    ))}
+                                </select>
+                                <FontAwesomeIcon
+                                    icon={faChevronDown}
+                                    className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-xs text-gray-500"
+                                />
+                            </div>
                         </div>
                         <div className="flex-1">
                             <label className="mb-1 block text-sm font-medium text-gray-500">
                                 Até
                             </label>
-                            <select
-                                value={editModal.endTime}
-                                onChange={(e) =>
-                                    setEditModal((p) => ({
-                                        ...p,
-                                        endTime: e.target.value,
-                                    }))
-                                }
-                                className="w-full rounded-lg border border-gray-300 bg-white py-3 pl-3 pr-8"
-                            >
-                                {TIME_OPTIONS.map((t) => (
-                                    <option key={t}>{t}</option>
-                                ))}
-                            </select>
+                            <div className="relative">
+                                <select
+                                    value={editModal.endTime}
+                                    onChange={(e) =>
+                                        setEditModal((p) => ({
+                                            ...p,
+                                            endTime: e.target.value,
+                                        }))
+                                    }
+                                    className="w-full appearance-none rounded-lg border border-gray-300 bg-white py-3 pl-3 pr-10"
+                                >
+                                    {TIME_OPTIONS.map((t) => (
+                                        <option key={t}>{t}</option>
+                                    ))}
+                                </select>
+                                <FontAwesomeIcon
+                                    icon={faChevronDown}
+                                    className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-xs text-gray-500"
+                                />
+                            </div>
                         </div>
                         {editModal.slotIndex !== null && (
                             <button
                                 type="button"
                                 onClick={() => setIsDeleteModalOpen(true)}
-                                className="mb-3 rounded-full p-2 text-brand transition-colors hover:bg-red-50 hover:text-red-700"
+                                className="flex h-[50px] w-[50px] shrink-0 cursor-pointer items-center justify-center rounded-full text-brand transition-colors hover:bg-red-50 hover:text-red-700"
                             >
                                 <FontAwesomeIcon icon={faTrash} />
                             </button>
