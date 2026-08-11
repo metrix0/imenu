@@ -1,4 +1,4 @@
-import { query } from "@/lib/database/sql";
+import { query, withTransaction } from "@/lib/database/sql";
 import {
     sendWahaList,
     sendWahaText,
@@ -37,8 +37,18 @@ type BotFlow =
 
 type ConversationState = "human" | "welcome" | "continue";
 
+type PreparedConversation = {
+    state: ConversationState;
+    burstContinuation: boolean;
+    lastInboundAt: number | null;
+};
+
 const HUMAN_HANDOFF_MINUTES = 30;
 const BOT_SESSION_MINUTES = 30;
+const INBOUND_BURST_MS = 800;
+const MAX_BURST_SETTLE_CHECKS = 4;
+const MENU_SEND_ATTEMPTS = 3;
+const MENU_RETRY_DELAY_MS = 300;
 
 const MENU_ROWS: WahaListRow[] = [
     { title: "Ver o cardápio", rowId: "menu" },
@@ -164,41 +174,6 @@ async function getConversation(
     return result.rows[0] || null;
 }
 
-async function touchInboundConversation(
-    restaurantId: string,
-    chatId: string
-): Promise<void> {
-    await query(
-        `
-            INSERT INTO whatsapp_conversations (
-                restaurant_id,
-                chat_id,
-                mode,
-                last_inbound_at,
-                updated_at
-            )
-            VALUES ($1, $2, 'bot', NOW(), NOW())
-            ON CONFLICT (restaurant_id, chat_id)
-            DO UPDATE SET
-                last_inbound_at = NOW(),
-                updated_at = NOW(),
-                mode = CASE
-                    WHEN whatsapp_conversations.mode = 'human'
-                     AND whatsapp_conversations.human_until > NOW()
-                        THEN 'human'
-                    ELSE 'bot'
-                END,
-                human_until = CASE
-                    WHEN whatsapp_conversations.mode = 'human'
-                     AND whatsapp_conversations.human_until > NOW()
-                        THEN whatsapp_conversations.human_until
-                    ELSE NULL
-                END
-        `,
-        [restaurantId, chatId]
-    );
-}
-
 async function handoffConversation(
     restaurantId: string,
     chatId: string,
@@ -244,29 +219,139 @@ function isConversationWithOwner(conversation: ConversationRow | null): boolean 
     return Number.isFinite(humanUntil) && humanUntil > Date.now();
 }
 
-function hasSessionExpired(conversation: ConversationRow | null): boolean {
-    if (!conversation?.last_inbound_at) return true;
+function getConversationTimestamp(value: string | null | undefined): number | null {
+    if (!value) return null;
 
-    const lastInbound = new Date(conversation.last_inbound_at).getTime();
-    if (!Number.isFinite(lastInbound)) return true;
+    const timestamp = new Date(value).getTime();
+    return Number.isFinite(timestamp) ? timestamp : null;
+}
+
+function hasSessionExpired(conversation: ConversationRow | null): boolean {
+    const lastInbound = getConversationTimestamp(conversation?.last_inbound_at);
+    if (lastInbound === null) return true;
 
     return Date.now() - lastInbound >= BOT_SESSION_MINUTES * 60_000;
+}
+
+function sleep(milliseconds: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
 async function prepareConversation(
     restaurantId: string,
     chatId: string
-): Promise<ConversationState> {
-    const previous = await getConversation(restaurantId, chatId);
-    const humanActive = isConversationWithOwner(previous);
-    const expiredHumanHandoff = previous?.mode === "human" && !humanActive;
-    const shouldWelcome =
-        !previous || expiredHumanHandoff || hasSessionExpired(previous);
+): Promise<PreparedConversation> {
+    return withTransaction(async (client) => {
+        // Serialize only this restaurant/chat while deciding who owns a burst.
+        // This prevents two concurrent webhook requests from both welcoming.
+        await client.query(
+            "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
+            [`${restaurantId}:${chatId}`]
+        );
 
-    await touchInboundConversation(restaurantId, chatId);
+        const previousResult = await client.query<ConversationRow>(
+            `
+                SELECT mode, human_until, last_inbound_at
+                FROM whatsapp_conversations
+                WHERE restaurant_id = $1
+                  AND chat_id = $2
+                LIMIT 1
+            `,
+            [restaurantId, chatId]
+        );
 
-    if (humanActive) return "human";
-    return shouldWelcome ? "welcome" : "continue";
+        const previous = previousResult.rows[0] || null;
+        const humanActive = isConversationWithOwner(previous);
+        const expiredHumanHandoff =
+            previous?.mode === "human" && !humanActive;
+        const shouldWelcome =
+            !previous || expiredHumanHandoff || hasSessionExpired(previous);
+
+        const previousInboundAt = getConversationTimestamp(
+            previous?.last_inbound_at
+        );
+        const burstContinuation =
+            !humanActive &&
+            !shouldWelcome &&
+            previousInboundAt !== null &&
+            Date.now() - previousInboundAt < INBOUND_BURST_MS;
+
+        const touchedResult = await client.query<ConversationRow>(
+            `
+                INSERT INTO whatsapp_conversations (
+                    restaurant_id,
+                    chat_id,
+                    mode,
+                    last_inbound_at,
+                    updated_at
+                )
+                VALUES ($1, $2, 'bot', NOW(), NOW())
+                ON CONFLICT (restaurant_id, chat_id)
+                DO UPDATE SET
+                    last_inbound_at = NOW(),
+                    updated_at = NOW(),
+                    mode = CASE
+                        WHEN whatsapp_conversations.mode = 'human'
+                         AND whatsapp_conversations.human_until > NOW()
+                            THEN 'human'
+                        ELSE 'bot'
+                    END,
+                    human_until = CASE
+                        WHEN whatsapp_conversations.mode = 'human'
+                         AND whatsapp_conversations.human_until > NOW()
+                            THEN whatsapp_conversations.human_until
+                        ELSE NULL
+                    END
+                RETURNING mode, human_until, last_inbound_at
+            `,
+            [restaurantId, chatId]
+        );
+
+        const lastInboundAt = getConversationTimestamp(
+            touchedResult.rows[0]?.last_inbound_at
+        );
+
+        if (humanActive) {
+            return {
+                state: "human",
+                burstContinuation: false,
+                lastInboundAt,
+            };
+        }
+
+        return {
+            state: shouldWelcome ? "welcome" : "continue",
+            burstContinuation,
+            lastInboundAt,
+        };
+    });
+}
+
+async function waitForInboundBurstToSettle(
+    restaurantId: string,
+    chatId: string,
+    initialLastInboundAt: number | null
+): Promise<boolean> {
+    let observedLastInboundAt = initialLastInboundAt;
+
+    for (let attempt = 0; attempt < MAX_BURST_SETTLE_CHECKS; attempt += 1) {
+        await sleep(INBOUND_BURST_MS);
+
+        const conversation = await getConversation(restaurantId, chatId);
+        if (isConversationWithOwner(conversation)) return false;
+
+        const currentLastInboundAt = getConversationTimestamp(
+            conversation?.last_inbound_at
+        );
+
+        if (currentLastInboundAt === observedLastInboundAt) {
+            return true;
+        }
+
+        observedLastInboundAt = currentLastInboundAt;
+    }
+
+    return true;
 }
 
 function parseDeliveryRules(value: unknown): Array<{
@@ -308,27 +393,26 @@ function buildGreetingMessage(restaurant: RestaurantAutomationData): string {
     ].join("\n");
 }
 
-function buildTextMenuFallback(): string {
-    return [
-        "Responda com o número da opção:",
-        "1. Ver o cardápio",
-        "2. Onde está meu pedido?",
-        "3. Entrega e retirada",
-        "4. Formas de pagamento",
-        "5. Falar com atendente",
-    ].join("\n");
-}
-
 async function sendMainMenu(sessionName: string, chatId: string): Promise<void> {
-    try {
-        await sendWahaList(sessionName, chatId, MENU_ROWS);
-    } catch (error) {
-        console.warn(
-            "[WHATSAPP_AUTOMATION] WhatsApp list unavailable; using text fallback:",
-            error
-        );
-        await sendWahaText(sessionName, chatId, buildTextMenuFallback());
+    let lastError: unknown = null;
+
+    for (let attempt = 0; attempt < MENU_SEND_ATTEMPTS; attempt += 1) {
+        try {
+            await sendWahaList(sessionName, chatId, MENU_ROWS);
+            return;
+        } catch (error) {
+            lastError = error;
+
+            if (attempt < MENU_SEND_ATTEMPTS - 1) {
+                await sleep(MENU_RETRY_DELAY_MS * (attempt + 1));
+            }
+        }
     }
+
+    console.warn(
+        "[WHATSAPP_AUTOMATION] WhatsApp list failed after retries:",
+        lastError
+    );
 }
 
 async function sendWelcome(
@@ -588,13 +672,20 @@ export async function processIncomingWhatsAppMessage({
     body: string;
     hasMedia: boolean;
 }): Promise<void> {
-    const state = await prepareConversation(restaurantId, chatId);
-    if (state === "human") return;
+    const prepared = await prepareConversation(restaurantId, chatId);
+    if (prepared.state === "human" || prepared.burstContinuation) return;
+
+    const shouldContinue = await waitForInboundBurstToSettle(
+        restaurantId,
+        chatId,
+        prepared.lastInboundAt
+    );
+    if (!shouldContinue) return;
 
     const restaurant = await getRestaurant(restaurantId);
     if (!restaurant) return;
 
-    if (state === "welcome") {
+    if (prepared.state === "welcome") {
         await sendWelcome(sessionName, chatId, restaurant);
         return;
     }
@@ -611,11 +702,6 @@ export async function processIncomingWhatsAppMessage({
 
     const flow = detectFlow(body);
     if (!flow) {
-        await sendWahaText(
-            sessionName,
-            chatId,
-            "Este atendimento funciona por opções prontas. Escolha uma das alternativas abaixo."
-        );
         await sendMainMenu(sessionName, chatId);
         return;
     }
@@ -660,13 +746,20 @@ export async function processWhatsAppMenuVoteFailed({
     sessionName: string;
     chatId: string;
 }): Promise<void> {
-    const state = await prepareConversation(restaurantId, chatId);
-    if (state === "human") return;
+    const prepared = await prepareConversation(restaurantId, chatId);
+    if (prepared.state === "human" || prepared.burstContinuation) return;
+
+    const shouldContinue = await waitForInboundBurstToSettle(
+        restaurantId,
+        chatId,
+        prepared.lastInboundAt
+    );
+    if (!shouldContinue) return;
 
     const restaurant = await getRestaurant(restaurantId);
     if (!restaurant) return;
 
-    if (state === "welcome") {
+    if (prepared.state === "welcome") {
         await sendWelcome(sessionName, chatId, restaurant);
         return;
     }
