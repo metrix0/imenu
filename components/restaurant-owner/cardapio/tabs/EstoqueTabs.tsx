@@ -105,6 +105,15 @@ export default function EstoqueTab({
             return;
         }
 
+        if (parsed === Number(item.stock_quantity ?? 0)) {
+            setDraftStock((prev) => {
+                const next = { ...prev };
+                delete next[item.id];
+                return next;
+            });
+            return;
+        }
+
         setSavingId(item.id);
 
         const { error } = await supabase
@@ -125,7 +134,11 @@ export default function EstoqueTab({
             return;
         }
 
-        onToast("Quantidade salva.", "success");
+        setDraftStock((prev) => {
+            const next = { ...prev };
+            delete next[item.id];
+            return next;
+        });
         onRefresh();
     };
 
@@ -173,7 +186,7 @@ export default function EstoqueTab({
                                                 </div>
 
                                                 {enabled && (
-                                                    <div className={"mr-4"}>
+                                                    <div className="mr-4">
                                                         <input
                                                             type="number"
                                                             min={0}
@@ -185,17 +198,13 @@ export default function EstoqueTab({
                                                                     [item.id]: e.target.value,
                                                                 }))
                                                             }
-                                                            className="w-24 border border-gray-200 rounded-xl px-3 py-2 outline-none text-sm"
-                                                        />
-
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => saveStockQuantity(item)}
+                                                            onBlur={() => void saveStockQuantity(item)}
+                                                            onKeyDown={(e) => {
+                                                                if (e.key === "Enter") e.currentTarget.blur();
+                                                            }}
                                                             disabled={isSaving}
-                                                            className="cursor-pointer bg-brand text-white rounded-xl px-4 py-2 text-sm disabled:opacity-60 whitespace-nowrap"
-                                                        >
-                                                            Salvar
-                                                        </button>
+                                                            className="w-24 border border-gray-200 rounded-xl px-3 py-2 outline-none text-sm disabled:opacity-60"
+                                                        />
                                                     </div>
                                                 )}
 

@@ -82,6 +82,7 @@ export default function MenuItemRow({
     const [description, setDescription] = useState(item.description ?? "");
     const [priceCents, setPriceCents] = useState(item.price_cents ?? 0);
     const [priceInput, setPriceInput] = useState(formatPriceInput(item.price_cents ?? 0));
+    const [stockInput, setStockInput] = useState(String(item.stock_quantity ?? 0));
     const [imageUrl, setImageUrl] = useState(item.image_url ?? null); 
     const [imagePath, setImagePath] = useState(item.image_path ?? null);
     const [isAvailable, setIsAvailable] = useState(item.is_available ?? false);
@@ -133,6 +134,10 @@ export default function MenuItemRow({
         setPriceInput(formatPriceInput(nextPrice));
     }, [item.price_cents]);
 
+    useEffect(() => {
+        setStockInput(String(item.stock_quantity ?? 0));
+    }, [item.stock_quantity]);
+
     // --- AÇÕES ---
     const autoSave = async (overrideData?: Partial<MenuItemType>) => {
         if (isNew) return; 
@@ -164,6 +169,42 @@ export default function MenuItemRow({
         await autoSave({ price_cents: nextPriceCents });
     };
 
+    const handleStockBlur = async () => {
+        if (!item.stock_enabled || isNew) return;
+
+        const raw = stockInput.trim();
+        const parsed = Number(raw);
+
+        if (raw === "" || Number.isNaN(parsed) || parsed < 0 || !Number.isInteger(parsed)) {
+            setStockInput(String(item.stock_quantity ?? 0));
+            setToast({ message: "Informe uma quantidade válida.", type: "error" });
+            return;
+        }
+
+        setStockInput(String(parsed));
+        setIsLoading(true);
+
+        try {
+            const { error } = await supabase
+                .from("items")
+                .update({
+                    stock_quantity: parsed,
+                    is_available: parsed > 0,
+                })
+                .eq("id", item.id)
+                .eq("restaurant_id", restaurantId);
+
+            if (error) throw error;
+            setIsAvailable(parsed > 0);
+        } catch (error) {
+            console.error("Erro ao salvar estoque:", error);
+            setStockInput(String(item.stock_quantity ?? 0));
+            setToast({ message: "Erro ao salvar quantidade.", type: "error" });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -190,7 +231,7 @@ export default function MenuItemRow({
         e.stopPropagation();
 
 
-        if(item.stock_enabled && Number(item.stock_quantity ?? 0) <= 0){
+        if(item.stock_enabled && Number(stockInput || 0) <= 0){
             setToast({
                 message: "Não é possível ativar um item sem estoque. Ajuste na aba Estoque.",
                 type: "error",
@@ -270,6 +311,33 @@ export default function MenuItemRow({
         }
     };
 
+    const renderStockInput = () => {
+        if (!item.stock_enabled || isNew) return null;
+
+        return (
+            <div
+                className="flex items-center gap-2 whitespace-nowrap"
+                onClick={(e) => e.stopPropagation()}
+            >
+                <span className="text-xs font-medium text-gray-500 2xl:text-sm">Estoque</span>
+                <input
+                    type="number"
+                    min={0}
+                    step={1}
+                    inputMode="numeric"
+                    value={stockInput}
+                    onChange={(e) => setStockInput(e.target.value)}
+                    onBlur={handleStockBlur}
+                    onKeyDown={(e) => {
+                        if (e.key === "Enter") e.currentTarget.blur();
+                    }}
+                    className="w-16 border-b border-gray-300 bg-transparent p-1 text-right text-sm font-medium text-gray-900 outline-none focus:border-brand 2xl:text-lg"
+                    disabled={isLoading}
+                />
+            </div>
+        );
+    };
+
     const renderImageArea = () => (
         <div
             key={`menu-item-image-${item.id || "new"}-${isEditing ? "editing" : "viewing"}`}
@@ -324,7 +392,7 @@ export default function MenuItemRow({
                         <div className="flex items-center gap-2 min-w-0">
                             <span className="font-medium text-gray-900 truncate">{name}</span>
 
-                            {item.stock_enabled && Number(item.stock_quantity ?? 0) <= 0 && (
+                            {item.stock_enabled && Number(stockInput || 0) <= 0 && (
                                 <span className="shrink-0 text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-red-100 text-red-600">
                 Sem estoque
             </span>
@@ -348,6 +416,8 @@ export default function MenuItemRow({
                 </div>
 
                 <div className="flex items-center gap-4 2xl:gap-6 pl-4 2xl:text-lg">
+                    {renderStockInput()}
+
                     <span className="font-medium text-gray-900 whitespace-nowrap">
                         {(priceCents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                     </span>
@@ -467,6 +537,8 @@ export default function MenuItemRow({
             </div>
 
             <div className="flex items-center justify-end gap-3 2xl:gap-5 w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-gray-50">
+                {renderStockInput()}
+
                 <div className="relative w-24 2xl:w-26 flex items-center">
                     <span className="text-sm text-gray-500 2xl:mr-2 2xl:text-lg">R$</span>
                     <input
