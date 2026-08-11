@@ -9,7 +9,7 @@
 - [Funnels & User Stories](#funnels--user-stories)
 - [Roadmap](#roadmap)
 - [Product Positioning](#product-positioning)
-
+ 
 
 - [Inspiration](#inspiration)
 - [For AI](#for-AI)
