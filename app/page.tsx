@@ -434,6 +434,7 @@ export default function LandingPage() {
                             {[
                                 ["Totalmente grátis, para sempre", "check", "Mensalidade e taxas"],
                                 ["Pedidos ilimitados", "check", "Cada vez mais caro"],
+                                ["Robô WhatsApp", "check", "Taxas adicionais"],
                                 ["Converte o cliente", "check", "Baixa Conversão"],
                                 ["Gestor de pedidos (balcão)", "check", "Limitado"],
                                 ["Suporte humanizado", "Todos os dias", "Robô, fila ou e-mail"],
@@ -499,7 +500,6 @@ export default function LandingPage() {
                             ))}
 
                             {[
-                                ["ChatBot & Robô WhatsApp", "Taxas adicionais"],
                                 ["CRM", "Limitado"],
                             ].map(([feature, competitor]) => (
                                 <tr key={feature}>
