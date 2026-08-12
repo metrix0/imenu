@@ -147,64 +147,66 @@ export default async function Page({
 
   // These reads only depend on the restaurant and do not depend on each other.
   // Running them together removes avoidable database round trips from the TTFB.
-  const [loyaltyResult, trackingResult, categoriesResult, menuItemsResult] =
-    await Promise.all([
-      supabase
-        .from("loyalty_programs")
-        .select("active")
-        .eq("restaurant_id", restaurantData.id)
-        .maybeSingle(),
-      supabase
-        .from("tracking_integrations")
-        .select("ga4_id, gtm_id, meta_pixel_id")
-        .eq("restaurant_id", restaurantData.id)
-        .order("updated_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-      supabase
-        .from("categories")
-        .select("id, name, position")
-        .eq("restaurant_id", restaurant.id)
-        .order("position", { ascending: true }),
-      supabase
-        .from("items")
-        .select("id")
-        .eq("restaurant_id", restaurant.id),
-    ]);
+  const now = new Date().toISOString();
+  const [
+    loyaltyResult,
+    trackingResult,
+    categoriesResult,
+    itemsResult,
+    promotionsResult,
+  ] = await Promise.all([
+    supabase
+      .from("loyalty_programs")
+      .select("active")
+      .eq("restaurant_id", restaurantData.id)
+      .maybeSingle(),
+    supabase
+      .from("tracking_integrations")
+      .select("ga4_id, gtm_id, meta_pixel_id")
+      .eq("restaurant_id", restaurantData.id)
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from("categories")
+      .select("id, name, position")
+      .eq("restaurant_id", restaurant.id)
+      .order("position", { ascending: true }),
+    supabase
+      .from("items")
+      .select(
+        "id, name, description, price_cents, image_path, is_available, position, category:category_id(id, name, position)",
+      )
+      .eq("restaurant_id", restaurant.id)
+      .order("position", { ascending: true }),
+    supabase
+      .from("promotions")
+      .select("id,item_id , type, value, starts_at, ends_at")
+      .eq("restaurant_id", restaurant.id)
+      .lte("starts_at", now)
+      .or(`ends_at.gte.${now},ends_at.is.null`),
+  ]);
 
   const loyaltyProgram = loyaltyResult.data;
   const tracking = trackingResult.data;
   const categories: Category[] = categoriesResult.data || [];
-  const menuItems = menuItemsResult.data;
+  const itemsRaw = itemsResult.data || [];
+  const promotions = promotionsResult.data;
   const loyaltyProgramActive = loyaltyProgram?.active === true;
-  const itemIds = (menuItems || []).map((m) => m.id);
+  const itemIds = itemsRaw.map((item: any) => item.id);
 
   // Show "A partir de" only when a product has at least one mandatory
   // complemento group where every available option costs more than R$ 0.
   // A mandatory group with any available free option must NOT trigger it.
   const itemIdsWithMandatoryPaidGroup = new Set<string>();
 
-  let allItems: Item[] = [];
-
   if (itemIds.length > 0) {
-    const [mandatoryGroupsResult, itemsResult] = await Promise.all([
-      supabase
+    const { data: mandatoryGroups, error: mandatoryGroupsError } =
+      await supabase
         .from("item_subcategories")
         .select("id, item_id")
         .in("item_id", itemIds)
-        .gt("min_select", 0),
-      supabase
-        .from("items")
-        .select(
-          "id, name, description, price_cents, image_path, is_available, position, category:category_id(id, name, position)",
-        )
-        .in("id", itemIds)
-        .eq("is_available", true)
-        .order("position", { ascending: true }),
-    ]);
-
-    const { data: mandatoryGroups, error: mandatoryGroupsError } =
-      mandatoryGroupsResult;
+        .gt("min_select", 0);
 
     if (mandatoryGroupsError) {
       console.error(
@@ -253,23 +255,14 @@ export default async function Page({
         }
       }
     }
-
-    const itemsRaw = itemsResult.data;
-    allItems =
-      itemsRaw?.map((it: any) => ({
-        ...it,
-        image_public_url: getPublicUrl(supabase, "menu-images", it.image_path),
-      })) || [];
   }
 
-  const now = new Date().toISOString();
-
-  const { data: promotions } = await supabase
-    .from("promotions")
-    .select("id,item_id , type, value, starts_at, ends_at")
-    .eq("restaurant_id", restaurant.id)
-    .lte("starts_at", now)
-    .or(`ends_at.gte.${now},ends_at.is.null`);
+  let allItems: Item[] = itemsRaw
+    .filter((item: any) => item.is_available === true)
+    .map((item: any) => ({
+      ...item,
+      image_public_url: getPublicUrl(supabase, "menu-images", item.image_path),
+    }));
 
   // ======================
   // ADD PROMOTIONS TO ITEMS
