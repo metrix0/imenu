@@ -143,7 +143,9 @@ export default async function Page({
 
   // The banner is the page LCP element. Start its request as soon as the
   // restaurant row resolves instead of waiting for the remaining menu data.
-  preload(restaurant.banner_url, { as: "image", fetchPriority: "high" });
+  if (restaurant.banner_url) {
+    preload(restaurant.banner_url, { as: "image", fetchPriority: "high" });
+  }
 
   // These reads only depend on the restaurant and do not depend on each other.
   // Running them together removes avoidable database round trips from the TTFB.
