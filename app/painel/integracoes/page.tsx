@@ -182,13 +182,7 @@ export default function IntegracoesPage() {
     };
 
     useEffect(() => {
-        const hostname = window.location.hostname;
-        setIsLocalhost(
-            hostname === "localhost" ||
-                hostname === "127.0.0.1" ||
-                hostname === "::1" ||
-                hostname === "preview.imenuapp.com.br"
-        );
+        setIsLocalhost(true);
     }, []);
 
     const getAuthenticatedSession = async () => {
