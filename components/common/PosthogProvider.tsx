@@ -1,22 +1,36 @@
 "use client";
 
 import { ReactNode, useEffect } from "react";
-import posthog from "@/lib/api/instrumentation-client";
+import { getPosthog } from "@/lib/api/instrumentation-client";
 
 export default function PosthogProvider({ children }: { children: ReactNode }) {
-
   useEffect(() => {
-    const url = process.env.NEXT_PUBLIC_POSTHOG_HOST;
-    const key = process.env.NEXT_PUBLIC_POSTHOG_KEY;
+    let cancelled = false;
 
-    if (!url || !key) {
-      console.log("PostHog envs missing");
-      return;
+    const startPosthog = () => {
+      if (!cancelled) {
+        void getPosthog();
+      }
+    };
+
+    const idleWindow = window as typeof window & {
+      requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
+      cancelIdleCallback?: (handle: number) => void;
+    };
+
+    if (idleWindow.requestIdleCallback) {
+      const handle = idleWindow.requestIdleCallback(startPosthog, { timeout: 3000 });
+      return () => {
+        cancelled = true;
+        idleWindow.cancelIdleCallback?.(handle);
+      };
     }
 
-    posthog.init(key, {
-      api_host: url,
-    });
+    const timeout = window.setTimeout(startPosthog, 2000);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeout);
+    };
   }, []);
 
   return <>{children}</>;
