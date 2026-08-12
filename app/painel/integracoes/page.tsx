@@ -151,7 +151,7 @@ export default function IntegracoesPage() {
     const { restaurantId, setRestaurantId } = useCreationStore();
 
     const [activeTab, setActiveTab] = useState<ActiveTab>("whatsapp");
-    const [isLocalhost, setIsLocalhost] = useState<boolean | null>(null);
+    const isLocalhost = true;
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [whatsAppAction, setWhatsAppAction] = useState<
@@ -181,10 +181,6 @@ export default function IntegracoesPage() {
         setShowToast(true);
     };
 
-    useEffect(() => {
-        setIsLocalhost(true);
-    }, []);
-
     const getAuthenticatedSession = async () => {
         const {
             data: { session },
@@ -199,8 +195,6 @@ export default function IntegracoesPage() {
     };
 
     useEffect(() => {
-        if (isLocalhost === null) return;
-
         const loadRestaurantAndIntegrations = async () => {
             const session = await getAuthenticatedSession();
             if (!session?.user) {
@@ -241,17 +235,15 @@ export default function IntegracoesPage() {
                 .order("updated_at", { ascending: false })
                 .limit(1)
                 .maybeSingle();
-            const connectionRequest = isLocalhost
-                ? fetch(
-                      `/api/whatsapp/connection?restaurantId=${encodeURIComponent(resolvedRestaurantId)}`,
-                      {
-                          headers: {
-                              Authorization: `Bearer ${session.access_token}`,
-                          },
-                          cache: "no-store",
-                      }
-                  )
-                : Promise.resolve<Response | null>(null);
+            const connectionRequest = fetch(
+                `/api/whatsapp/connection?restaurantId=${encodeURIComponent(resolvedRestaurantId)}`,
+                {
+                    headers: {
+                        Authorization: `Bearer ${session.access_token}`,
+                    },
+                    cache: "no-store",
+                }
+            );
             const [trackingResult, connectionResponse] = await Promise.all([
                 trackingRequest,
                 connectionRequest,
@@ -272,11 +264,11 @@ export default function IntegracoesPage() {
                 });
             }
 
-            if (connectionResponse?.ok) {
+            if (connectionResponse.ok) {
                 const data = await connectionResponse.json();
                 setRestaurant(data.restaurant);
                 setConnection(data.connection);
-            } else if (connectionResponse) {
+            } else {
                 const data = await connectionResponse.json().catch(() => ({}));
                 showMessage(
                     data.error || "Não foi possível carregar a conexão do WhatsApp.",
@@ -288,10 +280,10 @@ export default function IntegracoesPage() {
         };
 
         void loadRestaurantAndIntegrations();
-    }, [isLocalhost, restaurantId, setRestaurantId]);
+    }, [restaurantId, setRestaurantId]);
 
     useEffect(() => {
-        if (!isLocalhost || !restaurantId) return;
+        if (!restaurantId) return;
 
         const channel = supabase
             .channel(`whatsapp-connection-page-${restaurantId}`)
@@ -317,7 +309,7 @@ export default function IntegracoesPage() {
         return () => {
             void supabase.removeChannel(channel);
         };
-    }, [isLocalhost, restaurantId]);
+    }, [restaurantId]);
 
     const saveTracking = async () => {
         if (!restaurantId || saving) return;
@@ -359,7 +351,7 @@ export default function IntegracoesPage() {
     const runWhatsAppAction = async (
         action: "connect" | "refresh_qr" | "disconnect"
     ) => {
-        if (!isLocalhost || !restaurantId || whatsAppAction) return;
+        if (!restaurantId || whatsAppAction) return;
 
         if (
             action === "disconnect" &&
@@ -555,9 +547,8 @@ export default function IntegracoesPage() {
                 </Card>
             )}
 
-            {activeTab === "whatsapp" &&
-                (isLocalhost ? (
-                    <div className="space-y-6">
+            {activeTab === "whatsapp" && (
+                <div className="space-y-6">
                     <Card className="border border-gray-200 p-7">
                         <div className="flex items-start gap-4">
                             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-green-50 text-2xl text-green-600">
@@ -742,17 +733,8 @@ export default function IntegracoesPage() {
                             ))}
                         </div>
                     </Card>
-                    </div>
-                ) : (
-                    <Card className="border border-gray-200 p-7 text-center">
-                        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-50 text-2xl text-green-600">
-                            <FontAwesomeIcon icon={faWhatsapp} />
-                        </div>
-                        <p className="mt-4 font-medium text-gray-700">
-                            Em desenvolvimento, previsão de adição 1 dia
-                        </p>
-                    </Card>
-                ))}
+                </div>
+            )}
 
             {showToast && (
                 <Toast
