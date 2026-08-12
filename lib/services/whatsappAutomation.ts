@@ -45,7 +45,7 @@ type PreparedConversation = {
 
 const HUMAN_HANDOFF_MINUTES = 30;
 const BOT_SESSION_MINUTES = 30;
-const INBOUND_BURST_MS = 800;
+const INBOUND_BURST_MS = 1800;
 const MAX_BURST_SETTLE_CHECKS = 4;
 const MENU_SEND_ATTEMPTS = 3;
 const MENU_RETRY_DELAY_MS = 300;
