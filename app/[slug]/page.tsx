@@ -1,6 +1,7 @@
 // app/[slug]/page.tsx
 
 import { notFound } from "next/navigation";
+import { preload } from "react-dom";
 import MenuClientPage from "./menu-client";
 import StartingPriceLabels from "./StartingPriceLabels";
 import {
@@ -115,24 +116,6 @@ export default async function Page({
 
   const storeWhatsapp = getStoreWhatsapp(restaurantData.store_whatsapp);
 
-  const { data: loyaltyProgram } = await supabase
-    .from("loyalty_programs")
-    .select("active")
-    .eq("restaurant_id", restaurantData.id)
-    .maybeSingle();
-
-  const loyaltyProgramActive = loyaltyProgram?.active === true;
-
-  // Keep tracking independent from the restaurant relation. This safely picks
-  // the most recently saved row even before the duplicate-cleanup SQL is run.
-  const { data: tracking } = await supabase
-    .from("tracking_integrations")
-    .select("ga4_id, gtm_id, meta_pixel_id")
-    .eq("restaurant_id", restaurantData.id)
-    .order("updated_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
   const restaurant: Restaurant & { address: any } = {
     id: restaurantData.id,
     name: restaurantData.name,
@@ -158,21 +141,42 @@ export default async function Page({
     pickup_enabled: restaurantData.pickup_enabled === true,
   };
 
-  // --- 3. Categorias ---
-  const { data: categoriesRaw } = await supabase
-    .from("categories")
-    .select("id, name, position")
-    .eq("restaurant_id", restaurant.id)
-    .order("position", { ascending: true });
+  // The banner is the page LCP element. Start its request as soon as the
+  // restaurant row resolves instead of waiting for the remaining menu data.
+  preload(restaurant.banner_url, { as: "image", fetchPriority: "high" });
 
-  const categories: Category[] = categoriesRaw || [];
+  // These reads only depend on the restaurant and do not depend on each other.
+  // Running them together removes avoidable database round trips from the TTFB.
+  const [loyaltyResult, trackingResult, categoriesResult, menuItemsResult] =
+    await Promise.all([
+      supabase
+        .from("loyalty_programs")
+        .select("active")
+        .eq("restaurant_id", restaurantData.id)
+        .maybeSingle(),
+      supabase
+        .from("tracking_integrations")
+        .select("ga4_id, gtm_id, meta_pixel_id")
+        .eq("restaurant_id", restaurantData.id)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from("categories")
+        .select("id, name, position")
+        .eq("restaurant_id", restaurant.id)
+        .order("position", { ascending: true }),
+      supabase
+        .from("items")
+        .select("id")
+        .eq("restaurant_id", restaurant.id),
+    ]);
 
-  // --- 4. Itens do Menu ---
-  const { data: menuItems } = await supabase
-    .from("items")
-    .select("id")
-    .eq("restaurant_id", restaurant.id);
-
+  const loyaltyProgram = loyaltyResult.data;
+  const tracking = trackingResult.data;
+  const categories: Category[] = categoriesResult.data || [];
+  const menuItems = menuItemsResult.data;
+  const loyaltyProgramActive = loyaltyProgram?.active === true;
   const itemIds = (menuItems || []).map((m) => m.id);
 
   // Show "A partir de" only when a product has at least one mandatory
@@ -180,13 +184,27 @@ export default async function Page({
   // A mandatory group with any available free option must NOT trigger it.
   const itemIdsWithMandatoryPaidGroup = new Set<string>();
 
+  let allItems: Item[] = [];
+
   if (itemIds.length > 0) {
-    const { data: mandatoryGroups, error: mandatoryGroupsError } =
-      await supabase
+    const [mandatoryGroupsResult, itemsResult] = await Promise.all([
+      supabase
         .from("item_subcategories")
         .select("id, item_id")
         .in("item_id", itemIds)
-        .gt("min_select", 0);
+        .gt("min_select", 0),
+      supabase
+        .from("items")
+        .select(
+          "id, name, description, price_cents, image_path, is_available, position, category:category_id(id, name, position)",
+        )
+        .in("id", itemIds)
+        .eq("is_available", true)
+        .order("position", { ascending: true }),
+    ]);
+
+    const { data: mandatoryGroups, error: mandatoryGroupsError } =
+      mandatoryGroupsResult;
 
     if (mandatoryGroupsError) {
       console.error(
@@ -235,19 +253,8 @@ export default async function Page({
         }
       }
     }
-  }
 
-  let allItems: Item[] = [];
-  if (itemIds.length > 0) {
-    const { data: itemsRaw } = await supabase
-      .from("items")
-      .select(
-        "id, name, description, price_cents, image_path, is_available, position, category:category_id(id, name, position)",
-      )
-      .in("id", itemIds)
-      .eq("is_available", true)
-      .order("position", { ascending: true });
-
+    const itemsRaw = itemsResult.data;
     allItems =
       itemsRaw?.map((it: any) => ({
         ...it,
