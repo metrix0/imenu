@@ -3,7 +3,6 @@ import { headers } from "next/headers";
 import "./globals.css";
 import "@/lib/utils/fontawesome";
 import PosthogProvider from "@/components/common/PosthogProvider";
-import Script from "next/script";
 
 export async function generateMetadata(): Promise<Metadata> {
     const h = await headers();
@@ -45,16 +44,6 @@ export default function RootLayout({
                 className="min-h-screen bg-white text-gray-900"
                 suppressHydrationWarning
             >
-                <Script id="ms-clarity" strategy="afterInteractive">
-                    {`
-                    (function(c,l,a,r,i,t,y){
-                      c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
-                      t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
-                      y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
-                    })(window, document, "clarity", "script", "uk4ichh2nj");
-                  `}
-                </Script>
-
                 <PosthogProvider>{children}</PosthogProvider>
             </body>
         </html>
