@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { MercadoPagoConfig, Payment } from "mercadopago";
 
 import { query } from "@/lib/database/sql";
+import { createSupabaseServerClient } from "@/lib/database/supabaseServerClient";
 import { notifyOrderReady } from "@/lib/push/server";
 
 const client = new MercadoPagoConfig({
@@ -49,13 +50,39 @@ export async function POST(req: Request) {
                         UPDATE orders
                         SET status = 'paid', updated_at = NOW()
                         WHERE id = $1
-                          AND status <> 'canceled'
+                          AND status = 'pending_online_payment'
+                        RETURNING restaurant_id
                     `,
                     [orderId]
                 );
 
                 if (updateResult.rowCount > 0) {
                     console.log("✅ Order marked paid:", orderId);
+
+                    const restaurantId = updateResult.rows[0]?.restaurant_id;
+                    if (restaurantId) {
+                        const supabase = createSupabaseServerClient();
+                        const { data: existingJob, error: existingJobError } = await supabase
+                            .from("print_jobs")
+                            .select("id")
+                            .eq("order_id", orderId)
+                            .in("status", ["queued", "printing", "printed"])
+                            .limit(1)
+                            .maybeSingle();
+
+                        if (existingJobError) throw existingJobError;
+
+                        if (!existingJob) {
+                            const { error: printJobError } = await supabase
+                                .from("print_jobs")
+                                .insert({
+                                    restaurant_id: restaurantId,
+                                    order_id: orderId,
+                                });
+
+                            if (printJobError) throw printJobError;
+                        }
+                    }
 
                     try {
                         await notifyOrderReady(orderId);
