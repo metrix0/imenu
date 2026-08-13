@@ -44,54 +44,77 @@ export async function POST(req: Request) {
                 external_reference: orderId,
             });
 
-            if (status === "approved" && orderId) {
-                const updateResult = await query(
-                    `
-                        UPDATE orders
-                        SET status = 'paid', updated_at = NOW()
-                        WHERE id = $1
-                          AND status = 'pending_online_payment'
-                        RETURNING restaurant_id
-                    `,
-                    [orderId]
-                );
+            if (orderId) {
+                const supabase = createSupabaseServerClient();
 
-                if (updateResult.rowCount > 0) {
-                    console.log("✅ Order marked paid:", orderId);
+                if (status !== "approved") {
+                    const { data: order, error: orderError } = await supabase
+                        .from("orders")
+                        .select("status")
+                        .eq("id", orderId)
+                        .maybeSingle();
 
-                    const restaurantId = updateResult.rows[0]?.restaurant_id;
-                    if (restaurantId) {
-                        const supabase = createSupabaseServerClient();
-                        const { data: existingJob, error: existingJobError } = await supabase
+                    if (orderError) throw orderError;
+
+                    if (order?.status === "pending_online_payment") {
+                        const { error: printJobError } = await supabase
                             .from("print_jobs")
-                            .select("id")
+                            .update({ status: "canceled" })
                             .eq("order_id", orderId)
-                            .in("status", ["queued", "printing", "printed"])
-                            .limit(1)
-                            .maybeSingle();
+                            .eq("status", "queued");
 
-                        if (existingJobError) throw existingJobError;
-
-                        if (!existingJob) {
-                            const { error: printJobError } = await supabase
-                                .from("print_jobs")
-                                .insert({
-                                    restaurant_id: restaurantId,
-                                    order_id: orderId,
-                                });
-
-                            if (printJobError) throw printJobError;
-                        }
+                        if (printJobError) throw printJobError;
                     }
+                }
 
-                    try {
-                        await notifyOrderReady(orderId);
-                    } catch (pushError) {
-                        // Payment confirmation must never be retried because push failed.
-                        console.error(
-                            "[OWNER_PUSH] Failed after approved payment:",
-                            pushError
-                        );
+                if (status === "approved") {
+                    const updateResult = await query(
+                        `
+                            UPDATE orders
+                            SET status = 'paid', updated_at = NOW()
+                            WHERE id = $1
+                              AND status = 'pending_online_payment'
+                            RETURNING restaurant_id
+                        `,
+                        [orderId]
+                    );
+
+                    if (updateResult.rowCount > 0) {
+                        console.log("✅ Order marked paid:", orderId);
+
+                        const restaurantId = updateResult.rows[0]?.restaurant_id;
+                        if (restaurantId) {
+                            const { data: existingJob, error: existingJobError } = await supabase
+                                .from("print_jobs")
+                                .select("id")
+                                .eq("order_id", orderId)
+                                .in("status", ["queued", "printing", "printed"])
+                                .limit(1)
+                                .maybeSingle();
+
+                            if (existingJobError) throw existingJobError;
+
+                            if (!existingJob) {
+                                const { error: printJobError } = await supabase
+                                    .from("print_jobs")
+                                    .insert({
+                                        restaurant_id: restaurantId,
+                                        order_id: orderId,
+                                    });
+
+                                if (printJobError) throw printJobError;
+                            }
+                        }
+
+                        try {
+                            await notifyOrderReady(orderId);
+                        } catch (pushError) {
+                            // Payment confirmation must never be retried because push failed.
+                            console.error(
+                                "[OWNER_PUSH] Failed after approved payment:",
+                                pushError
+                            );
+                        }
                     }
                 }
             }
