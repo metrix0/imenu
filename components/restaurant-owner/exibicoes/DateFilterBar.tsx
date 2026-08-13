@@ -1,5 +1,8 @@
 "use client";
 
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faCalendarDays } from "@fortawesome/free-solid-svg-icons";
+
 import Card from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
 
@@ -59,48 +62,82 @@ export default function DateFilterBar({
         if (date < startDate) onStartDateChange(date);
     };
 
+    const calendarIcon = (
+        <FontAwesomeIcon icon={faCalendarDays} className="text-sm" />
+    );
+
     return (
-        <Card className="mb-6 flex flex-wrap items-end gap-4 border-gray-200 p-5 shadow-sm">
-            {showPresets && (
-                <div className="flex w-full flex-wrap gap-2">
-                    {DATE_FILTER_PRESETS.map((preset) => {
-                        const range = getDateRangeForDays(preset.days);
-                        const active =
-                            startDate === range.startDate && endDate === range.endDate;
-
-                        return (
-                            <button
-                                key={preset.days}
-                                type="button"
-                                onClick={() => setPreset(preset.days)}
-                                className={`cursor-pointer rounded-lg px-4 py-2 text-sm font-medium transition ${
-                                    active
-                                        ? "bg-brand text-white"
-                                        : "border border-gray-200 bg-white text-gray-600 hover:border-gray-300"
-                                }`}
-                            >
-                                {preset.label}
-                            </button>
-                        );
-                    })}
+        <Card className="mb-6 overflow-hidden border-gray-200 p-0 shadow-sm">
+            <div className="space-y-5 p-4 sm:p-5">
+                <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand">
+                        <FontAwesomeIcon icon={faCalendarDays} />
+                    </div>
+                    <div>
+                        <h2 className="text-sm font-semibold text-gray-900 2xl:text-base">
+                            Período
+                        </h2>
+                        <p className="text-xs text-gray-500 2xl:text-sm">
+                            Selecione o intervalo usado nos dados abaixo.
+                        </p>
+                    </div>
                 </div>
-            )}
 
-            <div className="min-w-[150px] flex-1">
-                <Input
-                    label="Data Inicial"
-                    type="date"
-                    value={startDate}
-                    onChange={(event) => handleStartDateChange(event.target.value)}
-                />
-            </div>
-            <div className="min-w-[150px] flex-1">
-                <Input
-                    label="Data Final"
-                    type="date"
-                    value={endDate}
-                    onChange={(event) => handleEndDateChange(event.target.value)}
-                />
+                {showPresets && (
+                    <div className="grid grid-cols-2 gap-1 rounded-xl bg-gray-100 p-1 sm:grid-cols-4">
+                        {DATE_FILTER_PRESETS.map((preset) => {
+                            const range = getDateRangeForDays(preset.days);
+                            const active =
+                                startDate === range.startDate &&
+                                endDate === range.endDate;
+
+                            return (
+                                <button
+                                    key={preset.days}
+                                    type="button"
+                                    onClick={() => setPreset(preset.days)}
+                                    className={`cursor-pointer rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${
+                                        active
+                                            ? "bg-white text-brand shadow-sm ring-1 ring-black/5"
+                                            : "text-gray-500 hover:bg-white/70 hover:text-gray-800"
+                                    }`}
+                                >
+                                    {preset.label}
+                                </button>
+                            );
+                        })}
+                    </div>
+                )}
+
+                <div>
+                    {showPresets && (
+                        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-400">
+                            Intervalo personalizado
+                        </p>
+                    )}
+                    <div className="grid gap-3 sm:grid-cols-2">
+                        <Input
+                            label="De"
+                            type="date"
+                            value={startDate}
+                            icon={calendarIcon}
+                            onChange={(event) =>
+                                handleStartDateChange(event.target.value)
+                            }
+                            className="rounded-xl border-gray-200 py-2.5 shadow-sm"
+                        />
+                        <Input
+                            label="Até"
+                            type="date"
+                            value={endDate}
+                            icon={calendarIcon}
+                            onChange={(event) =>
+                                handleEndDateChange(event.target.value)
+                            }
+                            className="rounded-xl border-gray-200 py-2.5 shadow-sm"
+                        />
+                    </div>
+                </div>
             </div>
         </Card>
     );
