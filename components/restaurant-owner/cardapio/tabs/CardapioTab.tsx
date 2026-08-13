@@ -246,6 +246,7 @@ export default function CardapioTab({
                                     onPointerMove={handlePointerMove}
                                     onPointerUp={handlePointerEnd}
                                     onPointerCancel={handlePointerEnd}
+                                    onLostPointerCapture={handlePointerEnd}
                                 >
                                     <FontAwesomeIcon icon={faGripVertical} />
                                 </span>
