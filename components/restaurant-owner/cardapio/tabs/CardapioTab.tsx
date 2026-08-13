@@ -39,7 +39,7 @@ export default function CardapioTab({
     const [selectedCategoryId, setSelectedCategoryId] = useState("");
     const [localCategories, setLocalCategories] = useState<Category[]>(categories);
     const localCategoriesRef = useRef<Category[]>(categories);
-    const [draggedCatId, setDraggedCatId] = useState<string | null>(null);
+    const draggedCatIdRef = useRef<string | null>(null);
     const normalizedRestaurantRef = useRef<string | null>(null);
 
     useEffect(() => {
@@ -72,6 +72,7 @@ export default function CardapioTab({
     const isFiltering = searchTerm.length > 0 || selectedCategoryId !== "";
 
     const reorderCategory = (targetCatId: string) => {
+        const draggedCatId = draggedCatIdRef.current;
         if (!draggedCatId || draggedCatId === targetCatId) return;
         const currentList = [...localCategoriesRef.current];
         const draggedIndex = currentList.findIndex((category) => category.id === draggedCatId);
@@ -101,7 +102,7 @@ export default function CardapioTab({
     };
 
     const handleDragStart = (e: React.DragEvent, catId: string) => {
-        setDraggedCatId(catId);
+        draggedCatIdRef.current = catId;
         e.dataTransfer.effectAllowed = "move";
         const target = e.currentTarget as HTMLElement;
         setTimeout(() => target.style.opacity = "0.4", 0);
@@ -110,7 +111,7 @@ export default function CardapioTab({
     const handleDragEnd = (e: React.DragEvent) => {
         const target = e.currentTarget as HTMLElement;
         target.style.opacity = "1";
-        setDraggedCatId(null);
+        draggedCatIdRef.current = null;
         void saveOrder(localCategoriesRef.current);
     };
 
@@ -119,27 +120,30 @@ export default function CardapioTab({
         reorderCategory(targetCatId);
     };
 
-    const handleTouchStart = (e: React.TouchEvent, catId: string) => {
-        if (isFiltering) return;
+    const handlePointerStart = (e: React.PointerEvent<HTMLSpanElement>, catId: string) => {
+        if (e.pointerType === "mouse" || isFiltering) return;
         e.stopPropagation();
-        setDraggedCatId(catId);
+        e.currentTarget.setPointerCapture(e.pointerId);
+        draggedCatIdRef.current = catId;
     };
 
-    const handleTouchMove = (e: React.TouchEvent) => {
-        if (!draggedCatId || isFiltering) return;
-        e.preventDefault();
+    const handlePointerMove = (e: React.PointerEvent<HTMLSpanElement>) => {
+        if (e.pointerType === "mouse" || !draggedCatIdRef.current || isFiltering) return;
         e.stopPropagation();
-        const touch = e.touches[0];
-        if (!touch) return;
-        const target = document.elementFromPoint(touch.clientX, touch.clientY)?.closest<HTMLElement>("[data-category-id]");
+        const target = document
+            .elementFromPoint(e.clientX, e.clientY)
+            ?.closest<HTMLElement>("[data-category-id]");
         const targetCatId = target?.dataset.categoryId;
         if (targetCatId) reorderCategory(targetCatId);
     };
 
-    const handleTouchEnd = (e: React.TouchEvent) => {
-        if (!draggedCatId || isFiltering) return;
+    const handlePointerEnd = (e: React.PointerEvent<HTMLSpanElement>) => {
+        if (e.pointerType === "mouse" || !draggedCatIdRef.current || isFiltering) return;
         e.stopPropagation();
-        setDraggedCatId(null);
+        if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+            e.currentTarget.releasePointerCapture(e.pointerId);
+        }
+        draggedCatIdRef.current = null;
         void saveOrder(localCategoriesRef.current);
     };
 
@@ -223,9 +227,10 @@ export default function CardapioTab({
                             dragHandle={!isFiltering ? (
                                 <span
                                     className="inline-flex touch-none"
-                                    onTouchStart={(e) => handleTouchStart(e, category.id)}
-                                    onTouchMove={handleTouchMove}
-                                    onTouchEnd={handleTouchEnd}
+                                    onPointerDown={(e) => handlePointerStart(e, category.id)}
+                                    onPointerMove={handlePointerMove}
+                                    onPointerUp={handlePointerEnd}
+                                    onPointerCancel={handlePointerEnd}
                                 >
                                     <FontAwesomeIcon icon={faGripVertical} />
                                 </span>

@@ -34,20 +34,20 @@ export default function CategorySection({
     const [isCreating, setIsCreating] = useState(false);
     const [localItems, setLocalItems] = useState<MenuItemType[]>(items);
     const localItemsRef = useRef<MenuItemType[]>(items);
-    const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
+    const draggedItemIdRef = useRef<string | null>(null);
 
     useEffect(() => {
-        setLocalItems(items);
+        setLocalItems(Items);
         localItemsRef.current = items;
     }, [items]);
 
     const reorderItem = (targetItemId: string) => {
+        const draggedItemId = draggedItemIdRef.current;
         if (!draggedItemId || draggedItemId === targetItemId) return;
 
         const currentList = [...localItemsRef.current];
         const draggedIndex = currentList.findIndex((item) => item.id === draggedItemId);
         const targetIndex = currentList.findIndex((item) => item.id === targetItemId);
-
         if (draggedIndex === -1 || targetIndex === -1) return;
 
         const [removed] = currentList.splice(draggedIndex, 1);
@@ -74,17 +74,17 @@ export default function CategorySection({
 
     const handleDragStart = (e: React.DragEvent, itemId: string) => {
         e.stopPropagation();
-        setDraggedItemId(itemId);
+        draggedItemIdRef.current = itemId;
         e.dataTransfer.effectAllowed = "move";
 
         const emptyImg = new Image();
-        emptyImg.src = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAP///yH5BAEAAAAALAAAAABAAEAAAIBRAA7";
+        emptyImg.src = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBAAA7";
         e.dataTransfer.setDragImage(emptyImg, 0, 0);
     };
 
     const handleDragEnd = (e: React.DragEvent) => {
         e.stopPropagation();
-        setDraggedItemId(null);
+        draggedItemIdRef.current = null;
         void saveItemOrder(localItemsRef.current);
     };
 
@@ -94,31 +94,28 @@ export default function CategorySection({
         reorderItem(targetItemId);
     };
 
-    const handleTouchStart = (e: React.TouchEvent, itemId: string) => {
-        if (isCreating) return;
+    const handlePointerStart = (e: React.PointerEvent<HTMLSpanElement>, itemId: string) => {
+        if (e.pointerType === "mouse" || isCreating) return;
         e.stopPropagation();
-        setDraggedItemId(itemId);
+        e.currentTarget.setPointerCapture(e.pointerId);
+        draggedItemIdRef.current = itemId;
     };
 
-    const handleTouchMove = (e: React.TouchEvent) => {
-        if (!draggedItemId || isCreating) return;
-        e.preventDefault();
+    const handlePointerMove = (e: React.PointerEvent<HTMLSpanElement>) => {
+        if (e.pointerType === "mouse" || !draggedItemIdRef.current || isCreating) return;
         e.stopPropagation();
-
-        const touch = e.touches[0];
-        if (!touch) return;
-
-        const target = document
-            .elementFromPoint(touch.clientX, touch.clientY)
-            ?.closest<HTMLElement>("[data-menu-item-id]");
+        const target = document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>("[data-menu-item-id]");
         const targetItemId = target?.dataset.menuItemId;
         if (targetItemId) reorderItem(targetItemId);
     };
 
-    const handleTouchEnd = (e: React.TouchEvent) => {
-        if (!draggedItemId || isCreating) return;
+    const handlePointerEnd = (e: React.PointerEvent<HTMLSpanElement>) => {
+        if (e.pointerType === "mouse" || !draggedItemIdRef.current || isCreating) return;
         e.stopPropagation();
-        setDraggedItemId(null);
+        if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+            e.currentTarget.releasePointerCapture(e.pointerId);
+        }
+        draggedItemIdRef.current = null;
         void saveItemOrder(localItemsRef.current);
     };
 
@@ -199,15 +196,8 @@ export default function CategorySection({
                     )}
                     <h3 className="text-xl font-bold text-gray-800 tracking-tight">{category.name}</h3>
                     {isFeatured && (
-                        <Tooltip
-                            text="A primeira categoria é destacada no cardápio."
-                            position="right"
-                            showOnClick
-                        >
-                            <FontAwesomeIcon
-                                icon={faStar}
-                                className="text-brand text-sm cursor-help"
-                            />
+                        <Tooltip text="A primeira categoria é destacada no cardápio." position="right" showOnClick>
+                            <FontAwesomeIcon icon={faStar} className="text-brand text-sm cursor-help" />
                         </Tooltip>
                     )}
                 </div>
@@ -217,7 +207,7 @@ export default function CategorySection({
                 </button>
             </div>
 
-            <div className="bg-white border border-gray-200 rounded-xl 2xl:mt-4 overflow-hidden shadow-sm 2xl:sadow-lg">
+            <div className="bg-white border border-gray-200 rounded-xl 2xl:mt-4 overflow-hidden shadow-sm 2:sadow-lg">
                 {localItems.map((item) => (
                     <div
                         key={item.id}
@@ -237,9 +227,10 @@ export default function CategorySection({
                             dragHandle={!isCreating ? (
                                 <span
                                     className="inline-flex touch-none"
-                                    onTouchStart={(e) => handleTouchStart(e, item.id)}
-                                    onTouchMove={handleTouchMove}
-                                    onTouchEnd={handleTouchEnd}
+                                    onPointerDown={(e) => handlePointerStart(e, item.id)}
+                                    onPointerMove={handlePointerMove}
+                                    onPointerUp={handlePointerEnd}
+                                    onPointerCancel={handlePointerEnd}
                                 >
                                     <FontAwesomeIcon icon={faGripVertical} className="text-sm" />
                                 </span>
@@ -258,8 +249,8 @@ export default function CategorySection({
                 )}
 
                 {!isCreating && (
-                    <button onClick={() => setIsCreating(true)} className="cursor-pointer 2xl:text-base w-full py-4 px-4 2xl:px-6 2xl:py-6 text-left text-brand text-sm font-semibold hover:bg-orange-50/50 transition-colors flex items-center gap-3 group">
-                        <div className="w-5 h-5 2xl:w-6 2xl:h-6 rounded-full border-2 border-brand flex items-center justify-center">
+                    <button onClick={() => setIsCreating(true)} className="cursor-pointer 2:text-base w-full py-4 px-4 2x:px-6 2xl:py-6 text-left text-brand text-sm font-semibold hover:bg-orange-50/50 transition-colors flex items-center gap-3 group">
+                        <div className="w-5 h-5 2x:w-6 2:h-6 rounded-full border-2 border-brand flex items-center justify-center">
                             <FontAwesomeIcon icon={icons.faPlus} className="text-[10px]" />
                         </div>
                         <div>
