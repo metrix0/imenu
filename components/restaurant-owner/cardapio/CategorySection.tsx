@@ -37,7 +37,7 @@ export default function CategorySection({
     const draggedItemIdRef = useRef<string | null>(null);
 
     useEffect(() => {
-        setLocalItems(Items);
+        setLocalItems(items);
         localItemsRef.current = items;
     }, [items]);
 
@@ -207,7 +207,7 @@ export default function CategorySection({
                 </button>
             </div>
 
-            <div className="bg-white border border-gray-200 rounded-xl 2xl:mt-4 overflow-hidden shadow-sm 2:sadow-lg">
+            <div className="bg-white border border-gray-200 rounded-xl 2xl:mt-4 overflow-hidden shadow-sm 2xl:shadow-lg">
                 {localItems.map((item) => (
                     <div
                         key={item.id}
@@ -249,8 +249,8 @@ export default function CategorySection({
                 )}
 
                 {!isCreating && (
-                    <button onClick={() => setIsCreating(true)} className="cursor-pointer 2:text-base w-full py-4 px-4 2x:px-6 2xl:py-6 text-left text-brand text-sm font-semibold hover:bg-orange-50/50 transition-colors flex items-center gap-3 group">
-                        <div className="w-5 h-5 2x:w-6 2:h-6 rounded-full border-2 border-brand flex items-center justify-center">
+                    <button onClick={() => setIsCreating(true)} className="cursor-pointer 2xl:text-base w-full py-4 px-4 2xl:px-6 2xl:py-6 text-left text-brand text-sm font-semibold hover:bg-orange-50/50 transition-colors flex items-center gap-3 group">
+                        <div className="w-5 h-5 2xl:w-6 2xl:h-6 rounded-full border-2 border-brand flex items-center justify-center">
                             <FontAwesomeIcon icon={icons.faPlus} className="text-[10px]" />
                         </div>
                         <div>
