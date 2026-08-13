@@ -246,6 +246,7 @@ export default function CategorySection({
                                     onPointerMove={handlePointerMove}
                                     onPointerUp={handlePointerEnd}
                                     onPointerCancel={handlePointerEnd}
+                                    onLostPointerCapture={handlePointerEnd}
                                 >
                                     <FontAwesomeIcon icon={faGripVertical} className="text-sm" />
                                 </span>
