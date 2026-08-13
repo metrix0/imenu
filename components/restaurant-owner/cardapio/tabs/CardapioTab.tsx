@@ -38,6 +38,7 @@ export default function CardapioTab({
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedCategoryId, setSelectedCategoryId] = useState("");
     const [localCategories, setLocalCategories] = useState<Category[]>(categories);
+    const [mobileDragPreview, setMobileDragPreview] = useState<{ name: string; x: number; y: number } | null>(null);
     const localCategoriesRef = useRef<Category[]>(categories);
     const draggedCatIdRef = useRef<string | null>(null);
     const normalizedRestaurantRef = useRef<string | null>(null);
@@ -125,11 +126,14 @@ export default function CardapioTab({
         e.stopPropagation();
         e.currentTarget.setPointerCapture(e.pointerId);
         draggedCatIdRef.current = catId;
+        const category = localCategoriesRef.current.find((current) => current.id === catId);
+        if (category) setMobileDragPreview({ name: category.name, x: e.clientX, y: e.clientY });
     };
 
     const handlePointerMove = (e: React.PointerEvent<HTMLSpanElement>) => {
         if (e.pointerType === "mouse" || !draggedCatIdRef.current || isFiltering) return;
         e.stopPropagation();
+        setMobileDragPreview((current) => current ? { ...current, x: e.clientX, y: e.clientY } : current);
         const target = document
             .elementFromPoint(e.clientX, e.clientY)
             ?.closest<HTMLElement>("[data-category-id]");
@@ -144,6 +148,7 @@ export default function CardapioTab({
             e.currentTarget.releasePointerCapture(e.pointerId);
         }
         draggedCatIdRef.current = null;
+        setMobileDragPreview(null);
         void saveOrder(localCategoriesRef.current);
     };
 
@@ -183,6 +188,16 @@ export default function CardapioTab({
 
     return (
         <div className="space-y-6">
+            {mobileDragPreview && (
+                <div
+                    className="pointer-events-none fixed z-[9999] flex max-w-[calc(100vw-2rem)] items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 font-bold text-gray-800 shadow-xl opacity-95 md:hidden"
+                    style={{ left: mobileDragPreview.x + 12, top: mobileDragPreview.y + 12 }}
+                >
+                    <FontAwesomeIcon icon={faGripVertical} className="text-gray-400" />
+                    <span className="truncate">{mobileDragPreview.name}</span>
+                </div>
+            )}
+
             <div className="flex flex-col md:flex-row gap-4">
                 <div className="flex-1">
                     <Input
