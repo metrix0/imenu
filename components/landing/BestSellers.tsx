@@ -53,7 +53,7 @@ export default function BestSellers() {
                     {restaurants.map((restaurant, index) => (
                         <article
                             key={restaurant.id}
-                            className="flex min-w-0 items-center gap-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm md:flex-col md:text-center 2xl:p-7"
+                            className="grid min-w-0 grid-cols-[auto_auto_minmax(0,1fr)] items-center gap-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm md:flex md:flex-col md:text-center 2xl:p-7"
                         >
                             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand/10 text-lg font-bold text-brand">
                                 {index + 1}º
@@ -73,7 +73,7 @@ export default function BestSellers() {
                                 )}
                             </div>
 
-                            <div className="min-w-0 flex-1 md:flex-none">
+                            <div className="min-w-0 md:flex-none">
                                 <h3 className="truncate text-lg font-bold text-gray-900 2xl:text-xl">
                                     {restaurant.name}
                                 </h3>
@@ -82,7 +82,7 @@ export default function BestSellers() {
                             <Button
                                 variant="primary"
                                 onClick={() => router.push(`/${restaurant.url_slug}`)}
-                                className="w-auto shrink-0 whitespace-nowrap px-4 py-2"
+                                className="col-span-3 w-full whitespace-nowrap px-4 py-2 md:w-auto"
                             >
                                 Ver cardápio
                             </Button>
