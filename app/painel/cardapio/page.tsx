@@ -165,6 +165,14 @@ export default function MenuManagerPage() {
         });
     };
 
+    const handleItemUpdated = (updatedItem: MenuItemType) => {
+        setItems((current) =>
+            current.map((item) =>
+                item.id === updatedItem.id ? { ...item, ...updatedItem } : item
+            )
+        );
+    };
+
     if (isLoading) {
         return (
             <div className="flex justify-center items-center h-64">
@@ -205,6 +213,7 @@ export default function MenuManagerPage() {
                         items={items}
                         restaurantId={restaurantId}
                         onRefresh={() => loadMenuData(restaurantId)}
+                        onItemUpdated={handleItemUpdated}
                         onEditCategory={handleEditCategory}
                         onOpenItemDetails={handleOpenItemDetails}
                         onNewCategory={handleNewCategory}
