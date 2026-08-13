@@ -1,14 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 import ConsumerPipelineCard from "@/components/analytics/ConsumerPipelineCard";
 import Card from "@/components/ui/Card";
 import ListLoader from "@/components/ui/ListLoader";
 import { supabase } from "@/lib/database/supabaseClient";
 import type { ConsumerPipelineStep } from "@/lib/analytics/consumerPipeline";
-
-type Period = "today" | "7d" | "30d";
 
 type ConsumerTrafficSource = {
     source: string;
@@ -24,44 +22,22 @@ type Payload = {
     };
 };
 
-const PERIODS: { value: Period; label: string; days: number }[] = [
-    { value: "today", label: "Hoje", days: 1 },
-    { value: "7d", label: "7 dias", days: 7 },
-    { value: "30d", label: "1 mês", days: 30 },
-];
-
-function formatDate(date: Date): string {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
-}
-
 function formatCount(value: number): string {
     return value.toLocaleString("pt-BR");
 }
 
 export default function ConsumerPipelineDashboard({
     restaurantId,
+    startDate,
+    endDate,
 }: {
     restaurantId: string;
+    startDate: string;
+    endDate: string;
 }) {
-    const [period, setPeriod] = useState<Period>("7d");
     const [data, setData] = useState<Payload | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
-
-    const range = useMemo(() => {
-        const selected = PERIODS.find((item) => item.value === period);
-        const end = new Date();
-        const start = new Date(end);
-        start.setDate(start.getDate() - ((selected?.days || 7) - 1));
-
-        return {
-            startDate: formatDate(start),
-            endDate: formatDate(end),
-        };
-    }, [period]);
 
     useEffect(() => {
         const controller = new AbortController();
@@ -98,8 +74,8 @@ export default function ConsumerPipelineDashboard({
         const requestPipeline = (accessToken: string) =>
             fetch(
                 `/api/restaurants/${restaurantId}/consumer-pipeline?from=${encodeURIComponent(
-                    range.startDate
-                )}&to=${encodeURIComponent(range.endDate)}`,
+                    startDate
+                )}&to=${encodeURIComponent(endDate)}`,
                 {
                     headers: {
                         Authorization: `Bearer ${accessToken}`,
@@ -162,30 +138,13 @@ export default function ConsumerPipelineDashboard({
 
         void load();
         return () => controller.abort();
-    }, [restaurantId, range.startDate, range.endDate]);
+    }, [restaurantId, startDate, endDate]);
 
     const totalClicks =
         data?.sources.reduce((total, source) => total + source.clicks, 0) || 0;
 
     return (
         <div className="space-y-4">
-            <div className="flex flex-wrap gap-2">
-                {PERIODS.map((item) => (
-                    <button
-                        key={item.value}
-                        type="button"
-                        onClick={() => setPeriod(item.value)}
-                        className={`rounded-lg cursor-pointer px-4 py-2 text-sm font-medium transition ${
-                            period === item.value
-                                ? "bg-brand text-white"
-                                : "border border-gray-200 bg-white text-gray-600 hover:border-gray-300"
-                        }`}
-                    >
-                        {item.label}
-                    </button>
-                ))}
-            </div>
-
             {loading && !data ? (
                 <Card>
                     <ListLoader lines={4} />
@@ -263,9 +222,7 @@ export default function ConsumerPipelineDashboard({
                         )}
                     </Card>
 
-                    {error && (
-                        <p className="text-sm text-red-600">{error}</p>
-                    )}
+                    {error && <p className="text-sm text-red-600">{error}</p>}
                 </>
             ) : null}
         </div>
