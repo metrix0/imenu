@@ -33,6 +33,7 @@ export default function CategorySection({
 }: CategorySectionProps) {
     const [isCreating, setIsCreating] = useState(false);
     const [localItems, setLocalItems] = useState<MenuItemType[]>(items);
+    const [mobileDragPreview, setMobileDragPreview] = useState<{ name: string; x: number; y: number } | null>(null);
     const localItemsRef = useRef<MenuItemType[]>(items);
     const draggedItemIdRef = useRef<string | null>(null);
 
@@ -99,11 +100,14 @@ export default function CategorySection({
         e.stopPropagation();
         e.currentTarget.setPointerCapture(e.pointerId);
         draggedItemIdRef.current = itemId;
+        const item = localItemsRef.current.find((current) => current.id === itemId);
+        if (item) setMobileDragPreview({ name: item.name, x: e.clientX, y: e.clientY });
     };
 
     const handlePointerMove = (e: React.PointerEvent<HTMLSpanElement>) => {
         if (e.pointerType === "mouse" || !draggedItemIdRef.current || isCreating) return;
         e.stopPropagation();
+        setMobileDragPreview((current) => current ? { ...current, x: e.clientX, y: e.clientY } : current);
         const target = document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>("[data-menu-item-id]");
         const targetItemId = target?.dataset.menuItemId;
         if (targetItemId) reorderItem(targetItemId);
@@ -116,6 +120,7 @@ export default function CategorySection({
             e.currentTarget.releasePointerCapture(e.pointerId);
         }
         draggedItemIdRef.current = null;
+        setMobileDragPreview(null);
         void saveItemOrder(localItemsRef.current);
     };
 
@@ -187,6 +192,16 @@ export default function CategorySection({
 
     return (
         <div className="mb-10 animate-fadeUp">
+            {mobileDragPreview && (
+                <div
+                    className="pointer-events-none fixed z-[9999] flex max-w-[calc(100vw-2rem)] items-center gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3 font-medium text-gray-900 shadow-xl opacity-95 md:hidden"
+                    style={{ left: mobileDragPreview.x + 12, top: mobileDragPreview.y + 12 }}
+                >
+                    <FontAwesomeIcon icon={faGripVertical} className="text-gray-400" />
+                    <span className="truncate">{mobileDragPreview.name}</span>
+                </div>
+            )}
+
             <div className="flex items-center justify-between mb-3 px-1">
                 <div className="flex items-center gap-3">
                     {dragHandle && (
