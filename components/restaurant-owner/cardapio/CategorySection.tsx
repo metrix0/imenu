@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, ReactNode, useEffect, useRef } from "react";
+import { useState, ReactNode, useEffect, useRef, useCallback } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { icons } from "@/lib/utils/fontawesome";
 import { faGripVertical, faStar } from "@fortawesome/free-solid-svg-icons";
@@ -36,13 +36,14 @@ export default function CategorySection({
     const [mobileDragPreview, setMobileDragPreview] = useState<{ name: string; x: number; y: number } | null>(null);
     const localItemsRef = useRef<MenuItemType[]>(items);
     const draggedItemIdRef = useRef<string | null>(null);
+    const activePointerIdRef = useRef<number | null>(null);
 
     useEffect(() => {
         setLocalItems(items);
         localItemsRef.current = items;
     }, [items]);
 
-    const reorderItem = (targetItemId: string) => {
+    const reorderItem = useCallback((targetItemId: string) => {
         const draggedItemId = draggedItemIdRef.current;
         if (!draggedItemId || draggedItemId === targetItemId) return;
 
@@ -57,9 +58,9 @@ export default function CategorySection({
         const updatedList = currentList.map((item, index) => ({ ...item, position: index }));
         localItemsRef.current = updatedList;
         setLocalItems(updatedList);
-    };
+    }, []);
 
-    const saveItemOrder = async (finalList: MenuItemType[]) => {
+    const saveItemOrder = useCallback(async (finalList: MenuItemType[]) => {
         try {
             const results = await Promise.all(
                 finalList.map((item) =>
@@ -71,7 +72,56 @@ export default function CategorySection({
         } catch (error) {
             console.error("Erro ao salvar ordem dos itens:", error);
         }
-    };
+    }, []);
+
+    const finishMobileDrag = useCallback((pointerId?: number) => {
+        if (
+            pointerId !== undefined &&
+            activePointerIdRef.current !== null &&
+            activePointerIdRef.current !== pointerId
+        ) return;
+
+        const wasDragging = Boolean(draggedItemIdRef.current);
+        draggedItemIdRef.current = null;
+        activePointerIdRef.current = null;
+        setMobileDragPreview(null);
+        if (wasDragging) void saveItemOrder(localItemsRef.current);
+    }, [saveItemOrder]);
+
+    useEffect(() => {
+        const handleMove = (event: PointerEvent) => {
+            if (
+                activePointerIdRef.current !== event.pointerId ||
+                !draggedItemIdRef.current ||
+                isCreating
+            ) return;
+
+            setMobileDragPreview((current) => current ? { ...current, x: event.clientX, y: event.clientY } : current);
+            const target = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>("[data-menu-item-id]");
+            const targetItemId = target?.dataset.menuItemId;
+            if (targetItemId) reorderItem(targetItemId);
+        };
+
+        const handleEnd = (event: PointerEvent) => finishMobileDrag(event.pointerId);
+        const handleBlur = () => finishMobileDrag();
+        const handleVisibilityChange = () => {
+            if (document.hidden) finishMobileDrag();
+        };
+
+        window.addEventListener("pointermove", handleMove);
+        window.addEventListener("pointerup", handleEnd);
+        window.addEventListener("pointercancel", handleEnd);
+        window.addEventListener("blur", handleBlur);
+        document.addEventListener("visibilitychange", handleVisibilityChange);
+
+        return () => {
+            window.removeEventListener("pointermove", handleMove);
+            window.removeEventListener("pointerup", handleEnd);
+            window.removeEventListener("pointercancel", handleEnd);
+            window.removeEventListener("blur", handleBlur);
+            document.removeEventListener("visibilitychange", handleVisibilityChange);
+        };
+    }, [finishMobileDrag, isCreating, reorderItem]);
 
     const handleDragStart = (e: React.DragEvent, itemId: string) => {
         e.stopPropagation();
@@ -96,32 +146,12 @@ export default function CategorySection({
     };
 
     const handlePointerStart = (e: React.PointerEvent<HTMLSpanElement>, itemId: string) => {
-        if (e.pointerType === "mouse" || isCreating) return;
+        if (e.pointerType === "mouse" || isCreating || activePointerIdRef.current !== null) return;
         e.stopPropagation();
-        e.currentTarget.setPointerCapture(e.pointerId);
+        activePointerIdRef.current = e.pointerId;
         draggedItemIdRef.current = itemId;
         const item = localItemsRef.current.find((current) => current.id === itemId);
         if (item) setMobileDragPreview({ name: item.name, x: e.clientX, y: e.clientY });
-    };
-
-    const handlePointerMove = (e: React.PointerEvent<HTMLSpanElement>) => {
-        if (e.pointerType === "mouse" || !draggedItemIdRef.current || isCreating) return;
-        e.stopPropagation();
-        setMobileDragPreview((current) => current ? { ...current, x: e.clientX, y: e.clientY } : current);
-        const target = document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>("[data-menu-item-id]");
-        const targetItemId = target?.dataset.menuItemId;
-        if (targetItemId) reorderItem(targetItemId);
-    };
-
-    const handlePointerEnd = (e: React.PointerEvent<HTMLSpanElement>) => {
-        if (e.pointerType === "mouse" || !draggedItemIdRef.current || isCreating) return;
-        e.stopPropagation();
-        if (e.currentTarget.hasPointerCapture(e.pointerId)) {
-            e.currentTarget.releasePointerCapture(e.pointerId);
-        }
-        draggedItemIdRef.current = null;
-        setMobileDragPreview(null);
-        void saveItemOrder(localItemsRef.current);
     };
 
     const handleCreateItem = async (partialItem: MenuItemType) => {
@@ -243,10 +273,6 @@ export default function CategorySection({
                                 <span
                                     className="inline-flex touch-none"
                                     onPointerDown={(e) => handlePointerStart(e, item.id)}
-                                    onPointerMove={handlePointerMove}
-                                    onPointerUp={handlePointerEnd}
-                                    onPointerCancel={handlePointerEnd}
-                                    onLostPointerCapture={handlePointerEnd}
                                 >
                                     <FontAwesomeIcon icon={faGripVertical} className="text-sm" />
                                 </span>
