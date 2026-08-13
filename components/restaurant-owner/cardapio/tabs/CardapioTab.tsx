@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {faSearch, faLayerGroup, faPlus, faGripVertical, faWandMagicSparkles} from "@fortawesome/free-solid-svg-icons";
 import { supabase } from "@/lib/database/supabaseClient";
@@ -41,6 +41,7 @@ export default function CardapioTab({
     const [mobileDragPreview, setMobileDragPreview] = useState<{ name: string; x: number; y: number } | null>(null);
     const localCategoriesRef = useRef<Category[]>(categories);
     const draggedCatIdRef = useRef<string | null>(null);
+    const activePointerIdRef = useRef<number | null>(null);
     const normalizedRestaurantRef = useRef<string | null>(null);
 
     useEffect(() => {
@@ -72,7 +73,7 @@ export default function CardapioTab({
 
     const isFiltering = searchTerm.length > 0 || selectedCategoryId !== "";
 
-    const reorderCategory = (targetCatId: string) => {
+    const reorderCategory = useCallback((targetCatId: string) => {
         const draggedCatId = draggedCatIdRef.current;
         if (!draggedCatId || draggedCatId === targetCatId) return;
         const currentList = [...localCategoriesRef.current];
@@ -85,9 +86,9 @@ export default function CardapioTab({
         const updatedList = currentList.map((category, index) => ({ ...category, position: index + 1 }));
         localCategoriesRef.current = updatedList;
         setLocalCategories(updatedList);
-    };
+    }, []);
 
-    const saveOrder = async (finalList: Category[]) => {
+    const saveOrder = useCallback(async (finalList: Category[]) => {
         try {
             const normalized = finalList.map((category, index) => ({ ...category, position: index + 1 }));
             const results = await Promise.all(
@@ -100,7 +101,57 @@ export default function CardapioTab({
         } catch (error) {
             console.error("Erro ao salvar ordem das categorias:", error);
         }
-    };
+    }, []);
+
+    const finishMobileDrag = useCallback((pointerId?: number) => {
+        if (
+            pointerId !== undefined &&
+            activePointerIdRef.current !== null &&
+            activePointerIdRef.current !== pointerId
+        ) return;
+
+        const wasDragging = Boolean(draggedCatIdRef.current);
+        draggedCatIdRef.current = null;
+        activePointerIdRef.current = null;
+        setMobileDragPreview(null);
+        if (wasDragging) void saveOrder(localCategoriesRef.current);
+    }, [saveOrder]);
+
+    useEffect(() => {
+        const handleMove = (event: PointerEvent) => {
+            if (
+                activePointerIdRef.current !== event.pointerId ||
+                !draggedCatIdRef.current
+            ) return;
+
+            setMobileDragPreview((current) => current ? { ...current, x: event.clientX, y: event.clientY } : current);
+            const target = document
+                .elementFromPoint(event.clientX, event.clientY)
+                ?.closest<HTMLElement>("[data-category-id]");
+            const targetCatId = target?.dataset.categoryId;
+            if (targetCatId) reorderCategory(targetCatId);
+        };
+
+        const handleEnd = (event: PointerEvent) => finishMobileDrag(event.pointerId);
+        const handleBlur = () => finishMobileDrag();
+        const handleVisibilityChange = () => {
+            if (document.hidden) finishMobileDrag();
+        };
+
+        window.addEventListener("pointermove", handleMove);
+        window.addEventListener("pointerup", handleEnd);
+        window.addEventListener("pointercancel", handleEnd);
+        window.addEventListener("blur", handleBlur);
+        document.addEventListener("visibilitychange", handleVisibilityChange);
+
+        return () => {
+            window.removeEventListener("pointermove", handleMove);
+            window.removeEventListener("pointerup", handleEnd);
+            window.removeEventListener("pointercancel", handleEnd);
+            window.removeEventListener("blur", handleBlur);
+            document.removeEventListener("visibilitychange", handleVisibilityChange);
+        };
+    }, [finishMobileDrag, reorderCategory]);
 
     const handleDragStart = (e: React.DragEvent, catId: string) => {
         draggedCatIdRef.current = catId;
@@ -122,34 +173,12 @@ export default function CardapioTab({
     };
 
     const handlePointerStart = (e: React.PointerEvent<HTMLSpanElement>, catId: string) => {
-        if (e.pointerType === "mouse" || isFiltering) return;
+        if (e.pointerType === "mouse" || isFiltering || activePointerIdRef.current !== null) return;
         e.stopPropagation();
-        e.currentTarget.setPointerCapture(e.pointerId);
+        activePointerIdRef.current = e.pointerId;
         draggedCatIdRef.current = catId;
         const category = localCategoriesRef.current.find((current) => current.id === catId);
         if (category) setMobileDragPreview({ name: category.name, x: e.clientX, y: e.clientY });
-    };
-
-    const handlePointerMove = (e: React.PointerEvent<HTMLSpanElement>) => {
-        if (e.pointerType === "mouse" || !draggedCatIdRef.current || isFiltering) return;
-        e.stopPropagation();
-        setMobileDragPreview((current) => current ? { ...current, x: e.clientX, y: e.clientY } : current);
-        const target = document
-            .elementFromPoint(e.clientX, e.clientY)
-            ?.closest<HTMLElement>("[data-category-id]");
-        const targetCatId = target?.dataset.categoryId;
-        if (targetCatId) reorderCategory(targetCatId);
-    };
-
-    const handlePointerEnd = (e: React.PointerEvent<HTMLSpanElement>) => {
-        if (e.pointerType === "mouse" || !draggedCatIdRef.current || isFiltering) return;
-        e.stopPropagation();
-        if (e.currentTarget.hasPointerCapture(e.pointerId)) {
-            e.currentTarget.releasePointerCapture(e.pointerId);
-        }
-        draggedCatIdRef.current = null;
-        setMobileDragPreview(null);
-        void saveOrder(localCategoriesRef.current);
     };
 
     const displayCategories = localCategories.filter((category) => {
@@ -243,10 +272,6 @@ export default function CardapioTab({
                                 <span
                                     className="inline-flex touch-none"
                                     onPointerDown={(e) => handlePointerStart(e, category.id)}
-                                    onPointerMove={handlePointerMove}
-                                    onPointerUp={handlePointerEnd}
-                                    onPointerCancel={handlePointerEnd}
-                                    onLostPointerCapture={handlePointerEnd}
                                 >
                                     <FontAwesomeIcon icon={faGripVertical} />
                                 </span>
