@@ -53,7 +53,7 @@ export default function BestSellers() {
                     {restaurants.map((restaurant, index) => (
                         <article
                             key={restaurant.id}
-                            className="flex min-w-0 items-center gap-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm md:flex-col md:text-center 2xl:p-7"
+                            className="flex min-w-0 flex-wrap items-center gap-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm md:flex-col md:flex-nowrap md:text-center 2xl:p-7"
                         >
                             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand/10 text-lg font-bold text-brand">
                                 {index + 1}º
@@ -73,7 +73,7 @@ export default function BestSellers() {
                                 )}
                             </div>
 
-                            <div className="min-w-0 flex-1 md:flex-none">
+                            <div className="order-last w-full min-w-0 md:order-none md:w-auto md:flex-none">
                                 <h3 className="truncate text-lg font-bold text-gray-900 2xl:text-xl">
                                     {restaurant.name}
                                 </h3>
