@@ -359,7 +359,9 @@ export default function MenuItemRow({
 
         return (
             <div
-                className="hidden items-center gap-2 whitespace-nowrap md:flex"
+                className={`${
+                    isEditing ? "flex" : "hidden md:flex"
+                } items-center gap-2 whitespace-nowrap`}
                 onClick={(e) => e.stopPropagation()}
             >
                 <span className="text-xs font-medium text-gray-500 2xl:text-sm">
@@ -606,10 +608,10 @@ export default function MenuItemRow({
     }
 
     return (
-        <div className="flex flex-col sm:flex-row sm:items-center p-4 bg-white border-b border-gray-100 shadow-md relative z-10 gap-4 animate-fadeUp">
-            <div className="flex items-start gap-4 flex-1 w-full 2xl:items-center">
+        <div className="relative z-10 flex min-w-0 max-w-full flex-col gap-4 overflow-hidden border-b border-gray-100 bg-white p-4 shadow-md animate-fadeUp sm:flex-row sm:items-center">
+            <div className="flex w-full min-w-0 flex-1 items-start gap-4 2xl:items-center">
                 {renderImageArea()}
-                <div className="flex-1 space-y-2 2xl:space-y-0 w-full">
+                <div className="w-full min-w-0 flex-1 space-y-2 2xl:space-y-0">
                     <input
                         ref={nameInputRef}
                         value={name ?? ""}
@@ -632,7 +634,7 @@ export default function MenuItemRow({
                 </div>
             </div>
 
-            <div className="flex items-center justify-end gap-3 2xl:gap-5 w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-gray-50">
+            <div className="flex w-full min-w-0 flex-wrap items-center justify-end gap-3 border-t border-gray-50 pt-2 2xl:gap-5 sm:w-auto sm:flex-nowrap sm:border-t-0 sm:pt-0">
                 {renderStockInput()}
 
                 <div className="relative w-24 2xl:w-26 flex items-center">
