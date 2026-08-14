@@ -2,7 +2,12 @@
 
 import { useState, useRef, useEffect, ReactNode } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faImage, faSpinner, faCog } from "@fortawesome/free-solid-svg-icons";
+import {
+    faBox,
+    faCog,
+    faImage,
+    faSpinner,
+} from "@fortawesome/free-solid-svg-icons";
 import { icons } from "@/lib/utils/fontawesome";
 import { uploadMenuImage } from "@/lib/database/uploadMenuImage";
 import { supabase } from "@/lib/database/supabaseClient";
@@ -354,7 +359,7 @@ export default function MenuItemRow({
 
         return (
             <div
-                className="flex items-center gap-2 whitespace-nowrap"
+                className="hidden items-center gap-2 whitespace-nowrap md:flex"
                 onClick={(e) => e.stopPropagation()}
             >
                 <span className="text-xs font-medium text-gray-500 2xl:text-sm">
@@ -435,7 +440,7 @@ export default function MenuItemRow({
                     }`}
                     onClick={() => setIsEditing(true)}
                 >
-                    <div className="flex items-center gap-3 2xl:gap-4 overflow-hidden">
+                    <div className="flex min-w-0 items-center gap-3 overflow-hidden 2xl:gap-4">
                         {dragHandle && (
                             <div
                                 className="text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing p-1 -ml-2"
@@ -447,11 +452,23 @@ export default function MenuItemRow({
 
                         {renderImageArea()}
 
-                        <div className="flex flex-col min-w-0 2xl:text-lg">
-                            <div className="flex items-center gap-2 min-w-0">
-                                <span className="font-medium text-gray-900 truncate">
+                        <div className="flex min-w-0 flex-col 2xl:text-lg">
+                            <div className="flex min-w-0 items-center gap-2">
+                                <span className="truncate font-medium text-gray-900">
                                     {name}
                                 </span>
+                                {item.stock_enabled &&
+                                    Number(stockInput || 0) > 0 && (
+                                        <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-gray-600 md:hidden">
+                                            <FontAwesomeIcon
+                                                icon={faBox}
+                                                className="text-[9px]"
+                                            />
+                                            {Number(
+                                                stockInput || 0
+                                            ).toLocaleString("pt-BR")}
+                                        </span>
+                                    )}
                                 {!isAvailable && (
                                     <span className="shrink-0 text-[10px] font-bold text-red-500 uppercase">
                                         Pausado
