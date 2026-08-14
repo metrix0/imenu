@@ -1,6 +1,8 @@
 import type { MetadataRoute } from "next";
 import { createSupabaseServerClient } from "@/lib/database/supabaseServerClient";
 
+export const revalidate = 3600;
+
 const SITE_URL = "https://www.imenuapp.com.br";
 
 const STATIC_ROUTES: MetadataRoute.Sitemap = [
