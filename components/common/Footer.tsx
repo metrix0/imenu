@@ -1,11 +1,14 @@
 // components/Footer.tsx
 
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { useRestaurantDirectory } from "@/components/common/RestaurantDirectoryProvider";
 
 
 export default function Footer() {
 
     const router = useRouter();
+    const restaurantCities = useRestaurantDirectory();
 
     return (
         <footer className="w-full border-t border-gray-200 mt-20 pt-12 pb-10 bg-white 2xl:pb-16">
@@ -35,6 +38,42 @@ export default function Footer() {
                 </div>
 
             </div>
+
+
+            {restaurantCities.length > 0 && (
+                <div className="mx-4 mt-10 px-6 md:mx-24 2xl:mx-32">
+                    <details className="group">
+                        <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-semibold text-gray-800 2xl:text-xl [&::-webkit-details-marker]:hidden">
+                            <span>Cardápios por cidade</span>
+                            <span
+                                aria-hidden="true"
+                                className="text-gray-500 transition-transform group-open:rotate-180"
+                            >
+                                ⌄
+                            </span>
+                        </summary>
+
+                        <nav
+                            aria-label="Cardápios por cidade"
+                            className="mt-5 hidden max-h-72 grid-cols-1 gap-x-8 gap-y-3 overflow-y-auto pr-2 text-sm group-open:grid sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 2xl:text-xl"
+                        >
+                            {restaurantCities.map((city) => (
+                                <Link
+                                    key={city.slug}
+                                    href={"/restaurantes/" + city.slug}
+                                    className="w-fit text-gray-600 hover:text-gray-800 hover:underline"
+                                >
+                                    {city.name}
+                                    {city.state ? ", " + city.state : ""}
+                                    <span className="ml-1 text-gray-400">
+                                        ({city.menuCount})
+                                    </span>
+                                </Link>
+                            ))}
+                        </nav>
+                    </details>
+                </div>
+            ))}
 
             <hr className="my-16 md:my-10 2xl:my-16 border-gray-200" />
 

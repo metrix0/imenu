@@ -3,13 +3,15 @@ import { headers } from "next/headers";
 import "./globals.css";
 import "@/lib/utils/fontawesome";
 import PosthogProvider from "@/components/common/PosthogProvider";
+import RestaurantDirectoryProvider from "@/components/common/RestaurantDirectoryProvider";
+import { getRestaurantCityLinks } from "@/lib/seo/restaurantDirectory";
 
 export async function generateMetadata(): Promise<Metadata> {
     const h = await headers();
     const host = h.get("host");
 
     const baseUrl = host
-        ? `https://${host}`
+        ? "https://" + host
         : "https://imenuapp.com.br";
 
     return {
@@ -33,18 +35,24 @@ export async function generateMetadata(): Promise<Metadata> {
     };
 }
 
-export default function RootLayout({
+export default async function RootLayout({
     children,
 }: {
     children: React.ReactNode;
 }) {
+    const restaurantCities = await getRestaurantCityLinks();
+
     return (
         <html lang="pt-BR">
             <body
                 className="min-h-screen bg-white text-gray-900"
                 suppressHydrationWarning
             >
-                <PosthogProvider>{children}</PosthogProvider>
+                <PosthogProvider>
+                    <RestaurantDirectoryProvider cities={restaurantCities}>
+                        {children}
+                    </RestaurantDirectoryProvider>
+                </PosthogProvider>
             </body>
         </html>
     );

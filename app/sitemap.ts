@@ -1,60 +1,65 @@
 import type { MetadataRoute } from "next";
-import { createSupabaseServerClient } from "@/lib/database/supabaseServerClient";
+import { getRestaurantDirectory } from "@/lib/seo/restaurantDirectory";
 
 export const revalidate = 3600;
 
 const SITE_URL = "https://www.imenuapp.com.br";
 
 const STATIC_ROUTES: MetadataRoute.Sitemap = [
-    { url: `${SITE_URL}/`, priority: 1 },
-    { url: `${SITE_URL}/cardapio-digital`, priority: 0.9 },
-    { url: `${SITE_URL}/anota-ai`, priority: 0.8 },
-    { url: `${SITE_URL}/cardapio-digital-gratuito`, priority: 0.8 },
-    { url: `${SITE_URL}/saipos`, priority: 0.7 },
-    { url: `${SITE_URL}/goomer`, priority: 0.7 },
-    { url: `${SITE_URL}/gestor-de-pedidos`, priority: 0.7 },
+    { url: SITE_URL + "/", priority: 1 },
+    { url: SITE_URL + "/cardapio-digital", priority: 0.9 },
+    { url: SITE_URL + "/anota-ai", priority: 0.8 },
+    { url: SITE_URL + "/cardapio-digital-gratuito", priority: 0.8 },
+    { url: SITE_URL + "/saipos", priority: 0.7 },
+    { url: SITE_URL + "/goomer", priority: 0.7 },
+    { url: SITE_URL + "/gestor-de-pedidos", priority: 0.7 },
 ];
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     try {
-        const supabase = createSupabaseServerClient();
-        const { data, error } = await supabase
-            .from("restaurants")
-            .select("url_slug, updated_at")
-            .eq("first_time", false)
-            .not("url_slug", "is", null)
-            .not("name", "is", null)
-            .order("updated_at", { ascending: false });
+        const cities = await getRestaurantDirectory();
+        const staticUrls = new Set(
+            STATIC_ROUTES.map((route) => route.url)
+        );
 
-        if (error) throw error;
+        const cityRoutes: MetadataRoute.Sitemap = cities.map((city) => ({
+            url:
+                SITE_URL +
+                "/restaurantes/" +
+                encodeURIComponent(city.slug),
+            lastModified: city.updatedAt || undefined,
+            changeFrequency: "daily" as const,
+            priority: 0.8,
+        }));
 
-        const staticUrls = new Set(STATIC_ROUTES.map((route) => route.url));
-        const rows: unknown[] = Array.isArray(data) ? data : [];
-        const restaurantRoutes: MetadataRoute.Sitemap = rows
-            .map((value) =>
-                value && typeof value === "object" && !Array.isArray(value)
-                    ? (value as Record<string, unknown>)
-                    : null
-            )
-            .filter((restaurant): restaurant is Record<string, unknown> =>
-                Boolean(restaurant && restaurant.url_slug)
-            )
-            .map((restaurant) => ({
-                url: `${SITE_URL}/${encodeURIComponent(
-                    String(restaurant.url_slug)
-                )}`,
-                lastModified:
-                    typeof restaurant.updated_at === "string"
-                        ? restaurant.updated_at
-                        : undefined,
-                changeFrequency: "daily" as const,
-                priority: 0.7,
-            }))
-            .filter((route) => !staticUrls.has(route.url));
+        const restaurantRoutes: MetadataRoute.Sitemap = cities.flatMap(
+            (city) =>
+                city.restaurants.map((restaurant) => ({
+                    url:
+                        SITE_URL +
+                        "/" +
+                        encodeURIComponent(restaurant.slug),
+                    lastModified: restaurant.updatedAt || undefined,
+                    changeFrequency: "daily" as const,
+                    priority: 0.7,
+                }))
+        );
 
-        return [...STATIC_ROUTES, ...restaurantRoutes];
+        const seenUrls = new Set(staticUrls);
+        const publicRoutes = [...cityRoutes, ...restaurantRoutes].filter(
+            (route) => {
+                if (seenUrls.has(route.url)) return false;
+                seenUrls.add(route.url);
+                return true;
+            }
+        );
+
+        return [...STATIC_ROUTES, ...publicRoutes];
     } catch (error) {
-        console.error("[SITEMAP] Failed to load restaurant pages:", error);
+        console.error(
+            "[SITEMAP] Failed to load restaurant directory:",
+            error
+        );
         return STATIC_ROUTES;
     }
 }
