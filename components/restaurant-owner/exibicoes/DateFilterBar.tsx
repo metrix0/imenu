@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
     faCalendarDays,
@@ -10,12 +10,15 @@ import {
 
 import Card from "@/components/ui/Card";
 
-export const DATE_FILTER_PRESETS = [
-    { label: "Hoje", days: 1 },
-    { label: "7 dias", days: 7 },
-    { label: "30 dias", days: 30 },
-    { label: "90 dias", days: 90 },
-] as const;
+export type DateRange = {
+    startDate: string;
+    endDate: string;
+};
+
+export type DateFilterPreset = {
+    label: string;
+    getRange: () => DateRange;
+};
 
 const WEEK_DAYS = ["D", "S", "T", "Q", "Q", "S", "S"];
 
@@ -39,7 +42,7 @@ function formatRangeDate(value: string): string {
     });
 }
 
-export function getDateRangeForDays(days: number) {
+export function getDateRangeForDays(days: number): DateRange {
     const end = new Date();
     const start = new Date(end);
     start.setDate(start.getDate() - Math.max(days - 1, 0));
@@ -50,12 +53,41 @@ export function getDateRangeForDays(days: number) {
     };
 }
 
+export function getCurrentMonthRange(): DateRange {
+    const today = new Date();
+    return {
+        startDate: formatDate(
+            new Date(today.getFullYear(), today.getMonth(), 1)
+        ),
+        endDate: formatDate(today),
+    };
+}
+
+export function getPreviousMonthRange(): DateRange {
+    const today = new Date();
+    const start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+    const end = new Date(today.getFullYear(), today.getMonth(), 0);
+
+    return {
+        startDate: formatDate(start),
+        endDate: formatDate(end),
+    };
+}
+
+export const DATE_FILTER_PRESETS: DateFilterPreset[] = [
+    { label: "Hoje", getRange: () => getDateRangeForDays(1) },
+    { label: "7 dias", getRange: () => getDateRangeForDays(7) },
+    { label: "30 dias", getRange: () => getDateRangeForDays(30) },
+    { label: "90 dias", getRange: () => getDateRangeForDays(90) },
+];
+
 interface DateFilterBarProps {
     startDate: string;
     endDate: string;
     onStartDateChange: (date: string) => void;
     onEndDateChange: (date: string) => void;
     showPresets?: boolean;
+    presets?: DateFilterPreset[];
 }
 
 export default function DateFilterBar({
@@ -64,13 +96,36 @@ export default function DateFilterBar({
     onStartDateChange,
     onEndDateChange,
     showPresets = false,
+    presets = DATE_FILTER_PRESETS,
 }: DateFilterBarProps) {
+    const rootRef = useRef<HTMLDivElement>(null);
     const [calendarOpen, setCalendarOpen] = useState(false);
     const [draftStart, setDraftStart] = useState<string | null>(null);
     const [visibleMonth, setVisibleMonth] = useState(() => {
         const date = parseDate(endDate);
         return new Date(date.getFullYear(), date.getMonth(), 1);
     });
+
+    useEffect(() => {
+        if (!calendarOpen) return;
+
+        const closeOnOutsideClick = (event: MouseEvent | TouchEvent) => {
+            const target = event.target;
+            if (!(target instanceof Node)) return;
+            if (!rootRef.current?.contains(target)) {
+                setCalendarOpen(false);
+                setDraftStart(null);
+            }
+        };
+
+        document.addEventListener("mousedown", closeOnOutsideClick);
+        document.addEventListener("touchstart", closeOnOutsideClick);
+
+        return () => {
+            document.removeEventListener("mousedown", closeOnOutsideClick);
+            document.removeEventListener("touchstart", closeOnOutsideClick);
+        };
+    }, [calendarOpen]);
 
     const calendarDays = useMemo(() => {
         const year = visibleMonth.getFullYear();
@@ -84,8 +139,8 @@ export default function DateFilterBar({
         ];
     }, [visibleMonth]);
 
-    const setPreset = (days: number) => {
-        const range = getDateRangeForDays(days);
+    const setPreset = (preset: DateFilterPreset) => {
+        const range = preset.getRange();
         onStartDateChange(range.startDate);
         onEndDateChange(range.endDate);
         setDraftStart(null);
@@ -119,7 +174,7 @@ export default function DateFilterBar({
 
     return (
         <Card className="mb-6 border-gray-200 p-0 shadow-sm">
-            <div className="relative p-4 sm:p-5">
+            <div ref={rootRef} className="relative p-4 sm:p-5">
                 <div className="flex items-center justify-between gap-3">
                     <div>
                         <h2 className="text-sm font-semibold text-gray-900 2xl:text-base">
@@ -145,19 +200,19 @@ export default function DateFilterBar({
                     </button>
                 </div>
 
-                {showPresets && (
+                {showPresets && presets.length > 0 && (
                     <div className="mt-4 grid grid-cols-2 gap-1 rounded-xl bg-gray-100 p-1 sm:grid-cols-4">
-                        {DATE_FILTER_PRESETS.map((preset) => {
-                            const range = getDateRangeForDays(preset.days);
+                        {presets.map((preset) => {
+                            const range = preset.getRange();
                             const active =
                                 startDate === range.startDate &&
                                 endDate === range.endDate;
 
                             return (
                                 <button
-                                    key={preset.days}
+                                    key={preset.label}
                                     type="button"
-                                    onClick={() => setPreset(preset.days)}
+                                    onClick={() => setPreset(preset)}
                                     className={`cursor-pointer rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${
                                         active
                                             ? "bg-white text-brand shadow-sm ring-1 ring-black/5"
@@ -229,7 +284,12 @@ export default function DateFilterBar({
                         <div className="grid grid-cols-7 gap-y-1">
                             {calendarDays.map((day, index) => {
                                 if (day === null) {
-                                    return <span key={`blank-${index}`} className="h-9" />;
+                                    return (
+                                        <span
+                                            key={`blank-${index}`}
+                                            className="h-9"
+                                        />
+                                    );
                                 }
 
                                 const date = formatDate(
@@ -241,7 +301,8 @@ export default function DateFilterBar({
                                 );
                                 const disabled = date > today;
                                 const isStart = date === shownStart;
-                                const isEnd = shownEnd !== null && date === shownEnd;
+                                const isEnd =
+                                    shownEnd !== null && date === shownEnd;
                                 const inRange =
                                     shownEnd !== null &&
                                     date > shownStart &&
