@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faCircleQuestion } from "@fortawesome/free-solid-svg-icons";
 import { icons } from "@/lib/utils/fontawesome";
 import BonusButton from "@/components/ui/BonusButton";
 import Button from "@/components/ui/Button";
@@ -44,7 +43,6 @@ export default function LandingPage() {
     const [selected, setSelected] = useState(1);
     const [autoRotate, setAutoRotate] = useState(true);
     const [restCount, setRestCount] = useState(0);
-    const [expanded] = useState(false);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -530,28 +528,6 @@ export default function LandingPage() {
                 }`}
             />
 
-            <button
-                type="button"
-                onClick={() => supportBtnRef.current?.open()}
-                className={`group relative flex w-full cursor-pointer items-center py-3 text-gray-600 transition-all duration-200 hover:bg-gray-50 hover:text-gray-900 ${
-                    expanded ? "justify-start gap-3 px-5" : "justify-center px-0"
-                }`}
-                title={!expanded ? "Ajuda" : ""}
-            >
-                <div className="flex h-6 w-6 items-center justify-center 2xl:h-10 2xl:w-12">
-                    <FontAwesomeIcon
-                        icon={faCircleQuestion}
-                        className="text-lg text-gray-400 transition-colors group-hover:text-gray-600 2xl:text-2xl"
-                    />
-                </div>
-                <span
-                    className={`overflow-hidden text-sm whitespace-nowrap transition-all duration-300 2xl:text-lg ${
-                        expanded ? "ml-0 w-auto opacity-100" : "ml-0 w-0 opacity-0"
-                    }`}
-                >
-                    Ajuda
-                </span>
-            </button>
         </div>
     );
 }

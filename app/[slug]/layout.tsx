@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { cache, Suspense } from "react";
 import Script from "next/script";
-import MenuSkeleton from "./loading";
+import { notFound } from "next/navigation";
+import MenuSkeleton from "./MenuSkeleton";
 import { createSupabaseServerClient } from "@/lib/database/supabaseServerClient";
 import ConsumerMenuViewTracker from "@/components/analytics/ConsumerMenuViewTracker";
 
@@ -36,7 +37,6 @@ type TimeSlot = {
 
 type RestaurantSeoData = {
     name: string | null;
-    description: string | null;
     logo_url: string | null;
     banner_url: string | null;
     availability_json: unknown;
@@ -200,19 +200,19 @@ function getPublicUrl(
 }
 
 const getRestaurantSeo = cache(
-    async (slug: string): Promise<RestaurantSeoData | null> => {
+    async (slug: string): Promise<RestaurantSeoData | null | undefined> => {
         const supabase = createSupabaseServerClient();
         const { data, error } = await supabase
             .from("restaurants")
             .select(
-                "name, description, logo_url, banner_url, availability_json, address, store_whatsapp, latitude, longitude, first_time"
+                "name, logo_url, banner_url, availability_json, address, store_whatsapp, latitude, longitude, first_time"
             )
             .eq("url_slug", slug)
             .maybeSingle();
 
         if (error) {
             console.error("[RESTAURANT_SEO] Failed to load restaurant:", error);
-            return null;
+            return undefined;
         }
 
         if (!data) return null;
@@ -224,8 +224,6 @@ const getRestaurantSeo = cache(
 
         return {
             name: typeof row.name === "string" ? row.name : null,
-            description:
-                typeof row.description === "string" ? row.description : null,
             logo_url: getPublicUrl(
                 supabase,
                 "restaurant-logos",
@@ -320,7 +318,7 @@ function buildStructuredData(
         name: text(restaurant.name),
         url: canonicalUrl,
         hasMenu: canonicalUrl,
-        description: text(restaurant.description) || buildDescription(restaurant),
+        description: buildDescription(restaurant),
         ...(images.length ? { image: images } : {}),
         ...(whatsapp ? { telephone: whatsapp.telephone } : {}),
         ...(address
@@ -425,6 +423,11 @@ export default async function Layout({
 }) {
     const { slug } = await params;
     const restaurant = await getRestaurantSeo(slug);
+
+    if (restaurant === null) {
+        notFound();
+    }
+
     const structuredData =
         restaurant?.name && restaurant.first_time === false
             ? buildStructuredData(slug, restaurant)
