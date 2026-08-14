@@ -129,6 +129,7 @@ export default function SearchModal({ restaurant, categories, itemsByCategory, o
                                                 src={item.image_public_url || "/placeholders/item.png"}
                                                 alt={item.name}
                                                 className="w-16 h-16 rounded object-cover"
+                                                loading="lazy"
                                             />
                                             <div className="flex-1">
                                                 <p className="font-semibold">{item.name}</p>

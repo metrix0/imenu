@@ -897,6 +897,7 @@ export default function MenuClientPage({
                                                 src={item.image_public_url || "/placeholders/item.png"}
                                                 className="w-full h-full object-cover"
                                                 alt={item.name}
+                                                loading="lazy"
                                             />
                                         </div>
 
@@ -957,6 +958,7 @@ export default function MenuClientPage({
                                                 src={item.image_public_url || "/placeholders/item.png"}
                                                 className="w-full h-full object-cover"
                                                 alt={item.name}
+                                                loading="lazy"
                                             />
                                         </div>
                                     </button>

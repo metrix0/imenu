@@ -135,9 +135,30 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId }
         try {
             const { data: rawGroups, error: grpErr } = await supabase.from("item_subcategories").select("*").eq("item_id", item.id).order("position", { ascending: true });
             if (grpErr) throw grpErr;
-            const groupsWithItems = await Promise.all((rawGroups || []).map(async (g) => {
-                const { data: subs } = await supabase.from("subitems").select("*").eq("item_subcategory_id", g.id).order("position", { ascending: true });
-                return { ...g, required: g.min_select > 0, subitems: subs || [] };
+
+            const groupRows = rawGroups || [];
+            const groupIds = groupRows.map((group) => group.id);
+            const { data: rawSubitems, error: subitemsError } = groupIds.length
+                ? await supabase
+                    .from("subitems")
+                    .select("*")
+                    .in("item_subcategory_id", groupIds)
+                    .order("position", { ascending: true })
+                : { data: [], error: null };
+
+            if (subitemsError) throw subitemsError;
+
+            const subitemsByGroup = new Map<string, Subitem[]>();
+            for (const subitem of rawSubitems || []) {
+                const current = subitemsByGroup.get(subitem.item_subcategory_id) || [];
+                current.push(subitem);
+                subitemsByGroup.set(subitem.item_subcategory_id, current);
+            }
+
+            const groupsWithItems = groupRows.map((group) => ({
+                ...group,
+                required: group.min_select > 0,
+                subitems: subitemsByGroup.get(group.id) || [],
             }));
             setGroups(groupsWithItems);
         } catch (err) { console.error(err); } finally { setIsLoading(false); }
@@ -302,6 +323,21 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId }
     };
     const handleSubitemDragEnd = (e: React.DragEvent) => {
         (e.target as HTMLElement).style.opacity = "1";
+
+        const group = draggedSubitem
+            ? groups.find((currentGroup) => currentGroup.id === draggedSubitem.groupId)
+            : null;
+
+        if (group) {
+            const updates = group.subitems.map((subitem) =>
+                supabase
+                    .from("subitems")
+                    .update({ position: subitem.position })
+                    .eq("id", subitem.id)
+            );
+            void Promise.all(updates);
+        }
+
         setDraggedSubitem(null);
     };
     const handleSubitemDragOver = (e: React.DragEvent, targetGroupId: string, targetSubitemId: string) => {
@@ -319,8 +355,6 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId }
         const newGroups = [...groups];
         newGroups[gIdx].subitems = updated;
         setGroups(newGroups);
-        const updates = updated.map(s => supabase.from("subitems").update({ position: s.position }).eq("id", s.id));
-        Promise.all(updates);
     };
 
     const handleGroupDragStart = (e: React.DragEvent, groupId: string) => {
@@ -368,8 +402,12 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId }
     };
 
 
-    const handleUpdateGroup = async (groupId: string, updates: Partial<Subcategory>) => {
+    const updateGroupLocally = (groupId: string, updates: Partial<Subcategory>) => {
         setGroups(prev => prev.map(g => g.id === groupId ? { ...g, ...updates } : g));
+    };
+
+    const handleUpdateGroup = async (groupId: string, updates: Partial<Subcategory>) => {
+        updateGroupLocally(groupId, updates);
         let dbUpdates: any = { ...updates };
         if (updates.required !== undefined) {
             dbUpdates.min_select = updates.required ? 1 : 0;
@@ -392,8 +430,12 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId }
         await supabase.from("subitems").insert({ item_subcategory_id: groupId, name: "Nova Opção", price_cents: 0, is_available: true, position: nextPosition });
         loadComplements();
     };
-    const handleUpdateSubitem = async (subitemId: string, updates: Partial<Subitem>) => {
+    const updateSubitemLocally = (subitemId: string, updates: Partial<Subitem>) => {
         setGroups(prev => prev.map(g => ({ ...g, subitems: g.subitems.map(s => s.id === subitemId ? { ...s, ...updates } : s) })));
+    };
+
+    const handleUpdateSubitem = async (subitemId: string, updates: Partial<Subitem>) => {
+        updateSubitemLocally(subitemId, updates);
         await supabase.from("subitems").update(updates).eq("id", subitemId);
     };
     const handleDeleteSubitem = async (subitemId: string) => {
@@ -457,7 +499,8 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId }
                                         <input 
                                             className="bg-transparent font-bold text-gray-800 text-lg 2xl:text-xl w-full focus:outline-none focus:border-b focus:border-brand"
                                             value={group.name}
-                                            onChange={(e) => handleUpdateGroup(group.id, { name: e.target.value })}
+                                            onChange={(e) => updateGroupLocally(group.id, { name: e.target.value })}
+                                            onBlur={(e) => handleUpdateGroup(group.id, { name: e.currentTarget.value })}
                                             onMouseDown={e => e.stopPropagation()} 
                                         />
                                         <div className="flex gap-4 mt-2 text-sm 2xl:text-base text-gray-600">
@@ -476,7 +519,8 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId }
                                                     type="number" 
                                                     className="w-12 p-1 text-center rounded border border-gray-300 text-sm 2xl:text-base"
                                                     value={group.max_select}
-                                                    onChange={(e) => handleUpdateGroup(group.id, { max_select: parseInt(e.target.value) || 1 })}
+                                                    onChange={(e) => updateGroupLocally(group.id, { max_select: parseInt(e.target.value) || 1 })}
+                                                    onBlur={(e) => handleUpdateGroup(group.id, { max_select: parseInt(e.currentTarget.value) || 1 })}
                                                     onMouseDown={e => e.stopPropagation()}
                                                 />
                                             </div>
@@ -506,7 +550,8 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId }
                                         <input 
                                             className="flex-1 text-sm 2xl:text-base text-gray-700 focus:outline-none bg-transparent"
                                             value={sub.name}
-                                            onChange={(e) => handleUpdateSubitem(sub.id, { name: e.target.value })}
+                                            onChange={(e) => updateSubitemLocally(sub.id, { name: e.target.value })}
+                                            onBlur={(e) => handleUpdateSubitem(sub.id, { name: e.currentTarget.value })}
                                             onMouseDown={e => e.stopPropagation()}
                                         />
                                         <div className="flex items-center gap-1 relative">

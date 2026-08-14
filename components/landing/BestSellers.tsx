@@ -65,6 +65,7 @@ export default function BestSellers() {
                                         src={restaurant.logo_url}
                                         alt={`Logo de ${restaurant.name}`}
                                         className="h-full w-full object-cover"
+                                        loading="lazy"
                                     />
                                 ) : (
                                     <div className="flex h-full w-full items-center justify-center text-xl font-bold text-brand">
