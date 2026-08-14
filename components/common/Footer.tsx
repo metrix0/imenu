@@ -73,7 +73,7 @@ export default function Footer() {
                         </nav>
                     </details>
                 </div>
-            ))}
+            )}
 
             <hr className="my-16 md:my-10 2xl:my-16 border-gray-200" />
 
