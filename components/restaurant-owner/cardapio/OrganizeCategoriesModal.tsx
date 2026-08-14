@@ -53,31 +53,28 @@ export default function OrganizeCategoriesModal({
         pointerMovedRef.current = false;
     }, [open, categories]);
 
-    const reorderCategory = useCallback(
-        (targetId: string) => {
-            const currentDraggedId = draggedIdRef.current;
-            if (!currentDraggedId || currentDraggedId === targetId) return;
+    const reorderCategory = useCallback((targetId: string) => {
+        const currentDraggedId = draggedIdRef.current;
+        if (!currentDraggedId || currentDraggedId === targetId) return;
 
-            setOrderedCategories((current) => {
-                const draggedIndex = current.findIndex(
-                    (category) => category.id === currentDraggedId
-                );
-                const targetIndex = current.findIndex(
-                    (category) => category.id === targetId
-                );
-                if (draggedIndex === -1 || targetIndex === -1) return current;
+        setOrderedCategories((current) => {
+            const draggedIndex = current.findIndex(
+                (category) => category.id === currentDraggedId
+            );
+            const targetIndex = current.findIndex(
+                (category) => category.id === targetId
+            );
+            if (draggedIndex === -1 || targetIndex === -1) return current;
 
-                const next = [...current];
-                const [moved] = next.splice(draggedIndex, 1);
-                next.splice(targetIndex, 0, moved);
-                return next.map((category, index) => ({
-                    ...category,
-                    position: index + 1,
-                }));
-            });
-        },
-        []
-    );
+            const next = [...current];
+            const [moved] = next.splice(draggedIndex, 1);
+            next.splice(targetIndex, 0, moved);
+            return next.map((category, index) => ({
+                ...category,
+                position: index + 1,
+            }));
+        });
+    }, []);
 
     useEffect(() => {
         if (!open) return;
@@ -173,12 +170,14 @@ export default function OrganizeCategoriesModal({
     };
 
     const startDesktopDrag = (
-        event: React.DragEvent<HTMLDivElement>,
+        event: React.DragEvent<HTMLSpanElement>,
         categoryId: string
     ) => {
+        event.stopPropagation();
         draggedIdRef.current = categoryId;
         setDraggedId(categoryId);
         event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("text/plain", categoryId);
     };
 
     const finishDesktopDrag = () => {
@@ -209,15 +208,12 @@ export default function OrganizeCategoriesModal({
                         <div
                             key={category.id}
                             data-organizer-category-id={category.id}
-                            draggable={!saving}
-                            onDragStart={(event) =>
-                                startDesktopDrag(event, category.id)
-                            }
-                            onDragOver={(event) => {
+                            onDragOver={(event) => event.preventDefault()}
+                            onDragEnter={() => reorderCategory(category.id)}
+                            onDrop={(event) => {
                                 event.preventDefault();
-                                reorderCategory(category.id);
+                                finishDesktopDrag();
                             }}
-                            onDragEnd={finishDesktopDrag}
                             className={`flex min-w-0 items-center gap-3 rounded-xl border bg-white px-3 py-3 transition ${
                                 draggedId === category.id
                                     ? "border-brand/40 opacity-60"
@@ -229,10 +225,15 @@ export default function OrganizeCategoriesModal({
                             </span>
 
                             <span
+                                draggable={!saving}
                                 className="inline-flex touch-none cursor-grab items-center justify-center p-1 text-gray-400 active:cursor-grabbing"
                                 onPointerDown={(event) =>
                                     startPointerDrag(event, category.id)
                                 }
+                                onDragStart={(event) =>
+                                    startDesktopDrag(event, category.id)
+                                }
+                                onDragEnd={finishDesktopDrag}
                             >
                                 <FontAwesomeIcon icon={faGripVertical} />
                             </span>
