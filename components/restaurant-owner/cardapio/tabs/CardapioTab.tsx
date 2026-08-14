@@ -3,8 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
-    faArrowDown,
-    faArrowUp,
     faGripVertical,
     faLayerGroup,
     faPlus,
@@ -16,6 +14,7 @@ import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 import Dropdown from "@/components/ui/Dropdown";
 import CategorySection from "@/components/restaurant-owner/cardapio/CategorySection";
+import OrganizeCategoriesModal from "@/components/restaurant-owner/cardapio/OrganizeCategoriesModal";
 import { MenuItemType } from "@/components/restaurant-owner/cardapio/MenuItemRow";
 
 type Category = { id: string; name: string; position: number };
@@ -53,7 +52,6 @@ export default function CardapioTab({
         y: number;
     } | null>(null);
     const [organizerOpen, setOrganizerOpen] = useState(false);
-    const [organizerCategories, setOrganizerCategories] = useState<Category[]>([]);
     const [organizerSaving, setOrganizerSaving] = useState(false);
 
     const localCategoriesRef = useRef<Category[]>(categories);
@@ -61,6 +59,7 @@ export default function CardapioTab({
     const activePointerIdRef = useRef<number | null>(null);
     const mobilePointerStartRef = useRef<{ x: number; y: number } | null>(null);
     const mobileDidMoveRef = useRef(false);
+    const desktopDidDragRef = useRef(false);
     const normalizedRestaurantRef = useRef<string | null>(null);
 
     useEffect(() => {
@@ -139,6 +138,7 @@ export default function CardapioTab({
     }, []);
 
     const handleDragStart = (e: React.DragEvent, catId: string) => {
+        desktopDidDragRef.current = true;
         setDraggedCatId(catId);
         e.dataTransfer.effectAllowed = "move";
         const target = e.currentTarget as HTMLElement;
@@ -151,6 +151,9 @@ export default function CardapioTab({
         const target = e.currentTarget as HTMLElement;
         target.style.opacity = "1";
         setDraggedCatId(null);
+        window.setTimeout(() => {
+            desktopDidDragRef.current = false;
+        }, 0);
     };
 
     const handleDragOver = (e: React.DragEvent, targetCatId: string) => {
@@ -275,10 +278,7 @@ export default function CardapioTab({
         window.addEventListener("pointerup", handleEnd);
         window.addEventListener("pointercancel", handleEnd);
         window.addEventListener("blur", handleBlur);
-        document.addEventListener(
-            "visibilitychange",
-            handleVisibilityChange
-        );
+        document.addEventListener("visibilitychange", handleVisibilityChange);
 
         return () => {
             window.removeEventListener("pointermove", handleMove);
@@ -292,12 +292,7 @@ export default function CardapioTab({
         };
     }, [finishMobileDrag, reorderMobileCategory]);
 
-    const openOrganizer = () => {
-        setOrganizerCategories(
-            localCategoriesRef.current.map((category) => ({ ...category }))
-        );
-        setOrganizerOpen(true);
-    };
+    const openOrganizer = () => setOrganizerOpen(true);
 
     const handlePointerStart = (
         e: React.PointerEvent<HTMLSpanElement>,
@@ -330,35 +325,18 @@ export default function CardapioTab({
 
     const handleHandleClick = (e: React.MouseEvent) => {
         e.stopPropagation();
-        if (mobileDidMoveRef.current) {
+        if (mobileDidMoveRef.current || desktopDidDragRef.current) {
             mobileDidMoveRef.current = false;
             return;
         }
         openOrganizer();
     };
 
-    const moveOrganizerCategory = (index: number, delta: number) => {
-        setOrganizerCategories((current) => {
-            const targetIndex = index + delta;
-            if (targetIndex < 0 || targetIndex >= current.length) {
-                return current;
-            }
-
-            const next = [...current];
-            const [moved] = next.splice(index, 1);
-            next.splice(targetIndex, 0, moved);
-            return next.map((category, nextIndex) => ({
-                ...category,
-                position: nextIndex + 1,
-            }));
-        });
-    };
-
-    const saveOrganizerOrder = async () => {
+    const saveOrganizerOrder = async (orderedCategories: Category[]) => {
         if (organizerSaving) return;
         setOrganizerSaving(true);
 
-        const normalized = organizerCategories.map((category, index) => ({
+        const normalized = orderedCategories.map((category, index) => ({
             ...category,
             position: index + 1,
         }));
@@ -432,7 +410,7 @@ export default function CardapioTab({
     ];
 
     return (
-        <div className="w-full min-w-0 max-w-full space-y-6 overflow-x-hidden">
+        <div className="w-full min-w-0 max-w-full space-y-6 overflow-x-clip">
             {mobileDragPreview && mobileDidMoveRef.current && (
                 <div
                     className="pointer-events-none fixed z-[9999] flex max-w-[calc(100vw-2rem)] items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 font-bold text-gray-800 shadow-xl opacity-95 md:hidden"
@@ -445,9 +423,7 @@ export default function CardapioTab({
                         icon={faGripVertical}
                         className="text-gray-400"
                     />
-                    <span className="truncate">
-                        {mobileDragPreview.name}
-                    </span>
+                    <span className="truncate">{mobileDragPreview.name}</span>
                 </div>
             )}
 
@@ -464,9 +440,7 @@ export default function CardapioTab({
                     <Dropdown
                         options={categoryOptions}
                         value={selectedCategoryId}
-                        onChange={(e) =>
-                            setSelectedCategoryId(e.target.value)
-                        }
+                        onChange={(e) => setSelectedCategoryId(e.target.value)}
                     />
                 </div>
                 <Button
@@ -485,18 +459,14 @@ export default function CardapioTab({
                 </Button>
             </div>
 
-            <div className="min-w-0 max-w-full space-y-4 overflow-x-hidden">
+            <div className="min-w-0 max-w-full space-y-4 overflow-x-clip">
                 {displayCategories.map((category) => (
                     <div
                         key={category.id}
                         data-category-id={category.id}
                         draggable={!isFiltering}
-                        onDragStart={(e) =>
-                            handleDragStart(e, category.id)
-                        }
-                        onDragOver={(e) =>
-                            handleDragOver(e, category.id)
-                        }
+                        onDragStart={(e) => handleDragStart(e, category.id)}
+                        onDragOver={(e) => handleDragOver(e, category.id)}
                         onDragEnd={handleFinalDragEnd}
                         className="min-w-0 max-w-full overflow-hidden transition-transform"
                     >
@@ -508,28 +478,19 @@ export default function CardapioTab({
                             restaurantId={restaurantId}
                             onRefresh={onRefresh}
                             onItemUpdated={onItemUpdated}
-                            onEditCategory={() =>
-                                onEditCategory(category)
-                            }
+                            onEditCategory={() => onEditCategory(category)}
                             onOpenItemDetails={onOpenItemDetails}
-                            isFeatured={
-                                localCategories[0]?.id === category.id
-                            }
+                            isFeatured={localCategories[0]?.id === category.id}
                             dragHandle={
                                 !isFiltering ? (
                                     <span
                                         className="inline-flex touch-none"
                                         onPointerDown={(e) =>
-                                            handlePointerStart(
-                                                e,
-                                                category.id
-                                            )
+                                            handlePointerStart(e, category.id)
                                         }
                                         onClick={handleHandleClick}
                                     >
-                                        <FontAwesomeIcon
-                                            icon={faGripVertical}
-                                        />
+                                        <FontAwesomeIcon icon={faGripVertical} />
                                     </span>
                                 ) : null
                             }
@@ -544,91 +505,13 @@ export default function CardapioTab({
                 )}
             </div>
 
-            {organizerOpen && (
-                <div
-                    className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/45 p-4"
-                    onMouseDown={() => {
-                        if (!organizerSaving) setOrganizerOpen(false);
-                    }}
-                >
-                    <div
-                        className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-2xl sm:p-6"
-                        onMouseDown={(e) => e.stopPropagation()}
-                    >
-                        <div className="mb-5">
-                            <h2 className="text-xl font-bold text-gray-900">
-                                Organizar categorias
-                            </h2>
-                            <p className="mt-1 text-sm text-gray-500">
-                                Defina a ordem em que as categorias aparecem no cardápio.
-                            </p>
-                        </div>
-
-                        <div className="max-h-[55vh] space-y-2 overflow-y-auto pr-1">
-                            {organizerCategories.map((category, index) => (
-                                <div
-                                    key={category.id}
-                                    className="flex min-w-0 items-center gap-3 rounded-xl border border-gray-200 bg-white px-3 py-3"
-                                >
-                                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gray-100 text-xs font-semibold text-gray-500">
-                                        {index + 1}
-                                    </span>
-                                    <FontAwesomeIcon
-                                        icon={faGripVertical}
-                                        className="shrink-0 text-gray-300"
-                                    />
-                                    <span className="min-w-0 flex-1 truncate font-medium text-gray-800">
-                                        {category.name}
-                                    </span>
-                                    <div className="flex shrink-0 gap-1">
-                                        <button
-                                            type="button"
-                                            aria-label={`Mover ${category.name} para cima`}
-                                            disabled={index === 0}
-                                            onClick={() =>
-                                                moveOrganizerCategory(index, -1)
-                                            }
-                                            className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-gray-200 text-gray-500 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-30"
-                                        >
-                                            <FontAwesomeIcon icon={faArrowUp} />
-                                        </button>
-                                        <button
-                                            type="button"
-                                            aria-label={`Mover ${category.name} para baixo`}
-                                            disabled={
-                                                index ===
-                                                organizerCategories.length - 1
-                                            }
-                                            onClick={() =>
-                                                moveOrganizerCategory(index, 1)
-                                            }
-                                            className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-gray-200 text-gray-500 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-30"
-                                        >
-                                            <FontAwesomeIcon icon={faArrowDown} />
-                                        </button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-
-                        <div className="mt-6 flex justify-end gap-3">
-                            <Button
-                                variant="secondary"
-                                onClick={() => setOrganizerOpen(false)}
-                                disabled={organizerSaving}
-                            >
-                                Cancelar
-                            </Button>
-                            <Button
-                                onClick={() => void saveOrganizerOrder()}
-                                disabled={organizerSaving}
-                            >
-                                {organizerSaving ? "Salvando..." : "Salvar ordem"}
-                            </Button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <OrganizeCategoriesModal
+                open={organizerOpen}
+                categories={localCategories}
+                saving={organizerSaving}
+                onClose={() => setOrganizerOpen(false)}
+                onSave={saveOrganizerOrder}
+            />
         </div>
     );
 }
