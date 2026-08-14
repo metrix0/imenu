@@ -48,7 +48,7 @@ export default function Footer() {
                 {/* Coluna 1 */}
                 <div className="flex flex-col gap-2 2xl:gap-4">
                     <h3 className="font-semibold text-gray-800 2xl:text-xl">iMenu</h3>
-                    <a className="text-gray-600 text-sm 2xl:text-xl hover:text-gray-800 cursor-pointer w-fit" onClick={() => router.replace("/")}>Página Inicial</a>
+                    <a data-seo-home-link className="text-gray-600 text-sm 2xl:text-xl hover:text-gray-800 cursor-pointer w-fit" onClick={() => router.replace("/")}>Página Inicial</a>
                     <a className="text-gray-600 text-sm 2xl:text-xl hover:text-gray-800 cursor-pointer w-fit" onClick={() => window.location.href ="https://wa.me/5519997235394"}>Fale Conosco</a>
 
                     {restaurantCities.length > 0 && (
@@ -112,7 +112,8 @@ export default function Footer() {
                 <div className="flex flex-col gap-2 2xl:gap-4">
                     <h3 className="font-semibold text-gray-800 2xl:text-xl">Descubra</h3>
                     <a className="text-blue-500 underline text-sm 2xl:text-xl hover:text-blue-700 cursor-pointer w-fit" onClick={() => router.replace("/cardapio-digital")} >Top 5 Cardápios Digitais Grátis</a>
-                    <a className="text-gray-600 text-sm 2xl:text-xl hover:text-gray-800 cursor-pointer w-fit" onClick={() => router.replace("/")}>iMenu Empresas</a>
+                    <a className="text-gray-600 text-sm 2xl:text-xl hover:text-gray-800 cursor-pointer w-fit" onClick={() => router.replace("/ferramentas")}>Ferramentas gratuitas</a>
+                    <a data-seo-home-link className="text-gray-600 text-sm 2xl:text-xl hover:text-gray-800 cursor-pointer w-fit" onClick={() => router.replace("/")}>iMenu Empresas</a>
                 </div>
 
                 {/* Coluna 3 */}

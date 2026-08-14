@@ -7,6 +7,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { icons } from "@/lib/utils/fontawesome";
 import Button from "@/components/ui/Button";
 import { useRouter } from "next/navigation";
+import SeoTrafficTracker from "@/components/analytics/SeoTrafficTracker";
 
 export default function SeoLayout({
     children,
@@ -17,6 +18,7 @@ export default function SeoLayout({
 
     return (
         <div className="relative flex min-h-screen w-full max-w-full flex-col overflow-x-clip">
+            <SeoTrafficTracker />
             <header className="w-full border-gray-200 bg-white px-4 py-7 md:px-8 md:py-5 2xl:py-8">
                 <div className="mx-auto flex w-full max-w-7xl min-w-0 items-center justify-between gap-3">
                     {/* Left – Logo */}
@@ -86,6 +88,9 @@ export default function SeoLayout({
                             </Link>
                             <Link href="/saipos" className="hover:underline">
                                 iMenu vs Saipos
+                            </Link>
+                            <Link href="/ferramentas" className="font-medium text-brand hover:underline">
+                                Ferramentas gratuitas para restaurantes
                             </Link>
                         </div>
                     </div>

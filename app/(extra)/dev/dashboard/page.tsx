@@ -79,6 +79,17 @@ type DashboardPayload = {
         postHogAvailable: boolean;
         blogViews: number | null;
     };
+    traffic: {
+        available: boolean;
+        pages: Array<{
+            path: string;
+            label: string;
+            kind: string;
+            visitors: number;
+            homeVisitors: number;
+            ratio: number;
+        }>;
+    };
     generatedAt: string;
 };
 
@@ -117,6 +128,13 @@ function formatCurrency(value: number): string {
         currency: "BRL",
         maximumFractionDigits: 2,
     }).format(value);
+}
+
+function formatRatio(value: number): string {
+    return `${value.toLocaleString("pt-BR", {
+        minimumFractionDigits: value % 1 === 0 ? 0 : 1,
+        maximumFractionDigits: 1,
+    })}%`;
 }
 
 function formatDateRange(startAt: string, endAt: string): string {
@@ -629,6 +647,67 @@ export default function DevDashboardPage() {
                                     series={data.consumerTimeline.orders}
                                     color="#1d1d1d"
                                 />
+                            </div>
+                        </section>
+
+                        <section>
+                            <SectionHeading
+                                title="Traffic"
+                                description="Visitantes únicos que saíram de cada página de conteúdo para a página inicial no período selecionado."
+                            />
+                            <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+                                <div className="overflow-x-auto">
+                                    <table className="w-full min-w-[760px] text-left text-sm">
+                                        <thead className="border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
+                                            <tr>
+                                                <th className="px-5 py-4 font-semibold">Página</th>
+                                                <th className="px-5 py-4 font-semibold">Tipo</th>
+                                                <th className="px-5 py-4 text-right font-semibold">Visitantes</th>
+                                                <th className="px-5 py-4 text-right font-semibold">Foram ao index</th>
+                                                <th className="px-5 py-4 text-right font-semibold">Taxa</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-100">
+                                            {data.traffic.pages.map((page) => (
+                                                <tr key={page.path} className="hover:bg-gray-50/70">
+                                                    <td className="px-5 py-4">
+                                                        <a
+                                                            href={page.path}
+                                                            target="_blank"
+                                                            rel="noreferrer"
+                                                            className="font-medium text-gray-900 hover:text-brand hover:underline"
+                                                        >
+                                                            {page.path}
+                                                        </a>
+                                                        <p className="mt-1 text-xs text-gray-500">{page.label}</p>
+                                                    </td>
+                                                    <td className="px-5 py-4 text-gray-600">{page.kind}</td>
+                                                    <td className="px-5 py-4 text-right tabular-nums text-gray-700">
+                                                        {data.traffic.available ? formatCount(page.visitors) : "—"}
+                                                    </td>
+                                                    <td className="px-5 py-4 text-right tabular-nums text-gray-700">
+                                                        {data.traffic.available ? formatCount(page.homeVisitors) : "—"}
+                                                    </td>
+                                                    <td className="px-5 py-4 text-right">
+                                                        <span className="inline-flex min-w-16 justify-center rounded-full bg-brand/10 px-3 py-1 font-semibold tabular-nums text-brand">
+                                                            {data.traffic.available ? formatRatio(page.ratio) : "—"}
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                {!data.traffic.available && (
+                                    <div className="border-t border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                                        A leitura exige POSTHOG_PERSONAL_API_KEY e POSTHOG_PROJECT_ID no servidor.
+                                    </div>
+                                )}
+                                {data.traffic.available && (
+                                    <div className="border-t border-gray-200 bg-gray-50 p-4 text-xs leading-5 text-gray-500">
+                                        Taxa = visitantes únicos que clicaram para ir ao index ÷ visitantes únicos da página. O histórico começa após a publicação deste rastreamento.
+                                    </div>
+                                )}
                             </div>
                         </section>
                     </>
