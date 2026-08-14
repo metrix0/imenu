@@ -17,6 +17,12 @@ import { Bar, Doughnut, Line } from "react-chartjs-2";
 
 import Card from "@/components/ui/Card";
 import ListLoader from "@/components/ui/ListLoader";
+import CategoryCombinationSelector from "@/components/restaurant-owner/exibicoes/CategoryCombinationSelector";
+import {
+    CHART_BRAND,
+    STANDARD_CHART_TOOLTIP,
+    createBrandAreaGradient,
+} from "@/components/restaurant-owner/exibicoes/chartStyles";
 import { supabase } from "@/lib/database/supabaseClient";
 
 ChartJS.register(
@@ -86,11 +92,6 @@ type Payload = {
     items: ItemMetric[];
     categories: CategoryMetric[];
     categoryPairs: CategoryPairMetric[];
-    categoryCombination: {
-        combinedOrders: number;
-        totalOrders: number;
-        rate: number;
-    };
     consumer: {
         postHogAvailable: boolean;
         series: {
@@ -102,27 +103,15 @@ type Payload = {
 };
 
 const ITEMS_PER_PAGE = 6;
-const BRAND = "#f14400";
 const DARK = "#1d1d1d";
-const MUTED = "#e5e7eb";
 const CHART_COLORS = [
-    "#f14400",
-    "#1d1d1d",
+    CHART_BRAND,
+    DARK,
     "#6b7280",
     "#9ca3af",
     "#d1d5db",
     "#fb923c",
 ];
-const TOOLTIP_STYLE = {
-    backgroundColor: "#111827",
-    titleColor: "#ffffff",
-    bodyColor: "#e5e7eb",
-    footerColor: "#d1d5db",
-    padding: 12,
-    cornerRadius: 10,
-    displayColors: false,
-    caretPadding: 8,
-};
 
 function formatCurrency(cents: number): string {
     return (cents / 100).toLocaleString("pt-BR", {
@@ -278,7 +267,9 @@ export default function AnalyticsDashboard({
             try {
                 let accessToken = await getAccessToken();
                 if (!accessToken) {
-                    throw new Error("Faça login novamente para carregar o Analytics.");
+                    throw new Error(
+                        "Faça login novamente para carregar o Analytics."
+                    );
                 }
 
                 let response = await requestAnalytics(accessToken);
@@ -296,13 +287,17 @@ export default function AnalyticsDashboard({
 
                 if (!response.ok) {
                     throw new Error(
-                        payload.error || "Não foi possível carregar o Analytics."
+                        payload.error ||
+                            "Não foi possível carregar o Analytics."
                     );
                 }
 
                 setData(payload);
             } catch (caught) {
-                if (caught instanceof DOMException && caught.name === "AbortError") {
+                if (
+                    caught instanceof DOMException &&
+                    caught.name === "AbortError"
+                ) {
                     return;
                 }
                 setError(
@@ -406,7 +401,7 @@ export default function AnalyticsDashboard({
                 averageCartCents:
                     orders > 0
                         ? Math.round(
-                              dailyTicket * (0.94 + ((index % 4) * 0.03))
+                              dailyTicket * (0.94 + (index % 4) * 0.03)
                           )
                         : null,
             };
@@ -449,13 +444,17 @@ export default function AnalyticsDashboard({
                 data: normalizedRevenueSeries.map(
                     (point) => point.revenueCents / 100
                 ),
-                borderColor: BRAND,
-                backgroundColor: BRAND,
-                tension: 0.3,
-                borderWidth: 2,
-                pointRadius: 2,
+                fill: true,
+                borderColor: CHART_BRAND,
+                backgroundColor: createBrandAreaGradient,
+                tension: 0.35,
+                borderWidth: 2.5,
+                pointRadius: 0,
                 pointHoverRadius: 5,
-                pointHitRadius: 12,
+                pointHitRadius: 14,
+                pointHoverBackgroundColor: CHART_BRAND,
+                pointHoverBorderColor: "#ffffff",
+                pointHoverBorderWidth: 2,
             },
         ],
     };
@@ -466,8 +465,8 @@ export default function AnalyticsDashboard({
             {
                 label: "Acessos",
                 data: normalizedConsumerSeries.map((point) => point.menuViews),
-                borderColor: BRAND,
-                backgroundColor: BRAND,
+                borderColor: CHART_BRAND,
+                backgroundColor: CHART_BRAND,
                 tension: 0.3,
                 borderWidth: 2,
                 pointRadius: 2,
@@ -504,8 +503,8 @@ export default function AnalyticsDashboard({
             {
                 label: "Pedidos criados",
                 data: normalizedOrderSeries.map((point) => point.orders),
-                borderColor: BRAND,
-                backgroundColor: BRAND,
+                borderColor: CHART_BRAND,
+                backgroundColor: CHART_BRAND,
                 tension: 0.3,
                 borderWidth: 2,
                 pointRadius: 2,
@@ -553,7 +552,7 @@ export default function AnalyticsDashboard({
             {
                 label: "Pedidos",
                 data: hourlyOrders.map((item) => item.orders),
-                backgroundColor: BRAND,
+                backgroundColor: CHART_BRAND,
                 borderRadius: 5,
             },
         ],
@@ -566,7 +565,7 @@ export default function AnalyticsDashboard({
             {
                 label: "Pedidos",
                 data: visibleCategories.map((item) => item.orders),
-                backgroundColor: BRAND,
+                backgroundColor: CHART_BRAND,
                 borderRadius: 5,
             },
         ],
@@ -586,27 +585,6 @@ export default function AnalyticsDashboard({
         ],
     };
 
-    const uncombinedOrders = Math.max(
-        0,
-        data.categoryCombination.totalOrders -
-            data.categoryCombination.combinedOrders
-    );
-    const combinationRateChart = {
-        labels: ["Com 2+ categorias", "Sem combinação"],
-        datasets: [
-            {
-                data: [
-                    data.categoryCombination.combinedOrders,
-                    uncombinedOrders,
-                ],
-                backgroundColor: [BRAND, MUTED],
-                borderColor: "#ffffff",
-                borderWidth: 2,
-                hoverOffset: 6,
-            },
-        ],
-    };
-
     const lineBase = {
         responsive: true,
         maintainAspectRatio: false,
@@ -619,23 +597,43 @@ export default function AnalyticsDashboard({
         plugins: {
             legend: { display: false },
             tooltip: {
-                ...TOOLTIP_STYLE,
+                ...STANDARD_CHART_TOOLTIP,
                 callbacks: {
                     label: (context: TooltipItem<"line">) =>
-                        `Faturamento: ${formatCurrency(Number(context.raw) * 100)}`,
+                        `Faturamento: ${formatCurrency(
+                            Number(context.raw) * 100
+                        )}`,
                     afterBody: (items: TooltipItem<"line">[]) => {
-                        const point = normalizedRevenueSeries[items[0]?.dataIndex];
+                        const point =
+                            normalizedRevenueSeries[items[0]?.dataIndex];
                         return point
-                            ? [`Pedidos concluídos: ${point.orders.toLocaleString("pt-BR")}`]
+                            ? [
+                                  `Pedidos concluídos: ${point.orders.toLocaleString(
+                                      "pt-BR"
+                                  )}`,
+                              ]
                             : [];
                     },
                 },
             },
         },
         scales: {
+            x: {
+                grid: { display: false },
+                border: { display: false },
+                ticks: {
+                    color: "#9ca3af",
+                    maxRotation: 0,
+                    autoSkip: true,
+                    maxTicksLimit: 12,
+                },
+            },
             y: {
                 beginAtZero: true,
+                grid: { color: "rgba(229, 231, 235, 0.65)" },
+                border: { display: false },
                 ticks: {
+                    color: "#9ca3af",
                     callback: (value: string | number) =>
                         formatCurrency(Number(value) * 100),
                 },
@@ -648,10 +646,12 @@ export default function AnalyticsDashboard({
         plugins: {
             legend: { display: false },
             tooltip: {
-                ...TOOLTIP_STYLE,
+                ...STANDARD_CHART_TOOLTIP,
                 callbacks: {
                     label: (context: TooltipItem<"line">) =>
-                        `Acessos: ${Number(context.raw).toLocaleString("pt-BR")}`,
+                        `Acessos: ${Number(context.raw).toLocaleString(
+                            "pt-BR"
+                        )}`,
                 },
             },
         },
@@ -668,12 +668,14 @@ export default function AnalyticsDashboard({
         plugins: {
             legend: { display: false },
             tooltip: {
-                ...TOOLTIP_STYLE,
+                ...STANDARD_CHART_TOOLTIP,
                 callbacks: {
                     label: (context: TooltipItem<"line">) =>
                         context.raw === null
                             ? "Carrinho médio: sem valor"
-                            : `Carrinho médio: ${formatCurrency(Number(context.raw) * 100)}`,
+                            : `Carrinho médio: ${formatCurrency(
+                                  Number(context.raw) * 100
+                              )}`,
                 },
             },
         },
@@ -693,10 +695,12 @@ export default function AnalyticsDashboard({
         plugins: {
             legend: { display: false },
             tooltip: {
-                ...TOOLTIP_STYLE,
+                ...STANDARD_CHART_TOOLTIP,
                 callbacks: {
                     label: (context: TooltipItem<"line">) =>
-                        `Pedidos criados: ${Number(context.raw).toLocaleString("pt-BR")}`,
+                        `Pedidos criados: ${Number(
+                            context.raw
+                        ).toLocaleString("pt-BR")}`,
                 },
             },
         },
@@ -714,10 +718,12 @@ export default function AnalyticsDashboard({
         plugins: {
             legend: { display: false },
             tooltip: {
-                ...TOOLTIP_STYLE,
+                ...STANDARD_CHART_TOOLTIP,
                 callbacks: {
                     label: (context: TooltipItem<"bar">) =>
-                        `Pedidos: ${Number(context.raw).toLocaleString("pt-BR")}`,
+                        `Pedidos: ${Number(context.raw).toLocaleString(
+                            "pt-BR"
+                        )}`,
                 },
             },
         },
@@ -736,12 +742,15 @@ export default function AnalyticsDashboard({
         plugins: {
             legend: { display: false },
             tooltip: {
-                ...TOOLTIP_STYLE,
+                ...STANDARD_CHART_TOOLTIP,
                 callbacks: {
                     label: (context: TooltipItem<"bar">) =>
-                        `Pedidos: ${Number(context.raw).toLocaleString("pt-BR")}`,
+                        `Pedidos: ${Number(context.raw).toLocaleString(
+                            "pt-BR"
+                        )}`,
                     afterBody: (items: TooltipItem<"bar">[]) => {
-                        const category = visibleCategories[items[0]?.dataIndex];
+                        const category =
+                            visibleCategories[items[0]?.dataIndex];
                         if (!category) return [];
                         const share =
                             data.summary.completedOrders > 0
@@ -750,8 +759,12 @@ export default function AnalyticsDashboard({
                                   100
                                 : 0;
                         return [
-                            `Itens vendidos: ${category.quantity.toLocaleString("pt-BR")}`,
-                            `Presente em ${formatPercent(share)} dos pedidos concluídos`,
+                            `Itens vendidos: ${category.quantity.toLocaleString(
+                                "pt-BR"
+                            )}`,
+                            `Presente em ${formatPercent(
+                                share
+                            )} dos pedidos concluídos`,
                         ];
                     },
                 },
@@ -772,7 +785,7 @@ export default function AnalyticsDashboard({
         plugins: {
             legend: { display: false },
             tooltip: {
-                ...TOOLTIP_STYLE,
+                ...STANDARD_CHART_TOOLTIP,
                 callbacks: {
                     label: (context: TooltipItem<"bar">) => {
                         const pair = data.categoryPairs[context.dataIndex];
@@ -784,8 +797,12 @@ export default function AnalyticsDashboard({
                         const pair = data.categoryPairs[items[0]?.dataIndex];
                         return pair
                             ? [
-                                  `Pedidos com a combinação: ${pair.orders.toLocaleString("pt-BR")}`,
-                                  `De ${data.summary.completedOrders.toLocaleString("pt-BR")} pedidos concluídos`,
+                                  `Pedidos com a combinação: ${pair.orders.toLocaleString(
+                                      "pt-BR"
+                                  )}`,
+                                  `De ${data.summary.completedOrders.toLocaleString(
+                                      "pt-BR"
+                                  )} pedidos concluídos`,
                               ]
                             : [];
                     },
@@ -809,12 +826,14 @@ export default function AnalyticsDashboard({
         plugins: {
             legend: { position: "bottom" as const },
             tooltip: {
-                ...TOOLTIP_STYLE,
+                ...STANDARD_CHART_TOOLTIP,
                 callbacks: {
                     label: (context: TooltipItem<"doughnut">) => {
                         const item = data.paymentTypes[context.dataIndex];
                         return item
-                            ? `${item.orders.toLocaleString("pt-BR")} pedidos · ${formatPercent(item.percentage)}`
+                            ? `${item.orders.toLocaleString(
+                                  "pt-BR"
+                              )} pedidos · ${formatPercent(item.percentage)}`
                             : "";
                     },
                 },
@@ -828,12 +847,14 @@ export default function AnalyticsDashboard({
         plugins: {
             legend: { position: "bottom" as const },
             tooltip: {
-                ...TOOLTIP_STYLE,
+                ...STANDARD_CHART_TOOLTIP,
                 callbacks: {
                     label: (context: TooltipItem<"doughnut">) => {
                         const item = data.fulfillment[context.dataIndex];
                         return item
-                            ? `${item.orders.toLocaleString("pt-BR")} pedidos · ${formatPercent(item.percentage)}`
+                            ? `${item.orders.toLocaleString(
+                                  "pt-BR"
+                              )} pedidos · ${formatPercent(item.percentage)}`
                             : "";
                     },
                 },
@@ -841,28 +862,12 @@ export default function AnalyticsDashboard({
         },
     };
 
-    const combinationRateOptions = {
-        responsive: true,
-        maintainAspectRatio: false,
-        cutout: "68%",
-        plugins: {
-            legend: { position: "bottom" as const },
-            tooltip: {
-                ...TOOLTIP_STYLE,
-                callbacks: {
-                    label: (context: TooltipItem<"doughnut">) => {
-                        const orders = Number(context.raw);
-                        const total = data.categoryCombination.totalOrders;
-                        const rate = total > 0 ? (orders / total) * 100 : 0;
-                        return `${orders.toLocaleString("pt-BR")} pedidos · ${formatPercent(rate)}`;
-                    },
-                },
-            },
-        },
-    };
-
     return (
-        <div className={`space-y-8 ${loading ? "opacity-60" : "opacity-100"}`}>
+        <div
+            className={`space-y-8 ${
+                loading ? "opacity-60" : "opacity-100"
+            }`}
+        >
             <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 <MetricCard
                     label="Faturamento"
@@ -872,7 +877,9 @@ export default function AnalyticsDashboard({
                 <MetricCard
                     label="Pedidos concluídos"
                     value={data.summary.completedOrders.toLocaleString("pt-BR")}
-                    helper={`${data.summary.createdOrders.toLocaleString("pt-BR")} criados no período`}
+                    helper={`${data.summary.createdOrders.toLocaleString(
+                        "pt-BR"
+                    )} criados no período`}
                 />
                 <MetricCard
                     label="Ticket médio"
@@ -885,11 +892,15 @@ export default function AnalyticsDashboard({
                 />
                 <MetricCard
                     label="Taxa média de entrega"
-                    value={formatCurrency(data.summary.averageDeliveryFeeCents)}
+                    value={formatCurrency(
+                        data.summary.averageDeliveryFeeCents
+                    )}
                 />
                 <MetricCard
                     label="Itens por pedido"
-                    value={data.summary.averageItemsPerOrder.toLocaleString("pt-BR")}
+                    value={data.summary.averageItemsPerOrder.toLocaleString(
+                        "pt-BR"
+                    )}
                 />
                 <MetricCard
                     label="Uso de cupom"
@@ -898,20 +909,27 @@ export default function AnalyticsDashboard({
                 <MetricCard
                     label="Cancelamento"
                     value={formatPercent(data.summary.cancellationRate)}
-                    helper={`${data.summary.createdOrders.toLocaleString("pt-BR")} pedidos criados`}
+                    helper={`${data.summary.createdOrders.toLocaleString(
+                        "pt-BR"
+                    )} pedidos criados`}
                 />
             </section>
 
-            <Card>
+            <Card className="overflow-hidden">
                 <div className="mb-5">
-                    <h2 className="text-xl font-bold text-gray-900">Faturamento</h2>
+                    <h2 className="text-xl font-bold text-gray-900">
+                        Faturamento
+                    </h2>
                     <p className="mt-1 text-sm text-gray-500">
                         Receita de pedidos concluídos no período selecionado.
                     </p>
                 </div>
-                <div className="h-[320px]">
+                <div className="h-[340px] 2xl:h-[390px]">
                     {data.revenueSeries.length > 0 ? (
-                        <Line data={revenueChart} options={revenueLineOptions} />
+                        <Line
+                            data={revenueChart}
+                            options={revenueLineOptions}
+                        />
                     ) : (
                         <EmptyChart />
                     )}
@@ -940,7 +958,10 @@ export default function AnalyticsDashboard({
                             Acessos ao cardápio
                         </h3>
                         <div className="h-[240px]">
-                            <Line data={consumerAccessChart} options={accessLineOptions} />
+                            <Line
+                                data={consumerAccessChart}
+                                options={accessLineOptions}
+                            />
                         </div>
                     </Card>
                     <Card>
@@ -948,7 +969,10 @@ export default function AnalyticsDashboard({
                             Carrinho médio
                         </h3>
                         <div className="h-[240px]">
-                            <Line data={averageCartChart} options={cartLineOptions} />
+                            <Line
+                                data={averageCartChart}
+                                options={cartLineOptions}
+                            />
                         </div>
                     </Card>
                     <Card>
@@ -957,7 +981,10 @@ export default function AnalyticsDashboard({
                         </h3>
                         <div className="h-[240px]">
                             {data.orderSeries.length > 0 ? (
-                                <Line data={orderChart} options={ordersLineOptions} />
+                                <Line
+                                    data={orderChart}
+                                    options={ordersLineOptions}
+                                />
                             ) : (
                                 <EmptyChart />
                             )}
@@ -1049,7 +1076,10 @@ export default function AnalyticsDashboard({
                     </h2>
                     <div className="h-[280px]">
                         {data.paymentTypes.length > 0 ? (
-                            <Doughnut data={paymentChart} options={paymentOptions} />
+                            <Doughnut
+                                data={paymentChart}
+                                options={paymentOptions}
+                            />
                         ) : (
                             <EmptyChart />
                         )}
@@ -1096,7 +1126,10 @@ export default function AnalyticsDashboard({
                         </h3>
                         <div className="h-[360px]">
                             {data.categories.length > 0 ? (
-                                <Bar data={categoryChart} options={categoryOptions} />
+                                <Bar
+                                    data={categoryChart}
+                                    options={categoryOptions}
+                                />
                             ) : (
                                 <EmptyChart />
                             )}
@@ -1122,34 +1155,11 @@ export default function AnalyticsDashboard({
                     </Card>
                 </div>
 
-                <Card className="mt-4">
-                    <div className="grid items-center gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
-                        <div>
-                            <h3 className="text-lg font-bold text-gray-900">
-                                Taxa de combinação de categorias
-                            </h3>
-                            <p className="mt-1 text-sm text-gray-500">
-                                Pedidos concluídos com itens de pelo menos duas categorias diferentes comparados ao total de pedidos concluídos.
-                            </p>
-                            <p className="mt-5 text-3xl font-bold text-gray-900">
-                                {formatPercent(data.categoryCombination.rate)}
-                            </p>
-                            <p className="mt-1 text-sm text-gray-500">
-                                {data.categoryCombination.combinedOrders.toLocaleString("pt-BR")} de {data.categoryCombination.totalOrders.toLocaleString("pt-BR")} pedidos
-                            </p>
-                        </div>
-                        <div className="h-[240px]">
-                            {data.categoryCombination.totalOrders > 0 ? (
-                                <Doughnut
-                                    data={combinationRateChart}
-                                    options={combinationRateOptions}
-                                />
-                            ) : (
-                                <EmptyChart />
-                            )}
-                        </div>
-                    </div>
-                </Card>
+                <CategoryCombinationSelector
+                    restaurantId={restaurantId}
+                    startDate={startDate}
+                    endDate={endDate}
+                />
             </section>
 
             {error && <p className="text-sm text-red-600">{error}</p>}
