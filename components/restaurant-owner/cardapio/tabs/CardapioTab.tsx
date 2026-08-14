@@ -422,36 +422,70 @@ export default function CardapioTab({
                 </div>
             )}
 
-            <div className="mb-6 grid min-w-0 max-w-full grid-cols-2 gap-4 md:mb-0 md:flex md:flex-row">
-                <div className="col-span-2 min-w-0 flex-1">
-                    <Input
-                        placeholder="Buscar uma categoria"
-                        icon={<FontAwesomeIcon icon={faSearch} />}
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                    />
+            <div>
+                <div className="grid min-w-0 max-w-full grid-cols-2 gap-4 pb-4 md:hidden">
+                    <div className="col-span-2 min-w-0 flex-1">
+                        <Input
+                            placeholder="Buscar uma categoria"
+                            icon={<FontAwesomeIcon icon={faSearch} />}
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                    </div>
+                    <div className="col-span-2 w-full min-w-0">
+                        <Dropdown
+                            options={categoryOptions}
+                            value={selectedCategoryId}
+                            onChange={(e) => setSelectedCategoryId(e.target.value)}
+                        />
+                    </div>
+                    <Button
+                        variant="secondary"
+                        onClick={onNewCategory}
+                        className="w-full min-w-0 whitespace-normal"
+                    >
+                        Adicionar categoria
+                    </Button>
+                    <Button
+                        variant="secondary"
+                        onClick={openOrganizer}
+                        className="w-full min-w-0 whitespace-normal"
+                    >
+                        Organizar categorias
+                    </Button>
                 </div>
-                <div className="col-span-2 w-full min-w-0 md:w-64">
-                    <Dropdown
-                        options={categoryOptions}
-                        value={selectedCategoryId}
-                        onChange={(e) => setSelectedCategoryId(e.target.value)}
-                    />
+
+                <div className="hidden min-w-0 max-w-full gap-4 md:flex md:flex-row">
+                    <div className="min-w-0 flex-1">
+                        <Input
+                            placeholder="Buscar uma categoria"
+                            icon={<FontAwesomeIcon icon={faSearch} />}
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                    </div>
+                    <div className="w-full min-w-0 md:w-64">
+                        <Dropdown
+                            options={categoryOptions}
+                            value={selectedCategoryId}
+                            onChange={(e) => setSelectedCategoryId(e.target.value)}
+                        />
+                    </div>
+                    <Button
+                        variant="secondary"
+                        onClick={onNewCategory}
+                        className="whitespace-nowrap"
+                    >
+                        Adicionar categoria
+                    </Button>
+                    <Button
+                        variant="secondary"
+                        onClick={openOrganizer}
+                        className="whitespace-nowrap"
+                    >
+                        Organizar categorias
+                    </Button>
                 </div>
-                <Button
-                    variant="secondary"
-                    onClick={onNewCategory}
-                    className="w-full min-w-0 whitespace-normal md:w-auto md:whitespace-nowrap"
-                >
-                    Adicionar categoria
-                </Button>
-                <Button
-                    variant="secondary"
-                    onClick={openOrganizer}
-                    className="w-full min-w-0 whitespace-normal md:w-auto md:whitespace-nowrap"
-                >
-                    Organizar categorias
-                </Button>
             </div>
 
             <div className="min-w-0 max-w-full space-y-4 overflow-x-clip">
