@@ -2,7 +2,7 @@
 
 import { supabase } from "@/lib/database/supabaseClient";
 import Loader from "@/components/ui/Loader";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { formatPrice } from "@/lib/utils/formatPrice";
 
 type ItemWithStock = {
@@ -37,6 +37,7 @@ export default function EstoqueTab({
 }) {
     const [savingId, setSavingId] = useState<string | null>(null);
     const [draftStock, setDraftStock] = useState<Record<string, string>>({});
+    const stockSaveTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
     const itemsByCategory = useMemo(() => {
         const grouped: Record<string, ItemWithStock[]> = {};
@@ -65,7 +66,15 @@ export default function EstoqueTab({
         return String(item.stock_quantity ?? 0);
     };
 
+    const clearStockSaveTimer = (itemId: string) => {
+        const timer = stockSaveTimersRef.current[itemId];
+        if (!timer) return;
+        clearTimeout(timer);
+        delete stockSaveTimersRef.current[itemId];
+    };
+
     const updateStockEnabled = async (item: ItemWithStock, enabled: boolean) => {
+        clearStockSaveTimer(item.id);
         setSavingId(item.id);
 
         const payload: any = {
@@ -96,17 +105,24 @@ export default function EstoqueTab({
         onRefresh();
     };
 
-    const saveStockQuantity = async (item: ItemWithStock) => {
-        const raw = getDraftValue(item).trim();
+    const saveStockQuantity = async (
+        item: ItemWithStock,
+        rawValue?: string,
+        background = false
+    ) => {
+        const raw = (rawValue ?? getDraftValue(item)).trim();
         const parsed = Number(raw);
 
         if (raw === "" || Number.isNaN(parsed) || parsed < 0 || !Number.isInteger(parsed)) {
-            onToast("Informe uma quantidade válida.", "error");
+            if (!background) onToast("Informe uma quantidade válida.", "error");
             return;
         }
 
         if (parsed === Number(item.stock_quantity ?? 0)) {
             setDraftStock((prev) => {
+                if (prev[item.id] !== undefined && prev[item.id].trim() !== raw) {
+                    return prev;
+                }
                 const next = { ...prev };
                 delete next[item.id];
                 return next;
@@ -114,19 +130,18 @@ export default function EstoqueTab({
             return;
         }
 
-        setSavingId(item.id);
+        if (!background) setSavingId(item.id);
 
         const { error } = await supabase
             .from("items")
             .update({
-                stock_enabled: true,
                 stock_quantity: parsed,
                 is_available: parsed > 0,
             })
             .eq("id", item.id)
             .eq("restaurant_id", restaurantId);
 
-        setSavingId(null);
+        if (!background) setSavingId(null);
 
         if (error) {
             console.error(error);
@@ -135,11 +150,34 @@ export default function EstoqueTab({
         }
 
         setDraftStock((prev) => {
+            if (prev[item.id] !== undefined && prev[item.id].trim() !== raw) {
+                return prev;
+            }
             const next = { ...prev };
             delete next[item.id];
             return next;
         });
         onRefresh();
+    };
+
+    const scheduleStockQuantitySave = (item: ItemWithStock, value: string) => {
+        clearStockSaveTimer(item.id);
+
+        const raw = value.trim();
+        const parsed = Number(raw);
+        if (raw === "" || Number.isNaN(parsed) || parsed < 0 || !Number.isInteger(parsed)) {
+            return;
+        }
+
+        stockSaveTimersRef.current[item.id] = setTimeout(() => {
+            delete stockSaveTimersRef.current[item.id];
+            void saveStockQuantity(item, value, true);
+        }, 450);
+    };
+
+    const flushStockQuantitySave = (item: ItemWithStock) => {
+        clearStockSaveTimer(item.id);
+        void saveStockQuantity(item);
     };
 
     if (!items) {
@@ -191,14 +229,17 @@ export default function EstoqueTab({
                                                             type="number"
                                                             min={0}
                                                             step={1}
+                                                            inputMode="numeric"
                                                             value={getDraftValue(item)}
-                                                            onChange={(e) =>
+                                                            onChange={(e) => {
+                                                                const value = e.target.value;
                                                                 setDraftStock((prev) => ({
                                                                     ...prev,
-                                                                    [item.id]: e.target.value,
-                                                                }))
-                                                            }
-                                                            onBlur={() => void saveStockQuantity(item)}
+                                                                    [item.id]: value,
+                                                                }));
+                                                                scheduleStockQuantitySave(item, value);
+                                                            }}
+                                                            onBlur={() => flushStockQuantitySave(item)}
                                                             onKeyDown={(e) => {
                                                                 if (e.key === "Enter") e.currentTarget.blur();
                                                             }}
