@@ -156,7 +156,7 @@ export default function OrganizeCategoriesModal({
         event: React.PointerEvent<HTMLSpanElement>,
         categoryId: string
     ) => {
-        if (event.pointerType === "mouse") return;
+        if (saving || pointerIdRef.current !== null) return;
         event.preventDefault();
         event.stopPropagation();
         pointerIdRef.current = event.pointerId;
@@ -167,22 +167,6 @@ export default function OrganizeCategoriesModal({
         pointerMovedRef.current = false;
         draggedIdRef.current = categoryId;
         setDraggedId(categoryId);
-    };
-
-    const startDesktopDrag = (
-        event: React.DragEvent<HTMLSpanElement>,
-        categoryId: string
-    ) => {
-        event.stopPropagation();
-        draggedIdRef.current = categoryId;
-        setDraggedId(categoryId);
-        event.dataTransfer.effectAllowed = "move";
-        event.dataTransfer.setData("text/plain", categoryId);
-    };
-
-    const finishDesktopDrag = () => {
-        draggedIdRef.current = null;
-        setDraggedId(null);
     };
 
     return (
@@ -208,12 +192,6 @@ export default function OrganizeCategoriesModal({
                         <div
                             key={category.id}
                             data-organizer-category-id={category.id}
-                            onDragOver={(event) => event.preventDefault()}
-                            onDragEnter={() => reorderCategory(category.id)}
-                            onDrop={(event) => {
-                                event.preventDefault();
-                                finishDesktopDrag();
-                            }}
                             className={`flex min-w-0 items-center gap-3 rounded-xl border bg-white px-3 py-3 transition ${
                                 draggedId === category.id
                                     ? "border-brand/40 opacity-60"
@@ -225,15 +203,10 @@ export default function OrganizeCategoriesModal({
                             </span>
 
                             <span
-                                draggable={!saving}
                                 className="inline-flex touch-none cursor-grab items-center justify-center p-1 text-gray-400 active:cursor-grabbing"
                                 onPointerDown={(event) =>
                                     startPointerDrag(event, category.id)
                                 }
-                                onDragStart={(event) =>
-                                    startDesktopDrag(event, category.id)
-                                }
-                                onDragEnd={finishDesktopDrag}
                             >
                                 <FontAwesomeIcon icon={faGripVertical} />
                             </span>
