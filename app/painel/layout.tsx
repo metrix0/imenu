@@ -9,6 +9,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
     faBars,
     faBox,
+    faChartLine,
     faChevronLeft,
     faChevronRight,
     faCircleQuestion,
@@ -224,6 +225,11 @@ export default function PainelLayout({
             label: "Financeiro",
             icon: faMoneyBillWave,
             href: `${base}/financeiro`,
+        },
+        {
+            label: "Analytics",
+            icon: faChartLine,
+            href: `${base}/analytics`,
         },
         { label: "Cardápio", icon: faUtensils, href: cardapioHref },
         { type: "divider" },

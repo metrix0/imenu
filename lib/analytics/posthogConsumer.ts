@@ -12,6 +12,17 @@ export type ConsumerTrafficSource = {
     uniqueConsumers: number;
 };
 
+export type ConsumerTimeSeriesPoint = {
+    date: string;
+    menuViews: number;
+    averageCartCents: number;
+};
+
+export type ConsumerTimeSeriesMetrics = {
+    available: boolean;
+    points: ConsumerTimeSeriesPoint[];
+};
+
 type ConsumerPostHogMetrics = ConsumerTrackingMetrics & {
     sources: ConsumerTrafficSource[];
 };
@@ -79,18 +90,44 @@ async function runHogQL(
     return payload.results || [];
 }
 
-export async function loadPostHogConsumerMetrics(
-    startAt: number,
-    endAt: number,
-    filter?: ConsumerPostHogFilter
-): Promise<ConsumerPostHogMetrics> {
+function getPostHogConfig() {
     const personalApiKey = process.env.POSTHOG_PERSONAL_API_KEY?.trim();
     const projectId = process.env.POSTHOG_PROJECT_ID?.trim();
     const rawHost =
         process.env.POSTHOG_API_HOST?.trim() ||
         process.env.NEXT_PUBLIC_POSTHOG_HOST?.trim();
 
-    if (!personalApiKey || !projectId || !rawHost) return unavailable();
+    if (!personalApiKey || !projectId || !rawHost) return null;
+    return { personalApiKey, projectId, rawHost };
+}
+
+function restaurantEventFilter(filter?: ConsumerPostHogFilter): string {
+    if (!filter) return "";
+
+    return `
+          AND (
+                (
+                    event = ${hogqlString(CONSUMER_EVENTS.menuViewed)}
+                    AND properties.restaurant_slug = ${hogqlString(
+                        filter.restaurantSlug
+                    )}
+                )
+                OR (
+                    event != ${hogqlString(CONSUMER_EVENTS.menuViewed)}
+                    AND properties.restaurant_id = ${hogqlString(
+                        filter.restaurantId
+                    )}
+                )
+          )`;
+}
+
+export async function loadPostHogConsumerMetrics(
+    startAt: number,
+    endAt: number,
+    filter?: ConsumerPostHogFilter
+): Promise<ConsumerPostHogMetrics> {
+    const config = getPostHogConfig();
+    if (!config) return unavailable();
 
     const start = new Date(startAt).toISOString();
     const end = new Date(endAt).toISOString();
@@ -106,23 +143,7 @@ export async function loadPostHogConsumerMetrics(
         .map(hogqlString)
         .join(", ");
 
-    const restaurantFilter = filter
-        ? `
-          AND (
-                (
-                    event = ${hogqlString(CONSUMER_EVENTS.menuViewed)}
-                    AND properties.restaurant_slug = ${hogqlString(
-                        filter.restaurantSlug
-                    )}
-                )
-                OR (
-                    event != ${hogqlString(CONSUMER_EVENTS.menuViewed)}
-                    AND properties.restaurant_id = ${hogqlString(
-                        filter.restaurantId
-                    )}
-                )
-          )`
-        : "";
+    const restaurantFilter = restaurantEventFilter(filter);
 
     const pipelineHogql = `
         SELECT
@@ -184,9 +205,9 @@ export async function loadPostHogConsumerMetrics(
 
     try {
         const pipelineRows = await runHogQL(
-            rawHost,
-            projectId,
-            personalApiKey,
+            config.rawHost,
+            config.projectId,
+            config.personalApiKey,
             pipelineHogql
         );
         const row = pipelineRows[0];
@@ -196,9 +217,9 @@ export async function loadPostHogConsumerMetrics(
 
         try {
             const sourceRows = await runHogQL(
-                rawHost,
-                projectId,
-                personalApiKey,
+                config.rawHost,
+                config.projectId,
+                config.personalApiKey,
                 sourceHogql
             );
 
@@ -230,5 +251,61 @@ export async function loadPostHogConsumerMetrics(
     } catch (error) {
         console.warn("[CONSUMER_PIPELINE] PostHog metrics unavailable:", error);
         return unavailable();
+    }
+}
+
+export async function loadPostHogConsumerTimeSeries(
+    startAt: number,
+    endAt: number,
+    filter?: ConsumerPostHogFilter
+): Promise<ConsumerTimeSeriesMetrics> {
+    const config = getPostHogConfig();
+    if (!config) return { available: false, points: [] };
+
+    const start = new Date(startAt).toISOString();
+    const end = new Date(endAt).toISOString();
+    const trackedEvents = [
+        CONSUMER_EVENTS.menuViewed,
+        CONSUMER_EVENTS.informationStarted,
+    ]
+        .map(hogqlString)
+        .join(", ");
+
+    const hogql = `
+        SELECT
+            toString(toDate(timestamp, 'America/Sao_Paulo')) AS date,
+            uniqIf(distinct_id, event = ${hogqlString(CONSUMER_EVENTS.menuViewed)}) AS menu_views,
+            avgIf(
+                properties.cart_total_cents,
+                event = ${hogqlString(CONSUMER_EVENTS.informationStarted)}
+            ) AS average_cart_cents
+        FROM events
+        WHERE timestamp >= parseDateTimeBestEffort('${start}')
+          AND timestamp < parseDateTimeBestEffort('${end}')
+          AND event IN (${trackedEvents})
+          ${restaurantEventFilter(filter)}
+        GROUP BY date
+        ORDER BY date ASC
+    `;
+
+    try {
+        const rows = await runHogQL(
+            config.rawHost,
+            config.projectId,
+            config.personalApiKey,
+            hogql
+        );
+
+        return {
+            available: true,
+            points: rows.map((row) => ({
+                date: String(row[0] || ""),
+                menuViews: Number(row[1]) || 0,
+                averageCartCents: Number(row[2]) || 0,
+            })),
+        };
+    } catch (error) {
+        console.warn("[ANALYTICS] PostHog time series unavailable:", error);
+        return { available: false, points: [] };
     }
 }

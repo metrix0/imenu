@@ -233,3 +233,9 @@
     }
 
 }
+
+@media (min-width: 1536px) {
+    .panel-mobile-content[data-panel-path="/painel"] > div {
+        max-width: 90rem;
+    }
+}
