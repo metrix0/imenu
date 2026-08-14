@@ -105,7 +105,7 @@ export default function Footer() {
                                 </nav>
                             </div>
                         </div>
-                    ))}
+                    )}
                 </div>
 
                 {/* Coluna 2 */}
