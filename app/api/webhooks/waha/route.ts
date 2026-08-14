@@ -144,13 +144,20 @@ async function claimEvent(
     }
 
     if (Math.random() < 0.02) {
-        void supabase
+        const { error: cleanupError } = await supabase
             .from("whatsapp_webhook_events")
             .delete()
             .lt(
                 "received_at",
                 new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
             );
+
+        if (cleanupError) {
+            console.warn(
+                "[WAHA_WEBHOOK] Failed to clean old event claims:",
+                cleanupError
+            );
+        }
     }
 
     return Boolean(data);
@@ -303,20 +310,26 @@ export async function POST(request: NextRequest) {
         }
 
         const supabase = createSupabaseServerClient();
-        const baseEventId =
-            event.id ||
-            request.headers.get("x-webhook-request-id") ||
-            payload.id ||
-            payload.timestamp ||
-            rawBody.length;
-        const eventId = `${eventName}:${sessionName}:${String(baseEventId)}`;
+        // Message events can trigger replies or transfer a conversation, so they
+        // must remain idempotent. Session status updates are already idempotent
+        // and arrive very frequently while QR codes rotate or sessions retry;
+        // storing a permanent claim for each one only creates database churn.
+        if (eventName === "message" || eventName === "message.any") {
+            const baseEventId =
+                event.id ||
+                request.headers.get("x-webhook-request-id") ||
+                payload.id ||
+                payload.timestamp ||
+                rawBody.length;
+            const eventId = `${eventName}:${sessionName}:${String(baseEventId)}`;
 
-        if (!(await claimEvent(eventId, supabase))) {
-            return NextResponse.json({ ok: true, duplicate: true });
+            if (!(await claimEvent(eventId, supabase))) {
+                return NextResponse.json({ ok: true, duplicate: true });
+            }
+
+            claimedEventId = eventId;
+            claimedSupabase = supabase;
         }
-
-        claimedEventId = eventId;
-        claimedSupabase = supabase;
 
         const connection = await getConnection(sessionName, supabase);
         if (!connection) {
