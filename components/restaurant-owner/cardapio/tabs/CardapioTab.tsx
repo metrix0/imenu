@@ -325,11 +325,6 @@ export default function CardapioTab({
 
     const handleHandleClick = (e: React.MouseEvent) => {
         e.stopPropagation();
-        if (mobileDidMoveRef.current || desktopDidDragRef.current) {
-            mobileDidMoveRef.current = false;
-            return;
-        }
-        openOrganizer();
     };
 
     const saveOrganizerOrder = async (orderedCategories: Category[]) => {
@@ -427,8 +422,8 @@ export default function CardapioTab({
                 </div>
             )}
 
-            <div className="flex min-w-0 max-w-full flex-col gap-4 md:flex-row">
-                <div className="min-w-0 flex-1">
+            <div className="grid min-w-0 max-w-full grid-cols-2 gap-4 md:flex md:flex-row">
+                <div className="col-span-2 min-w-0 flex-1">
                     <Input
                         placeholder="Buscar uma categoria"
                         icon={<FontAwesomeIcon icon={faSearch} />}
@@ -436,7 +431,7 @@ export default function CardapioTab({
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
                 </div>
-                <div className="w-full min-w-0 md:w-64">
+                <div className="col-span-2 w-full min-w-0 md:w-64">
                     <Dropdown
                         options={categoryOptions}
                         value={selectedCategoryId}
@@ -446,16 +441,18 @@ export default function CardapioTab({
                 <Button
                     variant="secondary"
                     onClick={onNewCategory}
-                    className="whitespace-nowrap"
+                    className="w-full min-w-0 whitespace-nowrap md:w-auto"
                 >
-                    Adicionar categoria
+                    <span className="md:hidden">Adicionar categ.</span>
+                    <span className="hidden md:inline">Adicionar categoria</span>
                 </Button>
                 <Button
                     variant="secondary"
                     onClick={openOrganizer}
-                    className="whitespace-nowrap"
+                    className="w-full min-w-0 whitespace-nowrap md:w-auto"
                 >
-                    Organizar categorias
+                    <span className="md:hidden">Organizar categ.</span>
+                    <span className="hidden md:inline">Organizar categorias</span>
                 </Button>
             </div>
 
