@@ -422,7 +422,7 @@ export default function CardapioTab({
                 </div>
             )}
 
-            <div className="grid min-w-0 max-w-full grid-cols-2 gap-4 md:flex md:flex-row">
+            <div className="mb-4 grid min-w-0 max-w-full grid-cols-2 gap-4 md:mb-0 md:flex md:flex-row">
                 <div className="col-span-2 min-w-0 flex-1">
                     <Input
                         placeholder="Buscar uma categoria"
@@ -441,18 +441,16 @@ export default function CardapioTab({
                 <Button
                     variant="secondary"
                     onClick={onNewCategory}
-                    className="w-full min-w-0 whitespace-nowrap md:w-auto"
+                    className="w-full min-w-0 whitespace-normal text-center leading-tight md:w-auto md:whitespace-nowrap"
                 >
-                    <span className="md:hidden">Adicionar categ.</span>
-                    <span className="hidden md:inline">Adicionar categoria</span>
+                    Adicionar categoria
                 </Button>
                 <Button
                     variant="secondary"
                     onClick={openOrganizer}
-                    className="w-full min-w-0 whitespace-nowrap md:w-auto"
+                    className="w-full min-w-0 whitespace-normal text-center leading-tight md:w-auto md:whitespace-nowrap"
                 >
-                    <span className="md:hidden">Organizar categ.</span>
-                    <span className="hidden md:inline">Organizar categorias</span>
+                    Organizar categorias
                 </Button>
             </div>
 
