@@ -173,6 +173,21 @@ export default function MenuManagerPage() {
         );
     };
 
+    const handleStockUpdated = (
+        itemId: string,
+        updates: {
+            stock_enabled?: boolean;
+            stock_quantity?: number | null;
+            is_available?: boolean;
+        }
+    ) => {
+        setItems((current) =>
+            current.map((item) =>
+                item.id === itemId ? { ...item, ...updates } : item
+            )
+        );
+    };
+
     if (isLoading) {
         return (
             <div className="flex justify-center items-center h-64">
@@ -190,15 +205,15 @@ export default function MenuManagerPage() {
     }
 
     return (
-        <div className="max-w-6xl 2xl:max-w-8xl mx-auto pb-32 space-y-8 px-4 pt-8">
-            <div>
+        <div className="mx-auto w-full min-w-0 max-w-full overflow-x-clip px-4 pb-32 pt-8 space-y-8 md:max-w-6xl 2xl:max-w-8xl">
+            <div className="min-w-0 max-w-full">
                 <h1 className="text-3xl font-bold text-gray-900">Cardápio</h1>
                 <p className="text-gray-500 mt-1 2xl:text-lg">
                     Defina quais os itens seus clientes podem pedir.
                 </p>
             </div>
 
-            <div className="border-b border-gray-200">
+            <div className="max-w-full overflow-hidden border-b border-gray-200">
                 <Tabs
                     tabs={TABS}
                     active={activeTab}
@@ -206,7 +221,7 @@ export default function MenuManagerPage() {
                 />
             </div>
 
-            <div className="pt-4">
+            <div className="min-w-0 max-w-full overflow-x-clip pt-4">
                 {activeTab === "Cardápio" && (
                     <CardapioTab
                         categories={categories}
@@ -246,7 +261,7 @@ export default function MenuManagerPage() {
                         items={items}
                         categories={categories}
                         restaurantId={restaurantId}
-                        onRefresh={() => loadMenuData(restaurantId)}
+                        onStockUpdated={handleStockUpdated}
                         onToast={(
                             message: string,
                             type: "success" | "error" | "info" = "info"

@@ -39,10 +39,18 @@ export default function Modal({
     useEffect(() => {
         if (open) {
             setMounted(true);
+            setActive(false);
             lockPageScroll();
 
-            const frame = requestAnimationFrame(() => setActive(true));
-            return () => cancelAnimationFrame(frame);
+            let secondFrame = 0;
+            const firstFrame = requestAnimationFrame(() => {
+                secondFrame = requestAnimationFrame(() => setActive(true));
+            });
+
+            return () => {
+                cancelAnimationFrame(firstFrame);
+                if (secondFrame) cancelAnimationFrame(secondFrame);
+            };
         }
 
         setActive(false);

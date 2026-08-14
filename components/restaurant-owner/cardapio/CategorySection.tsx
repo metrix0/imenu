@@ -33,9 +33,10 @@ export default function CategorySection({
 }: CategorySectionProps) {
     const [isCreating, setIsCreating] = useState(false);
     const [localItems, setLocalItems] = useState<MenuItemType[]>(items);
+    const [desktopDraggedItemId, setDesktopDraggedItemId] = useState<string | null>(null);
     const [mobileDragPreview, setMobileDragPreview] = useState<{ name: string; x: number; y: number } | null>(null);
     const localItemsRef = useRef<MenuItemType[]>(items);
-    const draggedItemIdRef = useRef<string | null>(null);
+    const mobileDraggedItemIdRef = useRef<string | null>(null);
     const activePointerIdRef = useRef<number | null>(null);
 
     useEffect(() => {
@@ -43,8 +44,8 @@ export default function CategorySection({
         localItemsRef.current = items;
     }, [items]);
 
-    const reorderItem = useCallback((targetItemId: string) => {
-        const draggedItemId = draggedItemIdRef.current;
+    const reorderMobileItem = useCallback((targetItemId: string) => {
+        const draggedItemId = mobileDraggedItemIdRef.current;
         if (!draggedItemId || draggedItemId === targetItemId) return;
 
         const currentList = [...localItemsRef.current];
@@ -81,8 +82,8 @@ export default function CategorySection({
             activePointerIdRef.current !== pointerId
         ) return;
 
-        const wasDragging = Boolean(draggedItemIdRef.current);
-        draggedItemIdRef.current = null;
+        const wasDragging = Boolean(mobileDraggedItemIdRef.current);
+        mobileDraggedItemIdRef.current = null;
         activePointerIdRef.current = null;
         setMobileDragPreview(null);
         if (wasDragging) void saveItemOrder(localItemsRef.current);
@@ -92,14 +93,14 @@ export default function CategorySection({
         const handleMove = (event: PointerEvent) => {
             if (
                 activePointerIdRef.current !== event.pointerId ||
-                !draggedItemIdRef.current ||
+                !mobileDraggedItemIdRef.current ||
                 isCreating
             ) return;
 
             setMobileDragPreview((current) => current ? { ...current, x: event.clientX, y: event.clientY } : current);
             const target = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>("[data-menu-item-id]");
             const targetItemId = target?.dataset.menuItemId;
-            if (targetItemId) reorderItem(targetItemId);
+            if (targetItemId) reorderMobileItem(targetItemId);
         };
 
         const handleEnd = (event: PointerEvent) => finishMobileDrag(event.pointerId);
@@ -121,35 +122,49 @@ export default function CategorySection({
             window.removeEventListener("blur", handleBlur);
             document.removeEventListener("visibilitychange", handleVisibilityChange);
         };
-    }, [finishMobileDrag, isCreating, reorderItem]);
+    }, [finishMobileDrag, isCreating, reorderMobileItem]);
 
     const handleDragStart = (e: React.DragEvent, itemId: string) => {
         e.stopPropagation();
-        draggedItemIdRef.current = itemId;
+        setDesktopDraggedItemId(itemId);
         e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("text/plain", itemId);
 
         const emptyImg = new Image();
-        emptyImg.src = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBAAA7";
+        emptyImg.src = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
         e.dataTransfer.setDragImage(emptyImg, 0, 0);
     };
 
     const handleDragEnd = (e: React.DragEvent) => {
         e.stopPropagation();
-        draggedItemIdRef.current = null;
+        setDesktopDraggedItemId(null);
         void saveItemOrder(localItemsRef.current);
     };
 
     const handleDragOver = (e: React.DragEvent, targetItemId: string) => {
         e.preventDefault();
         e.stopPropagation();
-        reorderItem(targetItemId);
+
+        if (!desktopDraggedItemId || desktopDraggedItemId === targetItemId) return;
+
+        const currentList = [...localItems];
+        const draggedIndex = currentList.findIndex((item) => item.id === desktopDraggedItemId);
+        const targetIndex = currentList.findIndex((item) => item.id === targetItemId);
+        if (draggedIndex === -1 || targetIndex === -1) return;
+
+        const [removed] = currentList.splice(draggedIndex, 1);
+        currentList.splice(targetIndex, 0, removed);
+
+        const updatedList = currentList.map((item, index) => ({ ...item, position: index }));
+        localItemsRef.current = updatedList;
+        setLocalItems(updatedList);
     };
 
     const handlePointerStart = (e: React.PointerEvent<HTMLSpanElement>, itemId: string) => {
         if (e.pointerType === "mouse" || isCreating || activePointerIdRef.current !== null) return;
         e.stopPropagation();
         activePointerIdRef.current = e.pointerId;
-        draggedItemIdRef.current = itemId;
+        mobileDraggedItemIdRef.current = itemId;
         const item = localItemsRef.current.find((current) => current.id === itemId);
         if (item) setMobileDragPreview({ name: item.name, x: e.clientX, y: e.clientY });
     };

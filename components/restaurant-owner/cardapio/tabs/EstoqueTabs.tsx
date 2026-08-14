@@ -3,7 +3,6 @@
 import { supabase } from "@/lib/database/supabaseClient";
 import Loader from "@/components/ui/Loader";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { formatPrice } from "@/lib/utils/formatPrice";
 
 type ItemWithStock = {
     id: string;
@@ -22,17 +21,23 @@ type Category = {
     position?: number | null;
 };
 
+type StockUpdates = {
+    stock_enabled?: boolean;
+    stock_quantity?: number | null;
+    is_available?: boolean;
+};
+
 export default function EstoqueTab({
     items,
     categories,
     restaurantId,
-    onRefresh,
+    onStockUpdated,
     onToast,
 }: {
     items: ItemWithStock[];
     categories: Category[];
     restaurantId: string;
-    onRefresh: () => void;
+    onStockUpdated: (itemId: string, updates: StockUpdates) => void;
     onToast: (
         message: string,
         type?: "success" | "error" | "info"
@@ -65,6 +70,24 @@ export default function EstoqueTab({
         }
 
         return grouped;
+    }, [items]);
+
+    useEffect(() => {
+        setDraftStock((current) => {
+            let changed = false;
+            const next = { ...current };
+
+            for (const [itemId, value] of Object.entries(current)) {
+                const item = items.find((candidate) => candidate.id === itemId);
+                if (!item) continue;
+                if (String(item.stock_quantity ?? 0) === value.trim()) {
+                    delete next[itemId];
+                    changed = true;
+                }
+            }
+
+            return changed ? next : current;
+        });
     }, [items]);
 
     const getDraftValue = (item: ItemWithStock) => {
@@ -117,10 +140,7 @@ export default function EstoqueTab({
         };
 
         window.addEventListener("pagehide", handlePageHide);
-        document.addEventListener(
-            "visibilitychange",
-            handleVisibilityChange
-        );
+        document.addEventListener("visibilitychange", handleVisibilityChange);
 
         return () => {
             flushPendingStockSaves();
@@ -140,15 +160,11 @@ export default function EstoqueTab({
         delete pendingStockRef.current[item.id];
         setSavingId(item.id);
 
-        const payload: any = {
+        const nextQuantity = enabled ? item.stock_quantity ?? 0 : null;
+        const payload: StockUpdates = {
             stock_enabled: enabled,
+            stock_quantity: nextQuantity,
         };
-
-        if (!enabled) {
-            payload.stock_quantity = null;
-        } else if (item.stock_quantity == null) {
-            payload.stock_quantity = 0;
-        }
 
         const { error } = await supabase
             .from("items")
@@ -164,8 +180,16 @@ export default function EstoqueTab({
             return;
         }
 
+        if (!enabled) {
+            setDraftStock((current) => {
+                const next = { ...current };
+                delete next[item.id];
+                return next;
+            });
+        }
+
+        onStockUpdated(item.id, payload);
         onToast("Estoque atualizado.", "success");
-        onRefresh();
     };
 
     const saveStockQuantity = async (
@@ -192,28 +216,19 @@ export default function EstoqueTab({
             if (pendingStockRef.current[item.id] === raw) {
                 delete pendingStockRef.current[item.id];
             }
-            setDraftStock((prev) => {
-                if (
-                    prev[item.id] !== undefined &&
-                    prev[item.id].trim() !== raw
-                ) {
-                    return prev;
-                }
-                const next = { ...prev };
-                delete next[item.id];
-                return next;
-            });
             return;
         }
 
         if (!background) setSavingId(item.id);
 
+        const updates: StockUpdates = {
+            stock_quantity: parsed,
+            is_available: parsed > 0,
+        };
+
         const { error } = await supabase
             .from("items")
-            .update({
-                stock_quantity: parsed,
-                is_available: parsed > 0,
-            })
+            .update(updates)
             .eq("id", item.id)
             .eq("restaurant_id", restaurantId);
 
@@ -228,18 +243,12 @@ export default function EstoqueTab({
         if (pendingStockRef.current[item.id] === raw) {
             delete pendingStockRef.current[item.id];
         }
-        setDraftStock((prev) => {
-            if (
-                prev[item.id] !== undefined &&
-                prev[item.id].trim() !== raw
-            ) {
-                return prev;
-            }
-            const next = { ...prev };
-            delete next[item.id];
-            return next;
-        });
-        onRefresh();
+
+        setDraftStock((current) => ({
+            ...current,
+            [item.id]: String(parsed),
+        }));
+        onStockUpdated(item.id, updates);
     };
 
     const scheduleStockQuantitySave = (
@@ -285,7 +294,7 @@ export default function EstoqueTab({
                 <h2 className="text-xl font-semibold text-gray-900">
                     Estoque
                 </h2>
-                <p className="text-gray-500 mt-1">
+                <p className="mt-1 text-gray-500">
                     Ative o controle de estoque por produto e defina a quantidade disponível.
                 </p>
             </div>
@@ -298,7 +307,7 @@ export default function EstoqueTab({
                     )
                     .map((category) => (
                         <div key={category.id}>
-                            <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                            <h3 className="mb-3 text-lg font-semibold text-gray-900">
                                 {category.name}
                             </h3>
 
@@ -311,11 +320,11 @@ export default function EstoqueTab({
                                         return (
                                             <div
                                                 key={item.id}
-                                                className="border border-gray-200 rounded-xl px-4 py-3 bg-white"
+                                                className="rounded-xl border border-gray-200 bg-white px-4 py-3"
                                             >
                                                 <div className="flex items-center gap-3">
                                                     <div className="min-w-0 flex-1">
-                                                        <div className="font-medium text-gray-900 truncate">
+                                                        <div className="truncate font-medium text-gray-900">
                                                             {item.name}
                                                         </div>
                                                     </div>
@@ -327,47 +336,33 @@ export default function EstoqueTab({
                                                                 min={0}
                                                                 step={1}
                                                                 inputMode="numeric"
-                                                                value={getDraftValue(
-                                                                    item
-                                                                )}
+                                                                value={getDraftValue(item)}
                                                                 onChange={(e) => {
-                                                                    const value =
-                                                                        e.target
-                                                                            .value;
-                                                                    setDraftStock(
-                                                                        (
-                                                                            prev
-                                                                        ) => ({
-                                                                            ...prev,
-                                                                            [item.id]:
-                                                                                value,
-                                                                        })
-                                                                    );
+                                                                    const value = e.target.value;
+                                                                    setDraftStock((prev) => ({
+                                                                        ...prev,
+                                                                        [item.id]: value,
+                                                                    }));
                                                                     scheduleStockQuantitySave(
                                                                         item,
                                                                         value
                                                                     );
                                                                 }}
                                                                 onBlur={() =>
-                                                                    flushStockQuantitySave(
-                                                                        item
-                                                                    )
+                                                                    flushStockQuantitySave(item)
                                                                 }
                                                                 onKeyDown={(e) => {
-                                                                    if (
-                                                                        e.key ===
-                                                                        "Enter"
-                                                                    ) {
+                                                                    if (e.key === "Enter") {
                                                                         e.currentTarget.blur();
                                                                     }
                                                                 }}
                                                                 disabled={isSaving}
-                                                                className="w-24 border border-gray-200 rounded-xl px-3 py-2 outline-none text-sm disabled:opacity-60"
+                                                                className="w-24 rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none disabled:opacity-60"
                                                             />
                                                         </div>
                                                     )}
 
-                                                    <label className="flex items-center gap-2 cursor-pointer select-none whitespace-nowrap">
+                                                    <label className="flex cursor-pointer select-none items-center gap-2 whitespace-nowrap">
                                                         <span className="text-sm text-gray-700">
                                                             Estoque
                                                         </span>
@@ -380,7 +375,7 @@ export default function EstoqueTab({
                                                                 )
                                                             }
                                                             disabled={isSaving}
-                                                            className={`cursor-pointer w-12 h-7 rounded-full relative transition ${
+                                                            className={`relative h-7 w-12 cursor-pointer rounded-full transition ${
                                                                 enabled
                                                                     ? "bg-brand"
                                                                     : "bg-gray-300"
@@ -391,7 +386,7 @@ export default function EstoqueTab({
                                                             }`}
                                                         >
                                                             <span
-                                                                className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-all ${
+                                                                className={`absolute top-1 h-5 w-5 rounded-full bg-white transition-all ${
                                                                     enabled
                                                                         ? "left-6"
                                                                         : "left-1"
