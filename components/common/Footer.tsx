@@ -2,6 +2,9 @@
 
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faChevronDown } from "@fortawesome/free-solid-svg-icons";
 import { useRestaurantDirectory } from "@/components/common/RestaurantDirectoryProvider";
 
 
@@ -9,6 +12,34 @@ export default function Footer() {
 
     const router = useRouter();
     const restaurantCities = useRestaurantDirectory();
+    const [cityMenuOpen, setCityMenuOpen] = useState(false);
+    const cityMenuRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (!cityMenuOpen) return;
+
+        const handlePointerDown = (event: PointerEvent) => {
+            if (
+                cityMenuRef.current &&
+                !cityMenuRef.current.contains(event.target as Node)
+            ) {
+                setCityMenuOpen(false);
+            }
+        };
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === "Escape") {
+                setCityMenuOpen(false);
+            }
+        };
+
+        document.addEventListener("pointerdown", handlePointerDown);
+        document.addEventListener("keydown", handleKeyDown);
+
+        return () => {
+            document.removeEventListener("pointerdown", handlePointerDown);
+            document.removeEventListener("keydown", handleKeyDown);
+        };
+    }, [cityMenuOpen]);
 
     return (
         <footer className="w-full border-t border-gray-200 mt-20 pt-12 pb-10 bg-white 2xl:pb-16">
@@ -19,6 +50,62 @@ export default function Footer() {
                     <h3 className="font-semibold text-gray-800 2xl:text-xl">iMenu</h3>
                     <a className="text-gray-600 text-sm 2xl:text-xl hover:text-gray-800 cursor-pointer w-fit" onClick={() => router.replace("/")}>Página Inicial</a>
                     <a className="text-gray-600 text-sm 2xl:text-xl hover:text-gray-800 cursor-pointer w-fit" onClick={() => window.location.href ="https://wa.me/5519997235394"}>Fale Conosco</a>
+
+                    {restaurantCities.length > 0 && (
+                        <div ref={cityMenuRef} className="relative w-fit">
+                            <button
+                                type="button"
+                                aria-expanded={cityMenuOpen}
+                                aria-controls="restaurant-city-menu"
+                                onClick={() =>
+                                    setCityMenuOpen((current) => !current)
+                                }
+                                className="flex w-fit cursor-pointer items-center gap-1.5 text-sm font-medium text-brand transition-colors hover:text-brand/80 2xl:text-xl"
+                            >
+                                <span>Cardápios por cidade</span>
+                                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand/10 2xl:h-7 2xl:w-7">
+                                    <FontAwesomeIcon
+                                        icon={faChevronDown}
+                                        className={`h-2.5 w-2.5 transition-transform duration-300 ${
+                                            cityMenuOpen ? "rotate-180" : ""
+                                        }`}
+                                    />
+                                </span>
+                            </button>
+
+                            <div
+                                id="restaurant-city-menu"
+                                className={`absolute -left-24 top-full z-50 mt-3 w-[calc(100vw-3rem)] origin-top-left rounded-xl border border-gray-200 bg-white p-4 shadow-xl transition-all duration-300 ease-out md:left-0 md:w-[min(70vw,48rem)] 2xl:p-6 ${
+                                    cityMenuOpen
+                                        ? "visible translate-y-0 scale-100 opacity-100"
+                                        : "invisible pointer-events-none -translate-y-2 scale-[0.98] opacity-0"
+                                }`}
+                            >
+                                <nav
+                                    aria-label="Cardápios por cidade"
+                                    className="grid max-h-72 grid-cols-1 gap-x-8 gap-y-3 overflow-y-auto pr-2 text-sm sm:grid-cols-2 lg:grid-cols-3 2xl:text-xl"
+                                >
+                                    {restaurantCities.map((city) => (
+                                        <Link
+                                            key={city.slug}
+                                            href={
+                                                "/restaurantes/" + city.slug
+                                            }
+                                            className="w-fit text-gray-600 hover:text-gray-800 hover:underline"
+                                        >
+                                            {city.name}
+                                            {city.state
+                                                ? ", " + city.state
+                                                : ""}
+                                            <span className="ml-1 text-gray-400">
+                                                ({city.menuCount})
+                                            </span>
+                                        </Link>
+                                    ))}
+                                </nav>
+                            </div>
+                        </div>
+                    ))}
                 </div>
 
                 {/* Coluna 2 */}
@@ -39,41 +126,6 @@ export default function Footer() {
 
             </div>
 
-
-            {restaurantCities.length > 0 && (
-                <div className="mx-4 mt-10 px-6 md:mx-24 2xl:mx-32">
-                    <details className="group">
-                        <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-semibold text-gray-800 2xl:text-xl [&::-webkit-details-marker]:hidden">
-                            <span>Cardápios por cidade</span>
-                            <span
-                                aria-hidden="true"
-                                className="text-gray-500 transition-transform group-open:rotate-180"
-                            >
-                                ⌄
-                            </span>
-                        </summary>
-
-                        <nav
-                            aria-label="Cardápios por cidade"
-                            className="mt-5 hidden max-h-72 grid-cols-1 gap-x-8 gap-y-3 overflow-y-auto pr-2 text-sm group-open:grid sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 2xl:text-xl"
-                        >
-                            {restaurantCities.map((city) => (
-                                <Link
-                                    key={city.slug}
-                                    href={"/restaurantes/" + city.slug}
-                                    className="w-fit text-gray-600 hover:text-gray-800 hover:underline"
-                                >
-                                    {city.name}
-                                    {city.state ? ", " + city.state : ""}
-                                    <span className="ml-1 text-gray-400">
-                                        ({city.menuCount})
-                                    </span>
-                                </Link>
-                            ))}
-                        </nav>
-                    </details>
-                </div>
-            )}
 
             <hr className="my-16 md:my-10 2xl:my-16 border-gray-200" />
 
