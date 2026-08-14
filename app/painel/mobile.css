@@ -48,10 +48,6 @@
         gap: 0.5rem;
     }
 
-    .panel-mobile-content[data-panel-path^="/painel/cardapio"] .flex.items-center.gap-2.whitespace-nowrap:has(> input[type="number"]) {
-        display: none;
-    }
-
     /* Promoções e cupons */
     .panel-mobile-content[data-panel-path^="/painel/promocoes"] .grid.grid-cols-4,
     .panel-mobile-content[data-panel-path^="/painel/promocoes"] .grid.grid-cols-2 {
