@@ -274,7 +274,7 @@ export default function CartBar({
         }
 
         const body = {
-            restaurantId: checkout.restaurantId,
+            restaurantId: restaurant.id,
             customer_name: checkout.nome,
             customer_phone: checkout.celular,
             customer_address: pickup
@@ -328,6 +328,13 @@ export default function CartBar({
 
         const data = await res.json();
 
+        if (!res.ok) {
+            window.alert(
+                data?.error || "Não foi possível criar o pedido. Tente novamente."
+            );
+            return;
+        }
+
         try {
             if (checkout.coupon_id) {
                 const couponUsage = {
@@ -339,13 +346,13 @@ export default function CartBar({
                 // localStorage (primary)
                 if (typeof window !== "undefined") {
                     localStorage.setItem(
-                        `coupon_used_${checkout.restaurantId}`,
+                        `coupon_used_${body.restaurantId}`,
                         JSON.stringify(couponUsage)
                     );
                 }
 
                 // cookie (fallback / redundancy)
-                document.cookie = `coupon_used_${checkout.restaurantId}=${encodeURIComponent(
+                document.cookie = `coupon_used_${body.restaurantId}=${encodeURIComponent(
                     JSON.stringify(couponUsage)
                 )}; path=/; max-age=${60 * 60 * 24 * 30}`; // 30 days
             }

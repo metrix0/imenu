@@ -3,6 +3,7 @@ import { sendWahaText } from "@/lib/services/wahaClient";
 
 type OrderNotificationRow = {
     id: string;
+    display_id: number | null;
     customer_phone: string | null;
     customer_name: string | null;
     is_delivery: string | boolean | null;
@@ -69,6 +70,7 @@ export async function notifyOrderStatusUpdate(
             `
                 SELECT
                     orders.id,
+                    orders.display_id,
                     orders.customer_phone,
                     orders.customer_name,
                     orders.is_delivery,
@@ -113,11 +115,12 @@ export async function notifyOrderStatusUpdate(
         }
 
         const customerName = order.customer_name?.trim() || "Cliente";
-        const shortOrderId = order.id.slice(0, 4).toUpperCase();
+        const orderNumber =
+            order.display_id ?? order.id.slice(0, 4).toUpperCase();
         const message = [
             `Olá, ${customerName}! 👋`,
             "",
-            `Seu pedido *#${shortOrderId}* no *${order.restaurant_name}* ${statusText}`,
+            `Seu pedido *#${orderNumber}* no *${order.restaurant_name}* ${statusText}`,
         ].join("\n");
 
         await sendWahaText(

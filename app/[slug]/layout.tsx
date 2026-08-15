@@ -424,7 +424,7 @@ export default async function Layout({
     const { slug } = await params;
     const restaurant = await getRestaurantSeo(slug);
 
-    if (restaurant === null) {
+    if (restaurant === null && slug !== "pedido") {
         notFound();
     }
 
