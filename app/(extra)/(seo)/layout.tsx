@@ -83,6 +83,9 @@ export default function SeoLayout({
                             <Link href="/gestor-de-pedidos" className="hover:underline">
                                 Gestor de Pedidos
                             </Link>
+                            <Link href="/blog" className="font-medium text-brand hover:underline">
+                                Guias para restaurantes
+                            </Link>
                             <Link href="/anota-ai" className="hover:underline">
                                 iMenu vs Anota Ai
                             </Link>

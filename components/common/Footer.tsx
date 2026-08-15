@@ -49,7 +49,6 @@ export default function Footer() {
                 <div className="flex flex-col gap-2 2xl:gap-4">
                     <h3 className="font-semibold text-gray-800 2xl:text-xl">iMenu</h3>
                     <Link href="/" className="text-gray-600 text-sm 2xl:text-xl hover:text-gray-800 cursor-pointer w-fit">Página Inicial</Link>
-                    <Link href="/ferramentas" className="text-gray-600 text-sm 2xl:text-xl hover:text-gray-800 cursor-pointer w-fit">Ferramentas</Link>
 
                     {restaurantCities.length > 0 && (
                         <div ref={cityMenuRef} className="relative w-fit">
@@ -75,10 +74,10 @@ export default function Footer() {
 
                             <div
                                 id="restaurant-city-menu"
-                                className={`absolute -left-24 top-full z-50 mt-3 w-[calc(100vw-3rem)] origin-top-left rounded-xl border border-gray-200 bg-white p-4 shadow-xl transition-all duration-300 ease-out md:left-0 md:w-[min(70vw,48rem)] 2xl:p-6 ${
+                                className={`absolute -left-24 bottom-full z-50 mb-3 w-[calc(100vw-3rem)] origin-bottom-left rounded-xl border border-gray-200 bg-white p-4 shadow-xl transition-all duration-300 ease-out md:left-0 md:w-[min(70vw,48rem)] 2xl:p-6 ${
                                     cityMenuOpen
                                         ? "visible translate-y-0 scale-100 opacity-100"
-                                        : "invisible pointer-events-none -translate-y-2 scale-[0.98] opacity-0"
+                                        : "invisible pointer-events-none translate-y-2 scale-[0.98] opacity-0"
                                 }`}
                             >
                                 <nav
@@ -112,7 +111,8 @@ export default function Footer() {
                 <div className="flex flex-col gap-2 2xl:gap-4">
                     <h3 className="font-semibold text-gray-800 2xl:text-xl">Descubra</h3>
                     <a className="text-blue-500 underline text-sm 2xl:text-xl hover:text-blue-700 cursor-pointer w-fit" onClick={() => router.replace("/cardapio-digital")} >Top 5 Cardápios Digitais Grátis</a>
-                    <a className="text-gray-600 text-sm 2xl:text-xl hover:text-gray-800 cursor-pointer w-fit" onClick={() => router.replace("/")}>iMenu Empresas</a>
+                    <Link href="/blog" className="w-fit text-sm font-semibold text-brand transition-colors hover:text-brand/80 2xl:text-xl">Blog</Link>
+                    <Link href="/ferramentas" className="w-fit text-sm font-semibold text-brand transition-colors hover:text-brand/80 2xl:text-xl">Ferramentas grátis</Link>
                 </div>
 
                 {/* Coluna 3 */}

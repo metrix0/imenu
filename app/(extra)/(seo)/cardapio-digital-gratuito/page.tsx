@@ -63,6 +63,26 @@ export default function Page() {
                     estabelecimento.
                 </p>
             </section>
+
+            <section>
+                <h2 className="text-2xl font-bold mb-4">
+                    Checklist antes de divulgar o cardápio
+                </h2>
+                <p className="text-gray-600 mb-4">
+                    Antes de publicar o link, faça um pedido de teste pelo celular e
+                    confira os pontos que mais geram dúvidas no atendimento:
+                </p>
+                <ul className="space-y-2 text-gray-600 list-disc list-inside">
+                    <li>preços, tamanhos e adicionais estão fáceis de entender;</li>
+                    <li>itens indisponíveis não aparecem como disponíveis;</li>
+                    <li>telefone, endereço, horários e formas de pagamento estão corretos;</li>
+                    <li>o pedido chega completo e pode ser confirmado sem retrabalho.</li>
+                </ul>
+                <p className="text-gray-600 mt-4">
+                    Para o salão ou materiais impressos, você também pode criar um código
+                    na nossa <a className="text-blue-500 underline" href="/ferramentas/gerador-qr-code-cardapio">ferramenta gratuita de QR Code</a>.
+                </p>
+            </section>
         </SeoPage>
     );
 }

@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Button from "@/components/ui/Button";
 import Link from "next/link";
+import RestaurantToolsCta from "@/components/common/restaurant-tools/RestaurantToolsCta";
 
 interface SeoPageProps {
     h1: string;
@@ -61,6 +62,7 @@ export function SeoPage({
             {/* CONTENT */}
             <section className="mx-auto w-full max-w-4xl px-6 py-24 space-y-20">
                 {children}
+                <RestaurantToolsCta title="Leve essas ideias para a operação" />
             </section>
         </>
     );

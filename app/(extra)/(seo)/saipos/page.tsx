@@ -62,6 +62,22 @@ export default function Page() {
                     um ERP completo.
                 </p>
             </section>
+
+            <section>
+                <h2 className="text-2xl font-bold mb-4">
+                    Decida pelo problema que precisa resolver
+                </h2>
+                <ul className="space-y-2 text-gray-600 list-disc list-inside">
+                    <li>Mapeie se você precisa apenas vender online ou gerir toda a operação.</li>
+                    <li>Separe recursos essenciais de módulos que não serão usados agora.</li>
+                    <li>Compare implantação, treinamento, mensalidade e integrações necessárias.</li>
+                    <li>Teste cadastro, recebimento e atualização de um pedido completo.</li>
+                </ul>
+                <p className="text-gray-600 mt-4">
+                    Valide os planos e recursos atuais diretamente com cada plataforma. Assim,
+                    você evita contratar uma estrutura maior — ou menor — do que o restaurante precisa.
+                </p>
+            </section>
         </SeoPage>
     );
 }

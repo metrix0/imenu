@@ -61,6 +61,22 @@ export default function Page() {
                     restaurantes tenham controle da operação sem aumentar custos fixos.
                 </p>
             </section>
+
+            <section>
+                <h2 className="text-2xl font-bold mb-4">
+                    Um fluxo simples para não perder pedidos
+                </h2>
+                <ol className="space-y-3 text-gray-600 list-decimal list-inside">
+                    <li>Confira cliente, itens, pagamento e necessidade de troco.</li>
+                    <li>Confirme o pedido somente depois de validar prazo e estoque.</li>
+                    <li>Atualize o status quando entrar em preparo e sair para entrega.</li>
+                    <li>Finalize o pedido para manter o painel limpo e os dados corretos.</li>
+                </ol>
+                <p className="text-gray-600 mt-4">
+                    Nos horários de pico, defina uma pessoa responsável por confirmar os
+                    novos pedidos e faça um teste de aviso sonoro antes de abrir a operação.
+                </p>
+            </section>
         </SeoPage>
     );
 }
