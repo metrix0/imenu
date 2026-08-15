@@ -8,6 +8,7 @@ import {
     faTrash,
 } from "@fortawesome/free-solid-svg-icons";
 import Modal from "@/components/ui/Modal";
+import ConfirmModal from "@/components/ui/ConfirmModal";
 import Toast from "@/components/ui/Toast";
 import { supabase } from "@/lib/database/supabaseClient";
 import { icons } from "@/lib/utils/fontawesome";
@@ -140,6 +141,7 @@ export default function ManageComplementGroupModal({
     const [isSaving, setIsSaving] = useState(false);
     const [allowDragId, setAllowDragId] = useState<string | null>(null);
     const [draggedOptionId, setDraggedOptionId] = useState<string | null>(null);
+    const [optionToPause, setOptionToPause] = useState<string | null>(null);
     const [toast, setToast] = useState<{
         id: number;
         message: string;
@@ -148,6 +150,8 @@ export default function ManageComplementGroupModal({
     const savedGroupRef = useRef<SharedComplementGroup | null>(null);
 
     useEffect(() => {
+        setOptionToPause(null);
+
         if (!open || !group) {
             setDraft(null);
             savedGroupRef.current = null;
@@ -244,7 +248,10 @@ export default function ManageComplementGroupModal({
         setIsSaving(false);
     };
 
-    const toggleOptionAvailability = async (optionId: string) => {
+    const setOptionAvailability = async (
+        optionId: string,
+        isAvailable: boolean
+    ) => {
         if (!draft) return;
 
         const option = draft.options.find(
@@ -252,16 +259,22 @@ export default function ManageComplementGroupModal({
         );
         if (!option) return;
 
-        const isAvailable = option.availability !== "available";
         setIsSaving(true);
 
-        const { error } = await supabase
+        const { data, error } = await supabase
             .from("subitems")
             .update({ is_available: isAvailable })
-            .in("id", option.ids);
+            .in("id", option.ids)
+            .select("id, is_available");
 
-        if (error) {
-            console.error("Erro ao pausar opção de complemento:", error);
+        const updatedEveryCopy =
+            !error &&
+            !!data &&
+            data.length === option.ids.length &&
+            data.every((row) => row.is_available === isAvailable);
+
+        if (!updatedEveryCopy) {
+            console.error("Erro ao alterar disponibilidade de complemento:", error);
             showError("Não foi possível alterar a disponibilidade.");
         } else {
             commitGroup({
@@ -280,6 +293,40 @@ export default function ManageComplementGroupModal({
         }
 
         setIsSaving(false);
+    };
+
+    const toggleOptionAvailability = async (optionId: string) => {
+        if (!draft) return;
+
+        const option = draft.options.find(
+            (currentOption) => currentOption.id === optionId
+        );
+        if (!option) return;
+
+        const isAvailable = option.availability !== "available";
+        const pausesLastAvailableOption =
+            !isAvailable &&
+            draft.min_select > 0 &&
+            draft.options
+                .filter((currentOption) => currentOption.id !== optionId)
+                .every(
+                    (currentOption) => currentOption.availability === "paused"
+                );
+
+        if (pausesLastAvailableOption) {
+            setOptionToPause(optionId);
+            return;
+        }
+
+        await setOptionAvailability(optionId, isAvailable);
+    };
+
+    const confirmPauseLastOption = async () => {
+        if (!optionToPause) return;
+
+        const optionId = optionToPause;
+        setOptionToPause(null);
+        await setOptionAvailability(optionId, false);
     };
 
     const addOption = async () => {
@@ -774,6 +821,19 @@ export default function ManageComplementGroupModal({
                     </div>
                 </div>
             </Modal>
+
+            <ConfirmModal
+                open={!!optionToPause}
+                onClose={() => {
+                    if (!isSaving) setOptionToPause(null);
+                }}
+                onConfirm={() => void confirmPauseLastOption()}
+                title="Pausar última opção"
+                description="Este complemento é obrigatório. Se todas as opções forem pausadas, os clientes não conseguirão adicionar os produtos ao pedido."
+                confirmLabel="Pausar mesmo assim"
+                isLoading={isSaving}
+                variant="danger"
+            />
 
             {toast && (
                 <Toast
