@@ -1,6 +1,23 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+    faBoxOpen,
+    faCalculator,
+    faCalendarDays,
+    faCashRegister,
+    faChartLine,
+    faClipboardList,
+    faPercent,
+    faPlus,
+    faReceipt,
+    faSliders,
+    faTag,
+    faTicket,
+    faTrash,
+    faWallet,
+} from "@fortawesome/free-solid-svg-icons";
 
 import Button from "@/components/ui/Button";
 import Dropdown from "@/components/ui/Dropdown";
@@ -82,6 +99,7 @@ function IfoodFeeCalculator() {
             <ToolPanel
                 title="Dados da operação"
                 description="Use os valores do seu contrato. Os presets são apenas uma referência editável."
+                icon={faSliders}
             >
                 <div className="grid gap-4 sm:grid-cols-2">
                     <Dropdown
@@ -156,7 +174,7 @@ function IfoodFeeCalculator() {
                 </Notice>
             </ToolPanel>
 
-            <ToolPanel title="Estimativa mensal">
+            <ToolPanel title="Estimativa mensal" icon={faChartLine}>
                 <ResultGrid>
                     <ResultItem label="Comissão" value={formatCurrency(commissionCost)} />
                     <ResultItem label="Pagamento online" value={formatCurrency(paymentCost)} />
@@ -215,7 +233,7 @@ function SalePriceCalculator() {
 
     return (
         <div className="grid gap-5 lg:grid-cols-2">
-            <ToolPanel title="Ficha de custo">
+            <ToolPanel title="Ficha de custo" icon={faClipboardList}>
                 <div className="grid gap-4 sm:grid-cols-2">
                     <NumberField label="Custo total da receita" value={recipeCost} onChange={setRecipeCost} prefix="R$" />
                     <NumberField label="Rendimento em porções" value={yieldCount} onChange={setYieldCount} suffix="un" step={1} />
@@ -227,7 +245,7 @@ function SalePriceCalculator() {
                     Esta conta é uma referência de preço pelo custo do produto. Valide também impostos, comissões, custos fixos, concorrência e valor percebido.
                 </Notice>
             </ToolPanel>
-            <ToolPanel title="Preço sugerido">
+            <ToolPanel title="Preço sugerido" icon={faTag}>
                 <ResultGrid>
                     <ResultItem label="Ingredientes por porção" value={formatCurrency(ingredientCost)} />
                     <ResultItem label="Custo unitário total" value={formatCurrency(unitCost)} />
@@ -262,7 +280,7 @@ function DeliveryMarginCalculator() {
 
     return (
         <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
-            <ToolPanel title="Custos por pedido">
+            <ToolPanel title="Custos por pedido" icon={faReceipt}>
                 <div className="grid gap-4 sm:grid-cols-2">
                     <NumberField label="Preço de venda" value={price} onChange={setPrice} prefix="R$" />
                     <NumberField label="Ingredientes / CMV" value={foodCost} onChange={setFoodCost} prefix="R$" />
@@ -276,7 +294,7 @@ function DeliveryMarginCalculator() {
                     <NumberField label="Pedidos por mês" value={monthlyOrders} onChange={setMonthlyOrders} suffix="un" step={1} />
                 </div>
             </ToolPanel>
-            <ToolPanel title="Margem e ponto de equilíbrio">
+            <ToolPanel title="Margem e ponto de equilíbrio" icon={faChartLine}>
                 <ResultGrid>
                     <ResultItem label="Custos variáveis" value={formatCurrency(variableCosts)} />
                     <ResultItem
@@ -322,7 +340,7 @@ function AverageTicketCalculator() {
 
     return (
         <div className="grid gap-5 lg:grid-cols-2">
-            <ToolPanel title="Vendas do período">
+            <ToolPanel title="Vendas do período" icon={faCashRegister}>
                 <div className="grid gap-4 sm:grid-cols-2">
                     <NumberField label="Faturamento" value={revenue} onChange={setRevenue} prefix="R$" step={100} />
                     <NumberField label="Pedidos concluídos" value={orders} onChange={setOrders} suffix="un" step={1} />
@@ -331,7 +349,7 @@ function AverageTicketCalculator() {
                     <NumberField label="Aceitação estimada do adicional" value={acceptance} onChange={setAcceptance} suffix="%" max={100} />
                 </div>
             </ToolPanel>
-            <ToolPanel title="Ticket e simulações">
+            <ToolPanel title="Ticket e simulações" icon={faTicket}>
                 <ResultGrid>
                     <ResultItem label="Ticket médio atual" value={formatCurrency(ticket)} highlight />
                     <ResultItem label="Faturamento na meta" value={formatCurrency(targetRevenue)} />
@@ -373,7 +391,7 @@ function DeliveryCommissionCalculator() {
 
     return (
         <div className="grid gap-5 lg:grid-cols-2">
-            <ToolPanel title="Condições do canal">
+            <ToolPanel title="Condições do canal" icon={faPercent}>
                 <div className="grid gap-4 sm:grid-cols-2">
                     <NumberField label="Valor do pedido" value={orderValue} onChange={setOrderValue} prefix="R$" />
                     <NumberField label="Comissão" value={commission} onChange={setCommission} suffix="%" max={100} />
@@ -383,7 +401,7 @@ function DeliveryCommissionCalculator() {
                     <NumberField label="Valor líquido desejado" value={desiredNet} onChange={setDesiredNet} prefix="R$" />
                 </div>
             </ToolPanel>
-            <ToolPanel title="Resultado por pedido">
+            <ToolPanel title="Resultado por pedido" icon={faWallet}>
                 <ResultGrid>
                     <ResultItem label="Taxas percentuais" value={formatCurrency(percentageFees)} />
                     <ResultItem label="Custo total do canal" value={formatCurrency(totalFees)} description={formatPercent(effectiveRate)} />
@@ -417,7 +435,7 @@ function CmvCalculator() {
 
     return (
         <div className="grid gap-5 lg:grid-cols-2">
-            <ToolPanel title="Dados do período">
+            <ToolPanel title="Dados do período" icon={faCalendarDays}>
                 <div className="grid gap-4 sm:grid-cols-2">
                     <NumberField label="Estoque inicial" value={openingInventory} onChange={setOpeningInventory} prefix="R$" step={100} />
                     <NumberField label="Compras" value={purchases} onChange={setPurchases} prefix="R$" step={100} />
@@ -426,7 +444,7 @@ function CmvCalculator() {
                     <NumberField label="Meta de CMV" value={target} onChange={setTarget} suffix="%" max={100} />
                 </div>
             </ToolPanel>
-            <ToolPanel title="CMV do período">
+            <ToolPanel title="CMV do período" icon={faCalculator}>
                 <ResultGrid>
                     <ResultItem label="CMV" value={formatCurrency(cmv)} highlight={cmv >= 0} danger={cmv < 0} />
                     <ResultItem label="CMV percentual" value={formatPercent(cmvPercent)} />
@@ -492,7 +510,7 @@ function ComboPriceCalculator() {
 
     return (
         <div className="grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
-            <ToolPanel title="Itens do combo" description="Informe preço avulso e custo unitário de cada item.">
+            <ToolPanel title="Itens do combo" description="Informe preço avulso e custo unitário de cada item." icon={faBoxOpen}>
                 <div className="space-y-3">
                     {items.map((item, index) => (
                         <div key={item.id} className="grid gap-3 rounded-xl border border-gray-200 bg-gray-50 p-3 sm:grid-cols-[1fr_0.7fr_0.7fr_auto] sm:items-end">
@@ -507,12 +525,14 @@ function ComboPriceCalculator() {
                                 onClick={() => setItems((current) => current.filter((currentItem) => currentItem.id !== item.id))}
                                 aria-label={`Remover ${item.name}`}
                             >
+                                <FontAwesomeIcon icon={faTrash} className="mr-2 h-3.5 w-3.5" />
                                 Remover
                             </Button>
                         </div>
                     ))}
                 </div>
                 <Button type="button" variant="secondary" className="mt-4" onClick={addItem} disabled={items.length >= 8}>
+                    <FontAwesomeIcon icon={faPlus} className="mr-2 h-3.5 w-3.5" />
                     Adicionar item
                 </Button>
                 <div className="mt-5 grid gap-4 sm:grid-cols-3">
@@ -521,7 +541,7 @@ function ComboPriceCalculator() {
                     <NumberField label="Margem mínima" value={targetMargin} onChange={setTargetMargin} suffix="%" max={100} />
                 </div>
             </ToolPanel>
-            <ToolPanel title="Preço do combo">
+            <ToolPanel title="Preço do combo" icon={faTag}>
                 <ResultGrid>
                     <ResultItem label="Itens avulsos" value={formatCurrency(totals.price)} />
                     <ResultItem label="Custo total" value={formatCurrency(totals.cost)} />

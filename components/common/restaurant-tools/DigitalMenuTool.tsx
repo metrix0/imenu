@@ -1,11 +1,23 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+    faClipboardList,
+    faCopy,
+    faDownload,
+    faEye,
+    faFilePdf,
+    faPlus,
+    faTrash,
+} from "@fortawesome/free-solid-svg-icons";
+import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
 
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import {
     formatCurrency,
+    Notice,
     NumberField,
     ToolPanel,
 } from "@/components/common/restaurant-tools/ToolUi";
@@ -207,8 +219,15 @@ export default function DigitalMenuTool() {
 
     return (
         <div className="grid gap-5 xl:grid-cols-[1.08fr_0.92fr]">
-            <ToolPanel title="Monte seu cardápio" description="O rascunho é salvo automaticamente neste navegador.">
-                <div className="grid gap-4 sm:grid-cols-2">
+            <ToolPanel
+                title="Monte um rascunho de cardápio"
+                description="O rascunho é salvo automaticamente neste navegador."
+                icon={faClipboardList}
+            >
+                <Notice>
+                    Esta ferramenta cria somente um rascunho local para copiar ou exportar. Ela não cria uma conta nem publica um cardápio no iMenu.
+                </Notice>
+                <div className="mt-5 grid gap-4 sm:grid-cols-2">
                     <Input label="Nome do restaurante" value={restaurantName} onChange={(event) => setRestaurantName(event.target.value)} />
                     <Input label="WhatsApp para pedidos" value={whatsapp} onChange={(event) => setWhatsapp(event.target.value)} placeholder="(11) 99999-9999" inputMode="tel" />
                 </div>
@@ -227,6 +246,7 @@ export default function DigitalMenuTool() {
                                     disabled={categories.length === 1}
                                     onClick={() => setCategories((current) => current.filter((currentCategory) => currentCategory.id !== category.id))}
                                 >
+                                    <FontAwesomeIcon icon={faTrash} className="mr-2 h-3.5 w-3.5" />
                                     Remover categoria
                                 </Button>
                             </div>
@@ -252,24 +272,27 @@ export default function DigitalMenuTool() {
                                             className="mt-2 cursor-pointer text-xs font-medium text-red-600 hover:underline"
                                             onClick={() => setCategories((current) => current.map((currentCategory) => currentCategory.id !== category.id ? currentCategory : { ...currentCategory, items: currentCategory.items.filter((currentItem) => currentItem.id !== item.id) }))}
                                         >
+                                            <FontAwesomeIcon icon={faTrash} className="mr-1.5 h-3 w-3" />
                                             Remover produto
                                         </button>
                                     </div>
                                 ))}
                             </div>
                             <Button type="button" variant="secondary" className="mt-3" onClick={() => addItem(category.id)} disabled={category.items.length >= 20}>
+                                <FontAwesomeIcon icon={faPlus} className="mr-2 h-3.5 w-3.5" />
                                 Adicionar produto
                             </Button>
                         </div>
                     ))}
                 </div>
                 <Button type="button" variant="secondary" className="mt-4" onClick={addCategory} disabled={categories.length >= 10}>
+                    <FontAwesomeIcon icon={faPlus} className="mr-2 h-3.5 w-3.5" />
                     Adicionar categoria
                 </Button>
             </ToolPanel>
 
             <div className="xl:sticky xl:top-5 xl:self-start">
-                <ToolPanel title="Prévia do cardápio">
+                <ToolPanel title="Prévia do rascunho" icon={faEye}>
                     <div id="generated-menu" className="overflow-hidden rounded-2xl border border-gray-200 bg-gray-50">
                         <header className="bg-brand p-6 text-white">
                             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/75">Cardápio</p>
@@ -294,6 +317,7 @@ export default function DigitalMenuTool() {
                                                         rel="noreferrer"
                                                         className="col-span-2 w-fit rounded-md bg-brand px-3 py-2 text-xs font-semibold text-white"
                                                     >
+                                                        <FontAwesomeIcon icon={faWhatsapp} className="mr-1.5 h-3 w-3" />
                                                         Pedir no WhatsApp
                                                     </a>
                                                 )}
@@ -306,9 +330,18 @@ export default function DigitalMenuTool() {
                     </div>
 
                     <div className="mt-5 grid gap-3 sm:grid-cols-3 xl:grid-cols-1 2xl:grid-cols-3">
-                        <Button type="button" variant="secondary" onClick={() => void copyMenu()}>Copiar texto</Button>
-                        <Button type="button" variant="secondary" onClick={() => window.print()}>Salvar em PDF</Button>
-                        <Button type="button" onClick={downloadHtml}>Baixar HTML</Button>
+                        <Button type="button" variant="secondary" onClick={() => void copyMenu()}>
+                            <FontAwesomeIcon icon={faCopy} className="mr-2 h-4 w-4" />
+                            Copiar texto
+                        </Button>
+                        <Button type="button" variant="secondary" onClick={() => window.print()}>
+                            <FontAwesomeIcon icon={faFilePdf} className="mr-2 h-4 w-4" />
+                            Salvar em PDF
+                        </Button>
+                        <Button type="button" onClick={downloadHtml}>
+                            <FontAwesomeIcon icon={faDownload} className="mr-2 h-4 w-4" />
+                            Baixar HTML
+                        </Button>
                     </div>
                     {message && <p role="status" className="mt-3 text-sm text-gray-600">{message}</p>}
                 </ToolPanel>

@@ -1,8 +1,19 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+    faArrowRight,
+    faCalculator,
+    faCheck,
+    faChevronDown,
+    faCircleQuestion,
+    faLightbulb,
+} from "@fortawesome/free-solid-svg-icons";
 
 import RestaurantToolRenderer from "@/components/common/restaurant-tools/RestaurantToolRenderer";
+import RestaurantToolIcon from "@/components/common/restaurant-tools/RestaurantToolIcon";
+import RestaurantToolsCta from "@/components/common/restaurant-tools/RestaurantToolsCta";
 import {
     getRestaurantTool,
     getRestaurantToolPath,
@@ -101,7 +112,10 @@ export default async function ToolPage({ params }: ToolPageProps) {
                         <span aria-hidden="true" className="mx-2">/</span>
                         <span>{tool.name}</span>
                     </nav>
-                    <p className="mt-6 font-semibold text-brand">Ferramenta gratuita para restaurantes</p>
+                    <p className="mt-6 inline-flex items-center gap-2 font-semibold text-brand">
+                        <RestaurantToolIcon tool={tool.slug} className="h-4 w-4" />
+                        Ferramenta gratuita para restaurantes
+                    </p>
                     <h1 className="mt-3 max-w-4xl text-4xl font-extrabold leading-tight tracking-tight text-gray-950 md:text-5xl">
                         {tool.title}
                     </h1>
@@ -117,7 +131,12 @@ export default async function ToolPage({ params }: ToolPageProps) {
 
             <div className="mx-auto max-w-4xl space-y-14 px-6 pb-16 pt-6 md:pb-24">
                 <section>
-                    <h2 className="text-2xl font-bold text-gray-950">{tool.calculationTitle}</h2>
+                    <h2 className="flex items-center gap-3 text-2xl font-bold text-gray-950">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand">
+                            <FontAwesomeIcon icon={faCalculator} className="h-4 w-4" />
+                        </span>
+                        {tool.calculationTitle}
+                    </h2>
                     <p className="mt-4 leading-7 text-gray-600">{tool.calculation}</p>
                     {tool.slug === "calculadora-taxas-ifood" && (
                         <p className="mt-3 text-sm leading-6 text-gray-500">
@@ -130,11 +149,18 @@ export default async function ToolPage({ params }: ToolPageProps) {
                 </section>
 
                 <section>
-                    <h2 className="text-2xl font-bold text-gray-950">Como usar melhor o resultado</h2>
+                    <h2 className="flex items-center gap-3 text-2xl font-bold text-gray-950">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand">
+                            <FontAwesomeIcon icon={faLightbulb} className="h-4 w-4" />
+                        </span>
+                        Como usar melhor o resultado
+                    </h2>
                     <ul className="mt-4 space-y-3">
                         {tool.practicalTips.map((tip) => (
                             <li key={tip} className="flex gap-3 leading-7 text-gray-600">
-                                <span aria-hidden="true" className="mt-2 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand/10 text-xs font-bold text-brand">✓</span>
+                                <span aria-hidden="true" className="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand/10 text-brand">
+                                    <FontAwesomeIcon icon={faCheck} className="h-2.5 w-2.5" />
+                                </span>
                                 <span>{tip}</span>
                             </li>
                         ))}
@@ -142,13 +168,22 @@ export default async function ToolPage({ params }: ToolPageProps) {
                 </section>
 
                 <section>
-                    <h2 className="text-2xl font-bold text-gray-950">Perguntas frequentes</h2>
+                    <h2 className="flex items-center gap-3 text-2xl font-bold text-gray-950">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand">
+                            <FontAwesomeIcon icon={faCircleQuestion} className="h-4 w-4" />
+                        </span>
+                        Perguntas frequentes
+                    </h2>
                     <div className="mt-5 divide-y divide-gray-200 rounded-2xl border border-gray-200 bg-white px-5">
                         {tool.faq.map((item) => (
                             <details key={item.question} className="group py-5">
                                 <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-semibold text-gray-900">
                                     {item.question}
-                                    <span aria-hidden="true" className="text-xl text-brand transition-transform group-open:rotate-45">+</span>
+                                    <FontAwesomeIcon
+                                        aria-hidden="true"
+                                        icon={faChevronDown}
+                                        className="h-4 w-4 shrink-0 text-brand transition-transform group-open:rotate-180"
+                                    />
                                 </summary>
                                 <p className="mt-3 pr-8 text-sm leading-6 text-gray-600">{item.answer}</p>
                             </details>
@@ -157,34 +192,33 @@ export default async function ToolPage({ params }: ToolPageProps) {
                 </section>
 
                 <section>
-                    <h2 className="text-xl font-bold text-gray-950">Outras ferramentas úteis</h2>
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                        <h2 className="text-xl font-bold text-gray-950">Outras ferramentas úteis</h2>
+                        <Link
+                            href="/ferramentas"
+                            className="inline-flex items-center gap-2 text-sm font-semibold text-brand hover:underline"
+                        >
+                            Ver todas as ferramentas
+                            <FontAwesomeIcon icon={faArrowRight} className="h-3.5 w-3.5" />
+                        </Link>
+                    </div>
                     <div className="mt-4 grid gap-3 sm:grid-cols-3">
                         {related.map((relatedTool) => (
                             <Link
                                 key={relatedTool.slug}
                                 href={getRestaurantToolPath(relatedTool.slug)}
-                                className="rounded-xl border border-gray-200 bg-white p-4 text-sm font-semibold text-gray-800 transition hover:border-brand/40 hover:text-brand"
+                                className="group flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-4 text-sm font-semibold text-gray-800 transition hover:border-brand/40 hover:text-brand"
                             >
-                                {relatedTool.name}
+                                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand">
+                                    <RestaurantToolIcon tool={relatedTool.slug} className="h-4 w-4" />
+                                </span>
+                                <span>{relatedTool.name}</span>
                             </Link>
                         ))}
                     </div>
                 </section>
 
-                <section className="rounded-2xl bg-gray-950 p-7 text-white md:p-10">
-                    <h2 className="text-2xl font-bold">Transforme o resultado em pedidos</h2>
-                    <p className="mt-3 max-w-2xl leading-7 text-gray-300">
-                        Você também pode criar seu cardápio, receber pedidos e gerenciar
-                        tudo gratuitamente no iMenu.
-                    </p>
-                    <Link
-                        href="/"
-                        data-seo-home-link
-                        className="mt-6 inline-flex rounded-md bg-brand px-5 py-3 font-semibold text-white transition hover:bg-brand/90"
-                    >
-                        Conhecer o iMenu
-                    </Link>
-                </section>
+                <RestaurantToolsCta title="Transforme o resultado em pedidos" />
             </div>
         </article>
     );

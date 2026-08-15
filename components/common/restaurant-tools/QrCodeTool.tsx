@@ -1,6 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+    faDownload,
+    faEye,
+    faPalette,
+    faQrcode,
+} from "@fortawesome/free-solid-svg-icons";
 
 import Button from "@/components/ui/Button";
 import Dropdown from "@/components/ui/Dropdown";
@@ -22,6 +29,42 @@ function qrUrl(value: string, size: number, foreground: string, background: stri
         format,
     });
     return `https://api.qrserver.com/v1/create-qr-code/?${params.toString()}`;
+}
+
+function ColorField({
+    label,
+    value,
+    onChange,
+}: {
+    label: string;
+    value: string;
+    onChange: (value: string) => void;
+}) {
+    return (
+        <label className="flex flex-col gap-1 text-xs font-medium 2xl:text-base">
+            {label}
+            <span className="relative h-[50px]">
+                <input
+                    type="color"
+                    value={value}
+                    aria-label={label}
+                    onChange={(event) => onChange(event.target.value)}
+                    className="peer absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
+                />
+                <span className="flex h-full items-center gap-3 rounded-md border border-gray-300 bg-white px-3 peer-focus-visible:border-brand peer-focus-visible:ring-2 peer-focus-visible:ring-brand/30">
+                    <span
+                        aria-hidden="true"
+                        className="h-7 w-7 shrink-0 rounded-md border border-black/10 shadow-inner"
+                        style={{ backgroundColor: value }}
+                    />
+                    <span className="min-w-0 flex-1 font-mono text-xs uppercase text-gray-700">
+                        {value}
+                    </span>
+                    <FontAwesomeIcon icon={faPalette} className="h-4 w-4 text-gray-400" />
+                </span>
+            </span>
+        </label>
+    );
 }
 
 export default function QrCodeTool() {
@@ -69,7 +112,7 @@ export default function QrCodeTool() {
 
     return (
         <div className="grid gap-5 lg:grid-cols-[1.05fr_0.95fr]">
-            <ToolPanel title="Configure seu QR Code">
+            <ToolPanel title="Configure seu QR Code" icon={faQrcode}>
                 <div className="space-y-4">
                     <Input
                         label="Link do cardápio"
@@ -88,26 +131,11 @@ export default function QrCodeTool() {
                                 { value: 1000, label: "1000 px" },
                             ]}
                         />
-                        <label className="flex flex-col gap-1 text-xs font-medium 2xl:text-base">
-                            Cor do código
-                            <input
-                                type="color"
-                                value={foreground}
-                                onChange={(event) => setForeground(event.target.value)}
-                                className="h-[50px] w-full cursor-pointer rounded-md border border-gray-300 bg-white p-1"
-                            />
-                        </label>
-                        <label className="flex flex-col gap-1 text-xs font-medium 2xl:text-base">
-                            Cor do fundo
-                            <input
-                                type="color"
-                                value={background}
-                                onChange={(event) => setBackground(event.target.value)}
-                                className="h-[50px] w-full cursor-pointer rounded-md border border-gray-300 bg-white p-1"
-                            />
-                        </label>
+                        <ColorField label="Cor do código" value={foreground} onChange={setForeground} />
+                        <ColorField label="Cor do fundo" value={background} onChange={setBackground} />
                     </div>
                     <Button type="button" onClick={generate} className="w-full sm:w-auto">
+                        <FontAwesomeIcon icon={faQrcode} className="mr-2 h-4 w-4" />
                         Gerar QR Code
                     </Button>
                 </div>
@@ -116,7 +144,7 @@ export default function QrCodeTool() {
                 </Notice>
             </ToolPanel>
 
-            <ToolPanel title="Visualizar e baixar">
+            <ToolPanel title="Visualizar e baixar" icon={faEye}>
                 <div className="flex flex-col items-center">
                     <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
                         <img
@@ -129,9 +157,11 @@ export default function QrCodeTool() {
                     </div>
                     <div className="mt-5 flex w-full flex-col gap-3 sm:flex-row sm:justify-center">
                         <Button type="button" variant="secondary" onClick={() => void download("png")}>
+                            <FontAwesomeIcon icon={faDownload} className="mr-2 h-4 w-4" />
                             Baixar PNG
                         </Button>
                         <Button type="button" variant="secondary" onClick={() => void download("svg")}>
+                            <FontAwesomeIcon icon={faDownload} className="mr-2 h-4 w-4" />
                             Baixar SVG
                         </Button>
                     </div>

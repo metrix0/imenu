@@ -149,12 +149,12 @@ export const RESTAURANT_TOOLS: RestaurantToolDefinition[] = [
     },
     {
         slug: "gerador-cardapio-digital",
-        name: "Gerador de cardápio digital",
-        title: "Gerador de cardápio digital grátis",
+        name: "Criador de rascunho de cardápio",
+        title: "Criador de rascunho de cardápio digital grátis",
         metaDescription:
-            "Monte um cardápio digital grátis com categorias, produtos, descrições, preços e pedidos pelo WhatsApp. Copie, imprima ou baixe em HTML.",
+            "Crie um rascunho de cardápio com categorias, produtos, descrições e preços. Copie o texto, salve em PDF ou exporte em HTML gratuitamente.",
         introduction:
-            "Monte uma versão organizada do seu menu, visualize em tempo real e exporte para HTML, WhatsApp ou PDF. O rascunho fica salvo somente no seu navegador.",
+            "Organize um rascunho do seu menu, visualize em tempo real e exporte para HTML, WhatsApp ou PDF. Esta ferramenta não cria nem publica um cardápio no iMenu.",
         calculationTitle: "O que um bom cardápio digital precisa ter",
         calculation:
             "Categorias claras, nomes fáceis de entender, descrições objetivas e preços visíveis reduzem dúvidas. Os itens mais importantes devem aparecer primeiro, e o caminho para pedir precisa ser simples em qualquer celular.",

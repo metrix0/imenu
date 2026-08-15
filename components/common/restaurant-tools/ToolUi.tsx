@@ -1,6 +1,9 @@
 "use client";
 
 import Input from "@/components/ui/Input";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
+import { faCircleInfo } from "@fortawesome/free-solid-svg-icons";
 
 export function numberFromInput(value: string): number {
     const parsed = Number(value.replace(",", "."));
@@ -114,15 +117,24 @@ export function ResultItem({
 export function ToolPanel({
     title,
     description,
+    icon,
     children,
 }: {
     title: string;
     description?: string;
+    icon?: IconDefinition;
     children: React.ReactNode;
 }) {
     return (
         <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm sm:p-7">
-            <h2 className="text-xl font-bold text-gray-950">{title}</h2>
+            <div className="flex items-center gap-3">
+                {icon && (
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand">
+                        <FontAwesomeIcon icon={icon} className="h-4 w-4" />
+                    </span>
+                )}
+                <h2 className="text-xl font-bold text-gray-950">{title}</h2>
+            </div>
             {description && (
                 <p className="mt-2 text-sm leading-6 text-gray-600">{description}</p>
             )}
@@ -133,8 +145,9 @@ export function ToolPanel({
 
 export function Notice({ children }: { children: React.ReactNode }) {
     return (
-        <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-900">
-            {children}
-        </p>
+        <div className="mt-4 flex gap-2.5 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-900">
+            <FontAwesomeIcon icon={faCircleInfo} className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <p>{children}</p>
+        </div>
     );
 }
