@@ -246,10 +246,7 @@ export default function MenuManagerPage() {
                 )}
 
                 {activeTab === "Complemento" && (
-                    <ComplementosTab
-                        restaurantId={restaurantId}
-                        onOpenItemDetails={handleOpenItemDetails}
-                    />
+                    <ComplementosTab restaurantId={restaurantId} />
                 )}
 
                 {activeTab === "Upsells" && (

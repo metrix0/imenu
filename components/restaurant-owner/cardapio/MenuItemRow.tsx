@@ -525,7 +525,7 @@ export default function MenuItemRow({
 
                                 <Tooltip
                                     text="Copiar link que leva direto para o Item"
-                                    position="left"
+                                    position="top"
                                 >
                                     <button
                                         onClick={(e) => {

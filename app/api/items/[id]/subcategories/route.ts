@@ -46,9 +46,11 @@ export async function GET(
     const orderedData = (data ?? [])
       .map((subcategory) => ({
         ...subcategory,
-        subitems: [...(subcategory.subitems ?? [])].sort(
-          (a, b) => getPosition(a.position) - getPosition(b.position),
-        ),
+        subitems: [...(subcategory.subitems ?? [])]
+          .filter((subitem) => subitem.is_available === true)
+          .sort(
+            (a, b) => getPosition(a.position) - getPosition(b.position),
+          ),
       }))
       .sort((a, b) => getPosition(a.position) - getPosition(b.position));
 
