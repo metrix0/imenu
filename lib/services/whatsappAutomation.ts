@@ -23,6 +23,7 @@ type ConversationRow = {
 
 type OrderStatusRow = {
     id: string;
+    display_id: number | null;
     status: string;
     is_delivery: boolean | string | null;
     created_at: string;
@@ -509,6 +510,7 @@ async function getLatestOrder(
         `
             SELECT
                 id,
+                display_id,
                 status,
                 is_delivery,
                 created_at
@@ -579,7 +581,9 @@ async function buildOrderStatusMessage(
 
     return [
         `🔎 *Status do pedido — ${restaurant.name}*`,
-        `Pedido *#${order.id.slice(0, 4).toUpperCase()}*: ${getOrderStatusLabel(order)}.`,
+        `Pedido *#${
+            order.display_id ?? order.id.slice(0, 4).toUpperCase()
+        }*: ${getOrderStatusLabel(order)}.`,
     ].join("\n");
 }
 
