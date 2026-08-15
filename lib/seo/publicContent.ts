@@ -2,6 +2,10 @@ import {
     getRestaurantToolPath,
     RESTAURANT_TOOLS,
 } from "@/lib/seo/restaurantTools";
+import {
+    BLOG_ARTICLES,
+    getBlogArticlePath,
+} from "@/lib/seo/blogArticles";
 
 export type PublicContentPage = {
     path: string;
@@ -32,6 +36,16 @@ const EXISTING_SEO_PAGES: PublicContentPage[] = [
 
 export const PUBLIC_CONTENT_PAGES: PublicContentPage[] = [
     ...EXISTING_SEO_PAGES,
+    {
+        path: "/blog",
+        label: "Guias para restaurantes",
+        kind: "Índice",
+    },
+    ...BLOG_ARTICLES.map((article) => ({
+        path: getBlogArticlePath(article.slug),
+        label: article.shortTitle,
+        kind: "Conteúdo" as const,
+    })),
     {
         path: "/ferramentas",
         label: "Ferramentas gratuitas",

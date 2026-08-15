@@ -542,8 +542,8 @@ export default function PainelPedidosAtivosPage() {
                 </div>
             </div>
             <div
-                className={`delay-600 duration-300
-                ${soundEnabled ? "max-h-0" : "max-h-40"}
+                className={`overflow-hidden delay-600 duration-300
+                ${soundEnabled ? "pointer-events-none max-h-0" : "max-h-40"}
                 `}
             >
                 <div

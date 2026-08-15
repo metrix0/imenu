@@ -4,6 +4,10 @@ import {
     getRestaurantToolPath,
     RESTAURANT_TOOLS,
 } from "@/lib/seo/restaurantTools";
+import {
+    BLOG_ARTICLES,
+    getBlogArticlePath,
+} from "@/lib/seo/blogArticles";
 
 export const revalidate = 3600;
 
@@ -17,6 +21,17 @@ const STATIC_ROUTES: MetadataRoute.Sitemap = [
     { url: SITE_URL + "/saipos", priority: 0.7 },
     { url: SITE_URL + "/goomer", priority: 0.7 },
     { url: SITE_URL + "/gestor-de-pedidos", priority: 0.7 },
+    {
+        url: SITE_URL + "/blog",
+        changeFrequency: "weekly",
+        priority: 0.9,
+    },
+    ...BLOG_ARTICLES.map((article) => ({
+        url: SITE_URL + getBlogArticlePath(article.slug),
+        lastModified: article.updatedAt,
+        changeFrequency: "monthly" as const,
+        priority: 0.8,
+    })),
     {
         url: SITE_URL + "/ferramentas",
         changeFrequency: "weekly",
