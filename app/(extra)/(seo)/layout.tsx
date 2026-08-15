@@ -22,21 +22,24 @@ export default function SeoLayout({
             <header className="w-full border-gray-200 bg-white px-4 py-7 md:px-8 md:py-5 2xl:py-8">
                 <div className="mx-auto flex w-full max-w-7xl min-w-0 items-center justify-between gap-3">
                     {/* Left – Logo */}
-                    <div className="flex min-w-0 shrink items-center gap-2 text-xl font-bold text-brand">
+                    <Link
+                        href="/"
+                        aria-label="Ir para a página inicial do iMenu"
+                        className="flex min-w-0 shrink items-center gap-2 text-xl font-bold text-brand"
+                    >
                         <Image
                             src="/logos/CombinationMarkLogo_Brand.png"
                             alt="iMenu Logo"
                             width={120}
                             height={32}
                             className="h-6 w-auto max-w-[120px] cursor-pointer 2xl:h-10 2xl:max-w-none"
-                            onClick={() => router.push("#")}
                         />
-                    </div>
+                    </Link>
 
                     {/* Right */}
                     <nav className="flex min-w-0 shrink-0 items-center gap-2 text-sm font-medium sm:gap-4 md:gap-8 2xl:gap-11 2xl:text-[1.2rem]">
-                        <a href="#" className="hidden transition hover:text-gray-500 md:block">Home</a>
-                        <a href="#recursos" className="hidden transition hover:text-gray-500 md:block">Recursos</a>
+                        <Link href="/" className="hidden transition hover:text-gray-500 md:block">Home</Link>
+                        <Link href="/#recursos" className="hidden transition hover:text-gray-500 md:block">Recursos</Link>
 
                         <div className="hidden h-6 w-px bg-gray-300 md:block 2xl:h-8" />
 

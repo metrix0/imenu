@@ -42,14 +42,14 @@ export default function Footer() {
     }, [cityMenuOpen]);
 
     return (
-        <footer className="w-full border-t border-gray-200 mt-20 pt-12 pb-10 bg-white 2xl:pb-16">
+        <footer className="w-full border-t border-gray-200 mt-20 pt-12 pb-6 bg-white 2xl:pb-10">
             <div className="mx-24 2xl:mx-32 px-6 grid grid-cols-1 sm:grid-cols-3 gap-10 2xl:gap-20">
 
                 {/* Coluna 1 */}
                 <div className="flex flex-col gap-2 2xl:gap-4">
                     <h3 className="font-semibold text-gray-800 2xl:text-xl">iMenu</h3>
-                    <a className="text-gray-600 text-sm 2xl:text-xl hover:text-gray-800 cursor-pointer w-fit" onClick={() => router.replace("/")}>Página Inicial</a>
-                    <a className="text-gray-600 text-sm 2xl:text-xl hover:text-gray-800 cursor-pointer w-fit" onClick={() => window.location.href ="https://wa.me/5519997235394"}>Fale Conosco</a>
+                    <Link href="/" className="text-gray-600 text-sm 2xl:text-xl hover:text-gray-800 cursor-pointer w-fit">Página Inicial</Link>
+                    <Link href="/ferramentas" className="text-gray-600 text-sm 2xl:text-xl hover:text-gray-800 cursor-pointer w-fit">Ferramentas</Link>
 
                     {restaurantCities.length > 0 && (
                         <div ref={cityMenuRef} className="relative w-fit">
@@ -122,6 +122,7 @@ export default function Footer() {
                         <a className="text-gray-600 text-sm 2xl:text-xl hover:text-gray-800 cursor-pointer w-fit">suporte@imenu.com.br</a>
 
                     </div>
+                    <a className="text-gray-600 text-sm 2xl:text-xl hover:text-gray-800 cursor-pointer w-fit" href="https://wa.me/5519997235394">Fale Conosco</a>
                 </div>
 
             </div>
