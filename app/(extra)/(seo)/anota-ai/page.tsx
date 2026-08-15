@@ -60,6 +60,22 @@ export default function Page() {
                     evitar mensalidades, o iMenu é a alternativa mais direta e econômica.
                 </p>
             </section>
+
+            <section>
+                <h2 className="text-2xl font-bold mb-4">
+                    Como comparar as duas opções na prática
+                </h2>
+                <ul className="space-y-2 text-gray-600 list-disc list-inside">
+                    <li>Liste os recursos indispensáveis para a sua operação hoje.</li>
+                    <li>Some mensalidade, implantação, taxas por pedido e possíveis extras.</li>
+                    <li>Teste o pedido completo no celular do cliente e no painel da equipe.</li>
+                    <li>Confirme suporte, cancelamento e exportação dos seus dados.</li>
+                </ul>
+                <p className="text-gray-600 mt-4">
+                    Planos e condições comerciais podem mudar. Confira a proposta atual de
+                    cada plataforma e escolha pelo fluxo que sua equipe realmente consegue usar.
+                </p>
+            </section>
         </SeoPage>
     );
 }

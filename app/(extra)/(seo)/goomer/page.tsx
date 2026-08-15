@@ -62,6 +62,22 @@ export default function Page() {
                     ao Goomer.
                 </p>
             </section>
+
+            <section>
+                <h2 className="text-2xl font-bold mb-4">
+                    O que testar antes de escolher
+                </h2>
+                <ul className="space-y-2 text-gray-600 list-disc list-inside">
+                    <li>Simule a compra em um celular comum, do acesso ao pedido final.</li>
+                    <li>Verifique se totens, integrações ou equipamentos serão realmente usados.</li>
+                    <li>Calcule o custo total, incluindo implantação, mensalidade e suporte.</li>
+                    <li>Peça para a equipe operar cada opção durante um horário movimentado.</li>
+                </ul>
+                <p className="text-gray-600 mt-4">
+                    Compare as condições comerciais atuais das plataformas. A melhor escolha
+                    é a que resolve o seu fluxo sem adicionar custo e complexidade desnecessários.
+                </p>
+            </section>
         </SeoPage>
     );
 }

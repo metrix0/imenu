@@ -47,7 +47,7 @@ export default function RestaurantToolsCta({ title }: { title: string }) {
                     </Link>
                 </div>
 
-                <div className="relative min-h-[350px] overflow-hidden border-t border-orange-100 bg-white md:min-h-full md:border-l md:border-t-0">
+                <div className="relative min-h-[350px] overflow-hidden bg-white md:min-h-full">
                     <video
                         src="/images/CellphoneVideo.webm"
                         autoPlay
