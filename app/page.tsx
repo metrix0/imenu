@@ -520,6 +520,45 @@ export default function LandingPage() {
                 </div>
             </section>
 
+            <section className="mx-6 mt-20 md:mx-24 2xl:mx-38">
+                <div className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-brand via-orange-500 to-orange-600 px-6 py-14 text-center text-white shadow-[0_30px_80px_-35px_rgba(234,88,12,0.8)] md:px-12 md:py-18 2xl:py-24">
+                    <div aria-hidden="true" className="absolute -left-24 -top-24 h-64 w-64 rounded-full bg-white/15 blur-2xl" />
+                    <div aria-hidden="true" className="absolute -bottom-28 -right-16 h-72 w-72 rounded-full bg-orange-200/25 blur-3xl" />
+
+                    <div className="relative mx-auto max-w-4xl">
+                        <span className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/15 px-4 py-2 text-sm font-semibold backdrop-blur-sm 2xl:text-lg">
+                            <FontAwesomeIcon icon={icons.faStore} />
+                            100% gratuito
+                        </span>
+                        <h2 className="mt-6 text-3xl font-extrabold leading-tight md:text-5xl 2xl:text-[4rem]">
+                            Seu cardápio pode estar pronto em 5 minutos.
+                        </h2>
+                        <p className="mx-auto mt-5 max-w-2xl text-base leading-7 text-white/85 md:text-lg 2xl:text-2xl 2xl:leading-9">
+                            Crie uma experiência profissional, receba pedidos e gerencie
+                            tudo em um só lugar — sem mensalidade e sem pegadinhas.
+                        </p>
+
+                        <div className="mt-7 flex flex-wrap justify-center gap-x-6 gap-y-3 text-sm font-medium text-white/90 2xl:text-xl">
+                            {["Pedidos ilimitados", "Gestão completa", "Grátis para sempre"].map((benefit) => (
+                                <span key={benefit} className="inline-flex items-center gap-2">
+                                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-brand 2xl:h-7 2xl:w-7">
+                                        <FontAwesomeIcon icon={icons.faCheck} className="h-2.5 w-2.5 2xl:h-3.5 2xl:w-3.5" />
+                                    </span>
+                                    {benefit}
+                                </span>
+                            ))}
+                        </div>
+
+                        <Button
+                            onClick={() => router.push("/restaurante/registrar")}
+                            className="mt-9 !rounded-xl !bg-white !px-7 !py-3.5 !text-base !font-bold !text-brand shadow-xl shadow-orange-950/15 hover:!-translate-y-0.5 hover:!bg-orange-50 2xl:!px-10 2xl:!py-5 2xl:!text-2xl"
+                        >
+                            Criar meu cardápio grátis
+                        </Button>
+                    </div>
+                </div>
+            </section>
+
             <Footer />
             <SupportButton
                 ref={supportBtnRef}
