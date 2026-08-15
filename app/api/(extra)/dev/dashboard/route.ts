@@ -4,7 +4,9 @@ import { createClient } from "@supabase/supabase-js";
 import { buildConsumerPipeline } from "@/lib/analytics/consumerPipeline";
 import { CONSUMER_EVENTS } from "@/lib/analytics/consumerEvents";
 import { loadPostHogConsumerMetrics } from "@/lib/analytics/posthogConsumer";
+import { SEO_TRAFFIC_EVENTS } from "@/lib/analytics/seoTraffic";
 import { query } from "@/lib/database/sql";
+import { PUBLIC_CONTENT_PAGES } from "@/lib/seo/publicContent";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -63,6 +65,18 @@ type PostHogMetrics = {
     landingViews: number | null;
     registerClicks: number | null;
     blogViews: number | null;
+};
+
+type SeoTrafficMetrics = {
+    available: boolean;
+    pages: Array<{
+        path: string;
+        label: string;
+        kind: string;
+        visitors: number;
+        homeVisitors: number;
+        ratio: number;
+    }>;
 };
 
 type ConsumerTimeline = {
@@ -458,6 +472,112 @@ async function loadPostHogMetrics(
     }
 }
 
+async function loadPostHogSeoTraffic(
+    startAt: number,
+    endAt: number
+): Promise<SeoTrafficMetrics> {
+    const personalApiKey = process.env.POSTHOG_PERSONAL_API_KEY?.trim();
+    const projectId = process.env.POSTHOG_PROJECT_ID?.trim();
+    const rawHost =
+        process.env.POSTHOG_API_HOST?.trim() ||
+        process.env.NEXT_PUBLIC_POSTHOG_HOST?.trim();
+    const emptyPages = PUBLIC_CONTENT_PAGES.map((page) => ({
+        ...page,
+        visitors: 0,
+        homeVisitors: 0,
+        ratio: 0,
+    }));
+
+    if (!personalApiKey || !projectId || !rawHost) {
+        return { available: false, pages: emptyPages };
+    }
+
+    const start = new Date(startAt).toISOString();
+    const end = new Date(endAt).toISOString();
+    const hogql = `
+        SELECT
+            if(
+                event = '${SEO_TRAFFIC_EVENTS.pageViewed}',
+                toString(properties.path),
+                toString(properties.source_path)
+            ) AS source_path,
+            uniqIf(distinct_id, event = '${SEO_TRAFFIC_EVENTS.pageViewed}') AS visitors,
+            uniqIf(distinct_id, event = '${SEO_TRAFFIC_EVENTS.homeClicked}') AS home_visitors
+        FROM events
+        WHERE timestamp >= parseDateTimeBestEffort('${start}')
+          AND timestamp < parseDateTimeBestEffort('${end}')
+          AND event IN (
+              '${SEO_TRAFFIC_EVENTS.pageViewed}',
+              '${SEO_TRAFFIC_EVENTS.homeClicked}'
+          )
+        GROUP BY source_path
+    `;
+
+    try {
+        const response = await fetch(
+            `${postHogApiHost(rawHost)}/api/projects/${encodeURIComponent(
+                projectId
+            )}/query/`,
+            {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${personalApiKey}`,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    query: {
+                        kind: "HogQLQuery",
+                        query: hogql,
+                    },
+                }),
+                signal: AbortSignal.timeout(15_000),
+                cache: "no-store",
+            }
+        );
+
+        if (!response.ok) {
+            throw new Error(`PostHog query failed with ${response.status}.`);
+        }
+
+        const payload = (await response.json()) as { results?: unknown[][] };
+        const metricsByPath = new Map(
+            (payload.results || []).map((row) => [
+                String(row[0] || ""),
+                {
+                    visitors: Number(row[1]) || 0,
+                    homeVisitors: Number(row[2]) || 0,
+                },
+            ])
+        );
+
+        return {
+            available: true,
+            pages: PUBLIC_CONTENT_PAGES.map((page) => {
+                const metrics = metricsByPath.get(page.path) || {
+                    visitors: 0,
+                    homeVisitors: 0,
+                };
+                return {
+                    ...page,
+                    ...metrics,
+                    ratio:
+                        metrics.visitors > 0
+                            ? Number(
+                                  (
+                                      (metrics.homeVisitors / metrics.visitors) *
+                                      100
+                                  ).toFixed(1)
+                              )
+                            : 0,
+                };
+            }),
+        };
+    } catch (error) {
+        console.warn("[DEV_DASHBOARD] SEO traffic unavailable:", error);
+        return { available: false, pages: emptyPages };
+    }
+}
+
 
 async function loadPostHogConsumerTimeline(
     buckets: Bucket[]
@@ -623,7 +743,13 @@ export async function GET(request: Request) {
         const endIso = new Date(endAt).toISOString();
         const buckets = buildBuckets(startAt, endAt, range);
 
-        const [onboardingResult, postHog, consumerTracking, consumerTimeline] =
+        const [
+            onboardingResult,
+            postHog,
+            consumerTracking,
+            consumerTimeline,
+            seoTraffic,
+        ] =
             await Promise.all([
                 query<OnboardingFunnelRow>(
                 `
@@ -661,6 +787,7 @@ export async function GET(request: Request) {
                 loadPostHogMetrics(startAt, endAt),
                 loadPostHogConsumerMetrics(startAt, endAt),
                 loadPostHogConsumerTimeline(buckets),
+                loadPostHogSeoTraffic(startAt, endAt),
             ]);
 
         const onboardingRow = onboardingResult.rows[0];
@@ -904,6 +1031,7 @@ export async function GET(request: Request) {
                     postHogAvailable: postHog.available,
                     blogViews: postHog.blogViews,
                 },
+                traffic: seoTraffic,
                 generatedAt: new Date().toISOString(),
             },
             { headers: { "Cache-Control": "no-store" } }

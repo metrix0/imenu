@@ -1,5 +1,9 @@
 import type { MetadataRoute } from "next";
 import { getRestaurantDirectory } from "@/lib/seo/restaurantDirectory";
+import {
+    getRestaurantToolPath,
+    RESTAURANT_TOOLS,
+} from "@/lib/seo/restaurantTools";
 
 export const revalidate = 3600;
 
@@ -13,6 +17,16 @@ const STATIC_ROUTES: MetadataRoute.Sitemap = [
     { url: SITE_URL + "/saipos", priority: 0.7 },
     { url: SITE_URL + "/goomer", priority: 0.7 },
     { url: SITE_URL + "/gestor-de-pedidos", priority: 0.7 },
+    {
+        url: SITE_URL + "/ferramentas",
+        changeFrequency: "weekly",
+        priority: 0.9,
+    },
+    ...RESTAURANT_TOOLS.map((tool) => ({
+        url: SITE_URL + getRestaurantToolPath(tool.slug),
+        changeFrequency: "monthly" as const,
+        priority: 0.8,
+    })),
 ];
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {

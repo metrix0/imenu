@@ -4,6 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+    faArrowRight,
+    faWandMagicSparkles,
+} from "@fortawesome/free-solid-svg-icons";
 import { icons } from "@/lib/utils/fontawesome";
 import BonusButton from "@/components/ui/BonusButton";
 import Button from "@/components/ui/Button";
@@ -105,7 +109,7 @@ export default function LandingPage() {
     }, [autoRotate]);
 
     return (
-        <div className="w-full max-w-screen overflow-x-hidden">
+        <div className="w-full max-w-screen overflow-x-clip">
             <SignupConfirmationHandler />
             <header className="flex w-full flex-col items-center justify-between gap-4 border-gray-200 bg-white px-8 py-7 md:flex-row md:gap-0 md:py-5 2xl:py-8">
                 <div className="flex items-center gap-2 text-xl font-bold text-brand">
@@ -517,6 +521,58 @@ export default function LandingPage() {
                             ))}
                         </tbody>
                     </table>
+                </div>
+            </section>
+
+            <section className="relative mx-6 mt-20 md:mx-24 2xl:mx-38">
+                <div aria-hidden="true" className="absolute inset-x-10 -bottom-5 h-16 rounded-full bg-brand/30 blur-2xl" />
+                <div className="relative isolate overflow-hidden rounded-[2rem] border border-orange-300/60 bg-gradient-to-br from-[#ff7424] via-brand to-dark-brand px-6 py-14 text-center text-white shadow-[0_34px_90px_-34px_rgba(201,63,11,0.9)] md:px-12 md:py-18 2xl:py-24">
+                    <div aria-hidden="true" className="absolute -left-24 -top-32 h-80 w-80 rounded-full bg-white/20 blur-3xl" />
+                    <div aria-hidden="true" className="absolute -bottom-36 -right-20 h-96 w-96 rounded-full bg-orange-200/25 blur-3xl" />
+                    <div aria-hidden="true" className="absolute left-1/2 top-1/2 h-[32rem] w-[32rem] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/10" />
+                    <div aria-hidden="true" className="absolute left-1/2 top-1/2 h-[44rem] w-[44rem] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/10" />
+                    <div aria-hidden="true" className="absolute inset-x-16 top-0 h-px bg-gradient-to-r from-transparent via-white/80 to-transparent" />
+
+                    <div className="relative mx-auto max-w-4xl">
+                        <span className="inline-flex items-center gap-2.5 rounded-full border border-white/25 bg-white/15 py-1.5 pl-1.5 pr-4 text-sm font-semibold shadow-lg shadow-orange-950/10 backdrop-blur-md 2xl:text-lg">
+                            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-brand shadow-sm 2xl:h-9 2xl:w-9">
+                                <FontAwesomeIcon icon={faWandMagicSparkles} className="h-3.5 w-3.5 2xl:h-4 2xl:w-4" />
+                            </span>
+                            100% gratuito
+                        </span>
+                        <h2 className="mx-auto mt-6 max-w-4xl text-3xl font-extrabold leading-tight tracking-tight md:text-5xl 2xl:text-[4rem]">
+                            Seu cardápio pronto em 5 minutos{" "}
+                            <span className="relative inline-block whitespace-nowrap">
+                                <span className="relative z-10">com IA.</span>
+                                <span aria-hidden="true" className="absolute inset-x-0 bottom-1 h-3 -rotate-1 rounded-full bg-orange-200/35 2xl:bottom-2 2xl:h-4" />
+                            </span>
+                        </h2>
+                        <p className="mx-auto mt-5 max-w-2xl text-base leading-7 text-white/85 md:text-lg 2xl:text-2xl 2xl:leading-9">
+                            Crie uma experiência profissional, receba pedidos e gerencie
+                            tudo em um só lugar — sem mensalidade e sem pegadinhas.
+                        </p>
+
+                        <div className="mx-auto mt-8 grid max-w-3xl gap-3 text-sm font-semibold text-white/95 sm:grid-cols-3 2xl:max-w-4xl 2xl:text-xl">
+                            {["Pedidos ilimitados", "Cardápio Digital Completo", "Grátis para sempre"].map((benefit) => (
+                                <span key={benefit} className="inline-flex items-center justify-center gap-2.5 rounded-2xl border border-white/15 bg-white/10 px-4 py-3 shadow-lg shadow-orange-950/10 backdrop-blur-sm">
+                                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white text-brand 2xl:h-7 2xl:w-7">
+                                        <FontAwesomeIcon icon={icons.faCheck} className="h-2.5 w-2.5 2xl:h-3.5 2xl:w-3.5" />
+                                    </span>
+                                    {benefit}
+                                </span>
+                            ))}
+                        </div>
+
+                        <Button
+                            onClick={() => router.push("/restaurante/registrar")}
+                            className="group mt-9 gap-3 !rounded-2xl !bg-white !px-6 !py-3 !text-base !font-bold !text-brand shadow-2xl shadow-orange-950/20 hover:!-translate-y-1 hover:!bg-orange-50 hover:!shadow-[0_24px_50px_-18px_rgba(92,28,5,0.65)] 2xl:!px-9 2xl:!py-4 2xl:!text-2xl"
+                        >
+                            Criar meu cardápio grátis
+                            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand text-white transition-transform group-hover:translate-x-0.5 2xl:h-10 2xl:w-10">
+                                <FontAwesomeIcon icon={faArrowRight} className="h-3.5 w-3.5 2xl:h-4 2xl:w-4" />
+                            </span>
+                        </Button>
+                    </div>
                 </div>
             </section>
 
