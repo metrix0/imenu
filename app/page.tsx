@@ -105,7 +105,7 @@ export default function LandingPage() {
     }, [autoRotate]);
 
     return (
-        <div className="w-full max-w-screen overflow-x-hidden">
+        <div className="w-full max-w-screen overflow-x-clip">
             <SignupConfirmationHandler />
             <header className="flex w-full flex-col items-center justify-between gap-4 border-gray-200 bg-white px-8 py-7 md:flex-row md:gap-0 md:py-5 2xl:py-8">
                 <div className="flex items-center gap-2 text-xl font-bold text-brand">
