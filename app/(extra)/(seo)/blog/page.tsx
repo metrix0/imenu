@@ -14,12 +14,17 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 
 import RestaurantToolsCta from "@/components/common/restaurant-tools/RestaurantToolsCta";
+import RestaurantToolIcon from "@/components/common/restaurant-tools/RestaurantToolIcon";
 import {
     BLOG_ARTICLES,
     BLOG_SITE_URL,
     EXISTING_BLOG_PAGES,
     getBlogArticlePath,
 } from "@/lib/seo/blogArticles";
+import {
+    getRestaurantToolPath,
+    RESTAURANT_TOOLS,
+} from "@/lib/seo/restaurantTools";
 
 export const metadata: Metadata = {
     title: "Blog para restaurantes: delivery, cardápio e gestão | iMenu",
@@ -202,6 +207,43 @@ export default function BlogPage() {
 
             <section className="mx-auto max-w-4xl px-6 py-16 md:py-24">
                 <RestaurantToolsCta title="Do aprendizado para a operação" />
+            </section>
+
+            <section className="border-t border-gray-200 bg-gray-50">
+                <div className="mx-auto max-w-6xl px-6 py-14 md:py-20">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                        <div>
+                            <p className="font-semibold text-brand">Use agora</p>
+                            <h2 className="mt-2 text-2xl font-bold text-gray-950 md:text-3xl">
+                                Ferramentas para colocar em prática
+                            </h2>
+                        </div>
+                        <Link href="/ferramentas" className="inline-flex w-fit items-center gap-2 text-sm font-semibold text-brand hover:underline">
+                            Ver todas as ferramentas
+                            <FontAwesomeIcon icon={faArrowRight} className="h-3.5 w-3.5" />
+                        </Link>
+                    </div>
+
+                    <div className="mt-7 grid gap-4 md:grid-cols-3">
+                        {RESTAURANT_TOOLS.slice(0, 3).map((tool) => (
+                            <Link
+                                key={tool.slug}
+                                href={getRestaurantToolPath(tool.slug)}
+                                className="group flex h-full flex-col rounded-2xl border border-gray-200 bg-white p-5 transition hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-md"
+                            >
+                                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand/10 text-brand">
+                                    <RestaurantToolIcon tool={tool.slug} className="h-4 w-4" />
+                                </span>
+                                <h3 className="mt-4 font-bold leading-6 text-gray-950 group-hover:text-brand">
+                                    {tool.name}
+                                </h3>
+                                <p className="mt-2 flex-1 text-sm leading-6 text-gray-600">
+                                    {tool.introduction}
+                                </p>
+                            </Link>
+                        ))}
+                    </div>
+                </div>
             </section>
         </article>
     );
