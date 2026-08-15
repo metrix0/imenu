@@ -3,9 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import Link from "next/link";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faArrowRight } from "@fortawesome/free-solid-svg-icons";
 import { icons } from "@/lib/utils/fontawesome";
 import BonusButton from "@/components/ui/BonusButton";
 import Button from "@/components/ui/Button";
@@ -16,7 +14,6 @@ import SupportButton, {
 } from "@/components/common/SupportButton";
 import BestSellers from "@/components/landing/BestSellers";
 import SignupConfirmationHandler from "@/components/auth/SignupConfirmationHandler";
-import RestaurantToolIcon from "@/components/common/restaurant-tools/RestaurantToolIcon";
 import "@/app/reveal.css";
 
 const LOGOS = [
@@ -37,29 +34,6 @@ const LOGOS = [
         name: "Restaurante 3",
         src: "/images/Menu_Mockup_Logo_1.png",
         secondSrc: "/images/Menu_Mockup_1.png",
-    },
-];
-
-const LANDING_TOOLS = [
-    {
-        slug: "calculadora-taxas-ifood",
-        name: "Calculadora de taxas do iFood",
-        description: "Estime comissões, mensalidade e quanto sobra das vendas.",
-    },
-    {
-        slug: "calculadora-preco-de-venda",
-        name: "Calculadora de preço de venda",
-        description: "Calcule custo por porção, food cost e preço sugerido.",
-    },
-    {
-        slug: "calculadora-cmv",
-        name: "Calculadora de CMV",
-        description: "Meça o custo das mercadorias e compare com sua meta.",
-    },
-    {
-        slug: "gerador-qr-code-cardapio",
-        name: "Gerador de QR Code",
-        description: "Crie e baixe um QR Code pronto para o seu cardápio.",
     },
 ];
 
@@ -134,30 +108,27 @@ export default function LandingPage() {
         <div className="w-full max-w-screen overflow-x-clip">
             <SignupConfirmationHandler />
             <header className="flex w-full flex-col items-center justify-between gap-4 border-gray-200 bg-white px-8 py-7 md:flex-row md:gap-0 md:py-5 2xl:py-8">
-                <Link
-                    href="/"
-                    aria-label="Ir para a página inicial do iMenu"
-                    className="flex items-center gap-2 text-xl font-bold text-brand"
-                >
+                <div className="flex items-center gap-2 text-xl font-bold text-brand">
                     <Image
                         src="/logos/CombinationMarkLogo_Brand.png"
                         alt="iMenu Logo"
                         width={120}
                         height={32}
                         className="ml-4 h-6 w-auto cursor-pointer 2xl:ml-8 2xl:h-10"
+                        onClick={() => router.push("#")}
                     />
-                </Link>
+                </div>
 
                 <nav className="z-30 flex items-center gap-8 text-sm font-medium md:z-auto 2xl:gap-11 2xl:text-[1.2rem]">
-                    <Link href="/" className="hidden transition hover:text-gray-500 md:block">
+                    <a href="#" className="hidden transition hover:text-gray-500 md:block">
                         Home
-                    </Link>
-                    <Link
-                        href="/#recursos"
+                    </a>
+                    <a
+                        href="#recursos"
                         className="hidden transition hover:text-gray-500 md:block"
                     >
                         Recursos
-                    </Link>
+                    </a>
 
                     {restCount > 0 && (
                         <Tooltip
@@ -404,55 +375,6 @@ export default function LandingPage() {
             </section>
 
             <BestSellers />
-
-            <section className="relative overflow-hidden border-y border-orange-100 bg-orange-50/50 px-6 py-16 md:py-24">
-                <div aria-hidden="true" className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-brand/10 blur-3xl" />
-                <div className="relative mx-auto max-w-6xl">
-                    <div className="flex flex-col justify-between gap-6 md:flex-row md:items-end">
-                        <div className="max-w-3xl">
-                            <p className="font-semibold text-brand">Feitas para a rotina do restaurante</p>
-                            <h2 className="mt-3 text-3xl font-extrabold leading-tight text-gray-950 md:text-4xl 2xl:text-[3.2rem]">
-                                Ferramentas grátis para decidir melhor
-                            </h2>
-                            <p className="mt-4 max-w-2xl leading-7 text-gray-600 2xl:text-xl">
-                                Calcule custos, preços e margens ou crie materiais para o
-                                seu cardápio. Sem cadastro e com resultado na hora.
-                            </p>
-                        </div>
-                        <Link
-                            href="/ferramentas"
-                            className="inline-flex w-fit shrink-0 items-center gap-2 font-semibold text-brand hover:underline 2xl:text-xl"
-                        >
-                            Ver todas as ferramentas
-                            <FontAwesomeIcon icon={faArrowRight} className="h-4 w-4" />
-                        </Link>
-                    </div>
-
-                    <div className="mt-9 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                        {LANDING_TOOLS.map((tool) => (
-                            <Link
-                                key={tool.slug}
-                                href={`/ferramentas/${tool.slug}`}
-                                className="group flex h-full flex-col rounded-2xl border border-orange-100 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:border-brand/30 hover:shadow-lg"
-                            >
-                                <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand/10 text-brand">
-                                    <RestaurantToolIcon tool={tool.slug} className="h-5 w-5" />
-                                </span>
-                                <h3 className="mt-4 font-bold text-gray-950 transition group-hover:text-brand 2xl:text-xl">
-                                    {tool.name}
-                                </h3>
-                                <p className="mt-2 flex-1 text-sm leading-6 text-gray-600 2xl:text-base">
-                                    {tool.description}
-                                </p>
-                                <span className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-brand">
-                                    Usar grátis
-                                    <FontAwesomeIcon icon={faArrowRight} className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
-                                </span>
-                            </Link>
-                        ))}
-                    </div>
-                </div>
-            </section>
 
             <section
                 id="recursos"
