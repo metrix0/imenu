@@ -112,7 +112,7 @@ export default function RoboWhatsappParaRestaurantePage() {
                     ))}
                 </div>
                 <p>
-                    Esse é o tipo de fluxo que o <strong>robô de WhatsApp do iMenu</strong>
+                    Esse é o tipo de fluxo que o <strong>robô de WhatsApp do iMenu</strong>{" "}
                     usa: cardápio, status, entrega, pagamento e transferência para a equipe.
                     O bot trabalha em cima das informações já configuradas no restaurante,
                     em vez de inventar respostas.
