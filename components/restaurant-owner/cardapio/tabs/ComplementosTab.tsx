@@ -354,10 +354,10 @@ export default function ComplementosTab({
                         className="text-5xl text-gray-300"
                     />
                 </div>
-                <h3 className="mb-2 text-lg font-bold text-gray-900">
+                <h3 className="mb-2 text-center text-lg font-bold text-gray-900">
                     Nenhum grupo de complementos encontrado
                 </h3>
-                <p className="mb-8 max-w-md text-center text-sm text-gray-500">
+                <p className="mx-4 mb-8 max-w-md text-center text-sm text-gray-500">
                     Para criar complementos (como &quot;Escolha o
                     Molho&quot;), vá na aba <strong>Produtos</strong>, clique em
                     &quot;Opções&quot; de um item e adicione lá.
