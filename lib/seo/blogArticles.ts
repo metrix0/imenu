@@ -17,6 +17,62 @@ export type BlogArticleDefinition = {
 
 export const BLOG_ARTICLES: BlogArticleDefinition[] = [
     {
+        slug: "robo-whatsapp-para-restaurante",
+        title: "Robô de WhatsApp para restaurante: automatize atendimento sem perder o toque humano",
+        shortTitle: "Robô de WhatsApp para restaurante",
+        metaTitle: "Robô de WhatsApp para restaurante: guia | iMenu",
+        metaDescription:
+            "Veja como usar robô, chatbot e atendimento automático no WhatsApp do restaurante para enviar cardápio, status, entrega e pagamentos.",
+        excerpt:
+            "Um fluxo prático de chatbot para responder dúvidas repetitivas, levar o cliente ao cardápio e transferir exceções para a equipe.",
+        category: "Vendas",
+        readingTime: "10 min de leitura",
+        publishedAt: "2026-08-17",
+        updatedAt: "2026-08-17",
+    },
+    {
+        slug: "criar-cardapio-com-ia",
+        title: "Como criar cardápio com IA a partir de foto ou PDF",
+        shortTitle: "Criar cardápio com IA",
+        metaTitle: "Como criar cardápio com IA por foto ou PDF | iMenu",
+        metaDescription:
+            "Aprenda a digitalizar um cardápio com IA usando fotos ou PDFs, revisar categorias, produtos, descrições e preços e publicar mais rápido.",
+        excerpt:
+            "Transforme o material que você já tem em uma estrutura de cardápio digital e revise o resultado antes de colocar os produtos no ar.",
+        category: "Cardápio",
+        readingTime: "10 min de leitura",
+        publishedAt: "2026-08-17",
+        updatedAt: "2026-08-17",
+    },
+    {
+        slug: "programa-fidelidade-restaurante",
+        title: "Programa de fidelidade para restaurante: como criar selos e recompensas",
+        shortTitle: "Programa de fidelidade para restaurante",
+        metaTitle: "Programa de fidelidade para restaurante: guia | iMenu",
+        metaDescription:
+            "Crie um programa de fidelidade para restaurante com meta de pedidos, valor mínimo, recompensa e regras simples para incentivar recompra.",
+        excerpt:
+            "Defina quantos pedidos liberam o prêmio, escolha uma recompensa sustentável e acompanhe um ciclo simples de recompra e resgate.",
+        category: "Vendas",
+        readingTime: "9 min de leitura",
+        publishedAt: "2026-08-17",
+        updatedAt: "2026-08-17",
+    },
+    {
+        slug: "controle-estoque-cardapio-digital",
+        title: "Controle de estoque no cardápio digital: evite vender item esgotado",
+        shortTitle: "Controle de estoque no cardápio digital",
+        metaTitle: "Controle de estoque no cardápio digital | iMenu",
+        metaDescription:
+            "Veja como controlar quantidade por produto no cardápio digital, bloquear venda sem estoque e organizar a atualização do saldo durante o turno.",
+        excerpt:
+            "Controle unidades dos produtos que realmente podem acabar e deixe a disponibilidade do cardápio acompanhar o saldo da operação.",
+        category: "Cardápio",
+        readingTime: "9 min de leitura",
+        publishedAt: "2026-08-17",
+        updatedAt: "2026-08-17",
+    },
+    {
         slug: "quanto-ifood-cobra",
         title: "Quanto o iFood cobra do restaurante? Taxas, planos e cálculo real",
         shortTitle: "Quanto o iFood cobra",
