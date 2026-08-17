@@ -351,7 +351,7 @@ export default async function Page({
           }))}
       />
 
-      <footer className="relative left-1/2 w-screen -translate-x-1/2 bg-white px-6 pb-28 pt-8 text-center md:pb-40">
+      <footer className="relative left-1/2 w-screen -translate-x-1/2 bg-white px-6 pb-32 pt-8 text-center md:pb-40">
         <div className="mx-auto flex max-w-md flex-col items-center">
           {storeWhatsapp && (
             <a
