@@ -352,58 +352,42 @@ export default async function Page({
       />
 
       <footer className="border-t border-gray-100 bg-white px-6 pb-28 pt-8 text-center">
-        <div className="mx-auto flex max-w-md flex-col items-center gap-6">
+        <div className="mx-auto flex max-w-md flex-col items-center gap-5">
           {storeWhatsapp && (
             <a
               href={storeWhatsapp.href}
               target="_blank"
               rel="noopener noreferrer"
               aria-label={`Abrir WhatsApp da loja no número ${storeWhatsapp.formatted}`}
-              className="inline-flex items-center gap-2.5 rounded-full border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:border-green-200 hover:bg-green-50 hover:text-green-700"
+              className="inline-flex items-center gap-3 rounded-full border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm font-medium text-gray-700 transition hover:border-green-200 hover:bg-green-50 hover:text-green-700"
             >
+              {restaurant.logo_url && (
+                <img
+                  src={restaurant.logo_url}
+                  alt=""
+                  className="h-8 w-8 rounded-full border border-gray-200 bg-white object-cover"
+                />
+              )}
               <FontAwesomeIcon
                 icon={faWhatsapp}
                 className="text-lg text-green-600"
               />
-              <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                WhatsApp
-              </span>
               <span>{storeWhatsapp.formatted}</span>
             </a>
           )}
 
-          <div className="flex min-h-12 items-center justify-center gap-4">
-            <a
-              href="/"
-              aria-label="Conhecer o iMenu"
-              className="transition hover:opacity-70"
-            >
-              <img
-                src="/logos/CombinationMarkLogo_Black.png"
-                alt="iMenu"
-                className="h-6 w-auto opacity-35"
-              />
-            </a>
-
-            <span
-              aria-hidden="true"
-              className="text-xl font-light leading-none text-gray-300"
-            >
-              ×
-            </span>
-
-            {restaurant.logo_url ? (
-              <img
-                src={restaurant.logo_url}
-                alt={`Logo ${restaurant.name}`}
-                className="max-h-12 max-w-28 object-contain"
-              />
-            ) : (
-              <span className="max-w-36 truncate text-sm font-semibold text-gray-500">
-                {restaurant.name}
-              </span>
-            )}
-          </div>
+          <a
+            href="/"
+            aria-label="Conhecer o iMenu"
+            className="inline-flex items-center gap-2 text-xs text-gray-400 transition hover:opacity-70"
+          >
+            <span>Criado com</span>
+            <img
+              src="/logos/CombinationMarkLogo_Black.png"
+              alt="iMenu"
+              className="h-5 w-auto opacity-35"
+            />
+          </a>
         </div>
       </footer>
     </>
