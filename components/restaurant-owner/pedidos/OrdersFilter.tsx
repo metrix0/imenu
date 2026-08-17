@@ -39,9 +39,9 @@ export default function OrdersFilter({
     ];
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+        <div className="grid grid-cols-12 gap-4 items-end">
             {/* Campo Número */}
-            <div className="md:col-span-4">
+            <div className="col-span-12 md:col-span-4">
                 <Input 
                     label="Número do pedido" 
                     placeholder="Digite o número..." 
@@ -52,7 +52,7 @@ export default function OrdersFilter({
             </div>
 
             {/* Dropdown Situação (Refatorado) */}
-            <div className="md:col-span-3">
+            <div className="col-span-12 md:col-span-3">
                 <Dropdown
                     label="Situação"
                     options={statusOptions}
@@ -62,7 +62,7 @@ export default function OrdersFilter({
             </div>
 
             {/* Campo Data */}
-            <div className="md:col-span-3">
+            <div className="col-span-10 min-w-0 md:col-span-3">
                 <Input 
                     label="Período" 
                     type="date" 
@@ -72,7 +72,7 @@ export default function OrdersFilter({
             </div>
 
             {/* Botão Buscar */}
-            <div className="md:col-span-2">
+            <div className="col-span-2 min-w-0 md:col-span-2">
                 <Button
                     variant="secondary" 
                     onClick={onSearch} 
