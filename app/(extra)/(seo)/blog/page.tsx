@@ -44,6 +44,10 @@ export const metadata: Metadata = {
 };
 
 const articleIcons = [
+    faComments,
+    faUtensils,
+    faStore,
+    faChartLine,
     faReceipt,
     faMoneyBillTransfer,
     faComments,
