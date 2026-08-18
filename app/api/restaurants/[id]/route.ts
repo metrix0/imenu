@@ -252,6 +252,7 @@ export async function GET(
                 name,
                 phone,
                 store_whatsapp,
+                logo_url,
                 address,
                 latitude,
                 longitude,
