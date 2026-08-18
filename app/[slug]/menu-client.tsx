@@ -629,6 +629,15 @@ export default function MenuClientPage({
         return () => observer.disconnect();
     }, [categories, manualScrollLock]);
 
+    const canScheduleToday = (() => {
+        if (!nextOpening || closedForToday) return false;
+        const now = new Date();
+        return nextOpening.getTime() > now.getTime() &&
+            nextOpening.getFullYear() === now.getFullYear() &&
+            nextOpening.getMonth() === now.getMonth() &&
+            nextOpening.getDate() === now.getDate();
+    })();
+
     console.log(nextOpening, closedForToday)
 
     return (
@@ -730,7 +739,12 @@ export default function MenuClientPage({
                     {closedForToday && (
                         "Hoje o restaurante está fechado no horário comum de funcionamento, devido à possíveis feriados ou eventos especiais."
                         )}
-                    {nextOpening !== null && !closedForToday && (() => {
+                    {canScheduleToday && nextOpening && (
+                        <>
+                            Restaurante fechado no momento. <b>Você pode montar seu pedido e agendar para hoje</b>, quando o restaurante abrir às {nextOpening.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}.
+                        </>
+                    )}
+                    {nextOpening !== null && !closedForToday && !canScheduleToday && (() => {
                         const diffMs = nextOpening.getTime() - Date.now();
 
                         if (diffMs <= 0) return null;
@@ -998,7 +1012,7 @@ export default function MenuClientPage({
             )}
 
             {/* AQUI! */}
-            {nextOpening === null && (
+            {!closedForToday && (nextOpening === null || canScheduleToday) && (
                 <CartBar
                     onOpenCartAction={() => {
                         if (!cartOpen) {
