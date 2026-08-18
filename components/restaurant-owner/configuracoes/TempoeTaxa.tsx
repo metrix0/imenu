@@ -293,7 +293,11 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
         const handleDeleteRule = (index: number) => {
             setRules((currentRules) => {
                 if (currentRules.length <= 1) {
-                    return currentRules;
+                    const currentRule = currentRules[0];
+
+                    return currentRule
+                        ? [{ ...currentRule, radius_km: 0.5 }]
+                        : [];
                 }
 
                 return currentRules.filter(
