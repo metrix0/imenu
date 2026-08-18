@@ -741,7 +741,7 @@ export default function MenuClientPage({
                         )}
                     {canScheduleToday && nextOpening && (
                         <>
-                            Restaurante fechado no momento. <b>Você pode montar seu pedido e agendar para hoje</b>, quando o restaurante abrir às {nextOpening.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}.
+                            Restaurante fechado no momento. <b>Você pode montar seu pedido e agendar para hoje</b>.
                         </>
                     )}
                     {nextOpening !== null && !closedForToday && !canScheduleToday && (() => {
@@ -1064,6 +1064,7 @@ export default function MenuClientPage({
                 onClose={() => setRestaurantCartWarningVisible(false)}
                 height={0.30}
                 handle={true}
+                contentClassName="!overflow-y-hidden !pb-0"
                 className={"md:!py-4 md:!pb-6 2xl:!w-4xl 2xl:!max-w-4xl"}
             >
                 <div className="text-center px-6 pt-2 2xl:px-12">
