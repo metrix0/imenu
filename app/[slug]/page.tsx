@@ -351,20 +351,45 @@ export default async function Page({
           }))}
       />
 
-      {storeWhatsapp && (
-        <footer className="border-t border-gray-100 bg-white px-6 pt-7 pb-28 text-center">
+      <footer className="relative left-1/2 w-screen -translate-x-1/2 bg-white px-6 pb-32 pt-8 text-center md:pb-40">
+        <div className="mx-auto flex max-w-md flex-col items-center">
+          {storeWhatsapp && (
+            <a
+              href={storeWhatsapp.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={`Abrir WhatsApp da loja no número ${storeWhatsapp.formatted}`}
+              className="inline-flex items-center gap-3 rounded-full border border-gray-200 bg-gray-50 py-1.5 pl-4 pr-1.5 text-sm font-medium text-gray-700 transition hover:border-green-200 hover:bg-green-50 hover:text-green-700"
+            >
+              <FontAwesomeIcon
+                icon={faWhatsapp}
+                className="text-lg text-green-600"
+              />
+              <span>{storeWhatsapp.formatted}</span>
+              {restaurant.logo_url && (
+                <img
+                  src={restaurant.logo_url}
+                  alt=""
+                  className="h-10 w-10 rounded-full border border-gray-200 bg-white object-cover"
+                />
+              )}
+            </a>
+          )}
+
           <a
-            href={storeWhatsapp.href}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label={`Abrir WhatsApp da loja no número ${storeWhatsapp.formatted}`}
-            className="inline-flex items-center gap-2 text-sm font-medium text-green-600 hover:underline"
+            href="/"
+            aria-label="Conhecer o iMenu"
+            className="mt-8 inline-flex items-center gap-2 text-xs text-gray-400 transition hover:opacity-70"
           >
-            <FontAwesomeIcon icon={faWhatsapp} className="text-xl" />
-            <span>{storeWhatsapp.formatted}</span>
+            <span>Criado com</span>
+            <img
+              src="/logos/CombinationMarkLogo_Black.png"
+              alt="iMenu"
+              className="h-5 w-auto opacity-35"
+            />
           </a>
-        </footer>
-      )}
+        </div>
+      </footer>
     </>
   );
 }
