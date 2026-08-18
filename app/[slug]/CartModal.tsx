@@ -127,29 +127,6 @@ export default function CartModal({
         ].filter(Boolean).join(" • ")
         : "";
 
-    const normalizeAddressPart = (value: unknown) =>
-        String(value ?? "")
-            .trim()
-            .toLocaleLowerCase("pt-BR")
-            .normalize("NFD")
-            .replace(/[\u0300-\u036f]/g, "")
-            .replace(/\s+/g, " ");
-
-    const normalizeAddressNumber = (value: unknown) => {
-        const normalized = normalizeAddressPart(value);
-        return /^\d+$/.test(normalized) ? String(Number(normalized)) : normalized;
-    };
-
-    const isRestaurantDeliveryAddress = (checkoutAddress: any) => Boolean(
-        restaurantAddress &&
-        String(checkoutAddress.cep ?? "").replace(/\D/g, "") === String(restaurantAddress.cep ?? "").replace(/\D/g, "") &&
-        normalizeAddressPart(checkoutAddress.rua) === normalizeAddressPart(restaurantAddress.street) &&
-        normalizeAddressNumber(checkoutAddress.numero) === normalizeAddressNumber(restaurantAddress.number) &&
-        normalizeAddressPart(checkoutAddress.bairro) === normalizeAddressPart(restaurantAddress.neighborhood) &&
-        normalizeAddressPart(checkoutAddress.cidade) === normalizeAddressPart(restaurantAddress.city) &&
-        normalizeAddressPart(checkoutAddress.estado) === normalizeAddressPart(restaurantAddress.state)
-    );
-
     function getDeliveryTiers() {
         try {
             if (!restaurant) return null;
@@ -248,14 +225,12 @@ export default function CartModal({
             return;
         }
 
-        const distKm = isRestaurantDeliveryAddress(st)
-            ? 0
-            : calculateDistanceKm(
-                restLat,
-                restLon,
-                coords.latitude,
-                coords.longitude
-            );
+        const distKm = calculateDistanceKm(
+            restLat,
+            restLon,
+            coords.latitude,
+            coords.longitude
+        );
 
         const tiers = getDeliveryTiers();
         const fee = computeFeeFromTiers(distKm, tiers);
