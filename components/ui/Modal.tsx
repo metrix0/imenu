@@ -84,7 +84,7 @@ export default function Modal({
     if (!mounted) return null;
 
     return createPortal(
-        <div className="fixed inset-0 z-50 isolate flex min-h-[100dvh] w-full items-center justify-center overflow-y-auto p-3 sm:p-6">
+        <div className="fixed inset-0 z-50 isolate flex min-h-[100dvh] w-full items-center justify-center overflow-y-auto p-3 sm:p-6 2xl:p-8">
             <button
                 type="button"
                 aria-label="Fechar modal"
@@ -100,7 +100,7 @@ export default function Modal({
                 onClick={(event: { stopPropagation(): void }) =>
                     event.stopPropagation()
                 }
-                className={`relative flex max-h-[92dvh] w-full max-w-2xl flex-col overflow-y-auto rounded-xl bg-white shadow-2xl transition-all duration-200 sm:max-h-[90dvh] sm:rounded-2xl ${
+                className={`relative flex max-h-[92dvh] w-full max-w-2xl flex-col overflow-y-auto rounded-xl bg-white shadow-2xl transition-all duration-200 sm:max-h-[90dvh] sm:rounded-2xl 2xl:max-h-[88dvh] ${
                     active
                         ? "translate-y-0 scale-100 opacity-100"
                         : "translate-y-3 scale-95 opacity-0"

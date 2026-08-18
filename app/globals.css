@@ -174,3 +174,108 @@ html, body {
     display: none; /* Chrome/Safari */
 }
 
+/* Large-desktop polish. These rules only start at Tailwind's 2xl breakpoint,
+   so the existing 1366px layout remains unchanged. */
+@media (min-width: 1536px) {
+    .seo-responsive > header > div {
+        max-width: 100rem;
+        padding-left: 2.5rem;
+        padding-right: 2.5rem;
+    }
+
+    .seo-responsive main .max-w-7xl:not([class*="2xl:max-w-"]),
+    .dev-responsive .max-w-7xl:not([class*="2xl:max-w-"]),
+    .mestre-responsive .max-w-7xl:not([class*="2xl:max-w-"]) {
+        max-width: 100rem;
+    }
+
+    .seo-responsive main .max-w-6xl:not([class*="2xl:max-w-"]),
+    .dev-responsive .max-w-6xl:not([class*="2xl:max-w-"]),
+    .mestre-responsive .max-w-6xl:not([class*="2xl:max-w-"]) {
+        max-width: 90rem;
+    }
+
+    .seo-responsive main .max-w-5xl:not([class*="2xl:max-w-"]),
+    .dev-responsive .max-w-5xl:not([class*="2xl:max-w-"]),
+    .mestre-responsive .max-w-5xl:not([class*="2xl:max-w-"]) {
+        max-width: 80rem;
+    }
+
+    .seo-responsive main .max-w-4xl:not([class*="2xl:max-w-"]) {
+        max-width: 72rem;
+    }
+
+    .seo-responsive main h1.text-4xl:not([class*="2xl:text-"]) {
+        font-size: 3.75rem;
+        line-height: 1.05;
+    }
+
+    .seo-responsive main h1.text-5xl:not([class*="2xl:text-"]) {
+        font-size: 4rem;
+        line-height: 1.05;
+    }
+
+    .seo-responsive main h2.text-2xl:not([class*="2xl:text-"]),
+    .dev-responsive h1.text-3xl:not([class*="2xl:text-"]),
+    .mestre-responsive h1.text-3xl:not([class*="2xl:text-"]) {
+        font-size: 2rem;
+        line-height: 2.5rem;
+    }
+
+    .seo-responsive main h3.text-xl:not([class*="2xl:text-"]) {
+        font-size: 1.5rem;
+        line-height: 2rem;
+    }
+
+    .seo-responsive main .text-lg:not([class*="2xl:text-"]) {
+        font-size: 1.25rem;
+        line-height: 1.875rem;
+    }
+
+    .seo-responsive main .text-sm:not([class*="2xl:text-"]),
+    .dev-responsive .text-sm:not([class*="2xl:text-"]),
+    .mestre-responsive .text-sm:not([class*="2xl:text-"]) {
+        font-size: 1rem;
+        line-height: 1.5rem;
+    }
+
+    .seo-responsive main .text-xs:not([class*="2xl:text-"]),
+    .dev-responsive .text-xs:not([class*="2xl:text-"]),
+    .mestre-responsive .text-xs:not([class*="2xl:text-"]) {
+        font-size: 0.875rem;
+        line-height: 1.25rem;
+    }
+
+    .restaurant-responsive main .max-w-md:not([class*="2xl:max-w-"]) {
+        max-width: 36rem;
+    }
+
+    .restaurant-responsive main .max-w-lg:not([class*="2xl:max-w-"]) {
+        max-width: 40rem;
+    }
+
+    .restaurant-responsive main .max-w-xl:not([class*="2xl:max-w-"]) {
+        max-width: 46rem;
+    }
+
+    .restaurant-responsive main h1.text-2xl:not([class*="2xl:text-"]) {
+        font-size: 2rem;
+        line-height: 2.5rem;
+    }
+
+    .restaurant-responsive main h1.text-3xl:not([class*="2xl:text-"]) {
+        font-size: 2.25rem;
+        line-height: 2.75rem;
+    }
+
+    .restaurant-responsive main .text-sm:not([class*="2xl:text-"]) {
+        font-size: 1rem;
+        line-height: 1.5rem;
+    }
+
+    .restaurant-responsive main .text-xs:not([class*="2xl:text-"]) {
+        font-size: 0.875rem;
+        line-height: 1.25rem;
+    }
+}
+

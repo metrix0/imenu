@@ -29,7 +29,7 @@ export default function RestauranteLayout({
               `}
             </Script>
 
-            <div className="min-h-screen w-full min-w-0 max-w-full overflow-x-hidden">
+            <div className="restaurant-responsive min-h-screen w-full min-w-0 max-w-full overflow-x-hidden">
                 <div className="fixed z-[9999]">
                     <SupportButton
                         ref={supportBtnRef}
