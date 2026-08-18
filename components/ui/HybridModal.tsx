@@ -7,6 +7,7 @@ type DraggableModalProps =  React.HTMLAttributes<HTMLDivElement> & {
     open: boolean;
     onClose: () => void;
     xPadding?: boolean;
+    contentClassName?: string;
     children: React.ReactNode;
 };
 
@@ -16,6 +17,7 @@ export default function DraggableModal({
                                            open,
                                            onClose,
                                            xPadding = true,
+                                           contentClassName,
                                            children,
                                             ...props
                                        }: DraggableModalProps) {
@@ -163,7 +165,7 @@ export default function DraggableModal({
                     </div>
                 )}
 
-                <div className={`overflow-y-auto h-full pb-32 ${xPadding ? "px-4" : ""}`}>
+                <div className={`overflow-y-auto h-full pb-32 ${xPadding ? "px-4" : ""} ${contentClassName ?? ""}`}>
                     {children}
                 </div>
             </div>
