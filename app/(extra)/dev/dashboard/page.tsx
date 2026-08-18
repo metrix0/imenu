@@ -15,6 +15,7 @@ import {
 import { Bar, Line } from "react-chartjs-2";
 
 import ConsumerPipelineCard from "@/components/analytics/ConsumerPipelineCard";
+import SalesRankingSection from "@/components/analytics/SalesRankingSection";
 import type { ConsumerPipelineStep } from "@/lib/analytics/consumerPipeline";
 import { supabase } from "@/lib/database/supabaseClient";
 
@@ -649,6 +650,8 @@ export default function DevDashboardPage() {
                                 />
                             </div>
                         </section>
+
+                        <SalesRankingSection range={range} />
 
                         <section>
                             <SectionHeading
