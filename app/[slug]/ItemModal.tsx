@@ -432,7 +432,7 @@ export default function ItemModal({
 
 
             {/* CONTENT */}
-            <div className="overflow-y-auto h-screen md:h-100px md:p-4 pb-32 md:pb-0">
+            <div className="pb-32 md:h-[80vh] md:overflow-y-auto md:p-4 md:pb-0">
                 <div className={" md:pb-62"}>
                 {renderContent()}
                 </div>
