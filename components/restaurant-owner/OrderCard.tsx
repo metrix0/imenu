@@ -126,7 +126,7 @@ function CashChangeInfo({ text }: { text: string }) {
     );
 }
 
-function ScheduledTimeInfo({ text, elapsed, time }: { text: string; elapsed: string; time: string }) {
+function ScheduledTimeInfo({ text, time }: { text: string; time: string }) {
     const triggerRef = useRef<HTMLDivElement>(null);
     const [open, setOpen] = useState(false);
     const [position, setPosition] = useState({ left: 0, top: 0 });
@@ -161,7 +161,7 @@ function ScheduledTimeInfo({ text, elapsed, time }: { text: string; elapsed: str
                 className="ml-auto flex shrink-0 cursor-help items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700 outline-none 2xl:px-3 2xl:py-1 2xl:text-base"
             >
                 <FontAwesomeIcon icon={faCalendarDays} />
-                {elapsed} · {time}
+                {time}
             </div>
 
             {open && typeof document !== "undefined" && createPortal(
@@ -363,6 +363,15 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
     const scheduledTooltip = isScheduled
         ? `Pedido agendado para que ${isPickup ? "a retirada seja feita" : "a entrega seja feita"} às ${scheduledTime} (dia ${scheduledDay})`
         : "";
+    const scheduledRelativeTime = scheduledDate
+        ? (() => {
+            const diffMinutes = (scheduledDate.getTime() - Date.now()) / 60000;
+            if (Math.abs(diffMinutes) < 1) return "agora";
+            return diffMinutes > 0
+                ? `em ${Math.ceil(diffMinutes)} min`
+                : `há ${Math.floor(Math.abs(diffMinutes))} min`;
+        })()
+        : "";
 
     // LÓGICA DE VISUALIZAÇÃO LIMITADA
     const VISIBLE_ITEMS = isScheduled ? 2 : 3;
@@ -397,7 +406,6 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
                     {isScheduled ? (
                         <ScheduledTimeInfo
                             text={scheduledTooltip}
-                            elapsed={getElapsedTime()}
                             time={scheduledTime}
                         />
                     ) : (
@@ -429,7 +437,10 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
                     {isScheduled && (
                         <div className="mb-3 flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2 text-xs font-bold text-green-700 2xl:text-base">
                             <FontAwesomeIcon icon={faCalendarDays} />
-                            <span>PEDIDO AGENDADO · {scheduledTime}</span>
+                            <span>
+                                PEDIDO AGENDADO · {scheduledTime}{" "}
+                                <span className="font-medium">({scheduledRelativeTime})</span>
+                            </span>
                         </div>
                     )}
                     {itemsToShow.map((item, idx) => (
