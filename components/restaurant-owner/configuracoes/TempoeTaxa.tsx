@@ -264,7 +264,7 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                 const lastRadius = currentRules.length > 0
                     ? Math.max(...currentRules.map((rule) => Number(rule.radius_km) || 0))
                     : 0;
-                const nextRadius = lastRadius + 1;
+                const nextRadius = lastRadius + (lastRadius % 1 === 0.5 ? 0.5 : 1);
 
                 const lastRule =
                     currentRules.length > 0
@@ -293,7 +293,11 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
         const handleDeleteRule = (index: number) => {
             setRules((currentRules) => {
                 if (currentRules.length <= 1) {
-                    return currentRules;
+                    const currentRule = currentRules[0];
+
+                    return currentRule
+                        ? [{ ...currentRule, radius_km: 0.5 }]
+                        : [];
                 }
 
                 return currentRules.filter(
