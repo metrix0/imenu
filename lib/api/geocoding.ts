@@ -46,19 +46,17 @@ export async function fetchAddressByCEP(cep: string): Promise<GeoAddress | null>
 
 
 /**
- * 2. Transforma Endereço (texto) em Coordenadas (Nominatim / OSM)
+ * 2. Transforma Endereço (texto) em Coordenadas
  */
 export async function fetchCoordinates(fullAddress: string): Promise<{ latitude: number; longitude: number } | null> {
+    const geocodeGoogle = async (address: string): Promise<{ latitude: number; longitude: number } | null> => {
+        if (!GOOGLE_API_KEY) return null;
 
-    const apiKey = GOOGLE_API_KEY;
-    if (!apiKey) return null;
-
-    const geocode = async (address: string): Promise<{ latitude: number; longitude: number } | null> => {
         try {
             const res = await fetch(
                 `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
                     address
-                )}&key=${apiKey}&language=pt-BR`
+                )}&key=${GOOGLE_API_KEY}&language=pt-BR`
             );
 
             const json = await res.json();
@@ -78,16 +76,40 @@ export async function fetchCoordinates(fullAddress: string): Promise<{ latitude:
         }
     };
 
-    const coords = await geocode(fullAddress);
+    const geocodeNominatim = async (address: string): Promise<{ latitude: number; longitude: number } | null> => {
+        try {
+            const res = await fetch(
+                `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=br&q=${encodeURIComponent(address)}`
+            );
+            if (!res.ok) return null;
+
+            const results = await res.json();
+            if (!Array.isArray(results) || !results.length) return null;
+
+            const latitude = Number(results[0].lat);
+            const longitude = Number(results[0].lon);
+            if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+
+            return { latitude, longitude };
+        } catch {
+            return null;
+        }
+    };
+
+    const coords = await geocodeGoogle(fullAddress);
     if (coords) return coords;
 
     const addressParts = fullAddress.split(",").map((part) => part.trim());
-    if (addressParts.length >= 6) {
-        const addressWithoutNumber = [addressParts[0], ...addressParts.slice(2)].join(", ");
-        return geocode(addressWithoutNumber);
+    const addressWithoutNumber = addressParts.length >= 6
+        ? [addressParts[0], ...addressParts.slice(2)].join(", ")
+        : fullAddress;
+
+    if (addressWithoutNumber !== fullAddress) {
+        const googleFallback = await geocodeGoogle(addressWithoutNumber);
+        if (googleFallback) return googleFallback;
     }
 
-    return null;
+    return geocodeNominatim(addressWithoutNumber);
 }
 
 
