@@ -53,28 +53,41 @@ export async function fetchCoordinates(fullAddress: string): Promise<{ latitude:
     const apiKey = GOOGLE_API_KEY;
     if (!apiKey) return null;
 
-    try {
-        const res = await fetch(
-            `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
-                fullAddress
-            )}&key=${apiKey}&language=pt-BR`
-        );
+    const geocode = async (address: string): Promise<{ latitude: number; longitude: number } | null> => {
+        try {
+            const res = await fetch(
+                `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
+                    address
+                )}&key=${apiKey}&language=pt-BR`
+            );
 
-        const json = await res.json();
+            const json = await res.json();
 
-        if (json.status !== "OK" || !json.results?.length) {
+            if (json.status !== "OK" || !json.results?.length) {
+                return null;
+            }
+
+            const { lat, lng } = json.results[0].geometry.location;
+
+            return {
+                latitude: lat,
+                longitude: lng
+            };
+        } catch {
             return null;
         }
+    };
 
-        const { lat, lng } = json.results[0].geometry.location;
+    const coords = await geocode(fullAddress);
+    if (coords) return coords;
 
-        return {
-            latitude: lat,
-            longitude: lng
-        };
-    } catch {
-        return null;
+    const addressParts = fullAddress.split(",").map((part) => part.trim());
+    if (addressParts.length >= 6) {
+        const addressWithoutNumber = [addressParts[0], ...addressParts.slice(2)].join(", ");
+        return geocode(addressWithoutNumber);
     }
+
+    return null;
 }
 
 
