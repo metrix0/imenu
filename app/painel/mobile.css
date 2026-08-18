@@ -235,7 +235,45 @@
 }
 
 @media (min-width: 1536px) {
-    .panel-mobile-content[data-panel-path="/painel"] > div {
-        max-width: 90rem;
+    /* Let every dashboard page use the extra Full HD width while keeping
+       the existing 1366px desktop layout untouched. */
+    .panel-mobile-content {
+        padding: 2.5rem !important;
+    }
+
+    .panel-mobile-content > div {
+        max-width: 100rem !important;
+    }
+
+    .panel-mobile-content .max-w-7xl:not([class*="2xl:max-w-"]) {
+        max-width: 96rem;
+    }
+
+    .panel-mobile-content .max-w-6xl:not([class*="2xl:max-w-"]) {
+        max-width: 88rem;
+    }
+
+    .panel-mobile-content .max-w-5xl:not([class*="2xl:max-w-"]) {
+        max-width: 80rem;
+    }
+
+    .panel-mobile-content h1.text-3xl:not([class*="2xl:text-"]) {
+        font-size: 2.25rem;
+        line-height: 2.75rem;
+    }
+
+    .panel-mobile-content h2.text-xl:not([class*="2xl:text-"]) {
+        font-size: 1.5rem;
+        line-height: 2rem;
+    }
+
+    .panel-mobile-content .text-sm:not([class*="2xl:text-"]) {
+        font-size: 1rem;
+        line-height: 1.5rem;
+    }
+
+    .panel-mobile-content .text-xs:not([class*="2xl:text-"]) {
+        font-size: 0.875rem;
+        line-height: 1.25rem;
     }
 }

@@ -80,3 +80,52 @@
         width: 100%;
     }
 }
+
+@media (min-width: 1536px) {
+    .creation-mobile-content .max-w-md:not([class*="2xl:max-w-"]) {
+        max-width: 36rem;
+    }
+
+    .creation-mobile-content .max-w-lg:not([class*="2xl:max-w-"]) {
+        max-width: 42rem;
+    }
+
+    .creation-mobile-content .max-w-xl:not([class*="2xl:max-w-"]) {
+        max-width: 48rem;
+    }
+
+    .creation-mobile-content .max-w-2xl:not([class*="2xl:max-w-"]) {
+        max-width: 56rem;
+    }
+
+    .creation-mobile-content .max-w-4xl:not([class*="2xl:max-w-"]) {
+        max-width: 72rem;
+    }
+
+    .creation-mobile-content h1.text-3xl:not([class*="2xl:text-"]) {
+        font-size: 2.25rem;
+        line-height: 2.75rem;
+    }
+
+    .creation-mobile-content h2.text-xl:not([class*="2xl:text-"]) {
+        font-size: 1.5rem;
+        line-height: 2rem;
+    }
+
+    .creation-mobile-content .text-sm:not([class*="2xl:text-"]) {
+        font-size: 1rem;
+        line-height: 1.5rem;
+    }
+
+    .creation-mobile-content .text-xs:not([class*="2xl:text-"]) {
+        font-size: 0.875rem;
+        line-height: 1.25rem;
+    }
+
+    .creation-mobile-content input:not([class*="2xl:text-"]),
+    .creation-mobile-content textarea:not([class*="2xl:text-"]),
+    .creation-mobile-content select:not([class*="2xl:text-"]) {
+        font-size: 1.125rem;
+        line-height: 1.75rem;
+    }
+}

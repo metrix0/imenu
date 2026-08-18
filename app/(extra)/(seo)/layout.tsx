@@ -17,7 +17,7 @@ export default function SeoLayout({
     const router = useRouter();
 
     return (
-        <div className="relative flex min-h-screen w-full max-w-full flex-col overflow-x-clip">
+        <div className="seo-responsive relative flex min-h-screen w-full max-w-full flex-col overflow-x-clip">
             <SeoTrafficTracker />
             <header className="w-full border-gray-200 bg-white px-4 py-7 md:px-8 md:py-5 2xl:py-8">
                 <div className="mx-auto flex w-full max-w-7xl min-w-0 items-center justify-between gap-3">
