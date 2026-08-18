@@ -97,7 +97,86 @@ export default function CartModal({
     const coupon_code = useCheckoutStore((s) => s.coupon_code);
     const coupon_type = useCheckoutStore((s) => s.coupon_type);
     const coupon_discount_cents = useCheckoutStore((s) => s.coupon_discount_cents);
+    const scheduled_for = useCheckoutStore((s) => s.scheduled_for);
     const troco = useCheckoutStore((s: any) => String(s.troco ?? ""));
+
+    const scheduledOptions = (() => {
+        const availability = restaurant?.availability_json;
+        if (!availability) return [] as { value: string; label: string }[];
+
+        const now = new Date();
+        if (restaurant?.is_closed) {
+            const closedDate = new Date(restaurant.is_closed);
+            const businessToday = new Date();
+            if (businessToday.getHours() < 4) {
+                businessToday.setDate(businessToday.getDate() - 1);
+            }
+            const manuallyClosedToday =
+                closedDate.getFullYear() === businessToday.getFullYear() &&
+                closedDate.getMonth() === businessToday.getMonth() &&
+                closedDate.getDate() === businessToday.getDate();
+            if (manuallyClosedToday) return [];
+        }
+
+        const slots = availability[now.getDay()] ?? [];
+        if (!Array.isArray(slots)) return [];
+
+        for (const slot of slots) {
+            const [openH, openM] = String(slot.open).split(":").map(Number);
+            const [closeH, closeM] = String(slot.close).split(":").map(Number);
+            const openDate = new Date();
+            openDate.setHours(openH, openM, 0, 0);
+            const closeDate = new Date();
+            closeDate.setHours(closeH, closeM, 0, 0);
+
+            if (now >= openDate && now <= closeDate) {
+                return [];
+            }
+        }
+
+        const options: { value: string; label: string }[] = [];
+        for (const slot of slots) {
+            const [openH, openM] = String(slot.open).split(":").map(Number);
+            const [closeH, closeM] = String(slot.close).split(":").map(Number);
+            const openDate = new Date();
+            openDate.setHours(openH, openM, 0, 0);
+            const closeDate = new Date();
+            closeDate.setHours(closeH, closeM, 0, 0);
+
+            if (openDate <= now || closeDate <= now) continue;
+
+            for (
+                let cursor = new Date(openDate);
+                cursor <= closeDate;
+                cursor = new Date(cursor.getTime() + 30 * 60_000)
+            ) {
+                options.push({
+                    value: cursor.toISOString(),
+                    label: cursor.toLocaleTimeString("pt-BR", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                    }),
+                });
+            }
+        }
+
+        return options;
+    })();
+    const scheduledOptionsKey = scheduledOptions.map((option) => option.value).join("|");
+
+    useEffect(() => {
+        if (scheduledOptions.length === 0) {
+            if (scheduled_for) setField("scheduled_for", null);
+            return;
+        }
+
+        const selectedIsValid = scheduledOptions.some(
+            (option) => option.value === scheduled_for
+        );
+        if (!selectedIsValid) {
+            setField("scheduled_for", scheduledOptions[0].value);
+        }
+    }, [scheduledOptionsKey, scheduled_for]);
 
     const restaurantAddress = (() => {
         const rawAddress = restaurant?.address;
@@ -943,6 +1022,28 @@ export default function CartModal({
                 <div className="w-full px-4 overflow-y-auto pt-4 pb-32 2xl:px-8">
 
                     <>
+                        {scheduledOptions.length > 0 && (
+                            <div className="mb-6 rounded-xl border border-green-200 bg-green-50 p-4">
+                                <h2 className="font-semibold text-md 2xl:text-lg">
+                                    Pedido agendado
+                                </h2>
+                                <p className="mt-1 text-sm text-green-800 2xl:text-base">
+                                    Escolha o horário para {isPickup ? "retirar" : "receber"} seu pedido hoje.
+                                </p>
+                                <select
+                                    value={scheduled_for ?? scheduledOptions[0].value}
+                                    onChange={(event) => setField("scheduled_for", event.target.value)}
+                                    className="mt-3 w-full cursor-pointer rounded-xl border border-green-200 bg-white px-3 py-3 text-sm font-medium outline-none focus:border-green-400 2xl:text-lg"
+                                >
+                                    {scheduledOptions.map((option) => (
+                                        <option key={option.value} value={option.value}>
+                                            {option.label}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+
                         <h2 className="font-semibold text-md 2xl:text-lg mb-4">
                             Pagamento
                         </h2>
