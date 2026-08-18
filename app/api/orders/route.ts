@@ -252,6 +252,7 @@ export async function POST(request: Request) {
             coupon_discount_cents,
             coupon_type,
             is_delivery,
+            scheduled_for,
         } = body;
 
         if (
@@ -263,6 +264,20 @@ export async function POST(request: Request) {
             throw new OrderRequestError(
                 "Campos obrigatórios incompletos."
             );
+        }
+
+        let scheduledFor: Date | null = null;
+        if (scheduled_for) {
+            const parsedScheduledFor = new Date(scheduled_for);
+            if (
+                Number.isNaN(parsedScheduledFor.getTime()) ||
+                parsedScheduledFor.getTime() <= Date.now()
+            ) {
+                throw new OrderRequestError(
+                    "Horário de agendamento inválido."
+                );
+            }
+            scheduledFor = parsedScheduledFor;
         }
 
         const isPickup =
@@ -446,7 +461,7 @@ export async function POST(request: Request) {
             Number(delivery_time_minutes) || 40,
             0
         );
-        const eta = new Date(
+        const eta = scheduledFor ?? new Date(
             Date.now() +
                 deliveryTime * 60_000
         );
@@ -652,6 +667,7 @@ export async function POST(request: Request) {
                                     customer_phone,
                                     customer_address,
                                     delivery_eta,
+                                    scheduled_for,
                                     payment_method,
                                     is_delivery,
                                     loyalty_points_used
@@ -668,7 +684,8 @@ export async function POST(request: Request) {
                                     $9,
                                     $10,
                                     $11,
-                                    $12
+                                    $12,
+                                    $13
                                 )
                                 RETURNING id
                             `,
@@ -685,6 +702,7 @@ export async function POST(request: Request) {
                                     : customer_address ??
                                       null,
                                 eta,
+                                scheduledFor,
                                 paymentMethod,
                                 isPickup
                                     ? "retirada"
