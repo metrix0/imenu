@@ -58,7 +58,7 @@ export default function RestaurantToolsCta({ title }: { title: string }) {
                         aria-hidden="true"
                         className="absolute inset-0 h-full w-full object-cover"
                     />
-                    <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-t from-orange-100/70 via-transparent to-orange-50/20" />
+                    <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-t from-white/20 via-transparent to-orange-50/20" />
                     <div className="absolute right-5 top-5 rounded-full border border-orange-100 bg-white/90 px-3 py-1.5 text-xs font-semibold text-gray-700 shadow-md backdrop-blur">
                         Pronto em 5 minutos
                     </div>
