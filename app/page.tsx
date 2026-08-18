@@ -116,8 +116,8 @@ export default function LandingPage() {
                     <Image
                         src="/logos/CombinationMarkLogo_Brand.png"
                         alt="iMenu Logo"
-                        width={120}
-                        height={32}
+                        width={200}
+                        height={42}
                         className="ml-4 h-6 w-auto cursor-pointer 2xl:ml-8 2xl:h-10"
                         onClick={() => router.push("#")}
                     />
