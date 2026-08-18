@@ -30,8 +30,8 @@ export default function SeoLayout({
                         <Image
                             src="/logos/CombinationMarkLogo_Brand.png"
                             alt="iMenu Logo"
-                            width={120}
-                            height={32}
+                            width={200}
+                            height={42}
                             className="h-6 w-auto max-w-[120px] cursor-pointer 2xl:h-10 2xl:max-w-none"
                         />
                     </Link>
