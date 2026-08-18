@@ -85,6 +85,10 @@ function parseRange(value: string | null): RangeKey {
         : "this_week";
 }
 
+function toIso(value: string | Date): string {
+    return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
+}
+
 export async function GET(request: Request) {
     try {
         const authError = await authorize(request);
@@ -122,8 +126,8 @@ export async function GET(request: Request) {
         const bounds = boundsResult.rows[0];
         if (!bounds) throw new Error("Não foi possível calcular o período.");
 
-        const startIso = new Date(bounds.start_at).toISOString();
-        const endIso = new Date(bounds.end_at).toISOString();
+        const startIso = toIso(bounds.start_at);
+        const endIso = toIso(bounds.end_at);
 
         const rankingResult = await query<RankingRow>(
             `
