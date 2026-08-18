@@ -94,15 +94,21 @@ export default function CartModal({
     const [showDiscountInput, setShowDiscountInput] = useState(false);
     const [upsells, setUpsells] = useState<Item[]>([]);
     const [loadingUpsells, setLoadingUpsells] = useState(false);
+    const [showOptionalSchedule, setShowOptionalSchedule] = useState(false);
     const coupon_code = useCheckoutStore((s) => s.coupon_code);
     const coupon_type = useCheckoutStore((s) => s.coupon_type);
     const coupon_discount_cents = useCheckoutStore((s) => s.coupon_discount_cents);
     const scheduled_for = useCheckoutStore((s) => s.scheduled_for);
     const troco = useCheckoutStore((s: any) => String(s.troco ?? ""));
 
-    const scheduledOptions = (() => {
+    const schedulingState = (() => {
         const availability = restaurant?.availability_json;
-        if (!availability) return [] as { value: string; label: string }[];
+        if (!availability) {
+            return {
+                options: [] as { value: string; label: string }[],
+                isOpenNow: false,
+            };
+        }
 
         const now = new Date();
         if (restaurant?.is_closed) {
@@ -115,11 +121,24 @@ export default function CartModal({
                 closedDate.getFullYear() === businessToday.getFullYear() &&
                 closedDate.getMonth() === businessToday.getMonth() &&
                 closedDate.getDate() === businessToday.getDate();
-            if (manuallyClosedToday) return [];
+            if (manuallyClosedToday) {
+                return {
+                    options: [] as { value: string; label: string }[],
+                    isOpenNow: false,
+                };
+            }
         }
 
         const slots = availability[now.getDay()] ?? [];
-        if (!Array.isArray(slots)) return [];
+        if (!Array.isArray(slots)) {
+            return {
+                options: [] as { value: string; label: string }[],
+                isOpenNow: false,
+            };
+        }
+
+        let isOpenNow = false;
+        const options: { value: string; label: string }[] = [];
 
         for (const slot of slots) {
             const [openH, openM] = String(slot.open).split(":").map(Number);
@@ -130,25 +149,34 @@ export default function CartModal({
             closeDate.setHours(closeH, closeM, 0, 0);
 
             if (now >= openDate && now <= closeDate) {
-                return [];
+                isOpenNow = true;
             }
-        }
 
-        const options: { value: string; label: string }[] = [];
-        for (const slot of slots) {
-            const [openH, openM] = String(slot.open).split(":").map(Number);
-            const [closeH, closeM] = String(slot.close).split(":").map(Number);
-            const openDate = new Date();
-            openDate.setHours(openH, openM, 0, 0);
-            const closeDate = new Date();
-            closeDate.setHours(closeH, closeM, 0, 0);
+            if (closeDate <= now) continue;
 
-            if (openDate <= now || closeDate <= now) continue;
+            let firstAvailable = new Date(openDate);
+            if (now >= openDate) {
+                firstAvailable = new Date(now);
+                firstAvailable.setSeconds(0, 0);
+                const minutes = firstAvailable.getMinutes();
+                const remainder = minutes % 15;
+                firstAvailable.setMinutes(
+                    remainder === 0
+                        ? minutes + 15
+                        : minutes + (15 - remainder),
+                    0,
+                    0
+                );
+            }
+
+            if (firstAvailable < openDate) {
+                firstAvailable = openDate;
+            }
 
             for (
-                let cursor = new Date(openDate);
+                let cursor = new Date(firstAvailable);
                 cursor <= closeDate;
-                cursor = new Date(cursor.getTime() + 30 * 60_000)
+                cursor = new Date(cursor.getTime() + 15 * 60_000)
             ) {
                 options.push({
                     value: cursor.toISOString(),
@@ -160,23 +188,36 @@ export default function CartModal({
             }
         }
 
-        return options;
+        return { options, isOpenNow };
     })();
+    const scheduledOptions = schedulingState.options;
+    const mustSchedule = scheduledOptions.length > 0 && !schedulingState.isOpenNow;
+    const showSchedulePicker =
+        mustSchedule || showOptionalSchedule || (!mustSchedule && Boolean(scheduled_for));
     const scheduledOptionsKey = scheduledOptions.map((option) => option.value).join("|");
 
     useEffect(() => {
         if (scheduledOptions.length === 0) {
             if (scheduled_for) setField("scheduled_for", null);
+            setShowOptionalSchedule(false);
             return;
         }
 
         const selectedIsValid = scheduledOptions.some(
             (option) => option.value === scheduled_for
         );
-        if (!selectedIsValid) {
-            setField("scheduled_for", scheduledOptions[0].value);
+
+        if (mustSchedule) {
+            if (!selectedIsValid) {
+                setField("scheduled_for", scheduledOptions[0].value);
+            }
+            return;
         }
-    }, [scheduledOptionsKey, scheduled_for]);
+
+        if (scheduled_for && !selectedIsValid) {
+            setField("scheduled_for", null);
+        }
+    }, [scheduledOptionsKey, scheduled_for, mustSchedule]);
 
     const restaurantAddress = (() => {
         const rawAddress = restaurant?.address;
@@ -1022,25 +1063,65 @@ export default function CartModal({
                 <div className="w-full px-4 overflow-y-auto pt-4 pb-32 2xl:px-8">
 
                     <>
-                        {scheduledOptions.length > 0 && (
+                        {!mustSchedule && scheduledOptions.length > 0 && !showSchedulePicker && (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setShowOptionalSchedule(true);
+                                    setField("scheduled_for", scheduledOptions[0].value);
+                                }}
+                                className="mb-4 text-left text-sm font-medium text-brand 2xl:text-base"
+                            >
+                                Agendar meu pedido
+                            </button>
+                        )}
+
+                        {scheduledOptions.length > 0 && showSchedulePicker && (
                             <div className="mb-6 rounded-xl border border-green-200 bg-green-50 p-4">
-                                <h2 className="font-semibold text-md 2xl:text-lg">
-                                    Pedido agendado
-                                </h2>
-                                <p className="mt-1 text-sm text-green-800 2xl:text-base">
-                                    Escolha o horário para {isPickup ? "retirar" : "receber"} seu pedido hoje.
-                                </p>
-                                <select
-                                    value={scheduled_for ?? scheduledOptions[0].value}
-                                    onChange={(event) => setField("scheduled_for", event.target.value)}
-                                    className="mt-3 w-full cursor-pointer rounded-xl border border-green-200 bg-white px-3 py-3 text-sm font-medium outline-none focus:border-green-400 2xl:text-lg"
-                                >
-                                    {scheduledOptions.map((option) => (
-                                        <option key={option.value} value={option.value}>
-                                            {option.label}
-                                        </option>
-                                    ))}
-                                </select>
+                                <div className="flex items-start justify-between gap-3">
+                                    <div>
+                                        <h2 className="font-semibold text-md 2xl:text-lg">
+                                            Pedido agendado
+                                        </h2>
+                                        <p className="mt-1 text-sm text-green-800 2xl:text-base">
+                                            Escolha o horário para {isPickup ? "retirar" : "receber"} seu pedido hoje.
+                                        </p>
+                                    </div>
+                                    {!mustSchedule && (
+                                        <button
+                                            type="button"
+                                            aria-label="Cancelar agendamento"
+                                            onClick={() => {
+                                                setShowOptionalSchedule(false);
+                                                setField("scheduled_for", null);
+                                            }}
+                                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-green-800 transition hover:bg-green-100"
+                                        >
+                                            <FontAwesomeIcon icon={icons.faTimes} />
+                                        </button>
+                                    )}
+                                </div>
+                                <div className="relative mt-3">
+                                    <FontAwesomeIcon
+                                        icon={icons.faClock}
+                                        className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-green-700"
+                                    />
+                                    <select
+                                        value={scheduled_for ?? scheduledOptions[0].value}
+                                        onChange={(event) => setField("scheduled_for", event.target.value)}
+                                        className="w-full cursor-pointer appearance-none rounded-xl border border-green-200 bg-white py-3 pl-10 pr-12 text-sm font-medium outline-none focus:border-green-400 2xl:text-lg"
+                                    >
+                                        {scheduledOptions.map((option) => (
+                                            <option key={option.value} value={option.value}>
+                                                {option.label}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <FontAwesomeIcon
+                                        icon={icons.faChevronDown}
+                                        className="pointer-events-none absolute right-5 top-1/2 -translate-y-1/2 text-xs text-green-700"
+                                    />
+                                </div>
                             </div>
                         )}
 
