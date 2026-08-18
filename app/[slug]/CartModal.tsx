@@ -191,9 +191,21 @@ export default function CartModal({
         setField("showAddressWarning", false);
         setCepLocationError(false);
 
-        if (!st.cep) return;
+        if (
+            !st.cep ||
+            !st.rua ||
+            !st.bairro ||
+            !st.cidade ||
+            !st.estado ||
+            !st.numero
+        ) {
+            setDeliveryFeeCents(null);
+            setField("delivery_fee_cents", null);
+            setField("delivery_time_minutes", null);
+            return;
+        }
 
-        const fullAddress = `${st.rua}, ${st.bairro}, ${st.cidade} - ${st.estado}, ${st.cep}, Brasil    `;
+        const fullAddress = `${st.rua}, ${st.numero}, ${st.bairro}, ${st.cidade} - ${st.estado}, ${st.cep}, Brasil`;
 
         const coords = await fetchCoordinates(fullAddress);
 
@@ -288,6 +300,24 @@ export default function CartModal({
 
         setCepDebounceTimer(timer);
     }
+
+    useEffect(() => {
+        if (
+            isPickup ||
+            cep.replace(/\D/g, "").length !== 8 ||
+            !rua ||
+            !bairro ||
+            !numero
+        ) {
+            return;
+        }
+
+        const timer = window.setTimeout(() => {
+            void recalcDeliveryFeeFromAddress();
+        }, 400);
+
+        return () => window.clearTimeout(timer);
+    }, [cep, rua, bairro, numero, isPickup]);
 
     async function handleUseMyLocation() {
         if (isPickup) return;
