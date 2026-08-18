@@ -286,6 +286,7 @@ export default function CartBar({
             is_delivery: pickup ? "retirada" : "entrega",
             paymentMethod: checkout.pagamento,
             delivery_time_minutes: pickup ? null : checkout.delivery_time_minutes,
+            scheduled_for: checkout.scheduled_for || null,
 
             // 👇 cart items (unchanged, except the first observation may include cash change)
             items: cart.items.map((i, index) => {
@@ -374,7 +375,7 @@ export default function CartBar({
             console.error("[CART] Failed to clear cart-storage:", err);
         }
 
-        useCheckoutStore.setState({ is_pickup: false } as any);
+        useCheckoutStore.setState({ is_pickup: false, scheduled_for: null } as any);
         console.log("removed cart-storage and created cookie");
 
         if (data.payment_type === "offline") {
