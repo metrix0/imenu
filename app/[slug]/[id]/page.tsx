@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/database/supabaseClient";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { icons } from "@/lib/utils/fontawesome";
-import { faPix, faWhatsappSquare } from "@fortawesome/free-brands-svg-icons";
+import { faPix, faWhatsapp } from "@fortawesome/free-brands-svg-icons";
 import ListLoader from "@/components/ui/ListLoader";
 import { formatPrice, promotionPrice } from "@/lib/utils/formatPrice";
 
@@ -22,6 +22,7 @@ export default function PedidoPage({
     const [order, setOrder] = useState<any>(null);
     const [restaurantName, setRestaurantName] = useState("");
     const [restaurantPhone, setRestaurantPhone] = useState("");
+    const [restaurantLogo, setRestaurantLogo] = useState("");
     const [restaurantId, setRestaurantId] = useState<string | null>(null);
     const [copiedPix, setCopiedPix] = useState(false);
 
@@ -74,6 +75,7 @@ export default function PedidoPage({
                 if (restaurantData) {
                     setRestaurantName(restaurantData.name ?? "");
                     setRestaurantPhone(restaurantData.phone ?? "");
+                    setRestaurantLogo(restaurantData.logo_url ?? "");
                 }
             } catch (error) {
                 console.error("Erro ao carregar pedido:", error);
@@ -211,6 +213,19 @@ export default function PedidoPage({
             date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 
         return `${label}, ${formatTime(start)} - ${formatTime(end)}`;
+    }
+
+    function formatWhatsapp(value: string) {
+        const digits = value.replace(/\D/g, "");
+        const local = digits.startsWith("55") ? digits.slice(2) : digits;
+
+        if (local.length === 11) {
+            return `(${local.slice(0, 2)}) ${local.slice(2, 7)}-${local.slice(7)}`;
+        }
+        if (local.length === 10) {
+            return `(${local.slice(0, 2)}) ${local.slice(2, 6)}-${local.slice(6)}`;
+        }
+        return value;
     }
 
     const eta = formatEtaFromTimestamp(order.delivery_eta);
@@ -371,20 +386,42 @@ export default function PedidoPage({
                 )}
             </section>
 
-            <div
-                className="mt-6 mb-3 mx-1 text-sm text-gray-400 2xl:text-lg flex gap-1 items-center justify-center cursor-pointer"
-                onClick={() => router.push("https://wa.me/" + restaurantPhone)}
-            >
-                Entre em contato com este restaurante <FontAwesomeIcon icon={faWhatsappSquare} className="text-2xl text-green" />
-            </div>
+            {restaurantPhone && (
+                <div className="mt-6 mb-3 mx-1 flex justify-center">
+                    <a
+                        href={`https://wa.me/${restaurantPhone.replace(/\D/g, "")}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label={`Abrir WhatsApp da loja no número ${formatWhatsapp(restaurantPhone)}`}
+                        className="inline-flex items-center gap-3 rounded-full border border-gray-200 bg-gray-50 py-1.5 pl-4 pr-1.5 text-sm font-medium text-gray-700 transition hover:border-green-200 hover:bg-green-50 hover:text-green-700 2xl:text-lg"
+                    >
+                        <FontAwesomeIcon icon={faWhatsapp} className="text-lg text-green-600 2xl:text-xl" />
+                        <span>{formatWhatsapp(restaurantPhone)}</span>
+                        {restaurantLogo && (
+                            <img
+                                src={restaurantLogo}
+                                alt=""
+                                className="h-10 w-10 rounded-full border border-gray-200 bg-white object-cover 2xl:h-12 2xl:w-12"
+                            />
+                        )}
+                    </a>
+                </div>
+            )}
 
             <div className="mt-auto flex justify-center pt-8 pb-6">
-                <img
-                    src="/logos/CombinationMarkLogo_Black.png"
-                    alt="Logo"
-                    className="opacity-30 w-26 2xl:w-40 cursor-pointer"
+                <button
+                    type="button"
                     onClick={() => router.push("/")}
-                />
+                    aria-label="Conhecer o iMenu"
+                    className="inline-flex cursor-pointer items-center gap-2 text-xs text-gray-400 transition hover:opacity-70 2xl:text-base"
+                >
+                    <span>Criado com</span>
+                    <img
+                        src="/logos/CombinationMarkLogo_Black.png"
+                        alt="iMenu"
+                        className="h-5 w-auto opacity-35 2xl:h-7"
+                    />
+                </button>
             </div>
         </main>
     );
