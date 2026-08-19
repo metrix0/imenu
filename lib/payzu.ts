@@ -95,7 +95,7 @@ function sleep(ms: number): Promise<void> {
 }
 
 export function isPayZuPaymentRef(value: unknown): boolean {
-    return /^PAYZU/i.test(String(value ?? "").trim());
+    return /^(?:PAYZU|PIX)/i.test(String(value ?? "").trim());
 }
 
 export async function getPayZuPixCharge(params: {
