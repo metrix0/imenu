@@ -1,3 +1,6 @@
+import * as https from "node:https";
+import { HttpsProxyAgent } from "https-proxy-agent";
+
 const PAYZU_BASE_URL = "https://api.payzu.processamento.com/v1";
 const PAYZU_REQUEST_TIMEOUT_MS = 10_000;
 
@@ -38,8 +41,28 @@ function getPayZuToken(): string {
     return token;
 }
 
+function getFixieUrl(): string {
+    const fixieUrl = process.env.FIXIE_URL?.trim();
+
+    if (!fixieUrl) {
+        throw new PayZuApiError("Fixie não configurado para reembolso PayZu.", 500);
+    }
+
+    return fixieUrl;
+}
+
 async function parseJson(response: Response): Promise<any> {
     const text = await response.text();
+    if (!text) return null;
+
+    try {
+        return JSON.parse(text);
+    } catch {
+        return { message: text };
+    }
+}
+
+function parseJsonText(text: string): any {
     if (!text) return null;
 
     try {
@@ -80,7 +103,65 @@ async function requestPayZu(
     }
 }
 
-function errorFromResponse(response: Response, data: any): PayZuApiError {
+async function requestPayZuThroughFixie(
+    path: string,
+    body: string
+): Promise<{
+    response: { ok: boolean; status: number };
+    data: any;
+}> {
+    const target = new URL(`${PAYZU_BASE_URL}${path}`);
+    const agent = new HttpsProxyAgent(getFixieUrl());
+
+    return new Promise((resolve, reject) => {
+        const request = https.request(
+            target,
+            {
+                method: "POST",
+                agent,
+                headers: {
+                    Authorization: `Bearer ${getPayZuToken()}`,
+                    "Content-Type": "application/json",
+                    "Content-Length": Buffer.byteLength(body),
+                },
+                timeout: PAYZU_REQUEST_TIMEOUT_MS,
+            },
+            (response) => {
+                const chunks: Buffer[] = [];
+
+                response.on("data", (chunk) => {
+                    chunks.push(
+                        Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
+                    );
+                });
+                response.on("error", reject);
+                response.on("end", () => {
+                    const status = response.statusCode ?? 500;
+                    const text = Buffer.concat(chunks).toString("utf8");
+
+                    resolve({
+                        response: {
+                            status,
+                            ok: status >= 200 && status < 300,
+                        },
+                        data: parseJsonText(text),
+                    });
+                });
+            }
+        );
+
+        request.on("timeout", () => {
+            request.destroy(new Error("Tempo limite excedido ao chamar PayZu."));
+        });
+        request.on("error", reject);
+        request.end(body);
+    });
+}
+
+function errorFromResponse(
+    response: { status: number; ok: boolean },
+    data: any
+): PayZuApiError {
     const requestId = data?.requestId ? String(data.requestId) : undefined;
     const message =
         typeof data?.message === "string" && data.message.trim()
@@ -196,15 +277,13 @@ export async function refundPayZuPixCharge(input: {
     transactionId: string;
     clientReference: string;
 }): Promise<PayZuTransaction> {
-    const { response, data } = await requestPayZu(
+    const body = JSON.stringify({
+        description: "Estorno solicitado pelo restaurante no iMenu",
+        clientReference: input.clientReference,
+    });
+    const { response, data } = await requestPayZuThroughFixie(
         `/refund/${encodeURIComponent(input.transactionId)}`,
-        {
-            method: "POST",
-            body: JSON.stringify({
-                description: "Estorno solicitado pelo restaurante no iMenu",
-                clientReference: input.clientReference,
-            }),
-        }
+        body
     );
 
     if (!response.ok) throw errorFromResponse(response, data);
