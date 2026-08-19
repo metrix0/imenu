@@ -438,7 +438,7 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
                         <div className="mb-3 flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2 text-xs font-bold text-green-700 2xl:text-base">
                             <FontAwesomeIcon icon={faCalendarDays} />
                             <span>
-                                PEDIDO AGENDADO p/ {scheduledTime}{" "}
+                                AGENDADO PARA {scheduledTime}{" "}
                                 <span className="font-medium">({scheduledRelativeTime})</span>
                             </span>
                         </div>
