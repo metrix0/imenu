@@ -1087,13 +1087,13 @@ export default function CartModal({
 
                         {scheduledOptions.length > 0 && (
                             <div
-                                className={`grid transition-all duration-300 ease-out ${
+                                className={`relative grid transition-all duration-300 ease-out ${scheduleDropdownOpen ? "z-[90]" : "z-auto"} ${
                                     showSchedulePicker
                                         ? "mb-6 grid-rows-[1fr] translate-y-0 opacity-100"
                                         : "mb-0 grid-rows-[0fr] -translate-y-2 opacity-0 pointer-events-none"
                                 }`}
                             >
-                                <div className="overflow-hidden">
+                                <div className={showSchedulePicker ? "overflow-visible" : "overflow-hidden"}>
                                     <div className="rounded-xl border border-green-200 bg-green-50 p-4">
                                         <div className="flex items-start justify-between gap-3">
                                             <div>
@@ -1139,7 +1139,7 @@ export default function CartModal({
                                             </button>
 
                                             <div
-                                                className={`absolute left-0 right-0 top-full z-[80] mt-2 origin-top overflow-hidden rounded-xl border bg-white shadow-lg transition-all duration-200 ease-out ${
+                                                className={`absolute left-0 right-0 top-full z-[100] mt-2 origin-top overflow-hidden rounded-xl border bg-white shadow-lg transition-all duration-200 ease-out ${
                                                     scheduleDropdownOpen
                                                         ? "max-h-56 translate-y-0 scale-y-100 border-green-100 opacity-100"
                                                         : "pointer-events-none max-h-0 -translate-y-1 scale-y-95 border-transparent opacity-0"
