@@ -25,6 +25,22 @@ function normalizePublicWhatsApp(value: unknown): string {
     return digits;
 }
 
+function getPublicRestaurantLogoUrl(value: unknown): string {
+    const logoPath = String(value ?? "").trim();
+    if (!logoPath) return "";
+    if (/^https?:\/\//i.test(logoPath)) return logoPath;
+
+    const supabaseUrl = String(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").replace(/\/+$/, "");
+    if (!supabaseUrl) return logoPath;
+
+    const encodedPath = logoPath
+        .split("/")
+        .map((segment) => encodeURIComponent(segment))
+        .join("/");
+
+    return `${supabaseUrl}/storage/v1/object/public/restaurant-logos/${encodedPath}`;
+}
+
 async function slugExists(slug: string, restaurantId: string): Promise<boolean> {
     const { rows } = await query(
         `
@@ -286,6 +302,7 @@ export async function GET(
             phone: normalizePublicWhatsApp(
                 restaurant.store_whatsapp || restaurant.phone
             ),
+            logo_url: getPublicRestaurantLogoUrl(restaurant.logo_url),
         });
     } catch (error) {
         console.error("Error fetching restaurant:", error);
