@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/database/supabaseClient";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
+import { getCreationStepPath } from "@/lib/restaurantCreation";
 import Card from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
@@ -41,7 +42,7 @@ function isRateLimitError(error: AuthFailure | null): boolean {
 
 export default function RestaurantRegistrationPage() {
     const router = useRouter();
-    const { setEmail } = useCreationStore();
+    const { setRestaurantId, setEmail, setRestaurantSlug } = useCreationStore();
     const [email, setLocalEmail] = useState("");
     const [phone, setPhone] = useState("");
     const [password, setPassword] = useState("");
@@ -50,6 +51,47 @@ export default function RestaurantRegistrationPage() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
     const [invalid, setInvalid] = useState<Field[]>([]);
+
+    useEffect(() => {
+        let active = true;
+
+        void supabase.auth.getSession().then(async ({ data }) => {
+            const user = data.session?.user;
+            if (!active || !user) return;
+
+            setEmail(user.email?.trim().toLowerCase() || "");
+
+            const { data: restaurant, error: restaurantError } = await supabase
+                .from("restaurants")
+                .select("id, url_slug, first_time, creation_step")
+                .eq("user_id", user.id)
+                .maybeSingle();
+
+            if (!active) return;
+
+            if (restaurantError) {
+                setError("Não foi possível carregar o restaurante.");
+                return;
+            }
+
+            if (!restaurant) {
+                router.replace("/restaurante/criar/info/otp");
+                return;
+            }
+
+            setRestaurantId(restaurant.id);
+            setRestaurantSlug(restaurant.url_slug);
+            router.replace(
+                restaurant.first_time === false
+                    ? "/painel"
+                    : getCreationStepPath(restaurant.creation_step)
+            );
+        });
+
+        return () => {
+            active = false;
+        };
+    }, [router, setEmail, setRestaurantId, setRestaurantSlug]);
 
     const formatPhone = (raw: string) => {
         const value = raw.replace(/\D/g, "").slice(0, 11);
