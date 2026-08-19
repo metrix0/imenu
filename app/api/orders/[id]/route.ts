@@ -26,6 +26,7 @@ export async function GET(
         delivery_cents,
         total_cents,
         delivery_eta,
+        scheduled_for,
         payment_method,
         is_delivery,
         customer_name,

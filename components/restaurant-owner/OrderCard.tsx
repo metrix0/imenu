@@ -4,7 +4,8 @@ import {useRef, useState} from "react";
 import { createPortal } from "react-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { 
-    faClock, 
+    faClock,
+    faCalendarDays,
     faMapMarkerAlt, 
     faArrowLeft, 
     faEye,
@@ -31,6 +32,7 @@ export interface OrderData {
     id: string;
     display_id?: number; 
     created_at: string;
+    scheduled_for?: string | null;
     status: OrderStatus;
     customer_name: string;
     customer_phone?: string;
@@ -120,6 +122,62 @@ function CashChangeInfo({ text }: { text: string }) {
                     </div>,
                     document.body
                 )}
+        </>
+    );
+}
+
+function ScheduledTimeInfo({ text, time }: { text: string; time: string }) {
+    const triggerRef = useRef<HTMLDivElement>(null);
+    const [open, setOpen] = useState(false);
+    const [position, setPosition] = useState({ left: 0, top: 0 });
+
+    const showTooltip = () => {
+        const trigger = triggerRef.current;
+        if (!trigger) return;
+        const rect = trigger.getBoundingClientRect();
+        const estimatedWidth = 300;
+        const halfWidth = estimatedWidth / 2;
+        const viewportPadding = 8;
+        const centeredLeft = rect.left + rect.width / 2;
+        setPosition({
+            left: Math.max(
+                viewportPadding + halfWidth,
+                Math.min(window.innerWidth - viewportPadding - halfWidth, centeredLeft)
+            ),
+            top: rect.bottom + 8,
+        });
+        setOpen(true);
+    };
+
+    return (
+        <>
+            <div
+                ref={triggerRef}
+                tabIndex={0}
+                onMouseEnter={showTooltip}
+                onMouseLeave={() => setOpen(false)}
+                onFocus={showTooltip}
+                onBlur={() => setOpen(false)}
+                className="ml-auto flex shrink-0 cursor-help items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700 outline-none 2xl:px-3 2xl:py-1 2xl:text-base"
+            >
+                <FontAwesomeIcon icon={faCalendarDays} />
+                {time}
+            </div>
+
+            {open && typeof document !== "undefined" && createPortal(
+                <div
+                    role="tooltip"
+                    className="pointer-events-none fixed z-[9999] w-[300px] -translate-x-1/2 rounded-lg bg-gray-900 px-3 py-2 text-center text-xs font-medium leading-snug text-white shadow-lg"
+                    style={{ left: position.left, top: position.top }}
+                >
+                    {text}
+                    <span
+                        className="absolute bottom-full left-1/2 -translate-x-1/2 border-x-4 border-b-4 border-x-transparent border-b-gray-900"
+                        aria-hidden="true"
+                    />
+                </div>,
+                document.body
+            )}
         </>
     );
 }
@@ -294,14 +352,34 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
 
     const config = statusConfig[order.status] || statusConfig.pending_online_payment;
     const showBackButton = ["preparing", "delivering", "done"].includes(order.status);
+    const scheduledDate = order.scheduled_for ? new Date(order.scheduled_for) : null;
+    const isScheduled = Boolean(scheduledDate && !Number.isNaN(scheduledDate.getTime()));
+    const scheduledTime = scheduledDate
+        ? scheduledDate.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
+        : "";
+    const scheduledDay = scheduledDate
+        ? scheduledDate.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })
+        : "";
+    const scheduledTooltip = isScheduled
+        ? `Pedido agendado para que ${isPickup ? "a retirada seja feita" : "a entrega seja feita"} às ${scheduledTime} (dia ${scheduledDay})`
+        : "";
+    const scheduledRelativeTime = scheduledDate
+        ? (() => {
+            const diffMinutes = (scheduledDate.getTime() - Date.now()) / 60000;
+            if (Math.abs(diffMinutes) < 1) return "agora";
+            return diffMinutes > 0
+                ? `em ${Math.ceil(diffMinutes)} min`
+                : `há ${Math.floor(Math.abs(diffMinutes))} min`;
+        })()
+        : "";
 
     // LÓGICA DE VISUALIZAÇÃO LIMITADA
-    const VISIBLE_ITEMS = 3;
+    const VISIBLE_ITEMS = isScheduled ? 2 : 3;
     const remainingItems = order.order_items.length - VISIBLE_ITEMS;
     const itemsToShow = order.order_items.slice(0, VISIBLE_ITEMS);
 
     return (
-        <Card className={`!p-0 overflow-hidden border-l-4 ${config.borderColor} flex flex-col h-full`}>
+        <Card className={`!p-0 overflow-hidden border-l-4 ${isScheduled ? "border-l-emerald-500" : config.borderColor} flex flex-col h-full`}>
             {/* Header do Card */}
             <div className="rounded-t-xl bg-gray-50 border-b border-gray-100 px-5 py-4 2xl:px-6 2xl:py-5">
                 <div className="flex items-center gap-2 whitespace-nowrap 2xl:gap-4">
@@ -325,10 +403,17 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
                             </span>
                         )}
                     </div>
-                    <div className="ml-auto flex shrink-0 items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-600 2xl:px-3 2xl:py-1 2xl:text-base">
-                        <FontAwesomeIcon icon={faClock} />
-                        {getElapsedTime()}
-                    </div>
+                    {isScheduled ? (
+                        <ScheduledTimeInfo
+                            text={scheduledTooltip}
+                            time={scheduledTime}
+                        />
+                    ) : (
+                        <div className="ml-auto flex shrink-0 items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-600 2xl:px-3 2xl:py-1 2xl:text-base">
+                            <FontAwesomeIcon icon={faClock} />
+                            {getElapsedTime()}
+                        </div>
+                    )}
                 </div>
 
                 <div className="mt-2 flex w-full min-w-0 items-center gap-3 text-sm font-medium text-gray-700 2xl:text-base">
@@ -349,6 +434,15 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
             <div className="flex flex-1 flex-col px-5 py-4 2xl:px-6 2xl:mt-2">
                 {/* Itens */}
                 <div className="space-y-2 2xl:space-y-3">
+                    {isScheduled && (
+                        <div className="mb-3 flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2 text-xs font-bold text-green-700 2xl:text-base">
+                            <FontAwesomeIcon icon={faCalendarDays} />
+                            <span>
+                                AGENDADO PARA {scheduledTime}{" "}
+                                <span className="font-medium">({scheduledRelativeTime})</span>
+                            </span>
+                        </div>
+                    )}
                     {itemsToShow.map((item, idx) => (
                         <div key={`${order.id}-item-${idx}`} className="flex min-w-0 justify-between gap-3 text-sm 2xl:text-base">
                             <div className="flex min-w-0 gap-2">

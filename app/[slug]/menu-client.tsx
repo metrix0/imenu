@@ -629,6 +629,15 @@ export default function MenuClientPage({
         return () => observer.disconnect();
     }, [categories, manualScrollLock]);
 
+    const canScheduleToday = (() => {
+        if (!nextOpening || closedForToday) return false;
+        const now = new Date();
+        return nextOpening.getTime() > now.getTime() &&
+            nextOpening.getFullYear() === now.getFullYear() &&
+            nextOpening.getMonth() === now.getMonth() &&
+            nextOpening.getDate() === now.getDate();
+    })();
+
     console.log(nextOpening, closedForToday)
 
     return (
@@ -730,7 +739,12 @@ export default function MenuClientPage({
                     {closedForToday && (
                         "Hoje o restaurante está fechado no horário comum de funcionamento, devido à possíveis feriados ou eventos especiais."
                         )}
-                    {nextOpening !== null && !closedForToday && (() => {
+                    {canScheduleToday && nextOpening && (
+                        <>
+                            Restaurante fechado no momento. <b>Você pode montar seu pedido e agendar para hoje</b>.
+                        </>
+                    )}
+                    {nextOpening !== null && !closedForToday && !canScheduleToday && (() => {
                         const diffMs = nextOpening.getTime() - Date.now();
 
                         if (diffMs <= 0) return null;
@@ -998,7 +1012,7 @@ export default function MenuClientPage({
             )}
 
             {/* AQUI! */}
-            {nextOpening === null && (
+            {!closedForToday && (nextOpening === null || canScheduleToday) && (
                 <CartBar
                     onOpenCartAction={() => {
                         if (!cartOpen) {
@@ -1050,6 +1064,7 @@ export default function MenuClientPage({
                 onClose={() => setRestaurantCartWarningVisible(false)}
                 height={0.30}
                 handle={true}
+                contentClassName="!overflow-y-hidden !pb-0"
                 className={"md:!py-4 md:!pb-6 2xl:!w-4xl 2xl:!max-w-4xl"}
             >
                 <div className="text-center px-6 pt-2 2xl:px-12">

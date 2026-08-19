@@ -24,6 +24,7 @@ interface CheckoutState {
 
     delivery_fee_cents: number | null | boolean;
     delivery_time_minutes: number | null;
+    scheduled_for: string | null;
 
     // ✅ coupon (RAW, from Supabase – persisted)
     coupon_id: string | null;
@@ -70,6 +71,7 @@ export const useCheckoutStore = create<CheckoutState>()(
 
             delivery_fee_cents: false, // false = nao calculado, null = muito longe, number = valor
             delivery_time_minutes: null,
+            scheduled_for: null,
 
             // ✅ coupon defaults
             coupon_id: null,

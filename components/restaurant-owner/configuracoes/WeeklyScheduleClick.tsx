@@ -61,7 +61,7 @@ export default function WeeklyScheduleClick({
     onChange,
 }: {
     value: Availability;
-    onChange: (newVal: Availability) => void;
+    onChange: (newVal: Availability) => void | Promise<void>;
 }) {
     const dragRef = useRef<DragState | null>(null);
     const ignoreClickRef = useRef(false);
@@ -73,6 +73,7 @@ export default function WeeklyScheduleClick({
         endTime: "01:00",
     });
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     useEffect(() => {
         const handleMove = (event: PointerEvent) => {
@@ -206,14 +207,21 @@ export default function WeeklyScheduleClick({
         });
         setEditModal((prev) => ({ ...prev, isOpen: false }));
     };
-    const deleteSlot = () => {
+    const deleteSlot = async () => {
         if (editModal.slotIndex !== null) {
-            onChange({
+            const nextValue = {
                 ...value,
                 [editModal.dayKey]: (value[editModal.dayKey] || []).filter(
                     (_, i) => i !== editModal.slotIndex,
                 ),
-            });
+            };
+
+            setIsDeleting(true);
+            try {
+                await onChange(nextValue);
+            } finally {
+                setIsDeleting(false);
+            }
         }
         setIsDeleteModalOpen(false);
         setEditModal((prev) => ({ ...prev, isOpen: false }));
@@ -451,6 +459,7 @@ export default function WeeklyScheduleClick({
                 description={`Excluir ${editModal.startTime}–${editModal.endTime} de ${dayName(editModal.dayKey)}?`}
                 confirmLabel="Excluir"
                 variant="danger"
+                isLoading={isDeleting}
             />
         </div>
     );

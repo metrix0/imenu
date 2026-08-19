@@ -42,6 +42,7 @@ export default function ItemModal({
     const [selected, setSelected] = useState<Record<string, Set<string>>>({});
     const addToCart = useCartStore((s) => s.addItem);
     const [isRestaurantOpen, setIsRestaurantOpen] = useState(true);
+    const [canScheduleToday, setCanScheduleToday] = useState(false);
 
 
     useEffect(() => {
@@ -66,6 +67,7 @@ export default function ItemModal({
 
         const now = new Date();
         let isOpen = false;
+        let hasFutureSlotToday = false;
 
         for (let slot of slots) {
             const [openH, openM] = slot.open.split(":").map(Number);
@@ -81,9 +83,27 @@ export default function ItemModal({
                 isOpen = true;
                 break;
             }
+
+            if (now < openT) {
+                hasFutureSlotToday = true;
+            }
         }
 
-        setIsRestaurantOpen(isOpen);
+        let manuallyClosedToday = false;
+        if (restaurant.is_closed) {
+            const closedDate = new Date(restaurant.is_closed);
+            const businessToday = new Date();
+            if (businessToday.getHours() < 4) {
+                businessToday.setDate(businessToday.getDate() - 1);
+            }
+            manuallyClosedToday =
+                closedDate.getFullYear() === businessToday.getFullYear() &&
+                closedDate.getMonth() === businessToday.getMonth() &&
+                closedDate.getDate() === businessToday.getDate();
+        }
+
+        setIsRestaurantOpen(isOpen && !manuallyClosedToday);
+        setCanScheduleToday(!isOpen && hasFutureSlotToday && !manuallyClosedToday);
     }, [restaurant]);
 
 
@@ -156,14 +176,15 @@ export default function ItemModal({
     }, [selected, subcategories]);
 
     const canAdd = !missingRequired;
-    const disabledReason = !isRestaurantOpen
+    const canOrderNow = isRestaurantOpen || canScheduleToday;
+    const disabledReason = !canOrderNow
         ? "O restaurante está fechado no momento."
         : missingRequired
             ? "Selecione os adicionais obrigatórios antes de adicionar."
             : "";
 
     const handleAdd = () => {
-        if (!canAdd || !isRestaurantOpen) return;
+        if (!canAdd || !canOrderNow) return;
 
         const selectedSubitems: any[] = [];
 
@@ -468,10 +489,10 @@ export default function ItemModal({
                     tooltipClassName="text-center"
                 >
                     <button
-                        aria-disabled={!canAdd || !isRestaurantOpen}
+                        aria-disabled={!canAdd || !canOrderNow}
                         onClick={handleAdd}
                         className={`cursor-pointer w-full 2xl:text-lg rounded-xl px-5 py-3 flex items-center justify-between text-[15px] font-semibold ${
-                            !isRestaurantOpen
+                            !canOrderNow
                                 ? "bg-gray-200 text-gray-400"
                                 : canAdd
                                     ? "bg-brand text-white"
