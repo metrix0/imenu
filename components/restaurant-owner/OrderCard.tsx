@@ -1,6 +1,6 @@
 "use client";
 
-import {useRef, useState} from "react";
+import {useEffect, useRef, useState} from "react";
 import { createPortal } from "react-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { 
@@ -184,7 +184,24 @@ function ScheduledTimeInfo({ text, time }: { text: string; time: string }) {
 
 export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderCardProps) {
     const [loading, setLoading] = useState(false);
+    const [currentTime, setCurrentTime] = useState(() => Date.now());
     const isPickup = order.is_delivery === "retirada";
+
+    useEffect(() => {
+        let intervalId: number | undefined;
+        const delayUntilNextMinute = 60_000 - (Date.now() % 60_000) + 50;
+        const timeoutId = window.setTimeout(() => {
+            setCurrentTime(Date.now());
+            intervalId = window.setInterval(() => {
+                setCurrentTime(Date.now());
+            }, 60_000);
+        }, delayUntilNextMinute);
+
+        return () => {
+            window.clearTimeout(timeoutId);
+            if (intervalId !== undefined) window.clearInterval(intervalId);
+        };
+    }, []);
 
     // Cálculo de tempo decorrido
     const getElapsedTime = () => {
@@ -365,7 +382,7 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
         : "";
     const scheduledRelativeTime = scheduledDate
         ? (() => {
-            const diffMinutes = (scheduledDate.getTime() - Date.now()) / 60000;
+            const diffMinutes = (scheduledDate.getTime() - currentTime) / 60000;
             if (Math.abs(diffMinutes) < 1) return "agora";
             return diffMinutes > 0
                 ? `em ${Math.ceil(diffMinutes)} min`
