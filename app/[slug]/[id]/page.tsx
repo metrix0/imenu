@@ -75,7 +75,13 @@ export default function PedidoPage({
                 if (restaurantData) {
                     setRestaurantName(restaurantData.name ?? "");
                     setRestaurantPhone(restaurantData.phone ?? "");
-                    setRestaurantLogo(restaurantData.logo_url ?? "");
+                    const logoPath = String(restaurantData.logo_url ?? "");
+                    const logoUrl = /^https?:\/\//i.test(logoPath)
+                        ? logoPath
+                        : logoPath
+                            ? supabase.storage.from("restaurant-logos").getPublicUrl(logoPath).data?.publicUrl ?? ""
+                            : "";
+                    setRestaurantLogo(logoUrl);
                 }
             } catch (error) {
                 console.error("Erro ao carregar pedido:", error);
