@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/database/supabaseClient";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faTimes, faUser, faMapMarkerAlt, faClock, faReceipt, faCheck, faMotorcycle } from "@fortawesome/free-solid-svg-icons";
+import { faTimes, faUser, faMapMarkerAlt, faClock, faReceipt, faCheck, faMotorcycle, faCalendarDays } from "@fortawesome/free-solid-svg-icons";
 import { icons } from "@/lib/utils/fontawesome";
 import Modal from "@/components/ui/Modal";
 import ConfirmModal from "@/components/ui/ConfirmModal";
@@ -27,6 +27,8 @@ type OrderDetail = Omit<Order, "status"> & {
     customer_phone: string | null;
     customer_address: string | null;
     payment_ref: string | null;
+    delivery_eta: string | null;
+    scheduled_for: string | null;
     is_delivery?: string | null;
     order_items: Array<{
         id: string;
@@ -49,6 +51,7 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
     const [details, setDetails] = useState<OrderDetail | null>(null);
     const [showRefundConfirmation, setShowRefundConfirmation] = useState(false);
     const isPickup = details?.is_delivery === "retirada" || (order as any)?.is_delivery === "retirada";
+    const isPaidOnlinePix = details?.status === "paid" && details?.payment_method === "pix";
 
     const fmtMoney = (cents: number) => (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
     const fmtDate = (dateStr: string) => new Date(dateStr).toLocaleString("pt-BR");
@@ -64,6 +67,48 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
     const couponDiscountCents = storedCouponDiscountCents > 0
         ? storedCouponDiscountCents
         : derivedCouponDiscountCents;
+
+    const formatEtaRange = (iso: string | null | undefined) => {
+        if (!iso) return null;
+        const center = new Date(iso);
+        if (Number.isNaN(center.getTime())) return null;
+
+        const start = new Date(center.getTime() - 10 * 60_000);
+        const end = new Date(center.getTime() + 10 * 60_000);
+        const formatTime = (date: Date) =>
+            date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+
+        return `${formatTime(start)} - ${formatTime(end)}`;
+    };
+
+    const formatScheduledRelativeTime = (date: Date) => {
+        const diffMinutes = (date.getTime() - Date.now()) / 60000;
+        if (Math.abs(diffMinutes) < 1) return "agora";
+
+        const future = diffMinutes > 0;
+        const absoluteMinutes = future
+            ? Math.ceil(diffMinutes)
+            : Math.floor(Math.abs(diffMinutes));
+        const prefix = future ? "em" : "há";
+
+        if (absoluteMinutes < 60) return `${prefix} ${absoluteMinutes} min`;
+
+        const hours = Math.floor(absoluteMinutes / 60);
+        const minutes = absoluteMinutes % 60;
+
+        if (absoluteMinutes > 600 || minutes === 0) {
+            return `${prefix} ${hours} h`;
+        }
+
+        return `${prefix} ${hours} h ${minutes} min`;
+    };
+
+    const scheduledDate = details?.scheduled_for ? new Date(details.scheduled_for) : null;
+    const isScheduled = Boolean(scheduledDate && !Number.isNaN(scheduledDate.getTime()));
+    const scheduledLabel = isScheduled && scheduledDate
+        ? `${scheduledDate.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} (${formatScheduledRelativeTime(scheduledDate)})`
+        : null;
+    const etaRange = !isScheduled ? formatEtaRange(details?.delivery_eta) : null;
 
     const wasOpenRef = useRef(isOpen);
 
@@ -198,9 +243,6 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
     const renderActions = () => {
         if (!details || isUpdating) return null;
 
-        const isPaidOnlinePix =
-            details.status === "paid" && details.payment_method === "pix";
-
         if (
             details.status === "pending_online_payment" ||
             details.status === "pending_physical_payment" ||
@@ -210,14 +252,7 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
                 <>
                     <Button
                         variant="secondary"
-                        onClick={() => {
-                            if (isPaidOnlinePix) {
-                                setShowRefundConfirmation(true);
-                                return;
-                            }
-
-                            void handleStatusUpdate("canceled");
-                        }}
+                        onClick={() => setShowRefundConfirmation(true)}
                         className="text-red-600 hover:bg-red-50 border-red-200"
                     >
                         Rejeitar
@@ -312,6 +347,17 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
                                             ) : (
                                                 <p className="text-gray-500 italic">Retirada no local</p>
                                             )}
+                                            {isScheduled && scheduledLabel ? (
+                                                <p className="mt-2 flex items-center gap-2 font-medium text-green-700">
+                                                    <FontAwesomeIcon icon={faCalendarDays} className="w-4" />
+                                                    Agendado para {scheduledLabel}
+                                                </p>
+                                            ) : etaRange ? (
+                                                <p className="mt-2 flex items-center gap-2 text-gray-500">
+                                                    <FontAwesomeIcon icon={faClock} className="w-4" />
+                                                    {isPickup ? "Previsão de retirada" : "Previsão de entrega"}: {etaRange}
+                                                </p>
+                                            ) : null}
                                         </div>
                                     </div>
                                 </div>
@@ -404,8 +450,10 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
                     void handleStatusUpdate("canceled");
                 }}
                 title="Rejeitar pedido?"
-                description="O valor total pago via Pix será reembolsado automaticamente ao cliente."
-                confirmLabel="Rejeitar e reembolsar"
+                description={isPaidOnlinePix
+                    ? "O valor total pago via Pix será reembolsado automaticamente ao cliente. O cliente será notificado na página de acompanhamento do pedido."
+                    : "O cliente será notificado do cancelamento na página de acompanhamento do pedido."}
+                confirmLabel={isPaidOnlinePix ? "Rejeitar e reembolsar" : "Rejeitar pedido"}
                 cancelLabel="Voltar"
                 isLoading={isUpdating}
                 variant="danger"
