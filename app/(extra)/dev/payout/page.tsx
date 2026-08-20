@@ -148,6 +148,7 @@ export default function DevPayoutPage() {
         void loadDashboard();
     }, []);
 
+    const payables = data?.payables || [];
     const sendable = useMemo(
         () => data?.payables.filter((item) => item.canSend) || [],
         [data]
@@ -161,6 +162,16 @@ export default function DevPayoutPage() {
         [data]
     );
 
+    const grossOwedCents = payables.reduce(
+        (sum, item) => sum + item.grossCents,
+        0
+    );
+    const netOwedCents = payables.reduce(
+        (sum, item) => sum + getNetCents(item.grossCents, numericDiscount),
+        0
+    );
+    const owedDiscountCents = grossOwedCents - netOwedCents;
+
     const grossSendableCents = sendable.reduce(
         (sum, item) => sum + item.grossCents,
         0
@@ -169,7 +180,6 @@ export default function DevPayoutPage() {
         (sum, item) => sum + getNetCents(item.grossCents, numericDiscount),
         0
     );
-    const discountCents = grossSendableCents - netSendableCents;
 
     const handleSend = async () => {
         setSending(true);
@@ -282,14 +292,14 @@ export default function DevPayoutPage() {
                     detail={data?.asaasError || undefined}
                 />
                 <MetricCard
-                    label="A repassar agora"
-                    value={money(netSendableCents)}
-                    detail={`${money(grossSendableCents)} bruto − ${money(discountCents)} (${numericDiscount.toLocaleString("pt-BR", { maximumFractionDigits: 4 })}%)`}
+                    label="Total que devo aos restaurantes"
+                    value={money(netOwedCents)}
+                    detail={`${money(grossOwedCents)} bruto − ${money(owedDiscountCents)} (${numericDiscount.toLocaleString("pt-BR", { maximumFractionDigits: 4 })}%)`}
                 />
                 <MetricCard
-                    label="Restaurantes"
-                    value={String(sendable.length)}
-                    detail={`${missingPix.length} sem PIX · ${ambiguousPix.length} com tipo pendente`}
+                    label="Restaurantes com valor a receber"
+                    value={String(payables.length)}
+                    detail={`${sendable.length} prontos · ${missingPix.length} sem PIX · ${ambiguousPix.length} com tipo pendente`}
                 />
             </div>
 
@@ -360,7 +370,7 @@ export default function DevPayoutPage() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                            {(data?.payables || []).map((item) => {
+                            {payables.map((item) => {
                                 const net = getNetCents(item.grossCents, numericDiscount);
                                 return (
                                     <tr key={item.restaurantId}>
@@ -380,7 +390,7 @@ export default function DevPayoutPage() {
                                     </tr>
                                 );
                             })}
-                            {data?.payables.length === 0 && (
+                            {payables.length === 0 && (
                                 <tr>
                                     <td colSpan={5} className="px-3 py-10 text-center text-gray-400">
                                         Nada a repassar agora.
