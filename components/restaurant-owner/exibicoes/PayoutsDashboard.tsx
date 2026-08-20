@@ -72,6 +72,7 @@ export default function PayoutsDashboard({ menuId, startDate, endDate }: Payouts
                     .from("payouts")
                     .select("*", { count: "exact" })
                     .eq("restaurant_id", menuId)
+                    .neq("status", "processing")
                     .order("created_at", { ascending: false })
                     .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
 
