@@ -33,6 +33,7 @@ export interface OrderData {
     display_id?: number; 
     created_at: string;
     scheduled_for?: string | null;
+    delivery_eta?: string | null;
     status: OrderStatus;
     customer_name: string;
     customer_phone?: string;
@@ -126,12 +127,13 @@ function CashChangeInfo({ text }: { text: string }) {
     );
 }
 
-function ScheduledTimeInfo({ text, time }: { text: string; time: string }) {
+function TimeInfo({ text, time, scheduled }: { text: string; time: string; scheduled: boolean }) {
     const triggerRef = useRef<HTMLDivElement>(null);
     const [open, setOpen] = useState(false);
     const [position, setPosition] = useState({ left: 0, top: 0 });
 
     const showTooltip = () => {
+        if (!text) return;
         const trigger = triggerRef.current;
         if (!trigger) return;
         const rect = trigger.getBoundingClientRect();
@@ -153,14 +155,18 @@ function ScheduledTimeInfo({ text, time }: { text: string; time: string }) {
         <>
             <div
                 ref={triggerRef}
-                tabIndex={0}
+                tabIndex={text ? 0 : undefined}
                 onMouseEnter={showTooltip}
                 onMouseLeave={() => setOpen(false)}
                 onFocus={showTooltip}
                 onBlur={() => setOpen(false)}
-                className="ml-auto flex shrink-0 cursor-help items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700 outline-none 2xl:px-3 2xl:py-1 2xl:text-base"
+                className={`ml-auto flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium outline-none 2xl:px-3 2xl:py-1 2xl:text-base ${text ? "cursor-help" : ""} ${
+                    scheduled
+                        ? "bg-green-50 text-green-700"
+                        : "bg-red-50 text-red-600"
+                }`}
             >
-                <FontAwesomeIcon icon={faCalendarDays} />
+                <FontAwesomeIcon icon={scheduled ? faCalendarDays : faClock} />
                 {time}
             </div>
 
@@ -206,11 +212,9 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
     // Cálculo de tempo decorrido
     const getElapsedTime = () => {
         const start = new Date(order.created_at).getTime();
-        const now = Date.now();
-
         const diffMins = Math.max(
             0,
-            Math.floor((now - start) / 60000)
+            Math.floor((currentTime - start) / 60000)
         );
 
         if (diffMins < 60) return `${diffMins} min`;
@@ -238,6 +242,40 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
         }
 
         return value;
+    };
+
+    const formatEtaRange = (iso?: string | null) => {
+        if (!iso) return "";
+        const center = new Date(iso);
+        if (Number.isNaN(center.getTime())) return "";
+
+        const start = new Date(center.getTime() - 10 * 60_000);
+        const end = new Date(center.getTime() + 10 * 60_000);
+        const formatTime = (date: Date) =>
+            date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+
+        return `${isPickup ? "Previsão de retirada" : "Previsão de entrega"} ${formatTime(start)} - ${formatTime(end)}`;
+    };
+
+    const formatScheduledRelativeTime = (diffMinutes: number) => {
+        if (Math.abs(diffMinutes) < 1) return "agora";
+
+        const future = diffMinutes > 0;
+        const absoluteMinutes = future
+            ? Math.ceil(diffMinutes)
+            : Math.floor(Math.abs(diffMinutes));
+        const prefix = future ? "em" : "há";
+
+        if (absoluteMinutes < 60) return `${prefix} ${absoluteMinutes} min`;
+
+        const hours = Math.floor(absoluteMinutes / 60);
+        const minutes = absoluteMinutes % 60;
+
+        if (absoluteMinutes > 600 || minutes === 0) {
+            return `${prefix} ${hours} h`;
+        }
+
+        return `${prefix} ${hours} h ${minutes} min`;
     };
 
     // --- Lógica de AVANÇAR Status ---
@@ -303,14 +341,14 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
             label: "Pendente",
             color: "bg-yellow-100 text-yellow-800",
             borderColor: "border-l-yellow-500",
-            btn: "Confirmar", 
+            btn: "Aceitar", 
             btnColor: "primary" 
         },
         pending_physical_payment: { 
             label: "Pendente",
             color: "bg-yellow-100 text-yellow-800",
             borderColor: "border-l-yellow-500", 
-            btn: "Confirmar", 
+            btn: "Aceitar", 
             btnColor: "primary" ,
             extra: "Pgt. Entrega"
         },
@@ -318,7 +356,7 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
             label: "Pendente",
             color: "bg-yellow-100 text-yellow-800",
             borderColor: "border-l-yellow-500",
-            btn: "Confirmar",
+            btn: "Aceitar",
             btnColor: "primary"
         },
         preparing: { 
@@ -381,14 +419,9 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
         ? `Pedido agendado para que ${isPickup ? "a retirada seja feita" : "a entrega seja feita"} às ${scheduledTime} (dia ${scheduledDay})`
         : "";
     const scheduledRelativeTime = scheduledDate
-        ? (() => {
-            const diffMinutes = (scheduledDate.getTime() - currentTime) / 60000;
-            if (Math.abs(diffMinutes) < 1) return "agora";
-            return diffMinutes > 0
-                ? `em ${Math.ceil(diffMinutes)} min`
-                : `há ${Math.floor(Math.abs(diffMinutes))} min`;
-        })()
+        ? formatScheduledRelativeTime((scheduledDate.getTime() - currentTime) / 60000)
         : "";
+    const deliveryEtaTooltip = !isScheduled ? formatEtaRange(order.delivery_eta) : "";
 
     // LÓGICA DE VISUALIZAÇÃO LIMITADA
     const VISIBLE_ITEMS = isScheduled ? 2 : 3;
@@ -421,15 +454,17 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
                         )}
                     </div>
                     {isScheduled ? (
-                        <ScheduledTimeInfo
+                        <TimeInfo
                             text={scheduledTooltip}
                             time={scheduledTime}
+                            scheduled
                         />
                     ) : (
-                        <div className="ml-auto flex shrink-0 items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-600 2xl:px-3 2xl:py-1 2xl:text-base">
-                            <FontAwesomeIcon icon={faClock} />
-                            {getElapsedTime()}
-                        </div>
+                        <TimeInfo
+                            text={deliveryEtaTooltip}
+                            time={getElapsedTime()}
+                            scheduled={false}
+                        />
                     )}
                 </div>
 
