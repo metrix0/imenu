@@ -249,6 +249,8 @@ export async function POST(request: Request) {
             delivery_fee_cents,
             delivery_time_minutes,
             paymentMethod,
+            coupon_id,
+            coupon_code,
             coupon_discount_cents,
             coupon_type,
             is_delivery,
@@ -670,7 +672,10 @@ export async function POST(request: Request) {
                                     scheduled_for,
                                     payment_method,
                                     is_delivery,
-                                    loyalty_points_used
+                                    loyalty_points_used,
+                                    coupon_id,
+                                    coupon_code,
+                                    coupon_discount_cents
                                 )
                                 VALUES (
                                     $1,
@@ -685,7 +690,10 @@ export async function POST(request: Request) {
                                     $10,
                                     $11,
                                     $12,
-                                    $13
+                                    $13,
+                                    $14,
+                                    $15,
+                                    $16
                                 )
                                 RETURNING id
                             `,
@@ -709,6 +717,11 @@ export async function POST(request: Request) {
                                     : is_delivery ??
                                       null,
                                 pointsToDeduct,
+                                coupon_id ?? null,
+                                coupon_code ?? null,
+                                safeCouponDiscount > 0
+                                    ? safeCouponDiscount
+                                    : null,
                             ]
                         );
 

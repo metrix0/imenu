@@ -20,7 +20,10 @@ interface OrderDetailsModalProps {
 
 type OrderDetail = Omit<Order, "status"> & {
     status: Order["status"] | "paid";
+    subtotal_cents: number;
     delivery_cents: number;
+    coupon_discount_cents: number | null;
+    coupon_code: string | null;
     customer_phone: string | null;
     customer_address: string | null;
     payment_ref: string | null;
@@ -49,6 +52,18 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
 
     const fmtMoney = (cents: number) => (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
     const fmtDate = (dateStr: string) => new Date(dateStr).toLocaleString("pt-BR");
+    const storedCouponDiscountCents = Number(details?.coupon_discount_cents) || 0;
+    const derivedCouponDiscountCents = details
+        ? Math.max(
+            (Number(details.subtotal_cents) || 0) +
+            (Number(details.delivery_cents) || 0) -
+            (Number(details.total_cents) || 0),
+            0
+        )
+        : 0;
+    const couponDiscountCents = storedCouponDiscountCents > 0
+        ? storedCouponDiscountCents
+        : derivedCouponDiscountCents;
 
     const wasOpenRef = useRef(isOpen);
 
@@ -344,12 +359,18 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
                                     <div className="w-full md:w-1/2 space-y-2 2xl:space-y-3 sm:mx-4">
                                         <div className="flex justify-between text-sm 2xl:text-base text-gray-500">
                                             <span>Subtotal</span>
-                                            <span>{fmtMoney(details.total_cents - (details.delivery_cents || 0))}</span>
+                                            <span>{fmtMoney(details.subtotal_cents || 0)}</span>
                                         </div>
                                         <div className="flex justify-between text-sm 2xl:text-base text-gray-500">
                                             <span>{isPickup ? "Retirada" : "Taxa de Entrega"}</span>
                                             <span>{fmtMoney(details.delivery_cents || 0)}</span>
                                         </div>
+                                        {couponDiscountCents > 0 && (
+                                            <div className="flex justify-between text-sm 2xl:text-base text-gray-500">
+                                                <span>{details.coupon_code ? `Cupom: ${details.coupon_code}` : "Desconto"}</span>
+                                                <span>-{fmtMoney(couponDiscountCents)}</span>
+                                            </div>
+                                        )}
                                         <div className="flex justify-between text-lg 2xl:text-xl font-bold text-gray-900 border-t border-gray-200 pt-2 mt-2">
                                             <span>Total</span>
                                             <span>{fmtMoney(details.total_cents)}</span>

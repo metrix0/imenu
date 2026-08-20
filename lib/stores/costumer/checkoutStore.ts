@@ -89,8 +89,14 @@ export const useCheckoutStore = create<CheckoutState>()(
 
             setStep: (s) => set({ step: s }),
 
-            setField: (key, value) =>
-                set({ [key]: value } as any),
+            setField: (key, value) => {
+                const normalizedValue =
+                    (key === "coupon_max_value" || key === "coupon_min_order") && value !== null
+                        ? Math.round(Number(value) * 100)
+                        : value;
+
+                set({ [key]: normalizedValue } as any);
+            },
 
             setShowAddressWarning: (v) =>
                 set({ showAddressWarning: v }),
@@ -99,8 +105,7 @@ export const useCheckoutStore = create<CheckoutState>()(
                 set({ restaurantId: id }),
 
             isContinueBlocked: false,
-            setContinueBlocked: (v) =>
-                set({ isContinueBlocked: v }),
+            setContinueBlocked: (v) => set({ isContinueBlocked: v }),
         }),
         {
             name: "checkout-store",
