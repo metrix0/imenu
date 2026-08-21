@@ -56,6 +56,7 @@ function CashChangeInfo({ text }: { text: string }) {
     const triggerRef = useRef<HTMLButtonElement>(null);
     const [open, setOpen] = useState(false);
     const [position, setPosition] = useState({ left: 0, top: 0 });
+    const [shifted, setShifted] = useState(false);
 
     const showTooltip = () => {
         const trigger = triggerRef.current;
@@ -81,6 +82,7 @@ function CashChangeInfo({ text }: { text: string }) {
             left,
             top: rect.bottom + 8,
         });
+        setShifted(Math.abs(left - centeredLeft) > 1);
         setOpen(true);
     };
 
@@ -116,10 +118,12 @@ function CashChangeInfo({ text }: { text: string }) {
                         }}
                     >
                         {text}
-                        <span
-                            className="absolute bottom-full left-1/2 -translate-x-1/2 border-x-4 border-b-4 border-x-transparent border-b-gray-900"
-                            aria-hidden="true"
-                        />
+                        {!shifted && (
+                            <span
+                                className="absolute bottom-full left-1/2 -translate-x-1/2 border-x-4 border-b-4 border-x-transparent border-b-gray-900"
+                                aria-hidden="true"
+                            />
+                        )}
                     </div>,
                     document.body
                 )}
@@ -131,6 +135,7 @@ function TimeInfo({ text, time, scheduled }: { text: string; time: string; sched
     const triggerRef = useRef<HTMLDivElement>(null);
     const [open, setOpen] = useState(false);
     const [position, setPosition] = useState({ left: 0, top: 0 });
+    const [shifted, setShifted] = useState(false);
 
     const showTooltip = () => {
         if (!text) return;
@@ -141,13 +146,15 @@ function TimeInfo({ text, time, scheduled }: { text: string; time: string; sched
         const halfWidth = estimatedWidth / 2;
         const viewportPadding = 8;
         const centeredLeft = rect.left + rect.width / 2;
+        const left = Math.max(
+            viewportPadding + halfWidth,
+            Math.min(window.innerWidth - viewportPadding - halfWidth, centeredLeft)
+        );
         setPosition({
-            left: Math.max(
-                viewportPadding + halfWidth,
-                Math.min(window.innerWidth - viewportPadding - halfWidth, centeredLeft)
-            ),
+            left,
             top: rect.bottom + 8,
         });
+        setShifted(Math.abs(left - centeredLeft) > 1);
         setOpen(true);
     };
 
@@ -177,10 +184,12 @@ function TimeInfo({ text, time, scheduled }: { text: string; time: string; sched
                     style={{ left: position.left, top: position.top }}
                 >
                     {text}
-                    <span
-                        className="absolute bottom-full left-1/2 -translate-x-1/2 border-x-4 border-b-4 border-x-transparent border-b-gray-900"
-                        aria-hidden="true"
-                    />
+                    {!shifted && (
+                        <span
+                            className="absolute bottom-full left-1/2 -translate-x-1/2 border-x-4 border-b-4 border-x-transparent border-b-gray-900"
+                            aria-hidden="true"
+                        />
+                    )}
                 </div>,
                 document.body
             )}
