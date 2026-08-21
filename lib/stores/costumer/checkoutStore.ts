@@ -87,7 +87,25 @@ export const useCheckoutStore = create<CheckoutState>()(
             showAddressWarning: false,
             cepTrigger: false,
 
-            setStep: (s) => set({ step: s }),
+            setStep: (s) => {
+                set({ step: s });
+
+                if (s === "checkout" && typeof window !== "undefined") {
+                    requestAnimationFrame(() => {
+                        const mobileModals = Array.from(
+                            document.querySelectorAll<HTMLElement>(
+                                ".fixed.left-0.right-0.mx-auto.bg-white.rounded-t-xl.overflow-hidden"
+                            )
+                        ).filter((element) => element.offsetParent !== null);
+                        const activeModal = mobileModals[mobileModals.length - 1];
+                        const scrollContainer = activeModal?.querySelector<HTMLElement>(
+                            ".overflow-y-auto.h-full"
+                        );
+
+                        scrollContainer?.scrollTo({ top: 0, behavior: "auto" });
+                    });
+                }
+            },
 
             setField: (key, value) => {
                 const normalizedValue =
