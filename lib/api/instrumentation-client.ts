@@ -16,6 +16,16 @@ export function getPosthog(): Promise<PosthogClient | null> {
         .then(({ default: posthog }) => {
             posthog.init(key, {
                 api_host: url,
+                before_send: (event) => {
+                    if (
+                        typeof window !== "undefined" &&
+                        window.location.pathname.startsWith("/painel")
+                    ) {
+                        return null;
+                    }
+
+                    return event;
+                },
             });
             return posthog;
         })
