@@ -115,6 +115,10 @@ type DashboardDetailsPayload = {
         appViews: number | null;
         landingViews: number | null;
     };
+    funnelSummary: {
+        registrationComplete: number | null;
+        orderedConsumers: number | null;
+    };
 };
 
 const RANGE_OPTIONS: Array<{ key: RangeKey; label: string }> = [
@@ -159,6 +163,11 @@ function formatRatio(value: number): string {
         minimumFractionDigits: value % 1 === 0 ? 0 : 1,
         maximumFractionDigits: 1,
     })}%`;
+}
+
+function conversion(current: number | null, previous: number | null): number | null {
+    if (current === null || previous === null || previous <= 0) return null;
+    return Number(((current / previous) * 100).toFixed(1));
 }
 
 function formatDateRange(startAt: string, endAt: string): string {
@@ -583,47 +592,66 @@ export default function DevDashboardPage() {
                             />
                             <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
                                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                                    {data.pipeline.map((step, index) => (
-                                        <div
-                                            key={step.key}
-                                            className={`rounded-xl border p-4 ${
-                                                step.available
-                                                    ? "border-gray-200 bg-white"
-                                                    : "border-dashed border-gray-300 bg-gray-50"
-                                            }`}
-                                        >
-                                            <div className="flex items-center gap-3">
-                                                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gray-900 text-xs font-semibold text-white">
-                                                    {index + 1}
-                                                </span>
-                                                <p className="text-sm font-medium text-gray-800">
-                                                    {step.label}
+                                    {data.pipeline.map((step, index) => {
+                                        const isRegistrationComplete =
+                                            step.key === "registration_complete";
+                                        const displayValue = isRegistrationComplete
+                                            ? details?.funnelSummary.registrationComplete ?? null
+                                            : step.value;
+                                        const secondaryValue = isRegistrationComplete
+                                            ? step.value
+                                            : null;
+                                        const displayConversion = isRegistrationComplete
+                                            ? conversion(
+                                                  displayValue,
+                                                  data.pipeline[index - 1]?.value ?? null
+                                              )
+                                            : step.key === "activated_users"
+                                              ? conversion(
+                                                    step.value,
+                                                    data.pipeline.find(
+                                                        (item) => item.key === "step_4"
+                                                    )?.value ?? null
+                                                )
+                                              : step.conversion;
+
+                                        return (
+                                            <div
+                                                key={step.key}
+                                                className={`rounded-xl border p-4 ${
+                                                    step.available
+                                                        ? "border-gray-200 bg-white"
+                                                        : "border-dashed border-gray-300 bg-gray-50"
+                                                }`}
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gray-900 text-xs font-semibold text-white">
+                                                        {index + 1}
+                                                    </span>
+                                                    <p className="text-sm font-medium text-gray-800">
+                                                        {step.label}
+                                                    </p>
+                                                </div>
+                                                <p className="mt-4 text-2xl font-bold">
+                                                    {displayValue === null
+                                                        ? "—"
+                                                        : formatCount(displayValue)}
+                                                    {secondaryValue !== null &&
+                                                        ` (${formatCount(secondaryValue)})`}
+                                                </p>
+                                                <p className="mt-1 text-xs text-gray-500">
+                                                    {displayConversion !== null
+                                                        ? `${displayConversion.toLocaleString(
+                                                              "pt-BR"
+                                                          )}% do passo anterior`
+                                                        : step.note ||
+                                                          (step.available
+                                                              ? "Conversão indisponível"
+                                                              : "Evento ainda não conectado")}
                                                 </p>
                                             </div>
-                                            <p className="mt-4 text-2xl font-bold">
-                                                {step.value === null
-                                                    ? "—"
-                                                    : formatCount(step.value)}
-                                            </p>
-                                            <p className="mt-1 text-xs text-gray-500">
-                                                {step.conversion !== null
-                                                    ? `${step.conversion.toLocaleString(
-                                                          "pt-BR"
-                                                      )}% do passo anterior`
-                                                    : step.note ||
-                                                      (step.available
-                                                          ? "Conversão indisponível"
-                                                          : "Evento ainda não conectado")}
-                                            </p>
-                                        </div>
-                                    ))}
-                                </div>
-
-                                <div className="mt-5 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
-                                    Registro completo vem do Supabase Auth. Os passos 1–4 usam a mesma
-                                    coorte de contas criadas no período e o estágio atual salvo em
-                                    restaurants.creation_step. O banco guarda o estágio atual, não o horário
-                                    individual em que cada passo foi concluído.
+                                        );
+                                    })}
                                 </div>
 
                                 {!data.tracking.postHogAvailable && (
@@ -788,7 +816,28 @@ export default function DevDashboardPage() {
                                 description="Funil do consumidor no período selecionado, do cardápio até a criação do pedido."
                             />
                             <ConsumerPipelineCard
-                                steps={data.consumerPipeline}
+                                steps={data.consumerPipeline.map((step) => {
+                                    if (step.key !== "ordered") return step;
+
+                                    const postHogOrdered =
+                                        details?.funnelSummary.orderedConsumers ?? null;
+                                    const paymentStarted =
+                                        data.consumerPipeline.find(
+                                            (item) => item.key === "payment_started"
+                                        )?.value ?? null;
+
+                                    return {
+                                        ...step,
+                                        value: postHogOrdered,
+                                        secondaryValue: step.value,
+                                        conversion: conversion(
+                                            postHogOrdered,
+                                            paymentStarted
+                                        ),
+                                        available: postHogOrdered !== null,
+                                        note: null,
+                                    };
+                                })}
                                 postHogAvailable={
                                     data.tracking.postHogAvailable
                                 }
