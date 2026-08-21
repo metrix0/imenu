@@ -46,41 +46,34 @@ jobs:
         id: release
         shell: bash
         env:
+          GH_TOKEN: ${{ github.token }}
           EVENT_NAME: ${{ github.event_name }}
           PAYLOAD_VERSION: ${{ github.event.client_payload.version }}
-          PAYLOAD_RELEASE_URL: ${{ github.event.client_payload.release_url }}
           PAYLOAD_UPDATED_AT: ${{ github.event.client_payload.updated_at }}
         run: |
           set -euo pipefail
 
-          if [ "$EVENT_NAME" = "repository_dispatch" ] && [ -n "${PAYLOAD_VERSION:-}" ] && [ -n "${PAYLOAD_RELEASE_URL:-}" ]; then
+          if [ "$EVENT_NAME" = "repository_dispatch" ] && [ -n "${PAYLOAD_VERSION:-}" ]; then
             VERSION="$PAYLOAD_VERSION"
-            RELEASE_URL="$PAYLOAD_RELEASE_URL"
             UPDATED_AT="${PAYLOAD_UPDATED_AT:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}"
           else
-            RELEASE_JSON="$(curl --fail --silent --show-error --location --retry 5 https://api.github.com/repos/metrix0/imenu-printer/releases/latest)"
-            TAG="$(printf '%s' "$RELEASE_JSON" | jq -r '.tag_name')"
+            TAG="$(gh release view --repo metrix0/imenu-printer --json tagName --jq '.tagName')"
             VERSION="${TAG#v}"
-            FILE_NAME="iMenu Impressora Setup ${VERSION}.exe"
-            RELEASE_URL="$(printf '%s' "$RELEASE_JSON" | jq -r --arg name "$FILE_NAME" '.assets[] | select(.name == $name) | .browser_download_url' | head -n 1)"
-            UPDATED_AT="$(printf '%s' "$RELEASE_JSON" | jq -r '.published_at // .created_at')"
+            UPDATED_AT="$(gh release view --repo metrix0/imenu-printer --json publishedAt --jq '.publishedAt')"
           fi
 
           test -n "$VERSION"
           test "$VERSION" != "null"
-          test -n "$RELEASE_URL"
-          test "$RELEASE_URL" != "null"
 
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "release_url=$RELEASE_URL" >> "$GITHUB_OUTPUT"
           echo "updated_at=$UPDATED_AT" >> "$GITHUB_OUTPUT"
 
       - name: Download installer and update metadata
         id: download
         shell: bash
         env:
+          GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.release.outputs.version }}
-          RELEASE_URL: ${{ steps.release.outputs.release_url }}
           UPDATED_AT: ${{ steps.release.outputs.updated_at }}
         run: |
           set -euo pipefail
@@ -89,7 +82,11 @@ jobs:
           export FILE_NAME
           mkdir -p public/downloads
 
-          curl --fail --location --retry 5 --retry-delay 3 "$RELEASE_URL" -o "public/downloads/$FILE_NAME"
+          gh release download "v${VERSION}" \
+            --repo metrix0/imenu-printer \
+            --pattern "$FILE_NAME" \
+            --dir public/downloads \
+            --clobber
 
           SIZE="$(stat -c%s "public/downloads/$FILE_NAME")"
           if [ "$SIZE" -lt 1000000 ]; then
