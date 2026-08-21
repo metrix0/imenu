@@ -13,6 +13,7 @@ on:
 
 permissions:
   contents: write
+  statuses: write
 
 jobs:
   sync-preview:
@@ -74,6 +75,7 @@ jobs:
           echo "updated_at=$UPDATED_AT" >> "$GITHUB_OUTPUT"
 
       - name: Download installer and update metadata
+        id: download
         shell: bash
         env:
           VERSION: ${{ steps.release.outputs.version }}
@@ -114,6 +116,7 @@ PY
             > public/downloads/imenu-printer.json
 
       - name: Commit release to preview
+        id: commit_preview
         shell: bash
         env:
           VERSION: ${{ steps.release.outputs.version }}
@@ -147,3 +150,30 @@ PY
 
           echo "Could not push printer download update to preview after 5 attempts."
           exit 1
+
+      - name: Report printer sync phases
+        if: ${{ always() }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.sha }}
+          RELEASE_OUTCOME: ${{ steps.release.outcome }}
+          DOWNLOAD_OUTCOME: ${{ steps.download.outcome }}
+          COMMIT_OUTCOME: ${{ steps.commit_preview.outcome }}
+        run: |
+          set -euo pipefail
+
+          post_status() {
+            local context="$1"
+            local outcome="$2"
+            local state="failure"
+            if [ "$outcome" = "success" ]; then state="success"; fi
+            gh api --method POST "repos/${{ github.repository }}/statuses/$SHA" \
+              -f "state=$state" \
+              -f "context=$context" \
+              -f "description=$outcome" > /dev/null
+          }
+
+          post_status printer-receiver-resolve "$RELEASE_OUTCOME"
+          post_status printer-receiver-download "$DOWNLOAD_OUTCOME"
+          post_status printer-receiver-commit "$COMMIT_OUTCOME"
