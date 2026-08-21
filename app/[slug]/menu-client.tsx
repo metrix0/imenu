@@ -598,7 +598,6 @@ export default function MenuClientPage({
         }
     }, []);
 
-
 // AUTO-HIGHLIGHT TAB WHEN USER SCROLLS
     useEffect(() => {
         const observer = new IntersectionObserver(
@@ -636,6 +635,12 @@ export default function MenuClientPage({
             nextOpening.getFullYear() === now.getFullYear() &&
             nextOpening.getMonth() === now.getMonth() &&
             nextOpening.getDate() === now.getDate();
+    })();
+
+    const openingHoursSlots = (() => {
+        if (closedForToday || !nextOpening) return todaySlots;
+        const slots = restaurant.availability_json?.[nextOpening.getDay()] ?? [];
+        return Array.isArray(slots) ? slots : [];
     })();
 
     console.log(nextOpening, closedForToday)
@@ -788,15 +793,10 @@ export default function MenuClientPage({
                     })()}
 
 
-                    {todaySlots.length > 0 && (closedForToday || !nextOpening || (() => {
-                        const now = new Date();
-                        return nextOpening.getFullYear() === now.getFullYear() &&
-                            nextOpening.getMonth() === now.getMonth() &&
-                            nextOpening.getDate() === now.getDate();
-                    })()) && (
+                    {openingHoursSlots.length > 0 && (
                         <div className="text-sm mt-2">
-                            Horários de Abertura{closedForToday && (" Comum")}:
-                            {todaySlots.map((slot, i) => (
+                            Horários de Abertura:
+                            {openingHoursSlots.map((slot, i) => (
                                 <div key={i}>
                                     {slot.open} - {slot.close}
                                 </div>
