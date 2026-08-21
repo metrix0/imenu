@@ -73,6 +73,12 @@ const money = (cents: number) =>
         currency: "BRL",
     });
 
+const whatsappMoney = (cents: number) =>
+    `R$ ${(cents / 100).toLocaleString("pt-BR", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    })}`;
+
 const dateTime = (value: string) =>
     new Date(value).toLocaleString("pt-BR", {
         day: "2-digit",
@@ -81,6 +87,26 @@ const dateTime = (value: string) =>
         hour: "2-digit",
         minute: "2-digit",
     });
+
+function formatPhone(value: string | undefined) {
+    let digits = String(value || "").replace(/\D/g, "");
+    if (digits.startsWith("55") && digits.length >= 12) digits = digits.slice(2);
+    if (digits.length === 11) {
+        return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+    }
+    if (digits.length === 10) {
+        return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+    }
+    return value || "";
+}
+
+function normalizeWhatsappNumber(value: string | undefined) {
+    const digits = String(value || "").replace(/\D/g, "");
+    if (!digits) return "";
+    if (digits.startsWith("55") && digits.length >= 12) return digits;
+    if (digits.length === 10 || digits.length === 11) return `55${digits}`;
+    return digits;
+}
 
 function getNetCents(grossCents: number, discountPercent: number) {
     return Math.max(
@@ -93,6 +119,7 @@ export default function DevPayoutPage() {
     const router = useRouter();
     const [accessState, setAccessState] = useState<AccessState>("checking");
     const [data, setData] = useState<DashboardPayload | null>(null);
+    const [restaurantPhones, setRestaurantPhones] = useState<Record<string, string>>({});
     const [loading, setLoading] = useState(true);
     const [sending, setSending] = useState(false);
     const [savingPixTypeId, setSavingPixTypeId] = useState<string | null>(null);
@@ -141,6 +168,29 @@ export default function DevPayoutPage() {
                 throw new Error(payload.error || "Erro ao carregar repasses.");
             }
 
+            const restaurantIds = Array.from(
+                new Set([
+                    ...payload.payables.map((item) => item.restaurantId),
+                    ...payload.history.map((item) => item.restaurant_id),
+                ])
+            );
+            const phoneEntries = await Promise.all(
+                restaurantIds.map(async (restaurantId) => {
+                    try {
+                        const restaurantResponse = await fetch(
+                            `/api/restaurants/${restaurantId}`,
+                            { cache: "no-store" }
+                        );
+                        if (!restaurantResponse.ok) return [restaurantId, ""] as const;
+                        const restaurant = await restaurantResponse.json();
+                        return [restaurantId, String(restaurant?.phone || "")] as const;
+                    } catch {
+                        return [restaurantId, ""] as const;
+                    }
+                })
+            );
+
+            setRestaurantPhones(Object.fromEntries(phoneEntries));
             setAccessState("allowed");
             setData(payload);
         } catch (caught) {
@@ -417,10 +467,11 @@ export default function DevPayoutPage() {
                 </p>
 
                 <div className="mt-5 overflow-x-auto">
-                    <table className="w-full min-w-[760px] text-left text-sm">
+                    <table className="w-full min-w-[900px] text-left text-sm">
                         <thead className="border-b border-gray-100 text-xs uppercase text-gray-400">
                             <tr>
                                 <th className="px-3 py-3">Restaurante</th>
+                                <th className="px-3 py-3">Telefone</th>
                                 <th className="px-3 py-3">PIX</th>
                                 <th className="px-3 py-3 text-right">Bruto</th>
                                 <th className="px-3 py-3 text-right">Desconto</th>
@@ -433,6 +484,9 @@ export default function DevPayoutPage() {
                                 return (
                                     <tr key={item.restaurantId}>
                                         <td className="px-3 py-4 font-semibold text-gray-900">{item.restaurantName}</td>
+                                        <td className="px-3 py-4 text-gray-500">
+                                            {formatPhone(restaurantPhones[item.restaurantId]) || "—"}
+                                        </td>
                                         <td className="px-3 py-4 text-gray-500">
                                             {item.pixKey ? (
                                                 item.pixKeyType ? (
@@ -471,7 +525,7 @@ export default function DevPayoutPage() {
                             })}
                             {payables.length === 0 && (
                                 <tr>
-                                    <td colSpan={5} className="px-3 py-10 text-center text-gray-400">
+                                    <td colSpan={6} className="px-3 py-10 text-center text-gray-400">
                                         Nada a repassar agora.
                                     </td>
                                 </tr>
@@ -484,23 +538,44 @@ export default function DevPayoutPage() {
             <Card>
                 <h2 className="text-lg font-bold text-gray-900">Histórico de envios</h2>
                 <div className="mt-5 space-y-3">
-                    {(data?.history || []).map((item) => (
-                        <div
-                            key={item.id}
-                            className="flex flex-col gap-2 rounded-lg border border-gray-100 p-4 sm:flex-row sm:items-center sm:justify-between"
-                        >
-                            <div>
-                                <div className="font-semibold text-gray-900">{item.restaurant_name}</div>
-                                <div className="text-xs text-gray-500">{dateTime(item.created_at)}</div>
+                    {(data?.history || []).map((item) => {
+                        const whatsappNumber = normalizeWhatsappNumber(
+                            restaurantPhones[item.restaurant_id]
+                        );
+                        return (
+                            <div
+                                key={item.id}
+                                className="flex flex-col gap-2 rounded-lg border border-gray-100 p-4 sm:flex-row sm:items-center sm:justify-between"
+                            >
+                                <div>
+                                    <div className="font-semibold text-gray-900">{item.restaurant_name}</div>
+                                    <div className="text-xs text-gray-500">{dateTime(item.created_at)}</div>
+                                </div>
+                                <div className="flex flex-wrap items-center gap-3">
+                                    {item.status === "processing" && (
+                                        <span className="rounded-full bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700">Processando</span>
+                                    )}
+                                    <span className="text-lg font-bold text-gray-900">{money(item.amount_cents)}</span>
+                                    <Button
+                                        variant="secondary"
+                                        disabled={!whatsappNumber}
+                                        onClick={() => {
+                                            if (!whatsappNumber) return;
+                                            const message = `Repasse iMenu - ${item.restaurant_name}: ${whatsappMoney(item.amount_cents)}`;
+                                            window.open(
+                                                `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`,
+                                                "_blank",
+                                                "noopener,noreferrer"
+                                            );
+                                        }}
+                                        className="px-3 py-1.5 text-xs"
+                                    >
+                                        WhatsApp
+                                    </Button>
+                                </div>
                             </div>
-                            <div className="flex items-center gap-3">
-                                {item.status === "processing" && (
-                                    <span className="rounded-full bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700">Processando</span>
-                                )}
-                                <span className="text-lg font-bold text-gray-900">{money(item.amount_cents)}</span>
-                            </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                     {data?.history.length === 0 && (
                         <div className="py-8 text-center text-gray-400">Nenhum repasse registrado.</div>
                     )}
