@@ -1,0 +1,147 @@
+name: Sync printer release to preview downloads
+
+on:
+  push:
+    branches:
+      - preview
+    paths:
+      - .printer-release-trigger.json
+      - .github/workflows/sync-printer-release.yml
+
+permissions:
+  contents: write
+  statuses: write
+
+concurrency:
+  group: imenu-printer-download-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout preview
+        uses: actions/checkout@v4
+        with:
+          ref: preview
+          fetch-depth: 0
+
+      - name: Read release trigger
+        id: release
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$(jq -r '.version' .printer-release-trigger.json)"
+          UPDATED_AT="$(jq -r '.updatedAt' .printer-release-trigger.json)"
+
+          test -n "$VERSION"
+          test "$VERSION" != "null"
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "updated_at=$UPDATED_AT" >> "$GITHUB_OUTPUT"
+
+      - name: Download installer and update metadata
+        id: download
+        shell: bash
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+          UPDATED_AT: ${{ steps.release.outputs.updated_at }}
+        run: |
+          set -euo pipefail
+
+          FILE_NAME="iMenu Impressora Setup ${VERSION}.exe"
+          export FILE_NAME
+          mkdir -p public/downloads
+
+          RELEASE_JSON="$(curl --fail --silent --show-error --location --retry 5 --retry-delay 3 "https://api.github.com/repos/metrix0/imenu-printer/releases/tags/v${VERSION}")"
+          ASSET_URL="$(printf '%s' "$RELEASE_JSON" | jq -r '.assets[] | select(.name | test("\\.exe$"; "i")) | .browser_download_url' | head -n 1)"
+
+          test -n "$ASSET_URL"
+          test "$ASSET_URL" != "null"
+
+          curl --fail --location --retry 5 --retry-delay 3 "$ASSET_URL" -o "public/downloads/$FILE_NAME"
+
+          SIZE="$(stat -c%s "public/downloads/$FILE_NAME")"
+          if [ "$SIZE" -lt 1000000 ]; then
+            echo "Downloaded installer is unexpectedly small: $SIZE bytes"
+            exit 1
+          fi
+
+          MAGIC="$(head -c 2 "public/downloads/$FILE_NAME")"
+          if [ "$MAGIC" != "MZ" ]; then
+            echo "Downloaded file is not a Windows executable."
+            exit 1
+          fi
+
+          ENCODED_NAME="$(python -c 'import os, urllib.parse; print(urllib.parse.quote(os.environ["FILE_NAME"]))')"
+
+          jq -n \
+            --arg version "$VERSION" \
+            --arg updatedAt "$UPDATED_AT" \
+            --arg downloadUrl "/downloads/$ENCODED_NAME" \
+            '{version:$version,updatedAt:$updatedAt,downloadUrl:$downloadUrl}' \
+            > public/downloads/imenu-printer.json
+
+      - name: Commit to preview
+        id: commit_preview
+        shell: bash
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          set -euo pipefail
+
+          FILE_NAME="iMenu Impressora Setup ${VERSION}.exe"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config http.version HTTP/1.1
+          git config http.postBuffer 524288000
+
+          git add "public/downloads/$FILE_NAME" public/downloads/imenu-printer.json
+
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+
+          git commit -m "chore: update printer download to ${VERSION}"
+
+          for attempt in 1 2 3 4 5; do
+            git fetch origin preview
+            git rebase origin/preview
+
+            if git -c http.version=HTTP/1.1 push origin HEAD:preview; then
+              exit 0
+            fi
+
+            sleep $((attempt * 2))
+          done
+
+          echo "Could not push printer download update to preview after 5 attempts."
+          exit 1
+
+      - name: Report printer sync phases
+        if: ${{ always() }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.sha }}
+          RELEASE_OUTCOME: ${{ steps.release.outcome }}
+          DOWNLOAD_OUTCOME: ${{ steps.download.outcome }}
+          COMMIT_OUTCOME: ${{ steps.commit_preview.outcome }}
+        run: |
+          set -euo pipefail
+
+          post_status() {
+            local context="$1"
+            local outcome="$2"
+            local state="failure"
+            if [ "$outcome" = "success" ]; then state="success"; fi
+            gh api --method POST "repos/${{ github.repository }}/statuses/$SHA" \
+              -f "state=$state" \
+              -f "context=$context" \
+              -f "description=$outcome" > /dev/null
+          }
+
+          post_status printer-preview-resolve "$RELEASE_OUTCOME"
+          post_status printer-preview-download "$DOWNLOAD_OUTCOME"
+          post_status printer-preview-commit "$COMMIT_OUTCOME"
