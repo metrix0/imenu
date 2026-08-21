@@ -1066,7 +1066,7 @@ export default function CartModal({
                 </form>
 
                 {/* PAGE 3 — CHECKOUT */}
-                <div className="w-full px-4 overflow-y-auto pt-4 pb-32 2xl:px-8">
+                <div className="w-full px-4 overflow-y-auto pt-4 md:pb-32 2xl:px-8">
 
                     <>
                         {scheduledOptions.length > 0 && (
