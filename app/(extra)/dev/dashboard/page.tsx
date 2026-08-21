@@ -53,6 +53,11 @@ type DashboardPayload = {
     };
     cards: Record<MetricKey, number>;
     series: Record<MetricKey, SeriesPoint[]>;
+    abandonedUsers: Array<{
+        accountId: string;
+        restaurantName: string;
+        activeCustomerAbandoned: boolean;
+    }>;
     paymentMethods: {
         labels: string[];
         datasets: Array<{
@@ -546,28 +551,6 @@ export default function DevDashboardPage() {
 
                         <section>
                             <SectionHeading
-                                title="Blog"
-                                description="Soma das visualizações de /blog e de todas as páginas abaixo de /blog no período selecionado."
-                            />
-                            <div className="max-w-md">
-                                <MetricCard
-                                    title="Visualizações nas páginas do blog"
-                                    value={
-                                        data.tracking.blogViews === null
-                                            ? "—"
-                                            : formatCount(data.tracking.blogViews)
-                                    }
-                                    description={
-                                        data.tracking.postHogAvailable
-                                            ? "Pageviews registrados pelo PostHog."
-                                            : "Aguardando a conexão de leitura com o PostHog."
-                                    }
-                                />
-                            </div>
-                        </section>
-
-                        <section>
-                            <SectionHeading
                                 title="Abandono"
                                 description="Situação calculada em relação ao fim do período selecionado e ao fim de cada intervalo do gráfico."
                             />
@@ -588,6 +571,49 @@ export default function DevDashboardPage() {
                                     description="Atingiram quatro pedidos de clientes diferentes nos 30 dias anteriores e ficaram sete dias sem novos pedidos."
                                     danger
                                 />
+                            </div>
+
+                            <div className="mt-5 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+                                <div className="border-b border-gray-200 px-5 py-4">
+                                    <h3 className="font-semibold text-gray-900">
+                                        Usuários ativos abandonados
+                                    </h3>
+                                    <p className="mt-1 text-xs text-gray-500">
+                                        ★ Usuário com clientes ativos abandonado. Estes aparecem primeiro.
+                                    </p>
+                                </div>
+                                {data.abandonedUsers.length ? (
+                                    <div className="divide-y divide-gray-100">
+                                        {data.abandonedUsers.map((user) => (
+                                            <div
+                                                key={user.accountId}
+                                                className="flex items-center gap-3 px-5 py-3 text-sm"
+                                            >
+                                                <span
+                                                    className={`w-5 shrink-0 text-center text-base ${
+                                                        user.activeCustomerAbandoned
+                                                            ? "text-amber-500"
+                                                            : "text-transparent"
+                                                    }`}
+                                                    aria-label={
+                                                        user.activeCustomerAbandoned
+                                                            ? "Usuário com clientes ativos abandonado"
+                                                            : undefined
+                                                    }
+                                                >
+                                                    ★
+                                                </span>
+                                                <span className="font-medium text-gray-900">
+                                                    {user.restaurantName}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="px-5 py-8 text-center text-sm text-gray-400">
+                                        Nenhum usuário ativo abandonado.
+                                    </div>
+                                )}
                             </div>
 
                             <div className="mt-5 grid gap-5 xl:grid-cols-2">
@@ -658,6 +684,21 @@ export default function DevDashboardPage() {
                                 title="Traffic"
                                 description="Visitantes únicos que saíram de cada página de conteúdo para a página inicial no período selecionado."
                             />
+                            <div className="mb-5 max-w-md">
+                                <MetricCard
+                                    title="Visualizações nas páginas do blog"
+                                    value={
+                                        data.tracking.blogViews === null
+                                            ? "—"
+                                            : formatCount(data.tracking.blogViews)
+                                    }
+                                    description={
+                                        data.tracking.postHogAvailable
+                                            ? "Soma das visualizações de /blog e de todas as páginas abaixo de /blog no período selecionado. Pageviews registrados pelo PostHog."
+                                            : "Soma das visualizações de /blog e de todas as páginas abaixo de /blog no período selecionado. Aguardando a conexão de leitura com o PostHog."
+                                    }
+                                />
+                            </div>
                             <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
                                 <div className="overflow-x-auto">
                                     <table className="w-full min-w-[760px] text-left text-sm">
