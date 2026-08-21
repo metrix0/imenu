@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
+import Dropdown from "@/components/ui/Dropdown";
 import Loader from "@/components/ui/Loader";
 import Modal from "@/components/ui/Modal";
 import { supabase } from "@/lib/database/supabaseClient";
@@ -57,6 +58,15 @@ type SendResult = {
     }>;
 };
 
+const PIX_KEY_TYPE_OPTIONS = [
+    { value: "", label: "Selecionar tipo" },
+    { value: "CPF", label: "CPF" },
+    { value: "CNPJ", label: "CNPJ" },
+    { value: "EMAIL", label: "E-mail" },
+    { value: "PHONE", label: "Telefone" },
+    { value: "EVP", label: "Chave aleatória" },
+];
+
 const money = (cents: number) =>
     (cents / 100).toLocaleString("pt-BR", {
         style: "currency",
@@ -85,6 +95,7 @@ export default function DevPayoutPage() {
     const [data, setData] = useState<DashboardPayload | null>(null);
     const [loading, setLoading] = useState(true);
     const [sending, setSending] = useState(false);
+    const [savingPixTypeId, setSavingPixTypeId] = useState<string | null>(null);
     const [error, setError] = useState("");
     const [discountPercent, setDiscountPercent] = useState("0.75");
     const [confirmOpen, setConfirmOpen] = useState(false);
@@ -180,6 +191,53 @@ export default function DevPayoutPage() {
         (sum, item) => sum + getNetCents(item.grossCents, numericDiscount),
         0
     );
+
+    const handlePixTypeChange = async (
+        restaurantId: string,
+        pixKeyType: PixKeyType
+    ) => {
+        setSavingPixTypeId(restaurantId);
+        setError("");
+
+        try {
+            const response = await fetch(`/api/restaurants/${restaurantId}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ payment_info_type: pixKeyType }),
+            });
+            const payload = await response.json();
+
+            if (!response.ok) {
+                throw new Error(payload?.error || "Erro ao salvar tipo da chave PIX.");
+            }
+
+            setData((current) =>
+                current
+                    ? {
+                          ...current,
+                          payables: current.payables.map((item) =>
+                              item.restaurantId === restaurantId
+                                  ? {
+                                        ...item,
+                                        pixKeyType,
+                                        pixKeyTypeStored: pixKeyType,
+                                        canSend: Boolean(item.pixKey),
+                                    }
+                                  : item
+                          ),
+                      }
+                    : current
+            );
+        } catch (caught) {
+            setError(
+                caught instanceof Error
+                    ? caught.message
+                    : "Erro ao salvar tipo da chave PIX."
+            );
+        } finally {
+            setSavingPixTypeId(null);
+        }
+    };
 
     const handleSend = async () => {
         setSending(true);
@@ -347,7 +405,7 @@ export default function DevPayoutPage() {
 
                 {ambiguousPix.length > 0 && (
                     <div className="mt-5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                        Defina o tipo da chave PIX em <b>Loja</b> para: {ambiguousPix.map((item) => item.restaurantName).join(", ")}.
+                        Defina abaixo o tipo da chave PIX para: {ambiguousPix.map((item) => item.restaurantName).join(", ")}.
                     </div>
                 )}
             </Card>
@@ -377,9 +435,30 @@ export default function DevPayoutPage() {
                                         <td className="px-3 py-4 font-semibold text-gray-900">{item.restaurantName}</td>
                                         <td className="px-3 py-4 text-gray-500">
                                             {item.pixKey ? (
-                                                <span>
-                                                    {item.pixKeyType || "Tipo pendente"} · {item.pixKey}
-                                                </span>
+                                                item.pixKeyType ? (
+                                                    <span>
+                                                        {item.pixKeyType} · {item.pixKey}
+                                                    </span>
+                                                ) : (
+                                                    <div className="flex min-w-48 flex-col gap-2">
+                                                        <span className="break-all text-amber-700">
+                                                            Tipo pendente · {item.pixKey}
+                                                        </span>
+                                                        <Dropdown
+                                                            aria-label={`Tipo da chave PIX de ${item.restaurantName}`}
+                                                            options={PIX_KEY_TYPE_OPTIONS}
+                                                            value=""
+                                                            disabled={savingPixTypeId === item.restaurantId}
+                                                            onChange={(event) => {
+                                                                const value = event.target.value as PixKeyType;
+                                                                if (value) {
+                                                                    void handlePixTypeChange(item.restaurantId, value);
+                                                                }
+                                                            }}
+                                                            className="py-2 text-sm"
+                                                        />
+                                                    </div>
+                                                )
                                             ) : (
                                                 <span className="text-amber-700">Não cadastrado</span>
                                             )}
