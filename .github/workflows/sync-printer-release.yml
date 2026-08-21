@@ -6,6 +6,7 @@ on:
       - preview
     paths:
       - .printer-release-trigger.json
+      - .github/workflows/sync-printer-release.yml
 
 permissions:
   contents: write
@@ -46,8 +47,8 @@ jobs:
       - name: Download installer and update metadata
         shell: bash
         env:
+          GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.release.outputs.version }}
-          RELEASE_URL: ${{ steps.release.outputs.release_url }}
           UPDATED_AT: ${{ steps.release.outputs.updated_at }}
         run: |
           set -euo pipefail
@@ -56,7 +57,11 @@ jobs:
           export FILE_NAME
           mkdir -p public/downloads
 
-          curl --fail --location --retry 5 --retry-delay 3 "$RELEASE_URL" -o "public/downloads/$FILE_NAME"
+          gh release download "v${VERSION}" \
+            --repo metrix0/imenu-printer \
+            --pattern "$FILE_NAME" \
+            --dir public/downloads \
+            --clobber
 
           SIZE="$(stat -c%s "public/downloads/$FILE_NAME")"
           if [ "$SIZE" -lt 1000000 ]; then
