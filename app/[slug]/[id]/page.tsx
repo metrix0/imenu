@@ -186,7 +186,14 @@ export default function PedidoPage({
         preparing: "Preparando pedido",
         delivering: isPickup ? "Pedido pronto para retirada" : "Pedido a caminho",
         done: isPickup ? "Pedido retirado, bom apetite!" : "Pedido entregue, bom apetite!",
-        canceled: "Pedido cancelado",
+        canceled: (
+            <>
+                Pedido cancelado pelo restaurante.
+                {paymentMethod === "pix" && (
+                    <><br />Seu dinheiro foi reembolsado.</>
+                )}
+            </>
+        ),
     };
 
     const readableStatus = statusMap[status] ?? status;
