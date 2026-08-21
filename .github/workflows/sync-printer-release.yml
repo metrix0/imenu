@@ -53,6 +53,7 @@ jobs:
           set -euo pipefail
 
           FILE_NAME="iMenu Impressora Setup ${VERSION}.exe"
+          export FILE_NAME
           mkdir -p public/downloads
 
           curl --fail --location --retry 5 --retry-delay 3 "$RELEASE_URL" -o "public/downloads/$FILE_NAME"
@@ -75,8 +76,6 @@ print(urllib.parse.quote(os.environ['FILE_NAME']))
 PY
           )"
 
-          export FILE_NAME
-
           jq -n \
             --arg version "$VERSION" \
             --arg updatedAt "$UPDATED_AT" \
@@ -94,6 +93,8 @@ PY
           FILE_NAME="iMenu Impressora Setup ${VERSION}.exe"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config http.version HTTP/1.1
+          git config http.postBuffer 524288000
 
           git add "public/downloads/$FILE_NAME" public/downloads/imenu-printer.json
 
@@ -107,7 +108,7 @@ PY
             git fetch origin preview
             git rebase origin/preview
 
-            if git push origin HEAD:preview; then
+            if git -c http.version=HTTP/1.1 push origin HEAD:preview; then
               exit 0
             fi
 
