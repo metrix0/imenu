@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -8,7 +9,52 @@ import {
     faCircleCheck,
 } from "@fortawesome/free-solid-svg-icons";
 
+type PrinterRelease = {
+    version: string;
+    updatedAt: string;
+    downloadUrl: string;
+};
+
+const FALLBACK_RELEASE: PrinterRelease = {
+    version: "1.0.7",
+    updatedAt: "2026-08-05T18:37:50.000Z",
+    downloadUrl: "/downloads/iMenu%20Impressora%20Setup%201.0.7.exe",
+};
+
+function formatUpdatedAt(value: string) {
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+        return "-";
+    }
+
+    return new Intl.DateTimeFormat("pt-BR", {
+        dateStyle: "short",
+        timeStyle: "short",
+        timeZone: "America/Sao_Paulo",
+    }).format(date);
+}
+
 export default function ImpressoraPage() {
+    const [release, setRelease] = useState<PrinterRelease>(FALLBACK_RELEASE);
+
+    useEffect(() => {
+        fetch("/downloads/imenu-printer.json", { cache: "no-store" })
+            .then((response) => {
+                if (!response.ok) {
+                    throw new Error("Falha ao carregar versão da impressora");
+                }
+
+                return response.json();
+            })
+            .then((data: PrinterRelease) => {
+                if (data.version && data.updatedAt && data.downloadUrl) {
+                    setRelease(data);
+                }
+            })
+            .catch(() => {});
+    }, []);
+
     return (
         <div className="min-h-screen bg-gray-50">
             <div className="max-w-6xl mx-auto px-4 py-6 sm:px-8 sm:py-10">
@@ -63,13 +109,26 @@ export default function ImpressoraPage() {
                             </div>
 
                             <a
-                                href="/downloads/iMenu%20Impressora%20Setup%201.0.7.exe"
+                                href={release.downloadUrl}
                                 download
                                 className="inline-flex w-full sm:w-fit items-center justify-center gap-2 bg-brand text-white px-6 py-3 rounded-xl font-semibold hover:bg-brand/90 transition"
                             >
                                 <FontAwesomeIcon icon={faDownload} />
                                 Baixar iMenu Impressora
                             </a>
+
+                            <div className="mt-4 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+                                <div className="flex flex-wrap gap-x-5 gap-y-1">
+                                    <span>
+                                        <span className="font-semibold text-gray-800">Versão:</span>{" "}
+                                        {release.version}
+                                    </span>
+                                    <span>
+                                        <span className="font-semibold text-gray-800">Atualizado em:</span>{" "}
+                                        {formatUpdatedAt(release.updatedAt)}
+                                    </span>
+                                </div>
+                            </div>
 
                             <p className="text-xs text-gray-400 mt-4">
                                 Compatível com Windows.
