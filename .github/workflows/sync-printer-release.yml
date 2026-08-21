@@ -33,16 +33,12 @@ jobs:
         run: |
           set -euo pipefail
           VERSION="$(jq -r '.version' .printer-release-trigger.json)"
-          RELEASE_URL="$(jq -r '.releaseUrl' .printer-release-trigger.json)"
           UPDATED_AT="$(jq -r '.updatedAt' .printer-release-trigger.json)"
 
           test -n "$VERSION"
           test "$VERSION" != "null"
-          test -n "$RELEASE_URL"
-          test "$RELEASE_URL" != "null"
 
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "release_url=$RELEASE_URL" >> "$GITHUB_OUTPUT"
           echo "updated_at=$UPDATED_AT" >> "$GITHUB_OUTPUT"
 
       - name: Download installer and update metadata
@@ -50,7 +46,6 @@ jobs:
         shell: bash
         env:
           VERSION: ${{ steps.release.outputs.version }}
-          RELEASE_URL: ${{ steps.release.outputs.release_url }}
           UPDATED_AT: ${{ steps.release.outputs.updated_at }}
         run: |
           set -euo pipefail
@@ -59,7 +54,13 @@ jobs:
           export FILE_NAME
           mkdir -p public/downloads
 
-          curl --fail --location --retry 5 --retry-delay 3 "$RELEASE_URL" -o "public/downloads/$FILE_NAME"
+          RELEASE_JSON="$(curl --fail --silent --show-error --location --retry 5 --retry-delay 3 "https://api.github.com/repos/metrix0/imenu-printer/releases/tags/v${VERSION}")"
+          ASSET_URL="$(printf '%s' "$RELEASE_JSON" | jq -r '.assets[] | select(.name | test("\\.exe$"; "i")) | .browser_download_url' | head -n 1)"
+
+          test -n "$ASSET_URL"
+          test "$ASSET_URL" != "null"
+
+          curl --fail --location --retry 5 --retry-delay 3 "$ASSET_URL" -o "public/downloads/$FILE_NAME"
 
           SIZE="$(stat -c%s "public/downloads/$FILE_NAME")"
           if [ "$SIZE" -lt 1000000 ]; then
