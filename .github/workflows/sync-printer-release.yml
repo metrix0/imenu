@@ -5,7 +5,7 @@ on:
     branches:
       - preview
     paths:
-      - .github/printer-release-trigger.json
+      - .printer-release-trigger.json
 
 permissions:
   contents: write
@@ -30,9 +30,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          VERSION="$(jq -r '.version' .github/printer-release-trigger.json)"
-          RELEASE_URL="$(jq -r '.releaseUrl' .github/printer-release-trigger.json)"
-          UPDATED_AT="$(jq -r '.updatedAt' .github/printer-release-trigger.json)"
+          VERSION="$(jq -r '.version' .printer-release-trigger.json)"
+          RELEASE_URL="$(jq -r '.releaseUrl' .printer-release-trigger.json)"
+          UPDATED_AT="$(jq -r '.updatedAt' .printer-release-trigger.json)"
 
           test -n "$VERSION"
           test "$VERSION" != "null"
