@@ -4,12 +4,16 @@ on:
   push:
     branches:
       - main
+  repository_dispatch:
+    types:
+      - printer-release
 
 permissions:
   contents: write
 
 jobs:
   sync-preview:
+    if: ${{ github.event_name == 'push' && !contains(github.event.head_commit.message, '[skip-preview-reset]') }}
     runs-on: ubuntu-latest
 
     steps:
@@ -21,3 +25,93 @@ jobs:
 
       - name: Sync preview to main
         run: git push origin HEAD:preview --force
+
+  sync-printer-release:
+    if: ${{ github.event_name == 'repository_dispatch' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout preview
+        uses: actions/checkout@v4
+        with:
+          ref: preview
+          fetch-depth: 0
+
+      - name: Download installer and update metadata
+        shell: bash
+        env:
+          VERSION: ${{ github.event.client_payload.version }}
+          RELEASE_URL: ${{ github.event.client_payload.release_url }}
+          UPDATED_AT: ${{ github.event.client_payload.updated_at }}
+        run: |
+          set -euo pipefail
+
+          test -n "$VERSION"
+          test -n "$RELEASE_URL"
+          test -n "$UPDATED_AT"
+
+          FILE_NAME="iMenu Impressora Setup ${VERSION}.exe"
+          export FILE_NAME
+          mkdir -p public/downloads
+
+          curl --fail --location --retry 5 --retry-delay 3 "$RELEASE_URL" -o "public/downloads/$FILE_NAME"
+
+          SIZE="$(stat -c%s "public/downloads/$FILE_NAME")"
+          if [ "$SIZE" -lt 1000000 ]; then
+            echo "Downloaded installer is unexpectedly small: $SIZE bytes"
+            exit 1
+          fi
+
+          MAGIC="$(head -c 2 "public/downloads/$FILE_NAME")"
+          if [ "$MAGIC" != "MZ" ]; then
+            echo "Downloaded file is not a Windows executable."
+            exit 1
+          fi
+
+          ENCODED_NAME="$(python - <<'PY'
+import os, urllib.parse
+print(urllib.parse.quote(os.environ['FILE_NAME']))
+PY
+          )"
+
+          jq -n \
+            --arg version "$VERSION" \
+            --arg updatedAt "$UPDATED_AT" \
+            --arg downloadUrl "/downloads/$ENCODED_NAME" \
+            '{version:$version,updatedAt:$updatedAt,downloadUrl:$downloadUrl}' \
+            > public/downloads/imenu-printer.json
+
+      - name: Commit release to preview
+        shell: bash
+        env:
+          VERSION: ${{ github.event.client_payload.version }}
+        run: |
+          set -euo pipefail
+
+          FILE_NAME="iMenu Impressora Setup ${VERSION}.exe"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config http.version HTTP/1.1
+          git config http.postBuffer 524288000
+
+          git add "public/downloads/$FILE_NAME" public/downloads/imenu-printer.json
+
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+
+          git commit -m "chore: update printer download to ${VERSION}"
+
+          for attempt in 1 2 3 4 5; do
+            git fetch origin preview
+            git rebase origin/preview
+
+            if git -c http.version=HTTP/1.1 push origin HEAD:preview; then
+              exit 0
+            fi
+
+            sleep $((attempt * 2))
+          done
+
+          echo "Could not push printer download update to preview after 5 attempts."
+          exit 1
