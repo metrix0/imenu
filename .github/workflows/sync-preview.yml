@@ -4,12 +4,20 @@ on:
   push:
     branches:
       - main
+  repository_dispatch:
+    types:
+      - printer-release
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
 
 permissions:
   contents: write
+  statuses: write
 
 jobs:
   sync-preview:
+    if: ${{ github.event_name == 'push' && !contains(github.event.head_commit.message, '[skip-preview-reset]') }}
     runs-on: ubuntu-latest
 
     steps:
@@ -21,3 +29,149 @@ jobs:
 
       - name: Sync preview to main
         run: git push origin HEAD:preview --force
+
+  sync-printer-release:
+    needs: sync-preview
+    if: ${{ always() && (github.event_name == 'push' || github.event_name == 'repository_dispatch' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout preview
+        uses: actions/checkout@v4
+        with:
+          ref: preview
+          fetch-depth: 0
+
+      - name: Resolve printer release
+        id: release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          PAYLOAD_VERSION: ${{ github.event.client_payload.version }}
+          PAYLOAD_UPDATED_AT: ${{ github.event.client_payload.updated_at }}
+        run: |
+          set -euo pipefail
+
+          if [ "$EVENT_NAME" = "repository_dispatch" ] && [ -n "${PAYLOAD_VERSION:-}" ]; then
+            VERSION="$PAYLOAD_VERSION"
+            UPDATED_AT="${PAYLOAD_UPDATED_AT:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}"
+          else
+            TAG="$(gh release view --repo metrix0/imenu-printer --json tagName --jq '.tagName')"
+            VERSION="${TAG#v}"
+            UPDATED_AT="$(gh release view --repo metrix0/imenu-printer --json publishedAt --jq '.publishedAt')"
+          fi
+
+          test -n "$VERSION"
+          test "$VERSION" != "null"
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "updated_at=$UPDATED_AT" >> "$GITHUB_OUTPUT"
+
+      - name: Download installer and update metadata
+        id: download
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.release.outputs.version }}
+          UPDATED_AT: ${{ steps.release.outputs.updated_at }}
+        run: |
+          set -euo pipefail
+
+          FILE_NAME="iMenu Impressora Setup ${VERSION}.exe"
+          export FILE_NAME
+          mkdir -p public/downloads
+
+          gh release download "v${VERSION}" \
+            --repo metrix0/imenu-printer \
+            --pattern "$FILE_NAME" \
+            --dir public/downloads \
+            --clobber
+
+          SIZE="$(stat -c%s "public/downloads/$FILE_NAME")"
+          if [ "$SIZE" -lt 1000000 ]; then
+            echo "Downloaded installer is unexpectedly small: $SIZE bytes"
+            exit 1
+          fi
+
+          MAGIC="$(head -c 2 "public/downloads/$FILE_NAME")"
+          if [ "$MAGIC" != "MZ" ]; then
+            echo "Downloaded file is not a Windows executable."
+            exit 1
+          fi
+
+          ENCODED_NAME="$(python - <<'PY'
+import os, urllib.parse
+print(urllib.parse.quote(os.environ['FILE_NAME']))
+PY
+          )"
+
+          jq -n \
+            --arg version "$VERSION" \
+            --arg updatedAt "$UPDATED_AT" \
+            --arg downloadUrl "/downloads/$ENCODED_NAME" \
+            '{version:$version,updatedAt:$updatedAt,downloadUrl:$downloadUrl}' \
+            > public/downloads/imenu-printer.json
+
+      - name: Commit release to preview
+        id: commit_preview
+        shell: bash
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          set -euo pipefail
+
+          FILE_NAME="iMenu Impressora Setup ${VERSION}.exe"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config http.version HTTP/1.1
+          git config http.postBuffer 524288000
+
+          git add "public/downloads/$FILE_NAME" public/downloads/imenu-printer.json
+
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+
+          git commit -m "chore: update printer download to ${VERSION}"
+
+          for attempt in 1 2 3 4 5; do
+            git fetch origin preview
+            git rebase origin/preview
+
+            if git -c http.version=HTTP/1.1 push origin HEAD:preview; then
+              exit 0
+            fi
+
+            sleep $((attempt * 2))
+          done
+
+          echo "Could not push printer download update to preview after 5 attempts."
+          exit 1
+
+      - name: Report printer sync phases
+        if: ${{ always() }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.sha }}
+          RELEASE_OUTCOME: ${{ steps.release.outcome }}
+          DOWNLOAD_OUTCOME: ${{ steps.download.outcome }}
+          COMMIT_OUTCOME: ${{ steps.commit_preview.outcome }}
+        run: |
+          set -euo pipefail
+
+          post_status() {
+            local context="$1"
+            local outcome="$2"
+            local state="failure"
+            if [ "$outcome" = "success" ]; then state="success"; fi
+            gh api --method POST "repos/${{ github.repository }}/statuses/$SHA" \
+              -f "state=$state" \
+              -f "context=$context" \
+              -f "description=$outcome" > /dev/null
+          }
+
+          post_status printer-receiver-resolve "$RELEASE_OUTCOME"
+          post_status printer-receiver-download "$DOWNLOAD_OUTCOME"
+          post_status printer-receiver-commit "$COMMIT_OUTCOME"
