@@ -77,11 +77,7 @@ jobs:
             exit 1
           fi
 
-          ENCODED_NAME="$(python - <<'PY'
-import os, urllib.parse
-print(urllib.parse.quote(os.environ['FILE_NAME']))
-PY
-          )"
+          ENCODED_NAME="$(python -c 'import os, urllib.parse; print(urllib.parse.quote(os.environ["FILE_NAME"]))')"
 
           jq -n \
             --arg version "$VERSION" \
