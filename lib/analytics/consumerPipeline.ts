@@ -6,6 +6,7 @@ export type ConsumerPipelineStep = {
     available: boolean;
     note: string | null;
     valueType?: "count" | "currency";
+    secondaryValue?: number | null;
 };
 
 export type ConsumerTrackingMetrics = {
