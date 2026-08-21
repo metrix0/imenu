@@ -66,6 +66,11 @@ html, body {
     scroll-behavior: smooth;
 }
 
+@media (hover: none), (pointer: coarse) {
+    [role="tooltip"] {
+        display: none !important;
+    }
+}
 
 
 
