@@ -172,17 +172,59 @@ function postHogApiHost(value: string): string {
         .replace("://eu.i.posthog.com", "://eu.posthog.com");
 }
 
-async function loadTrafficSummary(
-    startAt: number,
-    endAt: number
-): Promise<{ appViews: number | null; landingViews: number | null }> {
+function getPostHogConfig(): {
+    personalApiKey: string;
+    projectId: string;
+    rawHost: string;
+} | null {
     const personalApiKey = process.env.POSTHOG_PERSONAL_API_KEY?.trim();
     const projectId = process.env.POSTHOG_PROJECT_ID?.trim();
     const rawHost =
         process.env.POSTHOG_API_HOST?.trim() ||
         process.env.NEXT_PUBLIC_POSTHOG_HOST?.trim();
 
-    if (!personalApiKey || !projectId || !rawHost) {
+    if (!personalApiKey || !projectId || !rawHost) return null;
+    return { personalApiKey, projectId, rawHost };
+}
+
+async function runPostHogQuery(hogql: string): Promise<unknown[][]> {
+    const config = getPostHogConfig();
+    if (!config) throw new Error("PostHog não configurado.");
+
+    const response = await fetch(
+        `${postHogApiHost(config.rawHost)}/api/projects/${encodeURIComponent(
+            config.projectId
+        )}/query/`,
+        {
+            method: "POST",
+            headers: {
+                Authorization: `Bearer ${config.personalApiKey}`,
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                query: {
+                    kind: "HogQLQuery",
+                    query: hogql,
+                },
+            }),
+            signal: AbortSignal.timeout(15_000),
+            cache: "no-store",
+        }
+    );
+
+    if (!response.ok) {
+        throw new Error(`PostHog query failed with ${response.status}.`);
+    }
+
+    const payload = (await response.json()) as { results?: unknown[][] };
+    return payload.results || [];
+}
+
+async function loadTrafficSummary(
+    startAt: number,
+    endAt: number
+): Promise<{ appViews: number | null; landingViews: number | null }> {
+    if (!getPostHogConfig()) {
         return { appViews: null, landingViews: null };
     }
 
@@ -219,33 +261,7 @@ async function loadTrafficSummary(
     `;
 
     try {
-        const response = await fetch(
-            `${postHogApiHost(rawHost)}/api/projects/${encodeURIComponent(
-                projectId
-            )}/query/`,
-            {
-                method: "POST",
-                headers: {
-                    Authorization: `Bearer ${personalApiKey}`,
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    query: {
-                        kind: "HogQLQuery",
-                        query: hogql,
-                    },
-                }),
-                signal: AbortSignal.timeout(15_000),
-                cache: "no-store",
-            }
-        );
-
-        if (!response.ok) {
-            throw new Error(`PostHog query failed with ${response.status}.`);
-        }
-
-        const payload = (await response.json()) as { results?: unknown[][] };
-        const row = payload.results?.[0];
+        const row = (await runPostHogQuery(hogql))[0];
         if (!row) throw new Error("PostHog returned no result row.");
 
         return {
@@ -255,6 +271,56 @@ async function loadTrafficSummary(
     } catch (error) {
         console.warn("[DEV_DASHBOARD_DETAILS] PostHog unavailable:", error);
         return { appViews: null, landingViews: null };
+    }
+}
+
+async function loadFunnelSummary(
+    startAt: number,
+    endAt: number
+): Promise<{
+    registrationComplete: number | null;
+    orderedConsumers: number | null;
+}> {
+    if (!getPostHogConfig()) {
+        return { registrationComplete: null, orderedConsumers: null };
+    }
+
+    const start = new Date(startAt).toISOString();
+    const end = new Date(endAt).toISOString();
+    const orderPathRegex =
+        '^/[^/]+/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$';
+    const legacyOrderPathRegex =
+        '^/pedido/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$';
+    const hogql = `
+        SELECT
+            countIf(
+                event = '$pageview'
+                AND properties.$pathname = '/restaurante/criar/localizacao'
+            ) AS registration_complete,
+            uniqIf(
+                distinct_id,
+                event = '$pageview'
+                AND (
+                    match(toString(properties.$pathname), '${orderPathRegex}')
+                    OR match(toString(properties.$pathname), '${legacyOrderPathRegex}')
+                )
+            ) AS ordered_consumers
+        FROM events
+        WHERE timestamp >= parseDateTimeBestEffort('${start}')
+          AND timestamp < parseDateTimeBestEffort('${end}')
+    `;
+
+    try {
+        const row = (await runPostHogQuery(hogql))[0];
+        if (!row) throw new Error("PostHog returned no result row.");
+
+        return {
+            registrationComplete: Number(row[0]) || 0,
+            orderedConsumers: Number(row[1]) || 0,
+        };
+    } catch (error) {
+        console.warn("[DEV_DASHBOARD_DETAILS] Funnel metrics unavailable:", error);
+        return { registrationComplete: null, orderedConsumers: null };
     }
 }
 
@@ -300,50 +366,55 @@ export async function GET(request: Request) {
         const inactivityStart = endAt - 7 * DAY_MS;
         const historyStart = inactivityStart - 30 * DAY_MS;
 
-        const [historyResult, accountDetailsResult, trafficSummary] =
-            await Promise.all([
-                query<OrderRow>(
-                    `
-                        SELECT
-                            COALESCE(r.user_id::text, o.restaurant_id::text) AS account_id,
-                            o.status::text AS status,
-                            o.total_cents,
-                            o.customer_phone,
-                            o.created_at
-                        FROM orders AS o
-                        LEFT JOIN restaurants AS r
-                            ON r.id = o.restaurant_id
-                        WHERE o.created_at >= $1
-                          AND o.created_at < $2
-                        ORDER BY o.created_at ASC
-                    `,
-                    [
-                        new Date(historyStart).toISOString(),
-                        new Date(endAt).toISOString(),
-                    ]
-                ),
-                query<AccountDetailsRow>(
-                    `
-                        SELECT
-                            COALESCE(user_id::text, id::text) AS account_id,
-                            string_agg(
-                                DISTINCT COALESCE(NULLIF(BTRIM(name), ''), 'Restaurante'),
-                                ', '
-                            ) AS restaurant_name,
-                            string_agg(
-                                DISTINCT NULLIF(BTRIM(phone), ''),
-                                ', '
-                            ) FILTER (WHERE NULLIF(BTRIM(phone), '') IS NOT NULL) AS phone,
-                            string_agg(
-                                DISTINCT NULLIF(BTRIM(store_whatsapp), ''),
-                                ', '
-                            ) FILTER (WHERE NULLIF(BTRIM(store_whatsapp), '') IS NOT NULL) AS store_whatsapp
-                        FROM restaurants
-                        GROUP BY COALESCE(user_id::text, id::text)
-                    `
-                ),
-                loadTrafficSummary(startAt, endAt),
-            ]);
+        const [
+            historyResult,
+            accountDetailsResult,
+            trafficSummary,
+            funnelSummary,
+        ] = await Promise.all([
+            query<OrderRow>(
+                `
+                    SELECT
+                        COALESCE(r.user_id::text, o.restaurant_id::text) AS account_id,
+                        o.status::text AS status,
+                        o.total_cents,
+                        o.customer_phone,
+                        o.created_at
+                    FROM orders AS o
+                    LEFT JOIN restaurants AS r
+                        ON r.id = o.restaurant_id
+                    WHERE o.created_at >= $1
+                      AND o.created_at < $2
+                    ORDER BY o.created_at ASC
+                `,
+                [
+                    new Date(historyStart).toISOString(),
+                    new Date(endAt).toISOString(),
+                ]
+            ),
+            query<AccountDetailsRow>(
+                `
+                    SELECT
+                        COALESCE(user_id::text, id::text) AS account_id,
+                        string_agg(
+                            DISTINCT COALESCE(NULLIF(BTRIM(name), ''), 'Restaurante'),
+                            ', '
+                        ) AS restaurant_name,
+                        string_agg(
+                            DISTINCT NULLIF(BTRIM(phone), ''),
+                            ', '
+                        ) FILTER (WHERE NULLIF(BTRIM(phone), '') IS NOT NULL) AS phone,
+                        string_agg(
+                            DISTINCT NULLIF(BTRIM(store_whatsapp), ''),
+                            ', '
+                        ) FILTER (WHERE NULLIF(BTRIM(store_whatsapp), '') IS NOT NULL) AS store_whatsapp
+                    FROM restaurants
+                    GROUP BY COALESCE(user_id::text, id::text)
+                `
+            ),
+            loadTrafficSummary(startAt, endAt),
+            loadFunnelSummary(startAt, endAt),
+        ]);
 
         const history = historyResult.rows.map(normalizeOrder);
         const priorWeekDoneOrders = ordersInside(
@@ -412,6 +483,7 @@ export async function GET(request: Request) {
             {
                 abandonedUsers,
                 trafficSummary,
+                funnelSummary,
             },
             { headers: { "Cache-Control": "no-store" } }
         );

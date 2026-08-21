@@ -26,44 +26,56 @@ export default function ConsumerPipelineCard({
     return (
         <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                {steps.map((step, index) => (
-                    <div
-                        key={step.key}
-                        className={`rounded-xl border p-4 ${
-                            step.available
-                                ? "border-gray-200 bg-white"
-                                : "border-dashed border-gray-300 bg-gray-50"
-                        }`}
-                    >
-                        <div className="flex items-center gap-3">
-                            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gray-900 text-xs font-semibold text-white">
-                                {index + 1}
-                            </span>
-                            <p className="text-sm font-medium text-gray-800">
-                                {step.label}
+                {steps.map((step, index) => {
+                    const primaryValue =
+                        step.value === null
+                            ? "—"
+                            : step.valueType === "currency"
+                              ? formatCurrencyFromCents(step.value)
+                              : formatCount(step.value);
+                    const secondaryValue =
+                        step.secondaryValue == null
+                            ? null
+                            : step.valueType === "currency"
+                              ? formatCurrencyFromCents(step.secondaryValue)
+                              : formatCount(step.secondaryValue);
+
+                    return (
+                        <div
+                            key={step.key}
+                            className={`rounded-xl border p-4 ${
+                                step.available
+                                    ? "border-gray-200 bg-white"
+                                    : "border-dashed border-gray-300 bg-gray-50"
+                            }`}
+                        >
+                            <div className="flex items-center gap-3">
+                                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gray-900 text-xs font-semibold text-white">
+                                    {index + 1}
+                                </span>
+                                <p className="text-sm font-medium text-gray-800">
+                                    {step.label}
+                                </p>
+                            </div>
+
+                            <p className="mt-4 text-2xl font-bold">
+                                {primaryValue}
+                                {secondaryValue !== null && ` (${secondaryValue})`}
+                            </p>
+
+                            <p className="mt-1 text-xs text-gray-500">
+                                {step.conversion !== null
+                                    ? `${step.conversion.toLocaleString(
+                                          "pt-BR"
+                                      )}% do passo anterior`
+                                    : step.note ||
+                                      (step.available
+                                          ? "Conversão indisponível"
+                                          : "Evento ainda não conectado")}
                             </p>
                         </div>
-
-                        <p className="mt-4 text-2xl font-bold">
-                            {step.value === null
-                                ? "—"
-                                : step.valueType === "currency"
-                                  ? formatCurrencyFromCents(step.value)
-                                  : formatCount(step.value)}
-                        </p>
-
-                        <p className="mt-1 text-xs text-gray-500">
-                            {step.conversion !== null
-                                ? `${step.conversion.toLocaleString(
-                                      "pt-BR"
-                                  )}% do passo anterior`
-                                : step.note ||
-                                  (step.available
-                                      ? "Conversão indisponível"
-                                      : "Evento ainda não conectado")}
-                        </p>
-                    </div>
-                ))}
+                    );
+                })}
             </div>
 
             {showTrackingNotice && !postHogAvailable && (

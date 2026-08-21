@@ -68,11 +68,7 @@ html, body {
 
 @media (hover: none), (pointer: coarse) {
     [role="tooltip"].fixed {
-        width: min(300px, calc(100vw - 24px)) !important;
         max-width: calc(100vw - 24px) !important;
-        left: 50vw !important;
-        right: auto !important;
-        transform: translateX(-50%) !important;
         white-space: normal !important;
     }
 }
