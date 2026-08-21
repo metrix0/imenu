@@ -8,6 +8,7 @@ import { notifyOrderStatusUpdate } from "@/lib/services/whatsappNotification";
 const VALID_STATUSES = [
     "pending_online_payment",
     "pending_physical_payment",
+    "paid",
     "preparing",
     "delivering",
     "done",
@@ -114,8 +115,9 @@ export async function PATCH(
 
             if (
                 status === "canceled" &&
-                order.status === "paid" &&
-                order.payment_method === "pix"
+                order.payment_method === "pix" &&
+                order.status !== "pending_online_payment" &&
+                order.status !== "canceled"
             ) {
                 if (!order.payment_ref) {
                     throw new OrderStatusError(

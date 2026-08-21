@@ -319,10 +319,13 @@ function onlineMoney(orders: NormalizedOrder[]): number {
         .reduce((total, order) => total + order.totalCents, 0);
 }
 
-function churnAt(
+function churnAccountSets(
     orders: NormalizedOrder[],
     asOf: number
-): { abandonedActiveUsers: number; abandonedActiveCustomerUsers: number } {
+): {
+    abandonedActiveUsers: Set<string>;
+    abandonedActiveCustomerUsers: Set<string>;
+} {
     const inactivityStart = asOf - 7 * DAY_MS;
     const priorActiveWindow = ordersInside(
         orders,
@@ -344,12 +347,27 @@ function churnAt(
         customerQualifiedAccounts(priorCustomerWindow);
 
     return {
-        abandonedActiveUsers: [...previouslyActiveAccounts].filter(
-            (accountId) => !accountsWithRecentOrders.has(accountId)
-        ).length,
-        abandonedActiveCustomerUsers: [
-            ...previouslyQualifiedCustomerAccounts,
-        ].filter((accountId) => !accountsWithRecentOrders.has(accountId)).length,
+        abandonedActiveUsers: new Set(
+            [...previouslyActiveAccounts].filter(
+                (accountId) => !accountsWithRecentOrders.has(accountId)
+            )
+        ),
+        abandonedActiveCustomerUsers: new Set(
+            [...previouslyQualifiedCustomerAccounts].filter(
+                (accountId) => !accountsWithRecentOrders.has(accountId)
+            )
+        ),
+    };
+}
+
+function churnAt(
+    orders: NormalizedOrder[],
+    asOf: number
+): { abandonedActiveUsers: number; abandonedActiveCustomerUsers: number } {
+    const sets = churnAccountSets(orders, asOf);
+    return {
+        abandonedActiveUsers: sets.abandonedActiveUsers.size,
+        abandonedActiveCustomerUsers: sets.abandonedActiveCustomerUsers.size,
     };
 }
 
@@ -824,6 +842,7 @@ export async function GET(request: Request) {
         const firstOrders = firstOrderByAccount(history);
         const activatedAccounts = activatedAccountSet(firstOrders, startAt, endAt);
         const activeCustomerAccountSet = customerQualifiedAccounts(customerWindow);
+        const churnSets = churnAccountSets(history, endAt);
         const cards = {
             activatedUsers: activatedAccounts.size,
             activeUsers: distinctAccounts(
@@ -833,8 +852,46 @@ export async function GET(request: Request) {
             activeCustomerUsers: activeCustomerAccountSet.size,
             moneyHandledCents: handledMoney(selected),
             onlineMoneyHandledCents: onlineMoney(selected),
-            ...churnAt(history, endAt),
+            abandonedActiveUsers: churnSets.abandonedActiveUsers.size,
+            abandonedActiveCustomerUsers:
+                churnSets.abandonedActiveCustomerUsers.size,
         };
+
+        const accountNamesResult = await query<{
+            account_id: string;
+            restaurant_name: string;
+        }>(
+            `
+                SELECT
+                    COALESCE(user_id::text, id::text) AS account_id,
+                    string_agg(
+                        COALESCE(NULLIF(BTRIM(name), ''), 'Restaurante'),
+                        ', '
+                        ORDER BY COALESCE(NULLIF(BTRIM(name), ''), 'Restaurante')
+                    ) AS restaurant_name
+                FROM restaurants
+                GROUP BY COALESCE(user_id::text, id::text)
+            `
+        );
+        const accountNames = new Map(
+            accountNamesResult.rows.map((row) => [
+                row.account_id,
+                row.restaurant_name,
+            ])
+        );
+        const abandonedUsers = [...churnSets.abandonedActiveUsers]
+            .map((accountId) => ({
+                accountId,
+                restaurantName: accountNames.get(accountId) || "Restaurante",
+                activeCustomerAbandoned:
+                    churnSets.abandonedActiveCustomerUsers.has(accountId),
+            }))
+            .sort(
+                (a, b) =>
+                    Number(b.activeCustomerAbandoned) -
+                        Number(a.activeCustomerAbandoned) ||
+                    a.restaurantName.localeCompare(b.restaurantName, "pt-BR")
+            );
 
         const metricSeries = {
             activatedUsers: [] as SeriesPoint[],
@@ -1015,6 +1072,7 @@ export async function GET(request: Request) {
                 },
                 cards,
                 series: metricSeries,
+                abandonedUsers,
                 paymentMethods: {
                     labels: buckets.map((bucket) => bucket.label),
                     datasets: paymentSeries,

@@ -1066,25 +1066,9 @@ export default function CartModal({
                 </form>
 
                 {/* PAGE 3 — CHECKOUT */}
-                <div className="w-full px-4 overflow-y-auto pt-4 pb-32 2xl:px-8">
+                <div className="w-full px-4 overflow-y-auto pt-4 md:pb-32 2xl:px-8">
 
                     <>
-                        {!mustSchedule && scheduledOptions.length > 0 && !showSchedulePicker && (
-                            <div className="mb-4 flex justify-end">
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setShowOptionalSchedule(true);
-                                        setField("scheduled_for", scheduledOptions[0].value);
-                                    }}
-                                    className="inline-flex cursor-pointer items-center gap-2 text-sm font-medium text-brand transition hover:opacity-75 2xl:text-base"
-                                >
-                                    <FontAwesomeIcon icon={faCalendarDays} />
-                                    Agendar meu pedido
-                                </button>
-                            </div>
-                        )}
-
                         {scheduledOptions.length > 0 && (
                             <div
                                 className={`relative grid transition-all duration-300 ease-out ${scheduleDropdownOpen ? "z-[90]" : "z-auto"} ${
@@ -1180,9 +1164,24 @@ export default function CartModal({
                             </div>
                         )}
 
-                        <h2 className="font-semibold text-md 2xl:text-lg mb-4">
-                            Pagamento
-                        </h2>
+                        <div className="mb-4 flex items-center justify-between gap-3">
+                            <h2 className="font-semibold text-md 2xl:text-lg">
+                                Pagamento
+                            </h2>
+                            {!mustSchedule && scheduledOptions.length > 0 && !showSchedulePicker && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setShowOptionalSchedule(true);
+                                        setField("scheduled_for", scheduledOptions[0].value);
+                                    }}
+                                    className="inline-flex cursor-pointer items-center gap-2 text-sm font-medium text-brand transition hover:opacity-75 2xl:text-base"
+                                >
+                                    <FontAwesomeIcon icon={faCalendarDays} />
+                                    Agendar meu pedido
+                                </button>
+                            )}
+                        </div>
 
                         <div className="flex flex-col gap-3 mb-5 2xl:text-lg">
                             {availablePaymentOptions.map((option) => (

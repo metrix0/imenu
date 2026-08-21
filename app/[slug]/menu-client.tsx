@@ -598,7 +598,6 @@ export default function MenuClientPage({
         }
     }, []);
 
-
 // AUTO-HIGHLIGHT TAB WHEN USER SCROLLS
     useEffect(() => {
         const observer = new IntersectionObserver(
@@ -636,6 +635,12 @@ export default function MenuClientPage({
             nextOpening.getFullYear() === now.getFullYear() &&
             nextOpening.getMonth() === now.getMonth() &&
             nextOpening.getDate() === now.getDate();
+    })();
+
+    const openingHoursSlots = (() => {
+        if (closedForToday || !nextOpening) return todaySlots;
+        const slots = restaurant.availability_json?.[nextOpening.getDay()] ?? [];
+        return Array.isArray(slots) ? slots : [];
     })();
 
     console.log(nextOpening, closedForToday)
@@ -745,22 +750,37 @@ export default function MenuClientPage({
                         </>
                     )}
                     {nextOpening !== null && !closedForToday && !canScheduleToday && (() => {
-                        const diffMs = nextOpening.getTime() - Date.now();
+                        const now = new Date();
+                        const diffMs = nextOpening.getTime() - now.getTime();
 
                         if (diffMs <= 0) return null;
 
-                        const totalMinutes = Math.floor(diffMs / 60000);
-                        const days = Math.floor(totalMinutes / (60 * 24));
+                        const todayStart = new Date(now);
+                        todayStart.setHours(0, 0, 0, 0);
+                        const openingStart = new Date(nextOpening);
+                        openingStart.setHours(0, 0, 0, 0);
+                        const days = Math.round((openingStart.getTime() - todayStart.getTime()) / 86_400_000);
+                        const weekdayRaw = nextOpening.toLocaleDateString("pt-BR", { weekday: "long" });
+                        const weekday = weekdayRaw.charAt(0).toUpperCase() + weekdayRaw.slice(1);
 
-                        if (days >= 1) {
+                        if (days === 1) {
                             return (
                                 <>
-                                    Restaurante fechado. Abre em <b>{days}d</b>.
+                                    Restaurante fechado. Abre <b>amanhã, {weekday}</b>.
                                 </>
                             );
                         }
 
-                        const hours = Math.floor((totalMinutes % (60 * 24)) / 60);
+                        if (days > 1) {
+                            return (
+                                <>
+                                    Restaurante fechado. Abre em <b>{days} dias</b>, no <b>{weekday}</b>.
+                                </>
+                            );
+                        }
+
+                        const totalMinutes = Math.floor(diffMs / 60000);
+                        const hours = Math.floor(totalMinutes / 60);
                         const minutes = totalMinutes % 60;
 
                         return (
@@ -773,10 +793,10 @@ export default function MenuClientPage({
                     })()}
 
 
-                    {todaySlots.length > 0 && (
+                    {openingHoursSlots.length > 0 && (
                         <div className="text-sm mt-2">
-                            Horários de Abertura{closedForToday && (" Comum")}:
-                            {todaySlots.map((slot, i) => (
+                            Horários de Abertura:
+                            {openingHoursSlots.map((slot, i) => (
                                 <div key={i}>
                                     {slot.open} - {slot.close}
                                 </div>

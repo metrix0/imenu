@@ -53,6 +53,11 @@ type DashboardPayload = {
     };
     cards: Record<MetricKey, number>;
     series: Record<MetricKey, SeriesPoint[]>;
+    abandonedUsers: Array<{
+        accountId: string;
+        restaurantName: string;
+        activeCustomerAbandoned: boolean;
+    }>;
     paymentMethods: {
         labels: string[];
         datasets: Array<{
@@ -92,6 +97,24 @@ type DashboardPayload = {
         }>;
     };
     generatedAt: string;
+};
+
+type DashboardDetailsPayload = {
+    abandonedUsers: Array<{
+        accountId: string;
+        restaurantName: string;
+        phone: string | null;
+        storeWhatsapp: string | null;
+        activeCustomerAbandoned: boolean;
+        previousWeekOrders: number;
+        previousWeekCustomers: number;
+        previousWeekGmvCents: number;
+        lastOrderAt: string | null;
+    }>;
+    trafficSummary: {
+        appViews: number | null;
+        landingViews: number | null;
+    };
 };
 
 const RANGE_OPTIONS: Array<{ key: RangeKey; label: string }> = [
@@ -149,6 +172,51 @@ function formatDateRange(startAt: string, endAt: string): string {
     return `${formatter.format(new Date(startAt))} – ${formatter.format(
         new Date(Math.max(0, new Date(endAt).getTime() - 1))
     )}`;
+}
+
+function formatDateTime(value: string | null): string {
+    if (!value) return "—";
+    return new Intl.DateTimeFormat("pt-BR", {
+        timeZone: "America/Sao_Paulo",
+        day: "2-digit",
+        month: "2-digit",
+        year: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+    }).format(new Date(value));
+}
+
+function firstPhone(value: string | null): string {
+    return value?.split(",")[0]?.trim() || "";
+}
+
+function formatPhone(value: string | null): string {
+    const original = firstPhone(value);
+    let digits = original.replace(/\D/g, "");
+
+    if (digits.startsWith("55") && (digits.length === 12 || digits.length === 13)) {
+        digits = digits.slice(2);
+    }
+
+    if (digits.length === 11) {
+        return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+    }
+    if (digits.length === 10) {
+        return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+    }
+    return original || "—";
+}
+
+function normalizeWhatsappNumber(value: string | null): string | null {
+    const original = firstPhone(value);
+    let digits = original.replace(/\D/g, "");
+    if (!digits) return null;
+
+    if (!digits.startsWith("55") && (digits.length === 10 || digits.length === 11)) {
+        digits = `55${digits}`;
+    }
+
+    return digits.length >= 12 ? digits : null;
 }
 
 function lineOptions(currency = false) {
@@ -221,6 +289,8 @@ export default function DevDashboardPage() {
     const [range, setRange] = useState<RangeKey>("this_week");
     const [accessState, setAccessState] = useState<AccessState>("checking");
     const [data, setData] = useState<DashboardPayload | null>(null);
+    const [details, setDetails] = useState<DashboardDetailsPayload | null>(null);
+    const [showAllAbandoned, setShowAllAbandoned] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
 
@@ -230,6 +300,7 @@ export default function DevDashboardPage() {
         const loadDashboard = async () => {
             setLoading(true);
             setError("");
+            setShowAllAbandoned(false);
 
             try {
                 const {
@@ -239,39 +310,60 @@ export default function DevDashboardPage() {
                 if (!session?.access_token) {
                     setAccessState("signed-out");
                     setData(null);
+                    setDetails(null);
                     return;
                 }
 
-                const response = await fetch(`/api/dev/dashboard?range=${range}`, {
-                    headers: {
-                        Authorization: `Bearer ${session.access_token}`,
-                    },
-                    cache: "no-store",
-                    signal: controller.signal,
-                });
+                const headers = {
+                    Authorization: `Bearer ${session.access_token}`,
+                };
+                const [response, detailsResponse] = await Promise.all([
+                    fetch(`/api/dev/dashboard?range=${range}`, {
+                        headers,
+                        cache: "no-store",
+                        signal: controller.signal,
+                    }),
+                    fetch(`/api/dev/dashboard/details?range=${range}`, {
+                        headers,
+                        cache: "no-store",
+                        signal: controller.signal,
+                    }),
+                ]);
 
                 const payload = (await response.json()) as DashboardPayload & {
                     error?: string;
                 };
+                const detailsPayload =
+                    (await detailsResponse.json()) as DashboardDetailsPayload & {
+                        error?: string;
+                    };
 
-                if (response.status === 401) {
+                if (response.status === 401 || detailsResponse.status === 401) {
                     setAccessState("signed-out");
                     setData(null);
+                    setDetails(null);
                     return;
                 }
 
-                if (response.status === 403) {
+                if (response.status === 403 || detailsResponse.status === 403) {
                     setAccessState("forbidden");
                     setData(null);
+                    setDetails(null);
                     return;
                 }
 
                 if (!response.ok) {
                     throw new Error(payload.error || "Erro ao carregar o dashboard.");
                 }
+                if (!detailsResponse.ok) {
+                    throw new Error(
+                        detailsPayload.error || "Erro ao carregar os detalhes do dashboard."
+                    );
+                }
 
                 setAccessState("allowed");
                 setData(payload);
+                setDetails(detailsPayload);
             } catch (caught) {
                 if (caught instanceof DOMException && caught.name === "AbortError") {
                     return;
@@ -546,28 +638,6 @@ export default function DevDashboardPage() {
 
                         <section>
                             <SectionHeading
-                                title="Blog"
-                                description="Soma das visualizações de /blog e de todas as páginas abaixo de /blog no período selecionado."
-                            />
-                            <div className="max-w-md">
-                                <MetricCard
-                                    title="Visualizações nas páginas do blog"
-                                    value={
-                                        data.tracking.blogViews === null
-                                            ? "—"
-                                            : formatCount(data.tracking.blogViews)
-                                    }
-                                    description={
-                                        data.tracking.postHogAvailable
-                                            ? "Pageviews registrados pelo PostHog."
-                                            : "Aguardando a conexão de leitura com o PostHog."
-                                    }
-                                />
-                            </div>
-                        </section>
-
-                        <section>
-                            <SectionHeading
                                 title="Abandono"
                                 description="Situação calculada em relação ao fim do período selecionado e ao fim de cada intervalo do gráfico."
                             />
@@ -588,6 +658,112 @@ export default function DevDashboardPage() {
                                     description="Atingiram quatro pedidos de clientes diferentes nos 30 dias anteriores e ficaram sete dias sem novos pedidos."
                                     danger
                                 />
+                            </div>
+
+                            <div className="mt-5 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+                                <div className="border-b border-gray-200 px-5 py-4">
+                                    <h3 className="font-semibold text-gray-900">
+                                        Usuários ativos abandonados
+                                    </h3>
+                                </div>
+                                {details?.abandonedUsers.length ? (
+                                    <>
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full min-w-[1180px] text-left text-sm">
+                                                <thead className="border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
+                                                    <tr>
+                                                        <th className="px-5 py-4 font-semibold">Restaurante</th>
+                                                        <th className="px-5 py-4 font-semibold">Telefone</th>
+                                                        <th className="px-5 py-4 font-semibold">Telefone loja</th>
+                                                        <th className="px-5 py-4 text-right font-semibold">Pedidos</th>
+                                                        <th className="px-5 py-4 text-right font-semibold">Clientes</th>
+                                                        <th className="px-5 py-4 text-right font-semibold">GMV</th>
+                                                        <th className="px-5 py-4 font-semibold">Último pedido</th>
+                                                        <th className="px-5 py-4 text-right font-semibold">Contato</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-gray-100">
+                                                    {(showAllAbandoned
+                                                        ? details.abandonedUsers
+                                                        : details.abandonedUsers.slice(0, 10)
+                                                    ).map((user) => {
+                                                        const whatsappNumber =
+                                                            normalizeWhatsappNumber(user.phone) ||
+                                                            normalizeWhatsappNumber(user.storeWhatsapp);
+                                                        return (
+                                                            <tr
+                                                                key={user.accountId}
+                                                                className="hover:bg-gray-50/70"
+                                                            >
+                                                                <td className="px-5 py-4 font-medium text-gray-900">
+                                                                    <span className="inline-flex items-center gap-2">
+                                                                        {user.activeCustomerAbandoned && (
+                                                                            <span className="text-base text-amber-500">★</span>
+                                                                        )}
+                                                                        {user.restaurantName}
+                                                                    </span>
+                                                                </td>
+                                                                <td className="px-5 py-4 text-gray-600">
+                                                                    {formatPhone(user.phone)}
+                                                                </td>
+                                                                <td className="px-5 py-4 text-gray-600">
+                                                                    {formatPhone(user.storeWhatsapp)}
+                                                                </td>
+                                                                <td className="px-5 py-4 text-right tabular-nums text-gray-700">
+                                                                    {formatCount(user.previousWeekOrders)}
+                                                                </td>
+                                                                <td className="px-5 py-4 text-right tabular-nums text-gray-700">
+                                                                    {formatCount(user.previousWeekCustomers)}
+                                                                </td>
+                                                                <td className="px-5 py-4 text-right font-semibold tabular-nums text-gray-900">
+                                                                    {formatCurrencyFromCents(user.previousWeekGmvCents)}
+                                                                </td>
+                                                                <td className="px-5 py-4 text-gray-600">
+                                                                    {formatDateTime(user.lastOrderAt)}
+                                                                </td>
+                                                                <td className="px-5 py-4 text-right">
+                                                                    <button
+                                                                        type="button"
+                                                                        disabled={!whatsappNumber}
+                                                                        onClick={() => {
+                                                                            if (!whatsappNumber) return;
+                                                                            const message = `Olá, ${user.restaurantName}, percebemos que estava usando o iMenu, porém nos últimos 7 dias não houveram compras recentes no seu restaurante. Nossa equipe corrige erros em 1-2 dias úteis e adiciona novas funcionalidades em 1-2 semanas. Podemos auxiliar de alguma forma?`;
+                                                                            window.open(
+                                                                                `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`,
+                                                                                "_blank",
+                                                                                "noopener,noreferrer"
+                                                                            );
+                                                                        }}
+                                                                        className="rounded-lg bg-green-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400"
+                                                                    >
+                                                                        WhatsApp
+                                                                    </button>
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    })}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                        {details.abandonedUsers.length > 10 && (
+                                            <div className="border-t border-gray-100 p-3 text-center">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowAllAbandoned((value) => !value)}
+                                                    className="rounded-lg px-4 py-2 text-sm font-semibold text-brand transition hover:bg-brand/5"
+                                                >
+                                                    {showAllAbandoned
+                                                        ? "Mostrar menos"
+                                                        : `Mostrar mais (${details.abandonedUsers.length - 10})`}
+                                                </button>
+                                            </div>
+                                        )}
+                                    </>
+                                ) : (
+                                    <div className="px-5 py-8 text-center text-sm text-gray-400">
+                                        Nenhum usuário ativo abandonado.
+                                    </div>
+                                )}
                             </div>
 
                             <div className="mt-5 grid gap-5 xl:grid-cols-2">
@@ -658,6 +834,39 @@ export default function DevDashboardPage() {
                                 title="Traffic"
                                 description="Visitantes únicos que saíram de cada página de conteúdo para a página inicial no período selecionado."
                             />
+                            <div className="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                                <MetricCard
+                                    title="Visualizações nas páginas do blog"
+                                    value={
+                                        data.tracking.blogViews === null
+                                            ? "—"
+                                            : formatCount(data.tracking.blogViews)
+                                    }
+                                    description={
+                                        data.tracking.postHogAvailable
+                                            ? "Soma das visualizações de /blog e de todas as páginas abaixo de /blog no período selecionado. Pageviews registrados pelo PostHog."
+                                            : "Soma das visualizações de /blog e de todas as páginas abaixo de /blog no período selecionado. Aguardando a conexão de leitura com o PostHog."
+                                    }
+                                />
+                                <MetricCard
+                                    title="Visualizações no app"
+                                    value={
+                                        details?.trafficSummary.appViews == null
+                                            ? "—"
+                                            : formatCount(details.trafficSummary.appViews)
+                                    }
+                                    description="Pageviews nas páginas públicas do iMenu no período selecionado, excluindo landing page, painel, cardápios de restaurantes e rotas internas."
+                                />
+                                <MetricCard
+                                    title="Visualizações da landing page"
+                                    value={
+                                        details?.trafficSummary.landingViews == null
+                                            ? "—"
+                                            : formatCount(details.trafficSummary.landingViews)
+                                    }
+                                    description="Pageviews da página inicial no período selecionado, registrados pelo PostHog."
+                                />
+                            </div>
                             <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
                                 <div className="overflow-x-auto">
                                     <table className="w-full min-w-[760px] text-left text-sm">

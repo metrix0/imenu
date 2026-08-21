@@ -21,6 +21,7 @@ interface StoreProfileProps {
         banner_url: string | null;
         payment_method: string | null;
         payment_info: string | null;
+        payment_info_type: string | null;
         url_slug: string | null;
         store_whatsapp: string | null;
     };
@@ -63,6 +64,9 @@ export default function StoreProfileManager({
     );
     const [paymentInfo, setPaymentInfo] = useState(
         restaurant.payment_info || ""
+    );
+    const [paymentInfoType, setPaymentInfoType] = useState(
+        restaurant.payment_info_type || "AUTO"
     );
     const [storeWhatsapp, setStoreWhatsapp] = useState(
         formatPhone(restaurant.store_whatsapp || "")
@@ -219,7 +223,7 @@ export default function StoreProfileManager({
                         autoComplete="tel"
                     />
 
-                    <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                    <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
                         <div className="relative z-10 flex min-w-0 flex-col gap-1">
                             <div className="relative z-20 flex items-center gap-2 text-xs font-medium 2xl:text-base">
                                 <span>Método de Repasse</span>
@@ -241,6 +245,31 @@ export default function StoreProfileManager({
                                     }}
                                 />
                             </div>
+                        </div>
+
+                        <div className="relative z-10 flex min-w-0 flex-col gap-1">
+                            <div className="text-xs font-medium 2xl:text-base">
+                                Tipo da chave PIX
+                            </div>
+                            <Dropdown
+                                options={[
+                                    { value: "AUTO", label: "Detectar automaticamente" },
+                                    { value: "CPF", label: "CPF" },
+                                    { value: "CNPJ", label: "CNPJ" },
+                                    { value: "EMAIL", label: "E-mail" },
+                                    { value: "PHONE", label: "Telefone" },
+                                    { value: "EVP", label: "Chave aleatória" },
+                                ]}
+                                value={paymentInfoType}
+                                onChange={(event) => {
+                                    const nextType = event.target.value;
+                                    setPaymentInfoType(nextType);
+                                    void saveFields({
+                                        payment_info_type:
+                                            nextType === "AUTO" ? null : nextType,
+                                    });
+                                }}
+                            />
                         </div>
 
                         <Input

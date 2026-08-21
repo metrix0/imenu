@@ -1,10 +1,17 @@
 "use client";
 
 import { ReactNode, useEffect } from "react";
+import { usePathname } from "next/navigation";
 import { getPosthog } from "@/lib/api/instrumentation-client";
 
 export default function PosthogProvider({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+
   useEffect(() => {
+    if (pathname?.startsWith("/painel")) {
+      return;
+    }
+
     let cancelled = false;
 
     const startPosthog = () => {
@@ -31,7 +38,7 @@ export default function PosthogProvider({ children }: { children: ReactNode }) {
       cancelled = true;
       window.clearTimeout(timeout);
     };
-  }, []);
+  }, [pathname]);
 
   return <>{children}</>;
 }

@@ -377,7 +377,7 @@ export default function EstoqueTab({
                                                             disabled={isSaving}
                                                             className={`relative h-7 w-12 cursor-pointer rounded-full transition ${
                                                                 enabled
-                                                                    ? "bg-brand"
+                                                                    ? "bg-green-500"
                                                                     : "bg-gray-300"
                                                             } ${
                                                                 isSaving

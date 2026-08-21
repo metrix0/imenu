@@ -186,7 +186,14 @@ export default function PedidoPage({
         preparing: "Preparando pedido",
         delivering: isPickup ? "Pedido pronto para retirada" : "Pedido a caminho",
         done: isPickup ? "Pedido retirado, bom apetite!" : "Pedido entregue, bom apetite!",
-        canceled: "Pedido cancelado",
+        canceled: (
+            <>
+                Pedido cancelado pelo restaurante.
+                {paymentMethod === "pix" && (
+                    <><br />Seu dinheiro foi reembolsado.</>
+                )}
+            </>
+        ),
     };
 
     const readableStatus = statusMap[status] ?? status;
@@ -261,7 +268,12 @@ export default function PedidoPage({
                 <p className="font-semibold text-text text-2xl 2xl:text-3xl 2xl:mt-3 mt-1">{eta}</p>
             </section>
 
-            {!status.includes("pending") && status !== "paid" ? (
+            {status === "canceled" ? (
+                <div className="flex gap-2 w-[94%] ml-[3%] h-1 rounded-full overflow-hidden relative mt-2 mb-2">
+                    <div className="relative inset-0 bg-red-500 rounded-full min-w-[25%] w-full max-w-[50%] border-white left-0" />
+                    <div className="relative inset-0 bg-red-500 rounded-full min-w-[25%] w-full max-w-[50%] border-white left-0" />
+                </div>
+            ) : !status.includes("pending") && status !== "paid" ? (
                 <div className="flex gap-2 w-[94%] ml-[3%] h-1 rounded-full overflow-hidden relative mt-2 mb-2">
                     {status === "preparing" ? (
                         <div className="relative inset-0 bg-gray-200 overflow-hidden rounded-full min-w-[25%] w-full max-w-[50%] border-white left-0">
@@ -288,8 +300,8 @@ export default function PedidoPage({
 
             <section className="p-5 flex items-center gap-6">
                 <div className="relative">
-                    <div className="w-3 h-3 bg-green rounded-full" />
-                    <div className="absolute inset-0 rounded-full bg-green opacity-40 animate-[pulseHalo_2s_ease-out_infinite]" />
+                    <div className={`w-3 h-3 rounded-full ${status === "canceled" ? "bg-red-500" : "bg-green"}`} />
+                    <div className={`absolute inset-0 rounded-full opacity-40 animate-[pulseHalo_2s_ease-out_infinite] ${status === "canceled" ? "bg-red-500" : "bg-green"}`} />
                 </div>
                 <div>
                     <p className="font-medium text-[15px] 2xl:text-lg leading-tight">{readableStatus}</p>

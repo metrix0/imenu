@@ -14,13 +14,12 @@ export default function ToggleInput({
                                         onChange,
                                         label,
                                         className = "",
-    color = null,
                                     }: ToggleInputProps) {
     return (
         <label className={`flex items-center gap-2 cursor-pointer 2xl:gap-3 ${className}`}>
             <div
                 className={`w-10 h-6 flex items-center rounded-full p-1 duration-300 2xl:w-12 2xl:h-7 ${
-                    checked ? `${color ? color : "bg-brand"}` : "bg-gray-300"
+                    checked ? "bg-green-500" : "bg-gray-300"
                 }`}
             >
                 <div
