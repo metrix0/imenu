@@ -12,7 +12,6 @@ import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faEye, faEyeSlash } from "@fortawesome/free-solid-svg-icons";
-import { faGoogle } from "@fortawesome/free-brands-svg-icons";
 
 type Field = "email" | "phone" | "password" | "terms";
 
@@ -276,7 +275,13 @@ export default function RestaurantRegistrationPage() {
                         onClick={() => void registerWithGoogle()}
                         className="w-full border border-gray-300 bg-white! hover:bg-gray-50!"
                     >
-                        <FontAwesomeIcon icon={faGoogle} className="mr-2" />
+                        <Image
+                            src="/logos/google-g.svg"
+                            alt=""
+                            width={18}
+                            height={18}
+                            className="mr-2"
+                        />
                         Continuar com Google
                     </Button>
 
