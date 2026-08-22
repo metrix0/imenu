@@ -233,10 +233,7 @@ export default function PainelLayout({
 
     useEffect(() => {
         const handleTouchStart = (event: TouchEvent) => {
-            if (
-                mobileMenuOpen ||
-                !window.matchMedia("(max-width: 767px)").matches
-            ) {
+            if (!window.matchMedia("(max-width: 767px)").matches) {
                 swipeStartRef.current = null;
                 return;
             }
@@ -254,8 +251,20 @@ export default function PainelLayout({
             const horizontalDistance = touch.clientX - start.x;
             const verticalDistance = Math.abs(touch.clientY - start.y);
 
-            if (horizontalDistance >= 70 && verticalDistance < 50) {
+            if (
+                !mobileMenuOpen &&
+                horizontalDistance >= 70 &&
+                verticalDistance < 50
+            ) {
                 setMobileMenuOpen(true);
+            }
+
+            if (
+                mobileMenuOpen &&
+                horizontalDistance <= -70 &&
+                verticalDistance < 50
+            ) {
+                setMobileMenuOpen(false);
             }
         };
 
