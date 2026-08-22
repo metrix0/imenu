@@ -76,6 +76,9 @@ export default function StoreProfileManager({
         formatPhone(restaurant.store_whatsapp || "")
     );
     const [urlSlug, setUrlSlug] = useState(restaurant.url_slug || "");
+    const [customDomain, setCustomDomain] = useState(
+        restaurant.custom_domain || ""
+    );
     const [customDomainOpen, setCustomDomainOpen] = useState(false);
 
     useEffect(() => {
@@ -150,7 +153,9 @@ export default function StoreProfileManager({
 
     const copyMenuLink = async () => {
         await navigator.clipboard.writeText(
-            `https://imenuapp.com.br/${urlSlug || "nome-da-loja"}`
+            customDomain
+                ? `https://${customDomain}`
+                : `https://imenuapp.com.br/${urlSlug || "nome-da-loja"}`
         );
         setToast({ msg: "Link copiado!", type: "success" });
     };
@@ -302,7 +307,8 @@ export default function StoreProfileManager({
                             />
                             <div className="mt-1 flex min-w-0 items-center gap-2 text-xs text-gray-500">
                                 <span className="min-w-0 break-all">
-                                    imenuapp.com.br/{urlSlug || "nome-da-loja"}
+                                    {customDomain ||
+                                        `imenuapp.com.br/${urlSlug || "nome-da-loja"}`}
                                 </span>
                                 <button
                                     type="button"
@@ -318,11 +324,14 @@ export default function StoreProfileManager({
 
                         <Button
                             type="button"
+                            variant={customDomain ? "secondary" : "primary"}
                             onClick={() => setCustomDomainOpen(true)}
                             className="w-fit shrink-0 self-start border border-transparent py-3! md:mt-5 2xl:mt-8 2xl:text-lg"
                         >
                             <FontAwesomeIcon icon={faGlobe} className="mr-2" />
-                            Usar meu domínio
+                            {customDomain
+                                ? "Domínio conectado"
+                                : "Usar meu domínio"}
                         </Button>
                     </div>
 
@@ -350,7 +359,8 @@ export default function StoreProfileManager({
                 open={customDomainOpen}
                 onClose={() => setCustomDomainOpen(false)}
                 restaurantId={restaurant.id}
-                initialDomain={restaurant.custom_domain}
+                initialDomain={customDomain}
+                onDomainChange={setCustomDomain}
             />
         </div>
     );
