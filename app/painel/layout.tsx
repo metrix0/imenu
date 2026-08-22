@@ -49,6 +49,15 @@ type MenuItem =
           type?: undefined;
       };
 
+type ScreenWakeLockSentinel = {
+    release: () => Promise<void>;
+    addEventListener: (
+        type: "release",
+        listener: () => void,
+        options?: { once?: boolean }
+    ) => void;
+};
+
 const SIDEBAR_EXPANDED_STORAGE_KEY = "imenu-panel-sidebar-expanded";
 
 function getParamRestaurantId(
@@ -80,6 +89,64 @@ export default function PainelLayout({
 
     const base = "/painel";
     const targetRestaurantId = restaurantId || getParamRestaurantId(params);
+
+    useEffect(() => {
+        const wakeLock = (
+            navigator as Navigator & {
+                wakeLock?: {
+                    request: (
+                        type: "screen"
+                    ) => Promise<ScreenWakeLockSentinel>;
+                };
+            }
+        ).wakeLock;
+
+        if (!wakeLock) return;
+
+        let active = true;
+        let sentinel: ScreenWakeLockSentinel | null = null;
+
+        const requestWakeLock = async () => {
+            if (
+                !active ||
+                sentinel ||
+                document.visibilityState !== "visible"
+            ) {
+                return;
+            }
+
+            try {
+                sentinel = await wakeLock.request("screen");
+                sentinel.addEventListener(
+                    "release",
+                    () => {
+                        sentinel = null;
+                    },
+                    { once: true }
+                );
+            } catch {
+                sentinel = null;
+            }
+        };
+
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === "visible") {
+                void requestWakeLock();
+            }
+        };
+
+        void requestWakeLock();
+        document.addEventListener("visibilitychange", handleVisibilityChange);
+
+        return () => {
+            active = false;
+            document.removeEventListener(
+                "visibilitychange",
+                handleVisibilityChange
+            );
+            if (sentinel) void sentinel.release();
+        };
+    }, []);
 
     useEffect(() => {
         const fetchContext = async () => {

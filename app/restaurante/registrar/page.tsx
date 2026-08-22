@@ -12,6 +12,7 @@ import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faEye, faEyeSlash } from "@fortawesome/free-solid-svg-icons";
+import { faGoogle } from "@fortawesome/free-brands-svg-icons";
 
 type Field = "email" | "phone" | "password" | "terms";
 
@@ -49,6 +50,7 @@ export default function RestaurantRegistrationPage() {
     const [acceptedTerms, setAcceptedTerms] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [googleLoading, setGoogleLoading] = useState(false);
     const [error, setError] = useState("");
     const [invalid, setInvalid] = useState<Field[]>([]);
 
@@ -226,6 +228,25 @@ export default function RestaurantRegistrationPage() {
         }
     };
 
+    const registerWithGoogle = async () => {
+        setGoogleLoading(true);
+        setError("");
+
+        const { error: oauthError } = await supabase.auth.signInWithOAuth({
+            provider: "google",
+            options: {
+                redirectTo: `${window.location.origin}/restaurante/confirmar-email`,
+            },
+        });
+
+        if (oauthError) {
+            setError(
+                oauthError.message || "Não foi possível continuar com Google."
+            );
+            setGoogleLoading(false);
+        }
+    };
+
     const inputError = (field: Field) =>
         invalid.includes(field)
             ? "!border-red-500 focus:!border-red-500 focus:!ring-red-500"
@@ -247,6 +268,23 @@ export default function RestaurantRegistrationPage() {
                     <h1 className="text-center text-2xl font-bold text-gray-900">
                         Crie seu Cardápio Digital
                     </h1>
+
+                    <Button
+                        type="button"
+                        variant="secondary"
+                        loading={googleLoading}
+                        onClick={() => void registerWithGoogle()}
+                        className="w-full border border-gray-300 bg-white! hover:bg-gray-50!"
+                    >
+                        <FontAwesomeIcon icon={faGoogle} className="mr-2" />
+                        Continuar com Google
+                    </Button>
+
+                    <div className="flex items-center gap-3 text-xs text-gray-400">
+                        <span className="h-px flex-1 bg-gray-200" />
+                        ou
+                        <span className="h-px flex-1 bg-gray-200" />
+                    </div>
 
                     <Input
                         label="E-mail*"

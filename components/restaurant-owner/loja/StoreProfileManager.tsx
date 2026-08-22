@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/database/supabaseClient";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faCircleInfo } from "@fortawesome/free-solid-svg-icons";
+import { faCircleInfo, faCopy } from "@fortawesome/free-solid-svg-icons";
+import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Toast from "@/components/ui/Toast";
 import Input from "@/components/ui/Input";
@@ -11,6 +12,7 @@ import Dropdown from "@/components/ui/Dropdown";
 import Tooltip from "@/components/ui/Tooltip";
 import WarningBox from "@/components/ui/WarningBox";
 import StoreVisuals from "./StoreVisuals";
+import CustomDomainModal from "./CustomDomainModal";
 
 interface StoreProfileProps {
     restaurant: {
@@ -23,6 +25,7 @@ interface StoreProfileProps {
         payment_info: string | null;
         payment_info_type: string | null;
         url_slug: string | null;
+        custom_domain: string | null;
         store_whatsapp: string | null;
     };
     compact?: boolean;
@@ -59,9 +62,6 @@ export default function StoreProfileManager({
         msg: string;
         type: "success" | "error";
     } | null>(null);
-    const [paymentMethod, setPaymentMethod] = useState(
-        restaurant.payment_method || "pix"
-    );
     const [paymentInfo, setPaymentInfo] = useState(
         restaurant.payment_info || ""
     );
@@ -72,6 +72,7 @@ export default function StoreProfileManager({
         formatPhone(restaurant.store_whatsapp || "")
     );
     const [urlSlug, setUrlSlug] = useState(restaurant.url_slug || "");
+    const [customDomainOpen, setCustomDomainOpen] = useState(false);
 
     useEffect(() => {
         if (restaurant.logo_url) {
@@ -143,6 +144,13 @@ export default function StoreProfileManager({
         }
     };
 
+    const copyMenuLink = async () => {
+        await navigator.clipboard.writeText(
+            `https://imenuapp.com.br/${urlSlug || "nome-da-loja"}`
+        );
+        setToast({ msg: "Link copiado!", type: "success" });
+    };
+
     const handleVisualUpdate = async (
         type: "logo" | "banner",
         publicUrl: string,
@@ -205,48 +213,7 @@ export default function StoreProfileManager({
                         className="text-lg font-medium"
                     />
 
-                    <Input
-                        label="WhatsApp da loja"
-                        placeholder="(00) 00000-0000"
-                        type="tel"
-                        inputMode="tel"
-                        value={storeWhatsapp}
-                        onChange={(event) =>
-                            setStoreWhatsapp(formatPhone(event.target.value))
-                        }
-                        onBlur={() =>
-                            void saveFields({
-                                store_whatsapp: storeWhatsapp.replace(/\D/g, ""),
-                            })
-                        }
-                        maxLength={15}
-                        autoComplete="tel"
-                    />
-
-                    <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-                        <div className="relative z-10 flex min-w-0 flex-col gap-1">
-                            <div className="relative z-20 flex items-center gap-2 text-xs font-medium 2xl:text-base">
-                                <span>Método de Repasse</span>
-                                <Tooltip text="Repasses apenas para pagamentos por Pix (ONLINE).">
-                                    <FontAwesomeIcon
-                                        icon={faCircleInfo}
-                                        className="cursor-help text-gray-500"
-                                    />
-                                </Tooltip>
-                            </div>
-                            <div className="relative z-10">
-                                <Dropdown
-                                    options={[{ value: "pix", label: "PIX" }]}
-                                    value={paymentMethod}
-                                    onChange={(event) => {
-                                        const nextMethod = event.target.value;
-                                        setPaymentMethod(nextMethod);
-                                        void saveFields({ payment_method: nextMethod });
-                                    }}
-                                />
-                            </div>
-                        </div>
-
+                    <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                         <div className="relative z-10 flex min-w-0 flex-col gap-1">
                             <div className="text-xs font-medium 2xl:text-base">
                                 Tipo da chave PIX
@@ -272,32 +239,88 @@ export default function StoreProfileManager({
                             />
                         </div>
 
-                        <Input
-                            label="Chave PIX"
-                            placeholder="Ex: 123456789"
-                            value={paymentInfo}
-                            onChange={(event) => setPaymentInfo(event.target.value)}
-                            onBlur={() =>
-                                void saveFields({ payment_info: paymentInfo })
-                            }
-                        />
+                        <div className="flex min-w-0 flex-col gap-1">
+                            <div className="flex items-center gap-2 text-xs font-medium 2xl:text-base">
+                                <span>Chave Pix para Repasse</span>
+                                <Tooltip
+                                    text="Repasses são apenas para clientes que pagaram com Pix Online. São feitos todo domingo às 14:00 no PIX cadastrado."
+                                    size="medium"
+                                    showOnClick
+                                >
+                                    <FontAwesomeIcon
+                                        icon={faCircleInfo}
+                                        className="cursor-help text-gray-500"
+                                    />
+                                </Tooltip>
+                            </div>
+                            <Input
+                                placeholder="Ex: 123456789"
+                                value={paymentInfo}
+                                onChange={(event) =>
+                                    setPaymentInfo(event.target.value)
+                                }
+                                onBlur={() =>
+                                    void saveFields({ payment_info: paymentInfo })
+                                }
+                            />
+                        </div>
                     </div>
 
-                    <div className="min-w-0">
+                    <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                         <Input
-                            label="Endereço do cardápio"
-                            value={urlSlug}
-                            placeholder="nome-da-loja"
+                            label="WhatsApp da loja"
+                            placeholder="(00) 00000-0000"
+                            type="tel"
+                            inputMode="tel"
+                            value={storeWhatsapp}
                             onChange={(event) =>
-                                setUrlSlug(sanitizeSlug(event.target.value))
+                                setStoreWhatsapp(formatPhone(event.target.value))
                             }
-                            onBlur={saveSlug}
-                            autoComplete="off"
+                            onBlur={() =>
+                                void saveFields({
+                                    store_whatsapp: storeWhatsapp.replace(/\D/g, ""),
+                                })
+                            }
+                            maxLength={15}
+                            autoComplete="tel"
                         />
-                        <p className="mt-1 break-all text-xs text-gray-500">
-                            imenuapp.com.br/{urlSlug || "nome-da-loja"}
-                        </p>
+
+                        <div className="min-w-0">
+                            <Input
+                                label="Link do cardápio"
+                                value={urlSlug}
+                                placeholder="nome-da-loja"
+                                onChange={(event) =>
+                                    setUrlSlug(sanitizeSlug(event.target.value))
+                                }
+                                onBlur={saveSlug}
+                                autoComplete="off"
+                            />
+                            <div className="mt-1 flex min-w-0 items-center gap-2 text-xs text-gray-500">
+                                <span className="min-w-0 break-all">
+                                    imenuapp.com.br/{urlSlug || "nome-da-loja"}
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={() => void copyMenuLink()}
+                                    aria-label="Copiar link do cardápio"
+                                    title="Copiar link"
+                                    className="shrink-0 cursor-pointer text-gray-500 hover:text-brand"
+                                >
+                                    <FontAwesomeIcon icon={faCopy} />
+                                </button>
+                            </div>
+                        </div>
                     </div>
+
+                    <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={() => setCustomDomainOpen(true)}
+                        className="w-fit"
+                    >
+                        Usar meu domínio
+                    </Button>
 
                     <WarningBox
                         icon={faCircleInfo}
@@ -318,6 +341,13 @@ export default function StoreProfileManager({
                     onClose={() => setToast(null)}
                 />
             )}
+
+            <CustomDomainModal
+                open={customDomainOpen}
+                onClose={() => setCustomDomainOpen(false)}
+                restaurantId={restaurant.id}
+                initialDomain={restaurant.custom_domain}
+            />
         </div>
     );
 }

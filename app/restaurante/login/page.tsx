@@ -13,6 +13,7 @@ import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 import { getCreationStepPath } from "@/lib/restaurantCreation";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faEye, faEyeSlash } from "@fortawesome/free-solid-svg-icons";
+import { faGoogle } from "@fortawesome/free-brands-svg-icons";
 
 type AuthFailure = {
     code?: string;
@@ -72,6 +73,7 @@ export default function AdminLogin() {
     const [email, setLocalEmail] = useState("");
     const [password, setPassword] = useState("");
     const [loading, setLoading] = useState(false);
+    const [googleLoading, setGoogleLoading] = useState(false);
     const [error, setError] = useState("");
     const [show, setShow] = useState(false);
     const [toast, setToast] = useState(false);
@@ -208,6 +210,23 @@ export default function AdminLogin() {
         }
     };
 
+    const loginWithGoogle = async () => {
+        setGoogleLoading(true);
+        setError("");
+
+        const { error: oauthError } = await supabase.auth.signInWithOAuth({
+            provider: "google",
+            options: {
+                redirectTo: `${window.location.origin}/restaurante/confirmar-email`,
+            },
+        });
+
+        if (oauthError) {
+            setError(oauthError.message || "Não foi possível entrar com Google.");
+            setGoogleLoading(false);
+        }
+    };
+
     return (
         <div className="flex min-h-screen flex-col">
             <header className="px-6 py-7">
@@ -226,6 +245,23 @@ export default function AdminLogin() {
                     </h1>
 
                     <form onSubmit={login} className="space-y-6">
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            loading={googleLoading}
+                            onClick={() => void loginWithGoogle()}
+                            className="w-full border border-gray-300 bg-white! hover:bg-gray-50!"
+                        >
+                            <FontAwesomeIcon icon={faGoogle} className="mr-2" />
+                            Continuar com Google
+                        </Button>
+
+                        <div className="flex items-center gap-3 text-xs text-gray-400">
+                            <span className="h-px flex-1 bg-gray-200" />
+                            ou
+                            <span className="h-px flex-1 bg-gray-200" />
+                        </div>
+
                         <Input
                             label="E-mail"
                             type="email"
