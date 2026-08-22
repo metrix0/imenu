@@ -3,7 +3,11 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/database/supabaseClient";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faCircleInfo, faCopy } from "@fortawesome/free-solid-svg-icons";
+import {
+    faCircleInfo,
+    faCopy,
+    faGlobe,
+} from "@fortawesome/free-solid-svg-icons";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Toast from "@/components/ui/Toast";
@@ -213,7 +217,7 @@ export default function StoreProfileManager({
                         className="text-lg font-medium"
                     />
 
-                    <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                    <div className="grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)_auto] md:gap-4">
                         <div className="relative z-10 flex min-w-0 flex-col gap-1">
                             <div className="text-xs font-medium 2xl:text-base">
                                 Tipo da chave PIX
@@ -311,16 +315,16 @@ export default function StoreProfileManager({
                                 </button>
                             </div>
                         </div>
-                    </div>
 
-                    <Button
-                        type="button"
-                        variant="secondary"
-                        onClick={() => setCustomDomainOpen(true)}
-                        className="w-fit"
-                    >
-                        Usar meu domínio
-                    </Button>
+                        <Button
+                            type="button"
+                            onClick={() => setCustomDomainOpen(true)}
+                            className="w-fit shrink-0 md:mt-6"
+                        >
+                            <FontAwesomeIcon icon={faGlobe} className="mr-2" />
+                            Usar meu domínio
+                        </Button>
+                    </div>
 
                     <WarningBox
                         icon={faCircleInfo}

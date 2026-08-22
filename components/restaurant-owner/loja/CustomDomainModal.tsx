@@ -85,7 +85,7 @@ export default function CustomDomainModal({
             <div className="space-y-5 px-6 py-6">
                 <Input
                     label="Domínio"
-                    placeholder="cardapio.seudominio.com.br"
+                    placeholder="seudominio.com.br"
                     value={domain}
                     onChange={(event) => setDomain(event.target.value)}
                     autoComplete="off"
