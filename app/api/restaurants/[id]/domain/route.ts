@@ -406,3 +406,107 @@ export async function POST(
         );
     }
 }
+
+export async function DELETE(
+    _request: Request,
+    context: { params: Promise<{ id: string }> }
+) {
+    const { id } = await context.params;
+    const token = process.env.VERCEL_TOKEN;
+
+    if (!id) {
+        return NextResponse.json(
+            { error: "Restaurant ID is required" },
+            { status: 400 }
+        );
+    }
+
+    if (!token) {
+        return NextResponse.json(
+            { error: "A conexão de domínios ainda não foi configurada." },
+            { status: 503 }
+        );
+    }
+
+    try {
+        const restaurantResult = await query<{
+            id: string;
+            custom_domain: string | null;
+        }>(
+            `SELECT id, custom_domain FROM public.restaurants WHERE id = $1 LIMIT 1`,
+            [id]
+        );
+        const restaurant = restaurantResult.rows[0];
+
+        if (!restaurant) {
+            return NextResponse.json(
+                { error: "Restaurant not found" },
+                { status: 404 }
+            );
+        }
+
+        const domain = normalizeDomain(restaurant.custom_domain);
+        if (domain) {
+            const removeResponse = await fetch(
+                vercelUrl(
+                    `/v9/projects/{projectId}/domains/${encodeURIComponent(domain)}`
+                ),
+                {
+                    method: "DELETE",
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                        "Content-Type": "application/json",
+                    },
+                    cache: "no-store",
+                }
+            );
+
+            if (!removeResponse.ok && removeResponse.status !== 404) {
+                const payload = await readVercelResponse(removeResponse);
+                return NextResponse.json(
+                    {
+                        error:
+                            payload.error?.message ||
+                            payload.message ||
+                            "Não foi possível desconectar este domínio.",
+                    },
+                    { status: removeResponse.status }
+                );
+            }
+        }
+
+        await query(
+            `
+            UPDATE public.restaurants
+            SET custom_domain = NULL, updated_at = NOW()
+            WHERE id = $1
+            `,
+            [id]
+        );
+
+        return NextResponse.json(
+            {
+                success: true,
+                domain: null,
+                added: false,
+                verified: false,
+                configured: false,
+                configurationChecked: true,
+                verification: [],
+                dns: null,
+            },
+            { headers: { "Cache-Control": "no-store" } }
+        );
+    } catch (error) {
+        console.error("Error disconnecting custom domain:", error);
+        return NextResponse.json(
+            {
+                error:
+                    error instanceof Error
+                        ? error.message
+                        : "Erro interno do servidor.",
+            },
+            { status: 500 }
+        );
+    }
+}

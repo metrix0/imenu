@@ -62,10 +62,9 @@ export default function CustomDomainModal({
     const [saving, setSaving] = useState(false);
     const [checking, setChecking] = useState(false);
     const [error, setError] = useState("");
-    const currentDomainSaved =
+    const domainUnchanged =
         Boolean(savedDomain) &&
-        domain.trim().toLowerCase() === savedDomain &&
-        status?.added !== false;
+        domain.trim().toLowerCase() === savedDomain;
 
     const applyStatus = useCallback(
         (payload: DomainStatus) => {
@@ -73,10 +72,8 @@ export default function CustomDomainModal({
                 typeof payload.domain === "string" ? payload.domain : "";
             setStatus(payload);
             setSavedDomain(nextDomain);
-            if (nextDomain) {
-                setDomain(nextDomain);
-                onDomainChange?.(nextDomain);
-            }
+            setDomain(nextDomain);
+            onDomainChange?.(nextDomain);
         },
         [onDomainChange]
     );
@@ -160,6 +157,44 @@ export default function CustomDomainModal({
                 caught instanceof Error
                     ? caught.message
                     : "Não foi possível conectar este domínio."
+            );
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const disconnectDomain = async () => {
+        if (
+            !window.confirm(
+                "Desconectar este domínio? O cardápio deixará de abrir por ele."
+            )
+        ) {
+            return;
+        }
+
+        setSaving(true);
+        setError("");
+
+        try {
+            const response = await fetch(
+                `/api/restaurants/${restaurantId}/domain`,
+                { method: "DELETE" }
+            );
+            const payload = (await response.json()) as DomainStatus;
+
+            if (!response.ok) {
+                throw new Error(
+                    payload?.error ||
+                        "Não foi possível desconectar este domínio."
+                );
+            }
+
+            applyStatus(payload);
+        } catch (caught) {
+            setError(
+                caught instanceof Error
+                    ? caught.message
+                    : "Não foi possível desconectar este domínio."
             );
         } finally {
             setSaving(false);
@@ -290,20 +325,26 @@ export default function CustomDomainModal({
                 <Button type="button" variant="secondary" onClick={onClose}>
                     Fechar
                 </Button>
-                <Button
-                    type="button"
-                    variant={currentDomainSaved ? "secondary" : "primary"}
-                    loading={saving}
-                    disabled={currentDomainSaved}
-                    onClick={() => void connectDomain()}
-                    className="disabled:cursor-default disabled:opacity-100"
-                >
-                    {currentDomainSaved
-                        ? "Domínio conectado"
-                        : savedDomain
-                          ? "Atualizar domínio"
-                          : "Conectar domínio"}
-                </Button>
+                {domainUnchanged ? (
+                    <Button
+                        type="button"
+                        variant="secondary"
+                        loading={saving}
+                        onClick={() => void disconnectDomain()}
+                    >
+                        Desconectar
+                    </Button>
+                ) : (
+                    <Button
+                        type="button"
+                        loading={saving}
+                        onClick={() => void connectDomain()}
+                    >
+                        {savedDomain
+                            ? "Atualizar domínio"
+                            : "Conectar domínio"}
+                    </Button>
+                )}
             </div>
         </Modal>
     );
