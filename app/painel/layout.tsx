@@ -49,6 +49,15 @@ type MenuItem =
           type?: undefined;
       };
 
+type ScreenWakeLockSentinel = {
+    release: () => Promise<void>;
+    addEventListener: (
+        type: "release",
+        listener: () => void,
+        options?: { once?: boolean }
+    ) => void;
+};
+
 const SIDEBAR_EXPANDED_STORAGE_KEY = "imenu-panel-sidebar-expanded";
 
 function getParamRestaurantId(
@@ -69,6 +78,7 @@ export default function PainelLayout({
     const router = useRouter();
     const { restaurantId } = useCreationStore();
     const supportButtonRef = useRef<SupportButtonRef>(null);
+    const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
 
     const [expanded, setExpanded] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -80,6 +90,64 @@ export default function PainelLayout({
 
     const base = "/painel";
     const targetRestaurantId = restaurantId || getParamRestaurantId(params);
+
+    useEffect(() => {
+        const wakeLock = (
+            navigator as Navigator & {
+                wakeLock?: {
+                    request: (
+                        type: "screen"
+                    ) => Promise<ScreenWakeLockSentinel>;
+                };
+            }
+        ).wakeLock;
+
+        if (!wakeLock) return;
+
+        let active = true;
+        let sentinel: ScreenWakeLockSentinel | null = null;
+
+        const requestWakeLock = async () => {
+            if (
+                !active ||
+                sentinel ||
+                document.visibilityState !== "visible"
+            ) {
+                return;
+            }
+
+            try {
+                sentinel = await wakeLock.request("screen");
+                sentinel.addEventListener(
+                    "release",
+                    () => {
+                        sentinel = null;
+                    },
+                    { once: true }
+                );
+            } catch {
+                sentinel = null;
+            }
+        };
+
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === "visible") {
+                void requestWakeLock();
+            }
+        };
+
+        void requestWakeLock();
+        document.addEventListener("visibilitychange", handleVisibilityChange);
+
+        return () => {
+            active = false;
+            document.removeEventListener(
+                "visibilitychange",
+                handleVisibilityChange
+            );
+            if (sentinel) void sentinel.release();
+        };
+    }, []);
 
     useEffect(() => {
         const fetchContext = async () => {
@@ -162,6 +230,56 @@ export default function PainelLayout({
     useEffect(() => {
         setMobileMenuOpen(false);
     }, [pathname]);
+
+    useEffect(() => {
+        const handleTouchStart = (event: TouchEvent) => {
+            if (!window.matchMedia("(max-width: 767px)").matches) {
+                swipeStartRef.current = null;
+                return;
+            }
+
+            const touch = event.touches[0];
+            swipeStartRef.current = { x: touch.clientX, y: touch.clientY };
+        };
+
+        const handleTouchEnd = (event: TouchEvent) => {
+            const start = swipeStartRef.current;
+            swipeStartRef.current = null;
+            if (!start) return;
+
+            const touch = event.changedTouches[0];
+            const horizontalDistance = touch.clientX - start.x;
+            const verticalDistance = Math.abs(touch.clientY - start.y);
+
+            if (
+                !mobileMenuOpen &&
+                horizontalDistance >= 70 &&
+                verticalDistance < 50
+            ) {
+                setMobileMenuOpen(true);
+            }
+
+            if (
+                mobileMenuOpen &&
+                horizontalDistance <= -70 &&
+                verticalDistance < 50
+            ) {
+                setMobileMenuOpen(false);
+            }
+        };
+
+        document.addEventListener("touchstart", handleTouchStart, {
+            passive: true,
+        });
+        document.addEventListener("touchend", handleTouchEnd, {
+            passive: true,
+        });
+
+        return () => {
+            document.removeEventListener("touchstart", handleTouchStart);
+            document.removeEventListener("touchend", handleTouchEnd);
+        };
+    }, [mobileMenuOpen]);
 
     useEffect(() => {
         if (!mobileMenuOpen) return;
@@ -293,7 +411,7 @@ export default function PainelLayout({
                     : setShowCloseModal(true)
             }
             disabled={isTogglingStore}
-            className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+            className={`flex cursor-pointer items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
                 fullWidth ? "w-full" : ""
             } ${
                 isStoreClosed

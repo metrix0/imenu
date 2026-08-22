@@ -57,7 +57,7 @@ export default function LojaPage() {
             const { data, error } = await supabase
                 .from("restaurants")
                 .select(
-                    "id, name, description, logo_url, banner_url, payment_method, payment_info, payment_info_type, allowed_payment_methods, url_slug, store_whatsapp, prep_time_min_minutes, prep_time_max_minutes"
+                    "id, name, description, logo_url, banner_url, payment_method, payment_info, payment_info_type, allowed_payment_methods, url_slug, custom_domain, store_whatsapp, prep_time_min_minutes, prep_time_max_minutes"
                 )
                 .eq("id", targetId)
                 .single();

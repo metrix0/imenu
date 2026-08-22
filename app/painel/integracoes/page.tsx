@@ -439,7 +439,7 @@ export default function IntegracoesPage() {
                     }`}
                 >
                     <FontAwesomeIcon icon={faWhatsapp} />
-                    WhatsApp
+                    Robô WhatsApp
                 </button>
                 <button
                     type="button"
@@ -451,7 +451,7 @@ export default function IntegracoesPage() {
                     }`}
                 >
                     <FontAwesomeIcon icon={faChartLine} />
-                    Rastreamento
+                    Rastreamento Anúncios
                 </button>
             </div>
 
