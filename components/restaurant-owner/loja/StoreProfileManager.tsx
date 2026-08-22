@@ -294,7 +294,26 @@ export default function StoreProfileManager({
                             autoComplete="tel"
                         />
 
-                        <div className="min-w-0">
+                        {customDomain ? (
+                            <Input
+                                label="Link do cardápio"
+                                value={customDomain}
+                                readOnly
+                                locked
+                                iconPosition="right"
+                                icon={
+                                    <button
+                                        type="button"
+                                        onClick={() => void copyMenuLink()}
+                                        aria-label="Copiar link do cardápio"
+                                        title="Copiar link"
+                                        className="cursor-pointer text-gray-500 hover:text-brand"
+                                    >
+                                        <FontAwesomeIcon icon={faCopy} />
+                                    </button>
+                                }
+                            />
+                        ) : (
                             <Input
                                 label="Link do cardápio"
                                 value={urlSlug}
@@ -305,22 +324,7 @@ export default function StoreProfileManager({
                                 onBlur={saveSlug}
                                 autoComplete="off"
                             />
-                            <div className="mt-1 flex min-w-0 items-center gap-2 text-xs text-gray-500">
-                                <span className="min-w-0 break-all">
-                                    {customDomain ||
-                                        `imenuapp.com.br/${urlSlug || "nome-da-loja"}`}
-                                </span>
-                                <button
-                                    type="button"
-                                    onClick={() => void copyMenuLink()}
-                                    aria-label="Copiar link do cardápio"
-                                    title="Copiar link"
-                                    className="shrink-0 cursor-pointer text-gray-500 hover:text-brand"
-                                >
-                                    <FontAwesomeIcon icon={faCopy} />
-                                </button>
-                            </div>
-                        </div>
+                        )}
 
                         <Button
                             type="button"

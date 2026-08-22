@@ -62,6 +62,10 @@ export default function CustomDomainModal({
     const [saving, setSaving] = useState(false);
     const [checking, setChecking] = useState(false);
     const [error, setError] = useState("");
+    const currentDomainSaved =
+        Boolean(savedDomain) &&
+        domain.trim().toLowerCase() === savedDomain &&
+        status?.added !== false;
 
     const applyStatus = useCallback(
         (payload: DomainStatus) => {
@@ -288,10 +292,17 @@ export default function CustomDomainModal({
                 </Button>
                 <Button
                     type="button"
+                    variant={currentDomainSaved ? "secondary" : "primary"}
                     loading={saving}
+                    disabled={currentDomainSaved}
                     onClick={() => void connectDomain()}
+                    className="disabled:cursor-default disabled:opacity-100"
                 >
-                    Conectar domínio
+                    {currentDomainSaved
+                        ? "Domínio conectado"
+                        : savedDomain
+                          ? "Atualizar domínio"
+                          : "Conectar domínio"}
                 </Button>
             </div>
         </Modal>
