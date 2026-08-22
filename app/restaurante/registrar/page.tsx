@@ -273,7 +273,7 @@ export default function RestaurantRegistrationPage() {
                         variant="secondary"
                         loading={googleLoading}
                         onClick={() => void registerWithGoogle()}
-                        className="w-full border border-gray-300 bg-white! hover:-translate-y-0.5 hover:border-gray-400! hover:bg-gray-50! hover:shadow-sm"
+                        className="w-full border border-gray-300 bg-white! hover:bg-gray-50!"
                     >
                         <Image
                             src="/logos/google-g.svg"
