@@ -78,6 +78,7 @@ export default function PainelLayout({
     const router = useRouter();
     const { restaurantId } = useCreationStore();
     const supportButtonRef = useRef<SupportButtonRef>(null);
+    const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
 
     const [expanded, setExpanded] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -229,6 +230,47 @@ export default function PainelLayout({
     useEffect(() => {
         setMobileMenuOpen(false);
     }, [pathname]);
+
+    useEffect(() => {
+        const handleTouchStart = (event: TouchEvent) => {
+            if (
+                mobileMenuOpen ||
+                !window.matchMedia("(max-width: 767px)").matches
+            ) {
+                swipeStartRef.current = null;
+                return;
+            }
+
+            const touch = event.touches[0];
+            swipeStartRef.current = { x: touch.clientX, y: touch.clientY };
+        };
+
+        const handleTouchEnd = (event: TouchEvent) => {
+            const start = swipeStartRef.current;
+            swipeStartRef.current = null;
+            if (!start) return;
+
+            const touch = event.changedTouches[0];
+            const horizontalDistance = touch.clientX - start.x;
+            const verticalDistance = Math.abs(touch.clientY - start.y);
+
+            if (horizontalDistance >= 70 && verticalDistance < 50) {
+                setMobileMenuOpen(true);
+            }
+        };
+
+        document.addEventListener("touchstart", handleTouchStart, {
+            passive: true,
+        });
+        document.addEventListener("touchend", handleTouchEnd, {
+            passive: true,
+        });
+
+        return () => {
+            document.removeEventListener("touchstart", handleTouchStart);
+            document.removeEventListener("touchend", handleTouchEnd);
+        };
+    }, [mobileMenuOpen]);
 
     useEffect(() => {
         if (!mobileMenuOpen) return;
