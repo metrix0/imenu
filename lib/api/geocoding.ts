@@ -49,8 +49,13 @@ export async function fetchAddressByCEP(cep: string): Promise<GeoAddress | null>
  * 2. Transforma Endereço (texto) em Coordenadas
  */
 export async function fetchCoordinates(fullAddress: string): Promise<{ latitude: number; longitude: number } | null> {
+    console.log("[geocoding] start", { fullAddress, hasGoogleKey: Boolean(GOOGLE_API_KEY) });
+
     const geocodeGoogle = async (address: string): Promise<{ latitude: number; longitude: number } | null> => {
-        if (!GOOGLE_API_KEY) return null;
+        if (!GOOGLE_API_KEY) {
+            console.log("[geocoding] Google skipped: no key");
+            return null;
+        }
 
         try {
             const res = await fetch(
@@ -60,6 +65,13 @@ export async function fetchCoordinates(fullAddress: string): Promise<{ latitude:
             );
 
             const json = await res.json();
+            console.log("[geocoding] Google response", {
+                address,
+                httpStatus: res.status,
+                status: json.status,
+                resultCount: json.results?.length ?? 0,
+                errorMessage: json.error_message ?? null,
+            });
 
             if (json.status !== "OK" || !json.results?.length) {
                 return null;
@@ -71,7 +83,8 @@ export async function fetchCoordinates(fullAddress: string): Promise<{ latitude:
                 latitude: lat,
                 longitude: lng
             };
-        } catch {
+        } catch (error) {
+            console.log("[geocoding] Google request failed", { address, error });
             return null;
         }
     };
@@ -81,9 +94,16 @@ export async function fetchCoordinates(fullAddress: string): Promise<{ latitude:
             const res = await fetch(
                 `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=br&q=${encodeURIComponent(address)}`
             );
-            if (!res.ok) return null;
+            if (!res.ok) {
+                console.log("[geocoding] Nominatim HTTP failure", { address, status: res.status });
+                return null;
+            }
 
             const results = await res.json();
+            console.log("[geocoding] Nominatim response", {
+                address,
+                resultCount: Array.isArray(results) ? results.length : 0,
+            });
             if (!Array.isArray(results) || !results.length) return null;
 
             const latitude = Number(results[0].lat);
@@ -91,13 +111,17 @@ export async function fetchCoordinates(fullAddress: string): Promise<{ latitude:
             if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
 
             return { latitude, longitude };
-        } catch {
+        } catch (error) {
+            console.log("[geocoding] Nominatim request failed", { address, error });
             return null;
         }
     };
 
     const coords = await geocodeGoogle(fullAddress);
-    if (coords) return coords;
+    if (coords) {
+        console.log("[geocoding] resolved with Google full address", coords);
+        return coords;
+    }
 
     const addressParts = fullAddress.split(",").map((part) => part.trim());
     const addressWithoutNumber = addressParts.length >= 6
@@ -106,10 +130,44 @@ export async function fetchCoordinates(fullAddress: string): Promise<{ latitude:
 
     if (addressWithoutNumber !== fullAddress) {
         const googleFallback = await geocodeGoogle(addressWithoutNumber);
-        if (googleFallback) return googleFallback;
+        if (googleFallback) {
+            console.log("[geocoding] resolved with Google without number", googleFallback);
+            return googleFallback;
+        }
     }
 
-    return geocodeNominatim(addressWithoutNumber);
+    const nominatimFallback = await geocodeNominatim(addressWithoutNumber);
+    if (nominatimFallback) {
+        console.log("[geocoding] resolved with Nominatim", nominatimFallback);
+        return nominatimFallback;
+    }
+
+    const cepMatch = fullAddress.match(/\b\d{5}-?\d{3}\b/);
+    const cleanCep = cepMatch?.[0]?.replace(/\D/g, "") ?? "";
+    if (cleanCep.length === 8) {
+        try {
+            const res = await fetch(`https://brasilapi.com.br/api/cep/v2/${cleanCep}`);
+            const data = res.ok ? await res.json() : null;
+            const latitude = Number(data?.location?.coordinates?.latitude);
+            const longitude = Number(data?.location?.coordinates?.longitude);
+
+            console.log("[geocoding] BrasilAPI CEP V2 fallback", {
+                cep: cleanCep,
+                status: res.status,
+                latitude: Number.isFinite(latitude) ? latitude : null,
+                longitude: Number.isFinite(longitude) ? longitude : null,
+            });
+
+            if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+                return { latitude, longitude };
+            }
+        } catch (error) {
+            console.log("[geocoding] BrasilAPI CEP V2 request failed", { cep: cleanCep, error });
+        }
+    }
+
+    console.log("[geocoding] failed to resolve coordinates", { fullAddress });
+    return null;
 }
 
 

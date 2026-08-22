@@ -113,6 +113,19 @@ export const useCheckoutStore = create<CheckoutState>()(
                         ? Math.round(Number(value) * 100)
                         : value;
 
+                if (key === "cep") {
+                    set({
+                        cep: String(normalizedValue ?? ""),
+                        rua: "",
+                        bairro: "",
+                        cidade: "",
+                        estado: "",
+                        delivery_fee_cents: false,
+                        delivery_time_minutes: null,
+                    });
+                    return;
+                }
+
                 set({ [key]: normalizedValue } as any);
             },
 
