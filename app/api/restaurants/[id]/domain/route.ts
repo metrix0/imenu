@@ -218,7 +218,7 @@ export async function GET(
             );
         }
 
-        const vercelDomain = await readVercelResponse(detailsResponse);
+        let vercelDomain = await readVercelResponse(detailsResponse);
         if (!detailsResponse.ok) {
             return NextResponse.json(
                 {
@@ -229,6 +229,19 @@ export async function GET(
                 },
                 { status: detailsResponse.status }
             );
+        }
+
+        if (!vercelDomain.verified) {
+            const verifyResponse = await fetch(
+                vercelUrl(
+                    `/v9/projects/{projectId}/domains/${encodeURIComponent(domain)}/verify`
+                ),
+                { method: "POST", headers, cache: "no-store" }
+            );
+
+            if (verifyResponse.ok) {
+                vercelDomain = await readVercelResponse(verifyResponse);
+            }
         }
 
         return NextResponse.json(

@@ -79,6 +79,7 @@ export default function StoreProfileManager({
     const [customDomain, setCustomDomain] = useState(
         restaurant.custom_domain || ""
     );
+    const [customDomainVerified, setCustomDomainVerified] = useState(false);
     const [customDomainOpen, setCustomDomainOpen] = useState(false);
 
     useEffect(() => {
@@ -97,6 +98,32 @@ export default function StoreProfileManager({
             );
         }
     }, [restaurant.banner_url, restaurant.logo_url]);
+
+    useEffect(() => {
+        if (!restaurant.custom_domain) {
+            setCustomDomainVerified(false);
+            return;
+        }
+
+        let active = true;
+        void fetch(`/api/restaurants/${restaurant.id}/domain`, {
+            cache: "no-store",
+        })
+            .then(async (response) => {
+                if (!response.ok) return;
+                const payload = (await response.json()) as {
+                    verified?: boolean;
+                };
+                if (active) {
+                    setCustomDomainVerified(Boolean(payload.verified));
+                }
+            })
+            .catch(() => undefined);
+
+        return () => {
+            active = false;
+        };
+    }, [restaurant.custom_domain, restaurant.id]);
 
     useEffect(() => {
         const handleBeforeUnload = (event: BeforeUnloadEvent) => {
@@ -153,7 +180,7 @@ export default function StoreProfileManager({
 
     const copyMenuLink = async () => {
         await navigator.clipboard.writeText(
-            customDomain
+            customDomain && customDomainVerified
                 ? `https://${customDomain}`
                 : `https://imenuapp.com.br/${urlSlug || "nome-da-loja"}`
         );
@@ -294,7 +321,7 @@ export default function StoreProfileManager({
                             autoComplete="tel"
                         />
 
-                        {customDomain ? (
+                        {customDomain && customDomainVerified ? (
                             <Input
                                 label="Link do cardápio"
                                 value={customDomain}
@@ -314,26 +341,46 @@ export default function StoreProfileManager({
                                 }
                             />
                         ) : (
-                            <Input
-                                label="Link do cardápio"
-                                value={urlSlug}
-                                placeholder="nome-da-loja"
-                                onChange={(event) =>
-                                    setUrlSlug(sanitizeSlug(event.target.value))
-                                }
-                                onBlur={saveSlug}
-                                autoComplete="off"
-                            />
+                            <div className="min-w-0">
+                                <Input
+                                    label="Link do cardápio"
+                                    value={urlSlug}
+                                    placeholder="nome-da-loja"
+                                    onChange={(event) =>
+                                        setUrlSlug(sanitizeSlug(event.target.value))
+                                    }
+                                    onBlur={saveSlug}
+                                    autoComplete="off"
+                                />
+                                <div className="mt-1 flex min-w-0 items-center gap-2 text-xs text-gray-500">
+                                    <span className="min-w-0 break-all">
+                                        imenuapp.com.br/{urlSlug || "nome-da-loja"}
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={() => void copyMenuLink()}
+                                        aria-label="Copiar link do cardápio"
+                                        title="Copiar link"
+                                        className="shrink-0 cursor-pointer text-gray-500 hover:text-brand"
+                                    >
+                                        <FontAwesomeIcon icon={faCopy} />
+                                    </button>
+                                </div>
+                            </div>
                         )}
 
                         <Button
                             type="button"
-                            variant={customDomain ? "secondary" : "primary"}
+                            variant={
+                                customDomain && customDomainVerified
+                                    ? "secondary"
+                                    : "primary"
+                            }
                             onClick={() => setCustomDomainOpen(true)}
                             className="w-fit shrink-0 self-start border border-transparent py-3! md:mt-5 2xl:mt-8 2xl:text-lg"
                         >
                             <FontAwesomeIcon icon={faGlobe} className="mr-2" />
-                            {customDomain
+                            {customDomain && customDomainVerified
                                 ? "Domínio conectado"
                                 : "Usar meu domínio"}
                         </Button>
@@ -365,6 +412,7 @@ export default function StoreProfileManager({
                 restaurantId={restaurant.id}
                 initialDomain={customDomain}
                 onDomainChange={setCustomDomain}
+                onVerificationChange={setCustomDomainVerified}
             />
         </div>
     );
