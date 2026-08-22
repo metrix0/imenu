@@ -319,7 +319,7 @@ export default function StoreProfileManager({
                         <Button
                             type="button"
                             onClick={() => setCustomDomainOpen(true)}
-                            className="w-fit shrink-0 md:mt-6"
+                            className="w-fit shrink-0 self-start md:mt-6"
                         >
                             <FontAwesomeIcon icon={faGlobe} className="mr-2" />
                             Usar meu domínio

@@ -40,16 +40,15 @@ function normalizeDomain(value: unknown): string {
 
 function vercelUrl(path: string): string {
     const projectId = process.env.VERCEL_PROJECT_ID;
-    const teamId = process.env.VERCEL_ORG_ID;
 
-    if (!projectId || !teamId) {
+    if (!projectId) {
         throw new Error("Configuração do projeto Vercel indisponível.");
     }
 
     return `https://api.vercel.com${path.replace(
         "{projectId}",
         encodeURIComponent(projectId)
-    )}?teamId=${encodeURIComponent(teamId)}`;
+    )}`;
 }
 
 async function readVercelResponse(response: Response): Promise<VercelDomain> {
