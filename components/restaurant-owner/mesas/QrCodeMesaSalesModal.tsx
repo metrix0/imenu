@@ -7,7 +7,6 @@ import {
     faCreditCard,
     faQrcode,
     faUsers,
-    faXmark,
 } from "@fortawesome/free-solid-svg-icons";
 import Image from "next/image";
 
@@ -51,17 +50,13 @@ export default function QrCodeMesaSalesModal({
     active = false,
 }: QrCodeMesaSalesModalProps) {
     return (
-        <Modal open={open} onClose={onClose} className="max-w-4xl">
-            <button
-                type="button"
-                onClick={onClose}
-                className="absolute right-3 top-3 z-20 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white/90 text-gray-400 shadow-sm transition-colors hover:bg-gray-100 hover:text-gray-700"
-                aria-label="Fechar"
-            >
-                <FontAwesomeIcon icon={faXmark} />
-            </button>
-
-            <div className="grid overflow-hidden border-b border-gray-100 md:grid-cols-[minmax(0,1fr)_230px]">
+        <Modal
+            open={open}
+            onClose={onClose}
+            className="max-w-4xl"
+            showCloseButton
+        >
+            <div className="grid shrink-0 overflow-hidden border-b border-gray-100 md:grid-cols-[minmax(0,1fr)_230px]">
                 <div className="px-6 py-6 sm:px-8 sm:py-8">
                     <div className="relative h-12 w-56 max-w-full">
                         <Image
@@ -122,7 +117,7 @@ export default function QrCodeMesaSalesModal({
                 </div>
             </div>
 
-            <div className="space-y-6 px-6 py-6 sm:px-8">
+            <div className="shrink-0 space-y-6 px-6 py-6 sm:px-8">
                 <div>
                     <h3 className="text-lg font-bold text-gray-900">
                         Tudo pronto para atender pelas mesas
@@ -159,7 +154,7 @@ export default function QrCodeMesaSalesModal({
                 </div>
             </div>
 
-            <div className="flex flex-col-reverse gap-3 border-t border-gray-100 px-6 py-5 sm:flex-row sm:items-center sm:justify-end sm:px-8">
+            <div className="flex shrink-0 flex-col-reverse gap-3 border-t border-gray-100 px-6 py-5 sm:flex-row sm:items-center sm:justify-end sm:px-8">
                 <Button type="button" variant="secondary" onClick={onClose}>
                     Agora não
                 </Button>
