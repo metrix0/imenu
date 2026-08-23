@@ -1,9 +1,26 @@
 import { query } from "@/lib/database/sql";
 
+const NON_GOOGLE_INDEXING_CRAWLER =
+  /(bytespider|bingbot|adidxbot|bingpreview|duckduckbot|baiduspider|yandexbot|yandeximages|applebot|petalbot|seznambot|sogou|exabot|qwantify|ahrefsbot|semrushbot|mj12bot|dotbot|serpstatbot|ccbot|gptbot|claudebot|anthropic-ai|perplexitybot|cohere-ai|amazonbot|omgilibot|diffbot|imagesiftbot)/i;
+
 export async function proxy(req: Request) {
   const url = new URL(req.url);
   const host = (req.headers.get("host") ?? "").split(":")[0].toLowerCase();
   const pathname = url.pathname;
+  const userAgent = req.headers.get("user-agent") ?? "";
+
+  if (
+    pathname !== "/robots.txt" &&
+    NON_GOOGLE_INDEXING_CRAWLER.test(userAgent) &&
+    !/google/i.test(userAgent)
+  ) {
+    return new Response("Forbidden", {
+      status: 403,
+      headers: {
+        "X-Robots-Tag": "noindex, nofollow",
+      },
+    });
+  }
 
   const isDominos =
     host === "dominoslimeira.com.br" ||
@@ -66,7 +83,8 @@ export async function proxy(req: Request) {
   return;
 }
 
-// The existing proxy has behavior only for these two path groups.
 export const config = {
-  matcher: ["/", "/pedido/:path*"],
+  matcher: [
+    "/((?!api(?:/|$)|_next/static|_next/image|favicon.ico|manifest.webmanifest|.*\\.(?:png|jpg|jpeg|gif|webp|svg|ico|css|js|map|woff|woff2|ttf)$).*)",
+  ],
 };
