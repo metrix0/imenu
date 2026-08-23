@@ -119,6 +119,30 @@ type DashboardDetailsPayload = {
         registrationComplete: number | null;
         orderedConsumers: number | null;
     };
+    qrTable: {
+        onboarding: {
+            viewed: number | null;
+            selected: number | null;
+            learnMore: number | null;
+            purchased: number;
+        };
+        management: {
+            viewed: number | null;
+            learnMore: number | null;
+            purchased: number;
+        };
+        buyers: Array<{
+            restaurantId: string;
+            restaurantName: string;
+            domain: string | null;
+            slug: string | null;
+            status: string;
+            source: string | null;
+            activatedAt: string | null;
+            currentPeriodEndsAt: string | null;
+            tableCount: number;
+        }>;
+    };
 };
 
 const RANGE_OPTIONS: Array<{ key: RangeKey; label: string }> = [
@@ -971,6 +995,110 @@ export default function DevDashboardPage() {
                                 )}
                             </div>
                         </section>
+
+                        {details?.qrTable && (
+                            <section>
+                                <SectionHeading
+                                    title="QR Code Mesa"
+                                    description="Conversão do iMenu QR Code Mesa e restaurantes com acesso ativo. Compras são confirmações registradas no banco."
+                                />
+
+                                <div className="grid gap-5 xl:grid-cols-2">
+                                    <QrTableFunnelCard
+                                        title="Onboarding"
+                                        steps={[
+                                            {
+                                                label: "Acessaram a seleção",
+                                                value: details.qrTable.onboarding.viewed,
+                                            },
+                                            {
+                                                label: "Selecionaram QR Code Mesa",
+                                                value: details.qrTable.onboarding.selected,
+                                            },
+                                            {
+                                                label: "Abriram Saiba mais",
+                                                value: details.qrTable.onboarding.learnMore,
+                                            },
+                                            {
+                                                label: "Compraram",
+                                                value: details.qrTable.onboarding.purchased,
+                                            },
+                                        ]}
+                                    />
+                                    <QrTableFunnelCard
+                                        title="Mesas e Configurações"
+                                        steps={[
+                                            {
+                                                label: "Acessaram Mesas/Configurações",
+                                                value: details.qrTable.management.viewed,
+                                            },
+                                            {
+                                                label: "Abriram Saiba mais",
+                                                value: details.qrTable.management.learnMore,
+                                            },
+                                            {
+                                                label: "Compraram",
+                                                value: details.qrTable.management.purchased,
+                                            },
+                                        ]}
+                                    />
+                                </div>
+
+                                <div className="mt-5 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+                                    <div className="border-b border-gray-200 px-5 py-4">
+                                        <h3 className="font-semibold text-gray-900">
+                                            Restaurantes ativos
+                                        </h3>
+                                    </div>
+                                    {details.qrTable.buyers.length ? (
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full min-w-[900px] text-left text-sm">
+                                                <thead className="border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
+                                                    <tr>
+                                                        <th className="px-5 py-4 font-semibold">Restaurante</th>
+                                                        <th className="px-5 py-4 font-semibold">Cardápio</th>
+                                                        <th className="px-5 py-4 font-semibold">Origem</th>
+                                                        <th className="px-5 py-4 font-semibold">Ativado em</th>
+                                                        <th className="px-5 py-4 text-right font-semibold">Mesas</th>
+                                                        <th className="px-5 py-4 font-semibold">Situação</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-gray-100">
+                                                    {details.qrTable.buyers.map((buyer) => (
+                                                        <tr key={buyer.restaurantId} className="hover:bg-gray-50/70">
+                                                            <td className="px-5 py-4 font-medium text-gray-900">
+                                                                {buyer.restaurantName}
+                                                            </td>
+                                                            <td className="px-5 py-4 text-gray-600">
+                                                                {buyer.domain || (buyer.slug ? `imenuapp.com.br/${buyer.slug}` : "—")}
+                                                            </td>
+                                                            <td className="px-5 py-4 text-gray-600">
+                                                                {qrTableSourceLabel(buyer.source)}
+                                                            </td>
+                                                            <td className="px-5 py-4 text-gray-600">
+                                                                {formatDateTime(buyer.activatedAt)}
+                                                            </td>
+                                                            <td className="px-5 py-4 text-right tabular-nums text-gray-700">
+                                                                {formatCount(buyer.tableCount)}
+                                                            </td>
+                                                            <td className="px-5 py-4">
+                                                                <span className="inline-flex rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-800">
+                                                                    {qrTableStatusLabel(buyer.status)}
+                                                                </span>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    ) : (
+                                        <div className="px-5 py-8 text-center text-sm text-gray-400">
+                                            Nenhum restaurante ativo.
+                                        </div>
+                                    )}
+                                </div>
+                            </section>
+                        )}
                     </>
                 ) : null}
             </div>
@@ -991,6 +1119,65 @@ function SectionHeading({
             <p className="mt-1 text-sm text-gray-500">{description}</p>
         </div>
     );
+}
+
+function QrTableFunnelCard({
+    title,
+    steps,
+}: {
+    title: string;
+    steps: Array<{ label: string; value: number | null }>;
+}) {
+    return (
+        <article className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
+            <h3 className="font-semibold text-gray-900">{title}</h3>
+            <div className="mt-4 grid gap-3">
+                {steps.map((step, index) => {
+                    const previous = index > 0 ? steps[index - 1].value : null;
+                    const stepConversion = index > 0
+                        ? conversion(step.value, previous)
+                        : null;
+
+                    return (
+                        <div
+                            key={step.label}
+                            className="flex items-center justify-between gap-4 rounded-xl border border-gray-100 bg-gray-50 px-4 py-3"
+                        >
+                            <div>
+                                <p className="text-sm font-medium text-gray-700">
+                                    {step.label}
+                                </p>
+                                {index > 0 && (
+                                    <p className="mt-0.5 text-xs text-gray-500">
+                                        {stepConversion === null
+                                            ? "Conversão indisponível"
+                                            : `${formatRatio(stepConversion)} do passo anterior`}
+                                    </p>
+                                )}
+                            </div>
+                            <span className="text-2xl font-bold tabular-nums text-gray-950">
+                                {step.value === null ? "—" : formatCount(step.value)}
+                            </span>
+                        </div>
+                    );
+                })}
+            </div>
+        </article>
+    );
+}
+
+function qrTableSourceLabel(source: string | null): string {
+    if (source === "onboarding") return "Onboarding";
+    if (source === "mesas") return "Mesas";
+    if (source === "settings") return "Configurações";
+    return "—";
+}
+
+function qrTableStatusLabel(status: string): string {
+    if (status === "active") return "Ativo";
+    if (status === "canceled") return "Cancelado (com acesso)";
+    if (status === "past_due") return "Pendente (com acesso)";
+    return status;
 }
 
 function MetricCard({

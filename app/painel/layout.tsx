@@ -9,6 +9,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
     faBars,
     faBox,
+    faChair,
     faChartLine,
     faChevronLeft,
     faChevronRight,
@@ -337,8 +338,9 @@ export default function PainelLayout({
     const cardapioHref = `${base}/cardapio`;
 
     const menuItems: MenuItem[] = [
-        { label: "Home", icon: faHome, href: `${base}/` },
-        { label: "Pedidos", icon: faBox, href: `${base}/pedidos` },
+        { label: "Pedidos", icon: faHome, href: `${base}/` },
+        { label: "Histórico", icon: faBox, href: `${base}/pedidos` },
+        { label: "Mesas", icon: faChair, href: `${base}/mesas` },
         {
             label: "Financeiro",
             icon: faMoneyBillWave,

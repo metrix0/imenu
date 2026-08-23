@@ -46,7 +46,7 @@ export default function ShareMenuModal({ isOpen, onClose, restaurantId, restaura
                     <FontAwesomeIcon icon={icons.faLink} className="text-xl" />
                 </div>
 
-                <h3 className="text-xl font-bold text-gray-900 mb-2">Compartilhar Cardápio</h3>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">Compartilhar Cardápio Delivery</h3>
                 <p className="text-gray-500 text-sm mb-6">
                     Envie este link para seus clientes ou peça para eles escanearem o código.
                 </p>

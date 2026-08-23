@@ -1,7 +1,7 @@
 "use client";
 
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faEye } from "@fortawesome/free-solid-svg-icons";
+import { faChair, faEye } from "@fortawesome/free-solid-svg-icons";
 import Card from "@/components/ui/Card";
 import ListLoader from "@/components/ui/ListLoader";
 
@@ -14,6 +14,7 @@ export type Order = {
     status: "pending_online_payment" | "pending_physical_payment" | "preparing" | "delivering" | "done" | "canceled";
     total_cents: number;
     is_delivery?: string | null;
+    table_name_snapshot?: string | null;
 };
 
 interface OrdersTableProps {
@@ -79,12 +80,18 @@ export default function OrdersTable({ orders, isLoading, onViewOrder }: OrdersTa
                                             </span>
                                             {getStatusBadge(
                                                 order.status,
-                                                order.is_delivery === "retirada"
+                                                order.is_delivery === "mesa" || order.is_delivery === "retirada"
                                             )}
                                         </div>
                                         <p className="mt-2 truncate text-sm font-medium text-gray-800">
                                             {order.customer_name}
                                         </p>
+                                        {order.is_delivery === "mesa" && (
+                                            <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-brand">
+                                                <FontAwesomeIcon icon={faChair} />
+                                                {order.table_name_snapshot || "Mesa"}
+                                            </p>
+                                        )}
                                         <p className="mt-1 text-xs text-gray-500">
                                             {fmtDate(order.created_at)}
                                         </p>
@@ -147,6 +154,12 @@ export default function OrdersTable({ orders, isLoading, onViewOrder }: OrdersTa
                                     </div>
                                     <div className="col-span-3 font-medium truncate pr-4">
                                         {order.customer_name}
+                                        {order.is_delivery === "mesa" && (
+                                            <span className="mt-1 flex items-center gap-1.5 text-xs font-medium text-brand 2xl:text-sm">
+                                                <FontAwesomeIcon icon={faChair} />
+                                                {order.table_name_snapshot || "Mesa"}
+                                            </span>
+                                        )}
                                     </div>
                                     <div className="col-span-2 text-gray-500">
                                         {fmtDate(order.created_at)}
@@ -155,7 +168,7 @@ export default function OrdersTable({ orders, isLoading, onViewOrder }: OrdersTa
                                         {fmtMoney(order.total_cents)}
                                     </div>
                                     <div className="col-span-2 ">
-                                        <span className={"truncate"}>{getStatusBadge(order.status, order.is_delivery === "retirada")}</span>
+                                        <span className={"truncate"}>{getStatusBadge(order.status, order.is_delivery === "mesa" || order.is_delivery === "retirada")}</span>
                                     </div>
                                     <div className="col-span-1 text-right">
                                         <button 

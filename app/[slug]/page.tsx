@@ -16,6 +16,11 @@ import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
 import PickupAvailabilityGuard from "./PickupAvailabilityGuard";
 
 import { createSupabaseServerClient } from "@/lib/database/supabaseServerClient";
+import type {
+  QrTableAddon,
+  QrTableMenuContext,
+} from "@/lib/qr-table/types";
+import { hasQrTableAccess } from "@/lib/qr-table/types";
 
 const getPublicUrl = (supabase: any, bucket: string, path: string | null) => {
   if (!path) return null;
@@ -96,7 +101,12 @@ export default async function Page({
   searchParams,
 }: {
   params: { slug: string };
-  searchParams: { p?: string; c?: string };
+  searchParams: {
+    p?: string;
+    c?: string;
+    origem?: string;
+    mesa?: string;
+  };
 }) {
   const { slug } = await params;
   const p = await searchParams;
@@ -113,6 +123,64 @@ export default async function Page({
     .maybeSingle();
 
   if (!restaurantData) return notFound();
+
+  let tableOrder: QrTableMenuContext | null = null;
+  if (p.origem === "mesa") {
+    const token = String(p.mesa || "").trim();
+    const isUuid =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+        token,
+      );
+    if (!isUuid) return notFound();
+
+    const { data: addonData } = await supabase
+      .from("restaurant_addons")
+      .select("status, current_period_ends_at, universal_token")
+      .eq("restaurant_id", restaurantData.id)
+      .eq("product_key", "qr_code_mesa")
+      .maybeSingle();
+
+    const addon = (addonData as Pick<
+      QrTableAddon,
+      "status" | "current_period_ends_at" | "universal_token"
+    > | null) || null;
+    if (!addon || !hasQrTableAccess(addon)) return notFound();
+
+    if (token === addon.universal_token) {
+      const { data: tableRows } = await supabase
+        .from("restaurant_tables")
+        .select("id, name")
+        .eq("restaurant_id", restaurantData.id)
+        .eq("is_active", true)
+        .order("position", { ascending: true })
+        .order("created_at", { ascending: true });
+
+      tableOrder = {
+        token,
+        tableId: null,
+        tableName: null,
+        requiresTableSelection: true,
+        tables: tableRows || [],
+      };
+    } else {
+      const { data: table } = await supabase
+        .from("restaurant_tables")
+        .select("id, name")
+        .eq("restaurant_id", restaurantData.id)
+        .eq("public_token", token)
+        .eq("is_active", true)
+        .maybeSingle();
+      if (!table) return notFound();
+
+      tableOrder = {
+        token,
+        tableId: table.id,
+        tableName: table.name,
+        requiresTableSelection: false,
+        tables: [{ id: table.id, name: table.name }],
+      };
+    }
+  }
 
   const storeWhatsapp = getStoreWhatsapp(restaurantData.store_whatsapp);
 
@@ -194,7 +262,8 @@ export default async function Page({
   const categories: Category[] = categoriesResult.data || [];
   const itemsRaw = itemsResult.data || [];
   const promotions = promotionsResult.data;
-  const loyaltyProgramActive = loyaltyProgram?.active === true;
+  const loyaltyProgramActive =
+    !tableOrder && loyaltyProgram?.active === true;
   const itemIds = itemsRaw.map((item: any) => item.id);
 
   // Show "A partir de" only when a product has at least one mandatory
@@ -313,7 +382,7 @@ export default async function Page({
       )}
 
       <PickupAvailabilityGuard
-        enabled={restaurant.pickup_enabled === true}
+        enabled={!tableOrder && restaurant.pickup_enabled === true}
       />
 
       <div
@@ -337,7 +406,8 @@ export default async function Page({
           categories={categoriesWithItems}
           itemsByCategory={itemsByCategory}
           openedProductId={p.p}
-          selectedCouponCode={p.c?.toUpperCase()}
+          selectedCouponCode={tableOrder ? undefined : p.c?.toUpperCase()}
+          tableOrder={tableOrder}
         />
       </div>
 

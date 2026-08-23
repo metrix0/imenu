@@ -21,7 +21,14 @@ export function getPosthog(): Promise<PosthogClient | null> {
                         typeof window !== "undefined" &&
                         window.location.pathname.startsWith("/painel")
                     ) {
-                        return null;
+                        const pathname = window.location.pathname;
+                        const allowedPath =
+                            pathname === "/painel/mesas" ||
+                            pathname === "/painel/configuracoes";
+                        const allowedEvent =
+                            event?.event.startsWith("qr_code_mesa_") ?? false;
+
+                        return allowedPath && allowedEvent ? event : null;
                     }
 
                     return event;

@@ -29,6 +29,8 @@ export async function GET(
         scheduled_for,
         payment_method,
         is_delivery,
+        table_id,
+        table_name_snapshot,
         customer_name,
         customer_phone,
         customer_address,

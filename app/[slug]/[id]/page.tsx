@@ -6,6 +6,7 @@ import { supabase } from "@/lib/database/supabaseClient";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { icons } from "@/lib/utils/fontawesome";
 import { faPix, faWhatsapp } from "@fortawesome/free-brands-svg-icons";
+import { faChair } from "@fortawesome/free-solid-svg-icons";
 import ListLoader from "@/components/ui/ListLoader";
 import { formatPrice, promotionPrice } from "@/lib/utils/formatPrice";
 
@@ -168,7 +169,8 @@ export default function PedidoPage({
         );
     }
 
-    const isPickup = order.is_delivery === "retirada";
+    const isTableOrder = order.is_delivery === "mesa";
+    const isPickup = isTableOrder || order.is_delivery === "retirada";
     const paymentMethod = order.payment_method ?? order.paymentMethod;
 
     const iconMap: Record<string, any> = {
@@ -184,8 +186,8 @@ export default function PedidoPage({
         pending_physical_payment: "Aguardando confirmação do restaurante",
         paid: <><b>Pagamento aprovado</b>, aguardando confirmação do restaurante</>,
         preparing: "Preparando pedido",
-        delivering: isPickup ? "Pedido pronto para retirada" : "Pedido a caminho",
-        done: isPickup ? "Pedido retirado, bom apetite!" : "Pedido entregue, bom apetite!",
+        delivering: isTableOrder ? "Pedido pronto" : isPickup ? "Pedido pronto para retirada" : "Pedido a caminho",
+        done: isTableOrder ? "Pedido concluído, bom apetite!" : isPickup ? "Pedido retirado, bom apetite!" : "Pedido entregue, bom apetite!",
         canceled: (
             <>
                 Pedido cancelado pelo restaurante.
@@ -263,9 +265,12 @@ export default function PedidoPage({
         <main className="p-6 max-w-xl mx-auto min-h-screen flex flex-col">
             <section className="p-5">
                 <h2 className="text-gray-500 text-lg 2xl:text-xl">
-                    {isPickup ? "Previsão de retirada" : "Previsão de entrega"}
+                    {isTableOrder ? "Mesa" : isPickup ? "Previsão de retirada" : "Previsão de entrega"}
                 </h2>
-                <p className="font-semibold text-text text-2xl 2xl:text-3xl 2xl:mt-3 mt-1">{eta}</p>
+                <p className="flex items-center gap-2 font-semibold text-text text-2xl 2xl:text-3xl 2xl:mt-3 mt-1">
+                    {isTableOrder && <FontAwesomeIcon icon={faChair} className="text-brand" />}
+                    {isTableOrder ? order.table_name_snapshot || "Mesa" : eta}
+                </p>
             </section>
 
             {status === "canceled" ? (
@@ -356,7 +361,7 @@ export default function PedidoPage({
                 </section>
             )}
 
-            <section className="bg-white rounded-xl p-5 shadow space-y-3 mt-5">
+            {!isTableOrder && <section className="bg-white rounded-xl p-5 shadow space-y-3 mt-5">
                 <p className="text-gray-500 text-sm 2xl:text-lg">
                     {paymentMethod === "pix" || paymentMethod === "cartao"
                         ? "Pago pelo site"
@@ -369,7 +374,7 @@ export default function PedidoPage({
                     </div>
                     <span className="font-semibold text-lg 2xl:text-lg">{totalDisplay}</span>
                 </div>
-            </section>
+            </section>}
 
             <section className="bg-white rounded-xl p-5 shadow space-y-4 mt-6">
                 <h3 className="font-semibold text-lg text-gray-700">
@@ -401,6 +406,12 @@ export default function PedidoPage({
                             )}
                         </div>
                     ))
+                )}
+                {isTableOrder && (
+                    <div className="flex items-center justify-between border-t border-gray-200 pt-4 text-lg font-semibold">
+                        <span>Total</span>
+                        <span>{totalDisplay}</span>
+                    </div>
                 )}
             </section>
 

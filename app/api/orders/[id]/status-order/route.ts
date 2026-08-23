@@ -87,7 +87,7 @@ export async function PATCH(
             throw new OrderStatusError("Invalid status provided", 400);
         }
 
-        await withTransaction(async (client) => {
+        const isTableOrder = await withTransaction(async (client) => {
             const orderResult = await client.query(
                 `
                         SELECT
@@ -99,7 +99,8 @@ export async function PATCH(
                             total_cents,
                             status,
                             payment_method,
-                            payment_ref
+                            payment_ref,
+                            is_delivery
                         FROM orders
                         WHERE id = $1
                         FOR UPDATE
@@ -371,14 +372,18 @@ export async function PATCH(
                 `,
                 [status, id]
             );
+
+            return String(order.is_delivery || "").toLowerCase() === "mesa";
         });
 
-        void notifyOrderStatusUpdate(id, status).catch((error) => {
-            console.error(
-                "[ORDERS] Falha ao enviar atualização de status:",
-                error
-            );
-        });
+        if (!isTableOrder) {
+            void notifyOrderStatusUpdate(id, status).catch((error) => {
+                console.error(
+                    "[ORDERS] Falha ao enviar atualização de status:",
+                    error
+                );
+            });
+        }
 
         return NextResponse.json({
             ok: true,

@@ -41,6 +41,23 @@ type AccountDetailsRow = {
     store_whatsapp: string | null;
 };
 
+type QrTablePurchaseSummaryRow = {
+    onboarding_purchases: number | string;
+    management_purchases: number | string;
+};
+
+type QrTableBuyerRow = {
+    restaurant_id: string;
+    restaurant_name: string;
+    domain: string | null;
+    slug: string | null;
+    status: string;
+    acquisition_source: string | null;
+    activated_at: string | Date | null;
+    current_period_ends_at: string | Date | null;
+    table_count: number | string;
+};
+
 function getBearerToken(request: Request): string | null {
     const authorization = request.headers.get("authorization")?.trim();
     const match = authorization?.match(/^Bearer\s+(.+)$/i);
@@ -324,6 +341,80 @@ async function loadFunnelSummary(
     }
 }
 
+async function loadQrTableFunnelSummary(
+    startAt: number,
+    endAt: number
+): Promise<{
+    onboardingViewed: number | null;
+    onboardingSelected: number | null;
+    onboardingLearnMore: number | null;
+    managementViewed: number | null;
+    managementLearnMore: number | null;
+}> {
+    if (!getPostHogConfig()) {
+        return {
+            onboardingViewed: null,
+            onboardingSelected: null,
+            onboardingLearnMore: null,
+            managementViewed: null,
+            managementLearnMore: null,
+        };
+    }
+
+    const start = new Date(startAt).toISOString();
+    const end = new Date(endAt).toISOString();
+    const hogql = `
+        SELECT
+            uniqIf(distinct_id, event = 'qr_code_mesa_onboarding_viewed'),
+            uniqIf(distinct_id, event = 'qr_code_mesa_onboarding_selected'),
+            uniqIf(
+                distinct_id,
+                event = 'qr_code_mesa_learn_more_viewed'
+                AND properties.source = 'onboarding'
+            ),
+            uniqIf(
+                distinct_id,
+                event IN (
+                    'qr_code_mesa_page_viewed',
+                    'qr_code_mesa_settings_viewed'
+                )
+            ),
+            uniqIf(
+                distinct_id,
+                event = 'qr_code_mesa_learn_more_viewed'
+                AND properties.source IN ('mesas', 'settings')
+            )
+        FROM events
+        WHERE timestamp >= parseDateTimeBestEffort('${start}')
+          AND timestamp < parseDateTimeBestEffort('${end}')
+    `;
+
+    try {
+        const row = (await runPostHogQuery(hogql))[0];
+        if (!row) throw new Error("PostHog returned no result row.");
+
+        return {
+            onboardingViewed: Number(row[0]) || 0,
+            onboardingSelected: Number(row[1]) || 0,
+            onboardingLearnMore: Number(row[2]) || 0,
+            managementViewed: Number(row[3]) || 0,
+            managementLearnMore: Number(row[4]) || 0,
+        };
+    } catch (error) {
+        console.warn(
+            "[DEV_DASHBOARD_DETAILS] QR Code Mesa funnel unavailable:",
+            error
+        );
+        return {
+            onboardingViewed: null,
+            onboardingSelected: null,
+            onboardingLearnMore: null,
+            managementViewed: null,
+            managementLearnMore: null,
+        };
+    }
+}
+
 export async function GET(request: Request) {
     try {
         const authError = await authorize(request);
@@ -371,6 +462,9 @@ export async function GET(request: Request) {
             accountDetailsResult,
             trafficSummary,
             funnelSummary,
+            qrTableFunnelSummary,
+            qrTablePurchaseSummaryResult,
+            qrTableBuyersResult,
         ] = await Promise.all([
             query<OrderRow>(
                 `
@@ -414,6 +508,62 @@ export async function GET(request: Request) {
             ),
             loadTrafficSummary(startAt, endAt),
             loadFunnelSummary(startAt, endAt),
+            loadQrTableFunnelSummary(startAt, endAt),
+            query<QrTablePurchaseSummaryRow>(
+                `
+                    SELECT
+                        COUNT(*) FILTER (
+                            WHERE acquisition_source = 'onboarding'
+                        ) AS onboarding_purchases,
+                        COUNT(*) FILTER (
+                            WHERE acquisition_source IN ('mesas', 'settings')
+                        ) AS management_purchases
+                    FROM restaurant_addons
+                    WHERE product_key = 'qr_code_mesa'
+                      AND activated_at >= $1
+                      AND activated_at < $2
+                `,
+                [new Date(startAt).toISOString(), new Date(endAt).toISOString()]
+            ),
+            query<QrTableBuyerRow>(
+                `
+                    SELECT
+                        addon.restaurant_id,
+                        COALESCE(NULLIF(BTRIM(restaurant.name), ''), 'Restaurante') AS restaurant_name,
+                        NULLIF(BTRIM(restaurant.custom_domain), '') AS domain,
+                        NULLIF(BTRIM(restaurant.url_slug), '') AS slug,
+                        addon.status,
+                        addon.acquisition_source,
+                        addon.activated_at,
+                        addon.current_period_ends_at,
+                        COUNT(table_item.id) FILTER (
+                            WHERE table_item.is_active = true
+                        ) AS table_count
+                    FROM restaurant_addons AS addon
+                    INNER JOIN restaurants AS restaurant
+                        ON restaurant.id = addon.restaurant_id
+                    LEFT JOIN restaurant_tables AS table_item
+                        ON table_item.restaurant_id = addon.restaurant_id
+                    WHERE addon.product_key = 'qr_code_mesa'
+                      AND (
+                          addon.status = 'active'
+                          OR (
+                              addon.status IN ('canceled', 'past_due')
+                              AND addon.current_period_ends_at > NOW()
+                          )
+                      )
+                    GROUP BY
+                        addon.restaurant_id,
+                        restaurant.name,
+                        restaurant.custom_domain,
+                        restaurant.url_slug,
+                        addon.status,
+                        addon.acquisition_source,
+                        addon.activated_at,
+                        addon.current_period_ends_at
+                    ORDER BY addon.activated_at DESC NULLS LAST
+                `
+            ),
         ]);
 
         const history = historyResult.rows.map(normalizeOrder);
@@ -479,11 +629,47 @@ export async function GET(request: Request) {
                     a.restaurantName.localeCompare(b.restaurantName, "pt-BR")
             );
 
+        const qrTablePurchaseSummary =
+            qrTablePurchaseSummaryResult.rows[0];
+        const qrTable = {
+            onboarding: {
+                viewed: qrTableFunnelSummary.onboardingViewed,
+                selected: qrTableFunnelSummary.onboardingSelected,
+                learnMore: qrTableFunnelSummary.onboardingLearnMore,
+                purchased: Number(
+                    qrTablePurchaseSummary?.onboarding_purchases
+                ) || 0,
+            },
+            management: {
+                viewed: qrTableFunnelSummary.managementViewed,
+                learnMore: qrTableFunnelSummary.managementLearnMore,
+                purchased: Number(
+                    qrTablePurchaseSummary?.management_purchases
+                ) || 0,
+            },
+            buyers: qrTableBuyersResult.rows.map((buyer) => ({
+                restaurantId: buyer.restaurant_id,
+                restaurantName: buyer.restaurant_name,
+                domain: buyer.domain,
+                slug: buyer.slug,
+                status: buyer.status,
+                source: buyer.acquisition_source,
+                activatedAt: buyer.activated_at
+                    ? new Date(buyer.activated_at).toISOString()
+                    : null,
+                currentPeriodEndsAt: buyer.current_period_ends_at
+                    ? new Date(buyer.current_period_ends_at).toISOString()
+                    : null,
+                tableCount: Number(buyer.table_count) || 0,
+            })),
+        };
+
         return NextResponse.json(
             {
                 abandonedUsers,
                 trafficSummary,
                 funnelSummary,
+                qrTable,
             },
             { headers: { "Cache-Control": "no-store" } }
         );
