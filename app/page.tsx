@@ -439,6 +439,7 @@ export default function LandingPage() {
                                 ["Robô WhatsApp", "check", "Taxas adicionais"],
                                 ["Converte o cliente", "check", "Baixa Conversão"],
                                 ["Gestor de pedidos (balcão)", "check", "Limitado"],
+                                ["Aplicativo para celular", "check", "Não"],
                                 ["Suporte humanizado", "Todos os dias", "Robô, fila ou e-mail"],
                                 ["Acompanhamento do pedido", "Acompanhamento em tempo real via Página e Whatsapp", "Clientes ficam perdidos"],
                                 ["Calcular Taxa de Entrega", "Pelo Raio", "Configurações confusas"],
@@ -458,7 +459,6 @@ export default function LandingPage() {
                                 ["Cupons de desconto", "check", "Pouca customização"],
                                 ["Sistema disponível para celulares", "check", "Indisponível"],
                                 ["Notificações no celular", "check", "Não"],
-                                ["Aplicativo para celular", "check", "Não"],
                             ].map(([feature, imenu, competitor]) => (
                                 <tr key={feature}>
                                     <td className="border-r border-gray-200">{feature}</td>
