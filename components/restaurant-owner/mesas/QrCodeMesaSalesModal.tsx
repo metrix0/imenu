@@ -7,6 +7,7 @@ import {
     faCreditCard,
     faQrcode,
     faUsers,
+    faXmark,
 } from "@fortawesome/free-solid-svg-icons";
 import Image from "next/image";
 
@@ -51,6 +52,15 @@ export default function QrCodeMesaSalesModal({
 }: QrCodeMesaSalesModalProps) {
     return (
         <Modal open={open} onClose={onClose} className="max-w-4xl">
+            <button
+                type="button"
+                onClick={onClose}
+                className="absolute right-3 top-3 z-20 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-white/90 text-gray-400 shadow-sm transition-colors hover:bg-gray-100 hover:text-gray-700"
+                aria-label="Fechar"
+            >
+                <FontAwesomeIcon icon={faXmark} />
+            </button>
+
             <div className="grid overflow-hidden border-b border-gray-100 md:grid-cols-[minmax(0,1fr)_230px]">
                 <div className="px-6 py-6 sm:px-8 sm:py-8">
                     <div className="relative h-12 w-56 max-w-full">
@@ -86,7 +96,7 @@ export default function QrCodeMesaSalesModal({
                         </span>
                     </div>
 
-                    <div className="mt-5 flex justify-center rounded-xl bg-gradient-to-b from-brand/[0.08] to-orange-50 p-4 md:hidden">
+                    <div className="mt-5 flex justify-center md:hidden">
                         <div className="relative aspect-[2/3] w-full max-w-[230px]">
                             <Image
                                 src="/images/QRCodeMesa.png"
@@ -99,8 +109,8 @@ export default function QrCodeMesaSalesModal({
                     </div>
                 </div>
 
-                <div className="hidden justify-center bg-gradient-to-b from-brand/[0.08] to-orange-50 md:flex">
-                    <div className="relative aspect-[2/3] w-full max-w-[230px]">
+                <div className="hidden items-center justify-center p-5 md:flex">
+                    <div className="relative aspect-[2/3] w-full max-w-[200px]">
                         <Image
                             src="/images/QRCodeMesa.png"
                             alt="Demonstração do iMenu QR Code Mesa"

@@ -529,7 +529,7 @@ export default function CartBar({
                 </div>
             </div>
 
-            {cartWarningVisible && (
+            {!isTableOrder && cartWarningVisible && (
                 <>
                     {/* 🔥 FIXED BACKDROP WITH FADE-IN & FADE-OUT */}
                     <div
