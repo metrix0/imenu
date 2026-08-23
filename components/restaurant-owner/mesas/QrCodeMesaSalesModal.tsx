@@ -75,6 +75,18 @@ export default function QrCodeMesaSalesModal({
                         painel e para a impressão.
                     </p>
 
+                    <div className="mt-5 flex justify-center rounded-xl bg-gradient-to-b from-brand/[0.08] to-orange-50 p-4 md:hidden">
+                        <div className="relative aspect-[2/3] w-full max-w-[230px]">
+                            <Image
+                                src="/images/QRCodeMesa.png"
+                                alt="Demonstração do iMenu QR Code Mesa"
+                                fill
+                                sizes="230px"
+                                className="object-contain object-center"
+                            />
+                        </div>
+                    </div>
+
                     <div className="mt-6 flex flex-wrap items-end gap-x-3 gap-y-2 rounded-xl border border-brand/20 bg-brand/5 px-4 py-4">
                         <span className="text-3xl font-bold text-gray-900">
                             R$ 4,90
@@ -87,7 +99,7 @@ export default function QrCodeMesaSalesModal({
                     </div>
                 </div>
 
-                <div className="flex justify-center bg-gradient-to-b from-brand/[0.08] to-orange-50 p-4 md:p-0">
+                <div className="hidden justify-center bg-gradient-to-b from-brand/[0.08] to-orange-50 md:flex">
                     <div className="relative aspect-[2/3] w-full max-w-[230px]">
                         <Image
                             src="/images/QRCodeMesa.png"
