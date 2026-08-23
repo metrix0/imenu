@@ -61,7 +61,7 @@ export default function QrCodeMesaSalesModal({
             showCloseButton
         >
             <div className="grid shrink-0 overflow-hidden border-b border-gray-100 md:grid-cols-[minmax(0,1fr)_300px]">
-                <div className="px-6 py-6 sm:px-8 sm:py-8">
+                <div className="px-6 pb-3 pt-5 sm:px-8 sm:py-8">
                     <div className="relative h-12 w-56 max-w-full">
                         <Image
                             src="/logos/QRCODECombinationMarkLogo_Brand.png"
@@ -98,7 +98,7 @@ export default function QrCodeMesaSalesModal({
                         </div>
                     </div>
 
-                    <div className="mt-5 flex justify-center md:hidden">
+                    <div className="mt-3 flex justify-center md:hidden">
                         <div className="relative aspect-[2/3] w-full max-w-[280px]">
                             <Image
                                 src="/images/QRCodeMesa.png"
