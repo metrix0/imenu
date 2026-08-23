@@ -240,6 +240,19 @@ export default function PainelLayout({
             }
 
             const touch = event.touches[0];
+            const mobileSidebarWidth = Math.min(
+                window.innerWidth * 0.84,
+                320
+            );
+            const canOpen = !mobileMenuOpen && touch.clientX <= 40;
+            const canClose =
+                mobileMenuOpen && touch.clientX <= mobileSidebarWidth;
+
+            if (!canOpen && !canClose) {
+                swipeStartRef.current = null;
+                return;
+            }
+
             swipeStartRef.current = { x: touch.clientX, y: touch.clientY };
         };
 
@@ -251,22 +264,29 @@ export default function PainelLayout({
             const touch = event.changedTouches[0];
             const horizontalDistance = touch.clientX - start.x;
             const verticalDistance = Math.abs(touch.clientY - start.y);
+            const isHorizontalGesture =
+                Math.abs(horizontalDistance) >= 70 &&
+                Math.abs(horizontalDistance) > verticalDistance * 1.5;
 
             if (
                 !mobileMenuOpen &&
-                horizontalDistance >= 70 &&
-                verticalDistance < 50
+                isHorizontalGesture &&
+                horizontalDistance > 0
             ) {
                 setMobileMenuOpen(true);
             }
 
             if (
                 mobileMenuOpen &&
-                horizontalDistance <= -70 &&
-                verticalDistance < 50
+                isHorizontalGesture &&
+                horizontalDistance < 0
             ) {
                 setMobileMenuOpen(false);
             }
+        };
+
+        const handleTouchCancel = () => {
+            swipeStartRef.current = null;
         };
 
         document.addEventListener("touchstart", handleTouchStart, {
@@ -275,10 +295,14 @@ export default function PainelLayout({
         document.addEventListener("touchend", handleTouchEnd, {
             passive: true,
         });
+        document.addEventListener("touchcancel", handleTouchCancel, {
+            passive: true,
+        });
 
         return () => {
             document.removeEventListener("touchstart", handleTouchStart);
             document.removeEventListener("touchend", handleTouchEnd);
+            document.removeEventListener("touchcancel", handleTouchCancel);
         };
     }, [mobileMenuOpen]);
 

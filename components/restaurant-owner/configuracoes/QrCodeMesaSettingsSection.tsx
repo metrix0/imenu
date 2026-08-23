@@ -242,7 +242,7 @@ export default function QrCodeMesaSettingsSection({
             <Card className="border border-gray-200 shadow-sm">
                 <div className="mb-6">
                     <h2 className="text-xl font-medium text-gray-900">
-                        Produtos iMenu
+                        Sistemas iMenu
                     </h2>
                     <p className="mt-1 text-sm text-gray-500">
                         Gerencie os produtos disponíveis na sua conta.

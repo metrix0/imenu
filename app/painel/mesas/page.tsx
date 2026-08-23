@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import Image from "next/image";
 import {
     faChair,
     faCopy,
@@ -593,8 +594,14 @@ export default function MesasPage() {
                         {!active && (
                             <div className="absolute inset-x-0 top-24 z-10 flex justify-center px-3 sm:top-36">
                                 <Card className="w-full max-w-md border border-gray-200 text-center shadow-xl">
-                                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-brand/10 text-brand">
-                                        <FontAwesomeIcon icon={faQrcode} />
+                                    <div className="relative mx-auto h-14 w-56 max-w-full">
+                                        <Image
+                                            src="/logos/QRCODECombinationMarkLogo_Brand.png"
+                                            alt="iMenu QR Code Mesa"
+                                            fill
+                                            sizes="224px"
+                                            className="object-contain"
+                                        />
                                     </div>
                                     <h2 className="mt-4 text-xl font-bold text-gray-900">
                                         Ative o iMenu QR Code Mesa
@@ -609,7 +616,7 @@ export default function MesasPage() {
                                         className="mt-5 w-full"
                                         onClick={openSalesModal}
                                     >
-                                        Conhecer o iMenu QR Code Mesa
+                                        Descobrir pedidos direto pela mesa
                                     </Button>
                                 </Card>
                             </div>

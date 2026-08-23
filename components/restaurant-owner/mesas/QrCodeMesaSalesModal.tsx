@@ -8,6 +8,8 @@ import {
     faQrcode,
     faUsers,
 } from "@fortawesome/free-solid-svg-icons";
+import Image from "next/image";
+
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 
@@ -28,15 +30,15 @@ const BENEFITS = [
     },
     {
         icon: faUsers,
-        title: "Sem limitar pessoas por mesa",
+        title: "Todos podem pedir ao mesmo tempo",
         description:
-            "Vários clientes podem usar o mesmo QR Code e fazer pedidos ao mesmo tempo.",
+            "Vários clientes usam o mesmo QR Code sem limitar uma pessoa por mesa.",
     },
     {
         icon: faChair,
-        title: "Pedido identificado no painel",
+        title: "A mesa acompanha o pedido",
         description:
-            "A mesa aparece no pedido e também na impressão, sem endereço ou pedido mínimo.",
+            "A identificação aparece no painel e na impressão, sem endereço ou pedido mínimo.",
     },
 ] as const;
 
@@ -48,57 +50,94 @@ export default function QrCodeMesaSalesModal({
     active = false,
 }: QrCodeMesaSalesModalProps) {
     return (
-        <Modal open={open} onClose={onClose} className="max-w-xl">
-            <div className="border-b border-gray-100 px-6 py-5 sm:px-8">
-                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-brand/10 text-brand">
-                    <FontAwesomeIcon icon={faQrcode} className="text-xl" />
+        <Modal open={open} onClose={onClose} className="max-w-4xl">
+            <div className="grid overflow-hidden border-b border-gray-100 md:grid-cols-[minmax(0,1fr)_230px]">
+                <div className="px-6 py-6 sm:px-8 sm:py-8">
+                    <div className="relative h-12 w-56 max-w-full">
+                        <Image
+                            src="/logos/QRCODECombinationMarkLogo_Brand.png"
+                            alt="iMenu QR Code Mesa"
+                            fill
+                            sizes="224px"
+                            className="object-contain object-left"
+                        />
+                    </div>
+
+                    <p className="mt-7 text-xs font-bold uppercase tracking-[0.16em] text-brand">
+                        Pedidos direto pela mesa
+                    </p>
+                    <h2 className="mt-2 text-2xl font-bold text-gray-900 sm:text-3xl">
+                        Transforme cada mesa em um novo ponto de pedido
+                    </h2>
+                    <p className="mt-3 max-w-xl text-sm leading-relaxed text-gray-600 sm:text-base">
+                        O cliente abre o cardápio, escolhe os produtos e envia o
+                        pedido já identificado com a mesa — direto para o seu
+                        painel e para a impressão.
+                    </p>
+
+                    <div className="mt-6 flex flex-wrap items-end gap-x-3 gap-y-2 rounded-xl border border-brand/20 bg-brand/5 px-4 py-4">
+                        <span className="text-3xl font-bold text-gray-900">
+                            R$ 4,90
+                        </span>
+                        <span className="pb-1 text-sm text-gray-600">/mês</span>
+                        <span className="ml-auto inline-flex items-center gap-2 pb-1 text-xs font-medium text-gray-600">
+                            <FontAwesomeIcon icon={faCreditCard} />
+                            Cobrança mensal no cartão
+                        </span>
+                    </div>
                 </div>
-                <h2 className="text-2xl font-bold text-gray-900">
-                    iMenu QR Code Mesa
-                </h2>
-                <p className="mt-2 text-sm leading-relaxed text-gray-600">
-                    Transforme cada mesa em um ponto de pedido direto para o
-                    seu cardápio digital.
-                </p>
+
+                <div className="flex justify-center bg-gradient-to-b from-brand/[0.08] to-orange-50 p-4 md:p-0">
+                    <div className="relative aspect-[2/3] w-full max-w-[230px]">
+                        <Image
+                            src="/images/QRCodeMesa.png"
+                            alt="Demonstração do iMenu QR Code Mesa"
+                            fill
+                            sizes="230px"
+                            className="object-contain object-center"
+                        />
+                    </div>
+                </div>
             </div>
 
-            <div className="space-y-5 px-6 py-6 sm:px-8">
-                <div className="flex items-end gap-2 rounded-xl border border-brand/20 bg-brand/5 p-4">
-                    <span className="text-3xl font-bold text-gray-900">
-                        R$ 4,90
-                    </span>
-                    <span className="pb-1 text-sm text-gray-600">/mês</span>
-                    <span className="ml-auto inline-flex items-center gap-2 pb-1 text-xs font-medium text-gray-600">
-                        <FontAwesomeIcon icon={faCreditCard} />
-                        Cartão de crédito
-                    </span>
+            <div className="space-y-6 px-6 py-6 sm:px-8">
+                <div>
+                    <h3 className="text-lg font-bold text-gray-900">
+                        Tudo pronto para atender pelas mesas
+                    </h3>
+                    <p className="mt-1 text-sm text-gray-500">
+                        Use QR Codes individuais ou comece com um único QR Code
+                        universal.
+                    </p>
                 </div>
 
-                <div className="space-y-4">
+                <div className="grid gap-3 md:grid-cols-3">
                     {BENEFITS.map((benefit) => (
-                        <div key={benefit.title} className="flex gap-3">
-                            <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-brand">
+                        <div
+                            key={benefit.title}
+                            className="rounded-xl border border-orange-100 bg-gradient-to-br from-white to-orange-50/70 p-4"
+                        >
+                            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand/10 text-brand">
                                 <FontAwesomeIcon icon={benefit.icon} />
                             </span>
-                            <div>
-                                <p className="font-semibold text-gray-900">
-                                    {benefit.title}
-                                </p>
-                                <p className="mt-0.5 text-sm leading-relaxed text-gray-500">
-                                    {benefit.description}
-                                </p>
-                            </div>
+                            <p className="mt-3 font-semibold text-gray-900">
+                                {benefit.title}
+                            </p>
+                            <p className="mt-1 text-sm leading-relaxed text-gray-500">
+                                {benefit.description}
+                            </p>
                         </div>
                     ))}
                 </div>
 
-                <div className="rounded-lg bg-green-50 px-4 py-3 text-sm text-green-800">
+                <div className="rounded-xl bg-green-50 px-4 py-3 text-sm text-green-800">
                     <FontAwesomeIcon icon={faCheck} className="mr-2" />
-                    Cancele quando quiser nas Configurações.
+                    Ativação simples e cancelamento disponível nas
+                    Configurações.
                 </div>
             </div>
 
-            <div className="flex flex-col-reverse gap-3 border-t border-gray-100 px-6 py-5 sm:flex-row sm:justify-end sm:px-8">
+            <div className="flex flex-col-reverse gap-3 border-t border-gray-100 px-6 py-5 sm:flex-row sm:items-center sm:justify-end sm:px-8">
                 <Button type="button" variant="secondary" onClick={onClose}>
                     Agora não
                 </Button>
@@ -108,8 +147,11 @@ export default function QrCodeMesaSalesModal({
                     loading={buying}
                     disabled={active}
                     onClick={onBuy}
+                    className="sm:min-w-64"
                 >
-                    {active ? "Plano ativo" : "Ativar por R$ 4,90/mês"}
+                    {active
+                        ? "Sistema ativo"
+                        : "Quero ativar pedidos por mesa"}
                 </Button>
             </div>
         </Modal>
