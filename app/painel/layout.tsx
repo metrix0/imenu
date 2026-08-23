@@ -59,8 +59,6 @@ type ScreenWakeLockSentinel = {
     ) => void;
 };
 
-const SIDEBAR_EXPANDED_STORAGE_KEY = "imenu-panel-sidebar-expanded";
-
 function getParamRestaurantId(
     params: ReturnType<typeof useParams>
 ): string | null {
@@ -220,15 +218,6 @@ export default function PainelLayout({
     }, [pathname, router]);
 
     useEffect(() => {
-        const storedValue = window.localStorage.getItem(
-            SIDEBAR_EXPANDED_STORAGE_KEY
-        );
-        if (storedValue !== null) {
-            setExpanded(storedValue === "true");
-        }
-    }, []);
-
-    useEffect(() => {
         setMobileMenuOpen(false);
     }, [pathname]);
 
@@ -294,14 +283,7 @@ export default function PainelLayout({
     }, [mobileMenuOpen]);
 
     const toggleSidebar = () => {
-        setExpanded((current) => {
-            const next = !current;
-            window.localStorage.setItem(
-                SIDEBAR_EXPANDED_STORAGE_KEY,
-                String(next)
-            );
-            return next;
-        });
+        setExpanded((current) => !current);
     };
 
     const handleStoreToggle = async (action: "open" | "close") => {
