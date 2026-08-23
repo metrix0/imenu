@@ -156,49 +156,50 @@ export default function MenuProductCards({
                     painel e na impressão.
                 </p>
 
-                <div className="mt-5 flex flex-wrap items-center justify-between gap-3 text-gray-900">
-                    <div className="flex items-end gap-1">
-                        <span className="text-2xl font-bold">R$ 4,90</span>
-                        <span className="pb-0.5 text-xs text-gray-500">
-                            /mês
-                        </span>
-                    </div>
+                <div className="mt-5 flex items-end gap-1 text-gray-900">
+                    <span className="text-2xl font-bold">R$ 4,90</span>
+                    <span className="pb-0.5 text-xs text-gray-500">
+                        /mês
+                    </span>
+                </div>
+
+                <div className="mt-auto flex flex-col gap-4 pt-7">
                     {qrActive && (
-                        <span className="inline-flex items-center gap-2 text-sm font-semibold text-green-700">
+                        <div className="flex items-center gap-2 text-sm font-semibold text-green-700">
                             <span className="flex h-5 w-5 items-center justify-center rounded-full bg-green-600 text-[10px] text-white">
                                 <FontAwesomeIcon icon={faCheck} />
                             </span>
                             Sistema ativo
-                        </span>
+                        </div>
                     )}
-                </div>
 
-                <div className="mt-auto flex flex-col gap-3 pt-6 sm:flex-row sm:items-center sm:justify-between">
-                    <button
-                        type="button"
-                        onClick={stopAndLearnMore}
-                        className="w-fit cursor-pointer text-left text-sm font-semibold text-gray-700 transition-colors hover:text-brand"
-                    >
-                        Ver tudo que o sistema faz
-                    </button>
-
-                    {!qrActive && (
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <button
                             type="button"
-                            onClick={stopAndHandleQrAction}
-                            className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg bg-brand px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-dark-brand"
+                            onClick={stopAndLearnMore}
+                            className="w-fit cursor-pointer text-left text-sm font-semibold text-gray-700 transition-colors hover:text-brand"
                         >
-                            {selected
-                                ? "Selecionado"
-                                : onQrToggle
-                                  ? "Adicionar ao meu iMenu"
-                                  : "Ativar agora"}
-                            <FontAwesomeIcon
-                                icon={selected ? faCheck : faArrowRight}
-                                className="text-xs"
-                            />
+                            Ver tudo que o sistema faz
                         </button>
-                    )}
+
+                        {!qrActive && (
+                            <button
+                                type="button"
+                                onClick={stopAndHandleQrAction}
+                                className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg bg-brand px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-dark-brand"
+                            >
+                                {selected
+                                    ? "Selecionado"
+                                    : onQrToggle
+                                      ? "Adicionar ao meu iMenu"
+                                      : "Saiba mais"}
+                                <FontAwesomeIcon
+                                    icon={selected ? faCheck : faArrowRight}
+                                    className="text-xs"
+                                />
+                            </button>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>

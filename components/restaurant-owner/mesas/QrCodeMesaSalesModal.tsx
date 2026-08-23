@@ -3,7 +3,6 @@
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
     faChair,
-    faCheck,
     faCreditCard,
     faQrcode,
     faUsers,
@@ -86,6 +85,9 @@ export default function QrCodeMesaSalesModal({
                             R$ 4,90
                         </span>
                         <span className="pb-1 text-sm text-gray-600">/mês</span>
+                        <span className="pb-1 text-xs font-medium text-gray-500">
+                            cancele quando quiser
+                        </span>
                         <span className="ml-auto inline-flex items-center gap-2 pb-1 text-xs font-medium text-gray-600">
                             <FontAwesomeIcon icon={faCreditCard} />
                             Cobrança mensal no cartão
@@ -106,7 +108,7 @@ export default function QrCodeMesaSalesModal({
                 </div>
 
                 <div className="relative hidden min-h-0 md:block">
-                    <div className="absolute inset-4">
+                    <div className="absolute bottom-4 left-4 right-7 top-10">
                         <Image
                             src="/images/QRCodeMesa.png"
                             alt="Demonstração do iMenu QR Code Mesa"
@@ -147,15 +149,9 @@ export default function QrCodeMesaSalesModal({
                         </div>
                     ))}
                 </div>
-
-                <div className="rounded-xl bg-green-50 px-4 py-3 text-sm text-green-800">
-                    <FontAwesomeIcon icon={faCheck} className="mr-2" />
-                    Ativação simples e cancelamento disponível nas
-                    Configurações.
-                </div>
             </div>
 
-            <div className="flex shrink-0 flex-col gap-3 border-t border-gray-100 px-6 py-5 sm:flex-row sm:items-center sm:px-8">
+            <div className="sticky bottom-0 z-20 flex shrink-0 flex-col gap-3 border-t border-gray-100 bg-white px-6 py-4 sm:static sm:flex-row sm:items-center sm:px-8 sm:py-5">
                 <a
                     href={SUPPORT_URL}
                     target="_blank"
@@ -177,9 +173,9 @@ export default function QrCodeMesaSalesModal({
                         variant="primary"
                         loading={buying}
                         onClick={onBuy}
-                        className="sm:min-w-64"
+                        className="w-full sm:w-auto sm:min-w-64"
                     >
-                        Quero ativar pedidos por mesa
+                        Continuar
                     </Button>
                 )}
             </div>
