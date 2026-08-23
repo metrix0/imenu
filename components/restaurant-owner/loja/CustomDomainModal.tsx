@@ -32,6 +32,7 @@ type CustomDomainModalProps = {
     restaurantId: string;
     initialDomain?: string | null;
     onDomainChange?: (domain: string) => void;
+    onVerificationChange?: (verified: boolean) => void;
 };
 
 async function fetchDomainStatus(restaurantId: string): Promise<DomainStatus> {
@@ -55,6 +56,7 @@ export default function CustomDomainModal({
     restaurantId,
     initialDomain,
     onDomainChange,
+    onVerificationChange,
 }: CustomDomainModalProps) {
     const [domain, setDomain] = useState(initialDomain || "");
     const [savedDomain, setSavedDomain] = useState(initialDomain || "");
@@ -74,8 +76,9 @@ export default function CustomDomainModal({
             setSavedDomain(nextDomain);
             setDomain(nextDomain);
             onDomainChange?.(nextDomain);
+            onVerificationChange?.(Boolean(payload.verified));
         },
-        [onDomainChange]
+        [onDomainChange, onVerificationChange]
     );
 
     useEffect(() => {
@@ -292,13 +295,20 @@ export default function CustomDomainModal({
                                 {status?.verification?.map((item, index) => (
                                     <div
                                         key={`${item.type}-${item.domain}-${index}`}
-                                        className="break-all rounded border border-gray-200 bg-white p-3"
+                                        className="grid grid-cols-[auto_auto_minmax(0,1fr)] gap-2 rounded border border-gray-200 bg-white p-3"
                                     >
-                                        <p className="mb-1 text-xs text-gray-500">
-                                            Verificação de propriedade
-                                        </p>
-                                        <b>{item.type || "TXT"}</b>{" "}
-                                        {item.domain || savedDomain}: {item.value}
+                                        <div>
+                                            <p className="text-xs text-gray-500">Tipo</p>
+                                            <b>{item.type || "TXT"}</b>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-gray-500">Nome</p>
+                                            <b>{item.domain || savedDomain}</b>
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className="text-xs text-gray-500">Valor</p>
+                                            <b className="break-all">{item.value}</b>
+                                        </div>
                                     </div>
                                 ))}
                             </>
