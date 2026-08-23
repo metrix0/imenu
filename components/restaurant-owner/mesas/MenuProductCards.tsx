@@ -70,6 +70,23 @@ export default function MenuProductCards({
                     painel.
                 </p>
 
+                <p className="mt-5 text-sm font-bold text-brand">
+                    Grátis para sempre, sem limites
+                </p>
+                <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-sm text-gray-700">
+                    {["Robô WhatsApp", "Pedidos delivery", "Gestão de pedidos"].map(
+                        (feature) => (
+                            <li key={feature} className="flex items-center gap-2">
+                                <FontAwesomeIcon
+                                    icon={faCheck}
+                                    className="text-xs text-brand"
+                                />
+                                {feature}
+                            </li>
+                        ),
+                    )}
+                </ul>
+
                 <div className="mt-auto flex flex-col gap-4 pt-7">
                     <div className="flex items-center gap-2 text-sm font-semibold text-brand">
                         <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand text-[10px] text-white">
@@ -139,21 +156,20 @@ export default function MenuProductCards({
                     painel e na impressão.
                 </p>
 
-                <div className="mt-5 flex items-end gap-1 text-gray-900">
-                    {qrActive ? (
+                <div className="mt-5 flex flex-wrap items-center justify-between gap-3 text-gray-900">
+                    <div className="flex items-end gap-1">
+                        <span className="text-2xl font-bold">R$ 4,90</span>
+                        <span className="pb-0.5 text-xs text-gray-500">
+                            /mês
+                        </span>
+                    </div>
+                    {qrActive && (
                         <span className="inline-flex items-center gap-2 text-sm font-semibold text-green-700">
                             <span className="flex h-5 w-5 items-center justify-center rounded-full bg-green-600 text-[10px] text-white">
                                 <FontAwesomeIcon icon={faCheck} />
                             </span>
                             Sistema ativo
                         </span>
-                    ) : (
-                        <>
-                            <span className="text-2xl font-bold">R$ 4,90</span>
-                            <span className="pb-0.5 text-xs text-gray-500">
-                                /mês
-                            </span>
-                        </>
                     )}
                 </div>
 
