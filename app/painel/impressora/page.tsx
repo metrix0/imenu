@@ -15,12 +15,6 @@ type PrinterRelease = {
     downloadUrl: string;
 };
 
-const FALLBACK_RELEASE: PrinterRelease = {
-    version: "1.0.7",
-    updatedAt: "2026-08-05T18:37:50.000Z",
-    downloadUrl: "/downloads/iMenu%20Impressora%20Setup%201.0.7.exe",
-};
-
 function formatUpdatedAt(value: string) {
     const date = new Date(value);
 
@@ -36,7 +30,7 @@ function formatUpdatedAt(value: string) {
 }
 
 export default function ImpressoraPage() {
-    const [release, setRelease] = useState<PrinterRelease>(FALLBACK_RELEASE);
+    const [release, setRelease] = useState<PrinterRelease | null>(null);
 
     useEffect(() => {
         fetch("/downloads/imenu-printer.json", { cache: "no-store" })
@@ -109,9 +103,11 @@ export default function ImpressoraPage() {
                             </div>
 
                             <a
-                                href={release.downloadUrl}
+                                href={release?.downloadUrl}
                                 download
-                                className="inline-flex w-full sm:w-fit items-center justify-center gap-2 bg-brand text-white px-6 py-3 rounded-xl font-semibold hover:bg-brand/90 transition"
+                                className={`inline-flex w-full sm:w-fit items-center justify-center gap-2 bg-brand text-white px-6 py-3 rounded-xl font-semibold hover:bg-brand/90 transition ${
+                                    release ? "" : "pointer-events-none"
+                                }`}
                             >
                                 <FontAwesomeIcon icon={faDownload} />
                                 Baixar iMenu Impressora
@@ -121,11 +117,11 @@ export default function ImpressoraPage() {
                                 <div className="flex flex-wrap gap-x-5 gap-y-1">
                                     <span>
                                         <span className="font-semibold text-gray-800">Versão:</span>{" "}
-                                        {release.version}
+                                        {release?.version || ""}
                                     </span>
                                     <span>
                                         <span className="font-semibold text-gray-800">Atualizado em:</span>{" "}
-                                        {formatUpdatedAt(release.updatedAt)}
+                                        {release ? formatUpdatedAt(release.updatedAt) : ""}
                                     </span>
                                 </div>
                             </div>
