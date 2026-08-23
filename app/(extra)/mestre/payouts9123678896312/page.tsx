@@ -71,7 +71,7 @@ const getWhatsAppPayoutUrl = (restaurant: RestaurantFinancial) => {
     const phone = getWhatsAppNumber(restaurant.phone);
     if (!phone) return null;
 
-    const message = `Repasse iMenu - ${restaurant.name}: ${formatMoney(
+    const message = `✅ Repasse iMenu Realizado - ${restaurant.name}: ${formatMoney(
         restaurant.value_to_pay_cents
     )}`;
 
