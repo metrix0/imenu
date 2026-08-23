@@ -8,6 +8,7 @@ import {
     faQrcode,
     faUsers,
 } from "@fortawesome/free-solid-svg-icons";
+import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
 import Image from "next/image";
 
 import Button from "@/components/ui/Button";
@@ -42,6 +43,9 @@ const BENEFITS = [
     },
 ] as const;
 
+const SUPPORT_URL =
+    "https://wa.me/5519988760900?text=Ol%C3%A1%2C%20tenho%20uma%20d%C3%BAvida%20sobre%20o%20iMenu%20QR%20Code%20Mesa.";
+
 export default function QrCodeMesaSalesModal({
     open,
     onClose,
@@ -56,7 +60,7 @@ export default function QrCodeMesaSalesModal({
             className="max-w-4xl"
             showCloseButton
         >
-            <div className="grid shrink-0 overflow-hidden border-b border-gray-100 md:grid-cols-[minmax(0,1fr)_230px]">
+            <div className="grid shrink-0 overflow-hidden border-b border-gray-100 md:grid-cols-[minmax(0,1fr)_300px]">
                 <div className="px-6 py-6 sm:px-8 sm:py-8">
                     <div className="relative h-12 w-56 max-w-full">
                         <Image
@@ -71,9 +75,6 @@ export default function QrCodeMesaSalesModal({
                     <p className="mt-7 text-xs font-bold uppercase tracking-[0.16em] text-brand">
                         Pedidos direto pela mesa
                     </p>
-                    <h2 className="mt-2 text-2xl font-bold text-gray-900 sm:text-3xl">
-                        Transforme cada mesa em um novo ponto de pedido
-                    </h2>
                     <p className="mt-3 max-w-xl text-sm leading-relaxed text-gray-600 sm:text-base">
                         O cliente abre o cardápio, escolhe os produtos e envia o
                         pedido já identificado com a mesa — direto para o seu
@@ -92,12 +93,12 @@ export default function QrCodeMesaSalesModal({
                     </div>
 
                     <div className="mt-5 flex justify-center md:hidden">
-                        <div className="relative aspect-[2/3] w-full max-w-[230px]">
+                        <div className="relative aspect-[2/3] w-full max-w-[280px]">
                             <Image
                                 src="/images/QRCodeMesa.png"
                                 alt="Demonstração do iMenu QR Code Mesa"
                                 fill
-                                sizes="230px"
+                                sizes="280px"
                                 className="object-contain object-center"
                             />
                         </div>
@@ -105,12 +106,12 @@ export default function QrCodeMesaSalesModal({
                 </div>
 
                 <div className="hidden items-center justify-center p-5 md:flex">
-                    <div className="relative aspect-[2/3] w-full max-w-[200px]">
+                    <div className="relative aspect-[2/3] w-full max-w-[260px]">
                         <Image
                             src="/images/QRCodeMesa.png"
                             alt="Demonstração do iMenu QR Code Mesa"
                             fill
-                            sizes="230px"
+                            sizes="300px"
                             className="object-contain object-center"
                         />
                     </div>
@@ -151,6 +152,21 @@ export default function QrCodeMesaSalesModal({
                     <FontAwesomeIcon icon={faCheck} className="mr-2" />
                     Ativação simples e cancelamento disponível nas
                     Configurações.
+                </div>
+
+                <div className="flex justify-center">
+                    <a
+                        href={SUPPORT_URL}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-3 rounded-full border border-gray-200 bg-gray-50 px-4 py-2 text-sm font-medium text-gray-700 transition hover:border-green-200 hover:bg-green-50 hover:text-green-700"
+                    >
+                        <FontAwesomeIcon
+                            icon={faWhatsapp}
+                            className="text-lg text-green-600"
+                        />
+                        <span>Está em dúvida? Fale conosco</span>
+                    </a>
                 </div>
             </div>
 
