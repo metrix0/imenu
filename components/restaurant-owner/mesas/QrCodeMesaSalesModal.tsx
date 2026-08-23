@@ -75,6 +75,17 @@ export default function QrCodeMesaSalesModal({
                         painel e para a impressão.
                     </p>
 
+                    <div className="mt-6 flex flex-wrap items-end gap-x-3 gap-y-2 rounded-xl border border-brand/20 bg-brand/5 px-4 py-4">
+                        <span className="text-3xl font-bold text-gray-900">
+                            R$ 4,90
+                        </span>
+                        <span className="pb-1 text-sm text-gray-600">/mês</span>
+                        <span className="ml-auto inline-flex items-center gap-2 pb-1 text-xs font-medium text-gray-600">
+                            <FontAwesomeIcon icon={faCreditCard} />
+                            Cobrança mensal no cartão
+                        </span>
+                    </div>
+
                     <div className="mt-5 flex justify-center rounded-xl bg-gradient-to-b from-brand/[0.08] to-orange-50 p-4 md:hidden">
                         <div className="relative aspect-[2/3] w-full max-w-[230px]">
                             <Image
@@ -85,17 +96,6 @@ export default function QrCodeMesaSalesModal({
                                 className="object-contain object-center"
                             />
                         </div>
-                    </div>
-
-                    <div className="mt-6 flex flex-wrap items-end gap-x-3 gap-y-2 rounded-xl border border-brand/20 bg-brand/5 px-4 py-4">
-                        <span className="text-3xl font-bold text-gray-900">
-                            R$ 4,90
-                        </span>
-                        <span className="pb-1 text-sm text-gray-600">/mês</span>
-                        <span className="ml-auto inline-flex items-center gap-2 pb-1 text-xs font-medium text-gray-600">
-                            <FontAwesomeIcon icon={faCreditCard} />
-                            Cobrança mensal no cartão
-                        </span>
                     </div>
                 </div>
 

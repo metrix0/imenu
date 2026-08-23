@@ -121,12 +121,12 @@ export default function MenuProductCards({
                     <FontAwesomeIcon icon={faCheck} className="text-xs" />
                 </button>
 
-                <div className="relative h-12 w-48 max-w-[75%]">
+                <div className="relative h-12 w-40 max-w-[75%]">
                     <Image
                         src="/logos/QRCODECombinationMarkLogo_Brand.png"
                         alt="iMenu QR Code Mesa"
                         fill
-                        sizes="192px"
+                        sizes="160px"
                         className="object-contain object-left"
                     />
                 </div>
