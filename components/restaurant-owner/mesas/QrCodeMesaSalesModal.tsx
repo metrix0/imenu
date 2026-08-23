@@ -2,6 +2,7 @@
 
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
+    faArrowRotateLeft,
     faChair,
     faCreditCard,
     faQrcode,
@@ -85,13 +86,16 @@ export default function QrCodeMesaSalesModal({
                             R$ 4,90
                         </span>
                         <span className="pb-1 text-sm text-gray-600">/mês</span>
-                        <span className="pb-1 text-xs font-medium text-gray-500">
-                            cancele quando quiser
-                        </span>
-                        <span className="ml-auto inline-flex items-center gap-2 pb-1 text-xs font-medium text-gray-600">
-                            <FontAwesomeIcon icon={faCreditCard} />
-                            Cobrança mensal no cartão
-                        </span>
+                        <div className="ml-auto flex flex-col items-end gap-1 pb-1">
+                            <span className="inline-flex items-center gap-2 text-xs font-medium text-gray-600">
+                                <FontAwesomeIcon icon={faCreditCard} />
+                                Cobrança mensal no cartão
+                            </span>
+                            <span className="inline-flex items-center gap-2 text-xs font-medium text-gray-500">
+                                <FontAwesomeIcon icon={faArrowRotateLeft} />
+                                cancele quando quiser
+                            </span>
+                        </div>
                     </div>
 
                     <div className="mt-5 flex justify-center md:hidden">
@@ -108,7 +112,7 @@ export default function QrCodeMesaSalesModal({
                 </div>
 
                 <div className="relative hidden min-h-0 md:block">
-                    <div className="absolute bottom-4 left-4 right-7 top-10">
+                    <div className="absolute bottom-4 left-4 right-10 top-16">
                         <Image
                             src="/images/QRCodeMesa.png"
                             alt="Demonstração do iMenu QR Code Mesa"
