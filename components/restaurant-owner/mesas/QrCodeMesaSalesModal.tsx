@@ -112,7 +112,7 @@ export default function QrCodeMesaSalesModal({
                 </div>
 
                 <div className="relative hidden min-h-0 md:block">
-                    <div className="absolute bottom-0 left-0 right-10 top-16">
+                    <div className="absolute -bottom-4 -left-8 right-10 top-16">
                         <Image
                             src="/images/QRCodeMesa.png"
                             alt="Demonstração do iMenu QR Code Mesa"
@@ -124,7 +124,7 @@ export default function QrCodeMesaSalesModal({
                 </div>
             </div>
 
-            <div className="shrink-0 space-y-6 px-6 pb-5 pt-3 sm:px-8">
+            <div className="shrink-0 space-y-6 px-6 pb-5 pt-1 sm:px-8">
                 <div>
                     <h3 className="text-lg font-bold text-gray-900">
                         Tudo pronto para atender pelas mesas
