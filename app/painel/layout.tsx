@@ -640,7 +640,7 @@ export default function PainelLayout({
                             storeStatusButton(true)
                         ) : (
                             <div
-                                className="mt-2 flex justify-center py-2"
+                                className="mt-2 flex h-[30px] items-center justify-center"
                                 title={
                                     isStoreClosed ? "Loja Fechada" : "Loja Aberta"
                                 }
