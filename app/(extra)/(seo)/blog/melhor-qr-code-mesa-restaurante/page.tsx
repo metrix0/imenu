@@ -31,7 +31,12 @@ const faq = [
     {
         question: "Qual é o melhor QR Code para restaurante em 2026?",
         answer:
-            "Para quem quer começar com baixo custo e receber pedidos identificados por mesa, o iMenu oferece uma proposta simples: cardápio digital grátis e o QR Code Mesa por R$ 4,90 por mês. Goomer, Anota AI e Saipos também têm soluções fortes, especialmente quando o restaurante já usa seus ecossistemas.",
+            "Para quem quer receber pedidos identificados por mesa gastando pouco, o iMenu se destaca pelo preço: R$ 4,90 por mês. Na comparação consultada em agosto de 2026, o Goomer parte de R$ 99,90 por mês no plano mensal de QR Code, a oferta pública do Anota AI aparece por R$ 99,99 por mês no checkout promocional e a Saipos parte de R$ 240,79 por mês no sistema de gestão.",
+    },
+    {
+        question: "Qual é o QR Code para restaurante mais barato entre iMenu, Goomer, Anota AI e Saipos?",
+        answer:
+            "Entre as quatro opções comparadas, o iMenu QR Code Mesa é o mais barato: R$ 4,90 por mês. O Goomer parte de R$ 99,90 por mês no plano mensal de QR Code, o checkout promocional do Anota AI mostra R$ 99,99 por mês e a Saipos parte de R$ 240,79 por mês.",
     },
     {
         question: "Qual sistema permite o cliente pedir direto pelo QR Code da mesa?",
@@ -46,7 +51,7 @@ const faq = [
     {
         question: "Quanto custa o QR Code Mesa do iMenu?",
         answer:
-            "O iMenu QR Code Mesa custa R$ 4,90 por mês. O cardápio digital principal do iMenu é grátis para sempre e sem limites.",
+            "O iMenu QR Code Mesa custa R$ 4,90 por mês, com cobrança mensal no cartão e cancelamento quando quiser. O restante do iMenu continua grátis para sempre e sem limites.",
     },
     {
         question: "QR Code por mesa é melhor do que um QR Code universal?",
@@ -64,7 +69,7 @@ export default function MelhorQrCodeMesaRestaurantePage() {
             icon={faQrcode}
             takeaways={[
                 "Quatro opções de QR Code para pedidos na mesa comparadas lado a lado",
-                "Diferenças de preço, fluxo de pedido e integração com a operação",
+                "Preços publicados, condições de contratação e diferenças reais de custo",
                 "Qual solução faz mais sentido para cada perfil de restaurante",
             ]}
             sections={sections}
@@ -87,11 +92,10 @@ export default function MelhorQrCodeMesaRestaurantePage() {
                     associado à mesa.
                 </p>
                 <p>
-                    A lista foi montada com base nos recursos publicados pelas próprias
-                    plataformas e revisada em agosto de 2026. Como este conteúdo é publicado
-                    pelo iMenu, deixamos os critérios explícitos para você comparar por conta
-                    própria: custo, facilidade para começar, identificação da mesa, envio do
-                    pedido e integração com a operação.
+                    A lista foi revisada em agosto de 2026 usando preços e condições publicados
+                    pelas próprias plataformas. Como este conteúdo é publicado pelo iMenu,
+                    deixamos os números e as fontes explícitos para você comparar custo,
+                    compromisso de contratação e recursos por conta própria.
                 </p>
 
                 <div className="grid gap-4 md:grid-cols-2">
@@ -99,35 +103,39 @@ export default function MelhorQrCodeMesaRestaurantePage() {
                         {
                             position: "1",
                             name: "iMenu QR Code Mesa",
-                            bestFor: "Melhor custo-benefício para começar",
+                            bestFor: "Melhor custo-benefício",
                             description:
-                                "Cardápio digital grátis para sempre, QR Code individual ou universal e pedidos identificados por mesa por R$ 4,90/mês.",
+                                "R$ 4,90/mês, cancele quando quiser. O iMenu principal continua grátis para sempre e sem limites, com cardápio online e recursos para receber e gerenciar pedidos.",
                         },
                         {
                             position: "2",
                             name: "Goomer",
-                            bestFor: "Melhor para operação integrada de salão",
+                            bestFor: "Boa operação de salão, preço bem maior",
                             description:
-                                "QR Codes exclusivos por mesa, pedido direto do celular e envio para cozinha por monitor ou impressora.",
+                                "QR Code a R$ 99,90/mês no plano mensal básico — cerca de 20x o preço do iMenu QR Code Mesa. Plano anual: 12x de R$ 59,94.",
                         },
                         {
                             position: "3",
                             name: "Anota AI",
-                            bestFor: "Melhor para quem também prioriza WhatsApp",
+                            bestFor: "Muitos recursos, atenção às condições",
                             description:
-                                "QR Code por mesa dentro de uma plataforma que também reúne automação de atendimento, PDV e outros recursos.",
+                                "Checkout promocional consultado mostra R$ 99,99/mês e fidelidade mínima de 12 meses. A página principal também anuncia 'sem fidelidade', então vale confirmar a condição antes de contratar.",
                         },
                         {
                             position: "4",
                             name: "Saipos",
-                            bestFor: "Melhor para quem já usa o sistema Saipos",
+                            bestFor: "Gestão completa para quem já precisa de um PDV",
                             description:
-                                "Cardápio QR Code integrado ao ecossistema de gestão, com versão de visualização e versão de pedido online.",
+                                "O QR Code não tem adicional, mas exige o sistema Saipos, cujos planos começam em R$ 240,79/mês — cerca de 49x o preço do iMenu QR Code Mesa.",
                         },
                     ].map((item) => (
                         <div
                             key={item.name}
-                            className="rounded-2xl border border-gray-200 bg-white p-5"
+                            className={`rounded-2xl border p-5 ${
+                                item.position === "1"
+                                    ? "border-brand/30 bg-orange-50/60 shadow-sm"
+                                    : "border-gray-200 bg-white"
+                            }`}
                         >
                             <div className="flex items-start gap-4">
                                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand font-bold text-white">
@@ -143,90 +151,112 @@ export default function MelhorQrCodeMesaRestaurantePage() {
                     ))}
                 </div>
 
-                <BlogCallout title="O melhor depende do que você já usa" variant="info">
-                    Se o restaurante já opera com um PDV ou ecossistema específico, integração
-                    pode pesar mais que preço. Se a prioridade é testar pedidos por mesa sem
-                    aumentar muito o custo fixo, uma solução independente e simples tende a
-                    fazer mais sentido.
+                <BlogCallout title="A diferença de preço é grande" variant="tip">
+                    Considerando os valores mensais publicados consultados, o Goomer básico e a
+                    oferta promocional do Anota AI ficam em torno de 20 vezes o valor do iMenu
+                    QR Code Mesa. A mensalidade inicial da Saipos fica em torno de 49 vezes.
+                    Para quem quer apenas transformar a mesa em um ponto de pedido, isso pesa
+                    bastante no custo fixo.
                 </BlogCallout>
             </BlogSection>
 
             <BlogSection id="comparativo" title="Comparativo rápido: iMenu, Goomer, Anota AI e Saipos">
-                <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white">
-                    <table className="w-full min-w-[900px] text-left text-sm">
+                <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white [scrollbar-width:thin] [&::-webkit-scrollbar]:h-1.5">
+                    <table className="w-full min-w-[980px] text-left text-sm">
                         <thead className="bg-gray-50 text-gray-900">
                             <tr>
                                 <th className="px-5 py-4 font-bold">Sistema</th>
-                                <th className="px-5 py-4 font-bold">Pedido pelo cliente</th>
-                                <th className="px-5 py-4 font-bold">Mesa identificada</th>
-                                <th className="px-5 py-4 font-bold">Destaque</th>
-                                <th className="px-5 py-4 font-bold">Preço do QR Mesa</th>
+                                <th className="px-5 py-4 font-bold">Preço publicado</th>
+                                <th className="px-5 py-4 font-bold">Pedido pela mesa</th>
+                                <th className="px-5 py-4 font-bold">Condição / ponto de atenção</th>
+                                <th className="px-5 py-4 font-bold">Vs. iMenu</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200 text-gray-600">
-                            <tr>
-                                <td className="px-5 py-4 font-semibold text-gray-950">iMenu</td>
-                                <td className="px-5 py-4">Sim</td>
-                                <td className="px-5 py-4">QR individual ou universal</td>
-                                <td className="px-5 py-4">Baixo custo e implantação simples</td>
-                                <td className="px-5 py-4 font-semibold text-gray-950">R$ 4,90/mês</td>
+                            <tr className="bg-orange-50/70">
+                                <td className="px-5 py-4 font-bold text-gray-950">
+                                    iMenu
+                                    <span className="ml-2 rounded-full bg-brand px-2 py-0.5 text-[11px] font-bold text-white">
+                                        Melhor custo-benefício
+                                    </span>
+                                </td>
+                                <td className="px-5 py-4 font-bold text-brand">R$ 4,90/mês</td>
+                                <td className="px-5 py-4">Sim — QR individual ou universal</td>
+                                <td className="px-5 py-4">Cobrança mensal; cancele quando quiser</td>
+                                <td className="px-5 py-4 font-bold text-brand">1x</td>
                             </tr>
                             <tr>
                                 <td className="px-5 py-4 font-semibold text-gray-950">Goomer</td>
-                                <td className="px-5 py-4">Sim</td>
-                                <td className="px-5 py-4">QR exclusivo por mesa</td>
-                                <td className="px-5 py-4">Integrações e operação de salão</td>
-                                <td className="px-5 py-4">Consultar plano atual</td>
+                                <td className="px-5 py-4">
+                                    <strong>R$ 99,90/mês</strong><br />
+                                    <span className="text-xs text-gray-500">ou 12x de R$ 59,94 no anual</span>
+                                </td>
+                                <td className="px-5 py-4">Sim — QR exclusivo por mesa</td>
+                                <td className="px-5 py-4">Recursos de cozinha e impressão ficam nos planos mais caros</td>
+                                <td className="px-5 py-4 font-semibold text-gray-950">≈ 20x</td>
                             </tr>
                             <tr>
                                 <td className="px-5 py-4 font-semibold text-gray-950">Anota AI</td>
-                                <td className="px-5 py-4">Sim</td>
-                                <td className="px-5 py-4">QR único por mesa</td>
-                                <td className="px-5 py-4">Automação de WhatsApp + salão</td>
-                                <td className="px-5 py-4">Consultar plano atual</td>
+                                <td className="px-5 py-4">
+                                    <strong>R$ 99,99/mês</strong><br />
+                                    <span className="text-xs text-gray-500">oferta mostrada no checkout consultado</span>
+                                </td>
+                                <td className="px-5 py-4">Sim — QR Code por mesa</td>
+                                <td className="px-5 py-4">Checkout informa fidelidade mínima de 12 meses; home também anuncia “sem fidelidade”</td>
+                                <td className="px-5 py-4 font-semibold text-gray-950">≈ 20x</td>
                             </tr>
                             <tr>
                                 <td className="px-5 py-4 font-semibold text-gray-950">Saipos</td>
-                                <td className="px-5 py-4">Sim, na versão com pedido online</td>
-                                <td className="px-5 py-4">QR ligado à mesa/comanda</td>
-                                <td className="px-5 py-4">Integração com gestão Saipos</td>
-                                <td className="px-5 py-4">Sem adicional além do sistema, segundo a Saipos</td>
+                                <td className="px-5 py-4">
+                                    <strong>a partir de R$ 240,79/mês</strong><br />
+                                    <span className="text-xs text-gray-500">QR Code sem adicional dentro do sistema</span>
+                                </td>
+                                <td className="px-5 py-4">Sim — integrado à mesa/comanda</td>
+                                <td className="px-5 py-4">Para ter o QR, você contrata o sistema de gestão completo</td>
+                                <td className="px-5 py-4 font-semibold text-gray-950">≈ 49x</td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
                 <p className="text-sm leading-6 text-gray-500">
-                    Preços e planos podem mudar. Quando a plataforma não publica um preço
-                    específico para o recurso de mesa, indicamos “consultar plano atual” em vez
-                    de estimar um valor.
+                    Valores consultados nas páginas públicas das próprias empresas em agosto de
+                    2026. Promoções, planos anuais e condições comerciais podem mudar.
                 </p>
             </BlogSection>
 
             <BlogSection id="imenu" title="1. iMenu QR Code Mesa: melhor custo-benefício para começar">
                 <p>
-                    O <strong>iMenu QR Code Mesa</strong> foi pensado para transformar cada mesa
-                    em um ponto de pedido sem obrigar o restaurante a contratar um sistema de
-                    gestão completo. O cardápio digital do iMenu continua grátis para sempre e
-                    sem limites; o recurso de pedidos por mesa custa <strong>R$ 4,90 por mês</strong>.
+                    O <strong>iMenu QR Code Mesa custa R$ 4,90 por mês</strong>. A cobrança é
+                    mensal no cartão e você pode cancelar quando quiser. Não é necessário
+                    contratar um PDV completo só para colocar pedidos por QR Code nas mesas.
+                </p>
+                <p>
+                    O restante do iMenu continua <strong>grátis para sempre e sem limites</strong>,
+                    com cardápio online e todos os recursos para receber e gerenciar pedidos. O
+                    QR Code Mesa entra como um adicional barato para quem quer transformar cada
+                    mesa em um novo ponto de pedido.
                 </p>
                 <p>
                     O restaurante pode gerar um QR Code individual para cada mesa ou usar um QR
                     universal, em que o cliente escolhe a mesa ao entrar. Depois do scan, o pedido
-                    é feito no mesmo cardápio e chega identificado no painel.
+                    é feito no mesmo cardápio e chega identificado no painel e na impressão.
                 </p>
                 <BlogChecklist
                     items={[
-                        "Cardápio digital grátis para sempre, sem limites",
+                        "R$ 4,90 por mês",
+                        "Cancele quando quiser",
+                        "Cardápio digital principal grátis para sempre e sem limites",
                         "QR Code individual por mesa",
                         "QR Code universal como alternativa",
-                        "Pedido enviado pelo próprio celular do cliente",
-                        "Mesa identificada junto do pedido",
-                        "Integração com o fluxo de pedidos e impressão do iMenu",
+                        "Vários clientes podem pedir ao mesmo tempo na mesma mesa",
+                        "Mesa identificada no painel e na impressão",
+                        "Sem endereço ou pedido mínimo para pedidos de mesa",
                     ]}
                 />
-                <BlogCallout title="Quando o iMenu faz mais sentido" variant="tip">
-                    Para restaurantes que querem testar autoatendimento por QR Code com um custo
-                    fixo muito baixo e sem trocar toda a operação por um novo PDV.
+                <BlogCallout title="O ponto forte do iMenu é simples" variant="tip">
+                    Você não precisa pagar R$ 100, R$ 200 ou mais por mês apenas para colocar
+                    autoatendimento na mesa. O QR Code Mesa custa R$ 4,90/mês e aproveita o
+                    cardápio e a estrutura de pedidos que você já tem no iMenu.
                 </BlogCallout>
                 <p>
                     Quer entender o fluxo completo antes de escolher? Veja o guia de{" "}
@@ -240,84 +270,110 @@ export default function MelhorQrCodeMesaRestaurantePage() {
                 </p>
             </BlogSection>
 
-            <BlogSection id="goomer" title="2. Goomer: forte em autoatendimento e integração com o salão">
+            <BlogSection id="goomer" title="2. Goomer: bom autoatendimento, mas custa bem mais">
                 <p>
-                    A Goomer é uma das plataformas mais conhecidas de autoatendimento para
-                    restaurantes. Na solução de Cardápio Digital em QR Code, o restaurante
-                    cadastra as mesas e gera códigos exclusivos para cada uma. O cliente abre o
-                    cardápio, faz o pedido no celular e a operação pode enviar os pedidos para a
-                    cozinha por monitor ou impressora.
+                    A Goomer oferece uma solução sólida de QR Code para restaurante. O plano
+                    Básico de QR Code custa <strong>R$ 99,90 por mês</strong> no mensal ou
+                    <strong> 12x de R$ 59,94</strong> no plano anual. Ele permite foto de
+                    produtos, opcionais, identidade visual e cardápio com visualização ou pedido.
                 </p>
                 <p>
-                    A própria Goomer também destaca integração com PDV, uso do QR na mesa,
-                    balcão ou como comanda digital e recursos voltados a operações que querem
-                    centralizar diferentes pontos de atendimento.
+                    Para recursos operacionais mais completos, o preço sobe. O plano Automatizar
+                    de QR Code custa <strong>R$ 184,90/mês</strong> no mensal ou 12x de
+                    R$ 138,68 no anual e adiciona, entre outros recursos, gestor de pedidos,
+                    impressão e gestor de cozinha. O plano Integrar chega a R$ 299,90/mês no
+                    preço mensal publicado.
                 </p>
+                <BlogCallout title="Ponto de atenção: até o plano de entrada custa cerca de 20x mais" variant="info">
+                    Comparando mensalidade com mensalidade, R$ 99,90 é aproximadamente 20 vezes
+                    os R$ 4,90 do iMenu QR Code Mesa. Se o restaurante só quer receber pedidos
+                    identificados por mesa, a diferença de custo é grande.
+                </BlogCallout>
                 <p>
                     Fonte consultada:{" "}
                     <a
-                        href="https://goomer.com.br/cardapio-digital-qr-code"
+                        href="https://goomer.com.br/planos"
                         target="_blank"
                         rel="noreferrer"
                         className={sourceClass}
                     >
-                        Cardápio Digital em QR Code da Goomer
+                        Planos e preços da Goomer
                     </a>
                     .
                 </p>
-                <BlogCallout title="Quando a Goomer faz mais sentido" variant="info">
-                    Para restaurantes que valorizam uma solução de autoatendimento mais ampla e
-                    integração com uma operação de salão já estruturada.
-                </BlogCallout>
             </BlogSection>
 
-            <BlogSection id="anota-ai" title="3. Anota AI: QR Code para mesa junto da automação de atendimento">
+            <BlogSection id="anota-ai" title="3. Anota AI: muitos recursos, mas confira a condição de contratação">
                 <p>
-                    A Anota AI oferece QR Codes únicos por mesa. O cliente escaneia, acessa o
-                    cardápio digital e pode completar o pedido sem esperar o garçom. O recurso
-                    está inserido em uma plataforma mais ampla que também trabalha com
-                    atendente virtual, WhatsApp, PDV, fidelidade, impressão e gerenciamento de
-                    pedidos.
+                    O Anota AI inclui QR Code para mesas no conjunto de recursos do plano Start,
+                    junto de robô com IA, cardápio digital, PDV, app para garçom, pagamento
+                    online, cupons, cashback e outros recursos.
                 </p>
                 <p>
-                    Isso torna a Anota AI especialmente interessante quando o restaurante não
-                    está procurando apenas um QR Code, mas também quer automatizar outros
-                    canais de atendimento. A página pública do recurso oferece teste grátis por
-                    sete dias e direciona o preço para contato comercial.
+                    No checkout público consultado, o plano Start aparece em promoção de
+                    <strong> R$ 299,99 por R$ 99,99/mês</strong> e informa
+                    <strong> fidelidade mínima de 12 meses</strong>. Isso representa cerca de
+                    R$ 1.199,88 ao longo de 12 meses se a condição promocional permanecer igual
+                    durante o período.
                 </p>
-                <p>
-                    Fonte consultada:{" "}
-                    <a
-                        href="https://anota.ai/home/funcionalidade/qr-code/"
-                        target="_blank"
-                        rel="noreferrer"
-                        className={sourceClass}
-                    >
-                        QR Code para mesas da Anota AI
-                    </a>
-                    .
-                </p>
-                <BlogCallout title="Quando a Anota AI faz mais sentido" variant="info">
-                    Para operações que querem juntar autoatendimento na mesa com uma estratégia
-                    forte de automação no WhatsApp e outros canais.
+                <BlogCallout title="Ponto de atenção: as páginas públicas mostram condições diferentes" variant="info">
+                    O checkout promocional consultado informa fidelidade mínima de 12 meses,
+                    enquanto a página principal do Anota AI também exibe “sem fidelidade”. Antes
+                    de contratar, confirme exatamente qual condição vale para o plano e a oferta
+                    que você está fechando.
                 </BlogCallout>
-            </BlogSection>
-
-            <BlogSection id="saipos" title="4. Saipos: QR Code integrado ao sistema de gestão">
-                <p>
-                    A Saipos oferece duas modalidades de Cardápio Digital QR Code. Na versão de
-                    visualização, o cliente consulta o menu e o garçom continua lançando o
-                    pedido. Na versão com pedido online, o próprio cliente envia o pedido e ele
-                    segue para as comandas de cozinha.
-                </p>
-                <p>
-                    Segundo a página pública da Saipos, o cardápio digital não tem custo
-                    adicional além da mensalidade do sistema de gestão. Por isso, a solução é
-                    particularmente lógica para um restaurante que já usa Saipos e quer manter
-                    mesas, comandas, cozinha e gestão no mesmo ecossistema.
-                </p>
                 <p>
                     Fontes consultadas:{" "}
+                    <a
+                        href="https://pagamento.anota.ai/register?self_source=LP_SELF_CHECKOUT"
+                        target="_blank"
+                        rel="noreferrer"
+                        className={sourceClass}
+                    >
+                        checkout público do Anota AI
+                    </a>{" "}
+                    e{" "}
+                    <a
+                        href="https://anota.ai/home/"
+                        target="_blank"
+                        rel="noreferrer"
+                        className={sourceClass}
+                    >
+                        página principal do Anota AI
+                    </a>
+                    .
+                </p>
+            </BlogSection>
+
+            <BlogSection id="saipos" title="4. Saipos: QR Code incluso, mas dentro de um sistema completo de gestão">
+                <p>
+                    A Saipos informa que o Cardápio Digital QR Code não tem custo adicional para
+                    clientes do sistema. O ponto importante é o custo de entrada do próprio
+                    sistema de gestão: os planos da Saipos começam em
+                    <strong> R$ 240,79 por mês</strong>.
+                </p>
+                <p>
+                    Para quem já precisa de PDV, financeiro, estoque, fiscal e integrações, isso
+                    pode fazer sentido. Mas, se o objetivo é apenas colocar um QR Code na mesa e
+                    receber pedidos, o custo efetivo de entrada é muito maior que o de uma
+                    solução específica.
+                </p>
+                <BlogCallout title="Ponto de atenção: 'QR grátis' não significa sistema grátis" variant="info">
+                    O módulo de QR Code não tem adicional, mas ele faz parte de uma assinatura
+                    que começa em R$ 240,79/mês. Esse valor é aproximadamente 49 vezes os
+                    R$ 4,90/mês do iMenu QR Code Mesa.
+                </BlogCallout>
+                <p>
+                    Fontes consultadas:{" "}
+                    <a
+                        href="https://saipos.com/planos-e-precos"
+                        target="_blank"
+                        rel="noreferrer"
+                        className={sourceClass}
+                    >
+                        Planos e preços da Saipos
+                    </a>{" "}
+                    e{" "}
                     <a
                         href="https://saipos.com/cardapio-digital"
                         target="_blank"
@@ -325,44 +381,32 @@ export default function MelhorQrCodeMesaRestaurantePage() {
                         className={sourceClass}
                     >
                         Cardápio Digital Saipos
-                    </a>{" "}
-                    e{" "}
-                    <a
-                        href="https://meajuda.saipos.com/hc/pt-br/articles/20211394475540-Card%C3%A1pio-Digital-QR-Code-na-Saipos"
-                        target="_blank"
-                        rel="noreferrer"
-                        className={sourceClass}
-                    >
-                        documentação do QR Code
                     </a>
                     .
                 </p>
-                <BlogCallout title="Quando a Saipos faz mais sentido" variant="info">
-                    Para restaurantes que já usam o sistema Saipos ou querem que o QR Code seja
-                    apenas uma parte de uma plataforma maior de gestão e PDV.
-                </BlogCallout>
             </BlogSection>
 
             <BlogSection id="como-escolher" title="Como escolher o melhor QR Code para o seu restaurante">
-                <BlogSubheading>1. Veja se o QR apenas mostra o menu ou também recebe pedido</BlogSubheading>
+                <BlogSubheading>1. Compare o custo total para ter pedidos pela mesa</BlogSubheading>
                 <p>
-                    Esse é o filtro mais importante. Se o objetivo é reduzir espera no salão,
-                    apenas abrir um PDF não resolve o principal gargalo. Procure um fluxo que
-                    permita selecionar itens, adicionais e enviar o pedido.
+                    Não olhe apenas para a frase “QR Code incluso”. Veja quanto você precisa
+                    pagar por mês para efetivamente ter o recurso funcionando. Um módulo sem
+                    adicional dentro de um sistema de R$ 240 por mês continua custando mais para
+                    quem não precisa do restante do pacote.
                 </p>
 
-                <BlogSubheading>2. Confira como a mesa é identificada</BlogSubheading>
+                <BlogSubheading>2. Veja se o QR apenas mostra o menu ou também recebe pedido</BlogSubheading>
                 <p>
-                    QR Codes individuais eliminam uma etapa porque a mesa já vem definida. Um
-                    QR universal facilita a impressão e pode ser útil como código de apoio, mas
-                    exige que o cliente escolha a mesa.
+                    Se o objetivo é reduzir espera no salão, apenas abrir um PDF não resolve o
+                    principal gargalo. Procure um fluxo que permita selecionar itens, adicionais
+                    e enviar o pedido já associado à mesa.
                 </p>
 
-                <BlogSubheading>3. Some o custo total, não apenas o módulo de QR Code</BlogSubheading>
+                <BlogSubheading>3. Confira fidelidade, plano anual e condições promocionais</BlogSubheading>
                 <p>
-                    Algumas plataformas vendem o QR dentro de um sistema completo; outras
-                    permitem contratar apenas a função necessária. Compare mensalidade, PDV,
-                    integrações, implantação e o que você realmente vai usar.
+                    Um preço promocional pode exigir 12 meses de compromisso ou mudar depois do
+                    período inicial. Compare o custo mensal normal, o custo anual e a liberdade
+                    para cancelar antes de decidir.
                 </p>
 
                 <BlogSubheading>4. Teste o pedido em um horário real de operação</BlogSubheading>
@@ -374,12 +418,12 @@ export default function MelhorQrCodeMesaRestaurantePage() {
 
                 <BlogChecklist
                     items={[
-                        "Abre rápido no celular sem instalar aplicativo",
+                        "Preço mensal real para ter QR Code com pedidos",
+                        "Fidelidade ou compromisso mínimo",
                         "Permite pedido, não apenas visualização",
                         "Identifica a mesa de forma clara",
                         "Aceita vários clientes na mesma mesa",
                         "Pedido chega ao painel ou cozinha sem redigitação",
-                        "Preço cabe no volume real do restaurante",
                     ]}
                 />
             </BlogSection>
