@@ -161,59 +161,58 @@ export default function MelhorQrCodeMesaRestaurantePage() {
             </BlogSection>
 
             <BlogSection id="comparativo" title="Comparativo rápido: iMenu, Goomer, Anota AI e Saipos">
-                <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white [scrollbar-width:thin] [&::-webkit-scrollbar]:h-1.5">
-                    <table className="w-full min-w-[980px] text-left text-sm">
+                <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
+                    <table className="w-full table-fixed text-left text-xs sm:text-sm">
+                        <colgroup>
+                            <col className="w-[30%]" />
+                            <col className="w-[42%]" />
+                            <col className="w-[28%]" />
+                        </colgroup>
                         <thead className="bg-gray-50 text-gray-900">
                             <tr>
-                                <th className="px-5 py-4 font-bold">Sistema</th>
-                                <th className="px-5 py-4 font-bold">Preço publicado</th>
-                                <th className="px-5 py-4 font-bold">Pedido pela mesa</th>
-                                <th className="px-5 py-4 font-bold">Condição / ponto de atenção</th>
-                                <th className="px-5 py-4 font-bold">Vs. iMenu</th>
+                                <th className="px-3 py-3 font-bold sm:px-5 sm:py-4">Sistema</th>
+                                <th className="px-3 py-3 font-bold sm:px-5 sm:py-4">Preço</th>
+                                <th className="px-3 py-3 font-bold sm:px-5 sm:py-4">Vs. iMenu</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200 text-gray-600">
                             <tr className="bg-orange-50/70">
-                                <td className="px-5 py-4 font-bold text-gray-950">
+                                <td className="px-3 py-3 font-bold text-gray-950 sm:px-5 sm:py-4">
                                     iMenu
-                                    <span className="ml-2 rounded-full bg-brand px-2 py-0.5 text-[11px] font-bold text-white">
-                                        Melhor custo-benefício
+                                    <span
+                                        className="ml-1.5 text-brand"
+                                        aria-label="Melhor custo-benefício"
+                                        title="Melhor custo-benefício"
+                                    >
+                                        ★
                                     </span>
                                 </td>
-                                <td className="px-5 py-4 font-bold text-brand">R$ 4,90/mês</td>
-                                <td className="px-5 py-4">Sim — QR individual ou universal</td>
-                                <td className="px-5 py-4">Cobrança mensal; cancele quando quiser</td>
-                                <td className="px-5 py-4 font-bold text-brand">1x</td>
+                                <td className="px-3 py-3 font-bold text-brand sm:px-5 sm:py-4">R$ 4,90/mês</td>
+                                <td className="px-3 py-3 font-bold text-brand sm:px-5 sm:py-4">1x</td>
                             </tr>
                             <tr>
-                                <td className="px-5 py-4 font-semibold text-gray-950">Goomer</td>
-                                <td className="px-5 py-4">
+                                <td className="px-3 py-3 font-semibold text-gray-950 sm:px-5 sm:py-4">Goomer</td>
+                                <td className="px-3 py-3 sm:px-5 sm:py-4">
                                     <strong>R$ 99,90/mês</strong><br />
-                                    <span className="text-xs text-gray-500">ou 12x de R$ 59,94 no anual</span>
+                                    <span className="text-[11px] text-gray-500 sm:text-xs">ou 12x de R$ 59,94 no anual</span>
                                 </td>
-                                <td className="px-5 py-4">Sim — QR exclusivo por mesa</td>
-                                <td className="px-5 py-4">Recursos de cozinha e impressão ficam nos planos mais caros</td>
-                                <td className="px-5 py-4 font-semibold text-gray-950">≈ 20x</td>
+                                <td className="px-3 py-3 font-semibold text-gray-950 sm:px-5 sm:py-4">≈ 20x</td>
                             </tr>
                             <tr>
-                                <td className="px-5 py-4 font-semibold text-gray-950">Anota AI</td>
-                                <td className="px-5 py-4">
+                                <td className="px-3 py-3 font-semibold text-gray-950 sm:px-5 sm:py-4">Anota AI</td>
+                                <td className="px-3 py-3 sm:px-5 sm:py-4">
                                     <strong>R$ 99,99/mês</strong><br />
-                                    <span className="text-xs text-gray-500">oferta mostrada no checkout consultado</span>
+                                    <span className="text-[11px] text-gray-500 sm:text-xs">oferta do checkout consultado</span>
                                 </td>
-                                <td className="px-5 py-4">Sim — QR Code por mesa</td>
-                                <td className="px-5 py-4">Checkout informa fidelidade mínima de 12 meses; home também anuncia “sem fidelidade”</td>
-                                <td className="px-5 py-4 font-semibold text-gray-950">≈ 20x</td>
+                                <td className="px-3 py-3 font-semibold text-gray-950 sm:px-5 sm:py-4">≈ 20x</td>
                             </tr>
                             <tr>
-                                <td className="px-5 py-4 font-semibold text-gray-950">Saipos</td>
-                                <td className="px-5 py-4">
-                                    <strong>a partir de R$ 240,79/mês</strong><br />
-                                    <span className="text-xs text-gray-500">QR Code sem adicional dentro do sistema</span>
+                                <td className="px-3 py-3 font-semibold text-gray-950 sm:px-5 sm:py-4">Saipos</td>
+                                <td className="px-3 py-3 sm:px-5 sm:py-4">
+                                    <strong>R$ 240,79/mês</strong><br />
+                                    <span className="text-[11px] text-gray-500 sm:text-xs">a partir de</span>
                                 </td>
-                                <td className="px-5 py-4">Sim — integrado à mesa/comanda</td>
-                                <td className="px-5 py-4">Para ter o QR, você contrata o sistema de gestão completo</td>
-                                <td className="px-5 py-4 font-semibold text-gray-950">≈ 49x</td>
+                                <td className="px-3 py-3 font-semibold text-gray-950 sm:px-5 sm:py-4">≈ 49x</td>
                             </tr>
                         </tbody>
                     </table>
