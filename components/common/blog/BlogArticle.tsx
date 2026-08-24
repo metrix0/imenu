@@ -64,6 +64,7 @@ export default function BlogArticle({
     const relatedArticles = relatedSlugs
         .map((slug) => BLOG_ARTICLES.find((candidate) => candidate.slug === slug))
         .filter((candidate): candidate is BlogArticleDefinition => Boolean(candidate));
+    const usesQrCodeMesaHero = article.slug === "cardapio-digital-qr-code-restaurante";
     const structuredData = [
         {
             "@context": "https://schema.org",
@@ -147,25 +148,35 @@ export default function BlogArticle({
                         </div>
                     </div>
 
-                    <div className="relative overflow-hidden rounded-3xl border border-orange-200 bg-white p-6 shadow-[0_24px_70px_-38px_rgba(234,88,12,0.55)] sm:p-8">
-                        <div aria-hidden="true" className="absolute -right-14 -top-14 h-40 w-40 rounded-full bg-brand/10 blur-3xl" />
-                        <div className="relative">
-                            <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand text-white shadow-lg shadow-brand/20">
-                                <FontAwesomeIcon icon={icon} className="h-5 w-5" />
-                            </span>
-                            <h2 className="mt-5 text-xl font-bold text-gray-950">Ao terminar, você terá</h2>
-                            <ul className="mt-5 space-y-4">
-                                {takeaways.map((takeaway) => (
-                                    <li key={takeaway} className="flex gap-3 text-sm leading-6 text-gray-600">
-                                        <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand/10 text-brand">
-                                            <FontAwesomeIcon icon={faCheck} className="h-2.5 w-2.5" />
-                                        </span>
-                                        <span>{takeaway}</span>
-                                    </li>
-                                ))}
-                            </ul>
+                    {usesQrCodeMesaHero ? (
+                        <div className="relative overflow-hidden rounded-3xl border border-orange-200 bg-white p-3 shadow-[0_24px_70px_-38px_rgba(234,88,12,0.55)]">
+                            <img
+                                src="/images/QRCodeMesa.png"
+                                alt="Cliente usando o celular para escanear um QR Code na mesa do restaurante"
+                                className="block h-auto max-h-[360px] w-full rounded-2xl object-contain"
+                            />
                         </div>
-                    </div>
+                    ) : (
+                        <div className="relative overflow-hidden rounded-3xl border border-orange-200 bg-white p-6 shadow-[0_24px_70px_-38px_rgba(234,88,12,0.55)] sm:p-8">
+                            <div aria-hidden="true" className="absolute -right-14 -top-14 h-40 w-40 rounded-full bg-brand/10 blur-3xl" />
+                            <div className="relative">
+                                <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand text-white shadow-lg shadow-brand/20">
+                                    <FontAwesomeIcon icon={icon} className="h-5 w-5" />
+                                </span>
+                                <h2 className="mt-5 text-xl font-bold text-gray-950">Ao terminar, você terá</h2>
+                                <ul className="mt-5 space-y-4">
+                                    {takeaways.map((takeaway) => (
+                                        <li key={takeaway} className="flex gap-3 text-sm leading-6 text-gray-600">
+                                            <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand/10 text-brand">
+                                                <FontAwesomeIcon icon={faCheck} className="h-2.5 w-2.5" />
+                                            </span>
+                                            <span>{takeaway}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </header>
 
@@ -195,7 +206,9 @@ export default function BlogArticle({
                 </aside>
 
                 <div className="min-w-0">
-                    <div className="space-y-16">{children}</div>
+                    <div className={`space-y-16 ${usesQrCodeMesaHero ? "[&>figure:first-child]:hidden" : ""}`}>
+                        {children}
+                    </div>
 
                     <section className="mt-16 scroll-mt-24" id="perguntas-frequentes">
                         <div className="flex items-center gap-3">
