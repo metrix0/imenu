@@ -11,7 +11,7 @@ export type Order = {
     display_id: number;
     created_at: string;
     customer_name: string;
-    status: "pending_online_payment" | "pending_physical_payment" | "preparing" | "delivering" | "done" | "canceled";
+    status: "pending_online_payment" | "pending_physical_payment" | "paid" | "preparing" | "delivering" | "done" | "canceled";
     total_cents: number;
     is_delivery?: string | null;
     table_name_snapshot?: string | null;
@@ -30,25 +30,25 @@ export default function OrdersTable({ orders, isLoading, onViewOrder }: OrdersTa
 
     const getStatusBadge = (status: string, isPickup: boolean) => {
         const map: Record<string, string> = {
-            pending_online_payment: "bg-yellow-100 text-yellow-800",
-            pending_physical_payment: "bg-yellow-100 text-yellow-800",
-            pending: "bg-yellow-100 text-yellow-800",
+            pending_online_payment: "bg-yellow-500 text-yellow-950",
+            pending_physical_payment: "bg-yellow-500 text-yellow-950",
+            paid: "bg-yellow-500 text-yellow-950",
             preparing: "bg-blue-100 text-blue-800 border-blue-200",
-            delivering: isPickup ? "bg-green-100 text-green-800 border-green-200" : "bg-purple-100 text-purple-800",
+            delivering: isPickup ? "bg-green-100 text-green-800 border-green-200" : "bg-purple-100 text-purple-800 border-purple-800",
             done: "bg-green-100 text-green-800 border-green-200",
             canceled: "bg-red-100 text-red-800 border-red-200",
         };
         const label: Record<string, string> = {
-            pending_online_payment: "À Pagar",
-            pending_physical_payment: isPickup ? "Pendente" : "Pendente (Pgt. Entrega)",
-            paid: "Pendente (Pago)",
+            pending_online_payment: "Pendente",
+            pending_physical_payment: "Pendente",
+            paid: "Pendente",
             preparing: "Preparando",
             delivering: isPickup ? "Pronto" : "Em Rota",
             done: "Concluído",
             canceled: "Cancelado",
         };
         return (
-            <span className={`px-3 py-1 rounded-full text-xs 2xl:text-base font-medium border ${map[status] || "bg-gray-100"}`}>
+            <span className={`px-3 py-1 rounded-full text-xs 2xl:text-base font-medium ${map[status] || "bg-gray-100"}`}>
                 {label[status] || status}
             </span>
         );
