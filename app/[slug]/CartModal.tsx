@@ -1224,6 +1224,21 @@ export default function CartModal({
                             ))}
                         </div>
 
+                        {pagamento === "pix" &&
+                            Math.max(
+                                items.reduce((acc, i) => acc + (promotionPrice(i) || i.total_cents), 0) +
+                                (effectiveDeliveryFeeCents ?? 0) -
+                                (coupon_discount_cents ? Number(coupon_discount_cents) : 0),
+                                0
+                            ) < 100 && (
+                            <WarningBox
+                                icon={icons.faTriangleExclamation}
+                                className="mb-5 p-4 2xl:text-lg"
+                            >
+                                O valor mínimo para PIX Online é R$1,00.
+                            </WarningBox>
+                        )}
+
                         {showDiscountInput && (<div className="mb-6">
                             <Input
                                 readOnly={!!selectedCouponCode && !!coupon_discount_cents}
