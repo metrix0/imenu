@@ -613,7 +613,7 @@ export default function PainelLayout({
                             />
                         </div>
                         <div
-                            className={`absolute flex items-center justify-center transition-all duration-300 ${
+                            className={`absolute left-0 flex w-[4.5rem] items-center justify-center transition-all duration-300 2xl:w-20 ${
                                 expanded
                                     ? "scale-0 opacity-0"
                                     : "scale-100 opacity-100"
@@ -633,7 +633,7 @@ export default function PainelLayout({
                         className={`mt-2 pb-1 transition-all duration-300 2xl:mt-8 ${
                             expanded
                                 ? "w-full px-4"
-                                : "w-auto"
+                                : "w-[4.5rem] self-start 2xl:w-20"
                         }`}
                     >
                         {expanded ? (
@@ -678,7 +678,7 @@ export default function PainelLayout({
                                     className={`group relative flex cursor-pointer items-center py-3 transition-all duration-200 ${
                                         expanded
                                             ? "justify-start gap-3 px-5"
-                                            : "justify-center px-0"
+                                            : "w-[4.5rem] self-start justify-center px-0 2xl:w-20"
                                     } ${
                                         active
                                             ? "border-r-4 border-brand bg-brand/10 font-medium text-brand md:border-l-4 md:border-r-0"
@@ -712,10 +712,10 @@ export default function PainelLayout({
                             type="button"
                             onClick={() => supportButtonRef.current?.open()}
                             title={!expanded ? "Ajuda" : ""}
-                            className={`group relative flex w-full cursor-pointer items-center py-3 text-gray-600 transition-all duration-200 hover:bg-gray-50 hover:text-gray-900 ${
+                            className={`group relative flex cursor-pointer items-center py-3 text-gray-600 transition-all duration-200 hover:bg-gray-50 hover:text-gray-900 ${
                                 expanded
-                                    ? "justify-start gap-3 px-5"
-                                    : "justify-center px-0"
+                                    ? "w-full justify-start gap-3 px-5"
+                                    : "w-[4.5rem] self-start justify-center px-0 2xl:w-20"
                             }`}
                         >
                             <div className="flex h-6 w-6 items-center justify-center 2xl:h-10 2xl:w-12">
