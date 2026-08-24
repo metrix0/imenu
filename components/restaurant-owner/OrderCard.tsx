@@ -356,14 +356,14 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
     const statusConfig: Record<string, { label: string; extra?: string | null;color: string; borderColor: string; btn: string | null; btnColor: string; }> = {
         pending_online_payment: { 
             label: "Pendente",
-            color: "bg-yellow-500 text-yellow-950",
+            color: "bg-yellow-100 text-yellow-700 border-yellow-200",
             borderColor: "border-l-yellow-500",
             btn: "Aceitar", 
             btnColor: "primary" 
         },
         pending_physical_payment: { 
             label: "Pendente",
-            color: "bg-yellow-500 text-yellow-950",
+            color: "bg-yellow-100 text-yellow-700 border-yellow-200",
             borderColor: "border-l-yellow-500", 
             btn: "Aceitar", 
             btnColor: "primary" ,
@@ -371,7 +371,7 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
         },
         paid: {
             label: "Pendente",
-            color: "bg-yellow-500 text-yellow-950",
+            color: "bg-yellow-100 text-yellow-700 border-yellow-200",
             borderColor: "border-l-yellow-500",
             btn: "Aceitar",
             btnColor: "primary"
@@ -513,12 +513,7 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
             <div className="flex flex-1 flex-col px-5 py-4 2xl:px-6 2xl:mt-2">
                 {/* Itens */}
                 <div className="space-y-2 2xl:space-y-3">
-                    {isTableOrder ? (
-                        <div className="mb-3 flex items-center gap-2 rounded-lg bg-brand/10 px-3 py-2 text-xs font-bold text-brand 2xl:text-base">
-                            <FontAwesomeIcon icon={faChair} />
-                            <span>{order.table_name_snapshot || "Mesa"}</span>
-                        </div>
-                    ) : isScheduled ? (
+                    {isScheduled ? (
                         <div className="mb-3 flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2 text-xs font-bold text-green-700 2xl:text-base">
                             <FontAwesomeIcon icon={faCalendarDays} />
                             <span>
