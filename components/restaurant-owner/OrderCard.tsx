@@ -63,7 +63,7 @@ function CashChangeInfo({ text }: { text: string }) {
             position="bottom"
             size="medium"
             portal
-            tooltipClassName="!w-[280px] text-center"
+            tooltipClassName="max-w-[280px] text-center"
         >
             <button
                 type="button"
@@ -102,7 +102,7 @@ function TimeInfo({ text, time, scheduled }: { text: string; time: string; sched
             size="medium"
             portal
             parentClassName="ml-auto shrink-0"
-            tooltipClassName="!w-[300px] text-center"
+            tooltipClassName="max-w-[300px] text-center"
         >
             {badge}
         </Tooltip>

@@ -224,36 +224,35 @@ export default function TablesOrdersModal({
                                                     className="flex items-center justify-between gap-3 px-3 py-3"
                                                 >
                                                     <div className="min-w-0">
-                                                        <p className="truncate text-sm font-semibold text-gray-900">
-                                                            Pedido #{order.display_id || order.id.slice(0, 8)}
-                                                        </p>
+                                                        <div className="flex items-center gap-1.5">
+                                                            <p className="truncate text-sm font-semibold text-gray-900">
+                                                                Pedido #{order.display_id || order.id.slice(0, 8)}
+                                                            </p>
+                                                            <Tooltip
+                                                                text="Ver detalhes"
+                                                                position="top"
+                                                            >
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => onViewOrder(order)}
+                                                                    aria-label={`Ver detalhes do pedido ${order.display_id || order.id.slice(0, 8)}`}
+                                                                    className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-gray-100 hover:text-brand"
+                                                                >
+                                                                    <FontAwesomeIcon icon={faEye} />
+                                                                </button>
+                                                            </Tooltip>
+                                                        </div>
                                                         <p className="truncate text-xs text-gray-500">
                                                             {order.customer_name}
                                                         </p>
                                                     </div>
-                                                    <div className="flex shrink-0 items-center gap-2">
-                                                        <div className="text-right">
-                                                            <span className={`inline-flex rounded-full px-2 py-1 text-[11px] font-semibold ${STATUS_CLASSES[order.status]}`}>
-                                                                {STATUS_LABELS[order.status]}
-                                                            </span>
-                                                            <p className="mt-1 text-xs font-semibold text-gray-700">
-                                                                {formatMoney(order.total_cents)}
-                                                            </p>
-                                                        </div>
-                                                        <Tooltip
-                                                            text="Ver detalhes"
-                                                            position="left"
-                                                            portal
-                                                        >
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => onViewOrder(order)}
-                                                                aria-label={`Ver detalhes do pedido ${order.display_id || order.id.slice(0, 8)}`}
-                                                                className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-gray-100 hover:text-brand"
-                                                            >
-                                                                <FontAwesomeIcon icon={faEye} />
-                                                            </button>
-                                                        </Tooltip>
+                                                    <div className="shrink-0 text-right">
+                                                        <span className={`inline-flex rounded-full px-2 py-1 text-[11px] font-semibold ${STATUS_CLASSES[order.status]}`}>
+                                                            {STATUS_LABELS[order.status]}
+                                                        </span>
+                                                        <p className="mt-1 text-xs font-semibold text-gray-700">
+                                                            {formatMoney(order.total_cents)}
+                                                        </p>
                                                     </div>
                                                 </div>
                                             ))}

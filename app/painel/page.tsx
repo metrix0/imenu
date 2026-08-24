@@ -568,7 +568,7 @@ export default function PainelPedidosAtivosPage() {
                 >
                     <div
                         className={`
-        p-4 cursor-pointer w-fit px-8 rounded-2xl mt-10 mb-6
+        p-4 cursor-pointer w-fit px-8 rounded-2xl mb-6
         duration-300 ease-in-out 
         ${
             soundEnabled
