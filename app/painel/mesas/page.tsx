@@ -355,6 +355,9 @@ export default function MesasPage() {
         addon?.universal_token && menuBaseUrl
             ? menuBaseUrl
             : "";
+    const universalDisplayUrl = universalUrl
+        .replace(/^https?:\/\//i, "")
+        .replace(/\/$/, "");
 
     return (
         <>
@@ -468,7 +471,7 @@ export default function MesasPage() {
                                             <div className="mt-5 max-w-2xl">
                                                 <Input
                                                     label="Link universal"
-                                                    value={universalUrl}
+                                                    value={universalDisplayUrl}
                                                     readOnly
                                                     locked
                                                     iconPosition="right"

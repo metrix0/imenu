@@ -162,7 +162,7 @@ export default function QrCodeMesaSalesModal({
                             href="/restaurante/dados/termos/qr-code-mesa"
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="font-semibold text-brand underline underline-offset-2 hover:text-dark-brand"
+                            className="underline underline-offset-2"
                         >
                             Termos do iMenu QR Code Mesa
                         </Link>{" "}

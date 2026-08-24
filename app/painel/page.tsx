@@ -529,10 +529,11 @@ export default function PainelPedidosAtivosPage() {
                     <Button
                         onClick={() => setIsCreateOrderOpen(true)}
                         className=""
-                        variant={"primary"}
+                        variant="primary"
                     >
                         <FontAwesomeIcon icon={faPlus} className="mr-2" />
-                        Adicionar Pedido
+                        <span className="hidden sm:inline">Adicionar Pedido</span>
+                        <span className="sm:hidden">Pedido</span>
                     </Button>
 
                     <Button
@@ -545,8 +546,7 @@ export default function PainelPedidosAtivosPage() {
 
                     <Button
                         onClick={() => setIsShareModalOpen(true)}
-                        className="bg-gray-200 hover:bg-gray-300 text-gray-800 focus:ring-gray-300"
-                        variant={"secondary"}
+                        variant="secondary"
                     >
                         <FontAwesomeIcon icon={faShareAlt} className="" />
                     </Button>
@@ -670,6 +670,10 @@ export default function PainelPedidosAtivosPage() {
                 onClose={() => setIsTablesModalOpen(false)}
                 restaurantId={restaurantId}
                 orders={orders}
+                onViewOrder={(order) => {
+                    setIsTablesModalOpen(false);
+                    handleViewOrder(order);
+                }}
             />
         </div>
     );

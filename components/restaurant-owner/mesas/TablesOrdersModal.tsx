@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faChair } from "@fortawesome/free-solid-svg-icons";
+import { faChair, faEye } from "@fortawesome/free-solid-svg-icons";
 
 import type {
     OrderData,
@@ -11,6 +11,7 @@ import type {
 import Card from "@/components/ui/Card";
 import Loader from "@/components/ui/Loader";
 import Modal from "@/components/ui/Modal";
+import Tooltip from "@/components/ui/Tooltip";
 import { supabase } from "@/lib/database/supabaseClient";
 
 type RestaurantTable = {
@@ -45,20 +46,46 @@ function formatMoney(cents: number): string {
     }).format(cents / 100);
 }
 
+function formatElapsedSince(value: number, now: number): string {
+    const elapsedMinutes = Math.max(0, Math.floor((now - value) / 60000));
+
+    if (elapsedMinutes < 1) return "agora";
+    if (elapsedMinutes < 60) return `há ${elapsedMinutes} min`;
+
+    const elapsedHours = Math.floor(elapsedMinutes / 60);
+    if (elapsedHours < 24) {
+        const remainingMinutes = elapsedMinutes % 60;
+        return `há ${elapsedHours} h${remainingMinutes ? ` ${remainingMinutes} min` : ""}`;
+    }
+
+    return `há ${Math.floor(elapsedHours / 24)} d`;
+}
+
 export default function TablesOrdersModal({
     open,
     onClose,
     restaurantId,
     orders,
+    onViewOrder,
 }: {
     open: boolean;
     onClose: () => void;
     restaurantId: string;
     orders: OrderData[];
+    onViewOrder: (order: OrderData) => void;
 }) {
     const [tables, setTables] = useState<RestaurantTable[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(false);
+    const [now, setNow] = useState(() => Date.now());
+
+    useEffect(() => {
+        if (!open) return;
+
+        setNow(Date.now());
+        const interval = window.setInterval(() => setNow(Date.now()), 60000);
+        return () => window.clearInterval(interval);
+    }, [open]);
 
     useEffect(() => {
         if (!open) return;
@@ -145,6 +172,16 @@ export default function TablesOrdersModal({
                         {tables.map((table) => {
                             const tableOrders =
                                 ordersByTable.get(table.id) || [];
+                            const firstOrderAt = tableOrders.reduce<number | null>(
+                                (earliest, order) => {
+                                    const createdAt = new Date(order.created_at).getTime();
+                                    if (!Number.isFinite(createdAt)) return earliest;
+                                    return earliest === null
+                                        ? createdAt
+                                        : Math.min(earliest, createdAt);
+                                },
+                                null
+                            );
 
                             return (
                                 <Card
@@ -156,9 +193,16 @@ export default function TablesOrdersModal({
                                             <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand/10 text-brand">
                                                 <FontAwesomeIcon icon={faChair} />
                                             </span>
-                                            <h3 className="font-bold text-gray-900">
-                                                {table.name}
-                                            </h3>
+                                            <div>
+                                                <h3 className="font-bold text-gray-900">
+                                                    {table.name}
+                                                </h3>
+                                                {firstOrderAt !== null && (
+                                                    <p className="mt-0.5 text-xs text-gray-500">
+                                                        Primeiro pedido {formatElapsedSince(firstOrderAt, now)}
+                                                    </p>
+                                                )}
+                                            </div>
                                         </div>
                                         <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-600">
                                             {tableOrders.length}{" "}
@@ -187,13 +231,29 @@ export default function TablesOrdersModal({
                                                             {order.customer_name}
                                                         </p>
                                                     </div>
-                                                    <div className="shrink-0 text-right">
-                                                        <span className={`inline-flex rounded-full px-2 py-1 text-[11px] font-semibold ${STATUS_CLASSES[order.status]}`}>
-                                                            {STATUS_LABELS[order.status]}
-                                                        </span>
-                                                        <p className="mt-1 text-xs font-semibold text-gray-700">
-                                                            {formatMoney(order.total_cents)}
-                                                        </p>
+                                                    <div className="flex shrink-0 items-center gap-2">
+                                                        <div className="text-right">
+                                                            <span className={`inline-flex rounded-full px-2 py-1 text-[11px] font-semibold ${STATUS_CLASSES[order.status]}`}>
+                                                                {STATUS_LABELS[order.status]}
+                                                            </span>
+                                                            <p className="mt-1 text-xs font-semibold text-gray-700">
+                                                                {formatMoney(order.total_cents)}
+                                                            </p>
+                                                        </div>
+                                                        <Tooltip
+                                                            text="Ver detalhes"
+                                                            position="left"
+                                                            portal
+                                                        >
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => onViewOrder(order)}
+                                                                aria-label={`Ver detalhes do pedido ${order.display_id || order.id.slice(0, 8)}`}
+                                                                className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-gray-100 hover:text-brand"
+                                                            >
+                                                                <FontAwesomeIcon icon={faEye} />
+                                                            </button>
+                                                        </Tooltip>
                                                     </div>
                                                 </div>
                                             ))}

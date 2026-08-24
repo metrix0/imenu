@@ -82,33 +82,55 @@ export async function downloadQrDesign({
     const context = canvas.getContext("2d");
     if (!context) throw new Error("Não foi possível criar o QR Code.");
 
-    context.fillStyle = "#ffffff";
+    const cleanDisplayUrl = displayUrl
+        .replace(/^https?:\/\//i, "")
+        .replace(/\/$/, "");
+    const background = context.createLinearGradient(0, 0, 0, canvas.height);
+    background.addColorStop(0, "#fff4ee");
+    background.addColorStop(0.45, "#ffffff");
+    background.addColorStop(1, "#fffaf7");
+    context.fillStyle = background;
     context.fillRect(0, 0, canvas.width, canvas.height);
 
     context.save();
     context.beginPath();
-    context.roundRect(70, 70, 940, 430, 32);
+    context.roundRect(70, 70, 940, 390, 32);
     context.clip();
-    drawCoverImage(context, banner, 70, 70, 940, 430);
+    drawCoverImage(context, banner, 70, 70, 940, 390);
     context.restore();
 
     context.fillStyle = "#111827";
-    context.font = "700 54px Arial, sans-serif";
+    context.font = "700 58px Arial, sans-serif";
     context.textAlign = "center";
-    context.fillText(title, 540, 600, 900);
-
-    context.fillStyle = "#ffffff";
-    context.strokeStyle = "#e5e7eb";
-    context.lineWidth = 3;
-    context.beginPath();
-    context.roundRect(180, 660, 720, 720, 28);
-    context.fill();
-    context.stroke();
-    context.drawImage(qrCode, 220, 700, 640, 640);
+    context.fillText(title, 540, 560, 900);
 
     context.fillStyle = "#f14400";
-    context.font = "700 34px Arial, sans-serif";
-    context.fillText(displayUrl, 540, 1485, 920);
+    context.beginPath();
+    context.roundRect(450, 590, 180, 8, 4);
+    context.fill();
+
+    context.fillStyle = "rgba(17, 24, 39, 0.10)";
+    context.beginPath();
+    context.roundRect(170, 638, 740, 740, 32);
+    context.fill();
+
+    context.fillStyle = "#ffffff";
+    context.strokeStyle = "#ffd8c7";
+    context.lineWidth = 3;
+    context.beginPath();
+    context.roundRect(170, 625, 740, 740, 32);
+    context.fill();
+    context.stroke();
+    context.drawImage(qrCode, 220, 675, 640, 640);
+
+    context.fillStyle = "#f14400";
+    context.beginPath();
+    context.roundRect(100, 1430, 880, 92, 46);
+    context.fill();
+
+    context.fillStyle = "#ffffff";
+    context.font = "700 32px Arial, sans-serif";
+    context.fillText(cleanDisplayUrl, 540, 1489, 800);
 
     const blob = await new Promise<Blob>((resolve, reject) => {
         canvas.toBlob((result) => {
