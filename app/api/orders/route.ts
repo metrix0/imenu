@@ -1,25 +1,14 @@
 // app/api/orders/route.ts
 import { NextResponse } from "next/server";
-import { MercadoPagoConfig, Payment } from "mercadopago";
 
 import {
     query,
     withTransaction,
 } from "@/lib/database/sql";
+import { createPayZuPixCharge } from "@/lib/payzu";
 import { promotionPrice } from "@/lib/utils/formatPrice";
 
 export const dynamic = "force-dynamic";
-
-if (!process.env.MERCADO_PAGO_ACCESS_TOKEN) {
-    throw new Error(
-        "MERCADO_PAGO_ACCESS_TOKEN missing"
-    );
-}
-
-const mercadoPago = new MercadoPagoConfig({
-    accessToken:
-        process.env.MERCADO_PAGO_ACCESS_TOKEN!,
-});
 
 class OrderRequestError extends Error {
     status: number;
@@ -1000,22 +989,13 @@ export async function POST(request: Request) {
         let payment;
 
         try {
-            payment = await new Payment(
-                mercadoPago
-            ).create({
-                body: {
-                    transaction_amount:
-                        total / 100,
-                    description: `Pedido ${orderId}`,
-                    payment_method_id: "pix",
-                    external_reference:
-                        orderId.toString(),
-                    notification_url: `${process.env.NEXT_PUBLIC_BASE_URL}/api/webhooks/mercadopago`,
-                    payer: {
-                        email: `cliente_${orderId}@fake.com`,
-                        first_name: customer_name,
-                    },
-                },
+            payment = await createPayZuPixCharge({
+                amount: total / 100,
+                callbackUrl: new URL(
+                    "/api/webhooks/payzu",
+                    request.url
+                ).toString(),
+                clientReference: orderId.toString(),
             });
         } catch (paymentError) {
             try {
@@ -1033,13 +1013,9 @@ export async function POST(request: Request) {
         }
 
         const pixQrBase64 =
-            payment.point_of_interaction
-                ?.transaction_data
-                ?.qr_code_base64 ?? null;
+            payment.qrCodeBase64 ?? null;
         const pixCopyPaste =
-            payment.point_of_interaction
-                ?.transaction_data?.qr_code ??
-            null;
+            payment.qrCodeText ?? null;
 
         await query(
             `

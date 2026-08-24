@@ -3,6 +3,10 @@ import { NextResponse } from "next/server";
 import { MercadoPagoConfig, PaymentRefund } from "mercadopago";
 
 import { withTransaction } from "@/lib/database/sql";
+import {
+    isPayZuPaymentRef,
+    refundPayZuPixCharge,
+} from "@/lib/payzu";
 import { notifyOrderStatusUpdate } from "@/lib/services/whatsappNotification";
 
 const VALID_STATUSES = [
@@ -127,28 +131,57 @@ export async function PATCH(
                     );
                 }
 
-                const accessToken =
-                    process.env.MERCADO_PAGO_ACCESS_TOKEN;
-
-                if (!accessToken) {
-                    throw new OrderStatusError(
-                        "Mercado Pago não configurado.",
-                        500
-                    );
-                }
-
                 try {
-                    const mercadoPago = new MercadoPagoConfig({
-                        accessToken,
-                    });
+                    if (isPayZuPaymentRef(order.payment_ref)) {
+                        const refund = await refundPayZuPixCharge({
+                            transactionId: String(order.payment_ref),
+                            clientReference: `refund-${id}`,
+                        });
+                        const refundStatus = String(
+                            refund.refundStatus ?? ""
+                        ).toUpperCase();
+                        const transactionStatus = String(
+                            refund.status ?? ""
+                        ).toUpperCase();
 
-                    await new PaymentRefund(mercadoPago).total({
-                        payment_id: String(order.payment_ref),
-                        requestOptions: {
-                            idempotencyKey: `order-${id}-full-refund`,
-                        },
-                    });
+                        if (
+                            refundStatus &&
+                            !["PENDING", "COMPLETED"].includes(
+                                refundStatus
+                            ) &&
+                            transactionStatus !== "REFUNDED"
+                        ) {
+                            throw new Error(
+                                `PayZu retornou refundStatus ${refundStatus}.`
+                            );
+                        }
+                    } else {
+                        const accessToken =
+                            process.env.MERCADO_PAGO_ACCESS_TOKEN;
+
+                        if (!accessToken) {
+                            throw new OrderStatusError(
+                                "Mercado Pago não configurado.",
+                                500
+                            );
+                        }
+
+                        const mercadoPago = new MercadoPagoConfig({
+                            accessToken,
+                        });
+
+                        await new PaymentRefund(mercadoPago).total({
+                            payment_id: String(order.payment_ref),
+                            requestOptions: {
+                                idempotencyKey: `order-${id}-full-refund`,
+                            },
+                        });
+                    }
                 } catch (refundError) {
+                    if (refundError instanceof OrderStatusError) {
+                        throw refundError;
+                    }
+
                     console.error(
                         "[ORDERS] Falha ao reembolsar PIX:",
                         refundError
