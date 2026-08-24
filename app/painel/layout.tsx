@@ -675,9 +675,9 @@ export default function PainelLayout({
                                     key={item.href}
                                     href={item.href}
                                     title={!expanded ? item.label : ""}
-                                    className={`group relative flex cursor-pointer items-center py-3 transition-all duration-200 ${
+                                    className={`group relative flex cursor-pointer items-center py-3 transition-colors duration-200 ${
                                         expanded
-                                            ? "justify-start gap-3 px-5"
+                                            ? "w-full justify-start gap-2 pl-6 pr-5 2xl:gap-4 2xl:pl-4"
                                             : "w-[4.5rem] self-start justify-center px-0 2xl:w-20"
                                     } ${
                                         active
@@ -712,9 +712,9 @@ export default function PainelLayout({
                             type="button"
                             onClick={() => supportButtonRef.current?.open()}
                             title={!expanded ? "Ajuda" : ""}
-                            className={`group relative flex cursor-pointer items-center py-3 text-gray-600 transition-all duration-200 hover:bg-gray-50 hover:text-gray-900 ${
+                            className={`group relative flex cursor-pointer items-center py-3 text-gray-600 transition-colors duration-200 hover:bg-gray-50 hover:text-gray-900 ${
                                 expanded
-                                    ? "w-full justify-start gap-3 px-5"
+                                    ? "w-full justify-start gap-2 pl-6 pr-5 2xl:gap-4 2xl:pl-4"
                                     : "w-[4.5rem] self-start justify-center px-0 2xl:w-20"
                             }`}
                         >
