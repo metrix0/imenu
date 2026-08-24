@@ -364,7 +364,7 @@ export default function CardapioDigitalQrCodeRestaurantePage() {
                         <p className="text-sm font-semibold text-brand">Cardápio digital iMenu</p>
                         <p className="mt-2 text-2xl font-bold text-gray-950">Grátis para sempre</p>
                         <p className="mt-2 text-sm leading-6 text-gray-600">
-                            Sem limites, com cardápio online e recursos principais para receber
+                            Sem limites, com cardápio online e todos os recursos para receber
                             e gerenciar pedidos.
                         </p>
                     </div>

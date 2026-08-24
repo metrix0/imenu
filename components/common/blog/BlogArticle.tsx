@@ -64,7 +64,10 @@ export default function BlogArticle({
     const relatedArticles = relatedSlugs
         .map((slug) => BLOG_ARTICLES.find((candidate) => candidate.slug === slug))
         .filter((candidate): candidate is BlogArticleDefinition => Boolean(candidate));
-    const usesQrCodeMesaHero = article.slug === "cardapio-digital-qr-code-restaurante";
+    const usesQrCodeMesaHero = [
+        "cardapio-digital-qr-code-restaurante",
+        "melhor-qr-code-mesa-restaurante",
+    ].includes(article.slug);
     const structuredData = [
         {
             "@context": "https://schema.org",
@@ -149,13 +152,11 @@ export default function BlogArticle({
                     </div>
 
                     {usesQrCodeMesaHero ? (
-                        <div className="relative overflow-hidden rounded-3xl border border-orange-200 bg-white p-3 shadow-[0_24px_70px_-38px_rgba(234,88,12,0.55)]">
-                            <img
-                                src="/images/QRCodeMesa.png"
-                                alt="Cliente usando o celular para escanear um QR Code na mesa do restaurante"
-                                className="block h-auto max-h-[360px] w-full rounded-2xl object-contain"
-                            />
-                        </div>
+                        <img
+                            src="/images/QRCodeMesa.png"
+                            alt="Cliente usando o celular para escanear um QR Code na mesa do restaurante"
+                            className="block h-auto w-full object-contain md:w-[112%] md:max-w-none"
+                        />
                     ) : (
                         <div className="relative overflow-hidden rounded-3xl border border-orange-200 bg-white p-6 shadow-[0_24px_70px_-38px_rgba(234,88,12,0.55)] sm:p-8">
                             <div aria-hidden="true" className="absolute -right-14 -top-14 h-40 w-40 rounded-full bg-brand/10 blur-3xl" />
