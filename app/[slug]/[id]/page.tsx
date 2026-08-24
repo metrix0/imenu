@@ -384,7 +384,7 @@ export default function PedidoPage({
                     <p className="text-gray-400 text-sm 2xl:text-lg">Carregando itens...</p>
                 ) : (
                     order.items.map((item: any) => (
-                        <div key={item.id} className="border-b last:border-b-0 pb-3 mb-3">
+                        <div key={item.id} className="pb-3 mb-3">
                             <div className="flex justify-between 2xl:text-lg">
                                 <p className="font-medium">{item.quantity}× {item.name}</p>
                                 <p className="font-semibold">{formatPrice(promotionPrice(item) || item.total_cents)}</p>
