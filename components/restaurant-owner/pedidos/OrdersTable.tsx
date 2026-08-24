@@ -30,9 +30,9 @@ export default function OrdersTable({ orders, isLoading, onViewOrder }: OrdersTa
 
     const getStatusBadge = (status: string, isPickup: boolean) => {
         const map: Record<string, string> = {
-            pending_online_payment: "bg-yellow-500 text-yellow-950",
-            pending_physical_payment: "bg-yellow-500 text-yellow-950",
-            paid: "bg-yellow-500 text-yellow-950",
+            pending_online_payment: "bg-yellow-100 text-yellow-700 border-yellow-200",
+            pending_physical_payment: "bg-yellow-100 text-yellow-700 border-yellow-200",
+            paid: "bg-yellow-100 text-yellow-700 border-yellow-200",
             preparing: "bg-blue-100 text-blue-800 border-blue-200",
             delivering: isPickup ? "bg-green-100 text-green-800 border-green-200" : "bg-purple-100 text-purple-800 border-purple-800",
             done: "bg-green-100 text-green-800 border-green-200",
