@@ -81,6 +81,14 @@ export default function CardapioDigitalQrCodeRestaurantePage() {
             ]}
             ctaTitle="Crie seu cardápio digital grátis e transforme cada mesa em um ponto de pedido"
         >
+            <figure className="overflow-hidden rounded-3xl border border-orange-100 bg-orange-50/40 shadow-sm">
+                <img
+                    src="/images/QRCodeMesa.png"
+                    alt="Cliente usando o celular para escanear um QR Code na mesa do restaurante"
+                    className="block h-auto w-full"
+                />
+            </figure>
+
             <BlogSection
                 id="o-que-e"
                 title="O que é um cardápio digital com QR Code para restaurante?"
