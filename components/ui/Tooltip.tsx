@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, HTMLAttributes } from "react";
+import { useEffect, useState, useRef, HTMLAttributes } from "react";
 
 type TooltipPosition = "top" | "bottom" | "left" | "right";
 type TooltipSize = "line" | "medium";
@@ -47,12 +47,14 @@ export default function Tooltip({
     const [visible, setVisible] = useState(false);
     const timeoutRef = useRef<NodeJS.Timeout | null>(null);
     const delayShowRef = useRef<NodeJS.Timeout | null>(null);
+    const visibilityTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     const safeShow = () => {
         if (disabled) return;
 
         clearTimeout(timeoutRef.current!);
         clearTimeout(delayShowRef.current!);
+        clearTimeout(visibilityTimeoutRef.current!);
 
         delayShowRef.current = setTimeout(() => {
             setShow(true);
@@ -65,7 +67,10 @@ export default function Tooltip({
 
         timeoutRef.current = setTimeout(() => {
             setShow(false);
-            setTimeout(() => setVisible(false), 150);
+            visibilityTimeoutRef.current = setTimeout(
+                () => setVisible(false),
+                150
+            );
         }, delayHide);
     };
 
@@ -76,9 +81,21 @@ export default function Tooltip({
         clearTimeout(timeoutRef.current!);
         timeoutRef.current = setTimeout(() => {
             setShow(false);
-            setTimeout(() => setVisible(false), 150);
+            visibilityTimeoutRef.current = setTimeout(
+                () => setVisible(false),
+                150
+            );
         }, 1800);
     };
+
+    useEffect(
+        () => () => {
+            clearTimeout(timeoutRef.current!);
+            clearTimeout(delayShowRef.current!);
+            clearTimeout(visibilityTimeoutRef.current!);
+        },
+        []
+    );
 
     let positionClasses = "";
     let showClasses = "";

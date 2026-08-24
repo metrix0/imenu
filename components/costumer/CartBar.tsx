@@ -1,6 +1,9 @@
 "use client";
 
-import { useCartStore } from "@/lib/stores/costumer/cartStore";
+import {
+    getCartStorageKey,
+    useCartStore,
+} from "@/lib/stores/costumer/cartStore";
 import Button from "@/components/ui/Button";
 import Tooltip from "@/components/ui/Tooltip";
 import { useCheckoutStore } from "@/lib/stores/costumer/checkoutStore";
@@ -403,9 +406,9 @@ export default function CartBar({
         }
 
         try {
-            if (typeof window !== "undefined")
-                localStorage.removeItem(`cart-storage-${window.location.pathname.split("/")[1]}`);
-            else localStorage.removeItem("cart-storage");
+            if (typeof window !== "undefined") {
+                localStorage.removeItem(getCartStorageKey());
+            } else localStorage.removeItem("cart-storage");
         } catch (err) {
             console.error("[CART] Failed to clear cart-storage:", err);
         }

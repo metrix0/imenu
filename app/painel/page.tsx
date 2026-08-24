@@ -11,6 +11,7 @@ import {
     faShareAlt,
     faVolumeHigh,
     faPlus,
+    faChair,
 } from "@fortawesome/free-solid-svg-icons";
 import OrderCard, {
     OrderData,
@@ -18,6 +19,7 @@ import OrderCard, {
 import ShareMenuModal from "@/components/restaurant-owner/ShareMenuModal";
 import OrderDetailsModal from "@/components/restaurant-owner/pedidos/OrderDetailsModal";
 import CreatePanelOrderModal from "@/components/restaurant-owner/CreatePanelOrderModal";
+import TablesOrdersModal from "@/components/restaurant-owner/mesas/TablesOrdersModal";
 
 type OrderDingleDuration = "short" | "medium" | "long";
 
@@ -152,6 +154,7 @@ export default function PainelPedidosAtivosPage() {
 
     const [orders, setOrders] = useState<OrderData[]>([]);
     const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+    const [isTablesModalOpen, setIsTablesModalOpen] = useState(false);
 
     // Novo: Estado para detalhes do pedido
     const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
@@ -533,6 +536,14 @@ export default function PainelPedidosAtivosPage() {
                     </Button>
 
                     <Button
+                        onClick={() => setIsTablesModalOpen(true)}
+                        variant="secondary"
+                    >
+                        <FontAwesomeIcon icon={faChair} className="mr-2" />
+                        Mesas
+                    </Button>
+
+                    <Button
                         onClick={() => setIsShareModalOpen(true)}
                         className="bg-gray-200 hover:bg-gray-300 text-gray-800 focus:ring-gray-300"
                         variant={"secondary"}
@@ -652,6 +663,13 @@ export default function PainelPedidosAtivosPage() {
                     await fetchOrders(restaurantId);
                     setIsCreateOrderOpen(false);
                 }}
+            />
+
+            <TablesOrdersModal
+                open={isTablesModalOpen}
+                onClose={() => setIsTablesModalOpen(false)}
+                restaurantId={restaurantId}
+                orders={orders}
             />
         </div>
     );

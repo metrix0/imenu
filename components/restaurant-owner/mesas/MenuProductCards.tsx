@@ -49,7 +49,7 @@ export default function MenuProductCards({
             <div className="relative flex min-h-[320px] flex-col overflow-hidden rounded-2xl border border-brand bg-gradient-to-br from-white via-white to-brand/[0.08] p-6 shadow-sm ring-2 ring-brand/10">
                 <div className="absolute right-4 top-4 inline-flex items-center gap-1.5 rounded-full bg-brand px-2.5 py-1 text-xs font-semibold text-white">
                     <FontAwesomeIcon icon={faLock} />
-                    Obrigatório
+                    Obrigatório Grátis
                 </div>
 
                 <div className="relative h-12 w-40">
@@ -152,8 +152,8 @@ export default function MenuProductCards({
                     iMenu QR Code Mesa
                 </h3>
                 <p className="mt-2 text-sm leading-relaxed text-gray-600">
-                    Receba pedidos de várias pessoas na mesa, identificados no
-                    painel e na impressão.
+                    Cardápio digital na mesa através de QR Code e link para seus
+                    clientes, receba pedidos e imprima automaticamente.
                 </p>
 
                 <div className="mt-5 flex items-end gap-1 text-gray-900">

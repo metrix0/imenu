@@ -1008,7 +1008,7 @@ export default function DevDashboardPage() {
                                         title="Onboarding"
                                         steps={[
                                             {
-                                                label: "Acessaram a seleção",
+                                                label: "Antes de começar",
                                                 value: details.qrTable.onboarding.viewed,
                                             },
                                             {

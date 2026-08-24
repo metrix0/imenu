@@ -10,6 +10,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
 import Image from "next/image";
+import Link from "next/link";
 
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
@@ -153,6 +154,22 @@ export default function QrCodeMesaSalesModal({
                         </div>
                     ))}
                 </div>
+
+                {!active && (
+                    <p className="text-center text-xs leading-relaxed text-gray-500">
+                        Ao continuar, você concorda com os{" "}
+                        <Link
+                            href="/restaurante/dados/termos/qr-code-mesa"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-semibold text-brand underline underline-offset-2 hover:text-dark-brand"
+                        >
+                            Termos do iMenu QR Code Mesa
+                        </Link>{" "}
+                        e autoriza a cobrança recorrente de R$ 4,90/mês até o
+                        cancelamento.
+                    </p>
+                )}
             </div>
 
             <div className="sticky bottom-0 z-20 flex shrink-0 flex-col gap-3 border-t border-gray-100 bg-white px-6 py-4 sm:static sm:flex-row sm:items-center sm:px-8 sm:py-5">

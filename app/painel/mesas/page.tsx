@@ -8,6 +8,7 @@ import {
     faCopy,
     faDownload,
     faEdit,
+    faImage,
     faPlus,
     faQrcode,
     faTrash,
@@ -24,6 +25,7 @@ import Toast from "@/components/ui/Toast";
 import { supabase } from "@/lib/database/supabaseClient";
 import { captureQrTableEvent } from "@/lib/qr-table/analytics";
 import { startQrTableCheckout } from "@/lib/qr-table/clientApi";
+import { downloadQrDesign } from "@/lib/qr-table/downloadQrDesign";
 import type { QrTableAddon } from "@/lib/qr-table/types";
 import { hasQrTableAccess } from "@/lib/qr-table/types";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
@@ -33,6 +35,7 @@ type Restaurant = {
     name: string | null;
     url_slug: string | null;
     custom_domain: string | null;
+    banner_url: string | null;
 };
 
 type RestaurantTable = {
@@ -101,7 +104,7 @@ export default function MesasPage() {
             const { data: restaurantData, error: restaurantError } =
                 await supabase
                     .from("restaurants")
-                    .select("id, name, url_slug, custom_domain")
+                    .select("id, name, url_slug, custom_domain, banner_url")
                     .eq("id", targetRestaurantId)
                     .single();
             if (restaurantError) throw restaurantError;
@@ -174,18 +177,24 @@ export default function MesasPage() {
 
     const menuBaseUrl = useMemo(() => {
         if (!restaurant) return "";
-        if (restaurant.custom_domain) {
-            return `https://${restaurant.custom_domain}`;
-        }
         if (!restaurant.url_slug || typeof window === "undefined") return "";
-        return `${window.location.origin}/${restaurant.url_slug}`;
+        return `${window.location.origin}/mesa/${restaurant.url_slug}`;
     }, [restaurant]);
 
     const buildTableUrl = useCallback(
-        (token: string) =>
-            `${menuBaseUrl}?origem=mesa&mesa=${encodeURIComponent(token)}`,
+        (token: string) => `${menuBaseUrl}/${encodeURIComponent(token)}`,
         [menuBaseUrl]
     );
+
+    const bannerUrl = useMemo(() => {
+        if (!restaurant?.banner_url) return "/placeholders/banner.png";
+        if (/^https?:\/\//i.test(restaurant.banner_url)) {
+            return restaurant.banner_url;
+        }
+        return supabase.storage
+            .from("menu-banners")
+            .getPublicUrl(restaurant.banner_url).data.publicUrl;
+    }, [restaurant]);
 
     const openSalesModal = () => {
         setSalesOpen(true);
@@ -312,6 +321,28 @@ export default function MesasPage() {
         }
     };
 
+    const downloadDesignedQr = async (
+        qrValue: string,
+        displayUrl: string,
+        title: string,
+        fileName: string
+    ) => {
+        try {
+            await downloadQrDesign({
+                qrValue,
+                displayUrl,
+                title,
+                bannerUrl,
+                fileName,
+            });
+        } catch {
+            setToast({
+                message: "Não foi possível baixar o QR Code com design.",
+                type: "error",
+            });
+        }
+    };
+
     if (loading) {
         return (
             <div className="flex min-h-[60vh] items-center justify-center">
@@ -322,7 +353,7 @@ export default function MesasPage() {
 
     const universalUrl =
         addon?.universal_token && menuBaseUrl
-            ? buildTableUrl(addon.universal_token)
+            ? menuBaseUrl
             : "";
 
     return (
@@ -434,34 +465,79 @@ export default function MesasPage() {
                                             o pedido.
                                         </p>
                                         {universalUrl && (
-                                            <div className="mt-5 flex flex-wrap gap-3">
-                                                <Button
-                                                    variant="secondary"
-                                                    onClick={() =>
-                                                        void copyUrl(universalUrl)
+                                            <div className="mt-5 max-w-2xl">
+                                                <Input
+                                                    label="Link universal"
+                                                    value={universalUrl}
+                                                    readOnly
+                                                    locked
+                                                    iconPosition="right"
+                                                    icon={
+                                                        <button
+                                                            type="button"
+                                                            onClick={() =>
+                                                                void copyUrl(
+                                                                    universalUrl
+                                                                )
+                                                            }
+                                                            aria-label="Copiar link universal"
+                                                            title="Copiar link"
+                                                            className="cursor-pointer text-gray-500 hover:text-brand"
+                                                        >
+                                                            <FontAwesomeIcon
+                                                                icon={faCopy}
+                                                            />
+                                                        </button>
                                                     }
-                                                >
-                                                    <FontAwesomeIcon
-                                                        icon={faCopy}
-                                                        className="mr-2"
-                                                    />
-                                                    Copiar link
-                                                </Button>
-                                                <Button
-                                                    variant="secondary"
-                                                    onClick={() =>
-                                                        void downloadQr(
-                                                            universalUrl,
-                                                            "qrcode-mesas-universal.png"
-                                                        )
-                                                    }
-                                                >
-                                                    <FontAwesomeIcon
-                                                        icon={faDownload}
-                                                        className="mr-2"
-                                                    />
-                                                    Baixar QR Code
-                                                </Button>
+                                                />
+                                                <div className="mt-3 flex flex-wrap gap-3">
+                                                    <Button
+                                                        variant="secondary"
+                                                        onClick={() =>
+                                                            void copyUrl(
+                                                                universalUrl
+                                                            )
+                                                        }
+                                                    >
+                                                        <FontAwesomeIcon
+                                                            icon={faCopy}
+                                                            className="mr-2"
+                                                        />
+                                                        Copiar link
+                                                    </Button>
+                                                    <Button
+                                                        variant="secondary"
+                                                        onClick={() =>
+                                                            void downloadQr(
+                                                                universalUrl,
+                                                                "qrcode-mesas-universal.png"
+                                                            )
+                                                        }
+                                                    >
+                                                        <FontAwesomeIcon
+                                                            icon={faDownload}
+                                                            className="mr-2"
+                                                        />
+                                                        Baixar QR Code
+                                                    </Button>
+                                                    <Button
+                                                        variant="secondary"
+                                                        onClick={() =>
+                                                            void downloadDesignedQr(
+                                                                universalUrl,
+                                                                universalUrl,
+                                                                "Universal",
+                                                                "qrcode-mesas-universal-design.png"
+                                                            )
+                                                        }
+                                                    >
+                                                        <FontAwesomeIcon
+                                                            icon={faImage}
+                                                            className="mr-2"
+                                                        />
+                                                        Baixar com design
+                                                    </Button>
+                                                </div>
                                             </div>
                                         )}
                                     </div>
@@ -570,6 +646,29 @@ export default function MesasPage() {
                                                     Baixar
                                                 </Button>
                                             </div>
+                                            <Button
+                                                variant="secondary"
+                                                className="mt-2 w-full text-sm"
+                                                onClick={() =>
+                                                    void downloadDesignedQr(
+                                                        tableUrl,
+                                                        universalUrl,
+                                                        item.name,
+                                                        `qrcode-${item.name
+                                                            .toLowerCase()
+                                                            .replace(
+                                                                /[^a-z0-9]+/g,
+                                                                "-"
+                                                            )}-design.png`
+                                                    )
+                                                }
+                                            >
+                                                <FontAwesomeIcon
+                                                    icon={faImage}
+                                                    className="mr-2"
+                                                />
+                                                Baixar com design
+                                            </Button>
                                         </Card>
                                     );
                                 })}

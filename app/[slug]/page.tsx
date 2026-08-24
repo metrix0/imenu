@@ -100,13 +100,13 @@ export default async function Page({
   params,
   searchParams,
 }: {
-  params: { slug: string };
-  searchParams: {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{
     p?: string;
     c?: string;
     origem?: string;
     mesa?: string;
-  };
+  }>;
 }) {
   const { slug } = await params;
   const p = await searchParams;
@@ -126,13 +126,6 @@ export default async function Page({
 
   let tableOrder: QrTableMenuContext | null = null;
   if (p.origem === "mesa") {
-    const token = String(p.mesa || "").trim();
-    const isUuid =
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-        token,
-      );
-    if (!isUuid) return notFound();
-
     const { data: addonData } = await supabase
       .from("restaurant_addons")
       .select("status, current_period_ends_at, universal_token")
@@ -145,6 +138,13 @@ export default async function Page({
       "status" | "current_period_ends_at" | "universal_token"
     > | null) || null;
     if (!addon || !hasQrTableAccess(addon)) return notFound();
+
+    const token = String(p.mesa || addon.universal_token || "").trim();
+    const isUuid =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+        token,
+      );
+    if (!isUuid) return notFound();
 
     if (token === addon.universal_token) {
       const { data: tableRows } = await supabase

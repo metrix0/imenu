@@ -64,6 +64,7 @@ type PostHogMetrics = {
     available: boolean;
     landingViews: number | null;
     registerClicks: number | null;
+    beforeStartViews: number | null;
     blogViews: number | null;
 };
 
@@ -410,6 +411,7 @@ async function loadPostHogMetrics(
             available: false,
             landingViews: null,
             registerClicks: null,
+            beforeStartViews: null,
             blogViews: null,
         };
     }
@@ -430,6 +432,10 @@ async function loadPostHogMetrics(
                 event = '$pageview'
                 AND properties.$pathname = '/restaurante/registrar'
             ) AS register_clicks,
+            uniqIf(
+                distinct_id,
+                event = 'qr_code_mesa_onboarding_viewed'
+            ) AS before_start_views,
             countIf(
                 event = '$pageview'
                 AND (
@@ -477,7 +483,8 @@ async function loadPostHogMetrics(
             available: true,
             landingViews: Number(row[0]) || 0,
             registerClicks: Number(row[1]) || 0,
-            blogViews: Number(row[2]) || 0,
+            beforeStartViews: Number(row[2]) || 0,
+            blogViews: Number(row[3]) || 0,
         };
     } catch (error) {
         console.warn("[DEV_DASHBOARD] PostHog metrics unavailable:", error);
@@ -485,6 +492,7 @@ async function loadPostHogMetrics(
             available: false,
             landingViews: null,
             registerClicks: null,
+            beforeStartViews: null,
             blogViews: null,
         };
     }
@@ -1018,15 +1026,30 @@ export async function GET(request: Request) {
                     : "Supabase Auth; conversão anterior aguarda PostHog",
             },
             {
+                key: "before_start",
+                label: "Antes de começar",
+                value: postHog.beforeStartViews,
+                conversion: conversion(
+                    postHog.beforeStartViews,
+                    onboarding.registrationComplete
+                ),
+                available: postHog.available,
+                note: postHog.available
+                    ? "Acessaram a seleção de sistemas antes do passo 1"
+                    : "PostHog ainda não conectado",
+            },
+            {
                 key: "step_1",
                 label: "Passo 1",
                 value: onboarding.step1,
                 conversion: conversion(
                     onboarding.step1,
-                    onboarding.registrationComplete
+                    postHog.beforeStartViews
                 ),
                 available: true,
-                note: "Usuários da coorte que chegaram à etapa 1",
+                note: postHog.available
+                    ? "Usuários que avançaram da seleção para a etapa 1"
+                    : "Usuários da coorte que chegaram à etapa 1; conversão anterior aguarda PostHog",
             },
             {
                 key: "step_2",

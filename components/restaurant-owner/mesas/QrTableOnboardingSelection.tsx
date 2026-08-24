@@ -89,9 +89,13 @@ export default function QrTableOnboardingSelection({
                         Escolha os produtos do seu iMenu
                     </h1>
                     <p className="mx-auto mt-3 max-w-2xl text-sm leading-relaxed text-gray-600 sm:text-base">
-                        O Cardápio Digital já está incluído. Adicione o QR Code
-                        Mesa para receber pedidos identificados diretamente das
-                        mesas do seu estabelecimento.
+                        O sistema iMenu Cardápio Digital é completamente grátis,
+                        para sempre, sem limites. Insira adicionais e então crie
+                        seu cardápio em{" "}
+                        <strong className="font-bold text-gray-900">
+                            menos de 5 minutos
+                        </strong>{" "}
+                        com IA.
                     </p>
                 </div>
 

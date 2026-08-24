@@ -133,11 +133,16 @@ function CashChangeInfo({ text }: { text: string }) {
 
 function TimeInfo({ text, time, scheduled }: { text: string; time: string; scheduled: boolean }) {
     const triggerRef = useRef<HTMLDivElement>(null);
+    const hideTimeoutRef = useRef<number | null>(null);
     const [open, setOpen] = useState(false);
     const [position, setPosition] = useState({ left: 0, top: 0 });
 
     const showTooltip = () => {
         if (!text) return;
+        if (hideTimeoutRef.current !== null) {
+            window.clearTimeout(hideTimeoutRef.current);
+            hideTimeoutRef.current = null;
+        }
         const trigger = triggerRef.current;
         if (!trigger) return;
         const rect = trigger.getBoundingClientRect();
@@ -155,15 +160,34 @@ function TimeInfo({ text, time, scheduled }: { text: string; time: string; sched
         setOpen(true);
     };
 
+    const hideTooltip = () => {
+        if (hideTimeoutRef.current !== null) {
+            window.clearTimeout(hideTimeoutRef.current);
+        }
+        hideTimeoutRef.current = window.setTimeout(() => {
+            setOpen(false);
+            hideTimeoutRef.current = null;
+        }, 150);
+    };
+
+    useEffect(
+        () => () => {
+            if (hideTimeoutRef.current !== null) {
+                window.clearTimeout(hideTimeoutRef.current);
+            }
+        },
+        []
+    );
+
     return (
         <>
             <div
                 ref={triggerRef}
                 tabIndex={text ? 0 : undefined}
                 onMouseEnter={showTooltip}
-                onMouseLeave={() => setOpen(false)}
+                onMouseLeave={hideTooltip}
                 onFocus={showTooltip}
-                onBlur={() => setOpen(false)}
+                onBlur={hideTooltip}
                 className={`ml-auto flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium outline-none 2xl:px-3 2xl:py-1 2xl:text-base ${text ? "cursor-help" : ""} ${
                     scheduled
                         ? "bg-green-50 text-green-700"
@@ -177,7 +201,9 @@ function TimeInfo({ text, time, scheduled }: { text: string; time: string; sched
             {open && typeof document !== "undefined" && createPortal(
                 <div
                     role="tooltip"
-                    className="pointer-events-none fixed z-[9999] w-[300px] -translate-x-1/2 rounded-lg bg-gray-900 px-3 py-2 text-center text-xs font-medium leading-snug text-white shadow-lg"
+                    onMouseEnter={showTooltip}
+                    onMouseLeave={hideTooltip}
+                    className="pointer-events-auto fixed z-[9999] w-[300px] -translate-x-1/2 rounded-lg bg-gray-900 px-3 py-2 text-center text-xs font-medium leading-snug text-white shadow-lg"
                     style={{ left: position.left, top: position.top }}
                 >
                     {text}
@@ -268,8 +294,6 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
         const createdAtText = Number.isNaN(createdAt.getTime())
             ? ""
             : `Pedido feito às ${formatTime(createdAt)}. `;
-
-        if (isTableOrder) return createdAtText.trim();
 
         return `${createdAtText}${isPickup ? "Previsão de retirada" : "Previsão de entrega"} ${formatTime(start)} - ${formatTime(end)}`;
     };
