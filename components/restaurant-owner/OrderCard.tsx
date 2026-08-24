@@ -12,7 +12,8 @@ import {
     faCircleInfo,
     faChair,
     faUser,
-    faPhone
+    faPhone,
+    faBagShopping
 } from "@fortawesome/free-solid-svg-icons";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
@@ -445,7 +446,7 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
     const itemsToShow = order.order_items.slice(0, VISIBLE_ITEMS);
 
     return (
-        <Card className={`!p-0 overflow-hidden border-l-4 ${isTableOrder ? "border-l-brand" : isScheduled ? "border-l-emerald-500" : config.borderColor} flex flex-col h-full`}>
+        <Card className={`!p-0 overflow-hidden border-l-4 ${config.borderColor} flex flex-col h-full`}>
             {/* Header do Card */}
             <div className="rounded-t-xl bg-gray-50 border-b border-gray-100 px-5 py-4 2xl:px-6 2xl:py-5">
                 <div className="flex items-center gap-2 whitespace-nowrap 2xl:gap-4">
@@ -553,7 +554,7 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
                     {/* Dados de Entrega e Totais */}
                     <div className="text-sm space-y-1 2xl:space-y-2">
                         <div className="flex min-w-0 items-center gap-2 text-gray-600 font-medium">
-                            <FontAwesomeIcon icon={isTableOrder ? faChair : faMapMarkerAlt} className="shrink-0 text-gray-400" />
+                            <FontAwesomeIcon icon={isTableOrder ? faChair : isPickup ? faBagShopping : faMapMarkerAlt} className="shrink-0 text-gray-400" />
                             <span
                                 className="min-w-0 truncate"
                                 title={isTableOrder ? order.table_name_snapshot || "Mesa" : isPickup ? "Retirada no balcão" : order.customer_address || "Endereço não informado"}
