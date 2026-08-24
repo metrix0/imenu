@@ -677,7 +677,11 @@ export default function PainelLayout({
                                     title={!expanded ? item.label : ""}
                                     className={`group relative flex cursor-pointer items-center py-3 transition-colors duration-200 ${
                                         expanded
-                                            ? "w-full justify-start gap-2 pl-6 pr-5 2xl:gap-4 2xl:pl-4"
+                                            ? `w-full justify-start gap-2 pr-5 2xl:gap-4 ${
+                                                  active
+                                                      ? "pl-[22px] 2xl:pl-[14px]"
+                                                      : "pl-6 2xl:pl-4"
+                                              }`
                                             : "w-[4.5rem] self-start justify-center px-0 2xl:w-20"
                                     } ${
                                         active
