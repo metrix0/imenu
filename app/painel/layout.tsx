@@ -632,7 +632,7 @@ export default function PainelLayout({
                     <div
                         className={`mt-2 pb-1 transition-all duration-300 2xl:mt-8 ${
                             expanded
-                                ? "w-full px-4"
+                                ? "w-full overflow-hidden whitespace-nowrap px-4"
                                 : "w-[4.5rem] self-start 2xl:w-20"
                         }`}
                     >

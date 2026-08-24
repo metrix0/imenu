@@ -895,7 +895,7 @@ export async function POST(request: Request) {
                                     )
                                     VALUES (
                                         $1,
-                                        $2,
+                                        (SELECT id FROM subitems WHERE id = $2),
                                         $3,
                                         $4,
                                         1
