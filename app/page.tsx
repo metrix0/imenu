@@ -437,11 +437,13 @@ export default function LandingPage() {
                                 ["Totalmente grátis, para sempre", "check", "Mensalidade e taxas"],
                                 ["Pedidos ilimitados", "check", "Cada vez mais caro"],
                                 ["Robô WhatsApp", "check", "Taxas adicionais"],
+                                ["Aplicativo para celular", "check", "Não"],
                                 ["Converte o cliente", "check", "Baixa Conversão"],
                                 ["Gestor de pedidos (balcão)", "check", "Limitado"],
                                 ["Suporte humanizado", "Todos os dias", "Robô, fila ou e-mail"],
                                 ["Impressão dos pedidos", "check", "Não"],
                                 ["Seu domínio customizado", "check", "Não"],
+                                ["SEO", "check", "Não otimizado"],
                                 ["Acompanhamento do pedido", "Acompanhamento em tempo real via Página e Whatsapp", "Clientes ficam perdidos"],
                                 ["Taxa por Transação", "0.99% *apenas para PIX Online*", "5%, 15%, 30%"],
                                 ["Scan de Cardápio com IA", "Pronto em segundos", "Manual"],
@@ -459,7 +461,8 @@ export default function LandingPage() {
                                 ["Cupons de desconto", "check", "Pouca customização"],
                                 ["Sistema disponível para celulares", "check", "Indisponível"],
                                 ["Notificações no celular", "check", "Não"],
-                                ["Aplicativo para celular", "check", "Não"],
+                                ["QR Code na mesa", "R$ 4,90 por mês", "R$ 99,90 por mês (muito mais caro)"],
+                                ["Agendamento de pedido", "check", "Não"],
                             ].map(([feature, imenu, competitor]) => (
                                 <tr key={feature}>
                                     <td className="border-r border-gray-200">{feature}</td>
@@ -478,11 +481,7 @@ export default function LandingPage() {
                             ))}
 
                             {[
-                                ["Agendamento de pedido", "Não"],
-                                ["QR Code na mesa", "Nem sempre disponível"],
-                                ["Pedidos via Instagram / Facebook", "Não"],
-                                ["Rastreio de Motoboy", "Clientes ficam perdidos"],
-                                ["Comanda Mobile", "Taxas adicionais"],
+                                ["API Aberta", "-"],
                             ].map(([feature, competitor]) => (
                                 <tr key={feature}>
                                     <td className="border-r border-gray-200">{feature}</td>
