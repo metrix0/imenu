@@ -2,6 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 
 import { query } from "@/lib/database/sql";
+import { resolveAsaasSubscriptionId } from "@/lib/qr-table/asaasSubscription";
 import type { QrTableAddon } from "@/lib/qr-table/types";
 import { asaasRequest } from "@/lib/services/asaas";
 
@@ -30,6 +31,12 @@ type AsaasWebhook = {
         id?: string;
         status?: string;
         externalReference?: string;
+        customer?: string;
+        subscription?: {
+            cycle?: string;
+            nextDueDate?: string;
+            endDate?: string;
+        };
     };
     payment?: AsaasPayment;
 };
@@ -150,7 +157,8 @@ async function savePayment(
 
 async function activateAddon(
     addonId: string,
-    payment?: AsaasPayment | null
+    payment?: AsaasPayment | null,
+    subscriptionId?: string | null
 ): Promise<void> {
     await query(
         `
@@ -170,7 +178,11 @@ async function activateAddon(
                 updated_at = NOW()
             WHERE id = $3
         `,
-        [payment?.subscription || "", payment?.dueDate || null, addonId]
+        [
+            subscriptionId || payment?.subscription || "",
+            payment?.dueDate || null,
+            addonId,
+        ]
     );
 }
 
@@ -198,7 +210,23 @@ async function processEvent(payload: AsaasWebhook): Promise<void> {
             );
         }
 
-        await activateAddon(addon.id, payment);
+        let subscriptionId = payment?.subscription || null;
+        if (!subscriptionId) {
+            try {
+                subscriptionId = await resolveAsaasSubscriptionId(addon, {
+                    customerId: payload.checkout?.customer || null,
+                    nextDueDate:
+                        payload.checkout?.subscription?.nextDueDate || null,
+                });
+            } catch (error) {
+                console.warn(
+                    "[ASAAS_WEBHOOK] Assinatura do checkout ainda indisponível:",
+                    error instanceof Error ? error.message : "erro desconhecido"
+                );
+            }
+        }
+
+        await activateAddon(addon.id, payment, subscriptionId);
         if (payment) await savePayment(addon.id, payment, event);
         return;
     }
