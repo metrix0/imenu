@@ -1,0 +1,326 @@
+import { NextResponse } from "next/server";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+const PAYZU_BASE_URL = "https://api.payzu.processamento.com/v1";
+const PAYZU_REQUEST_TIMEOUT_MS = 10_000;
+const RESERVE_CENTS = 100;
+const MAX_CREATE_ATTEMPTS = 4;
+
+type PayZuPixType = "cpf" | "cnpj" | "phone" | "email" | "evp";
+
+type PayZuBalance = {
+    balanceAvailable?: number | string;
+    balanceBlocked?: number | string;
+};
+
+type PayZuWithdrawal = {
+    id?: string;
+    status?: string;
+    amount?: number | string;
+    clientReference?: string | null;
+    serviceFeeCharged?: number | string | null;
+};
+
+class PayZuRequestError extends Error {
+    status: number;
+    requestId?: string;
+
+    constructor(message: string, status: number, requestId?: string) {
+        super(message);
+        this.name = "PayZuRequestError";
+        this.status = status;
+        this.requestId = requestId;
+    }
+}
+
+function sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function getPayZuToken(): string {
+    const token = process.env.PAYZU_TOKEN?.trim();
+    if (!token) throw new Error("PAYZU_TOKEN não configurado.");
+    return token;
+}
+
+function getDestination(): { pixKey: string; pixType: PayZuPixType } {
+    const pixKey = process.env.ASAAS_PIX_KEY?.trim();
+    const rawType = process.env.ASAAS_PIX_KEY_TYPE?.trim().toLowerCase();
+
+    if (!pixKey) throw new Error("ASAAS_PIX_KEY não configurada.");
+
+    if (
+        rawType !== "cpf" &&
+        rawType !== "cnpj" &&
+        rawType !== "phone" &&
+        rawType !== "email" &&
+        rawType !== "evp"
+    ) {
+        throw new Error("ASAAS_PIX_KEY_TYPE inválido.");
+    }
+
+    return { pixKey, pixType: rawType };
+}
+
+function getSaoPauloDateKey(now = new Date()): string {
+    const parts = new Intl.DateTimeFormat("en-US", {
+        timeZone: "America/Sao_Paulo",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+    }).formatToParts(now);
+
+    const values = Object.fromEntries(
+        parts.map((part) => [part.type, part.value])
+    );
+
+    return `${values.year}-${values.month}-${values.day}`;
+}
+
+async function parseJson(response: Response): Promise<any> {
+    const text = await response.text();
+    if (!text) return null;
+
+    try {
+        return JSON.parse(text);
+    } catch {
+        return { message: text };
+    }
+}
+
+async function payzuRequest<T>(
+    path: string,
+    init: RequestInit = {}
+): Promise<T> {
+    const controller = new AbortController();
+    const timeout = setTimeout(
+        () => controller.abort(),
+        PAYZU_REQUEST_TIMEOUT_MS
+    );
+
+    try {
+        const response = await fetch(`${PAYZU_BASE_URL}${path}`, {
+            ...init,
+            headers: {
+                Authorization: `Bearer ${getPayZuToken()}`,
+                Accept: "application/json",
+                ...(init.body ? { "Content-Type": "application/json" } : {}),
+                ...(init.headers || {}),
+            },
+            cache: "no-store",
+            signal: controller.signal,
+        });
+
+        const data = await parseJson(response);
+        if (!response.ok) {
+            const requestId = data?.requestId
+                ? String(data.requestId)
+                : undefined;
+            const message =
+                typeof data?.message === "string" && data.message.trim()
+                    ? data.message
+                    : `PayZu respondeu com HTTP ${response.status}.`;
+            throw new PayZuRequestError(message, response.status, requestId);
+        }
+
+        return data as T;
+    } finally {
+        clearTimeout(timeout);
+    }
+}
+
+async function getExistingWithdrawal(
+    clientReference: string
+): Promise<PayZuWithdrawal | null> {
+    try {
+        return await payzuRequest<PayZuWithdrawal>(
+            `/withdraw?clientReference=${encodeURIComponent(clientReference)}`,
+            { method: "GET" }
+        );
+    } catch (error) {
+        if (error instanceof PayZuRequestError && error.status === 404) {
+            return null;
+        }
+        throw error;
+    }
+}
+
+async function getAvailableBalanceCents(): Promise<number> {
+    const balance = await payzuRequest<PayZuBalance>("/user/balance", {
+        method: "GET",
+    });
+    const available = Number(balance.balanceAvailable);
+
+    if (!Number.isFinite(available) || available < 0) {
+        throw new Error("Saldo disponível inválido retornado pela PayZu.");
+    }
+
+    return Math.round(available * 100);
+}
+
+async function validateDestinationPixKey(pixKey: string): Promise<void> {
+    await payzuRequest(
+        `/user/dict?key=${encodeURIComponent(pixKey)}`,
+        { method: "GET" }
+    );
+}
+
+async function createWithdrawal(input: {
+    amountCents: number;
+    pixKey: string;
+    pixType: PayZuPixType;
+    clientReference: string;
+}): Promise<PayZuWithdrawal> {
+    const payload = {
+        amount: input.amountCents / 100,
+        pixKey: input.pixKey,
+        pixType: input.pixType,
+        clientReference: input.clientReference,
+        description: "Transferência diária PayZu para Asaas",
+    };
+
+    let lastError: unknown = null;
+
+    for (let attempt = 0; attempt < MAX_CREATE_ATTEMPTS; attempt += 1) {
+        try {
+            const existing = await getExistingWithdrawal(
+                input.clientReference
+            );
+            if (existing) return existing;
+
+            return await payzuRequest<PayZuWithdrawal>("/withdraw", {
+                method: "POST",
+                body: JSON.stringify(payload),
+            });
+        } catch (error) {
+            lastError = error;
+
+            if (
+                error instanceof PayZuRequestError &&
+                error.status !== 409 &&
+                error.status !== 429 &&
+                error.status < 500
+            ) {
+                throw error;
+            }
+
+            try {
+                const existing = await getExistingWithdrawal(
+                    input.clientReference
+                );
+                if (existing) return existing;
+            } catch {
+                // Best-effort reconciliation before retrying the same idempotent reference.
+            }
+        }
+
+        if (attempt < MAX_CREATE_ATTEMPTS - 1) {
+            await sleep(500 * 2 ** attempt);
+        }
+    }
+
+    if (lastError instanceof Error) throw lastError;
+    throw new Error("Não foi possível criar a transferência PayZu.");
+}
+
+function authorizeCron(request: Request): NextResponse | null {
+    const secret = process.env.CRON_SECRET?.trim();
+    if (!secret) {
+        return NextResponse.json(
+            { error: "CRON_SECRET não configurado." },
+            { status: 503 }
+        );
+    }
+
+    if (request.headers.get("authorization") !== `Bearer ${secret}`) {
+        return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
+    }
+
+    return null;
+}
+
+export async function GET(request: Request) {
+    const denied = authorizeCron(request);
+    if (denied) return denied;
+
+    const dateKey = getSaoPauloDateKey();
+    const clientReference = `imenu-payzu-asaas-${dateKey}`;
+
+    try {
+        const existing = await getExistingWithdrawal(clientReference);
+        if (existing) {
+            return NextResponse.json({
+                success: true,
+                skipped: true,
+                reason: "already_created_today",
+                clientReference,
+                transactionId: existing.id || null,
+                transactionStatus: existing.status || null,
+            });
+        }
+
+        const balanceBeforeCents = await getAvailableBalanceCents();
+        const amountCents = balanceBeforeCents - RESERVE_CENTS;
+
+        if (amountCents <= 0) {
+            return NextResponse.json({
+                success: true,
+                skipped: true,
+                reason: "reserve_only",
+                clientReference,
+                balanceBeforeCents,
+                reserveCents: RESERVE_CENTS,
+            });
+        }
+
+        const destination = getDestination();
+        await validateDestinationPixKey(destination.pixKey);
+
+        const withdrawal = await createWithdrawal({
+            amountCents,
+            pixKey: destination.pixKey,
+            pixType: destination.pixType,
+            clientReference,
+        });
+
+        console.log("[PAYZU_TO_ASAAS] Transferência criada", {
+            clientReference,
+            amountCents,
+            transactionId: withdrawal.id || null,
+            status: withdrawal.status || null,
+        });
+
+        return NextResponse.json({
+            success: true,
+            skipped: false,
+            clientReference,
+            amountCents,
+            reserveCents: RESERVE_CENTS,
+            balanceBeforeCents,
+            transactionId: withdrawal.id || null,
+            transactionStatus: withdrawal.status || null,
+        });
+    } catch (error) {
+        const requestId =
+            error instanceof PayZuRequestError ? error.requestId : undefined;
+        const message =
+            error instanceof Error ? error.message : "Erro interno.";
+
+        console.error("[PAYZU_TO_ASAAS] Falha", {
+            clientReference,
+            message,
+            requestId,
+        });
+
+        return NextResponse.json(
+            {
+                success: false,
+                error: message,
+                ...(requestId ? { requestId } : {}),
+            },
+            { status: 500 }
+        );
+    }
+}

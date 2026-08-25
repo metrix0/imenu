@@ -4,6 +4,7 @@ import "./globals.css";
 import "@/lib/utils/fontawesome";
 import PosthogProvider from "@/components/common/PosthogProvider";
 import RestaurantDirectoryProvider from "@/components/common/RestaurantDirectoryProvider";
+import QrCheckoutReturnRefresh from "@/components/restaurant-owner/mesas/QrCheckoutReturnRefresh";
 import { getRestaurantCityLinks } from "@/lib/seo/restaurantDirectory";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -48,6 +49,7 @@ export default async function RootLayout({
                 className="min-h-screen bg-white text-gray-900"
                 suppressHydrationWarning
             >
+                <QrCheckoutReturnRefresh />
                 <PosthogProvider>
                     <RestaurantDirectoryProvider cities={restaurantCities}>
                         {children}

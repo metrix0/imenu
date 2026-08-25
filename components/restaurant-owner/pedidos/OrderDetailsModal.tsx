@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/database/supabaseClient";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faTimes, faUser, faMapMarkerAlt, faClock, faReceipt, faCheck, faMotorcycle, faCalendarDays } from "@fortawesome/free-solid-svg-icons";
+import { faTimes, faUser, faMapMarkerAlt, faClock, faReceipt, faCheck, faMotorcycle, faCalendarDays, faChair } from "@fortawesome/free-solid-svg-icons";
 import { icons } from "@/lib/utils/fontawesome";
 import Modal from "@/components/ui/Modal";
 import ConfirmModal from "@/components/ui/ConfirmModal";
@@ -30,6 +30,8 @@ type OrderDetail = Omit<Order, "status"> & {
     delivery_eta: string | null;
     scheduled_for: string | null;
     is_delivery?: string | null;
+    table_id?: string | null;
+    table_name_snapshot?: string | null;
     order_items: Array<{
         id: string;
         quantity: number;
@@ -50,7 +52,8 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
     const [isUpdating, setIsUpdating] = useState(false);
     const [details, setDetails] = useState<OrderDetail | null>(null);
     const [showRefundConfirmation, setShowRefundConfirmation] = useState(false);
-    const isPickup = details?.is_delivery === "retirada" || (order as any)?.is_delivery === "retirada";
+    const isTableOrder = details?.is_delivery === "mesa" || order?.is_delivery === "mesa";
+    const isPickup = isTableOrder || details?.is_delivery === "retirada" || order?.is_delivery === "retirada";
     const isPaidOnlinePix = details?.status === "paid" && details?.payment_method === "pix";
 
     const fmtMoney = (cents: number) => (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -104,7 +107,7 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
     };
 
     const scheduledDate = details?.scheduled_for ? new Date(details.scheduled_for) : null;
-    const isScheduled = Boolean(scheduledDate && !Number.isNaN(scheduledDate.getTime()));
+    const isScheduled = !isTableOrder && Boolean(scheduledDate && !Number.isNaN(scheduledDate.getTime()));
     const scheduledLabel = isScheduled && scheduledDate
         ? `${scheduledDate.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} (${formatScheduledRelativeTime(scheduledDate)})`
         : null;
@@ -299,7 +302,12 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
                                     Pedido #{order?.display_id}
                                 </h2>
                                 {(details || order) && renderStatus(details?.status || order!.status)}
-                                {order && renderStatus(isPickup ? "retirada" : order.payment_method)}
+                                {order && (isTableOrder ? (
+                                    <span className="inline-flex items-center gap-1.5 rounded-full bg-brand/10 px-2.5 py-0.5 text-xs font-medium text-brand 2xl:px-3 2xl:text-base">
+                                        <FontAwesomeIcon icon={faChair} />
+                                        {details?.table_name_snapshot || order.table_name_snapshot || "Mesa"}
+                                    </span>
+                                ) : renderStatus(isPickup ? "retirada" : order.payment_method))}
                             </div>
                             <p className="text-xs text-gray-500 flex items-center gap-1 2xl:text-base">
                                 <FontAwesomeIcon icon={faClock} /> Realizado em {order && fmtDate(order.created_at)}
@@ -335,9 +343,14 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
                                         </div>
                                     </div>
                                     <div className="space-y-3 2xl:space-y-6">
-                                        <h4 className="text-sm 2xl:text-base font-bold text-gray-900 uppercase tracking-wider border-b border-gray-100 pb-1">{isPickup ? "Retirada" : "Entrega"}</h4>
+                                        <h4 className="text-sm 2xl:text-base font-bold text-gray-900 uppercase tracking-wider border-b border-gray-100 pb-1">{isTableOrder ? "Mesa" : isPickup ? "Retirada" : "Entrega"}</h4>
                                         <div className="text-sm 2xl:text-[1.1rem]">
-                                            {isPickup ? (
+                                            {isTableOrder ? (
+                                                <p className="flex items-center gap-2 font-medium text-gray-600">
+                                                    <FontAwesomeIcon icon={faChair} className="w-4 text-gray-400" />
+                                                    {details.table_name_snapshot || "Mesa"}
+                                                </p>
+                                            ) : isPickup ? (
                                                 <p className="text-gray-600 font-medium">Retirada no balcão</p>
                                             ) : details.customer_address ? (
                                                 <p className="text-gray-600 flex items-start gap-2">
@@ -407,11 +420,13 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
                                             <span>Subtotal</span>
                                             <span>{fmtMoney(details.subtotal_cents || 0)}</span>
                                         </div>
-                                        <div className="flex justify-between text-sm 2xl:text-base text-gray-500">
-                                            <span>{isPickup ? "Retirada" : "Taxa de Entrega"}</span>
-                                            <span>{fmtMoney(details.delivery_cents || 0)}</span>
-                                        </div>
-                                        {couponDiscountCents > 0 && (
+                                        {!isTableOrder && (
+                                            <div className="flex justify-between text-sm 2xl:text-base text-gray-500">
+                                                <span>{isPickup ? "Retirada" : "Taxa de Entrega"}</span>
+                                                <span>{fmtMoney(details.delivery_cents || 0)}</span>
+                                            </div>
+                                        )}
+                                        {!isTableOrder && couponDiscountCents > 0 && (
                                             <div className="flex justify-between text-sm 2xl:text-base text-gray-500">
                                                 <span>{details.coupon_code ? `Cupom: ${details.coupon_code}` : "Desconto"}</span>
                                                 <span>-{fmtMoney(couponDiscountCents)}</span>

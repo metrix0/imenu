@@ -2,12 +2,15 @@
 
 import { ReactNode, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { icons } from "@/lib/utils/fontawesome";
 
 interface ModalProps {
     open: boolean;
     onClose: () => void;
     children: ReactNode;
     className?: string;
+    showCloseButton?: boolean;
 }
 
 export default function Modal({
@@ -15,6 +18,7 @@ export default function Modal({
     onClose,
     children,
     className = "",
+    showCloseButton = false,
 }: ModalProps) {
     const [mounted, setMounted] = useState(open);
     const [active, setActive] = useState(false);
@@ -106,6 +110,19 @@ export default function Modal({
                         : "translate-y-3 scale-95 opacity-0"
                 } ${className}`}
             >
+                {showCloseButton && (
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        aria-label="Fechar"
+                        className="sticky top-3 z-30 -mb-12 ml-auto mr-3 mt-3 flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center text-gray-400 hover:text-gray-600"
+                    >
+                        <FontAwesomeIcon
+                            icon={icons.faTimes}
+                            className="text-xl"
+                        />
+                    </button>
+                )}
                 {children}
             </div>
         </div>,

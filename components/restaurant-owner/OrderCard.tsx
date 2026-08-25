@@ -1,7 +1,6 @@
 "use client";
 
-import {useEffect, useRef, useState} from "react";
-import { createPortal } from "react-dom";
+import {useEffect, useState} from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { 
     faClock,
@@ -10,11 +9,14 @@ import {
     faArrowLeft, 
     faEye,
     faCircleInfo,
+    faChair,
     faUser,
-    faPhone
+    faPhone,
+    faBagShopping
 } from "@fortawesome/free-solid-svg-icons";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
+import Tooltip from "@/components/ui/Tooltip";
 import { supabase } from "@/lib/database/supabaseClient";
 
 // Tipos baseados no seu schema
@@ -42,6 +44,8 @@ export interface OrderData {
     total_cents: number;
     payment_method?: string;
     is_delivery?: string | null;
+    table_id?: string | null;
+    table_name_snapshot?: string | null;
     order_items: OrderItemData[];
 }
 
@@ -53,145 +57,63 @@ interface OrderCardProps {
 
 
 function CashChangeInfo({ text }: { text: string }) {
-    const triggerRef = useRef<HTMLButtonElement>(null);
-    const [open, setOpen] = useState(false);
-    const [position, setPosition] = useState({ left: 0, top: 0 });
-
-    const showTooltip = () => {
-        const trigger = triggerRef.current;
-        if (!trigger) return;
-
-        const rect = trigger.getBoundingClientRect();
-        const estimatedWidth = Math.min(
-            Math.max(text.length * 7 + 24, 170),
-            280
-        );
-        const halfWidth = estimatedWidth / 2;
-        const viewportPadding = 8;
-        const centeredLeft = rect.left + rect.width / 2;
-        const left = Math.max(
-            viewportPadding + halfWidth,
-            Math.min(
-                window.innerWidth - viewportPadding - halfWidth,
-                centeredLeft
-            )
-        );
-
-        setPosition({
-            left,
-            top: rect.bottom + 8,
-        });
-        setOpen(true);
-    };
-
-    const hideTooltip = () => {
-        setOpen(false);
-    };
-
     return (
-        <>
+        <Tooltip
+            text={text}
+            position="bottom"
+            size="medium"
+            portal
+            tooltipClassName="max-w-[280px] text-center"
+        >
             <button
-                ref={triggerRef}
                 type="button"
-                onMouseEnter={showTooltip}
-                onMouseLeave={hideTooltip}
-                onFocus={showTooltip}
-                onBlur={hideTooltip}
                 className="inline-flex items-center justify-center text-gray-500 hover:text-gray-700 focus:text-gray-700 focus:outline-none"
                 aria-label="Informações sobre troco"
-                aria-describedby={open ? `troco-tooltip-${text}` : undefined}
             >
                 <FontAwesomeIcon icon={faCircleInfo} />
             </button>
-
-            {open && typeof document !== "undefined" &&
-                createPortal(
-                    <div
-                        id={`troco-tooltip-${text}`}
-                        role="tooltip"
-                        className="pointer-events-none fixed z-[9999] max-w-[280px] -translate-x-1/2 rounded-lg bg-gray-900 px-3 py-2 text-center text-xs font-medium leading-snug text-white shadow-lg"
-                        style={{
-                            left: position.left,
-                            top: position.top,
-                        }}
-                    >
-                        {text}
-                        <span
-                            className="absolute bottom-full left-1/2 -translate-x-1/2 border-x-4 border-b-4 border-x-transparent border-b-gray-900"
-                            aria-hidden="true"
-                        />
-                    </div>,
-                    document.body
-                )}
-        </>
+        </Tooltip>
     );
 }
 
 function TimeInfo({ text, time, scheduled }: { text: string; time: string; scheduled: boolean }) {
-    const triggerRef = useRef<HTMLDivElement>(null);
-    const [open, setOpen] = useState(false);
-    const [position, setPosition] = useState({ left: 0, top: 0 });
+    const badge = (
+        <div
+            tabIndex={text ? 0 : undefined}
+            className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium outline-none 2xl:px-3 2xl:py-1 2xl:text-base ${text ? "cursor-help" : ""} ${
+                scheduled
+                    ? "bg-green-50 text-green-700"
+                    : "bg-red-50 text-red-600"
+            }`}
+        >
+            <FontAwesomeIcon icon={scheduled ? faCalendarDays : faClock} />
+            {time}
+        </div>
+    );
 
-    const showTooltip = () => {
-        if (!text) return;
-        const trigger = triggerRef.current;
-        if (!trigger) return;
-        const rect = trigger.getBoundingClientRect();
-        const estimatedWidth = 300;
-        const halfWidth = estimatedWidth / 2;
-        const viewportPadding = 8;
-        const centeredLeft = rect.left + rect.width / 2;
-        setPosition({
-            left: Math.max(
-                viewportPadding + halfWidth,
-                Math.min(window.innerWidth - viewportPadding - halfWidth, centeredLeft)
-            ),
-            top: rect.bottom + 8,
-        });
-        setOpen(true);
-    };
+    if (!text) {
+        return <div className="ml-auto shrink-0">{badge}</div>;
+    }
 
     return (
-        <>
-            <div
-                ref={triggerRef}
-                tabIndex={text ? 0 : undefined}
-                onMouseEnter={showTooltip}
-                onMouseLeave={() => setOpen(false)}
-                onFocus={showTooltip}
-                onBlur={() => setOpen(false)}
-                className={`ml-auto flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium outline-none 2xl:px-3 2xl:py-1 2xl:text-base ${text ? "cursor-help" : ""} ${
-                    scheduled
-                        ? "bg-green-50 text-green-700"
-                        : "bg-red-50 text-red-600"
-                }`}
-            >
-                <FontAwesomeIcon icon={scheduled ? faCalendarDays : faClock} />
-                {time}
-            </div>
-
-            {open && typeof document !== "undefined" && createPortal(
-                <div
-                    role="tooltip"
-                    className="pointer-events-none fixed z-[9999] w-[300px] -translate-x-1/2 rounded-lg bg-gray-900 px-3 py-2 text-center text-xs font-medium leading-snug text-white shadow-lg"
-                    style={{ left: position.left, top: position.top }}
-                >
-                    {text}
-                    <span
-                        className="absolute bottom-full left-1/2 -translate-x-1/2 border-x-4 border-b-4 border-x-transparent border-b-gray-900"
-                        aria-hidden="true"
-                    />
-                </div>,
-                document.body
-            )}
-        </>
+        <Tooltip
+            text={text}
+            position="bottom"
+            size="medium"
+            portal
+            parentClassName="ml-auto shrink-0"
+            tooltipClassName="max-w-[300px] text-center"
+        >
+            {badge}
+        </Tooltip>
     );
 }
 
 export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderCardProps) {
     const [loading, setLoading] = useState(false);
     const [currentTime, setCurrentTime] = useState(() => Date.now());
-    const isPickup = order.is_delivery === "retirada";
+    const isTableOrder = order.is_delivery === "mesa";
+    const isPickup = isTableOrder || order.is_delivery === "retirada";
 
     useEffect(() => {
         let intervalId: number | undefined;
@@ -249,12 +171,22 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
         const center = new Date(iso);
         if (Number.isNaN(center.getTime())) return "";
 
-        const start = new Date(center.getTime() - 10 * 60_000);
-        const end = new Date(center.getTime() + 10 * 60_000);
+        const roundToFiveMinutes = (date: Date) =>
+            new Date(Math.round(date.getTime() / 300_000) * 300_000);
+        const start = roundToFiveMinutes(
+            new Date(center.getTime() - 10 * 60_000)
+        );
+        const end = roundToFiveMinutes(
+            new Date(center.getTime() + 10 * 60_000)
+        );
         const formatTime = (date: Date) =>
             date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+        const createdAt = new Date(order.created_at);
+        const createdAtText = Number.isNaN(createdAt.getTime())
+            ? ""
+            : `Pedido feito às ${formatTime(createdAt)}. `;
 
-        return `${isPickup ? "Previsão de retirada" : "Previsão de entrega"} ${formatTime(start)} - ${formatTime(end)}`;
+        return `${createdAtText}${isPickup ? "Previsão de retirada" : "Previsão de entrega"} ${formatTime(start)} - ${formatTime(end)}`;
     };
 
     const formatScheduledRelativeTime = (diffMinutes: number) => {
@@ -306,7 +238,7 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
         }
         else if (order.status === "preparing") {
             const isPhysical = ["trazer-maquininha", "dinheiro", "pix-entrega"].includes(order.payment_method || "");
-            prevStatus = isPhysical ? "pending_physical_payment" : "paid";
+            prevStatus = isTableOrder || isPhysical ? "pending_physical_payment" : "paid";
         }
 
         if (!prevStatus) return;
@@ -339,14 +271,14 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
     const statusConfig: Record<string, { label: string; extra?: string | null;color: string; borderColor: string; btn: string | null; btnColor: string; }> = {
         pending_online_payment: { 
             label: "Pendente",
-            color: "bg-yellow-100 text-yellow-800",
+            color: "bg-yellow-100 text-yellow-700 border-yellow-200",
             borderColor: "border-l-yellow-500",
             btn: "Aceitar", 
             btnColor: "primary" 
         },
         pending_physical_payment: { 
             label: "Pendente",
-            color: "bg-yellow-100 text-yellow-800",
+            color: "bg-yellow-100 text-yellow-700 border-yellow-200",
             borderColor: "border-l-yellow-500", 
             btn: "Aceitar", 
             btnColor: "primary" ,
@@ -354,7 +286,7 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
         },
         paid: {
             label: "Pendente",
-            color: "bg-yellow-100 text-yellow-800",
+            color: "bg-yellow-100 text-yellow-700 border-yellow-200",
             borderColor: "border-l-yellow-500",
             btn: "Aceitar",
             btnColor: "primary"
@@ -408,7 +340,7 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
     const config = statusConfig[order.status] || statusConfig.pending_online_payment;
     const showBackButton = ["preparing", "delivering", "done"].includes(order.status);
     const scheduledDate = order.scheduled_for ? new Date(order.scheduled_for) : null;
-    const isScheduled = Boolean(scheduledDate && !Number.isNaN(scheduledDate.getTime()));
+    const isScheduled = !isTableOrder && Boolean(scheduledDate && !Number.isNaN(scheduledDate.getTime()));
     const scheduledTime = scheduledDate
         ? scheduledDate.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
         : "";
@@ -424,12 +356,12 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
     const deliveryEtaTooltip = !isScheduled ? formatEtaRange(order.delivery_eta) : "";
 
     // LÓGICA DE VISUALIZAÇÃO LIMITADA
-    const VISIBLE_ITEMS = isScheduled ? 2 : 3;
+    const VISIBLE_ITEMS = isScheduled || isTableOrder ? 2 : 3;
     const remainingItems = order.order_items.length - VISIBLE_ITEMS;
     const itemsToShow = order.order_items.slice(0, VISIBLE_ITEMS);
 
     return (
-        <Card className={`!p-0 overflow-hidden border-l-4 ${isScheduled ? "border-l-emerald-500" : config.borderColor} flex flex-col h-full`}>
+        <Card className={`!p-0 overflow-hidden border-l-4 ${config.borderColor} flex flex-col h-full`}>
             {/* Header do Card */}
             <div className="rounded-t-xl bg-gray-50 border-b border-gray-100 px-5 py-4 2xl:px-6 2xl:py-5">
                 <div className="flex items-center gap-2 whitespace-nowrap 2xl:gap-4">
@@ -439,20 +371,22 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
                     <span className={`shrink-0 text-xs px-2 py-0.5 rounded-full font-medium 2xl:text-base 2xl:px-3 2xl:py-1 ${config.color}`}>
                         {config.label}
                     </span>
-                    <div
-                        className={`flex shrink-0 items-center text-xs -ml-1 px-2 py-0.5 rounded-full font-medium 2xl:text-base 2xl:px-3 2xl:py-1 ${
-                            paymentMethod === "pix"
-                                ? "bg-green-100 text-green-800"
-                                : "bg-gray-200 text-gray-700"
-                        }`}
-                    >
-                        <span>{paymentLabel}</span>
-                        {paymentMethod === "dinheiro" && (
-                            <span className="ml-1.5 inline-flex leading-none">
-                                <CashChangeInfo text={cashChangeObservation} />
-                            </span>
-                        )}
-                    </div>
+                    {!isTableOrder && (
+                        <div
+                            className={`flex shrink-0 items-center text-xs -ml-1 px-2 py-0.5 rounded-full font-medium 2xl:text-base 2xl:px-3 2xl:py-1 ${
+                                paymentMethod === "pix"
+                                    ? "bg-green-100 text-green-800"
+                                    : "bg-gray-200 text-gray-700"
+                            }`}
+                        >
+                            <span>{paymentLabel}</span>
+                            {paymentMethod === "dinheiro" && (
+                                <span className="ml-1.5 inline-flex leading-none">
+                                    <CashChangeInfo text={cashChangeObservation} />
+                                </span>
+                            )}
+                        </div>
+                    )}
                     {isScheduled ? (
                         <TimeInfo
                             text={scheduledTooltip}
@@ -473,12 +407,20 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
                         <FontAwesomeIcon icon={faUser} className="shrink-0 text-gray-400" />
                         <span className="min-w-0 truncate">{order.customer_name}</span>
                     </span>
-                    {order.customer_phone && (
+                    {isTableOrder ? (
+                        <span
+                            className="flex shrink-0 items-center gap-1.5"
+                            title={order.table_name_snapshot || "Mesa"}
+                        >
+                            <FontAwesomeIcon icon={faChair} className="shrink-0 text-gray-400" />
+                            <span>{order.table_name_snapshot || "Mesa"}</span>
+                        </span>
+                    ) : order.customer_phone ? (
                         <span className="flex shrink-0 items-center gap-1.5" title={formatPhone(order.customer_phone)}>
                             <FontAwesomeIcon icon={faPhone} className="shrink-0 text-gray-400" />
                             <span>{formatPhone(order.customer_phone)}</span>
                         </span>
-                    )}
+                    ) : null}
                 </div>
             </div>
 
@@ -486,15 +428,15 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
             <div className="flex flex-1 flex-col px-5 py-4 2xl:px-6 2xl:mt-2">
                 {/* Itens */}
                 <div className="space-y-2 2xl:space-y-3">
-                    {isScheduled && (
+                    {isScheduled ? (
                         <div className="mb-3 flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2 text-xs font-bold text-green-700 2xl:text-base">
                             <FontAwesomeIcon icon={faCalendarDays} />
                             <span>
-                                AGENDADO PARA {scheduledTime}{" "}
+                                Agendado para {scheduledTime}{" "}
                                 <span className="font-medium">({scheduledRelativeTime})</span>
                             </span>
                         </div>
-                    )}
+                    ) : null}
                     {itemsToShow.map((item, idx) => (
                         <div key={`${order.id}-item-${idx}`} className="flex min-w-0 justify-between gap-3 text-sm 2xl:text-base">
                             <div className="flex min-w-0 gap-2">
@@ -522,12 +464,12 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
                     {/* Dados de Entrega e Totais */}
                     <div className="text-sm space-y-1 2xl:space-y-2">
                         <div className="flex min-w-0 items-center gap-2 text-gray-600 font-medium">
-                            <FontAwesomeIcon icon={faMapMarkerAlt} className="shrink-0 text-gray-400" />
+                            <FontAwesomeIcon icon={isTableOrder ? faChair : isPickup ? faBagShopping : faMapMarkerAlt} className="shrink-0 text-gray-400" />
                             <span
                                 className="min-w-0 truncate"
-                                title={isPickup ? "Retirada no balcão" : order.customer_address || "Endereço não informado"}
+                                title={isTableOrder ? order.table_name_snapshot || "Mesa" : isPickup ? "Retirada no balcão" : order.customer_address || "Endereço não informado"}
                             >
-                                {isPickup ? "Retirada no balcão" : order.customer_address || "Endereço não informado"}
+                                {isTableOrder ? order.table_name_snapshot || "Mesa" : isPickup ? "Retirada no balcão" : order.customer_address || "Endereço não informado"}
                             </span>
                         </div>
                         {!isPickup && (

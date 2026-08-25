@@ -37,6 +37,15 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { CartItem } from "@/lib/types/types";
 
+export function getCartStorageKey(): string {
+    if (typeof window === "undefined") return "cart-storage";
+
+    const segments = window.location.pathname.split("/").filter(Boolean);
+    const menuSlug = segments[0] === "mesa" ? segments[1] : segments[0];
+
+    return menuSlug ? `cart-storage-${menuSlug}` : "cart-storage";
+}
+
 
 type CartState = {
     items: CartItem[];
@@ -114,9 +123,7 @@ export const useCartStore = create<CartState>()(
             clear: () => set({ items: [] }),
         }),
         {
-            name: typeof window !== "undefined"
-                ? `cart-storage-${window.location.pathname.split("/")[1]}`
-                : "cart-storage",        
+            name: getCartStorageKey(),
             }
     )
 );

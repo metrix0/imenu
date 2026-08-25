@@ -68,7 +68,7 @@ export default function PedidosPage() {
         try {
             let query = supabase
                 .from("orders")
-                .select("id, display_id, created_at, customer_name, status, payment_method, is_delivery, total_cents", { count: 'exact' })
+                .select("id, display_id, created_at, customer_name, status, payment_method, is_delivery, table_name_snapshot, total_cents", { count: 'exact' })
                 .eq("restaurant_id", restId)
                 .neq("status", "pending_online_payment")
                 .order("created_at", { ascending: false })

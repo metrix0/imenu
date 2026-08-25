@@ -1,7 +1,7 @@
 "use client";
 
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faEye } from "@fortawesome/free-solid-svg-icons";
+import { faChair, faEye } from "@fortawesome/free-solid-svg-icons";
 import Card from "@/components/ui/Card";
 import ListLoader from "@/components/ui/ListLoader";
 
@@ -11,9 +11,10 @@ export type Order = {
     display_id: number;
     created_at: string;
     customer_name: string;
-    status: "pending_online_payment" | "pending_physical_payment" | "preparing" | "delivering" | "done" | "canceled";
+    status: "pending_online_payment" | "pending_physical_payment" | "paid" | "preparing" | "delivering" | "done" | "canceled";
     total_cents: number;
     is_delivery?: string | null;
+    table_name_snapshot?: string | null;
 };
 
 interface OrdersTableProps {
@@ -29,25 +30,25 @@ export default function OrdersTable({ orders, isLoading, onViewOrder }: OrdersTa
 
     const getStatusBadge = (status: string, isPickup: boolean) => {
         const map: Record<string, string> = {
-            pending_online_payment: "bg-yellow-100 text-yellow-800",
-            pending_physical_payment: "bg-yellow-100 text-yellow-800",
-            pending: "bg-yellow-100 text-yellow-800",
+            pending_online_payment: "bg-yellow-100 text-yellow-700 border-yellow-200",
+            pending_physical_payment: "bg-yellow-100 text-yellow-700 border-yellow-200",
+            paid: "bg-yellow-100 text-yellow-700 border-yellow-200",
             preparing: "bg-blue-100 text-blue-800 border-blue-200",
-            delivering: isPickup ? "bg-green-100 text-green-800 border-green-200" : "bg-purple-100 text-purple-800",
+            delivering: isPickup ? "bg-green-100 text-green-800 border-green-200" : "bg-purple-100 text-purple-800 border-purple-800",
             done: "bg-green-100 text-green-800 border-green-200",
             canceled: "bg-red-100 text-red-800 border-red-200",
         };
         const label: Record<string, string> = {
-            pending_online_payment: "À Pagar",
-            pending_physical_payment: isPickup ? "Pendente" : "Pendente (Pgt. Entrega)",
-            paid: "Pendente (Pago)",
+            pending_online_payment: "Pendente",
+            pending_physical_payment: "Pendente",
+            paid: "Pendente",
             preparing: "Preparando",
             delivering: isPickup ? "Pronto" : "Em Rota",
             done: "Concluído",
             canceled: "Cancelado",
         };
         return (
-            <span className={`px-3 py-1 rounded-full text-xs 2xl:text-base font-medium border ${map[status] || "bg-gray-100"}`}>
+            <span className={`px-3 py-1 rounded-full text-xs 2xl:text-base font-medium ${map[status] || "bg-gray-100"}`}>
                 {label[status] || status}
             </span>
         );
@@ -69,7 +70,16 @@ export default function OrdersTable({ orders, isLoading, onViewOrder }: OrdersTa
                         {orders.map((order) => (
                             <div
                                 key={`mobile-${order.id}`}
-                                className="space-y-3 p-4"
+                                role={onViewOrder ? "button" : undefined}
+                                tabIndex={onViewOrder ? 0 : undefined}
+                                onClick={() => onViewOrder?.(order)}
+                                onKeyDown={(event) => {
+                                    if (onViewOrder && (event.key === "Enter" || event.key === " ")) {
+                                        event.preventDefault();
+                                        onViewOrder(order);
+                                    }
+                                }}
+                                className={`space-y-3 p-4 transition-colors ${onViewOrder ? "cursor-pointer hover:bg-gray-50" : ""}`}
                             >
                                 <div className="flex items-start justify-between gap-3">
                                     <div className="min-w-0">
@@ -79,21 +89,30 @@ export default function OrdersTable({ orders, isLoading, onViewOrder }: OrdersTa
                                             </span>
                                             {getStatusBadge(
                                                 order.status,
-                                                order.is_delivery === "retirada"
+                                                order.is_delivery === "mesa" || order.is_delivery === "retirada"
                                             )}
                                         </div>
-                                        <p className="mt-2 truncate text-sm font-medium text-gray-800">
-                                            {order.customer_name}
-                                        </p>
+                                        <div className="mt-2 flex min-w-0 items-center gap-2">
+                                            <p className="min-w-0 truncate text-sm font-medium text-gray-800">
+                                                {order.customer_name}
+                                            </p>
+                                            {order.is_delivery === "mesa" && (
+                                                <span className="flex shrink-0 items-center gap-1.5 text-xs font-medium text-brand">
+                                                    <FontAwesomeIcon icon={faChair} />
+                                                    {order.table_name_snapshot || "Mesa"}
+                                                </span>
+                                            )}
+                                        </div>
                                         <p className="mt-1 text-xs text-gray-500">
                                             {fmtDate(order.created_at)}
                                         </p>
                                     </div>
 
                                     <button
-                                        onClick={() =>
-                                            onViewOrder && onViewOrder(order)
-                                        }
+                                        onClick={(event) => {
+                                            event.stopPropagation();
+                                            onViewOrder?.(order);
+                                        }}
                                         className="shrink-0 p-2 text-gray-400 transition-colors hover:text-brand"
                                         title="Ver Detalhes"
                                         aria-label={`Ver detalhes do pedido #${order.display_id || order.id.slice(0, 4)}`}
@@ -138,15 +157,30 @@ export default function OrdersTable({ orders, isLoading, onViewOrder }: OrdersTa
                             </div>
                         ) : (
                             orders.map((order) => (
-                                <div 
-                                    key={order.id} 
-                                    className="grid grid-cols-12 px-6 py-4 2xl:py-5 items-center hover:bg-gray-50 transition-colors text-sm 2xl:text-[1.1rem] text-gray-700"
+                                <div
+                                    key={order.id}
+                                    role={onViewOrder ? "button" : undefined}
+                                    tabIndex={onViewOrder ? 0 : undefined}
+                                    onClick={() => onViewOrder?.(order)}
+                                    onKeyDown={(event) => {
+                                        if (onViewOrder && (event.key === "Enter" || event.key === " ")) {
+                                            event.preventDefault();
+                                            onViewOrder(order);
+                                        }
+                                    }}
+                                    className={`grid grid-cols-12 px-6 py-4 2xl:py-5 items-center hover:bg-gray-50 transition-colors text-sm 2xl:text-[1.1rem] text-gray-700 ${onViewOrder ? "cursor-pointer" : ""}`}
                                 >
                                     <div className="col-span-2 font-bold text-gray-900">
                                         #{order.display_id || order.id.slice(0, 4)}
                                     </div>
-                                    <div className="col-span-3 font-medium truncate pr-4">
-                                        {order.customer_name}
+                                    <div className="col-span-3 flex min-w-0 items-center gap-2 pr-4 font-medium">
+                                        <span className="min-w-0 truncate">{order.customer_name}</span>
+                                        {order.is_delivery === "mesa" && (
+                                            <span className="flex shrink-0 items-center gap-1.5 text-xs font-medium text-brand 2xl:text-sm">
+                                                <FontAwesomeIcon icon={faChair} />
+                                                {order.table_name_snapshot || "Mesa"}
+                                            </span>
+                                        )}
                                     </div>
                                     <div className="col-span-2 text-gray-500">
                                         {fmtDate(order.created_at)}
@@ -155,11 +189,14 @@ export default function OrdersTable({ orders, isLoading, onViewOrder }: OrdersTa
                                         {fmtMoney(order.total_cents)}
                                     </div>
                                     <div className="col-span-2 ">
-                                        <span className={"truncate"}>{getStatusBadge(order.status, order.is_delivery === "retirada")}</span>
+                                        <span className={"truncate"}>{getStatusBadge(order.status, order.is_delivery === "mesa" || order.is_delivery === "retirada")}</span>
                                     </div>
                                     <div className="col-span-1 text-right">
-                                        <button 
-                                            onClick={() => onViewOrder && onViewOrder(order)}
+                                        <button
+                                            onClick={(event) => {
+                                                event.stopPropagation();
+                                                onViewOrder?.(order);
+                                            }}
                                             className="text-gray-400 hover:text-brand p-2 transition-colors cursor-pointer"
                                             title="Ver Detalhes"
                                         >

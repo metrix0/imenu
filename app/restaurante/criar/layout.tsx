@@ -3,6 +3,7 @@
 import CreationStepper from "@/components/restaurant-owner/configuracoes/CreationStepper";
 import Loader from "@/components/ui/Loader";
 import { supabase } from "@/lib/database/supabaseClient";
+import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -15,8 +16,12 @@ export default function CreationLayout({
 }) {
     const pathname = usePathname();
     const router = useRouter();
+    const { productSelectionCompleted } = useCreationStore();
     const [isLoading, setIsLoading] = useState(true);
     const isConfirmationPage = pathname?.includes("/info/otp");
+    const isProductSelection =
+        pathname === "/restaurante/criar/localizacao" &&
+        !productSelectionCompleted;
 
     useEffect(() => {
         const checkStatus = async () => {
@@ -72,7 +77,9 @@ export default function CreationLayout({
                 </div>
             </header>
 
-            {!isConfirmationPage && <CreationStepper />}
+            {!isConfirmationPage && !isProductSelection && (
+                <CreationStepper />
+            )}
 
             <div
                 className="creation-mobile-content min-w-0 flex-1"

@@ -17,6 +17,34 @@ export type BlogArticleDefinition = {
 
 export const BLOG_ARTICLES: BlogArticleDefinition[] = [
     {
+        slug: "melhor-qr-code-mesa-restaurante",
+        title: "Melhor QR Code para restaurante em 2026: 4 sistemas para pedidos na mesa",
+        shortTitle: "Melhor QR Code para restaurante",
+        metaTitle: "Melhor QR Code para Restaurante em 2026: 4 Opções | iMenu",
+        metaDescription:
+            "Compare iMenu, Goomer, Anota AI e Saipos para pedidos por QR Code na mesa. Veja recursos, preço, diferenças e qual opção faz mais sentido.",
+        excerpt:
+            "Comparamos quatro sistemas de QR Code para mesa que permitem ao cliente acessar o cardápio e pedir pelo próprio celular.",
+        category: "Cardápio",
+        readingTime: "10 min de leitura",
+        publishedAt: "2026-08-24",
+        updatedAt: "2026-08-24",
+    },
+    {
+        slug: "cardapio-digital-qr-code-restaurante",
+        title: "Cardápio digital com QR Code para restaurante: como receber pedidos direto da mesa",
+        shortTitle: "Cardápio digital com QR Code",
+        metaTitle: "Cardápio Digital QR Code para Restaurante | iMenu",
+        metaDescription:
+            "Veja como usar cardápio digital com QR Code no restaurante para receber pedidos direto da mesa, identificar mesas e agilizar o atendimento.",
+        excerpt:
+            "Entenda como funciona o QR Code na mesa, a diferença entre apenas mostrar o menu e receber pedidos e como colocar o sistema para funcionar.",
+        category: "Cardápio",
+        readingTime: "11 min de leitura",
+        publishedAt: "2026-08-23",
+        updatedAt: "2026-08-23",
+    },
+    {
         slug: "robo-whatsapp-para-restaurante",
         title: "Robô de WhatsApp para restaurante: automatize atendimento sem perder o toque humano",
         shortTitle: "Robô de WhatsApp para restaurante",

@@ -1,6 +1,9 @@
 "use client";
 
-import { useCartStore } from "@/lib/stores/costumer/cartStore";
+import {
+    getCartStorageKey,
+    useCartStore,
+} from "@/lib/stores/costumer/cartStore";
 import Button from "@/components/ui/Button";
 import Tooltip from "@/components/ui/Tooltip";
 import { useCheckoutStore } from "@/lib/stores/costumer/checkoutStore";
@@ -10,13 +13,15 @@ import {icons} from "@/lib/utils/fontawesome";
 import {formatPrice, promotionPrice} from "@/lib/utils/formatPrice";
 import { captureConsumerEvent } from "@/lib/analytics/captureConsumerEvent";
 import { CONSUMER_EVENTS } from "@/lib/analytics/consumerEvents";
+import type { QrTableMenuContext } from "@/lib/qr-table/types";
 
 export default function CartBar({
                                     onOpenCartAction,
                                     cartOpen,
                                     restaurant,
                                     setCartOpenAction,
-    closeItemModalOpen, trackMeta, slug
+    closeItemModalOpen, trackMeta, slug, tableOrder, selectedTableId,
+    selectedTableName
                                 }: {
     onOpenCartAction: () => void,
     cartOpen: boolean,
@@ -25,6 +30,9 @@ export default function CartBar({
     closeItemModalOpen: () => void;
     trackMeta?: (slug: string, eventName: string, customData: Record<string, any>) => void;
     slug?: string;
+    tableOrder?: QrTableMenuContext | null;
+    selectedTableId?: string | null;
+    selectedTableName?: string | null;
 }) {
     const items = useCartStore((s) => s.items);
 
@@ -38,6 +46,7 @@ export default function CartBar({
     const [backdropVisible, setBackdropVisible] = useState(false);
 
     const checkoutState = useCheckoutStore((s) => s);
+    const isTableOrder = Boolean(tableOrder);
     const isPickup = Boolean((checkoutState as any).is_pickup);
     const [closedByDrag, setClosedByDrag] = useState(false);
     const [translateY, setTranslateY] = useState(0);
@@ -51,29 +60,34 @@ export default function CartBar({
     const total = items.reduce((acc, i) => acc + (promotionPrice(i) || i.total_cents), 0);
     const itemCount = items.reduce((acc, i) => acc + i.qty, 0);
 
-    const delivery_fee_cents = isPickup
+    const delivery_fee_cents = isPickup || isTableOrder
         ? 0
         : checkoutState.delivery_fee_cents
             ? Number(checkoutState.delivery_fee_cents)
             : 0;
 
-    const discount_cents = checkoutState.coupon_discount_cents || 0;
+    const discount_cents = isTableOrder
+        ? 0
+        : checkoutState.coupon_discount_cents || 0;
 
-    const allRequiredFilled = Boolean(
-        checkoutState.nome &&
-        checkoutState.celular &&
-        (isPickup || (
-            checkoutState.cep?.length >= 8 &&
-            checkoutState.rua &&
-            checkoutState.bairro &&
-            checkoutState.numero
-        ))
-    );
+    const allRequiredFilled = isTableOrder
+        ? Boolean(checkoutState.nome && selectedTableId)
+        : Boolean(
+              checkoutState.nome &&
+                  checkoutState.celular &&
+                  (isPickup ||
+                      (checkoutState.cep?.length >= 8 &&
+                          checkoutState.rua &&
+                          checkoutState.bairro &&
+                          checkoutState.numero))
+          );
 
     const disabledContinue = cartOpen && step === "info" && !allRequiredFilled;
 
     const missingFields: string[] = [];
-    if (!isPickup) {
+    if (isTableOrder) {
+        if (!selectedTableId) missingFields.push("Mesa");
+    } else if (!isPickup) {
         if (!checkoutState.cep || checkoutState.cep.length < 8) {
             missingFields.push("CEP");
         }
@@ -82,7 +96,7 @@ export default function CartBar({
         if (!checkoutState.numero) missingFields.push("Número");
     }
     if (!checkoutState.nome) missingFields.push("Nome");
-    if (!checkoutState.celular) missingFields.push("Celular");
+    if (!isTableOrder && !checkoutState.celular) missingFields.push("Celular");
 
     const tooltipText =
         missingFields.length > 0
@@ -127,14 +141,16 @@ export default function CartBar({
         if (cartOpen && step === "cart") {
             const totalCents = items.reduce((acc,i)=>acc+i.total_cents,0);
 
-            if (totalCents < restaurant.min_order_cents) {
+            if (!isTableOrder && totalCents < restaurant.min_order_cents) {
                 showCartWarning(true)
                 return;
             }
-            captureConsumerEvent(
-                CONSUMER_EVENTS.addressStarted,
-                consumerProperties()
-            );
+            if (!isTableOrder) {
+                captureConsumerEvent(
+                    CONSUMER_EVENTS.addressStarted,
+                    consumerProperties()
+                );
+            }
             setStep("info");
             return;
         }
@@ -155,12 +171,12 @@ export default function CartBar({
 
         const fee = useCheckoutStore.getState().delivery_fee_cents;
 
-        if (!isPickup && cartOpen && step === "info" && fee === false) {
+        if (!isTableOrder && !isPickup && cartOpen && step === "info" && fee === false) {
             useCheckoutStore.setState({ cepTrigger: true });
             return;
         }
 
-        if (!isPickup && cartOpen && step === "info" && fee === null) {
+        if (!isTableOrder && !isPickup && cartOpen && step === "info" && fee === null) {
             setShowAddressWarning(true)
             return;
         }
@@ -175,6 +191,21 @@ export default function CartBar({
         }
 
         if (step === "info") {
+            if (isTableOrder) {
+                if (isContinueBlocked) return;
+                useCheckoutStore.setState({ isContinueBlocked: true });
+                try {
+                    await createOrder();
+                } finally {
+                    setTimeout(() => {
+                        useCheckoutStore.setState({
+                            isContinueBlocked: false,
+                        });
+                    }, 6000);
+                }
+                return;
+            }
+
             captureConsumerEvent(
                 CONSUMER_EVENTS.paymentStarted,
                 consumerProperties()
@@ -237,7 +268,7 @@ export default function CartBar({
     async function createOrder() {
         const cart = useCartStore.getState();
         const checkout = useCheckoutStore.getState();
-        const pickup = Boolean((checkout as any).is_pickup);
+        const pickup = !isTableOrder && Boolean((checkout as any).is_pickup);
 
         // ✅ derived values (frontend preview only)
         const subtotal_cents = cart.items.reduce(
@@ -245,14 +276,16 @@ export default function CartBar({
             0
         );
 
-        const delivery_fee_cents = pickup
+        const delivery_fee_cents = pickup || isTableOrder
             ? 0
             : checkout.delivery_fee_cents && checkout.delivery_fee_cents !== true
                 ? Number(checkout.delivery_fee_cents)
                 : 0;
 
-        const discount_cents = checkout.coupon_discount_cents || 0;
-        const changeFor = checkout.pagamento === "dinheiro"
+        const discount_cents = isTableOrder
+            ? 0
+            : checkout.coupon_discount_cents || 0;
+        const changeFor = !isTableOrder && checkout.pagamento === "dinheiro"
             ? String((checkout as any).troco ?? "")
                 .replace(/^R\$\s*/i, "")
                 .trim()
@@ -276,17 +309,22 @@ export default function CartBar({
         const body = {
             restaurantId: restaurant.id,
             customer_name: checkout.nome,
-            customer_phone: checkout.celular,
-            customer_address: pickup
+            customer_phone: isTableOrder ? null : checkout.celular,
+            customer_address: pickup || isTableOrder
                 ? null
                 : `${checkout.rua}, ${checkout.numero} - ${checkout.bairro} - ${checkout.cep}${
                       checkout.complemento ? ` (${checkout.complemento})` : ""
                   }`,
             delivery_fee_cents,
-            is_delivery: pickup ? "retirada" : "entrega",
-            paymentMethod: checkout.pagamento,
-            delivery_time_minutes: pickup ? null : checkout.delivery_time_minutes,
-            scheduled_for: checkout.scheduled_for || null,
+            is_delivery: isTableOrder ? "mesa" : pickup ? "retirada" : "entrega",
+            paymentMethod: isTableOrder ? null : checkout.pagamento,
+            delivery_time_minutes:
+                pickup || isTableOrder ? null : checkout.delivery_time_minutes,
+            scheduled_for: isTableOrder
+                ? null
+                : checkout.scheduled_for || null,
+            table_token: isTableOrder ? tableOrder?.token : null,
+            table_id: isTableOrder ? selectedTableId : null,
 
             // 👇 cart items (unchanged, except the first observation may include cash change)
             items: cart.items.map((i, index) => {
@@ -311,9 +349,9 @@ export default function CartBar({
             }),
 
             // 👇 coupon info (unchanged)
-            coupon_id: checkout.coupon_id || null,
-            coupon_code: checkout.coupon_code || null,
-            coupon_type: checkout.coupon_type || null,
+            coupon_id: isTableOrder ? null : checkout.coupon_id || null,
+            coupon_code: isTableOrder ? null : checkout.coupon_code || null,
+            coupon_type: isTableOrder ? null : checkout.coupon_type || null,
             coupon_discount_cents: discount_cents,
 
             // ✅ added (preview / UI / debugging)
@@ -337,7 +375,7 @@ export default function CartBar({
         }
 
         try {
-            if (checkout.coupon_id) {
+            if (!isTableOrder && checkout.coupon_id) {
                 const couponUsage = {
                     coupon_id: checkout.coupon_id,
                     coupon_code: checkout.coupon_code,
@@ -368,9 +406,9 @@ export default function CartBar({
         }
 
         try {
-            if (typeof window !== "undefined")
-                localStorage.removeItem(`cart-storage-${window.location.pathname.split("/")[1]}`);
-            else localStorage.removeItem("cart-storage");
+            if (typeof window !== "undefined") {
+                localStorage.removeItem(getCartStorageKey());
+            } else localStorage.removeItem("cart-storage");
         } catch (err) {
             console.error("[CART] Failed to clear cart-storage:", err);
         }
@@ -448,7 +486,11 @@ export default function CartBar({
                 <div className="relative z-10 flex items-center justify-between w-full md:px-7 2xl:px-12">
                     <div className="flex flex-col text-left text-[12px] 2xl:text-lg text-gray-600">
                         <span>
-                            {isPickup
+                            {isTableOrder
+                                ? selectedTableName
+                                    ? `Total • ${selectedTableName} `
+                                    : "Total "
+                                : isPickup
                                 ? "Total para retirada "
                                 : checkoutState.delivery_fee_cents === null ||
                                   checkoutState.delivery_fee_cents === undefined || !checkoutState.delivery_fee_cents
@@ -478,7 +520,9 @@ export default function CartBar({
                                 disabledContinue ? "!bg-gray-300 focus:ring-transparent" : ""
                             }`}
                         >
-                            {step === "checkout"
+                            {isTableOrder && step === "info"
+                                ? "Confirmar pedido"
+                                : step === "checkout"
                                 ? "Confirmar"
                                 : cartOpen
                                     ? "Continuar"
@@ -488,7 +532,7 @@ export default function CartBar({
                 </div>
             </div>
 
-            {cartWarningVisible && (
+            {!isTableOrder && cartWarningVisible && (
                 <>
                     {/* 🔥 FIXED BACKDROP WITH FADE-IN & FADE-OUT */}
                     <div

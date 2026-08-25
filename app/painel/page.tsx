@@ -11,6 +11,7 @@ import {
     faShareAlt,
     faVolumeHigh,
     faPlus,
+    faChair,
 } from "@fortawesome/free-solid-svg-icons";
 import OrderCard, {
     OrderData,
@@ -18,6 +19,7 @@ import OrderCard, {
 import ShareMenuModal from "@/components/restaurant-owner/ShareMenuModal";
 import OrderDetailsModal from "@/components/restaurant-owner/pedidos/OrderDetailsModal";
 import CreatePanelOrderModal from "@/components/restaurant-owner/CreatePanelOrderModal";
+import TablesOrdersModal from "@/components/restaurant-owner/mesas/TablesOrdersModal";
 
 type OrderDingleDuration = "short" | "medium" | "long";
 
@@ -152,6 +154,7 @@ export default function PainelPedidosAtivosPage() {
 
     const [orders, setOrders] = useState<OrderData[]>([]);
     const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+    const [isTablesModalOpen, setIsTablesModalOpen] = useState(false);
 
     // Novo: Estado para detalhes do pedido
     const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
@@ -512,7 +515,11 @@ export default function PainelPedidosAtivosPage() {
     return (
         <div className="max-w-7xl 2xl:max-w-[90rem] mx-auto pb-20 px-4 sm:px-6 pt-8">
             {/* Header */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-8 gap-4">
+            <div
+                className={`flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 ${
+                    soundEnabled ? "mb-8" : "mb-4 sm:mb-8"
+                }`}
+            >
                 <div>
                     <h1 className="text-3xl font-bold text-gray-900 2xl:text-4xl">
                         Pedidos de Hoje
@@ -526,16 +533,24 @@ export default function PainelPedidosAtivosPage() {
                     <Button
                         onClick={() => setIsCreateOrderOpen(true)}
                         className=""
-                        variant={"primary"}
+                        variant="primary"
                     >
                         <FontAwesomeIcon icon={faPlus} className="mr-2" />
-                        Adicionar Pedido
+                        <span className="hidden sm:inline">Adicionar Pedido</span>
+                        <span className="sm:hidden">Pedido</span>
+                    </Button>
+
+                    <Button
+                        onClick={() => setIsTablesModalOpen(true)}
+                        variant="secondary"
+                    >
+                        <FontAwesomeIcon icon={faChair} className="mr-2" />
+                        Mesas
                     </Button>
 
                     <Button
                         onClick={() => setIsShareModalOpen(true)}
-                        className="bg-gray-200 hover:bg-gray-300 text-gray-800 focus:ring-gray-300"
-                        variant={"secondary"}
+                        variant="secondary"
                     >
                         <FontAwesomeIcon icon={faShareAlt} className="" />
                     </Button>
@@ -557,7 +572,7 @@ export default function PainelPedidosAtivosPage() {
                 >
                     <div
                         className={`
-        p-4 cursor-pointer w-fit px-8 rounded-2xl mt-10 mb-6
+        p-4 cursor-pointer w-fit px-8 rounded-2xl mb-6
         duration-300 ease-in-out 
         ${
             soundEnabled
@@ -651,6 +666,17 @@ export default function PainelPedidosAtivosPage() {
                 onCreated={async () => {
                     await fetchOrders(restaurantId);
                     setIsCreateOrderOpen(false);
+                }}
+            />
+
+            <TablesOrdersModal
+                open={isTablesModalOpen}
+                onClose={() => setIsTablesModalOpen(false)}
+                restaurantId={restaurantId}
+                orders={orders}
+                onViewOrder={(order) => {
+                    setIsTablesModalOpen(false);
+                    handleViewOrder(order);
                 }}
             />
         </div>

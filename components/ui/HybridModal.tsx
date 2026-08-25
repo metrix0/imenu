@@ -23,6 +23,7 @@ export default function DraggableModal({
                                        }: DraggableModalProps) {
     const startY = useRef(0);
     const currentY = useRef(0);
+    const contentRef = useRef<HTMLDivElement>(null);
     const closingRef = useRef(false); // 🔥 prevents double-close
 
     const [translateY, setTranslateY] = useState(1000);
@@ -67,6 +68,15 @@ export default function DraggableModal({
 
     const onTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
         handleStart(e.touches[0].clientY);
+    };
+
+    const onPanelTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+        const content = contentRef.current;
+        const canScroll = Boolean(content && content.scrollHeight > content.clientHeight + 1);
+
+        if (!canScroll) {
+            handleStart(e.touches[0].clientY);
+        }
     };
 
     // === Move ===
@@ -121,6 +131,26 @@ export default function DraggableModal({
         return () => window.removeEventListener("resize", check);
     }, []);
 
+    useEffect(() => {
+        if (!open || isDesktop) return;
+
+        const body = document.body;
+        const html = document.documentElement;
+        const previousBodyOverflow = body.style.overflow;
+        const previousBodyOverscroll = body.style.overscrollBehavior;
+        const previousHtmlOverscroll = html.style.overscrollBehavior;
+
+        body.style.overflow = "hidden";
+        body.style.overscrollBehavior = "none";
+        html.style.overscrollBehavior = "none";
+
+        return () => {
+            body.style.overflow = previousBodyOverflow;
+            body.style.overscrollBehavior = previousBodyOverscroll;
+            html.style.overscrollBehavior = previousHtmlOverscroll;
+        };
+    }, [open, isDesktop]);
+
 
     return (
         <>{isDesktop ?
@@ -132,30 +162,36 @@ export default function DraggableModal({
             className={`fixed inset-0 z-[51] transition-opacity duration-300 ${
                 open ? "opacity-100" : "opacity-0 pointer-events-none"
             }`}
-            style={{ background: "rgba(0,0,0,0.35)" }}
+            style={{ background: "rgba(0,0,0,0.35)", overscrollBehavior: "none" }}
             onClick={backdropClose}
         >
             <div
                 {...props}
                 onClick={(e) => e.stopPropagation()}
+                onTouchStart={onPanelTouchStart}
                 className={`fixed left-0 right-0 mx-auto bg-white rounded-t-xl overflow-hidden ${props.className ?? ""}`}
                 style={{
                     height: `${height * 100}svh`,
                     bottom: 0,
                     transform: `translateY(${translateY}px)`,
                     transition: animating ? "transform 0.25s ease-out" : "none",
+                    overscrollBehaviorY: "contain",
                     ...(props.style ?? {}),
                 }}
             >
                 {/* Invisible drag zone */}
                 <div
                     onMouseDown={onMouseStart}
-                    onTouchStart={onTouchStart}
+                    onTouchStart={(e) => {
+                        e.stopPropagation();
+                        onTouchStart(e);
+                    }}
                     className="absolute left-0 top-0 w-full"
                     style={{
                         height: "28px",
                         zIndex: 30,
                         cursor: "grab",
+                        touchAction: "none",
                     }}
                 />
 
@@ -165,7 +201,11 @@ export default function DraggableModal({
                     </div>
                 )}
 
-                <div className={`overflow-y-auto h-full pb-32 ${xPadding ? "px-4" : ""} ${contentClassName ?? ""}`}>
+                <div
+                    ref={contentRef}
+                    className={`overflow-y-auto h-full pb-32 ${xPadding ? "px-4" : ""} ${contentClassName ?? ""}`}
+                    style={{ overscrollBehaviorY: "contain" }}
+                >
                     {children}
                 </div>
             </div>

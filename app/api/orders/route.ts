@@ -244,21 +244,43 @@ export async function POST(request: Request) {
             coupon_type,
             is_delivery,
             scheduled_for,
+            table_token,
+            table_id,
         } = body;
+
+        const isTableOrder =
+            String(is_delivery || "").toLowerCase() === "mesa";
 
         if (
             !Array.isArray(items) ||
             items.length === 0 ||
             !restaurantId ||
-            !paymentMethod
+            (!isTableOrder && !paymentMethod)
         ) {
             throw new OrderRequestError(
                 "Campos obrigatórios incompletos."
             );
         }
 
+        if (isTableOrder && !String(customer_name || "").trim()) {
+            throw new OrderRequestError("Informe seu nome.");
+        }
+
+        const uuidPattern =
+            /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+        const tableToken = String(table_token || "").trim();
+        const selectedTableId = table_id ? String(table_id).trim() : null;
+        if (
+            isTableOrder &&
+            (!uuidPattern.test(tableToken) ||
+                (selectedTableId !== null &&
+                    !uuidPattern.test(selectedTableId)))
+        ) {
+            throw new OrderRequestError("QR Code de mesa inválido.");
+        }
+
         let scheduledFor: Date | null = null;
-        if (scheduled_for) {
+        if (!isTableOrder && scheduled_for) {
             const parsedScheduledFor = new Date(scheduled_for);
             if (
                 Number.isNaN(parsedScheduledFor.getTime()) ||
@@ -272,7 +294,7 @@ export async function POST(request: Request) {
         }
 
         const isPickup =
-            is_delivery === "retirada";
+            isTableOrder || is_delivery === "retirada";
         const safeDeliveryFeeCents = isPickup
             ? 0
             : Math.max(
@@ -289,8 +311,9 @@ export async function POST(request: Request) {
             0
         );
 
-        const safeCouponDiscount =
-            coupon_type === "delivery" &&
+        const safeCouponDiscount = isTableOrder
+            ? 0
+            : coupon_type === "delivery" &&
             isPickup
                 ? 0
                 : Number(coupon_discount_cents) >
@@ -310,8 +333,10 @@ export async function POST(request: Request) {
             0
         );
 
-        const programResult = await query(
-            `
+        const programResult = isTableOrder
+            ? { rows: [] }
+            : await query(
+                  `
                 SELECT
                     goal_count,
                     reward_item_id,
@@ -322,7 +347,7 @@ export async function POST(request: Request) {
                 LIMIT 1
             `,
             [restaurantId]
-        );
+              );
 
         const program =
             programResult.rows[0] || null;
@@ -448,15 +473,14 @@ export async function POST(request: Request) {
             );
         }
 
-        const deliveryTime = Math.max(
-            Number(delivery_time_minutes) || 40,
-            0
-        );
+        const deliveryTime = isTableOrder
+            ? 0
+            : Math.max(Number(delivery_time_minutes) || 40, 0);
         const eta = scheduledFor ?? new Date(
             Date.now() +
                 deliveryTime * 60_000
         );
-        const isOnlinePix =
+        const isOnlinePix = !isTableOrder &&
             paymentMethod === "pix" &&
             total > 0;
         const orderStatus = isOnlinePix
@@ -466,6 +490,54 @@ export async function POST(request: Request) {
         const transactionResult =
             await withTransaction(
                 async (client) => {
+                    let validatedTable: {
+                        id: string;
+                        name: string;
+                    } | null = null;
+
+                    if (isTableOrder) {
+                        const tableResult = await client.query(
+                            `
+                                SELECT table_entry.id, table_entry.name
+                                FROM public.restaurant_addons AS addon
+                                JOIN public.restaurant_tables AS table_entry
+                                  ON table_entry.restaurant_id = addon.restaurant_id
+                                WHERE addon.restaurant_id = $1
+                                  AND addon.product_key = 'qr_code_mesa'
+                                  AND (
+                                        addon.status = 'active'
+                                     OR (
+                                            addon.status IN ('canceled', 'past_due')
+                                        AND addon.current_period_ends_at > NOW()
+                                     )
+                                  )
+                                  AND table_entry.is_active = true
+                                  AND (
+                                        (
+                                            addon.universal_token = $2::uuid
+                                            AND table_entry.id = $3::uuid
+                                        )
+                                     OR (
+                                            table_entry.public_token = $2::uuid
+                                            AND (
+                                                $3::uuid IS NULL
+                                                OR table_entry.id = $3::uuid
+                                            )
+                                        )
+                                  )
+                                LIMIT 1
+                            `,
+                            [restaurantId, tableToken, selectedTableId]
+                        );
+
+                        validatedTable = tableResult.rows[0] || null;
+                        if (!validatedTable) {
+                            throw new OrderRequestError(
+                                "Mesa inválida ou QR Code inativo."
+                            );
+                        }
+                    }
+
                     const lockedItems =
                         new Map<string, any>();
                     const requestedQuantities =
@@ -664,7 +736,9 @@ export async function POST(request: Request) {
                                     loyalty_points_used,
                                     coupon_id,
                                     coupon_code,
-                                    coupon_discount_cents
+                                    coupon_discount_cents,
+                                    table_id,
+                                    table_name_snapshot
                                 )
                                 VALUES (
                                     $1,
@@ -682,7 +756,9 @@ export async function POST(request: Request) {
                                     $13,
                                     $14,
                                     $15,
-                                    $16
+                                    $16,
+                                    $17,
+                                    $18
                                 )
                                 RETURNING id
                             `,
@@ -692,25 +768,29 @@ export async function POST(request: Request) {
                                 subtotal,
                                 safeDeliveryFeeCents,
                                 total,
-                                customer_name ?? null,
-                                customer_phone ?? null,
+                                String(customer_name || "").trim() || null,
+                                isTableOrder ? null : customer_phone ?? null,
                                 isPickup
                                     ? null
                                     : customer_address ??
                                       null,
                                 eta,
                                 scheduledFor,
-                                paymentMethod,
-                                isPickup
-                                    ? "retirada"
+                                isTableOrder ? null : paymentMethod,
+                                isTableOrder
+                                    ? "mesa"
+                                    : isPickup
+                                      ? "retirada"
                                     : is_delivery ??
                                       null,
                                 pointsToDeduct,
-                                coupon_id ?? null,
-                                coupon_code ?? null,
+                                isTableOrder ? null : coupon_id ?? null,
+                                isTableOrder ? null : coupon_code ?? null,
                                 safeCouponDiscount > 0
                                     ? safeCouponDiscount
                                     : null,
+                                validatedTable?.id ?? null,
+                                validatedTable?.name ?? null,
                             ]
                         );
 
@@ -815,7 +895,7 @@ export async function POST(request: Request) {
                                     )
                                     VALUES (
                                         $1,
-                                        $2,
+                                        (SELECT id FROM subitems WHERE id = $2),
                                         $3,
                                         $4,
                                         1

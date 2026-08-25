@@ -19,6 +19,7 @@ import Input from "@/components/ui/Input";
 import Loader from "@/components/ui/Loader";
 import Toast from "@/components/ui/Toast";
 import ConfirmModal from "@/components/ui/ConfirmModal";
+import QrCodeMesaSettingsSection from "@/components/restaurant-owner/configuracoes/QrCodeMesaSettingsSection";
 
 type Restaurant = {
     id: string;
@@ -620,10 +621,16 @@ export default function ConfiguracoesPage() {
 
                     </Card>
 
+                    {restaurant && (
+                        <QrCodeMesaSettingsSection
+                            restaurantId={restaurant.id}
+                        />
+                    )}
+
                     {restaurant && shareableUrl && (
                         <Card className="border border-gray-200 shadow-sm">
                             <h2 className="mb-2 text-xl font-medium text-gray-900">
-                                Compartilhar Cardápio
+                                Compartilhar Cardápio Delivery
                             </h2>
                             <p className="mb-6 text-sm text-gray-500">
                                 Divulgue seu link ou use o QR Code.

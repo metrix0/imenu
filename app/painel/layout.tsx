@@ -9,6 +9,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
     faBars,
     faBox,
+    faChair,
     faChartLine,
     faChevronLeft,
     faChevronRight,
@@ -57,8 +58,6 @@ type ScreenWakeLockSentinel = {
         options?: { once?: boolean }
     ) => void;
 };
-
-const SIDEBAR_EXPANDED_STORAGE_KEY = "imenu-panel-sidebar-expanded";
 
 function getParamRestaurantId(
     params: ReturnType<typeof useParams>
@@ -219,15 +218,6 @@ export default function PainelLayout({
     }, [pathname, router]);
 
     useEffect(() => {
-        const storedValue = window.localStorage.getItem(
-            SIDEBAR_EXPANDED_STORAGE_KEY
-        );
-        if (storedValue !== null) {
-            setExpanded(storedValue === "true");
-        }
-    }, []);
-
-    useEffect(() => {
         setMobileMenuOpen(false);
     }, [pathname]);
 
@@ -293,14 +283,7 @@ export default function PainelLayout({
     }, [mobileMenuOpen]);
 
     const toggleSidebar = () => {
-        setExpanded((current) => {
-            const next = !current;
-            window.localStorage.setItem(
-                SIDEBAR_EXPANDED_STORAGE_KEY,
-                String(next)
-            );
-            return next;
-        });
+        setExpanded((current) => !current);
     };
 
     const handleStoreToggle = async (action: "open" | "close") => {
@@ -337,8 +320,9 @@ export default function PainelLayout({
     const cardapioHref = `${base}/cardapio`;
 
     const menuItems: MenuItem[] = [
-        { label: "Home", icon: faHome, href: `${base}/` },
-        { label: "Pedidos", icon: faBox, href: `${base}/pedidos` },
+        { label: "Pedidos", icon: faHome, href: `${base}/` },
+        { label: "Histórico", icon: faBox, href: `${base}/pedidos` },
+        { label: "Mesas", icon: faChair, href: `${base}/mesas` },
         {
             label: "Financeiro",
             icon: faMoneyBillWave,
@@ -411,7 +395,7 @@ export default function PainelLayout({
                     : setShowCloseModal(true)
             }
             disabled={isTogglingStore}
-            className={`flex cursor-pointer items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+            className={`flex cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
                 fullWidth ? "w-full" : ""
             } ${
                 isStoreClosed
@@ -629,7 +613,7 @@ export default function PainelLayout({
                             />
                         </div>
                         <div
-                            className={`absolute flex items-center justify-center transition-all duration-300 ${
+                            className={`absolute left-0 flex w-[4.5rem] items-center justify-center transition-all duration-300 2xl:w-20 ${
                                 expanded
                                     ? "scale-0 opacity-0"
                                     : "scale-100 opacity-100"
@@ -647,14 +631,16 @@ export default function PainelLayout({
 
                     <div
                         className={`mt-2 pb-1 transition-all duration-300 2xl:mt-8 ${
-                            expanded ? "w-full px-4" : "w-auto"
+                            expanded
+                                ? "w-full px-4"
+                                : "w-[4.5rem] self-start 2xl:w-20"
                         }`}
                     >
                         {expanded ? (
                             storeStatusButton(true)
                         ) : (
                             <div
-                                className="mt-2 flex justify-center py-2"
+                                className="mt-2 flex h-[30px] items-center justify-center"
                                 title={
                                     isStoreClosed ? "Loja Fechada" : "Loja Aberta"
                                 }
@@ -689,10 +675,14 @@ export default function PainelLayout({
                                     key={item.href}
                                     href={item.href}
                                     title={!expanded ? item.label : ""}
-                                    className={`group relative flex cursor-pointer items-center py-3 transition-all duration-200 ${
+                                    className={`group relative flex cursor-pointer items-center py-3 transition-colors duration-200 ${
                                         expanded
-                                            ? "justify-start gap-3 px-5"
-                                            : "justify-center px-0"
+                                            ? `w-full justify-start gap-2 pr-5 2xl:gap-4 ${
+                                                  active
+                                                      ? "pl-[22px] 2xl:pl-[14px]"
+                                                      : "pl-6 2xl:pl-4"
+                                              }`
+                                            : "w-[4.5rem] self-start justify-center px-0 2xl:w-20"
                                     } ${
                                         active
                                             ? "border-r-4 border-brand bg-brand/10 font-medium text-brand md:border-l-4 md:border-r-0"
@@ -726,10 +716,10 @@ export default function PainelLayout({
                             type="button"
                             onClick={() => supportButtonRef.current?.open()}
                             title={!expanded ? "Ajuda" : ""}
-                            className={`group relative flex w-full cursor-pointer items-center py-3 text-gray-600 transition-all duration-200 hover:bg-gray-50 hover:text-gray-900 ${
+                            className={`group relative flex cursor-pointer items-center py-3 text-gray-600 transition-colors duration-200 hover:bg-gray-50 hover:text-gray-900 ${
                                 expanded
-                                    ? "justify-start gap-3 px-5"
-                                    : "justify-center px-0"
+                                    ? "w-full justify-start gap-2 pl-6 pr-5 2xl:gap-4 2xl:pl-4"
+                                    : "w-[4.5rem] self-start justify-center px-0 2xl:w-20"
                             }`}
                         >
                             <div className="flex h-6 w-6 items-center justify-center 2xl:h-10 2xl:w-12">

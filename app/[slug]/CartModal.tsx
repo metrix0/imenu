@@ -9,6 +9,7 @@ import { icons } from "@/lib/utils/fontawesome";
 import { faPix } from "@fortawesome/free-brands-svg-icons"
 import { faCalendarDays } from "@fortawesome/free-solid-svg-icons";
 import Input from "@/components/ui/Input";
+import Dropdown from "@/components/ui/Dropdown";
 import ModalMobile from "@/components/ui/HybridModal";
 import WarningBox from "@/components/ui/WarningBox";
 import Toast from "@/components/ui/Toast";
@@ -18,6 +19,7 @@ import {formatPriceNoRS, formatPrice, promotionPrice} from "@/lib/utils/formatPr
 import { supabase } from "@/lib/database/supabaseClient";
 import { MenuItemType } from "@/components/restaurant-owner/cardapio/MenuItemRow";
 import { Item } from "@/lib/types/types";
+import type { QrTableMenuContext } from "@/lib/qr-table/types";
 const DEFAULT_ALLOWED_PAYMENT_METHODS = [
     "pix",
     "dinheiro",
@@ -50,7 +52,8 @@ const PAYMENT_OPTIONS = [
 export default function CartModal({
                                        onClose,
                                        restaurant,
-    selectedCouponCode, onSelectItem
+    selectedCouponCode, onSelectItem, tableOrder, selectedTableId,
+    selectedTableName, onTableChange
                                    }: {
     onClose: () => void;
     restaurant: any;
@@ -58,6 +61,10 @@ export default function CartModal({
     setStep: React.Dispatch<React.SetStateAction<"cart" | "info" | "checkout">>;
     selectedCouponCode?: string | null;
     onSelectItem: (item: Item) => void;
+    tableOrder?: QrTableMenuContext | null;
+    selectedTableId?: string | null;
+    selectedTableName?: string | null;
+    onTableChange?: (tableId: string) => void;
 
 }) {
     const { items, changeQty, removeItem, clear } = useCartStore();
@@ -76,6 +83,7 @@ export default function CartModal({
         setField,
     } = useCheckoutStore();
     const isPickup = useCheckoutStore((state: any) => Boolean(state.is_pickup));
+    const isTableOrder = Boolean(tableOrder);
 
     const [openModal, setOpenModal] = useState(false);
 
@@ -202,6 +210,13 @@ export default function CartModal({
     ) ?? scheduledOptions[0];
 
     useEffect(() => {
+        if (isTableOrder) {
+            if (scheduled_for) setField("scheduled_for", null);
+            setShowOptionalSchedule(false);
+            setScheduleDropdownOpen(false);
+            return;
+        }
+
         if (scheduledOptions.length === 0) {
             if (scheduled_for) setField("scheduled_for", null);
             setShowOptionalSchedule(false);
@@ -223,7 +238,7 @@ export default function CartModal({
         if (scheduled_for && !selectedIsValid) {
             setField("scheduled_for", null);
         }
-    }, [scheduledOptionsKey, scheduled_for, mustSchedule]);
+    }, [scheduledOptionsKey, scheduled_for, mustSchedule, isTableOrder]);
 
     const restaurantAddress = (() => {
         const rawAddress = restaurant?.address;
@@ -306,6 +321,7 @@ export default function CartModal({
     }
 
     async function recalcDeliveryFeeFromAddress() {
+        if (isTableOrder) return;
         const st = useCheckoutStore.getState() as any;
         if (st.is_pickup) {
             setDeliveryFeeCents(0);
@@ -387,7 +403,7 @@ export default function CartModal({
     }
 
     async function handleCepInput(value: string) {
-        if (isPickup) return;
+        if (isPickup || isTableOrder) return;
         setCepLocationError(false);
         setContinueBlocked(true)
 
@@ -429,6 +445,7 @@ export default function CartModal({
 
     useEffect(() => {
         if (
+            isTableOrder ||
             isPickup ||
             cep.replace(/\D/g, "").length !== 8 ||
             !rua ||
@@ -443,10 +460,10 @@ export default function CartModal({
         }, 400);
 
         return () => window.clearTimeout(timer);
-    }, [cep, rua, bairro, numero, isPickup]);
+    }, [cep, rua, bairro, numero, isPickup, isTableOrder]);
 
     async function handleUseMyLocation() {
-        if (isPickup) return;
+        if (isPickup || isTableOrder) return;
         if (!("geolocation" in navigator)){
             console.log("no geo")
             setShowNoGeolocationToast(true)
@@ -533,12 +550,13 @@ export default function CartModal({
     };
 
     useEffect(() => {
+        if (isTableOrder) return;
         if (!hasRestaurantAddress && isPickup) {
             useCheckoutStore.setState({ is_pickup: false } as any);
             setDeliveryFeeCents(null);
             setField("delivery_fee_cents", null);
         }
-    }, [hasRestaurantAddress, isPickup]);
+    }, [hasRestaurantAddress, isPickup, isTableOrder]);
 
     useEffect(() => {
         if (!restaurant?.id) return;
@@ -602,6 +620,7 @@ export default function CartModal({
 
     useEffect(() => {
         if (step === "checkout") {
+            if (isTableOrder) return;
             if (isPickup) {
                 setDeliveryFeeCents(0);
                 setField("delivery_fee_cents", "0");
@@ -616,7 +635,7 @@ export default function CartModal({
                 }
             }
         }
-    }, [step, isPickup]);
+    }, [step, isPickup, isTableOrder]);
 
     // keep matching timeout so backdrop/slide finish
     const closeWithAnimation = () => {
@@ -655,6 +674,10 @@ export default function CartModal({
     }, [cepTrigger, isPickup]);
 
     useEffect(() => {
+        if (isTableOrder) {
+            setShowDiscountInput(false);
+            return;
+        }
         console.log("checkout coupons")
 
         const checkCoupons = async () => {
@@ -676,7 +699,7 @@ export default function CartModal({
         };
 
         checkCoupons();
-    },[] );
+    },[isTableOrder] );
 
     const allowedPaymentMethods =
         Array.isArray(restaurant?.allowed_payment_methods) &&
@@ -690,6 +713,7 @@ export default function CartModal({
     );
 
     useEffect(() => {
+        if (isTableOrder) return;
         if (availablePaymentOptions.length === 0) return;
 
         const isCurrentPaymentAllowed = availablePaymentOptions.some(
@@ -699,9 +723,10 @@ export default function CartModal({
         if (!isCurrentPaymentAllowed) {
             setField("pagamento", availablePaymentOptions[0].value);
         }
-    }, [pagamento, allowedPaymentMethods, isPickup]);
+    }, [pagamento, allowedPaymentMethods, isPickup, isTableOrder]);
 
-    const effectiveDeliveryFeeCents = isPickup ? 0 : deliveryFeeCents;
+    const effectiveDeliveryFeeCents =
+        isPickup || isTableOrder ? 0 : deliveryFeeCents;
 
     return (
         <div className={`fixed inset-0 z-41 flex justify-center items-end`}>
@@ -757,7 +782,13 @@ export default function CartModal({
                     )}
 
                     <h1 className="text-[17px] 2xl:text-lg font-semibold ">
-                        {step === "cart" ? "SACOLA" : step === "info" ? "ENDEREÇO" : "CHECKOUT"}
+                        {step === "cart"
+                            ? "SACOLA"
+                            : step === "info"
+                              ? isTableOrder
+                                  ? "DETALHES"
+                                  : "ENDEREÇO"
+                              : "CHECKOUT"}
                     </h1>
 
                     {step === "cart" && (
@@ -810,7 +841,7 @@ export default function CartModal({
                         </div>
                     </div>
 
-                    {(items.length > 0 && items.reduce((acc,i)=>acc+(promotionPrice(i) || i.total_cents),0) < restaurant.min_order_cents) &&
+                    {!isTableOrder && (items.length > 0 && items.reduce((acc,i)=>acc+(promotionPrice(i) || i.total_cents),0) < restaurant.min_order_cents) &&
                         <WarningBox
                             icon={icons.faTriangleExclamation}
                             className="mt-8 mb-8 p-4 2xl:text-lg"
@@ -932,6 +963,88 @@ export default function CartModal({
 
                 {/* PAGE 2 — INFO */}
                 <form className="w-full px-4 overflow-y-auto pt-4 pb-32 2xl:pb-10 2xl:px-8" autoComplete="on">
+                    {isTableOrder ? (
+                        <div className="space-y-6">
+                            {tableOrder?.requiresTableSelection ? (
+                                <Dropdown
+                                    label="Mesa"
+                                    value={selectedTableId || ""}
+                                    onChange={(event) =>
+                                        onTableChange?.(event.target.value)
+                                    }
+                                    options={[
+                                        {
+                                            value: "",
+                                            label: "Selecione sua mesa",
+                                        },
+                                        ...(tableOrder.tables || []).map(
+                                            (table) => ({
+                                                value: table.id,
+                                                label: table.name,
+                                            })
+                                        ),
+                                    ]}
+                                />
+                            ) : (
+                                <Input
+                                    label="Mesa"
+                                    value={
+                                        selectedTableName ||
+                                        tableOrder?.tableName ||
+                                        ""
+                                    }
+                                    readOnly
+                                    locked
+                                />
+                            )}
+
+                            <Input
+                                autoComplete="name"
+                                label="Nome"
+                                placeholder="Rafael"
+                                value={nome}
+                                onChange={(event) =>
+                                    setField("nome", event.target.value)
+                                }
+                                className="2xl:text-lg md:text-sm"
+                            />
+
+                            <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                                <h2 className="mb-4 font-semibold text-gray-900 2xl:text-lg">
+                                    Resumo de valores
+                                </h2>
+                                <div className="flex justify-between text-[15px] text-gray-600 2xl:text-lg">
+                                    <span>Subtotal</span>
+                                    <span>
+                                        {formatPrice(
+                                            items.reduce(
+                                                (total, item) =>
+                                                    total +
+                                                    (promotionPrice(item) ||
+                                                        item.total_cents),
+                                                0
+                                            )
+                                        )}
+                                    </span>
+                                </div>
+                                <div className="mt-3 flex justify-between border-t border-gray-200 pt-3 text-lg font-bold text-gray-900 2xl:text-xl">
+                                    <span>Total</span>
+                                    <span>
+                                        {formatPrice(
+                                            items.reduce(
+                                                (total, item) =>
+                                                    total +
+                                                    (promotionPrice(item) ||
+                                                        item.total_cents),
+                                                0
+                                            )
+                                        )}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        <>
                     {hasRestaurantAddress && (
                         <label className={`mb-5 flex cursor-pointer items-center gap-3 rounded-xl border p-4 transition-colors ${isPickup ? "border-brand bg-brand/5" : "border-gray-200 bg-white hover:border-gray-300"}`}>
                             <input
@@ -1063,6 +1176,8 @@ export default function CartModal({
                     <p className={"text-gray-500 text-sm 2xl:text-md"}>
                         *Seu número será usado apenas em caso de emergência
                     </p>
+                        </>
+                    )}
                 </form>
 
                 {/* PAGE 3 — CHECKOUT */}
