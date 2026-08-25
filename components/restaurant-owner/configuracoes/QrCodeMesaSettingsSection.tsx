@@ -272,27 +272,15 @@ export default function QrCodeMesaSettingsSection({
                                 iMenu QR Code Mesa
                             </p>
                         </div>
-                        <div className="flex flex-col items-start gap-2 sm:items-end">
-                            <span
-                                className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                                    active
-                                        ? "bg-green-100 text-green-800"
-                                        : "bg-gray-100 text-gray-700"
-                                }`}
-                            >
-                                {addonStatus(addon, active)}
-                            </span>
-                            {canCancel && (
-                                <Button
-                                    type="button"
-                                    variant="secondary"
-                                    className="text-sm text-red-600 hover:bg-red-50"
-                                    onClick={() => setCancelOpen(true)}
-                                >
-                                    Descadastrar do plano
-                                </Button>
-                            )}
-                        </div>
+                        <span
+                            className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                                active
+                                    ? "bg-green-100 text-green-800"
+                                    : "bg-gray-100 text-gray-700"
+                            }`}
+                        >
+                            {addonStatus(addon, active)}
+                        </span>
                     </div>
 
                     <div className="grid gap-4 border-b border-gray-100 py-5 sm:grid-cols-2">
@@ -402,6 +390,19 @@ export default function QrCodeMesaSettingsSection({
                             </p>
                         )}
                     </div>
+
+                    {canCancel && (
+                        <div className="mt-5 flex justify-end border-t border-gray-100 pt-4">
+                            <Button
+                                type="button"
+                                variant="secondary"
+                                className="bg-transparent px-0 py-0 text-sm text-red-600 hover:bg-transparent hover:text-red-700 focus:ring-red-200 2xl:px-0 2xl:py-0 2xl:text-sm"
+                                onClick={() => setCancelOpen(true)}
+                            >
+                                Descadastrar do plano
+                            </Button>
+                        </div>
+                    )}
                 </Card>
             )}
         </>
