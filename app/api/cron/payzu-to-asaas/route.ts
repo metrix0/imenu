@@ -1,4 +1,6 @@
 import { randomUUID } from "node:crypto";
+import * as https from "node:https";
+import { HttpsProxyAgent } from "https-proxy-agent";
 
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
@@ -104,6 +106,12 @@ function getPayZuToken(): string {
     return token;
 }
 
+function getFixieUrl(): string {
+    const fixieUrl = process.env.FIXIE_URL?.trim();
+    if (!fixieUrl) throw new Error("FIXIE_URL não configurado para o saque PayZu.");
+    return fixieUrl;
+}
+
 function getDestination(): { pixKey: string; pixType: PayZuPixType } {
     const pixKey = process.env.ASAAS_PIX_KEY?.trim();
     const rawType = process.env.ASAAS_PIX_KEY_TYPE?.trim().toLowerCase();
@@ -125,6 +133,16 @@ function getDestination(): { pixKey: string; pixType: PayZuPixType } {
 
 async function parseJson(response: Response): Promise<any> {
     const text = await response.text();
+    if (!text) return null;
+
+    try {
+        return JSON.parse(text);
+    } catch {
+        return { message: text };
+    }
+}
+
+function parseJsonText(text: string): any {
     if (!text) return null;
 
     try {
@@ -175,11 +193,77 @@ async function payzuRequest<T>(
     }
 }
 
+async function payzuRequestThroughFixie<T>(
+    path: string,
+    init: { method: "GET" | "POST"; body?: string }
+): Promise<T> {
+    const target = new URL(`${PAYZU_BASE_URL}${path}`);
+    const agent = new HttpsProxyAgent(getFixieUrl());
+
+    return new Promise((resolve, reject) => {
+        const request = https.request(
+            target,
+            {
+                method: init.method,
+                agent,
+                headers: {
+                    Authorization: `Bearer ${getPayZuToken()}`,
+                    Accept: "application/json",
+                    ...(init.body
+                        ? {
+                              "Content-Type": "application/json",
+                              "Content-Length": Buffer.byteLength(init.body),
+                          }
+                        : {}),
+                },
+                timeout: PAYZU_REQUEST_TIMEOUT_MS,
+            },
+            (response) => {
+                const chunks: Buffer[] = [];
+
+                response.on("data", (chunk) => {
+                    chunks.push(
+                        Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
+                    );
+                });
+                response.on("error", reject);
+                response.on("end", () => {
+                    const status = response.statusCode ?? 500;
+                    const data = parseJsonText(
+                        Buffer.concat(chunks).toString("utf8")
+                    );
+
+                    if (status < 200 || status >= 300) {
+                        const requestId = data?.requestId
+                            ? String(data.requestId)
+                            : undefined;
+                        const message =
+                            typeof data?.message === "string" && data.message.trim()
+                                ? data.message
+                                : `PayZu respondeu com HTTP ${status}.`;
+                        reject(new PayZuRequestError(message, status, requestId));
+                        return;
+                    }
+
+                    resolve(data as T);
+                });
+            }
+        );
+
+        request.on("timeout", () => {
+            request.destroy(new Error("Tempo limite excedido ao chamar PayZu."));
+        });
+        request.on("error", reject);
+        if (init.body) request.write(init.body);
+        request.end();
+    });
+}
+
 async function getExistingWithdrawal(
     clientReference: string
 ): Promise<PayZuWithdrawal | null> {
     try {
-        return await payzuRequest<PayZuWithdrawal>(
+        return await payzuRequestThroughFixie<PayZuWithdrawal>(
             `/withdraw?clientReference=${encodeURIComponent(clientReference)}`,
             { method: "GET" }
         );
@@ -234,7 +318,7 @@ async function createWithdrawal(input: {
             );
             if (existing) return existing;
 
-            return await payzuRequest<PayZuWithdrawal>("/withdraw", {
+            return await payzuRequestThroughFixie<PayZuWithdrawal>("/withdraw", {
                 method: "POST",
                 body: JSON.stringify(payload),
             });
