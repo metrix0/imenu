@@ -1,8 +1,12 @@
+import { randomUUID } from "node:crypto";
+
 import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const ALLOWED_DEV_EMAIL = "joaovralmeida@hotmail.com";
 const PAYZU_BASE_URL = "https://api.payzu.processamento.com/v1";
 const PAYZU_REQUEST_TIMEOUT_MS = 10_000;
 const RESERVE_CENTS = 100;
@@ -39,6 +43,61 @@ function sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function getBearerToken(request: Request): string | null {
+    const authorization = request.headers.get("authorization")?.trim();
+    const match = authorization?.match(/^Bearer\s+(.+)$/i);
+    return match?.[1]?.trim() || null;
+}
+
+function getSupabasePublicConfig(): { url: string; anonKey: string } {
+    const url =
+        process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ||
+        process.env.SUPABASE_URL?.trim();
+    const anonKey =
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() ||
+        process.env.SUPABASE_ANON_KEY?.trim();
+
+    if (!url || !anonKey) {
+        throw new Error("Supabase public environment variables are missing.");
+    }
+
+    return { url, anonKey };
+}
+
+async function authorize(request: Request): Promise<NextResponse | null> {
+    const accessToken = getBearerToken(request);
+    if (!accessToken) {
+        return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
+    }
+
+    const { url, anonKey } = getSupabasePublicConfig();
+    const authClient = createClient(url, anonKey, {
+        auth: {
+            persistSession: false,
+            autoRefreshToken: false,
+            detectSessionInUrl: false,
+        },
+    });
+
+    const {
+        data: { user },
+        error,
+    } = await authClient.auth.getUser(accessToken);
+
+    if (error || !user) {
+        return NextResponse.json(
+            { error: "Sessão inválida ou expirada." },
+            { status: 401 }
+        );
+    }
+
+    if (user.email?.trim().toLowerCase() !== ALLOWED_DEV_EMAIL) {
+        return NextResponse.json({ error: "Acesso negado." }, { status: 403 });
+    }
+
+    return null;
+}
+
 function getPayZuToken(): string {
     const token = process.env.PAYZU_TOKEN?.trim();
     if (!token) throw new Error("PAYZU_TOKEN não configurado.");
@@ -62,21 +121,6 @@ function getDestination(): { pixKey: string; pixType: PayZuPixType } {
     }
 
     return { pixKey, pixType: rawType };
-}
-
-function getSaoPauloDateKey(now = new Date()): string {
-    const parts = new Intl.DateTimeFormat("en-US", {
-        timeZone: "America/Sao_Paulo",
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-    }).formatToParts(now);
-
-    const values = Object.fromEntries(
-        parts.map((part) => [part.type, part.value])
-    );
-
-    return `${values.year}-${values.month}-${values.day}`;
 }
 
 async function parseJson(response: Response): Promise<any> {
@@ -178,7 +222,7 @@ async function createWithdrawal(input: {
         pixKey: input.pixKey,
         pixType: input.pixType,
         clientReference: input.clientReference,
-        description: "Transferência diária PayZu para Asaas",
+        description: "Transferência PayZu para Asaas",
     };
 
     let lastError: unknown = null;
@@ -225,42 +269,13 @@ async function createWithdrawal(input: {
     throw new Error("Não foi possível criar a transferência PayZu.");
 }
 
-function authorizeCron(request: Request): NextResponse | null {
-    const secret = process.env.CRON_SECRET?.trim();
-    if (!secret) {
-        return NextResponse.json(
-            { error: "CRON_SECRET não configurado." },
-            { status: 503 }
-        );
-    }
-
-    if (request.headers.get("authorization") !== `Bearer ${secret}`) {
-        return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
-    }
-
-    return null;
-}
-
-export async function GET(request: Request) {
-    const denied = authorizeCron(request);
+export async function POST(request: Request) {
+    const denied = await authorize(request);
     if (denied) return denied;
 
-    const dateKey = getSaoPauloDateKey();
-    const clientReference = `imenu-payzu-asaas-${dateKey}`;
+    const clientReference = `imenu-payzu-asaas-${randomUUID()}`;
 
     try {
-        const existing = await getExistingWithdrawal(clientReference);
-        if (existing) {
-            return NextResponse.json({
-                success: true,
-                skipped: true,
-                reason: "already_created_today",
-                clientReference,
-                transactionId: existing.id || null,
-                transactionStatus: existing.status || null,
-            });
-        }
-
         const balanceBeforeCents = await getAvailableBalanceCents();
         const amountCents = balanceBeforeCents - RESERVE_CENTS;
 
