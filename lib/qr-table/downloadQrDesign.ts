@@ -122,17 +122,17 @@ export async function downloadQrDesign({
     context.textAlign = "center";
     context.textBaseline = "middle";
 
-    const badgeFontSize = fitTextSize(context, title, 720, 72, 44, 800);
+    const badgeFontSize = fitTextSize(context, title, 820, 104, 54, 800);
     context.font = `800 ${badgeFontSize}px ${FONT_FAMILY}`;
     const badgeTextWidth = context.measureText(title).width;
-    const badgeWidth = Math.min(860, Math.max(320, badgeTextWidth + 110));
-    const badgeHeight = 118;
+    const badgeWidth = Math.min(940, Math.max(360, badgeTextWidth + 140));
+    const badgeHeight = 150;
     const badgeX = (canvas.width - badgeWidth) / 2;
-    const badgeY = 136;
+    const badgeY = 120;
 
     context.fillStyle = "rgba(255, 255, 255, 0.94)";
     context.beginPath();
-    context.roundRect(badgeX, badgeY, badgeWidth, badgeHeight, 59);
+    context.roundRect(badgeX, badgeY, badgeWidth, badgeHeight, 75);
     context.fill();
 
     context.fillStyle = "#111827";
