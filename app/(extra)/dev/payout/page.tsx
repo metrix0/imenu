@@ -58,6 +58,17 @@ type SendResult = {
     }>;
 };
 
+type PayzuTransferResult = {
+    success: boolean;
+    skipped: boolean;
+    reason?: string;
+    amountCents?: number;
+    reserveCents: number;
+    balanceBeforeCents: number;
+    transactionStatus?: string | null;
+    error?: string;
+};
+
 const PIX_KEY_TYPE_OPTIONS = [
     { value: "", label: "Selecionar tipo" },
     { value: "CPF", label: "CPF" },
@@ -122,11 +133,14 @@ export default function DevPayoutPage() {
     const [restaurantPhones, setRestaurantPhones] = useState<Record<string, string>>({});
     const [loading, setLoading] = useState(true);
     const [sending, setSending] = useState(false);
+    const [transferringPayzu, setTransferringPayzu] = useState(false);
     const [savingPixTypeId, setSavingPixTypeId] = useState<string | null>(null);
     const [error, setError] = useState("");
     const [discountPercent, setDiscountPercent] = useState("0.75");
     const [confirmOpen, setConfirmOpen] = useState(false);
     const [lastResult, setLastResult] = useState<SendResult | null>(null);
+    const [lastPayzuTransfer, setLastPayzuTransfer] =
+        useState<PayzuTransferResult | null>(null);
 
     const numericDiscount = useMemo(() => {
         const value = Number(discountPercent.replace(",", "."));
@@ -289,6 +303,44 @@ export default function DevPayoutPage() {
         }
     };
 
+    const handlePayzuTransfer = async () => {
+        setTransferringPayzu(true);
+        setError("");
+        setLastPayzuTransfer(null);
+
+        try {
+            const {
+                data: { session },
+            } = await supabase.auth.getSession();
+            if (!session?.access_token) {
+                setAccessState("signed-out");
+                return;
+            }
+
+            const response = await fetch("/api/cron/payzu-to-asaas", {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${session.access_token}`,
+                },
+            });
+            const payload = (await response.json()) as PayzuTransferResult;
+            if (!response.ok) {
+                throw new Error(payload.error || "Falha ao transferir saldo PayZu.");
+            }
+
+            setLastPayzuTransfer(payload);
+            await loadDashboard();
+        } catch (caught) {
+            setError(
+                caught instanceof Error
+                    ? caught.message
+                    : "Falha ao transferir saldo PayZu."
+            );
+        } finally {
+            setTransferringPayzu(false);
+        }
+    };
+
     const handleSend = async () => {
         setSending(true);
         setError("");
@@ -370,7 +422,11 @@ export default function DevPayoutPage() {
                         Envio manual via Asaas para as chaves PIX cadastradas dos restaurantes.
                     </p>
                 </div>
-                <Button variant="secondary" onClick={() => void loadDashboard()} disabled={loading || sending}>
+                <Button
+                    variant="secondary"
+                    onClick={() => void loadDashboard()}
+                    disabled={loading || sending || transferringPayzu}
+                >
                     {loading ? "Atualizando..." : "Atualizar"}
                 </Button>
             </div>
@@ -384,6 +440,14 @@ export default function DevPayoutPage() {
             {lastResult && (
                 <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-900">
                     <b>Último envio:</b> {lastResult.paidCount} concluído(s), {lastResult.processingCount} processando, {lastResult.failedCount} falhou(aram).
+                </div>
+            )}
+
+            {lastPayzuTransfer && (
+                <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-900">
+                    {lastPayzuTransfer.skipped
+                        ? `Saldo PayZu: ${money(lastPayzuTransfer.balanceBeforeCents)}. Nada para transferir além da reserva de ${money(lastPayzuTransfer.reserveCents)}.`
+                        : `Transferidos ${money(lastPayzuTransfer.amountCents || 0)} da PayZu para o Asaas. Reserva mantida: ${money(lastPayzuTransfer.reserveCents)}.`}
                 </div>
             )}
 
@@ -412,6 +476,25 @@ export default function DevPayoutPage() {
             </div>
 
             <Card>
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <h2 className="text-lg font-bold text-gray-900">PayZu → Asaas</h2>
+                        <p className="mt-1 text-sm text-gray-500">
+                            Transfere todo o saldo disponível da PayZu para o Asaas, deixando R$ 1,00 de reserva.
+                        </p>
+                    </div>
+                    <Button
+                        onClick={() => void handlePayzuTransfer()}
+                        loading={transferringPayzu}
+                        disabled={transferringPayzu || sending}
+                        className="min-w-52"
+                    >
+                        Transferir saldo
+                    </Button>
+                </div>
+            </Card>
+
+            <Card>
                 <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
                     <div className="max-w-2xl">
                         <h2 className="text-lg font-bold text-gray-900">Enviar repasses</h2>
@@ -434,6 +517,7 @@ export default function DevPayoutPage() {
                             onClick={() => setConfirmOpen(true)}
                             disabled={
                                 sending ||
+                                transferringPayzu ||
                                 !data?.asaasConfigured ||
                                 sendable.length === 0 ||
                                 ambiguousPix.length > 0 ||
