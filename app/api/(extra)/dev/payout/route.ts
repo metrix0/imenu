@@ -10,6 +10,7 @@ const ALLOWED_DEV_EMAIL = "joaovralmeida@hotmail.com";
 const ASAAS_BASE_URL = (
     process.env.ASAAS_API_BASE_URL?.trim() || "https://api.asaas.com/v3"
 ).replace(/\/+$/, "");
+const PROCESSING_PAYOUT_RECONCILIATION_GRACE_MS = 15 * 60 * 1000;
 
 type PixKeyType = "CPF" | "CNPJ" | "EMAIL" | "PHONE" | "EVP";
 
@@ -243,7 +244,19 @@ async function reconcileProcessingPayouts(): Promise<void> {
 
     for (const payout of rows) {
         const transfer = byReference.get(`imenu-payout-${payout.id}`);
-        if (!transfer?.status) continue;
+        if (!transfer?.status) {
+            const createdAt = new Date(payout.created_at).getTime();
+            if (
+                Number.isFinite(createdAt) &&
+                Date.now() - createdAt >= PROCESSING_PAYOUT_RECONCILIATION_GRACE_MS
+            ) {
+                await query(
+                    `DELETE FROM public.payouts WHERE id = $1 AND status = 'processing'`,
+                    [payout.id]
+                );
+            }
+            continue;
+        }
 
         if (transfer.status === "DONE") {
             await query(
