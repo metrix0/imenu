@@ -147,13 +147,13 @@ export default function QrCheckoutReturnRefresh() {
             showCloseButton
         >
             <div className="px-6 pb-6 pt-7 text-center sm:px-8 sm:pb-8 sm:pt-8">
-                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-brand/10 p-2">
+                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-brand/10 p-2">
                     <Image
                         src="/images/party_popper_emoji.png"
                         alt="Comemoração"
-                        width={48}
-                        height={48}
-                        className="h-12 w-12 object-contain"
+                        width={64}
+                        height={64}
+                        className="h-16 w-16 object-contain"
                     />
                 </div>
 
