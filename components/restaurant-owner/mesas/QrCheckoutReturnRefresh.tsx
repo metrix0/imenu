@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useLayoutEffect, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
     faCheck,
@@ -114,13 +114,21 @@ export default function QrCheckoutReturnRefresh() {
         (state) => state.setProductSelectionCompleted
     );
 
-    useEffect(() => {
+    useLayoutEffect(() => {
         if (!CHECKOUT_RETURN_PATHS.has(window.location.pathname)) return;
 
         const checkoutState = new URLSearchParams(window.location.search).get(
             "checkout"
         );
         if (checkoutState !== "success") return;
+
+        const url = new URL(window.location.href);
+        url.searchParams.delete("checkout");
+        window.history.replaceState(
+            {},
+            "",
+            `${url.pathname}${url.search}${url.hash}`
+        );
 
         if (window.location.pathname === "/restaurante/criar/localizacao") {
             setProductSelectionCompleted(true);
@@ -130,22 +138,10 @@ export default function QrCheckoutReturnRefresh() {
         return launchPartyPoppers();
     }, [setProductSelectionCompleted]);
 
-    const closeCelebration = () => {
-        setOpen(false);
-
-        const url = new URL(window.location.href);
-        url.searchParams.delete("checkout");
-        window.history.replaceState(
-            {},
-            "",
-            `${url.pathname}${url.search}${url.hash}`
-        );
-    };
-
     return (
         <Modal
             open={open}
-            onClose={closeCelebration}
+            onClose={() => setOpen(false)}
             className="max-w-xl"
             showCloseButton
         >
@@ -203,7 +199,7 @@ export default function QrCheckoutReturnRefresh() {
                 <Button
                     type="button"
                     className="mt-6 w-full"
-                    onClick={closeCelebration}
+                    onClick={() => setOpen(false)}
                 >
                     Começar a usar
                 </Button>
