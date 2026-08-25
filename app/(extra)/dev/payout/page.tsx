@@ -127,6 +127,36 @@ function getNetCents(grossCents: number, discountPercent: number) {
     );
 }
 
+function getOnePercentNetDiscount(items: Payable[]) {
+    const grossCents = items.reduce((sum, item) => sum + item.grossCents, 0);
+    if (grossCents <= 0) return 0;
+
+    const payzuFeeCents = items.reduce(
+        (sum, item) => sum + item.payzuFeeCents,
+        0
+    );
+    const targetDiscountCents = Math.min(
+        grossCents,
+        Math.round(grossCents * 0.01) + payzuFeeCents
+    );
+    const discountAt = (units: number) =>
+        items.reduce(
+            (sum, item) =>
+                sum + Math.round(item.grossCents * (units / 1_000_000)),
+            0
+        );
+
+    let low = 0;
+    let high = 1_000_000;
+    while (low < high) {
+        const middle = Math.floor((low + high) / 2);
+        if (discountAt(middle) >= targetDiscountCents) high = middle;
+        else low = middle + 1;
+    }
+
+    return high / 10_000;
+}
+
 export default function DevPayoutPage() {
     const router = useRouter();
     const [accessState, setAccessState] = useState<AccessState>("checking");
@@ -256,6 +286,13 @@ export default function DevPayoutPage() {
         (sum, item) => sum + getNetCents(item.grossCents, numericDiscount),
         0
     );
+
+    const handleAdjustToOnePercent = () => {
+        const adjusted = getOnePercentNetDiscount(sendable);
+        setDiscountPercent(
+            adjusted.toFixed(4).replace(/0+$/, "").replace(/\.$/, "")
+        );
+    };
 
     const handlePixTypeChange = async (
         restaurantId: string,
@@ -514,6 +551,13 @@ export default function DevPayoutPage() {
                                 className="h-10 w-32 rounded-lg border border-gray-200 bg-white px-3 text-sm font-semibold outline-none transition focus:border-brand"
                             />
                         </label>
+                        <Button
+                            variant="secondary"
+                            onClick={handleAdjustToOnePercent}
+                            disabled={sendable.length === 0}
+                        >
+                            Ajustar p/ 1% líquido
+                        </Button>
                         <Button
                             onClick={() => setConfirmOpen(true)}
                             disabled={
