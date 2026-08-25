@@ -135,9 +135,9 @@ function getOnePercentNetDiscount(items: Payable[]) {
         (sum, item) => sum + item.payzuFeeCents,
         0
     );
-    const targetDiscountCents = Math.min(
-        grossCents,
-        Math.round(grossCents * 0.01) + payzuFeeCents
+    const targetDiscountCents = Math.max(
+        0,
+        Math.round(grossCents * 0.01) - payzuFeeCents
     );
     const discountAt = (units: number) =>
         items.reduce(
@@ -358,8 +358,7 @@ export default function DevPayoutPage() {
             const response = await fetch("/api/cron/payzu-to-asaas", {
                 method: "POST",
                 headers: {
-                    Authorization: `Bearer ${session.access_token}`,
-                },
+                    Authorization: `Bearer ${session.access_token}` },
             });
             const payload = (await response.json()) as PayzuTransferResult;
             if (!response.ok) {
