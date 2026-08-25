@@ -517,7 +517,7 @@ export default function PainelPedidosAtivosPage() {
             {/* Header */}
             <div
                 className={`flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 ${
-                    soundEnabled ? "mb-8" : "mb-0 sm:mb-8"
+                    soundEnabled ? "mb-8" : "mb-4 sm:mb-8"
                 }`}
             >
                 <div>
