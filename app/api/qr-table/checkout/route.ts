@@ -57,6 +57,9 @@ export async function POST(request: Request) {
         const customerPhone = String(
             user.user_metadata?.phone || restaurant.phone || ""
         ).replace(/\D/g, "");
+        const hasValidCustomerData =
+            /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail) &&
+            /^\d{10,11}$/.test(customerPhone);
 
         const addonResult = await query<QrTableAddon>(
             `
@@ -119,10 +122,15 @@ export async function POST(request: Request) {
                 chargeTypes: ["RECURRENT"],
                 minutesToExpire: CHECKOUT_EXPIRATION_MINUTES,
                 externalReference: addon.id,
-                customerData: {
-                    ...(customerEmail ? { email: customerEmail } : {}),
-                    ...(customerPhone ? { phone: customerPhone } : {}),
-                },
+                ...(hasValidCustomerData
+                    ? {
+                          customerData: {
+                              name: "",
+                              email: customerEmail,
+                              phone: customerPhone,
+                          },
+                      }
+                    : {}),
                 callback: {
                     successUrl: `${origin}${returnPath}?checkout=success`,
                     cancelUrl: `${origin}${returnPath}?checkout=cancel`,
