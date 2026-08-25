@@ -20,6 +20,7 @@ type PayableRestaurant = {
     payment_info: string | null;
     payment_info_type: PixKeyType | null;
     gross_cents: number | string;
+    pix_order_count: number | string;
 };
 
 type AsaasTransfer = {
@@ -168,7 +169,8 @@ async function getPayables(cutoffAt: Date): Promise<PayableRestaurant[]> {
             COALESCE(r.name, 'Restaurante') AS restaurant_name,
             r.payment_info,
             r.payment_info_type,
-            COALESCE(SUM(o.total_cents), 0)::bigint AS gross_cents
+            COALESCE(SUM(o.total_cents), 0)::bigint AS gross_cents,
+            COUNT(*)::bigint AS pix_order_count
         FROM public.restaurants r
         LEFT JOIN last_payout lp ON lp.restaurant_id = r.id
         JOIN public.orders o
@@ -326,6 +328,7 @@ export async function GET(request: Request) {
                 restaurantId: row.restaurant_id,
                 restaurantName: row.restaurant_name,
                 grossCents: Number(row.gross_cents) || 0,
+                payzuFeeCents: (Number(row.pix_order_count) || 0) * 10,
                 pixKey: row.payment_info,
                 pixKeyType: resolvePixKeyType(row),
                 pixKeyTypeStored: row.payment_info_type,
