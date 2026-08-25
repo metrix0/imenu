@@ -5,6 +5,7 @@ import {
     requireRestaurantOwner,
 } from "@/lib/auth/restaurantOwner";
 import { query } from "@/lib/database/sql";
+import { resolveAsaasSubscriptionId } from "@/lib/qr-table/asaasSubscription";
 import type { QrTableAddon } from "@/lib/qr-table/types";
 import { AsaasApiError, asaasRequest } from "@/lib/services/asaas";
 
@@ -36,15 +37,26 @@ export async function DELETE(request: Request) {
         );
         const addon = result.rows[0];
 
-        if (!addon?.asaas_subscription_id) {
+        if (!addon) {
             return NextResponse.json(
                 { error: "Nenhuma assinatura ativa foi encontrada." },
                 { status: 409 }
             );
         }
 
+        const subscriptionId = await resolveAsaasSubscriptionId(addon);
+        if (!subscriptionId) {
+            return NextResponse.json(
+                {
+                    error:
+                        "Não foi possível localizar a assinatura ativa no Asaas.",
+                },
+                { status: 409 }
+            );
+        }
+
         await asaasRequest<void>(
-            `/subscriptions/${encodeURIComponent(addon.asaas_subscription_id)}`,
+            `/subscriptions/${encodeURIComponent(subscriptionId)}`,
             { method: "DELETE" }
         );
 
@@ -52,6 +64,10 @@ export async function DELETE(request: Request) {
             `
                 UPDATE public.restaurant_addons
                 SET
+                    asaas_subscription_id = COALESCE(
+                        asaas_subscription_id,
+                        $2
+                    ),
                     status = 'canceled',
                     canceled_at = NOW(),
                     current_period_ends_at = COALESCE(
@@ -61,7 +77,7 @@ export async function DELETE(request: Request) {
                     updated_at = NOW()
                 WHERE id = $1
             `,
-            [addon.id]
+            [addon.id, subscriptionId]
         );
 
         return NextResponse.json({
