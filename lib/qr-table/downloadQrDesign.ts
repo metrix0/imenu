@@ -104,6 +104,8 @@ export async function downloadQrDesign({
     const cleanDisplayUrl = displayUrl
         .replace(/^https?:\/\//i, "")
         .replace(/\/$/, "");
+    const showTitleBadge =
+        title.trim() !== "" && title.trim().toLowerCase() !== "universal";
 
     context.fillStyle = "#ffffff";
     context.fillRect(0, 0, canvas.width, canvas.height);
@@ -122,21 +124,28 @@ export async function downloadQrDesign({
     context.textAlign = "center";
     context.textBaseline = "middle";
 
-    const badgeFontSize = fitTextSize(context, title, 820, 104, 54, 800);
-    context.font = `800 ${badgeFontSize}px ${FONT_FAMILY}`;
-    const badgeTextWidth = context.measureText(title).width;
-    const badgeWidth = Math.min(940, Math.max(360, badgeTextWidth + 140));
-    const badgeHeight = 150;
-    const badgeX = (canvas.width - badgeWidth) / 2;
-    const badgeY = 120;
+    if (showTitleBadge) {
+        const badgeFontSize = fitTextSize(context, title, 820, 104, 54, 800);
+        context.font = `800 ${badgeFontSize}px ${FONT_FAMILY}`;
+        const badgeTextWidth = context.measureText(title).width;
+        const badgeWidth = Math.min(940, Math.max(360, badgeTextWidth + 140));
+        const badgeHeight = 150;
+        const badgeX = (canvas.width - badgeWidth) / 2;
+        const badgeY = 120;
 
-    context.fillStyle = "rgba(255, 255, 255, 0.94)";
-    context.beginPath();
-    context.roundRect(badgeX, badgeY, badgeWidth, badgeHeight, 75);
-    context.fill();
+        context.save();
+        context.shadowColor = "rgba(17, 24, 39, 0.20)";
+        context.shadowBlur = 28;
+        context.shadowOffsetY = 10;
+        context.fillStyle = "rgba(255, 255, 255, 0.94)";
+        context.beginPath();
+        context.roundRect(badgeX, badgeY, badgeWidth, badgeHeight, 75);
+        context.fill();
+        context.restore();
 
-    context.fillStyle = "#111827";
-    context.fillText(title, 540, badgeY + badgeHeight / 2, badgeWidth - 80);
+        context.fillStyle = "#111827";
+        context.fillText(title, 540, badgeY + badgeHeight / 2, badgeWidth - 80);
+    }
 
     context.textBaseline = "alphabetic";
     context.fillStyle = "#111827";
