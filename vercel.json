@@ -4,5 +4,11 @@
     "deploymentEnabled": {
       "main": true
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/payzu-to-asaas",
+      "schedule": "0 4 * * *"
+    }
+  ]
 }
