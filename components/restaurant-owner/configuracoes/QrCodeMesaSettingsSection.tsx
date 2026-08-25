@@ -232,7 +232,11 @@ export default function QrCodeMesaSettingsSection({
                 onClose={() => setCancelOpen(false)}
                 onConfirm={() => void cancelSubscription()}
                 title="Descadastrar do plano?"
-                description="As próximas cobranças serão canceladas. Seu histórico de pagamentos continuará disponível."
+                description={
+                    addon?.current_period_ends_at
+                        ? `As próximas cobranças serão canceladas. Seus benefícios ficam disponíveis até ${formatDate(addon.current_period_ends_at)}. Seu histórico de pagamentos continuará disponível.`
+                        : "As próximas cobranças serão canceladas. Seu histórico de pagamentos continuará disponível."
+                }
                 confirmLabel="Descadastrar"
                 isLoading={canceling}
                 variant="danger"
