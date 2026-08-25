@@ -207,8 +207,7 @@ export default function QrCodeMesaSettingsSection({
 
     const addon = billing?.addon || null;
     const active = billing?.active === true;
-    const canCancel =
-        Boolean(addon?.asaas_subscription_id) && addon?.status !== "canceled";
+    const canCancel = active && addon?.status !== "canceled";
 
     return (
         <>
