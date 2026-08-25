@@ -4,11 +4,14 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
     faArrowRight,
     faCheck,
+    faCircleInfo,
     faLock,
 } from "@fortawesome/free-solid-svg-icons";
 import Image from "next/image";
 import Link from "next/link";
 import type { MouseEvent } from "react";
+
+import Tooltip from "@/components/ui/Tooltip";
 
 type MenuProductCardsProps = {
     qrSelected: boolean;
@@ -151,10 +154,26 @@ export default function MenuProductCards({
                 <h3 className="mt-6 text-xl font-bold text-gray-900">
                     iMenu QR Code Mesa
                 </h3>
-                <p className="mt-2 text-sm leading-relaxed text-gray-600">
-                    Cardápio digital na mesa através de QR Code e link para seus
-                    clientes, receba pedidos e imprima automaticamente.
-                </p>
+                <div className="mt-2 text-sm leading-relaxed text-gray-600">
+                    <span>
+                        Cardápio digital na mesa através de QR Code e link para seus
+                        clientes, receba pedidos e imprima automaticamente.
+                    </span>
+                    <Tooltip
+                        text="Durante sua assinatura, funcionalidades e melhorias que você pedir e que fizerem sentido para o iMenu QR Code Mesa serão implementadas em 1–2 semanas."
+                        size="medium"
+                        showOnClick
+                        parentClassName="ml-2 align-middle"
+                    >
+                        <span className="inline-flex cursor-help items-center gap-1.5 rounded-full bg-brand/10 px-2.5 py-1 text-[11px] font-bold leading-none text-brand">
+                            BÔNUS: Atendimento Exclusivo
+                            <FontAwesomeIcon
+                                icon={faCircleInfo}
+                                className="text-[10px]"
+                            />
+                        </span>
+                    </Tooltip>
+                </div>
 
                 <div className="mt-5 flex items-end gap-1 text-gray-900">
                     <span className="text-2xl font-bold">R$ 5,00</span>
