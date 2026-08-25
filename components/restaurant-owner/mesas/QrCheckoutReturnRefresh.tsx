@@ -196,8 +196,7 @@ export default function QrCheckoutReturnRefresh() {
                             </p>
                             <p className="mt-1 text-sm leading-relaxed text-gray-600">
                                 Funcionalidades e melhorias que você pedir e que
-                                fizerem sentido para o iMenu QR Code Mesa serão
-                                implementadas em 1–2 semanas.
+                                fizerem sentido serão implementadas em 1 semana.
                             </p>
                         </div>
                     </div>
