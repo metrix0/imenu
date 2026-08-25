@@ -49,7 +49,14 @@ export async function POST(request: Request) {
             );
         }
 
-        await requireRestaurantOwner(request, restaurantId);
+        const { user, restaurant } = await requireRestaurantOwner(
+            request,
+            restaurantId
+        );
+        const customerEmail = user.email?.trim() || "";
+        const customerPhone = String(
+            user.user_metadata?.phone || restaurant.phone || ""
+        ).replace(/\D/g, "");
 
         const addonResult = await query<QrTableAddon>(
             `
@@ -112,6 +119,10 @@ export async function POST(request: Request) {
                 chargeTypes: ["RECURRENT"],
                 minutesToExpire: CHECKOUT_EXPIRATION_MINUTES,
                 externalReference: addon.id,
+                customerData: {
+                    ...(customerEmail ? { email: customerEmail } : {}),
+                    ...(customerPhone ? { phone: customerPhone } : {}),
+                },
                 callback: {
                     successUrl: `${origin}${returnPath}?checkout=success`,
                     cancelUrl: `${origin}${returnPath}?checkout=cancel`,
