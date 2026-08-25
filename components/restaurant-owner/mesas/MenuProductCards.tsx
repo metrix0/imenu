@@ -164,7 +164,7 @@ export default function MenuProductCards({
                         onClick={(event) => event.stopPropagation()}
                     >
                         <Tooltip
-                            text="Durante sua assinatura, funcionalidades e melhorias que você pedir e que fizerem sentido para o iMenu QR Code Mesa serão implementadas em 1–2 semanas."
+                            text="Durante sua assinatura, funcionalidades e melhorias que você pedir e que fizerem sentido serão implementadas em 1 semana."
                             size="medium"
                             showOnClick
                         >
