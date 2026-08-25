@@ -1,6 +1,7 @@
 "use client";
 
 import { useLayoutEffect, useState } from "react";
+import Image from "next/image";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
     faCheck,
@@ -146,8 +147,14 @@ export default function QrCheckoutReturnRefresh() {
             showCloseButton
         >
             <div className="px-6 pb-6 pt-7 text-center sm:px-8 sm:pb-8 sm:pt-8">
-                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-brand/10 text-3xl">
-                    🎉
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-brand/10 p-2">
+                    <Image
+                        src="/images/party_popper_emoji.png"
+                        alt="Comemoração"
+                        width={48}
+                        height={48}
+                        className="h-12 w-12 object-contain"
+                    />
                 </div>
 
                 <h2 className="mt-5 text-2xl font-bold text-gray-900 sm:text-3xl">
