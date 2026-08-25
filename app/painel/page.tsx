@@ -515,7 +515,11 @@ export default function PainelPedidosAtivosPage() {
     return (
         <div className="max-w-7xl 2xl:max-w-[90rem] mx-auto pb-20 px-4 sm:px-6 pt-8">
             {/* Header */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-8 gap-4">
+            <div
+                className={`flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 ${
+                    soundEnabled ? "mb-8" : "mb-0 sm:mb-8"
+                }`}
+            >
                 <div>
                     <h1 className="text-3xl font-bold text-gray-900 2xl:text-4xl">
                         Pedidos de Hoje
