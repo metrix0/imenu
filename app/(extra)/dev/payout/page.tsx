@@ -19,6 +19,7 @@ type Payable = {
     restaurantId: string;
     restaurantName: string;
     grossCents: number;
+    payzuFeeCents: number;
     pixKey: string | null;
     pixKeyType: PixKeyType | null;
     pixKeyTypeStored: PixKeyType | null;
@@ -551,13 +552,14 @@ export default function DevPayoutPage() {
                 </p>
 
                 <div className="mt-5 overflow-x-auto">
-                    <table className="w-full min-w-[900px] text-left text-sm">
+                    <table className="w-full min-w-[1000px] text-left text-sm">
                         <thead className="border-b border-gray-100 text-xs uppercase text-gray-400">
                             <tr>
                                 <th className="px-3 py-3">Restaurante</th>
                                 <th className="px-3 py-3">Telefone</th>
                                 <th className="px-3 py-3">PIX</th>
                                 <th className="px-3 py-3 text-right">Bruto</th>
+                                <th className="px-3 py-3 text-right">PayZu</th>
                                 <th className="px-3 py-3 text-right">Desconto</th>
                                 <th className="px-3 py-3 text-right">Enviar</th>
                             </tr>
@@ -602,6 +604,7 @@ export default function DevPayoutPage() {
                                             )}
                                         </td>
                                         <td className="px-3 py-4 text-right">{money(item.grossCents)}</td>
+                                        <td className="px-3 py-4 text-right text-gray-500">{money(item.payzuFeeCents)}</td>
                                         <td className="px-3 py-4 text-right text-gray-500">{money(item.grossCents - net)}</td>
                                         <td className="px-3 py-4 text-right font-bold">{item.canSend ? money(net) : "—"}</td>
                                     </tr>
@@ -609,7 +612,7 @@ export default function DevPayoutPage() {
                             })}
                             {payables.length === 0 && (
                                 <tr>
-                                    <td colSpan={6} className="px-3 py-10 text-center text-gray-400">
+                                    <td colSpan={7} className="px-3 py-10 text-center text-gray-400">
                                         Nada a repassar agora.
                                     </td>
                                 </tr>
