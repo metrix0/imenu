@@ -358,7 +358,8 @@ export default function DevPayoutPage() {
             const response = await fetch("/api/cron/payzu-to-asaas", {
                 method: "POST",
                 headers: {
-                    Authorization: `Bearer ${session.access_token}` },
+                    Authorization: `Bearer ${session.access_token}`,
+                },
             });
             const payload = (await response.json()) as PayzuTransferResult;
             if (!response.ok) {
