@@ -364,74 +364,74 @@ export async function downloadQrDesign({
     context.shadowColor = rgba(primary, 0.22);
     context.shadowBlur = 42;
     context.shadowOffsetY = 18;
-    fillRoundedRect(context, 145, 682, 790, 635, 42, "#ffffff");
+    fillRoundedRect(context, 145, 680, 790, 690, 42, "#ffffff");
     context.restore();
 
-    const cardBorder = context.createLinearGradient(145, 682, 935, 1317);
+    const cardBorder = context.createLinearGradient(145, 680, 935, 1370);
     cardBorder.addColorStop(0, rgba(primary, 0.72));
     cardBorder.addColorStop(0.5, rgba(secondary, 0.36));
     cardBorder.addColorStop(1, rgba(tertiary, 0.65));
     context.strokeStyle = cardBorder;
     context.lineWidth = 4;
     context.beginPath();
-    context.roundRect(145, 682, 790, 635, 42);
+    context.roundRect(145, 680, 790, 690, 42);
     context.stroke();
 
-    fillRoundedRect(context, 350, 714, 380, 54, 27, lightTertiary);
+    fillRoundedRect(context, 350, 712, 380, 54, 27, lightTertiary);
     context.fillStyle = deepPrimary;
     context.font = "800 20px Arial, sans-serif";
-    context.fillText("APONTE A CÂMERA AQUI", 540, 749);
+    context.fillText("APONTE A CÂMERA AQUI", 540, 747);
 
     context.save();
     context.shadowColor = "rgba(17, 24, 39, 0.10)";
     context.shadowBlur = 24;
     context.shadowOffsetY = 10;
-    fillRoundedRect(context, 244, 792, 592, 592, 34, "#ffffff");
+    fillRoundedRect(context, 264, 786, 552, 552, 34, "#ffffff");
     context.restore();
 
     context.strokeStyle = rgba(primary, 0.12);
     context.lineWidth = 3;
     context.beginPath();
-    context.roundRect(244, 792, 592, 592, 34);
+    context.roundRect(264, 786, 552, 552, 34);
     context.stroke();
 
-    context.drawImage(qrCode, 274, 822, 532, 532);
+    context.drawImage(qrCode, 290, 812, 500, 500);
 
     context.fillStyle = "#374151";
     context.font = "600 21px Arial, sans-serif";
-    context.fillText("Cardápio • pedido • mesa identificada", 540, 1291, 680);
+    context.fillText("Cardápio • pedido • mesa identificada", 540, 1350, 680);
 
     const urlGradient = context.createLinearGradient(100, 0, 980, 0);
     urlGradient.addColorStop(0, deepPrimary);
     urlGradient.addColorStop(0.55, primary);
     urlGradient.addColorStop(1, secondary);
-    fillRoundedRect(context, 100, 1380, 880, 98, 49, urlGradient);
+    fillRoundedRect(context, 100, 1410, 880, 90, 45, urlGradient);
 
     context.fillStyle = "rgba(255, 255, 255, 0.78)";
-    context.font = "700 18px Arial, sans-serif";
-    context.fillText("ACESSE PELO LINK", 540, 1415);
+    context.font = "700 17px Arial, sans-serif";
+    context.fillText("ACESSE PELO LINK", 540, 1440);
 
     context.fillStyle = "#ffffff";
     const urlFontSize = fitTextSize(
         context,
         cleanDisplayUrl,
         790,
-        30,
-        20,
+        28,
+        19,
         800
     );
     context.font = `800 ${urlFontSize}px Arial, sans-serif`;
-    context.fillText(cleanDisplayUrl, 540, 1455, 790);
+    context.fillText(cleanDisplayUrl, 540, 1480, 790);
 
     context.fillStyle = "#6b7280";
     context.font = "600 18px Arial, sans-serif";
-    context.fillText("Pedidos pelo iMenu", 540, 1535);
+    context.fillText("Pedidos pelo iMenu", 540, 1542);
 
     const accent = context.createLinearGradient(380, 0, 700, 0);
     accent.addColorStop(0, rgba(primary, 0));
     accent.addColorStop(0.5, primary);
     accent.addColorStop(1, rgba(secondary, 0));
-    fillRoundedRect(context, 380, 1562, 320, 5, 3, accent);
+    fillRoundedRect(context, 380, 1566, 320, 5, 3, accent);
 
     const blob = await new Promise<Blob>((resolve, reject) => {
         canvas.toBlob((result) => {
