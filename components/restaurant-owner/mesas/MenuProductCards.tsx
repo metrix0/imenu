@@ -157,7 +157,7 @@ export default function MenuProductCards({
                 </p>
 
                 <div className="mt-5 flex items-end gap-1 text-gray-900">
-                    <span className="text-2xl font-bold">R$ 4,90</span>
+                    <span className="text-2xl font-bold">R$ 5,00</span>
                     <span className="pb-0.5 text-xs text-gray-500">
                         /mês
                     </span>

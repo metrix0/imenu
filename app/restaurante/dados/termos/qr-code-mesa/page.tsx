@@ -54,7 +54,7 @@ export default function QrCodeMesaTermsPage() {
                             3. Preço e cobrança recorrente
                         </h2>
                         <p className="mt-2">
-                            A assinatura custa R$ 4,90 por mês e é renovada
+                            A assinatura custa R$ 5,00 por mês e é renovada
                             automaticamente no cartão cadastrado até o
                             cancelamento. O pagamento é processado pelo Asaas;
                             o iMenu não armazena os dados completos do cartão.

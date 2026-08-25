@@ -84,7 +84,7 @@ export default function QrCodeMesaSalesModal({
 
                     <div className="mt-6 flex flex-wrap items-end gap-x-3 gap-y-2 rounded-xl border border-brand/20 bg-brand/5 px-4 py-4">
                         <span className="text-3xl font-bold text-gray-900">
-                            R$ 4,90
+                            R$ 5,00
                         </span>
                         <span className="pb-1 text-sm text-gray-600">/mês</span>
                         <div className="ml-auto flex flex-col items-end gap-1 pb-1">
@@ -166,7 +166,7 @@ export default function QrCodeMesaSalesModal({
                         >
                             Termos do iMenu QR Code Mesa
                         </Link>{" "}
-                        e autoriza a cobrança recorrente de R$ 4,90/mês até o
+                        e autoriza a cobrança recorrente de R$ 5,00/mês até o
                         cancelamento.
                     </p>
                 )}

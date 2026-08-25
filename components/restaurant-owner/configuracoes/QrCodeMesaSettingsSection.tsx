@@ -305,7 +305,7 @@ export default function QrCodeMesaSettingsSection({
                             <div>
                                 <p className="text-xs text-gray-500">Plano</p>
                                 <p className="font-semibold text-gray-900">
-                                    R$ 4,90/mês no cartão
+                                    R$ 5,00/mês no cartão
                                 </p>
                             </div>
                         </div>

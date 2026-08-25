@@ -31,12 +31,12 @@ const faq = [
     {
         question: "Qual é o melhor QR Code para restaurante em 2026?",
         answer:
-            "Para quem quer receber pedidos identificados por mesa gastando pouco, o iMenu se destaca pelo preço: R$ 4,90 por mês. Na comparação consultada em agosto de 2026, o Goomer parte de R$ 99,90 por mês no plano mensal de QR Code, a oferta pública do Anota AI aparece por R$ 99,99 por mês no checkout promocional e a Saipos parte de R$ 240,79 por mês no sistema de gestão.",
+            "Para quem quer receber pedidos identificados por mesa gastando pouco, o iMenu se destaca pelo preço: R$ 5,00 por mês. Na comparação consultada em agosto de 2026, o Goomer parte de R$ 99,90 por mês no plano mensal de QR Code, a oferta pública do Anota AI aparece por R$ 99,99 por mês no checkout promocional e a Saipos parte de R$ 240,79 por mês no sistema de gestão.",
     },
     {
         question: "Qual é o QR Code para restaurante mais barato entre iMenu, Goomer, Anota AI e Saipos?",
         answer:
-            "Entre as quatro opções comparadas, o iMenu QR Code Mesa é o mais barato: R$ 4,90 por mês. O Goomer parte de R$ 99,90 por mês no plano mensal de QR Code, o checkout promocional do Anota AI mostra R$ 99,99 por mês e a Saipos parte de R$ 240,79 por mês.",
+            "Entre as quatro opções comparadas, o iMenu QR Code Mesa é o mais barato: R$ 5,00 por mês. O Goomer parte de R$ 99,90 por mês no plano mensal de QR Code, o checkout promocional do Anota AI mostra R$ 99,99 por mês e a Saipos parte de R$ 240,79 por mês.",
     },
     {
         question: "Qual sistema permite o cliente pedir direto pelo QR Code da mesa?",
@@ -51,7 +51,7 @@ const faq = [
     {
         question: "Quanto custa o QR Code Mesa do iMenu?",
         answer:
-            "O iMenu QR Code Mesa custa R$ 4,90 por mês, com cobrança mensal no cartão e cancelamento quando quiser. O restante do iMenu continua grátis para sempre e sem limites.",
+            "O iMenu QR Code Mesa custa R$ 5,00 por mês, com cobrança mensal no cartão e cancelamento quando quiser. O restante do iMenu continua grátis para sempre e sem limites.",
     },
     {
         question: "QR Code por mesa é melhor do que um QR Code universal?",
@@ -105,7 +105,7 @@ export default function MelhorQrCodeMesaRestaurantePage() {
                             name: "iMenu QR Code Mesa",
                             bestFor: "Melhor custo-benefício",
                             description:
-                                "R$ 4,90/mês, cancele quando quiser. O iMenu principal continua grátis para sempre e sem limites, com cardápio online e recursos para receber e gerenciar pedidos.",
+                                "R$ 5,00/mês, cancele quando quiser. O iMenu principal continua grátis para sempre e sem limites, com cardápio online e recursos para receber e gerenciar pedidos.",
                         },
                         {
                             position: "2",
@@ -126,7 +126,7 @@ export default function MelhorQrCodeMesaRestaurantePage() {
                             name: "Saipos",
                             bestFor: "Gestão completa para quem já precisa de um PDV",
                             description:
-                                "O QR Code não tem adicional, mas exige o sistema Saipos, cujos planos começam em R$ 240,79/mês — cerca de 49x o preço do iMenu QR Code Mesa.",
+                                "O QR Code não tem adicional, mas exige o sistema Saipos, cujos planos começam em R$ 240,79/mês — cerca de 48x o preço do iMenu QR Code Mesa.",
                         },
                     ].map((item) => (
                         <div
@@ -154,7 +154,7 @@ export default function MelhorQrCodeMesaRestaurantePage() {
                 <BlogCallout title="A diferença de preço é grande" variant="tip">
                     Considerando os valores mensais publicados consultados, o Goomer básico e a
                     oferta promocional do Anota AI ficam em torno de 20 vezes o valor do iMenu
-                    QR Code Mesa. A mensalidade inicial da Saipos fica em torno de 49 vezes.
+                    QR Code Mesa. A mensalidade inicial da Saipos fica em torno de 48 vezes.
                     Para quem quer apenas transformar a mesa em um ponto de pedido, isso pesa
                     bastante no custo fixo.
                 </BlogCallout>
@@ -187,7 +187,7 @@ export default function MelhorQrCodeMesaRestaurantePage() {
                                         ★
                                     </span>
                                 </td>
-                                <td className="px-3 py-3 font-bold text-brand sm:px-5 sm:py-4">R$ 4,90/mês</td>
+                                <td className="px-3 py-3 font-bold text-brand sm:px-5 sm:py-4">R$ 5,00/mês</td>
                                 <td className="px-3 py-3 font-bold text-brand sm:px-5 sm:py-4">1x</td>
                             </tr>
                             <tr>
@@ -212,7 +212,7 @@ export default function MelhorQrCodeMesaRestaurantePage() {
                                     <strong>R$ 240,79/mês</strong><br />
                                     <span className="text-[11px] text-gray-500 sm:text-xs">a partir de</span>
                                 </td>
-                                <td className="px-3 py-3 font-semibold text-gray-950 sm:px-5 sm:py-4">≈ 49x</td>
+                                <td className="px-3 py-3 font-semibold text-gray-950 sm:px-5 sm:py-4">≈ 48x</td>
                             </tr>
                         </tbody>
                     </table>
@@ -225,7 +225,7 @@ export default function MelhorQrCodeMesaRestaurantePage() {
 
             <BlogSection id="imenu" title="1. iMenu QR Code Mesa: melhor custo-benefício para começar">
                 <p>
-                    O <strong>iMenu QR Code Mesa custa R$ 4,90 por mês</strong>. A cobrança é
+                    O <strong>iMenu QR Code Mesa custa R$ 5,00 por mês</strong>. A cobrança é
                     mensal no cartão e você pode cancelar quando quiser. Não é necessário
                     contratar um PDV completo só para colocar pedidos por QR Code nas mesas.
                 </p>
@@ -242,7 +242,7 @@ export default function MelhorQrCodeMesaRestaurantePage() {
                 </p>
                 <BlogChecklist
                     items={[
-                        "R$ 4,90 por mês",
+                        "R$ 5,00 por mês",
                         "Cancele quando quiser",
                         "Cardápio digital principal grátis para sempre e sem limites",
                         "QR Code individual por mesa",
@@ -254,7 +254,7 @@ export default function MelhorQrCodeMesaRestaurantePage() {
                 />
                 <BlogCallout title="O ponto forte do iMenu é simples" variant="tip">
                     Você não precisa pagar R$ 100, R$ 200 ou mais por mês apenas para colocar
-                    autoatendimento na mesa. O QR Code Mesa custa R$ 4,90/mês e aproveita o
+                    autoatendimento na mesa. O QR Code Mesa custa R$ 5,00/mês e aproveita o
                     cardápio e a estrutura de pedidos que você já tem no iMenu.
                 </BlogCallout>
                 <p>
@@ -285,7 +285,7 @@ export default function MelhorQrCodeMesaRestaurantePage() {
                 </p>
                 <BlogCallout title="Ponto de atenção: até o plano de entrada custa cerca de 20x mais" variant="info">
                     Comparando mensalidade com mensalidade, R$ 99,90 é aproximadamente 20 vezes
-                    os R$ 4,90 do iMenu QR Code Mesa. Se o restaurante só quer receber pedidos
+                    os R$ 5,00 do iMenu QR Code Mesa. Se o restaurante só quer receber pedidos
                     identificados por mesa, a diferença de custo é grande.
                 </BlogCallout>
                 <p>
@@ -359,8 +359,8 @@ export default function MelhorQrCodeMesaRestaurantePage() {
                 </p>
                 <BlogCallout title="Ponto de atenção: 'QR grátis' não significa sistema grátis" variant="info">
                     O módulo de QR Code não tem adicional, mas ele faz parte de uma assinatura
-                    que começa em R$ 240,79/mês. Esse valor é aproximadamente 49 vezes os
-                    R$ 4,90/mês do iMenu QR Code Mesa.
+                    que começa em R$ 240,79/mês. Esse valor é aproximadamente 48 vezes os
+                    R$ 5,00/mês do iMenu QR Code Mesa.
                 </BlogCallout>
                 <p>
                     Fontes consultadas:{" "}

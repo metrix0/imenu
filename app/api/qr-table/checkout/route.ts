@@ -61,9 +61,10 @@ export async function POST(request: Request) {
                     billing_cycle,
                     acquisition_source
                 )
-                VALUES ($1, 'qr_code_mesa', 'pending', 490, 'monthly', $2)
+                VALUES ($1, 'qr_code_mesa', 'pending', 500, 'monthly', $2)
                 ON CONFLICT (restaurant_id, product_key)
                 DO UPDATE SET
+                    price_cents = EXCLUDED.price_cents,
                     acquisition_source = CASE
                         WHEN restaurant_addons.activated_at IS NULL
                             THEN EXCLUDED.acquisition_source
@@ -123,7 +124,7 @@ export async function POST(request: Request) {
                         description:
                             "Pedidos por QR Code identificados por mesa.",
                         quantity: 1,
-                        value: 4.9,
+                        value: 5,
                     },
                 ],
                 subscription: {
