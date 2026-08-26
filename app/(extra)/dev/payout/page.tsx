@@ -120,41 +120,34 @@ function normalizeWhatsappNumber(value: string | undefined) {
     return digits;
 }
 
-function getNetCents(grossCents: number, discountPercent: number) {
-    return Math.max(
-        0,
-        grossCents - Math.round(grossCents * (discountPercent / 100))
-    );
+function getDiscountCents(
+    item: Payable,
+    discountPercent: number,
+    onePercentNet: boolean
+) {
+    if (onePercentNet) {
+        return Math.max(
+            0,
+            Math.round(item.grossCents * 0.01) - item.payzuFeeCents
+        );
+    }
+    return Math.round(item.grossCents * (discountPercent / 100));
 }
 
-function getOnePercentNetDiscount(items: Payable[]) {
-    const grossCents = items.reduce((sum, item) => sum + item.grossCents, 0);
-    if (grossCents <= 0) return 0;
-
-    const payzuFeeCents = items.reduce(
-        (sum, item) => sum + item.payzuFeeCents,
-        0
+function getNetCents(
+    item: Payable,
+    discountPercent: number,
+    onePercentNet: boolean
+) {
+    const discountCents = getDiscountCents(
+        item,
+        discountPercent,
+        onePercentNet
     );
-    const targetDiscountCents = Math.max(
+    return Math.max(
         0,
-        Math.round(grossCents * 0.01) - payzuFeeCents
+        item.grossCents - discountCents - (onePercentNet ? item.payzuFeeCents : 0)
     );
-    const discountAt = (units: number) =>
-        items.reduce(
-            (sum, item) =>
-                sum + Math.round(item.grossCents * (units / 1_000_000)),
-            0
-        );
-
-    let low = 0;
-    let high = 1_000_000;
-    while (low < high) {
-        const middle = Math.floor((low + high) / 2);
-        if (discountAt(middle) >= targetDiscountCents) high = middle;
-        else low = middle + 1;
-    }
-
-    return high / 10_000;
 }
 
 export default function DevPayoutPage() {
@@ -168,6 +161,7 @@ export default function DevPayoutPage() {
     const [savingPixTypeId, setSavingPixTypeId] = useState<string | null>(null);
     const [error, setError] = useState("");
     const [discountPercent, setDiscountPercent] = useState("0.75");
+    const [onePercentNet, setOnePercentNet] = useState(false);
     const [confirmOpen, setConfirmOpen] = useState(false);
     const [lastResult, setLastResult] = useState<SendResult | null>(null);
     const [lastPayzuTransfer, setLastPayzuTransfer] =
@@ -272,26 +266,26 @@ export default function DevPayoutPage() {
         (sum, item) => sum + item.grossCents,
         0
     );
+    const payzuOwedCents = onePercentNet
+        ? payables.reduce((sum, item) => sum + item.payzuFeeCents, 0)
+        : 0;
+    const owedDiscountCents = payables.reduce(
+        (sum, item) =>
+            sum + getDiscountCents(item, numericDiscount, onePercentNet),
+        0
+    );
     const netOwedCents = payables.reduce(
-        (sum, item) => sum + getNetCents(item.grossCents, numericDiscount),
+        (sum, item) => sum + getNetCents(item, numericDiscount, onePercentNet),
         0
     );
-    const owedDiscountCents = grossOwedCents - netOwedCents;
 
-    const grossSendableCents = sendable.reduce(
-        (sum, item) => sum + item.grossCents,
-        0
-    );
     const netSendableCents = sendable.reduce(
-        (sum, item) => sum + getNetCents(item.grossCents, numericDiscount),
+        (sum, item) => sum + getNetCents(item, numericDiscount, onePercentNet),
         0
     );
 
     const handleAdjustToOnePercent = () => {
-        const adjusted = getOnePercentNetDiscount(sendable);
-        setDiscountPercent(
-            adjusted.toFixed(4).replace(/0+$/, "").replace(/\.$/, "")
-        );
+        setOnePercentNet(true);
     };
 
     const handlePixTypeChange = async (
@@ -399,7 +393,10 @@ export default function DevPayoutPage() {
                     Authorization: `Bearer ${session.access_token}`,
                     "Content-Type": "application/json",
                 },
-                body: JSON.stringify({ discountPercent: numericDiscount }),
+                body: JSON.stringify({
+                    discountPercent: numericDiscount,
+                    adjustToOnePercent: onePercentNet,
+                }),
             });
             const payload = await response.json();
             if (!response.ok) {
@@ -504,7 +501,11 @@ export default function DevPayoutPage() {
                 <MetricCard
                     label="Total que devo aos restaurantes"
                     value={money(netOwedCents)}
-                    detail={`${money(grossOwedCents)} bruto − ${money(owedDiscountCents)} (${numericDiscount.toLocaleString("pt-BR", { maximumFractionDigits: 4 })}%)`}
+                    detail={
+                        onePercentNet
+                            ? `${money(grossOwedCents)} bruto − ${money(payzuOwedCents)} PayZu − ${money(owedDiscountCents)} desconto`
+                            : `${money(grossOwedCents)} bruto − ${money(owedDiscountCents)} (${numericDiscount.toLocaleString("pt-BR", { maximumFractionDigits: 4 })}%)`
+                    }
                 />
                 <MetricCard
                     label="Restaurantes com valor a receber"
@@ -547,7 +548,10 @@ export default function DevPayoutPage() {
                                 type="text"
                                 inputMode="decimal"
                                 value={discountPercent}
-                                onChange={(event) => setDiscountPercent(event.target.value)}
+                                onChange={(event) => {
+                                    setOnePercentNet(false);
+                                    setDiscountPercent(event.target.value);
+                                }}
                                 className="h-10 w-32 rounded-lg border border-gray-200 bg-white px-3 text-sm font-semibold outline-none transition focus:border-brand"
                             />
                         </label>
@@ -556,7 +560,9 @@ export default function DevPayoutPage() {
                             onClick={handleAdjustToOnePercent}
                             disabled={sendable.length === 0}
                         >
-                            Ajustar p/ 1% líquido
+                            {onePercentNet
+                                ? "1% líquido aplicado"
+                                : "Ajustar p/ 1% líquido"}
                         </Button>
                         <Button
                             onClick={() => setConfirmOpen(true)}
@@ -566,8 +572,8 @@ export default function DevPayoutPage() {
                                 !data?.asaasConfigured ||
                                 sendable.length === 0 ||
                                 ambiguousPix.length > 0 ||
-                                numericDiscount < 0 ||
-                                numericDiscount > 100
+                                (!onePercentNet &&
+                                    (numericDiscount < 0 || numericDiscount > 100))
                             }
                             className="min-w-52 bg-green-600 text-white hover:opacity-90 disabled:opacity-40"
                         >
@@ -610,7 +616,16 @@ export default function DevPayoutPage() {
                         </thead>
                         <tbody className="divide-y divide-gray-100">
                             {payables.map((item) => {
-                                const net = getNetCents(item.grossCents, numericDiscount);
+                                const discountCents = getDiscountCents(
+                                    item,
+                                    numericDiscount,
+                                    onePercentNet
+                                );
+                                const net = getNetCents(
+                                    item,
+                                    numericDiscount,
+                                    onePercentNet
+                                );
                                 return (
                                     <tr key={item.restaurantId}>
                                         <td className="px-3 py-4 font-semibold text-gray-900">{item.restaurantName}</td>
@@ -649,7 +664,7 @@ export default function DevPayoutPage() {
                                         </td>
                                         <td className="px-3 py-4 text-right">{money(item.grossCents)}</td>
                                         <td className="px-3 py-4 text-right text-gray-500">{money(item.payzuFeeCents)}</td>
-                                        <td className="px-3 py-4 text-right text-gray-500">{money(item.grossCents - net)}</td>
+                                        <td className="px-3 py-4 text-right text-gray-500">{money(discountCents)}</td>
                                         <td className="px-3 py-4 text-right font-bold">{item.canSend ? money(net) : "—"}</td>
                                     </tr>
                                 );
@@ -717,14 +732,24 @@ export default function DevPayoutPage() {
                 <div className="p-6 sm:p-7">
                     <h2 className="text-xl font-bold text-gray-900">Confirmar envio</h2>
                     <p className="mt-2 text-sm text-gray-500">
-                        Serão enviados {money(netSendableCents)} para {sendable.length} restaurante(s), com desconto de {numericDiscount.toLocaleString("pt-BR", { maximumFractionDigits: 4 })}%.
+                        {onePercentNet
+                            ? `Serão enviados ${money(netSendableCents)} para ${sendable.length} restaurante(s), com 1% líquido após PayZu calculado individualmente por restaurante.`
+                            : `Serão enviados ${money(netSendableCents)} para ${sendable.length} restaurante(s), com desconto de ${numericDiscount.toLocaleString("pt-BR", { maximumFractionDigits: 4 })}%.`}
                     </p>
 
                     <div className="mt-5 max-h-64 space-y-2 overflow-y-auto rounded-lg border border-gray-100 p-3">
                         {sendable.map((item) => (
                             <div key={item.restaurantId} className="flex items-center justify-between gap-4 text-sm">
                                 <span className="truncate text-gray-600">{item.restaurantName}</span>
-                                <span className="shrink-0 font-semibold">{money(getNetCents(item.grossCents, numericDiscount))}</span>
+                                <span className="shrink-0 font-semibold">
+                                    {money(
+                                        getNetCents(
+                                            item,
+                                            numericDiscount,
+                                            onePercentNet
+                                        )
+                                    )}
+                                </span>
                             </div>
                         ))}
                     </div>
