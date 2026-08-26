@@ -416,6 +416,29 @@ export default function CartBar({
         useCheckoutStore.setState({ is_pickup: false, scheduled_for: null } as any);
         console.log("removed cart-storage and created cookie");
 
+        const createdOrderId = data.order_id || data.id;
+        if (restaurant.force_whatsapp_order_confirmation && createdOrderId) {
+            try {
+                const confirmationResponse = await fetch(
+                    `/api/orders/${createdOrderId}/whatsapp-confirmation`,
+                    { cache: "no-store" }
+                );
+
+                if (confirmationResponse.ok) {
+                    const confirmation = await confirmationResponse.json();
+                    if (confirmation?.url) {
+                        window.location.href = confirmation.url;
+                        return;
+                    }
+                }
+            } catch (error) {
+                console.error(
+                    "[WHATSAPP_ORDER_CONFIRMATION] Failed to open WhatsApp:",
+                    error
+                );
+            }
+        }
+
         if (data.payment_type === "offline") {
             window.location.href = data.redirect;
             return;

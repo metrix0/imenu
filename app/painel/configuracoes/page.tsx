@@ -27,6 +27,7 @@ type Restaurant = {
     url_slug?: string | null;
     user_id?: string | null;
     phone?: string | null;
+    force_whatsapp_order_confirmation?: boolean | null;
 };
 
 type OrderDingleDuration = "short" | "medium" | "long";
@@ -191,6 +192,10 @@ export default function ConfiguracoesPage() {
         useState<OrderDingleDuration>("short");
     const [isTestingOrderDingle, setIsTestingOrderDingle] = useState(false);
     const orderDingleAudioRef = useRef<HTMLAudioElement | null>(null);
+    const [forceWhatsappOrderConfirmation, setForceWhatsappOrderConfirmation] =
+        useState(false);
+    const [isSavingWhatsappConfirmation, setIsSavingWhatsappConfirmation] =
+        useState(false);
     const [isLoggingOut, setIsLoggingOut] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -247,12 +252,17 @@ export default function ConfiguracoesPage() {
                 if (targetId) {
                     const { data: restData } = await supabase
                         .from("restaurants")
-                        .select("id, name, url_slug, user_id, phone")
+                        .select(
+                            "id, name, url_slug, user_id, phone, force_whatsapp_order_confirmation",
+                        )
                         .eq("id", targetId)
                         .single();
 
                     if (restData) {
                         setRestaurant(restData);
+                        setForceWhatsappOrderConfirmation(
+                            restData.force_whatsapp_order_confirmation === true,
+                        );
                         const formattedPhone = formatPhone(
                             restData.phone || "",
                         );
@@ -298,6 +308,45 @@ export default function ConfiguracoesPage() {
 
         setSavedPhone(phone);
         setToast({ message: "Celular atualizado!", type: "success" });
+    };
+
+    const saveWhatsappOrderConfirmation = async (enabled: boolean) => {
+        if (!restaurant || isSavingWhatsappConfirmation) return;
+
+        setIsSavingWhatsappConfirmation(true);
+        const { error } = await supabase
+            .from("restaurants")
+            .update({ force_whatsapp_order_confirmation: enabled })
+            .eq("id", restaurant.id);
+        setIsSavingWhatsappConfirmation(false);
+
+        if (error) {
+            console.error(
+                "Erro ao salvar confirmação obrigatória por WhatsApp:",
+                error,
+            );
+            setToast({
+                message: "Erro ao salvar a configuração do WhatsApp.",
+                type: "error",
+            });
+            return;
+        }
+
+        setForceWhatsappOrderConfirmation(enabled);
+        setRestaurant((current) =>
+            current
+                ? {
+                      ...current,
+                      force_whatsapp_order_confirmation: enabled,
+                  }
+                : current,
+        );
+        setToast({
+            message: enabled
+                ? "Notificação por WhatsApp ativada."
+                : "Notificação por WhatsApp desativada.",
+            type: "success",
+        });
     };
 
     const saveOrderDingleDuration = (
@@ -618,7 +667,66 @@ export default function ConfiguracoesPage() {
                                 );
                             })}
                         </div>
+                    </Card>
 
+                    <Card className="border border-gray-200 shadow-sm">
+                        <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="min-w-0">
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <h2 className="text-xl font-medium text-gray-900">
+                                        Obrigar envio de Notificação no WhatsApp
+                                    </h2>
+                                    <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700">
+                                        Não recomendado
+                                    </span>
+                                </div>
+                                <p className="mt-2 text-sm text-gray-500">
+                                    Após confirmar o pedido, o cliente será direcionado ao
+                                    WhatsApp do restaurante com a comanda completa já
+                                    preenchida.
+                                </p>
+
+                                <div className="mt-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-amber-400 text-xs font-bold">
+                                        i
+                                    </span>
+                                    <p>
+                                        Isso adiciona uma etapa extra à finalização e pode
+                                        criar atrito no pedido. O pedido é criado antes do
+                                        redirecionamento: o cliente pode simplesmente não
+                                        enviar a mensagem no WhatsApp e o pedido continuará
+                                        válido.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="flex shrink-0 items-center gap-3">
+                                {isSavingWhatsappConfirmation && (
+                                    <span className="text-xs text-gray-400">
+                                        Salvando...
+                                    </span>
+                                )}
+                                <button
+                                    type="button"
+                                    role="switch"
+                                    aria-checked={forceWhatsappOrderConfirmation}
+                                    aria-label="Obrigar envio de notificação no WhatsApp"
+                                    disabled={isSavingWhatsappConfirmation}
+                                    onClick={() =>
+                                        void saveWhatsappOrderConfirmation(
+                                            !forceWhatsappOrderConfirmation,
+                                        )
+                                    }
+                                    className={`flex h-7 w-12 cursor-pointer items-center rounded-full p-1 transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+                                        forceWhatsappOrderConfirmation
+                                            ? "justify-end bg-green-500"
+                                            : "justify-start bg-gray-300"
+                                    }`}
+                                >
+                                    <span className="h-5 w-5 rounded-full bg-white shadow-md" />
+                                </button>
+                            </div>
+                        </div>
                     </Card>
 
                     {restaurant && (
