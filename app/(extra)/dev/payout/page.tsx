@@ -155,6 +155,9 @@ export default function DevPayoutPage() {
     const [accessState, setAccessState] = useState<AccessState>("checking");
     const [data, setData] = useState<DashboardPayload | null>(null);
     const [restaurantPhones, setRestaurantPhones] = useState<Record<string, string>>({});
+    const [restaurantPixInfo, setRestaurantPixInfo] = useState<
+        Record<string, { pixKey: string; pixKeyType: string }>
+    >({});
     const [loading, setLoading] = useState(true);
     const [sending, setSending] = useState(false);
     const [transferringPayzu, setTransferringPayzu] = useState(false);
@@ -213,23 +216,56 @@ export default function DevPayoutPage() {
                     ...payload.history.map((item) => item.restaurant_id),
                 ])
             );
-            const phoneEntries = await Promise.all(
+            const restaurantEntries = await Promise.all(
                 restaurantIds.map(async (restaurantId) => {
                     try {
                         const restaurantResponse = await fetch(
                             `/api/restaurants/${restaurantId}`,
                             { cache: "no-store" }
                         );
-                        if (!restaurantResponse.ok) return [restaurantId, ""] as const;
+                        if (!restaurantResponse.ok) {
+                            return [
+                                restaurantId,
+                                { phone: "", pixKey: "", pixKeyType: "" },
+                            ] as const;
+                        }
                         const restaurant = await restaurantResponse.json();
-                        return [restaurantId, String(restaurant?.phone || "")] as const;
+                        return [
+                            restaurantId,
+                            {
+                                phone: String(restaurant?.phone || ""),
+                                pixKey: String(restaurant?.payment_info || ""),
+                                pixKeyType: String(restaurant?.payment_info_type || ""),
+                            },
+                        ] as const;
                     } catch {
-                        return [restaurantId, ""] as const;
+                        return [
+                            restaurantId,
+                            { phone: "", pixKey: "", pixKeyType: "" },
+                        ] as const;
                     }
                 })
             );
 
-            setRestaurantPhones(Object.fromEntries(phoneEntries));
+            setRestaurantPhones(
+                Object.fromEntries(
+                    restaurantEntries.map(([restaurantId, details]) => [
+                        restaurantId,
+                        details.phone,
+                    ])
+                )
+            );
+            setRestaurantPixInfo(
+                Object.fromEntries(
+                    restaurantEntries.map(([restaurantId, details]) => [
+                        restaurantId,
+                        {
+                            pixKey: details.pixKey,
+                            pixKeyType: details.pixKeyType,
+                        },
+                    ])
+                )
+            );
             setAccessState("allowed");
             setData(payload);
         } catch (caught) {
@@ -685,9 +721,9 @@ export default function DevPayoutPage() {
                 <h2 className="text-lg font-bold text-gray-900">Histórico de envios</h2>
                 <div className="mt-5 space-y-3">
                     {(data?.history || []).map((item) => {
-                        const whatsappNumber = normalizeWhatsappNumber(
-                            restaurantPhones[item.restaurant_id]
-                        );
+                        const phone = restaurantPhones[item.restaurant_id];
+                        const whatsappNumber = normalizeWhatsappNumber(phone);
+                        const pixInfo = restaurantPixInfo[item.restaurant_id];
                         return (
                             <div
                                 key={item.id}
@@ -696,6 +732,14 @@ export default function DevPayoutPage() {
                                 <div>
                                     <div className="font-semibold text-gray-900">{item.restaurant_name}</div>
                                     <div className="text-xs text-gray-500">{dateTime(item.created_at)}</div>
+                                    <div className="mt-1 text-xs text-gray-500">
+                                        Telefone: {formatPhone(phone) || "—"}
+                                    </div>
+                                    <div className="text-xs text-gray-500">
+                                        PIX: {pixInfo?.pixKey
+                                            ? `${pixInfo.pixKeyType ? `${pixInfo.pixKeyType} · ` : ""}${pixInfo.pixKey}`
+                                            : "—"}
+                                    </div>
                                 </div>
                                 <div className="flex flex-wrap items-center gap-3">
                                     {item.status === "processing" && (
