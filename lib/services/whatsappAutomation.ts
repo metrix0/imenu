@@ -220,6 +220,14 @@ function isConversationWithOwner(conversation: ConversationRow | null): boolean 
     return Number.isFinite(humanUntil) && humanUntil > Date.now();
 }
 
+async function canBotRespond(
+    restaurantId: string,
+    chatId: string
+): Promise<boolean> {
+    const conversation = await getConversation(restaurantId, chatId);
+    return !isConversationWithOwner(conversation);
+}
+
 function getConversationTimestamp(value: string | null | undefined): number | null {
     if (!value) return null;
 
@@ -394,10 +402,16 @@ function buildGreetingMessage(restaurant: RestaurantAutomationData): string {
     ].join("\n");
 }
 
-async function sendMainMenu(sessionName: string, chatId: string): Promise<void> {
+async function sendMainMenu(
+    restaurantId: string,
+    sessionName: string,
+    chatId: string
+): Promise<void> {
     let lastError: unknown = null;
 
     for (let attempt = 0; attempt < MENU_SEND_ATTEMPTS; attempt += 1) {
+        if (!(await canBotRespond(restaurantId, chatId))) return;
+
         try {
             await sendWahaList(sessionName, chatId, MENU_ROWS);
             return;
@@ -417,12 +431,15 @@ async function sendMainMenu(sessionName: string, chatId: string): Promise<void> 
 }
 
 async function sendWelcome(
+    restaurantId: string,
     sessionName: string,
     chatId: string,
     restaurant: RestaurantAutomationData
 ): Promise<void> {
+    if (!(await canBotRespond(restaurantId, chatId))) return;
+
     await sendWahaText(sessionName, chatId, buildGreetingMessage(restaurant));
-    await sendMainMenu(sessionName, chatId);
+    await sendMainMenu(restaurantId, sessionName, chatId);
 }
 
 function buildMenuLinkMessage(restaurant: RestaurantAutomationData): string {
@@ -649,8 +666,10 @@ async function answerFlow({
         message = buildPaymentMessage(restaurant);
     }
 
+    if (!(await canBotRespond(restaurantId, chatId))) return;
+
     await sendWahaText(sessionName, chatId, message);
-    await sendMainMenu(sessionName, chatId);
+    await sendMainMenu(restaurantId, sessionName, chatId);
 }
 
 export async function markOwnerTookOverConversation({
@@ -690,23 +709,25 @@ export async function processIncomingWhatsAppMessage({
     if (!restaurant) return;
 
     if (prepared.state === "welcome") {
-        await sendWelcome(sessionName, chatId, restaurant);
+        await sendWelcome(restaurantId, sessionName, chatId, restaurant);
         return;
     }
 
     if (hasMedia && !normalize(body)) {
+        if (!(await canBotRespond(restaurantId, chatId))) return;
+
         await sendWahaText(
             sessionName,
             chatId,
             "Não consigo analisar arquivos automaticamente. Escolha *Falar com atendente* para enviar isso à equipe."
         );
-        await sendMainMenu(sessionName, chatId);
+        await sendMainMenu(restaurantId, sessionName, chatId);
         return;
     }
 
     const flow = detectFlow(body);
     if (!flow) {
-        await sendMainMenu(sessionName, chatId);
+        await sendMainMenu(restaurantId, sessionName, chatId);
         return;
     }
 
@@ -764,9 +785,9 @@ export async function processWhatsAppMenuVoteFailed({
     if (!restaurant) return;
 
     if (prepared.state === "welcome") {
-        await sendWelcome(sessionName, chatId, restaurant);
+        await sendWelcome(restaurantId, sessionName, chatId, restaurant);
         return;
     }
 
-    await sendMainMenu(sessionName, chatId);
+    await sendMainMenu(restaurantId, sessionName, chatId);
 }
