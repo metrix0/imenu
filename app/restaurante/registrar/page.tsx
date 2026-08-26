@@ -350,7 +350,7 @@ export default function RestaurantRegistrationPage() {
                             onClick={() =>
                                 setShowPassword((current) => !current)
                             }
-                            className="absolute right-3 top-9 cursor-pointer text-gray-500"
+                            className="absolute right-3 top-6 flex h-12 items-center cursor-pointer text-gray-500 2xl:top-8 2xl:h-[52px]"
                             aria-label={
                                 showPassword
                                     ? "Ocultar senha"
