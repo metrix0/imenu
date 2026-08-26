@@ -359,15 +359,19 @@ export async function POST(request: Request) {
         );
     }
 
-    let body: { discountPercent?: unknown };
+    let body: { discountPercent?: unknown; adjustToOnePercent?: unknown };
     try {
         body = await request.json();
     } catch {
         return NextResponse.json({ error: "JSON inválido." }, { status: 400 });
     }
 
+    const adjustToOnePercent = body.adjustToOnePercent === true;
     const discountPercent = Number(body.discountPercent ?? 0.75);
-    if (!Number.isFinite(discountPercent) || discountPercent < 0 || discountPercent > 100) {
+    if (
+        !adjustToOnePercent &&
+        (!Number.isFinite(discountPercent) || discountPercent < 0 || discountPercent > 100)
+    ) {
         return NextResponse.json(
             { error: "A porcentagem deve estar entre 0 e 100." },
             { status: 400 }
@@ -399,12 +403,19 @@ export async function POST(request: Request) {
             .filter((row) => row.payment_info && resolvePixKeyType(row))
             .map((row) => {
                 const grossCents = Number(row.gross_cents) || 0;
-                const discountCents = Math.round(grossCents * (discountPercent / 100));
+                const payzuFeeCents = (Number(row.pix_order_count) || 0) * 10;
+                const discountCents = adjustToOnePercent
+                    ? Math.max(0, Math.round(grossCents * 0.01) - payzuFeeCents)
+                    : Math.round(grossCents * (discountPercent / 100));
+                const netCents = adjustToOnePercent
+                    ? Math.max(0, grossCents - payzuFeeCents - discountCents)
+                    : Math.max(0, grossCents - discountCents);
                 return {
                     row,
                     grossCents,
                     discountCents,
-                    netCents: Math.max(0, grossCents - discountCents),
+                    payzuFeeCents,
+                    netCents,
                 };
             })
             .filter((item) => item.netCents > 0);
@@ -546,6 +557,7 @@ export async function POST(request: Request) {
         return NextResponse.json({
             cutoffAt: cutoffAt.toISOString(),
             discountPercent,
+            adjustToOnePercent,
             paidCount,
             processingCount,
             failedCount,
