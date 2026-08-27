@@ -135,6 +135,13 @@ export default function WeeklyScheduleClick({
         slot: TimeSlot,
         mode: DragMode,
     ) => {
+        if (
+            event.pointerType === "touch" ||
+            window.matchMedia("(max-width: 639px)").matches
+        ) {
+            return;
+        }
+
         event.preventDefault();
         event.stopPropagation();
         dragRef.current = {
@@ -308,7 +315,7 @@ export default function WeeklyScheduleClick({
                                                 "move",
                                             )
                                         }
-                                        className="group absolute left-1 right-1 z-10 flex cursor-move flex-col items-center justify-center overflow-hidden rounded-md border border-gray-900 bg-gray-800 p-1 text-white shadow-sm transition-colors hover:bg-gray-700"
+                                        className="group absolute left-1 right-1 z-10 flex cursor-pointer flex-col items-center justify-center overflow-hidden rounded-md border border-gray-900 bg-gray-800 p-1 text-white shadow-sm transition-colors hover:bg-gray-700 sm:cursor-move"
                                         style={{
                                             top: (start / 60) * PX_PER_HOUR,
                                             height,
@@ -327,7 +334,7 @@ export default function WeeklyScheduleClick({
                                                     "resize-start",
                                                 )
                                             }
-                                            className="absolute inset-x-0 top-0 h-2 cursor-ns-resize bg-white/0 transition-colors hover:bg-white/25"
+                                            className="absolute inset-x-0 top-0 hidden h-2 cursor-ns-resize bg-white/0 transition-colors hover:bg-white/25 sm:block"
                                         />
                                         {height >= 60 && (
                                             <span className="mb-1 text-[10px] font-bold uppercase tracking-wide opacity-80">
@@ -354,7 +361,7 @@ export default function WeeklyScheduleClick({
                                                     "resize-end",
                                                 )
                                             }
-                                            className="absolute inset-x-0 bottom-0 h-2 cursor-ns-resize bg-white/0 transition-colors hover:bg-white/25"
+                                            className="absolute inset-x-0 bottom-0 hidden h-2 cursor-ns-resize bg-white/0 transition-colors hover:bg-white/25 sm:block"
                                         />
                                     </div>
                                 );
