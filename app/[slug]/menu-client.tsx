@@ -54,6 +54,7 @@ export default function MenuClientPage({
     const [cartOpen, setCartOpen] = useState(false);
     const [cartStep, setCartStep] = useState<"cart" | "info" | "checkout">("cart");
     const [nextOpening, setNextOpening] = useState<Date | null>(null);
+    const [isRestaurantOpen, setIsRestaurantOpen] = useState(false);
     const [todaySlots, setTodaySlots] = useState<
         { open: string; close: string }[]
     >([]);
@@ -467,7 +468,13 @@ export default function MenuClientPage({
 
 
     const checkRestaurantAvailability = () => {
-        if (!restaurant.availability_json) return;
+        setIsRestaurantOpen(false);
+
+        if (!restaurant.availability_json) {
+            setTodaySlots([]);
+            setNextOpening(null);
+            return;
+        }
 
 
         const availability = restaurant.availability_json;
@@ -480,17 +487,19 @@ export default function MenuClientPage({
         if (!Array.isArray(slots) || slots.length === 0) {
             setTodaySlots([]);
 
-            for (let i = 1; i <= 7; i++) {
-                const nextDay = (today + i) % 7;
-                const nextSlots = availability[nextDay];
+            if (restaurant.allow_future_order_scheduling === true) {
+                for (let i = 1; i <= 7; i++) {
+                    const nextDay = (today + i) % 7;
+                    const nextSlots = availability[nextDay];
 
-                if (Array.isArray(nextSlots) && nextSlots.length > 0) {
-                    const [openH, openM] = nextSlots[0].open.split(":").map(Number);
-                    const next = new Date();
-                    next.setDate(now.getDate() + i);
-                    next.setHours(openH, openM, 0, 0);
-                    setNextOpening(next);
-                    return;
+                    if (Array.isArray(nextSlots) && nextSlots.length > 0) {
+                        const [openH, openM] = nextSlots[0].open.split(":").map(Number);
+                        const next = new Date();
+                        next.setDate(now.getDate() + i);
+                        next.setHours(openH, openM, 0, 0);
+                        setNextOpening(next);
+                        return;
+                    }
                 }
             }
 
@@ -513,6 +522,7 @@ export default function MenuClientPage({
 
             if (now >= openDate && now <= closeDate) {
 
+                setIsRestaurantOpen(true);
                 setNextOpening(null);
                 return;
             }
@@ -524,6 +534,11 @@ export default function MenuClientPage({
         }
 
         console.log(slots)
+
+        if (restaurant.allow_future_order_scheduling !== true) {
+            setNextOpening(null);
+            return;
+        }
 
         if (slots[0]) {
             const [openH, openM] = slots[0].open.split(":").map(Number);
@@ -685,7 +700,7 @@ export default function MenuClientPage({
                     </h1>
 
                     <p className="text-gray-600 text-xs 2xl:text-[1rem] mt-1 border-b border-gray-200 pb-2">
-                        {(nextOpening === null && !closedForToday) ? "Aberto" : "Fechado" }
+                        {(isRestaurantOpen && !closedForToday) ? "Aberto" : "Fechado" }
                         {isTableOrder ? (
                             <> • {selectedTable?.name || tableOrder?.tableName || "Atendimento na mesa"}</>
                         ) : (
@@ -1014,9 +1029,9 @@ export default function MenuClientPage({
             )}
 
             {(isTableOrder
-                ? !closedForToday && nextOpening === null
+                ? !closedForToday && isRestaurantOpen
                 : restaurant.allow_future_order_scheduling === true ||
-                  (!closedForToday && (nextOpening === null || canScheduleToday))) && (
+                  (!closedForToday && (isRestaurantOpen || canScheduleToday))) && (
                 <CartBar
                     onOpenCartAction={() => {
                         if (!cartOpen) {
