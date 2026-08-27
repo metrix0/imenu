@@ -19,7 +19,7 @@ import Card from "@/components/ui/Card";
 import Tooltip from "@/components/ui/Tooltip";
 import { supabase } from "@/lib/database/supabaseClient";
 
-const futureSchedulingByRestaurant = new Map<string, Promise<boolean>>();
+const futureSchedulingByRestaurant = new Map<string, PromiseLike<boolean>>();
 
 function getFutureSchedulingSetting(restaurantId: string) {
     const cached = futureSchedulingByRestaurant.get(restaurantId);
