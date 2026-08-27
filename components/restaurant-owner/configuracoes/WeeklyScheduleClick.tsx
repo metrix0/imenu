@@ -214,6 +214,17 @@ export default function WeeklyScheduleClick({
         });
         setEditModal((prev) => ({ ...prev, isOpen: false }));
     };
+    const openDeleteModal = () => {
+        setEditModal((prev) => ({ ...prev, isOpen: false }));
+        window.setTimeout(() => setIsDeleteModalOpen(true), 220);
+    };
+    const closeDeleteModal = () => {
+        setIsDeleteModalOpen(false);
+        window.setTimeout(
+            () => setEditModal((prev) => ({ ...prev, isOpen: true })),
+            220,
+        );
+    };
     const deleteSlot = async () => {
         if (editModal.slotIndex !== null) {
             const nextValue = {
@@ -434,7 +445,7 @@ export default function WeeklyScheduleClick({
                         {editModal.slotIndex !== null && (
                             <button
                                 type="button"
-                                onClick={() => setIsDeleteModalOpen(true)}
+                                onClick={openDeleteModal}
                                 className="flex h-[50px] w-[50px] shrink-0 cursor-pointer items-center justify-center rounded-full text-brand transition-colors hover:bg-red-50 hover:text-red-700"
                             >
                                 <FontAwesomeIcon icon={faTrash} />
@@ -460,7 +471,7 @@ export default function WeeklyScheduleClick({
             </Modal>
             <ConfirmModal
                 open={isDeleteModalOpen}
-                onClose={() => setIsDeleteModalOpen(false)}
+                onClose={closeDeleteModal}
                 onConfirm={deleteSlot}
                 title="Excluir horário?"
                 description={`Excluir ${editModal.startTime}–${editModal.endTime} de ${dayName(editModal.dayKey)}?`}
