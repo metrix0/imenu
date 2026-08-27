@@ -137,7 +137,6 @@ function inferPixKeyType(value: string | null): PixKeyType | null {
     if (digits.length === 14) return "CNPJ";
     if (digits.length === 13 && digits.startsWith("55")) return "PHONE";
 
-    // 11 raw digits can be either CPF or phone, so never guess.
     return null;
 }
 
@@ -288,6 +287,9 @@ export async function GET(request: Request) {
                 restaurant_id: string;
                 restaurant_name: string;
                 amount_cents: number;
+                gross_cents: number | null;
+                payzu_fee_cents: number | null;
+                discount_cents: number | null;
                 status: string;
                 created_at: string | Date;
                 paid_at: string | Date | null;
@@ -298,6 +300,9 @@ export async function GET(request: Request) {
                     p.restaurant_id,
                     COALESCE(r.name, 'Restaurante') AS restaurant_name,
                     p.amount_cents,
+                    p.gross_cents,
+                    p.payzu_fee_cents,
+                    p.discount_cents,
                     p.status,
                     p.created_at,
                     p.paid_at
@@ -337,6 +342,11 @@ export async function GET(request: Request) {
             history: historyResult.rows.map((row) => ({
                 ...row,
                 amount_cents: Number(row.amount_cents) || 0,
+                gross_cents: row.gross_cents == null ? null : Number(row.gross_cents),
+                payzu_fee_cents:
+                    row.payzu_fee_cents == null ? null : Number(row.payzu_fee_cents),
+                discount_cents:
+                    row.discount_cents == null ? null : Number(row.discount_cents),
             })),
         });
     } catch (error) {
@@ -418,10 +428,7 @@ export async function POST(request: Request) {
                 const discountCents = adjustToOnePercent
                     ? Math.round(grossCents * 0.01)
                     : Math.round(grossCents * (discountPercent / 100));
-                const calculatedNetCents = Math.max(
-                    0,
-                    grossCents - discountCents
-                );
+                const calculatedNetCents = Math.max(0, grossCents - discountCents);
                 const requestedAmount = amountOverrides[row.restaurant_id];
                 const netCents =
                     requestedAmount === undefined
@@ -489,14 +496,24 @@ export async function POST(request: Request) {
                 INSERT INTO public.payouts (
                     restaurant_id,
                     amount_cents,
+                    gross_cents,
+                    payzu_fee_cents,
+                    discount_cents,
                     status,
                     created_at,
                     paid_at
                 )
-                VALUES ($1, $2, 'processing', $3, NULL)
+                VALUES ($1, $2, $3, $4, $5, 'processing', $6, NULL)
                 RETURNING id
                 `,
-                [item.row.restaurant_id, item.netCents, cutoffAt.toISOString()]
+                [
+                    item.row.restaurant_id,
+                    item.netCents,
+                    item.grossCents,
+                    item.payzuFeeCents,
+                    item.discountCents,
+                    cutoffAt.toISOString(),
+                ]
             );
             const payoutId = payoutInsert.rows[0]?.id;
             if (!payoutId) {
@@ -559,9 +576,6 @@ export async function POST(request: Request) {
                     });
                 }
             } catch (error) {
-                // A resposta de erro HTTP é definitiva e não representa transferência aceita.
-                // Se for uma falha de rede desconhecida, manter 'processing' evita pagamento duplicado;
-                // a próxima abertura do painel tenta reconciliar pelo externalReference.
                 const message = error instanceof Error ? error.message : "Falha ao enviar PIX.";
                 const isNetworkFailure = /fetch|network|socket|timeout|ECONN|UND_ERR/i.test(message);
 
