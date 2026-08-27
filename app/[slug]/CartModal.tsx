@@ -49,6 +49,18 @@ const PAYMENT_OPTIONS = [
     },
 ];
 
+function formatDateInputValue(date: Date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+}
+
+function dateFromInput(value: string) {
+    const [year, month, day] = value.split("-").map(Number);
+    return new Date(year, month - 1, day, 12, 0, 0, 0);
+}
+
 export default function CartModal({
                                        onClose,
                                        restaurant,
@@ -105,6 +117,9 @@ export default function CartModal({
     const [loadingUpsells, setLoadingUpsells] = useState(false);
     const [showOptionalSchedule, setShowOptionalSchedule] = useState(false);
     const [scheduleDropdownOpen, setScheduleDropdownOpen] = useState(false);
+    const todayInput = formatDateInputValue(new Date());
+    const [scheduleDate, setScheduleDate] = useState(todayInput);
+    const allowFutureScheduling = restaurant?.allow_future_order_scheduling === true;
     const coupon_code = useCheckoutStore((s) => s.coupon_code);
     const coupon_type = useCheckoutStore((s) => s.coupon_type);
     const coupon_discount_cents = useCheckoutStore((s) => s.coupon_discount_cents);
@@ -121,7 +136,12 @@ export default function CartModal({
         }
 
         const now = new Date();
-        if (restaurant?.is_closed) {
+        const targetDate = allowFutureScheduling
+            ? dateFromInput(scheduleDate)
+            : now;
+        const isToday = formatDateInputValue(targetDate) === todayInput;
+
+        if (isToday && restaurant?.is_closed) {
             const closedDate = new Date(restaurant.is_closed);
             const businessToday = new Date();
             if (businessToday.getHours() < 4) {
@@ -139,7 +159,7 @@ export default function CartModal({
             }
         }
 
-        const slots = availability[now.getDay()] ?? [];
+        const slots = availability[targetDate.getDay()] ?? [];
         if (!Array.isArray(slots)) {
             return {
                 options: [] as { value: string; label: string }[],
@@ -153,19 +173,19 @@ export default function CartModal({
         for (const slot of slots) {
             const [openH, openM] = String(slot.open).split(":").map(Number);
             const [closeH, closeM] = String(slot.close).split(":").map(Number);
-            const openDate = new Date();
+            const openDate = new Date(targetDate);
             openDate.setHours(openH, openM, 0, 0);
-            const closeDate = new Date();
+            const closeDate = new Date(targetDate);
             closeDate.setHours(closeH, closeM, 0, 0);
 
-            if (now >= openDate && now <= closeDate) {
+            if (isToday && now >= openDate && now <= closeDate) {
                 isOpenNow = true;
             }
 
-            if (closeDate <= now) continue;
+            if (isToday && closeDate <= now) continue;
 
             let firstAvailable = new Date(openDate);
-            if (now >= openDate) {
+            if (isToday && now >= openDate) {
                 firstAvailable = new Date(now);
                 firstAvailable.setSeconds(0, 0);
                 const minutes = firstAvailable.getMinutes();
@@ -201,10 +221,15 @@ export default function CartModal({
         return { options, isOpenNow };
     })();
     const scheduledOptions = schedulingState.options;
-    const mustSchedule = scheduledOptions.length > 0 && !schedulingState.isOpenNow;
+    const selectedDateIsToday = scheduleDate === todayInput;
+    const mustSchedule =
+        selectedDateIsToday &&
+        scheduledOptions.length > 0 &&
+        !schedulingState.isOpenNow;
+    const hasSchedulingChoice = allowFutureScheduling || scheduledOptions.length > 0;
     const showSchedulePicker =
         mustSchedule || showOptionalSchedule || (!mustSchedule && Boolean(scheduled_for));
-    const scheduledOptionsKey = scheduledOptions.map((option) => option.value).join("|");
+    const scheduledOptionsKey = `${scheduleDate}|${scheduledOptions.map((option) => option.value).join("|")}`;
     const selectedScheduledOption = scheduledOptions.find(
         (option) => option.value === scheduled_for
     ) ?? scheduledOptions[0];
@@ -219,7 +244,9 @@ export default function CartModal({
 
         if (scheduledOptions.length === 0) {
             if (scheduled_for) setField("scheduled_for", null);
-            setShowOptionalSchedule(false);
+            if (!allowFutureScheduling) {
+                setShowOptionalSchedule(false);
+            }
             setScheduleDropdownOpen(false);
             return;
         }
@@ -235,10 +262,15 @@ export default function CartModal({
             return;
         }
 
+        if (showOptionalSchedule && !selectedIsValid) {
+            setField("scheduled_for", scheduledOptions[0].value);
+            return;
+        }
+
         if (scheduled_for && !selectedIsValid) {
             setField("scheduled_for", null);
         }
-    }, [scheduledOptionsKey, scheduled_for, mustSchedule, isTableOrder]);
+    }, [scheduledOptionsKey, scheduled_for, mustSchedule, isTableOrder, allowFutureScheduling, showOptionalSchedule]);
 
     const restaurantAddress = (() => {
         const rawAddress = restaurant?.address;
@@ -879,7 +911,7 @@ export default function CartModal({
                                     {(it.selectedSubitems?.length > 0 || it.observation) && (
                                         <div className="text-sm text-gray-500 mb-2 mt-2">
                                             {it.selectedSubitems?.map((s) => (
-                                                <p key={s.subitemId}>+ {s.subitemName}</p>
+                                                <p key={s.subitemId}>+ {(s.quantity || 1) > 1 ? `${s.quantity}x ` : ""}{s.subitemName}</p>
                                             ))}
                                             {it.observation && (
                                                 <p className="italic mt-1">Obs: {it.observation}</p>
@@ -932,7 +964,7 @@ export default function CartModal({
                             {upsells.map(item => (
                                 <button
                                     key={item.id}
-                                    onClick={() => onSelectItem(item)} // SAME add logic as other items
+                                    onClick={() => onSelectItem(item)}
                                     className="w-[28.3vw] md:w-[33%] h-auto aspect-square flex-shrink-0 text-left"
                                 >
                                     <div className="relative">
@@ -1184,7 +1216,7 @@ export default function CartModal({
                 <div className="w-full px-4 overflow-y-auto pt-4 md:pb-32 2xl:px-8">
 
                     <>
-                        {scheduledOptions.length > 0 && (
+                        {hasSchedulingChoice && (
                             <div
                                 className={`relative grid transition-all duration-300 ease-out ${scheduleDropdownOpen ? "z-[90]" : "z-auto"} ${
                                     showSchedulePicker
@@ -1200,7 +1232,9 @@ export default function CartModal({
                                                     Pedido agendado
                                                 </h2>
                                                 <p className="mt-1 text-sm text-green-800 2xl:text-base">
-                                                    Escolha o horário para {isPickup ? "retirar" : "receber"} seu pedido hoje.
+                                                    {allowFutureScheduling
+                                                        ? `Escolha o dia e horário para ${isPickup ? "retirar" : "receber"} seu pedido.`
+                                                        : `Escolha o horário para ${isPickup ? "retirar" : "receber"} seu pedido hoje.`}
                                                 </p>
                                             </div>
                                             {!mustSchedule && (
@@ -1211,6 +1245,7 @@ export default function CartModal({
                                                         setScheduleDropdownOpen(false);
                                                         setShowOptionalSchedule(false);
                                                         setField("scheduled_for", null);
+                                                        setScheduleDate(todayInput);
                                                     }}
                                                     className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-full text-green-800 transition hover:bg-green-100"
                                                 >
@@ -1219,61 +1254,92 @@ export default function CartModal({
                                             )}
                                         </div>
 
-                                        <div className="relative mt-3">
-                                            <button
-                                                type="button"
-                                                aria-haspopup="listbox"
-                                                aria-expanded={scheduleDropdownOpen}
-                                                onClick={() => setScheduleDropdownOpen((open) => !open)}
-                                                className="flex w-full cursor-pointer items-center justify-between rounded-xl border border-green-200 bg-white px-5 py-3 text-sm font-medium text-gray-800 outline-none transition hover:border-green-300 focus:border-green-400 2xl:text-lg"
-                                            >
-                                                <span className="flex items-center gap-3">
-                                                    <FontAwesomeIcon icon={icons.faClock} className="text-green-700" />
-                                                    {selectedScheduledOption?.label}
+                                        {allowFutureScheduling && (
+                                            <label className="mt-4 block">
+                                                <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-green-800">
+                                                    Dia
                                                 </span>
-                                                <FontAwesomeIcon
-                                                    icon={icons.faChevronDown}
-                                                    className={`mr-1 text-xs text-green-700 transition-transform duration-200 ${scheduleDropdownOpen ? "rotate-180" : ""}`}
-                                                />
-                                            </button>
+                                                <div className="relative">
+                                                    <FontAwesomeIcon
+                                                        icon={faCalendarDays}
+                                                        className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-green-700"
+                                                    />
+                                                    <input
+                                                        type="date"
+                                                        min={todayInput}
+                                                        value={scheduleDate}
+                                                        onChange={(event) => {
+                                                            setScheduleDate(event.target.value || todayInput);
+                                                            setField("scheduled_for", null);
+                                                            setScheduleDropdownOpen(false);
+                                                        }}
+                                                        className="w-full cursor-pointer rounded-xl border border-green-200 bg-white py-3 pl-11 pr-4 text-sm font-medium text-gray-800 outline-none transition hover:border-green-300 focus:border-green-400 2xl:text-lg"
+                                                    />
+                                                </div>
+                                            </label>
+                                        )}
 
-                                            <div
-                                                className={`absolute left-0 right-0 top-full z-[100] mt-2 origin-top overflow-hidden rounded-xl border bg-white shadow-lg transition-all duration-200 ease-out ${
-                                                    scheduleDropdownOpen
-                                                        ? "max-h-56 translate-y-0 scale-y-100 border-green-100 opacity-100"
-                                                        : "pointer-events-none max-h-0 -translate-y-1 scale-y-95 border-transparent opacity-0"
-                                                }`}
-                                            >
-                                                <div className="max-h-56 overflow-y-auto p-1.5">
-                                                    {scheduledOptions.map((option) => {
-                                                        const selected = option.value === selectedScheduledOption?.value;
-                                                        return (
-                                                            <button
-                                                                key={option.value}
-                                                                type="button"
-                                                                role="option"
-                                                                aria-selected={selected}
-                                                                onClick={() => {
-                                                                    setField("scheduled_for", option.value);
-                                                                    setScheduleDropdownOpen(false);
-                                                                }}
-                                                                className={`flex w-full cursor-pointer items-center gap-3 rounded-lg px-3.5 py-2.5 text-left text-sm font-medium transition 2xl:text-base ${
-                                                                    selected
-                                                                        ? "bg-green-50 text-green-800"
-                                                                        : "text-gray-700 hover:bg-gray-50"
-                                                                }`}
-                                                            >
-                                                                <FontAwesomeIcon
-                                                                    icon={icons.faClock}
-                                                                    className={selected ? "text-green-700" : "text-gray-400"}
-                                                                />
-                                                                {option.label}
-                                                            </button>
-                                                        );
-                                                    })}
+                                        {scheduledOptions.length > 0 ? (
+                                            <div className="relative mt-3">
+                                                <button
+                                                    type="button"
+                                                    aria-haspopup="listbox"
+                                                    aria-expanded={scheduleDropdownOpen}
+                                                    onClick={() => setScheduleDropdownOpen((open) => !open)}
+                                                    className="flex w-full cursor-pointer items-center justify-between rounded-xl border border-green-200 bg-white px-5 py-3 text-sm font-medium text-gray-800 outline-none transition hover:border-green-300 focus:border-green-400 2xl:text-lg"
+                                                >
+                                                    <span className="flex items-center gap-3">
+                                                        <FontAwesomeIcon icon={icons.faClock} className="text-green-700" />
+                                                        {selectedScheduledOption?.label}
+                                                    </span>
+                                                    <FontAwesomeIcon
+                                                        icon={icons.faChevronDown}
+                                                        className={`mr-1 text-xs text-green-700 transition-transform duration-200 ${scheduleDropdownOpen ? "rotate-180" : ""}`}
+                                                    />
+                                                </button>
+
+                                                <div
+                                                    className={`absolute left-0 right-0 top-full z-[100] mt-2 origin-top overflow-hidden rounded-xl border bg-white shadow-lg transition-all duration-200 ease-out ${
+                                                        scheduleDropdownOpen
+                                                            ? "max-h-56 translate-y-0 scale-y-100 border-green-100 opacity-100"
+                                                            : "pointer-events-none max-h-0 -translate-y-1 scale-y-95 border-transparent opacity-0"
+                                                    }`}
+                                                >
+                                                    <div className="max-h-56 overflow-y-auto p-1.5">
+                                                        {scheduledOptions.map((option) => {
+                                                            const selected = option.value === selectedScheduledOption?.value;
+                                                            return (
+                                                                <button
+                                                                    key={option.value}
+                                                                    type="button"
+                                                                    role="option"
+                                                                    aria-selected={selected}
+                                                                    onClick={() => {
+                                                                        setField("scheduled_for", option.value);
+                                                                        setScheduleDropdownOpen(false);
+                                                                    }}
+                                                                    className={`flex w-full cursor-pointer items-center gap-3 rounded-lg px-3.5 py-2.5 text-left text-sm font-medium transition 2xl:text-base ${
+                                                                        selected
+                                                                            ? "bg-green-50 text-green-800"
+                                                                            : "text-gray-700 hover:bg-gray-50"
+                                                                    }`}
+                                                                >
+                                                                    <FontAwesomeIcon
+                                                                        icon={icons.faClock}
+                                                                        className={selected ? "text-green-700" : "text-gray-400"}
+                                                                    />
+                                                                    {option.label}
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
+                                        ) : (
+                                            <p className="mt-3 rounded-lg bg-white px-4 py-3 text-sm text-gray-500">
+                                                O restaurante não possui horários disponíveis neste dia.
+                                            </p>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -1283,12 +1349,14 @@ export default function CartModal({
                             <h2 className="font-semibold text-md 2xl:text-lg">
                                 Pagamento
                             </h2>
-                            {!mustSchedule && scheduledOptions.length > 0 && !showSchedulePicker && (
+                            {!mustSchedule && hasSchedulingChoice && !showSchedulePicker && (
                                 <button
                                     type="button"
                                     onClick={() => {
                                         setShowOptionalSchedule(true);
-                                        setField("scheduled_for", scheduledOptions[0].value);
+                                        if (scheduledOptions[0]) {
+                                            setField("scheduled_for", scheduledOptions[0].value);
+                                        }
                                     }}
                                     className="inline-flex cursor-pointer items-center gap-2 text-sm font-medium text-brand transition hover:opacity-75 2xl:text-base"
                                 >
