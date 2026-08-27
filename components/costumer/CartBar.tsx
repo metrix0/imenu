@@ -269,6 +269,11 @@ export default function CartBar({
         const cart = useCartStore.getState();
         const checkout = useCheckoutStore.getState();
         const pickup = !isTableOrder && Boolean((checkout as any).is_pickup);
+        const whatsappWindow =
+            restaurant.force_whatsapp_order_confirmation &&
+            typeof window !== "undefined"
+                ? window.open("", "_blank")
+                : null;
 
         // ✅ derived values (frontend preview only)
         const subtotal_cents = cart.items.reduce(
@@ -368,6 +373,7 @@ export default function CartBar({
         const data = await res.json();
 
         if (!res.ok) {
+            whatsappWindow?.close();
             window.alert(
                 data?.error || "Não foi possível criar o pedido. Tente novamente."
             );
@@ -427,15 +433,31 @@ export default function CartBar({
                 if (confirmationResponse.ok) {
                     const confirmation = await confirmationResponse.json();
                     if (confirmation?.url) {
-                        window.open(confirmation.url, "_blank", "noopener,noreferrer");
+                        if (whatsappWindow) {
+                            whatsappWindow.opener = null;
+                            whatsappWindow.location.href = confirmation.url;
+                        } else {
+                            window.open(
+                                confirmation.url,
+                                "_blank",
+                                "noopener,noreferrer"
+                            );
+                        }
+                    } else {
+                        whatsappWindow?.close();
                     }
+                } else {
+                    whatsappWindow?.close();
                 }
             } catch (error) {
+                whatsappWindow?.close();
                 console.error(
                     "[WHATSAPP_ORDER_CONFIRMATION] Failed to open WhatsApp:",
                     error
                 );
             }
+        } else {
+            whatsappWindow?.close();
         }
 
         if (data.payment_type === "offline") {
