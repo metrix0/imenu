@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
+    faCircleInfo,
     faCopy,
     faDownload,
     faSignOutAlt,
@@ -19,6 +20,7 @@ import Input from "@/components/ui/Input";
 import Loader from "@/components/ui/Loader";
 import Toast from "@/components/ui/Toast";
 import ConfirmModal from "@/components/ui/ConfirmModal";
+import Tooltip from "@/components/ui/Tooltip";
 import QrCodeMesaSettingsSection from "@/components/restaurant-owner/configuracoes/QrCodeMesaSettingsSection";
 
 type Restaurant = {
@@ -606,6 +608,12 @@ export default function ConfiguracoesPage() {
                         </div>
                     </Card>
 
+                    {restaurant && (
+                        <QrCodeMesaSettingsSection
+                            restaurantId={restaurant.id}
+                        />
+                    )}
+
                     <Card className="border border-gray-200 shadow-sm">
                         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                             <div>
@@ -679,25 +687,23 @@ export default function ConfiguracoesPage() {
                                     <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700">
                                         Não recomendado
                                     </span>
+                                    <Tooltip
+                                        text="Isso adiciona uma etapa extra à finalização e pode criar atrito no pedido. O pedido é criado antes do WhatsApp: o cliente pode simplesmente não enviar a mensagem e o pedido continuará válido."
+                                        position="top"
+                                        size="medium"
+                                        showOnClick
+                                    >
+                                        <FontAwesomeIcon
+                                            icon={faCircleInfo}
+                                            className="cursor-help text-base text-gray-400 transition-colors hover:text-brand"
+                                        />
+                                    </Tooltip>
                                 </div>
                                 <p className="mt-2 text-sm text-gray-500">
                                     Após confirmar o pedido, o cliente será direcionado ao
                                     WhatsApp do restaurante com a comanda completa já
                                     preenchida.
                                 </p>
-
-                                <div className="mt-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-                                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-amber-400 text-xs font-bold">
-                                        i
-                                    </span>
-                                    <p>
-                                        Isso adiciona uma etapa extra à finalização e pode
-                                        criar atrito no pedido. O pedido é criado antes do
-                                        redirecionamento: o cliente pode simplesmente não
-                                        enviar a mensagem no WhatsApp e o pedido continuará
-                                        válido.
-                                    </p>
-                                </div>
                             </div>
 
                             <div className="flex shrink-0 items-center gap-3">
@@ -728,12 +734,6 @@ export default function ConfiguracoesPage() {
                             </div>
                         </div>
                     </Card>
-
-                    {restaurant && (
-                        <QrCodeMesaSettingsSection
-                            restaurantId={restaurant.id}
-                        />
-                    )}
 
                     {restaurant && shareableUrl && (
                         <Card className="border border-gray-200 shadow-sm">
