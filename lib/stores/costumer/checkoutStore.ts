@@ -239,11 +239,11 @@ if (typeof window !== "undefined") {
                 const deltaX = touch.clientX - start.x;
                 const deltaY = touch.clientY - start.y;
 
-                const isLeftSwipe =
-                    deltaX <= -70 &&
+                const isBackSwipe =
+                    deltaX >= 70 &&
                     Math.abs(deltaX) > Math.abs(deltaY) * 1.25;
 
-                if (!isLeftSwipe) return;
+                if (!isBackSwipe) return;
 
                 const state = useCheckoutStore.getState();
                 if (state.step === "checkout") {
