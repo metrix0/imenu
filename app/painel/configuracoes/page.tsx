@@ -30,6 +30,7 @@ type Restaurant = {
     user_id?: string | null;
     phone?: string | null;
     force_whatsapp_order_confirmation?: boolean | null;
+    allow_future_order_scheduling?: boolean | null;
 };
 
 type OrderDingleDuration = "short" | "medium" | "long";
@@ -198,6 +199,10 @@ export default function ConfiguracoesPage() {
         useState(false);
     const [isSavingWhatsappConfirmation, setIsSavingWhatsappConfirmation] =
         useState(false);
+    const [allowFutureOrderScheduling, setAllowFutureOrderScheduling] =
+        useState(false);
+    const [isSavingOrderScheduling, setIsSavingOrderScheduling] =
+        useState(false);
     const [isLoggingOut, setIsLoggingOut] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -255,7 +260,7 @@ export default function ConfiguracoesPage() {
                     const { data: restData } = await supabase
                         .from("restaurants")
                         .select(
-                            "id, name, url_slug, user_id, phone, force_whatsapp_order_confirmation",
+                            "id, name, url_slug, user_id, phone, force_whatsapp_order_confirmation, allow_future_order_scheduling",
                         )
                         .eq("id", targetId)
                         .single();
@@ -264,6 +269,9 @@ export default function ConfiguracoesPage() {
                         setRestaurant(restData);
                         setForceWhatsappOrderConfirmation(
                             restData.force_whatsapp_order_confirmation === true,
+                        );
+                        setAllowFutureOrderScheduling(
+                            restData.allow_future_order_scheduling === true,
                         );
                         const formattedPhone = formatPhone(
                             restData.phone || "",
@@ -347,6 +355,42 @@ export default function ConfiguracoesPage() {
             message: enabled
                 ? "Notificação por WhatsApp ativada."
                 : "Notificação por WhatsApp desativada.",
+            type: "success",
+        });
+    };
+
+    const saveOrderSchedulingMode = async (allowFuture: boolean) => {
+        if (!restaurant || isSavingOrderScheduling) return;
+
+        setIsSavingOrderScheduling(true);
+        const { error } = await supabase
+            .from("restaurants")
+            .update({ allow_future_order_scheduling: allowFuture })
+            .eq("id", restaurant.id);
+        setIsSavingOrderScheduling(false);
+
+        if (error) {
+            console.error("Erro ao salvar modo de agendamento:", error);
+            setToast({
+                message: "Erro ao salvar a configuração de agendamentos.",
+                type: "error",
+            });
+            return;
+        }
+
+        setAllowFutureOrderScheduling(allowFuture);
+        setRestaurant((current) =>
+            current
+                ? {
+                      ...current,
+                      allow_future_order_scheduling: allowFuture,
+                  }
+                : current,
+        );
+        setToast({
+            message: allowFuture
+                ? "Agendamentos para dias futuros ativados."
+                : "Agendamentos limitados ao dia atual.",
             type: "success",
         });
     };
@@ -613,6 +657,59 @@ export default function ConfiguracoesPage() {
                             restaurantId={restaurant.id}
                         />
                     )}
+
+                    <Card className="border border-gray-200 shadow-sm">
+                        <div className="mb-5">
+                            <h2 className="text-xl font-medium text-gray-900">
+                                Agendamento de pedidos
+                            </h2>
+                            <p className="mt-2 text-sm text-gray-500">
+                                Escolha se os clientes podem agendar somente para o dia atual ou também para dias futuros. Dias futuros é mais indicado para quem trabalha com encomendas.
+                            </p>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                            <button
+                                type="button"
+                                disabled={isSavingOrderScheduling}
+                                onClick={() => void saveOrderSchedulingMode(false)}
+                                className={`cursor-pointer rounded-xl border p-4 text-left transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                                    !allowFutureOrderScheduling
+                                        ? "border-brand bg-red-50"
+                                        : "border-gray-200 bg-white hover:border-gray-300"
+                                }`}
+                            >
+                                <span className={`block font-semibold ${!allowFutureOrderScheduling ? "text-brand" : "text-gray-900"}`}>
+                                    Dia atual
+                                </span>
+                                <span className="mt-1 block text-sm text-gray-500">
+                                    Permite agendar apenas horários disponíveis de hoje.
+                                </span>
+                            </button>
+
+                            <button
+                                type="button"
+                                disabled={isSavingOrderScheduling}
+                                onClick={() => void saveOrderSchedulingMode(true)}
+                                className={`cursor-pointer rounded-xl border p-4 text-left transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                                    allowFutureOrderScheduling
+                                        ? "border-brand bg-red-50"
+                                        : "border-gray-200 bg-white hover:border-gray-300"
+                                }`}
+                            >
+                                <span className={`block font-semibold ${allowFutureOrderScheduling ? "text-brand" : "text-gray-900"}`}>
+                                    Dias futuros
+                                </span>
+                                <span className="mt-1 block text-sm text-gray-500">
+                                    Ideal para encomendas: o cliente escolhe o dia e depois o horário disponível.
+                                </span>
+                            </button>
+                        </div>
+
+                        {isSavingOrderScheduling && (
+                            <p className="mt-3 text-xs text-gray-400">Salvando...</p>
+                        )}
+                    </Card>
 
                     <Card className="border border-gray-200 shadow-sm">
                         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
