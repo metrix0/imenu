@@ -280,6 +280,10 @@ export default function MenuManagerPage() {
                 onClose={() => setIsItemDetailsOpen(false)}
                 item={itemToEditDetails}
                 restaurantId={restaurantId}
+                onOpenBulkComplements={() => {
+                    setIsItemDetailsOpen(false);
+                    setActiveTab("Complemento");
+                }}
             />
 
             <ScanMenuModal
