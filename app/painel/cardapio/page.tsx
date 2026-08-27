@@ -15,7 +15,7 @@ import EstoqueTab from "@/components/restaurant-owner/cardapio/tabs/EstoqueTabs"
 
 import ManageCategoryModal from "@/components/restaurant-owner/cardapio/ManageCategoryModal";
 import ItemDetailsModal from "@/components/restaurant-owner/cardapio/ItemDetailsModal";
-import ScanMenuModal from "@/components/restaurant-owner/cardapio/ScanMenuImageModal";
+import ScanMenuModal from "@/components/restaurant-owner/ScanMenuImageModal";
 import { MenuItemType } from "@/components/restaurant-owner/cardapio/MenuItemRow";
 import { useRouter } from "next/navigation";
 
