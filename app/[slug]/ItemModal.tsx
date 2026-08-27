@@ -41,7 +41,7 @@ export default function ItemModal({
     const [open, setOpen] = useState(false);
     const [selected, setSelected] = useState<Record<string, Set<string>>>({});
     const addToCart = useCartStore((s) => s.addItem);
-    const [isRestaurantOpen, setIsRestaurantOpen] = useState(true);
+    const [isRestaurantOpen, setIsRestaurantOpen] = useState(false);
     const [canScheduleToday, setCanScheduleToday] = useState(false);
 
     useEffect(() => {
@@ -59,7 +59,11 @@ export default function ItemModal({
     }, [item.id, item.name, item.price_cents, restaurant.id, slug]);
 
     useEffect(() => {
-        if (!restaurant.availability_json) return;
+        if (!restaurant.availability_json) {
+            setIsRestaurantOpen(false);
+            setCanScheduleToday(false);
+            return;
+        }
         const avail = restaurant.availability_json;
         const today = new Date().getDay();
         const slots = avail[today] ?? [];
