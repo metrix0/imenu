@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import {
+    getAuthenticatedUser,
     RestaurantOwnerAuthError,
     requireRestaurantOwner,
 } from "@/lib/auth/restaurantOwner";
@@ -118,16 +119,31 @@ async function activateAddon(
 export async function POST(request: Request) {
     try {
         const body = (await request.json()) as { restaurantId?: string };
-        const restaurantId = String(body.restaurantId || "");
+        let restaurantId = String(body.restaurantId || "");
 
-        if (!restaurantId) {
-            return NextResponse.json(
-                { error: "Restaurante não informado." },
-                { status: 400 }
+        if (restaurantId) {
+            await requireRestaurantOwner(request, restaurantId);
+        } else {
+            const user = await getAuthenticatedUser(request);
+            const restaurantResult = await query<{ id: string }>(
+                `
+                    SELECT id
+                    FROM public.restaurants
+                    WHERE user_id = $1
+                    ORDER BY created_at ASC
+                    LIMIT 1
+                `,
+                [user.id]
             );
-        }
+            restaurantId = restaurantResult.rows[0]?.id || "";
 
-        await requireRestaurantOwner(request, restaurantId);
+            if (!restaurantId) {
+                return NextResponse.json(
+                    { error: "Restaurante não encontrado." },
+                    { status: 404 }
+                );
+            }
+        }
 
         const addonResult = await query<QrTableAddon>(
             `
