@@ -69,6 +69,15 @@ function getSelectedSubitems(item: any): any[] {
         : [];
 }
 
+function getSaoPauloDateKey(value: Date): string {
+    return new Intl.DateTimeFormat("en-CA", {
+        timeZone: "America/Sao_Paulo",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+    }).format(value);
+}
+
 async function cancelUnpaidOnlineOrder(
     orderId: string
 ): Promise<void> {
@@ -290,6 +299,33 @@ export async function POST(request: Request) {
                     "Horário de agendamento inválido."
                 );
             }
+
+            const schedulingResult = await query<{
+                allow_future_order_scheduling: boolean;
+            }>(
+                `
+                    SELECT allow_future_order_scheduling
+                    FROM restaurants
+                    WHERE id = $1
+                    LIMIT 1
+                `,
+                [restaurantId]
+            );
+            const schedulingRestaurant = schedulingResult.rows[0];
+            if (!schedulingRestaurant) {
+                throw new OrderRequestError("Restaurante não encontrado.", 404);
+            }
+
+            if (
+                schedulingRestaurant.allow_future_order_scheduling !== true &&
+                getSaoPauloDateKey(parsedScheduledFor) !==
+                    getSaoPauloDateKey(new Date())
+            ) {
+                throw new OrderRequestError(
+                    "Este restaurante permite agendamentos apenas para o dia atual."
+                );
+            }
+
             scheduledFor = parsedScheduledFor;
         }
 
@@ -447,6 +483,15 @@ export async function POST(request: Request) {
             ) {
                 throw new OrderRequestError(
                     "A recompensa possui complementos duplicados."
+                );
+            }
+
+            const invalidRewardQuantity = selectedRewardSubitems.some(
+                (subitem: any) => Number(subitem?.quantity ?? 1) !== 1
+            );
+            if (invalidRewardQuantity) {
+                throw new OrderRequestError(
+                    "A recompensa não permite múltiplas unidades do mesmo complemento."
                 );
             }
 
@@ -884,6 +929,18 @@ export async function POST(request: Request) {
                                 );
                             }
 
+                            const subitemQuantity = isRewardItem
+                                ? 1
+                                : Math.max(
+                                      1,
+                                      Math.min(
+                                          99,
+                                          Math.round(
+                                              Number(subitem?.quantity) || 1
+                                          )
+                                      )
+                                  );
+
                             await client.query(
                                 `
                                     INSERT INTO order_item_subitems (
@@ -898,7 +955,7 @@ export async function POST(request: Request) {
                                         (SELECT id FROM subitems WHERE id = $2),
                                         $3,
                                         $4,
-                                        1
+                                        $5
                                     )
                                 `,
                                 [
@@ -911,6 +968,7 @@ export async function POST(request: Request) {
                                               subitem.price_cents
                                           ) ||
                                           0,
+                                    subitemQuantity,
                                 ]
                             );
                         }
