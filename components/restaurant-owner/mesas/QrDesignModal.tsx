@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCheck, faPlus } from "@fortawesome/free-solid-svg-icons";
 
@@ -68,13 +68,9 @@ const TEMPLATES: TemplateOption[] = [
     },
 ];
 
-function MiniQr({ dark = false }: { dark?: boolean }) {
+function MiniQr() {
     return (
-        <div
-            className={`grid h-20 w-20 grid-cols-5 gap-1 rounded-lg p-2 shadow-sm ${
-                dark ? "bg-white" : "bg-white"
-            }`}
-        >
+        <div className="grid h-20 w-20 grid-cols-5 gap-1 rounded-lg bg-white p-2 shadow-sm">
             {Array.from({ length: 25 }, (_, index) => (
                 <span
                     key={index}
@@ -100,7 +96,7 @@ function Preview({
     bannerUrl: string;
     logoUrl: string;
 }) {
-    const style = { "--preview-accent": color } as React.CSSProperties;
+    const style = { "--preview-accent": color } as CSSProperties;
 
     if (template === "dark") {
         return (
@@ -108,7 +104,7 @@ function Preview({
                 <div className="absolute inset-x-0 top-0 h-1.5" style={{ background: color }} />
                 <div className="flex w-full flex-col items-center justify-center gap-3">
                     <div className="text-center text-sm font-extrabold text-white">ABRIR CARDÁPIO</div>
-                    <MiniQr dark />
+                    <MiniQr />
                     <div className="rounded-full px-3 py-1 text-[9px] font-bold text-white" style={{ background: color }}>
                         imenuapp.com.br/mesa
                     </div>
@@ -124,7 +120,9 @@ function Preview({
                     className="h-[38%] bg-cover bg-center"
                     style={{
                         backgroundColor: color,
-                        backgroundImage: bannerUrl ? `linear-gradient(rgba(0,0,0,.2),rgba(0,0,0,.2)), url(${bannerUrl})` : undefined,
+                        backgroundImage: bannerUrl
+                            ? `linear-gradient(rgba(0,0,0,.2),rgba(0,0,0,.2)), url(${bannerUrl})`
+                            : undefined,
                     }}
                 />
                 <div className="absolute inset-x-0 top-8 text-center text-xs font-extrabold text-white">SUA MESA</div>
@@ -177,7 +175,7 @@ function Preview({
                 style={{ background: `linear-gradient(145deg, ${color}, #111827)` }}
             >
                 <div className="text-xs font-extrabold text-white">Seu pedido começa aqui</div>
-                <MiniQr dark />
+                <MiniQr />
                 <div className="text-[9px] font-semibold text-white/80">Escaneie para abrir o cardápio</div>
             </div>
         );
@@ -237,7 +235,7 @@ export default function QrDesignModal({
     );
 
     return (
-        <Modal open={open} onClose={onClose} maxWidth="max-w-6xl">
+        <Modal open={open} onClose={onClose} className="max-w-6xl">
             <div className="border-b border-gray-100 px-6 py-5 sm:px-7">
                 <h2 className="text-xl font-bold text-gray-900">Configurar design</h2>
                 <p className="mt-1 text-sm text-gray-500">
