@@ -13,6 +13,31 @@ interface ModalProps {
     showCloseButton?: boolean;
 }
 
+let openModalCount = 0;
+let originalBodyOverflow = "";
+let originalHtmlOverflow = "";
+
+function lockPageScroll() {
+    if (openModalCount === 0) {
+        originalBodyOverflow = document.body.style.overflow;
+        originalHtmlOverflow = document.documentElement.style.overflow;
+        document.body.style.overflow = "hidden";
+        document.documentElement.style.overflow = "hidden";
+    }
+
+    openModalCount += 1;
+}
+
+function restorePageScroll() {
+    if (openModalCount === 0) return;
+
+    openModalCount -= 1;
+    if (openModalCount === 0) {
+        document.body.style.overflow = originalBodyOverflow;
+        document.documentElement.style.overflow = originalHtmlOverflow;
+    }
+}
+
 export default function Modal({
     open,
     onClose,
@@ -22,29 +47,25 @@ export default function Modal({
 }: ModalProps) {
     const [mounted, setMounted] = useState(open);
     const [active, setActive] = useState(false);
-    const previousBodyOverflow = useRef("");
-    const previousHtmlOverflow = useRef("");
+    const hasScrollLock = useRef(false);
 
-    function lockPageScroll() {
-        previousBodyOverflow.current = document.body.style.overflow;
-        previousHtmlOverflow.current =
-            document.documentElement.style.overflow;
-
-        document.body.style.overflow = "hidden";
-        document.documentElement.style.overflow = "hidden";
+    function acquireScrollLock() {
+        if (hasScrollLock.current) return;
+        lockPageScroll();
+        hasScrollLock.current = true;
     }
 
-    function restorePageScroll() {
-        document.body.style.overflow = previousBodyOverflow.current;
-        document.documentElement.style.overflow =
-            previousHtmlOverflow.current;
+    function releaseScrollLock() {
+        if (!hasScrollLock.current) return;
+        restorePageScroll();
+        hasScrollLock.current = false;
     }
 
     useEffect(() => {
         if (open) {
             setMounted(true);
             setActive(false);
-            lockPageScroll();
+            acquireScrollLock();
 
             let secondFrame = 0;
             const firstFrame = requestAnimationFrame(() => {
@@ -61,7 +82,7 @@ export default function Modal({
 
         const timer = window.setTimeout(() => {
             setMounted(false);
-            restorePageScroll();
+            releaseScrollLock();
         }, 200);
 
         return () => window.clearTimeout(timer);
@@ -80,7 +101,7 @@ export default function Modal({
 
     useEffect(
         () => () => {
-            restorePageScroll();
+            releaseScrollLock();
         },
         []
     );
