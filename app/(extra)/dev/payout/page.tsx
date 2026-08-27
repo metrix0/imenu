@@ -31,6 +31,9 @@ type HistoryItem = {
     restaurant_id: string;
     restaurant_name: string;
     amount_cents: number;
+    gross_cents: number | null;
+    payzu_fee_cents: number | null;
+    discount_cents: number | null;
     status: string;
     created_at: string;
     paid_at: string | null;
@@ -787,56 +790,109 @@ export default function DevPayoutPage() {
 
             <Card>
                 <h2 className="text-lg font-bold text-gray-900">Histórico de envios</h2>
-                <div className="mt-5 space-y-3">
-                    {(data?.history || []).map((item) => {
-                        const phone = restaurantPhones[item.restaurant_id];
-                        const whatsappNumber = normalizeWhatsappNumber(phone);
-                        const pixInfo = restaurantPixInfo[item.restaurant_id];
-                        return (
-                            <div
-                                key={item.id}
-                                className="flex flex-col gap-2 rounded-lg border border-gray-100 p-4 sm:flex-row sm:items-center sm:justify-between"
-                            >
-                                <div>
-                                    <div className="font-semibold text-gray-900">{item.restaurant_name}</div>
-                                    <div className="text-xs text-gray-500">{dateTime(item.created_at)}</div>
-                                    <div className="mt-1 text-xs text-gray-500">
-                                        Telefone: {formatPhone(phone) || "—"}
-                                    </div>
-                                    <div className="text-xs text-gray-500">
-                                        PIX: {pixInfo?.pixKey
-                                            ? `${pixInfo.pixKeyType ? `${pixInfo.pixKeyType} · ` : ""}${pixInfo.pixKey}`
-                                            : "—"}
-                                    </div>
-                                </div>
-                                <div className="flex flex-wrap items-center gap-3">
-                                    {item.status === "processing" && (
-                                        <span className="rounded-full bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700">Processando</span>
-                                    )}
-                                    <span className="text-lg font-bold text-gray-900">{money(item.amount_cents)}</span>
-                                    <Button
-                                        variant="secondary"
-                                        disabled={!whatsappNumber}
-                                        onClick={() => {
-                                            if (!whatsappNumber) return;
-                                            const message = `Repasse iMenu - ${item.restaurant_name}: ${whatsappMoney(item.amount_cents)}`;
-                                            window.open(
-                                                `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`,
-                                                "_blank",
-                                                "noopener,noreferrer"
-                                            );
-                                        }}
-                                        className="px-3 py-1.5 text-xs"
-                                    >
-                                        WhatsApp
-                                    </Button>
-                                </div>
-                            </div>
-                        );
-                    })}
-                    {data?.history.length === 0 && (
-                        <div className="py-8 text-center text-gray-400">Nenhum repasse registrado.</div>
-                    )}
+                <div className="mt-5 overflow-x-auto">
+                    <table className="w-full min-w-[1250px] text-left text-sm">
+                        <thead className="border-b border-gray-100 text-xs uppercase text-gray-400">
+                            <tr>
+                                <th className="px-3 py-3">Restaurante</th>
+                                <th className="px-3 py-3">Data</th>
+                                <th className="px-3 py-3">Telefone</th>
+                                <th className="px-3 py-3">PIX</th>
+                                <th className="px-3 py-3 text-right">Bruto</th>
+                                <th className="px-3 py-3 text-right">PayZu</th>
+                                <th className="px-3 py-3 text-right">Desconto</th>
+                                <th className="px-3 py-3 text-right">Enviado</th>
+                                <th className="px-3 py-3">Status</th>
+                                <th className="px-3 py-3 text-right">Ação</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                            {(data?.history || []).map((item) => {
+                                const phone = restaurantPhones[item.restaurant_id];
+                                const whatsappNumber = normalizeWhatsappNumber(phone);
+                                const pixInfo = restaurantPixInfo[item.restaurant_id];
+                                const effectiveDiscountCents =
+                                    item.gross_cents == null
+                                        ? item.discount_cents
+                                        : Math.max(0, item.gross_cents - item.amount_cents);
+
+                                return (
+                                    <tr key={item.id}>
+                                        <td className="px-3 py-4 font-semibold text-gray-900">
+                                            {item.restaurant_name}
+                                        </td>
+                                        <td className="px-3 py-4 whitespace-nowrap text-gray-500">
+                                            {dateTime(item.created_at)}
+                                        </td>
+                                        <td className="px-3 py-4 whitespace-nowrap text-gray-500">
+                                            {formatPhone(phone) || "—"}
+                                        </td>
+                                        <td className="px-3 py-4 text-gray-500">
+                                            {pixInfo?.pixKey
+                                                ? `${pixInfo.pixKeyType ? `${pixInfo.pixKeyType} · ` : ""}${pixInfo.pixKey}`
+                                                : "—"}
+                                        </td>
+                                        <td className="px-3 py-4 text-right">
+                                            {item.gross_cents == null ? "—" : money(item.gross_cents)}
+                                        </td>
+                                        <td className="px-3 py-4 text-right text-gray-500">
+                                            {item.payzu_fee_cents == null ? "—" : money(item.payzu_fee_cents)}
+                                        </td>
+                                        <td className="px-3 py-4 text-right text-gray-500">
+                                            {effectiveDiscountCents == null
+                                                ? "—"
+                                                : effectiveDiscountCents > 0
+                                                  ? `-${money(effectiveDiscountCents)}`
+                                                  : money(0)}
+                                        </td>
+                                        <td className="px-3 py-4 text-right font-bold text-gray-900">
+                                            {money(item.amount_cents)}
+                                        </td>
+                                        <td className="px-3 py-4">
+                                            {item.status === "processing" ? (
+                                                <span className="rounded-full bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700">
+                                                    Processando
+                                                </span>
+                                            ) : item.status === "paid" ? (
+                                                <span className="rounded-full bg-green-50 px-2 py-1 text-xs font-semibold text-green-700">
+                                                    Pago
+                                                </span>
+                                            ) : (
+                                                <span className="text-xs font-semibold text-gray-500">
+                                                    {item.status}
+                                                </span>
+                                            )}
+                                        </td>
+                                        <td className="px-3 py-4 text-right">
+                                            <Button
+                                                variant="secondary"
+                                                disabled={!whatsappNumber}
+                                                onClick={() => {
+                                                    if (!whatsappNumber) return;
+                                                    const message = `Repasse iMenu - ${item.restaurant_name}: ${whatsappMoney(item.amount_cents)}`;
+                                                    window.open(
+                                                        `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`,
+                                                        "_blank",
+                                                        "noopener,noreferrer"
+                                                    );
+                                                }}
+                                                className="px-3 py-1.5 text-xs"
+                                            >
+                                                WhatsApp
+                                            </Button>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                            {data?.history.length === 0 && (
+                                <tr>
+                                    <td colSpan={10} className="px-3 py-10 text-center text-gray-400">
+                                        Nenhum repasse registrado.
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
                 </div>
             </Card>
 
