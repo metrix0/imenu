@@ -14,6 +14,7 @@ interface ItemDetailsModalProps {
     onClose: () => void;
     item: { id: string; name: string } | null; 
     restaurantId: string; // NOVA PROP NECESSÁRIA
+    onOpenBulkComplements?: () => void;
 }
 
 type Subitem = {
@@ -91,7 +92,7 @@ const SubitemPriceInput = ({ priceCents, onChange }: { priceCents: number; onCha
     );
 };
 
-export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId }: ItemDetailsModalProps) {
+export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, onOpenBulkComplements }: ItemDetailsModalProps) {
 
     // NOVO ESTADO: Controla qual item TEM PERMISSÃO para ser arrastado
     const [allowDragId, setAllowDragId] = useState<string | null>(null);
@@ -469,6 +470,15 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId }
                     <div>
                         <h2 className="text-xl 2xl:text-2xl font-bold text-gray-900">Complementos</h2>
                         <p className="text-gray-500 text-sm 2xl:text-base 2xl:mt-1">Item: <span className="font-medium text-brand">{item?.name}</span></p>
+                        {onOpenBulkComplements && (
+                            <button
+                                type="button"
+                                onClick={onOpenBulkComplements}
+                                className="mt-1 cursor-pointer text-sm font-medium text-brand underline 2xl:text-base"
+                            >
+                                Modificar complementos em massa (e desativar/ativar)
+                            </button>
+                        )}
                     </div>
                     <button onClick={onClose} className="cursor-pointer text-gray-400 hover:text-gray-600">
                         <FontAwesomeIcon icon={icons.faTimes} className="text-xl" />
