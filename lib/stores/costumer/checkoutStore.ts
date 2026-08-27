@@ -92,17 +92,20 @@ export const useCheckoutStore = create<CheckoutState>()(
 
                 if (s === "checkout" && typeof window !== "undefined") {
                     requestAnimationFrame(() => {
-                        const mobileModals = Array.from(
-                            document.querySelectorAll<HTMLElement>(
-                                ".fixed.left-0.right-0.mx-auto.bg-white.rounded-t-xl.overflow-hidden"
-                            )
-                        ).filter((element) => element.offsetParent !== null);
-                        const activeModal = mobileModals[mobileModals.length - 1];
-                        const scrollContainer = activeModal?.querySelector<HTMLElement>(
-                            ".overflow-y-auto.h-full"
-                        );
+                        requestAnimationFrame(() => {
+                            const scrollContainers = Array.from(
+                                document.querySelectorAll<HTMLElement>(
+                                    ".overflow-y-auto.h-full"
+                                )
+                            ).filter((element) => element.offsetParent !== null);
+                            const activeScrollContainer =
+                                scrollContainers[scrollContainers.length - 1];
 
-                        scrollContainer?.scrollTo({ top: 0, behavior: "auto" });
+                            activeScrollContainer?.scrollTo({
+                                top: 0,
+                                behavior: "auto",
+                            });
+                        });
                     });
                 }
             },
