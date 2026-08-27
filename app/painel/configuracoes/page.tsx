@@ -779,7 +779,7 @@ export default function ConfiguracoesPage() {
                             <div className="min-w-0">
                                 <div className="flex flex-wrap items-center gap-2">
                                     <h2 className="text-xl font-medium text-gray-900">
-                                        Obrigar envio de Notificação no WhatsApp
+                                        Forçar envio de Notificação no WhatsApp
                                     </h2>
                                     <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700">
                                         Não recomendado
