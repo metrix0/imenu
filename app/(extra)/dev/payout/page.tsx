@@ -11,6 +11,7 @@ import Modal from "@/components/ui/Modal";
 import { supabase } from "@/lib/database/supabaseClient";
 
 const ALLOWED_DEV_EMAIL = "joaovralmeida@hotmail.com";
+const HISTORY_PAGE_SIZE = 10;
 
 type AccessState = "checking" | "allowed" | "forbidden" | "signed-out";
 type PixKeyType = "CPF" | "CNPJ" | "EMAIL" | "PHONE" | "EVP";
@@ -178,6 +179,7 @@ export default function DevPayoutPage() {
     const [discountPercent, setDiscountPercent] = useState("0.75");
     const [onePercentNet, setOnePercentNet] = useState(false);
     const [confirmOpen, setConfirmOpen] = useState(false);
+    const [historyPage, setHistoryPage] = useState(1);
     const [lastResult, setLastResult] = useState<SendResult | null>(null);
     const [lastPayzuTransfer, setLastPayzuTransfer] =
         useState<PayzuTransferResult | null>(null);
@@ -279,6 +281,7 @@ export default function DevPayoutPage() {
                 )
             );
             setManualAmounts({});
+            setHistoryPage(1);
             setAccessState("allowed");
             setData(payload);
         } catch (caught) {
@@ -298,6 +301,13 @@ export default function DevPayoutPage() {
     }, []);
 
     const payables = data?.payables || [];
+    const history = data?.history || [];
+    const historyPageCount = Math.max(1, Math.ceil(history.length / HISTORY_PAGE_SIZE));
+    const currentHistoryPage = Math.min(historyPage, historyPageCount);
+    const paginatedHistory = history.slice(
+        (currentHistoryPage - 1) * HISTORY_PAGE_SIZE,
+        currentHistoryPage * HISTORY_PAGE_SIZE
+    );
     const sendable = useMemo(
         () => data?.payables.filter((item) => item.canSend) || [],
         [data]
@@ -791,26 +801,29 @@ export default function DevPayoutPage() {
             <Card>
                 <h2 className="text-lg font-bold text-gray-900">Histórico de envios</h2>
                 <div className="mt-5 overflow-x-auto">
-                    <table className="w-full min-w-[1250px] text-left text-sm">
+                    <table className="w-full min-w-[1250px] table-fixed text-left text-sm">
                         <thead className="border-b border-gray-100 text-xs uppercase text-gray-400">
                             <tr>
-                                <th className="px-3 py-3">Restaurante</th>
-                                <th className="px-3 py-3">Data</th>
-                                <th className="px-3 py-3">Telefone</th>
-                                <th className="px-3 py-3">PIX</th>
-                                <th className="px-3 py-3 text-right">Bruto</th>
-                                <th className="px-3 py-3 text-right">PayZu</th>
-                                <th className="px-3 py-3 text-right">Desconto</th>
-                                <th className="px-3 py-3 text-right">Enviado</th>
-                                <th className="px-3 py-3">Status</th>
-                                <th className="px-3 py-3 text-right">Ação</th>
+                                <th className="w-48 px-3 py-3">Restaurante</th>
+                                <th className="w-40 px-3 py-3">Data</th>
+                                <th className="w-36 px-3 py-3">Telefone</th>
+                                <th className="w-56 px-3 py-3">PIX</th>
+                                <th className="w-28 px-3 py-3 text-right">Bruto</th>
+                                <th className="w-28 px-3 py-3 text-right">PayZu</th>
+                                <th className="w-28 px-3 py-3 text-right">Desconto</th>
+                                <th className="w-28 px-3 py-3 text-right">Enviado</th>
+                                <th className="w-28 px-3 py-3">Status</th>
+                                <th className="w-28 px-3 py-3 text-right">Ação</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                            {(data?.history || []).map((item) => {
+                            {paginatedHistory.map((item) => {
                                 const phone = restaurantPhones[item.restaurant_id];
                                 const whatsappNumber = normalizeWhatsappNumber(phone);
                                 const pixInfo = restaurantPixInfo[item.restaurant_id];
+                                const pixLabel = pixInfo?.pixKey
+                                    ? `${pixInfo.pixKeyType ? `${pixInfo.pixKeyType} · ` : ""}${pixInfo.pixKey}`
+                                    : "—";
                                 const effectiveDiscountCents =
                                     item.gross_cents == null
                                         ? item.discount_cents
@@ -818,37 +831,44 @@ export default function DevPayoutPage() {
 
                                 return (
                                     <tr key={item.id}>
-                                        <td className="px-3 py-4 font-semibold text-gray-900">
+                                        <td
+                                            className="truncate whitespace-nowrap px-3 py-4 font-semibold text-gray-900"
+                                            title={item.restaurant_name}
+                                        >
                                             {item.restaurant_name}
                                         </td>
-                                        <td className="px-3 py-4 whitespace-nowrap text-gray-500">
+                                        <td className="truncate whitespace-nowrap px-3 py-4 text-gray-500">
                                             {dateTime(item.created_at)}
                                         </td>
-                                        <td className="px-3 py-4 whitespace-nowrap text-gray-500">
+                                        <td
+                                            className="truncate whitespace-nowrap px-3 py-4 text-gray-500"
+                                            title={formatPhone(phone) || "—"}
+                                        >
                                             {formatPhone(phone) || "—"}
                                         </td>
-                                        <td className="px-3 py-4 text-gray-500">
-                                            {pixInfo?.pixKey
-                                                ? `${pixInfo.pixKeyType ? `${pixInfo.pixKeyType} · ` : ""}${pixInfo.pixKey}`
-                                                : "—"}
+                                        <td
+                                            className="truncate whitespace-nowrap px-3 py-4 text-gray-500"
+                                            title={pixLabel}
+                                        >
+                                            {pixLabel}
                                         </td>
-                                        <td className="px-3 py-4 text-right">
+                                        <td className="whitespace-nowrap px-3 py-4 text-right">
                                             {item.gross_cents == null ? "—" : money(item.gross_cents)}
                                         </td>
-                                        <td className="px-3 py-4 text-right text-gray-500">
+                                        <td className="whitespace-nowrap px-3 py-4 text-right text-gray-500">
                                             {item.payzu_fee_cents == null ? "—" : money(item.payzu_fee_cents)}
                                         </td>
-                                        <td className="px-3 py-4 text-right text-gray-500">
+                                        <td className="whitespace-nowrap px-3 py-4 text-right text-gray-500">
                                             {effectiveDiscountCents == null
                                                 ? "—"
                                                 : effectiveDiscountCents > 0
                                                   ? `-${money(effectiveDiscountCents)}`
                                                   : money(0)}
                                         </td>
-                                        <td className="px-3 py-4 text-right font-bold text-gray-900">
+                                        <td className="whitespace-nowrap px-3 py-4 text-right font-bold text-gray-900">
                                             {money(item.amount_cents)}
                                         </td>
-                                        <td className="px-3 py-4">
+                                        <td className="whitespace-nowrap px-3 py-4">
                                             {item.status === "processing" ? (
                                                 <span className="rounded-full bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700">
                                                     Processando
@@ -863,7 +883,7 @@ export default function DevPayoutPage() {
                                                 </span>
                                             )}
                                         </td>
-                                        <td className="px-3 py-4 text-right">
+                                        <td className="whitespace-nowrap px-3 py-4 text-right">
                                             <Button
                                                 variant="secondary"
                                                 disabled={!whatsappNumber}
@@ -884,7 +904,7 @@ export default function DevPayoutPage() {
                                     </tr>
                                 );
                             })}
-                            {data?.history.length === 0 && (
+                            {history.length === 0 && (
                                 <tr>
                                     <td colSpan={10} className="px-3 py-10 text-center text-gray-400">
                                         Nenhum repasse registrado.
@@ -894,6 +914,43 @@ export default function DevPayoutPage() {
                         </tbody>
                     </table>
                 </div>
+
+                {historyPageCount > 1 && (
+                    <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
+                        <button
+                            type="button"
+                            onClick={() => setHistoryPage((page) => Math.max(1, page - 1))}
+                            disabled={currentHistoryPage === 1}
+                            className="h-9 cursor-pointer rounded-lg border border-gray-200 px-3 text-sm font-medium text-gray-600 transition hover:bg-gray-50 disabled:cursor-default disabled:opacity-40"
+                        >
+                            Anterior
+                        </button>
+                        {Array.from({ length: historyPageCount }, (_, index) => index + 1).map((page) => (
+                            <button
+                                key={page}
+                                type="button"
+                                onClick={() => setHistoryPage(page)}
+                                className={`h-9 min-w-9 cursor-pointer rounded-lg border px-3 text-sm font-semibold transition ${
+                                    page === currentHistoryPage
+                                        ? "border-brand bg-brand text-white"
+                                        : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                                }`}
+                            >
+                                {page}
+                            </button>
+                        ))}
+                        <button
+                            type="button"
+                            onClick={() =>
+                                setHistoryPage((page) => Math.min(historyPageCount, page + 1))
+                            }
+                            disabled={currentHistoryPage === historyPageCount}
+                            className="h-9 cursor-pointer rounded-lg border border-gray-200 px-3 text-sm font-medium text-gray-600 transition hover:bg-gray-50 disabled:cursor-default disabled:opacity-40"
+                        >
+                            Próxima
+                        </button>
+                    </div>
+                )}
             </Card>
 
             <Modal open={confirmOpen} onClose={() => !sending && setConfirmOpen(false)}>
