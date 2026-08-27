@@ -137,7 +137,6 @@ export default function QrCheckoutReturnRefresh() {
 
     useEffect(() => {
         if (!CHECKOUT_RETURN_PATHS.has(window.location.pathname)) return;
-        if (!restaurantId) return;
 
         const checkoutState = new URLSearchParams(window.location.search).get(
             "checkout"

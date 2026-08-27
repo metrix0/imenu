@@ -60,11 +60,11 @@ export type QrTableReconcileResult = {
 };
 
 export async function reconcileQrTableCheckout(
-    restaurantId: string
+    restaurantId?: string | null
 ): Promise<QrTableReconcileResult> {
     const response = await qrTableAuthenticatedFetch("/api/qr-table/reconcile", {
         method: "POST",
-        body: JSON.stringify({ restaurantId }),
+        body: JSON.stringify(restaurantId ? { restaurantId } : {}),
         cache: "no-store",
     });
     const payload = (await response.json()) as QrTableReconcileResult & {
