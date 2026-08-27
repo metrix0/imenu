@@ -103,7 +103,6 @@ export type CartItem = {
         subitemId: string;
         subitemName: string;
         price_cents: number;
-        quantity?: number;
     }[];
     promotion?: Promotion;
 };
