@@ -85,6 +85,20 @@ const money = (cents: number) =>
         currency: "BRL",
     });
 
+const amountInput = (cents: number) =>
+    (cents / 100).toLocaleString("pt-BR", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    });
+
+const parseAmountInput = (value: string) => {
+    const normalized = value.trim().replace(/\./g, "").replace(",", ".");
+    if (!normalized) return null;
+    const number = Number(normalized);
+    if (!Number.isFinite(number)) return null;
+    return Math.round(number * 100);
+};
+
 const whatsappMoney = (cents: number) =>
     `R$ ${(cents / 100).toLocaleString("pt-BR", {
         minimumFractionDigits: 2,
@@ -126,10 +140,7 @@ function getDiscountCents(
     onePercentNet: boolean
 ) {
     if (onePercentNet) {
-        return Math.max(
-            0,
-            Math.round(item.grossCents * 0.01) - item.payzuFeeCents
-        );
+        return Math.round(item.grossCents * 0.01);
     }
     return Math.round(item.grossCents * (discountPercent / 100));
 }
@@ -144,10 +155,7 @@ function getNetCents(
         discountPercent,
         onePercentNet
     );
-    return Math.max(
-        0,
-        item.grossCents - discountCents - (onePercentNet ? item.payzuFeeCents : 0)
-    );
+    return Math.max(0, item.grossCents - discountCents);
 }
 
 export default function DevPayoutPage() {
@@ -158,6 +166,7 @@ export default function DevPayoutPage() {
     const [restaurantPixInfo, setRestaurantPixInfo] = useState<
         Record<string, { pixKey: string; pixKeyType: string }>
     >({});
+    const [manualAmounts, setManualAmounts] = useState<Record<string, string>>({});
     const [loading, setLoading] = useState(true);
     const [sending, setSending] = useState(false);
     const [transferringPayzu, setTransferringPayzu] = useState(false);
@@ -266,6 +275,7 @@ export default function DevPayoutPage() {
                     ])
                 )
             );
+            setManualAmounts({});
             setAccessState("allowed");
             setData(payload);
         } catch (caught) {
@@ -298,6 +308,21 @@ export default function DevPayoutPage() {
         [data]
     );
 
+    const getSendCents = (item: Payable) => {
+        const manual = manualAmounts[item.restaurantId];
+        if (manual === undefined) {
+            return getNetCents(item, numericDiscount, onePercentNet);
+        }
+        return parseAmountInput(manual) ?? 0;
+    };
+
+    const invalidManualAmounts = sendable.some((item) => {
+        const manual = manualAmounts[item.restaurantId];
+        if (manual === undefined) return false;
+        const cents = parseAmountInput(manual);
+        return cents === null || cents <= 0 || cents > item.grossCents;
+    });
+
     const grossOwedCents = payables.reduce(
         (sum, item) => sum + item.grossCents,
         0
@@ -316,11 +341,12 @@ export default function DevPayoutPage() {
     );
 
     const netSendableCents = sendable.reduce(
-        (sum, item) => sum + getNetCents(item, numericDiscount, onePercentNet),
+        (sum, item) => sum + getSendCents(item),
         0
     );
 
     const handleAdjustToOnePercent = () => {
+        setManualAmounts({});
         setOnePercentNet(true);
     };
 
@@ -432,6 +458,12 @@ export default function DevPayoutPage() {
                 body: JSON.stringify({
                     discountPercent: numericDiscount,
                     adjustToOnePercent: onePercentNet,
+                    amounts: Object.fromEntries(
+                        sendable.map((item) => [
+                            item.restaurantId,
+                            getSendCents(item),
+                        ])
+                    ),
                 }),
             });
             const payload = await response.json();
@@ -539,7 +571,7 @@ export default function DevPayoutPage() {
                     value={money(netOwedCents)}
                     detail={
                         onePercentNet
-                            ? `${money(grossOwedCents)} bruto − ${money(payzuOwedCents)} PayZu − ${money(owedDiscountCents)} desconto`
+                            ? `${money(grossOwedCents)} bruto − ${money(owedDiscountCents)} (1%) · PayZu ${money(payzuOwedCents)} informativo`
                             : `${money(grossOwedCents)} bruto − ${money(owedDiscountCents)} (${numericDiscount.toLocaleString("pt-BR", { maximumFractionDigits: 4 })}%)`
                     }
                 />
@@ -585,6 +617,7 @@ export default function DevPayoutPage() {
                                 inputMode="decimal"
                                 value={discountPercent}
                                 onChange={(event) => {
+                                    setManualAmounts({});
                                     setOnePercentNet(false);
                                     setDiscountPercent(event.target.value);
                                 }}
@@ -608,6 +641,7 @@ export default function DevPayoutPage() {
                                 !data?.asaasConfigured ||
                                 sendable.length === 0 ||
                                 ambiguousPix.length > 0 ||
+                                invalidManualAmounts ||
                                 (!onePercentNet &&
                                     (numericDiscount < 0 || numericDiscount > 100))
                             }
@@ -629,12 +663,18 @@ export default function DevPayoutPage() {
                         Defina abaixo o tipo da chave PIX para: {ambiguousPix.map((item) => item.restaurantName).join(", ")}.
                     </div>
                 )}
+
+                {invalidManualAmounts && (
+                    <div className="mt-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                        O valor manual deve ser maior que R$ 0,00 e não pode ultrapassar o bruto do restaurante.
+                    </div>
+                )}
             </Card>
 
             <Card>
                 <h2 className="text-lg font-bold text-gray-900">Valores por restaurante</h2>
                 <p className="mt-1 text-sm text-gray-500">
-                    Apenas pedidos PIX Online confirmados desde o último repasse registrado são considerados.
+                    Apenas pedidos PIX Online confirmados desde o último repasse registrado são considerados. O valor em Enviar pode ser ajustado manualmente antes da confirmação.
                 </p>
 
                 <div className="mt-5 overflow-x-auto">
@@ -657,7 +697,7 @@ export default function DevPayoutPage() {
                                     numericDiscount,
                                     onePercentNet
                                 );
-                                const net = getNetCents(
+                                const calculatedNet = getNetCents(
                                     item,
                                     numericDiscount,
                                     onePercentNet
@@ -700,8 +740,36 @@ export default function DevPayoutPage() {
                                         </td>
                                         <td className="px-3 py-4 text-right">{money(item.grossCents)}</td>
                                         <td className="px-3 py-4 text-right text-gray-500">{money(item.payzuFeeCents)}</td>
-                                        <td className="px-3 py-4 text-right text-gray-500">{money(discountCents)}</td>
-                                        <td className="px-3 py-4 text-right font-bold">{item.canSend ? money(net) : "—"}</td>
+                                        <td className="px-3 py-4 text-right text-gray-500">
+                                            {onePercentNet && discountCents > 0
+                                                ? `-${money(discountCents)}`
+                                                : money(discountCents)}
+                                        </td>
+                                        <td className="px-3 py-4 text-right font-bold">
+                                            {item.canSend ? (
+                                                <div className="ml-auto flex w-32 items-center rounded-lg border border-gray-200 bg-white px-2 focus-within:border-brand">
+                                                    <span className="mr-1 text-xs font-medium text-gray-400">R$</span>
+                                                    <input
+                                                        type="text"
+                                                        inputMode="decimal"
+                                                        value={
+                                                            manualAmounts[item.restaurantId] ??
+                                                            amountInput(calculatedNet)
+                                                        }
+                                                        onChange={(event) =>
+                                                            setManualAmounts((current) => ({
+                                                                ...current,
+                                                                [item.restaurantId]: event.target.value,
+                                                            }))
+                                                        }
+                                                        className="h-9 w-full bg-transparent text-right font-bold outline-none"
+                                                        aria-label={`Valor a enviar para ${item.restaurantName}`}
+                                                    />
+                                                </div>
+                                            ) : (
+                                                "—"
+                                            )}
+                                        </td>
                                     </tr>
                                 );
                             })}
@@ -777,8 +845,8 @@ export default function DevPayoutPage() {
                     <h2 className="text-xl font-bold text-gray-900">Confirmar envio</h2>
                     <p className="mt-2 text-sm text-gray-500">
                         {onePercentNet
-                            ? `Serão enviados ${money(netSendableCents)} para ${sendable.length} restaurante(s), com 1% líquido após PayZu calculado individualmente por restaurante.`
-                            : `Serão enviados ${money(netSendableCents)} para ${sendable.length} restaurante(s), com desconto de ${numericDiscount.toLocaleString("pt-BR", { maximumFractionDigits: 4 })}%.`}
+                            ? `Serão enviados ${money(netSendableCents)} para ${sendable.length} restaurante(s). O ajuste de 1% desconta exatamente 1% do bruto de cada restaurante; valores editados manualmente são respeitados.`
+                            : `Serão enviados ${money(netSendableCents)} para ${sendable.length} restaurante(s), com desconto de ${numericDiscount.toLocaleString("pt-BR", { maximumFractionDigits: 4 })}%. Valores editados manualmente são respeitados.`}
                     </p>
 
                     <div className="mt-5 max-h-64 space-y-2 overflow-y-auto rounded-lg border border-gray-100 p-3">
@@ -786,13 +854,7 @@ export default function DevPayoutPage() {
                             <div key={item.restaurantId} className="flex items-center justify-between gap-4 text-sm">
                                 <span className="truncate text-gray-600">{item.restaurantName}</span>
                                 <span className="shrink-0 font-semibold">
-                                    {money(
-                                        getNetCents(
-                                            item,
-                                            numericDiscount,
-                                            onePercentNet
-                                        )
-                                    )}
+                                    {money(getSendCents(item))}
                                 </span>
                             </div>
                         ))}
