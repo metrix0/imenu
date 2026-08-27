@@ -117,8 +117,7 @@ function buildComanda(
     }
 
     const lines: string[] = [
-        "🧾 *COMANDA IMENU*",
-        `*PEDIDO #${order.display_id ?? order.id.slice(0, 8).toUpperCase()}*`,
+        `🧾 *PEDIDO #${order.display_id ?? order.id.slice(0, 8).toUpperCase()}*`,
     ];
 
     if (order.scheduled_for) {
@@ -126,36 +125,36 @@ function buildComanda(
         if (scheduledLabel) {
             lines.push(
                 separator,
-                "*AGENDADO*",
-                `*${pickup ? "RETIRADA" : "ENTREGA"}: ${scheduledLabel}*`,
+                "📅 *AGENDADO*",
+                `⏰ *${pickup ? "RETIRADA" : "ENTREGA"}: ${scheduledLabel}*`,
                 separator,
             );
         }
     }
 
     lines.push(
-        `Hora: ${formatDateTime(order.created_at)}`,
-        `Tipo: ${tableOrder ? "Mesa" : pickup ? "Retirada" : "Entrega"}`,
+        `🕐 Hora: ${formatDateTime(order.created_at)}`,
+        `📦 Tipo: ${tableOrder ? "Mesa" : pickup ? "Retirada" : "Entrega"}`,
     );
 
     if (tableOrder) {
-        lines.push(`Mesa: ${order.table_name_snapshot || "Mesa"}`);
+        lines.push(`🪑 Mesa: ${order.table_name_snapshot || "Mesa"}`);
     }
 
     if (order.customer_name) {
-        lines.push(`Cliente: ${order.customer_name}`);
+        lines.push(`👤 Cliente: ${order.customer_name}`);
     }
 
     if (!tableOrder && order.customer_phone) {
-        lines.push(`Telefone: ${order.customer_phone}`);
+        lines.push(`📱 Telefone: ${order.customer_phone}`);
     }
 
     if (!tableOrder && !pickup && order.customer_address) {
-        lines.push("Endereço:", order.customer_address);
+        lines.push(`📍 Endereço: ${order.customer_address}`);
     }
 
     if (!tableOrder && order.payment_method) {
-        lines.push(`Pagamento: ${paymentLabel(order.payment_method)}`);
+        lines.push(`💳 Pagamento: ${paymentLabel(order.payment_method)}`);
     }
 
     lines.push(separator);
@@ -167,7 +166,7 @@ function buildComanda(
             ? Number(item.total_cents)
             : fallbackTotal;
 
-        lines.push(`*${quantity}x ${item.name}* — ${formatMoney(itemTotal)}`);
+        lines.push(`🍽️ *${quantity}x ${item.name}* — ${formatMoney(itemTotal)}`);
 
         for (const selected of subitemsByOrderItem.get(item.id) || []) {
             const selectedQuantity = Math.max(
@@ -181,12 +180,12 @@ function buildComanda(
                     : "";
 
             lines.push(
-                `  - ${selectedQuantity}x ${selected.name}${priceText}`,
+                `  ↳ ${selectedQuantity}x ${selected.name}${priceText}`,
             );
         }
 
         if (item.observation) {
-            lines.push(`  OBS: ${item.observation}`);
+            lines.push(`  📝 Obs: ${item.observation}`);
         }
     }
 
@@ -200,17 +199,17 @@ function buildComanda(
             ? storedDiscount
             : Math.max(subtotal + delivery - total, 0);
 
-    lines.push(separator, `Subtotal: ${formatMoney(subtotal)}`);
+    lines.push(separator, `💰 Subtotal: ${formatMoney(subtotal)}`);
 
     if (delivery > 0) {
-        lines.push(`Entrega: ${formatMoney(delivery)}`);
+        lines.push(`🛵 Entrega: ${formatMoney(delivery)}`);
     }
 
     if (discount > 0) {
-        lines.push(`Desconto: -${formatMoney(discount)}`);
+        lines.push(`🏷️ Desconto: -${formatMoney(discount)}`);
     }
 
-    lines.push(`*TOTAL: ${formatMoney(total)}*`, "", `Código iMenu: ${order.id}`);
+    lines.push(`💵 *TOTAL: ${formatMoney(total)}*`);
 
     return lines.join("\n");
 }
