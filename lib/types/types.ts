@@ -31,6 +31,7 @@ export type Restaurant = {
     store_whatsapp?: string | null;
     allowed_payment_methods?: string[] | null;
     pickup_enabled?: boolean;
+    allow_future_order_scheduling?: boolean;
 };
 
 export type Menu = {
@@ -102,6 +103,7 @@ export type CartItem = {
         subitemId: string;
         subitemName: string;
         price_cents: number;
+        quantity?: number;
     }[];
     promotion?: Promotion;
 };
