@@ -15,7 +15,7 @@ import EstoqueTab from "@/components/restaurant-owner/cardapio/tabs/EstoqueTabs"
 
 import ManageCategoryModal from "@/components/restaurant-owner/cardapio/ManageCategoryModal";
 import ItemDetailsModal from "@/components/restaurant-owner/cardapio/ItemDetailsModal";
-import ScanMenuModal from "@/components/restaurant-owner/ScanMenuImageModal";
+import ScanMenuModal from "@/components/restaurant-owner/cardapio/ScanMenuImageModal";
 import { MenuItemType } from "@/components/restaurant-owner/cardapio/MenuItemRow";
 import { useRouter } from "next/navigation";
 
@@ -24,7 +24,7 @@ type Category = { id: string; name: string; position: number };
 const TABS = [
     "Cardápio",
     "Produtos",
-    "Complemento",
+    "Complementos",
     "Upsells",
     "Promoções e Cupons",
     "Estoque",
@@ -245,7 +245,7 @@ export default function MenuManagerPage() {
                     />
                 )}
 
-                {activeTab === "Complemento" && (
+                {activeTab === "Complementos" && (
                     <ComplementosTab restaurantId={restaurantId} />
                 )}
 
@@ -282,7 +282,7 @@ export default function MenuManagerPage() {
                 restaurantId={restaurantId}
                 onOpenBulkComplements={() => {
                     setIsItemDetailsOpen(false);
-                    setActiveTab("Complemento");
+                    setActiveTab("Complementos");
                 }}
             />
 
