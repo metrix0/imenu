@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 import { supabase } from "@/lib/database/supabaseClient";
 
-type RangeKey = "this_week" | "last_week" | "30d" | "90d";
+type RangeKey = "7d" | "this_week" | "last_week" | "30d" | "90d";
 
 type SalesRankingPayload = {
     summary: {

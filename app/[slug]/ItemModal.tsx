@@ -44,7 +44,6 @@ export default function ItemModal({
     const [isRestaurantOpen, setIsRestaurantOpen] = useState(true);
     const [canScheduleToday, setCanScheduleToday] = useState(false);
 
-
     useEffect(() => {
         setTimeout(() => setOpen(true), 10);
     }, []);
@@ -106,9 +105,6 @@ export default function ItemModal({
         setCanScheduleToday(!isOpen && hasFutureSlotToday && !manuallyClosedToday);
     }, [restaurant]);
 
-
-
-
     const closeWithAnimation = () => {
         setOpen(false);
         setTimeout(onClose, 200);
@@ -122,13 +118,9 @@ export default function ItemModal({
             const set = new Set(prev[sc.id] || []);
             const single = sc.max_select === 1 || sc.max_select === 0;
 
-            console.log(single, set, set.has(si.id));
-            console.log(sc, si.id)
-
             if (single && set.has(si.id)) {
-                console.log("clear");
                 set.delete(si.id);
-                return { ...prev, [sc.id]: set }; // ← THIS FIXES IT
+                return { ...prev, [sc.id]: set };
             }
 
             if (single) {
@@ -176,7 +168,10 @@ export default function ItemModal({
     }, [selected, subcategories]);
 
     const canAdd = !missingRequired;
-    const canOrderNow = isRestaurantOpen || canScheduleToday;
+    const canOrderNow =
+        isRestaurantOpen ||
+        canScheduleToday ||
+        restaurant.allow_future_order_scheduling === true;
     const disabledReason = !canOrderNow
         ? "O restaurante está fechado no momento."
         : missingRequired
@@ -279,8 +274,6 @@ export default function ItemModal({
 
         return (
             <>
-                {/* ITEM HEADER */}
-
                 <div className="mt-3 px-4">
 
                     <h1 className="text-[22px] 2xl:text-3xl font-semibold mb-2">{item.name}</h1>
@@ -298,7 +291,6 @@ export default function ItemModal({
                     </p>
                 </div>
 
-                {/* SUBCATEGORIES */}
                 <div className="mt-6">
                     {subcategories.map((sc) => {
                         const set = selected[sc.id];
@@ -382,7 +374,6 @@ export default function ItemModal({
                     })}
                 </div>
 
-                {/* OBSERVATION */}
                 <div className="px-4 mt-8">
                     <p className="text-[15px] 2xl:text-lg font-semibold text-gray-500">
                         <FontAwesomeIcon icon={icons.faComment} /> Alguma observação?
@@ -414,7 +405,6 @@ export default function ItemModal({
 
             <div className={"md:grid md:grid-cols-2"}>
 
-            {/* IMAGE HEADER */}
             <div className="relative w-full h-[260px] md:h-auto md:aspect-square ">
                 <img
                     src={item.image_public_url || "/placeholders/item.png"}
@@ -451,8 +441,6 @@ export default function ItemModal({
                 </div>
             </div>
 
-
-            {/* CONTENT */}
             <div className="pb-32 md:h-[80vh] md:overflow-y-auto md:p-4 md:pb-0">
                 <div className={" md:pb-62"}>
                 {renderContent()}
@@ -461,7 +449,6 @@ export default function ItemModal({
 
             </div>
 
-            {/* FOOTER */}
             <div className="absolute left-0 right-0 bottom-0 bg-white border-t border-gray-200 pt-5 pb-14 md:pb-8 px-4 flex items-center gap-3">
                 <div className="flex items-center border border-gray-200 rounded-xl px-3 2xl:px-6 py-2 w-[110px] 2xl:w-[180px] justify-between">
                     <button

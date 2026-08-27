@@ -113,6 +113,19 @@ function normalize(value: unknown): string {
         .trim();
 }
 
+function isComandaMessage(value: unknown): boolean {
+    return normalize(value).includes("comanda imenu");
+}
+
+function getComandaOrderId(value: unknown): string | null {
+    const raw = String(value ?? "");
+    const match = raw.match(
+        /c[oó]digo\s+imenu:\s*([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})/i
+    );
+
+    return match?.[1] || null;
+}
+
 function formatCurrency(cents: number | null | undefined): string {
     return ((Number(cents) || 0) / 100).toLocaleString("pt-BR", {
         style: "currency",
@@ -155,6 +168,24 @@ async function getRestaurant(
     );
 
     return result.rows[0] || null;
+}
+
+async function orderBelongsToRestaurant(
+    restaurantId: string,
+    orderId: string
+): Promise<boolean> {
+    const result = await query(
+        `
+            SELECT 1
+            FROM orders
+            WHERE id = $1
+              AND restaurant_id = $2
+            LIMIT 1
+        `,
+        [orderId, restaurantId]
+    );
+
+    return result.rows.length > 0;
 }
 
 async function getConversation(
@@ -218,6 +249,14 @@ function isConversationWithOwner(conversation: ConversationRow | null): boolean 
 
     const humanUntil = new Date(conversation.human_until).getTime();
     return Number.isFinite(humanUntil) && humanUntil > Date.now();
+}
+
+async function canBotRespond(
+    restaurantId: string,
+    chatId: string
+): Promise<boolean> {
+    const conversation = await getConversation(restaurantId, chatId);
+    return !isConversationWithOwner(conversation);
 }
 
 function getConversationTimestamp(value: string | null | undefined): number | null {
@@ -394,10 +433,16 @@ function buildGreetingMessage(restaurant: RestaurantAutomationData): string {
     ].join("\n");
 }
 
-async function sendMainMenu(sessionName: string, chatId: string): Promise<void> {
+async function sendMainMenu(
+    restaurantId: string,
+    sessionName: string,
+    chatId: string
+): Promise<void> {
     let lastError: unknown = null;
 
     for (let attempt = 0; attempt < MENU_SEND_ATTEMPTS; attempt += 1) {
+        if (!(await canBotRespond(restaurantId, chatId))) return;
+
         try {
             await sendWahaList(sessionName, chatId, MENU_ROWS);
             return;
@@ -417,12 +462,15 @@ async function sendMainMenu(sessionName: string, chatId: string): Promise<void> 
 }
 
 async function sendWelcome(
+    restaurantId: string,
     sessionName: string,
     chatId: string,
     restaurant: RestaurantAutomationData
 ): Promise<void> {
+    if (!(await canBotRespond(restaurantId, chatId))) return;
+
     await sendWahaText(sessionName, chatId, buildGreetingMessage(restaurant));
-    await sendMainMenu(sessionName, chatId);
+    await sendMainMenu(restaurantId, sessionName, chatId);
 }
 
 function buildMenuLinkMessage(restaurant: RestaurantAutomationData): string {
@@ -649,8 +697,10 @@ async function answerFlow({
         message = buildPaymentMessage(restaurant);
     }
 
+    if (!(await canBotRespond(restaurantId, chatId))) return;
+
     await sendWahaText(sessionName, chatId, message);
-    await sendMainMenu(sessionName, chatId);
+    await sendMainMenu(restaurantId, sessionName, chatId);
 }
 
 export async function markOwnerTookOverConversation({
@@ -676,8 +726,14 @@ export async function processIncomingWhatsAppMessage({
     body: string;
     hasMedia: boolean;
 }): Promise<void> {
+    const comandaMessage = isComandaMessage(body);
     const prepared = await prepareConversation(restaurantId, chatId);
-    if (prepared.state === "human" || prepared.burstContinuation) return;
+    if (
+        prepared.state === "human" ||
+        (!comandaMessage && prepared.burstContinuation)
+    ) {
+        return;
+    }
 
     const shouldContinue = await waitForInboundBurstToSettle(
         restaurantId,
@@ -689,24 +745,43 @@ export async function processIncomingWhatsAppMessage({
     const restaurant = await getRestaurant(restaurantId);
     if (!restaurant) return;
 
+    if (comandaMessage) {
+        const orderId = getComandaOrderId(body);
+        if (!orderId) return;
+
+        const validOrder = await orderBelongsToRestaurant(restaurantId, orderId);
+        if (!validOrder || !(await canBotRespond(restaurantId, chatId))) return;
+
+        await sendWahaText(
+            sessionName,
+            chatId,
+            `Ótimo! Você pode acompanhar seu pedido por: ${getOrderingUrl(
+                restaurant.url_slug
+            )}/${encodeURIComponent(orderId)}`
+        );
+        return;
+    }
+
     if (prepared.state === "welcome") {
-        await sendWelcome(sessionName, chatId, restaurant);
+        await sendWelcome(restaurantId, sessionName, chatId, restaurant);
         return;
     }
 
     if (hasMedia && !normalize(body)) {
+        if (!(await canBotRespond(restaurantId, chatId))) return;
+
         await sendWahaText(
             sessionName,
             chatId,
             "Não consigo analisar arquivos automaticamente. Escolha *Falar com atendente* para enviar isso à equipe."
         );
-        await sendMainMenu(sessionName, chatId);
+        await sendMainMenu(restaurantId, sessionName, chatId);
         return;
     }
 
     const flow = detectFlow(body);
     if (!flow) {
-        await sendMainMenu(sessionName, chatId);
+        await sendMainMenu(restaurantId, sessionName, chatId);
         return;
     }
 
@@ -764,9 +839,9 @@ export async function processWhatsAppMenuVoteFailed({
     if (!restaurant) return;
 
     if (prepared.state === "welcome") {
-        await sendWelcome(sessionName, chatId, restaurant);
+        await sendWelcome(restaurantId, sessionName, chatId, restaurant);
         return;
     }
 
-    await sendMainMenu(sessionName, chatId);
+    await sendMainMenu(restaurantId, sessionName, chatId);
 }

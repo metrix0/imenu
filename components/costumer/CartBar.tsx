@@ -6,10 +6,9 @@ import {
 } from "@/lib/stores/costumer/cartStore";
 import Button from "@/components/ui/Button";
 import Tooltip from "@/components/ui/Tooltip";
+import HybridModal from "@/components/ui/HybridModal";
 import { useCheckoutStore } from "@/lib/stores/costumer/checkoutStore";
-import { useState, useRef } from "react";
-import {FontAwesomeIcon} from "@fortawesome/react-fontawesome";
-import {icons} from "@/lib/utils/fontawesome";
+import { useState } from "react";
 import {formatPrice, promotionPrice} from "@/lib/utils/formatPrice";
 import { captureConsumerEvent } from "@/lib/analytics/captureConsumerEvent";
 import { CONSUMER_EVENTS } from "@/lib/analytics/consumerEvents";
@@ -40,20 +39,11 @@ export default function CartBar({
     const setStep = useCheckoutStore((s) => s.setStep);
     const setShowAddressWarning = useCheckoutStore(s => s.setShowAddressWarning);
     const [cartWarningVisible, setCartWarningVisible] = useState(false);
-    const [cartWarningClosing, setCartWarningClosing] = useState(false);
-
-    // 🔥 REQUIRED FOR BACKDROP FADE-IN
-    const [backdropVisible, setBackdropVisible] = useState(false);
 
     const checkoutState = useCheckoutStore((s) => s);
     const isTableOrder = Boolean(tableOrder);
     const isPickup = Boolean((checkoutState as any).is_pickup);
-    const [closedByDrag, setClosedByDrag] = useState(false);
-    const [translateY, setTranslateY] = useState(0);
-    const [dragging, setDragging] = useState(false);
     const isContinueBlocked = useCheckoutStore(state => state.isContinueBlocked);
-    const touchStartY = useRef<number | null>(null);
-    const CLOSE_THRESHOLD = 120;
 
     if (items.length === 0) return null;
 
@@ -142,7 +132,7 @@ export default function CartBar({
             const totalCents = items.reduce((acc,i)=>acc+i.total_cents,0);
 
             if (!isTableOrder && totalCents < restaurant.min_order_cents) {
-                showCartWarning(true)
+                setCartWarningVisible(true);
                 return;
             }
             if (!isTableOrder) {
@@ -162,12 +152,9 @@ export default function CartBar({
             );
             setStep("info");
             return;
-        } //inutil?
-
-        if (step === "info" && !allRequiredFilled) {
-
-            return;
         }
+
+        if (step === "info" && !allRequiredFilled) return;
 
         const fee = useCheckoutStore.getState().delivery_fee_cents;
 
@@ -198,9 +185,7 @@ export default function CartBar({
                     await createOrder();
                 } finally {
                     setTimeout(() => {
-                        useCheckoutStore.setState({
-                            isContinueBlocked: false,
-                        });
+                        useCheckoutStore.setState({ isContinueBlocked: false });
                     }, 6000);
                 }
                 return;
@@ -215,8 +200,7 @@ export default function CartBar({
         }
 
         if (step === "checkout") {
-            if (isContinueBlocked) return;   // guard
-
+            if (isContinueBlocked) return;
             useCheckoutStore.setState({ isContinueBlocked: true });
 
             try {
@@ -229,48 +213,18 @@ export default function CartBar({
         }
     }
 
-    function showCartWarning(show: boolean) {
-        if (!show) {
-
-            // 🔥 fade backdrop OUT
-            setBackdropVisible(false);
-
-            if (closedByDrag) {
-                setCartWarningClosing(true);
-
-                setTimeout(() => {
-                    setCartWarningVisible(false);
-                    setCartWarningClosing(false);
-                    setTranslateY(0);
-                    setClosedByDrag(false);
-                }, 220);
-                return;
-            }
-
-            setCartWarningClosing(true);
-
-            setTimeout(() => {
-                setCartWarningVisible(false);
-                setCartWarningClosing(false);
-                setTranslateY(0);
-            }, 220);
-
-        } else {
-            setCartWarningVisible(true);
-
-            // 🔥 fade backdrop IN AFTER mount
-            requestAnimationFrame(() => {
-                setBackdropVisible(true);
-            });
-        }
-    }
-
     async function createOrder() {
         const cart = useCartStore.getState();
         const checkout = useCheckoutStore.getState();
         const pickup = !isTableOrder && Boolean((checkout as any).is_pickup);
+        const shouldOpenWhatsapp =
+            restaurant.force_whatsapp_order_confirmation === true &&
+            typeof window !== "undefined" &&
+            window.matchMedia("(max-width: 767px)").matches;
+        const whatsappWindow = shouldOpenWhatsapp
+            ? window.open("", "_blank")
+            : null;
 
-        // ✅ derived values (frontend preview only)
         const subtotal_cents = cart.items.reduce(
             (sum, i) => sum + (promotionPrice(i) || i.total_cents),
             0
@@ -282,20 +236,12 @@ export default function CartBar({
                 ? Number(checkout.delivery_fee_cents)
                 : 0;
 
-        const discount_cents = isTableOrder
-            ? 0
-            : checkout.coupon_discount_cents || 0;
+        const discount_cents = isTableOrder ? 0 : checkout.coupon_discount_cents || 0;
         const changeFor = !isTableOrder && checkout.pagamento === "dinheiro"
-            ? String((checkout as any).troco ?? "")
-                .replace(/^R\$\s*/i, "")
-                .trim()
+            ? String((checkout as any).troco ?? "").replace(/^R\$\s*/i, "").trim()
             : "";
-        const changeObservation = changeFor
-            ? `Troco para: R$ ${changeFor}`
-            : "";
-
-        const total_cents =
-            subtotal_cents + delivery_fee_cents - discount_cents;
+        const changeObservation = changeFor ? `Troco para: R$ ${changeFor}` : "";
+        const total_cents = subtotal_cents + delivery_fee_cents - discount_cents;
 
         if (trackMeta && slug) {
             trackMeta?.(slug, "Purchase", {
@@ -312,21 +258,14 @@ export default function CartBar({
             customer_phone: isTableOrder ? null : checkout.celular,
             customer_address: pickup || isTableOrder
                 ? null
-                : `${checkout.rua}, ${checkout.numero} - ${checkout.bairro} - ${checkout.cep}${
-                      checkout.complemento ? ` (${checkout.complemento})` : ""
-                  }`,
+                : `${checkout.rua}, ${checkout.numero} - ${checkout.bairro} - ${checkout.cep}${checkout.complemento ? ` (${checkout.complemento})` : ""}`,
             delivery_fee_cents,
             is_delivery: isTableOrder ? "mesa" : pickup ? "retirada" : "entrega",
             paymentMethod: isTableOrder ? null : checkout.pagamento,
-            delivery_time_minutes:
-                pickup || isTableOrder ? null : checkout.delivery_time_minutes,
-            scheduled_for: isTableOrder
-                ? null
-                : checkout.scheduled_for || null,
+            delivery_time_minutes: pickup || isTableOrder ? null : checkout.delivery_time_minutes,
+            scheduled_for: isTableOrder ? null : checkout.scheduled_for || null,
             table_token: isTableOrder ? tableOrder?.token : null,
             table_id: isTableOrder ? selectedTableId : null,
-
-            // 👇 cart items (unchanged, except the first observation may include cash change)
             items: cart.items.map((i, index) => {
                 const existingObservation = i.observation ?? null;
                 const observation = index === 0 && changeObservation
@@ -347,14 +286,10 @@ export default function CartBar({
                     promotion: i.promotion
                 };
             }),
-
-            // 👇 coupon info (unchanged)
             coupon_id: isTableOrder ? null : checkout.coupon_id || null,
             coupon_code: isTableOrder ? null : checkout.coupon_code || null,
             coupon_type: isTableOrder ? null : checkout.coupon_type || null,
             coupon_discount_cents: discount_cents,
-
-            // ✅ added (preview / UI / debugging)
             subtotal_cents,
             total_cents,
         };
@@ -368,9 +303,8 @@ export default function CartBar({
         const data = await res.json();
 
         if (!res.ok) {
-            window.alert(
-                data?.error || "Não foi possível criar o pedido. Tente novamente."
-            );
+            whatsappWindow?.close();
+            window.alert(data?.error || "Não foi possível criar o pedido. Tente novamente.");
             return;
         }
 
@@ -381,19 +315,10 @@ export default function CartBar({
                     coupon_code: checkout.coupon_code,
                     used_at: Date.now()
                 };
-
-                // localStorage (primary)
                 if (typeof window !== "undefined") {
-                    localStorage.setItem(
-                        `coupon_used_${body.restaurantId}`,
-                        JSON.stringify(couponUsage)
-                    );
+                    localStorage.setItem(`coupon_used_${body.restaurantId}`, JSON.stringify(couponUsage));
                 }
-
-                // cookie (fallback / redundancy)
-                document.cookie = `coupon_used_${body.restaurantId}=${encodeURIComponent(
-                    JSON.stringify(couponUsage)
-                )}; path=/; max-age=${60 * 60 * 24 * 30}`; // 30 days
+                document.cookie = `coupon_used_${body.restaurantId}=${encodeURIComponent(JSON.stringify(couponUsage))}; path=/; max-age=${60 * 60 * 24 * 30}`;
             }
         } catch (err) {
             console.error("[COUPON] Failed to persist coupon usage:", err);
@@ -406,15 +331,38 @@ export default function CartBar({
         }
 
         try {
-            if (typeof window !== "undefined") {
-                localStorage.removeItem(getCartStorageKey());
-            } else localStorage.removeItem("cart-storage");
+            if (typeof window !== "undefined") localStorage.removeItem(getCartStorageKey());
+            else localStorage.removeItem("cart-storage");
         } catch (err) {
             console.error("[CART] Failed to clear cart-storage:", err);
         }
 
         useCheckoutStore.setState({ is_pickup: false, scheduled_for: null } as any);
-        console.log("removed cart-storage and created cookie");
+
+        const createdOrderId = data.order_id || data.id;
+        if (shouldOpenWhatsapp && createdOrderId) {
+            try {
+                const confirmationResponse = await fetch(
+                    `/api/orders/${createdOrderId}/whatsapp-confirmation`,
+                    { cache: "no-store" }
+                );
+
+                if (confirmationResponse.ok) {
+                    const confirmation = await confirmationResponse.json();
+                    if (confirmation?.url) {
+                        if (whatsappWindow) {
+                            whatsappWindow.opener = null;
+                            whatsappWindow.location.href = confirmation.url;
+                        } else {
+                            window.open(confirmation.url, "_blank", "noopener,noreferrer");
+                        }
+                    } else whatsappWindow?.close();
+                } else whatsappWindow?.close();
+            } catch (error) {
+                whatsappWindow?.close();
+                console.error("[WHATSAPP_ORDER_CONFIRMATION] Failed to open WhatsApp:", error);
+            }
+        } else whatsappWindow?.close();
 
         if (data.payment_type === "offline") {
             window.location.href = data.redirect;
@@ -422,63 +370,33 @@ export default function CartBar({
         }
 
         if (data.payment_type === "online") {
-
             window.location.href = data.init_point;
             return;
         }
-        if (data.id) {
-            window.location.href = `/pedido/${data.id}`;
-        }
+        if (data.id) window.location.href = `/pedido/${data.id}`;
     }
 
     const displayTotalCents = total + (delivery_fee_cents || 0);
 
-    const handleTouchStart = (e: React.TouchEvent) => {
-        touchStartY.current = e.touches[0].clientY;
-        setDragging(true);
-        setTranslateY(0);
-    };
-
-    const handleTouchMove = (e: React.TouchEvent) => {
-        if (touchStartY.current === null) return;
-        const currentY = e.touches[0].clientY;
-        const diff = currentY - touchStartY.current;
-
-        if (diff <= 0) {
-            setTranslateY(0);
-            return;
-        }
-
-        const dampened = diff > 300 ? 300 + (diff - 300) * 0.2 : diff;
-        setTranslateY(dampened);
-    };
-
-    const handleTouchEnd = () => {
-        const final = translateY;
-        touchStartY.current = null;
-        setDragging(false);
-
-        if (final >= CLOSE_THRESHOLD) {
-            setClosedByDrag(true);
-
-            setCartWarningClosing(true);
-            setBackdropVisible(false); // fade out immediately
-
-            const offscreen = typeof window !== "undefined" ? window.innerHeight : 1000;
-            setTranslateY(offscreen);
-
-            setTimeout(() => {
+    const minimumOrderContent = (
+        <div className="p-6 text-center md:p-8">
+            <div className="text-text mb-2 mt-2 text-md font-medium">
+                Valor mínimo do pedido.
+            </div>
+            <p className="mb-4 text-sm text-gray-500">
+                O pedido mínimo deste restaurante é de <b>R$ {(restaurant.min_order_cents/100).toFixed(2).replace(".",",")}</b>, sem contar com a taxa de entrega.
+            </p>
+            <Button variant="primary" className="w-full py-3 text-sm" onClick={() => {
                 setCartWarningVisible(false);
-                setCartWarningClosing(false);
-                setTranslateY(0);
-                setClosedByDrag(false);
-            }, 260);
-
-            return;
-        }
-
-        setTranslateY(0);
-    };
+                setCartOpenAction(false);
+            }}>
+                Adicionar mais itens
+            </Button>
+            <button type="button" className="mt-4 cursor-pointer text-sm text-brand" onClick={() => setCartWarningVisible(false)}>
+                Ok, entendi
+            </button>
+        </div>
+    );
 
     return (
         <>
@@ -487,26 +405,17 @@ export default function CartBar({
                     <div className="flex flex-col text-left text-[12px] 2xl:text-lg text-gray-600">
                         <span>
                             {isTableOrder
-                                ? selectedTableName
-                                    ? `Total • ${selectedTableName} `
-                                    : "Total "
-                                : isPickup
-                                ? "Total para retirada "
-                                : checkoutState.delivery_fee_cents === null ||
-                                  checkoutState.delivery_fee_cents === undefined || !checkoutState.delivery_fee_cents
-                                    ? "Total sem a entrega "
-                                    : "Total com a entrega "}
+                                ? selectedTableName ? `Total • ${selectedTableName} ` : "Total "
+                                : isPickup ? "Total para retirada "
+                                : checkoutState.delivery_fee_cents === null || checkoutState.delivery_fee_cents === undefined || !checkoutState.delivery_fee_cents
+                                    ? "Total sem a entrega " : "Total com a entrega "}
                         </span>
                         <span>
-                            <span className={`${hasDiscount && ("line-through text-gray-400 !text-sm 2xl:!text-base")} font-semibold text-black text-lg  2xl:text-xl leading-tight tracking-tighter`}>
+                            <span className={`${hasDiscount && "line-through text-gray-400 !text-sm 2xl:!text-base"} font-semibold text-black text-lg 2xl:text-xl leading-tight tracking-tighter`}>
                                 {formatPrice(displayTotalCents)}
                             </span>
-                            {hasDiscount && (<span className={"ml-1 font-semibold text-black text-lg  2xl:text-xl leading-tight tracking-tighter"}>
-                                {formatPrice(finalTotalCents)}
-                            </span>)}
-                            <span>
-                                / {itemCount} {itemCount === 1 ? "item" : "itens"}
-                            </span>
+                            {hasDiscount && <span className="ml-1 font-semibold text-black text-lg 2xl:text-xl leading-tight tracking-tighter">{formatPrice(finalTotalCents)}</span>}
+                            <span> / {itemCount} {itemCount === 1 ? "item" : "itens"}</span>
                         </span>
                     </div>
 
@@ -516,69 +425,25 @@ export default function CartBar({
                             onClick={handleClick}
                             loading={isContinueBlocked}
                             disabled={disabledContinue}
-                            className={`relative z-10 py-3 px-10 2xl:px-15 2xl:py-4 text-[13px] 2xl:text-lg tracking-wide font-normal ${
-                                disabledContinue ? "!bg-gray-300 focus:ring-transparent" : ""
-                            }`}
+                            className={`relative z-10 py-3 px-10 2xl:px-15 2xl:py-4 text-[13px] 2xl:text-lg tracking-wide font-normal ${disabledContinue ? "!bg-gray-300 focus:ring-transparent" : ""}`}
                         >
                             {isTableOrder && step === "info"
                                 ? "Confirmar pedido"
-                                : step === "checkout"
-                                ? "Confirmar"
-                                : cartOpen
-                                    ? "Continuar"
-                                    : "Ver Sacola"}
+                                : step === "checkout" ? "Confirmar" : cartOpen ? "Continuar" : "Ver Sacola"}
                         </Button>
                     )}
                 </div>
             </div>
 
-            {!isTableOrder && cartWarningVisible && (
-                <>
-                    {/* 🔥 FIXED BACKDROP WITH FADE-IN & FADE-OUT */}
-                    <div
-                        onClick={() => showCartWarning(false)}
-                        className={`fixed inset-0 z-[70] bg-black/40 backdrop-blur-[1px]
-                            transition-opacity duration-300
-                            ${backdropVisible ? "opacity-100" : "opacity-0"}
-                        `}
-                    />
-
-                    <div
-                        onTouchStart={handleTouchStart}
-                        onTouchMove={handleTouchMove}
-                        onTouchEnd={handleTouchEnd}
-                        className={`
-                            fixed bottom-0 left-0 right-0 z-[71]
-                            bg-white rounded-t-2xl shadow-xl
-                            h-[30vh]
-                            p-6 
-                            ${closedByDrag ? "" : cartWarningClosing ? "animate-slide-down" : "animate-slide-up"}
-                        `}
-                        style={{
-                            transform: `translateY(${translateY}px)`,
-                            transition: dragging ? "none" : "transform 250ms ease",
-                            touchAction: "pan-y"
-                        }}
-                    >
-                        <div className="text-center">
-                            <div className="text-text text-md font-medium mb-2 mt-4">
-                                Valor mínimo do pedido.
-                            </div>
-                            <p className="text-gray-500 mb-4 text-sm">
-                                O pedido mínimo deste restaurante é de <b>R$ {(restaurant.min_order_cents/100).toFixed(2).replace(".",",")}</b>, sem contar com a taxa de entrega.
-                            </p>
-                            <Button variant={"primary"} className={"text-sm w-full py-3"} onClick={() => {
-                                showCartWarning(false);
-                                setCartOpenAction(false);
-                            }}>
-                                Adicionar mais itens
-                            </Button>
-                            <p className="text-brand text-sm mt-4" onClick={() => showCartWarning(false)}>
-                                Ok, entendi
-                            </p>
-                        </div>
-                    </div>
-                </>
+            {!isTableOrder && (
+                <HybridModal
+                    open={cartWarningVisible}
+                    onClose={() => setCartWarningVisible(false)}
+                    height={0.3}
+                    className="md:max-w-md"
+                >
+                    {minimumOrderContent}
+                </HybridModal>
             )}
         </>
     );

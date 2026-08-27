@@ -31,7 +31,7 @@ ChartJS.register(
 
 const ALLOWED_DEV_EMAIL = "joaovralmeida@hotmail.com";
 
-type RangeKey = "this_week" | "last_week" | "30d" | "90d";
+type RangeKey = "7d" | "this_week" | "last_week" | "30d" | "90d";
 type AccessState = "checking" | "allowed" | "forbidden" | "signed-out";
 type SeriesPoint = { label: string; value: number };
 type MetricKey =
@@ -146,6 +146,7 @@ type DashboardDetailsPayload = {
 };
 
 const RANGE_OPTIONS: Array<{ key: RangeKey; label: string }> = [
+    { key: "7d", label: "7 dias" },
     { key: "this_week", label: "Esta semana" },
     { key: "last_week", label: "Semana passada" },
     { key: "30d", label: "Últimos 30 dias" },
@@ -319,7 +320,7 @@ function paymentOptions() {
 
 export default function DevDashboardPage() {
     const router = useRouter();
-    const [range, setRange] = useState<RangeKey>("this_week");
+    const [range, setRange] = useState<RangeKey>("7d");
     const [accessState, setAccessState] = useState<AccessState>("checking");
     const [data, setData] = useState<DashboardPayload | null>(null);
     const [details, setDetails] = useState<DashboardDetailsPayload | null>(null);
@@ -1018,10 +1019,23 @@ export default function DevDashboardPage() {
                                             {
                                                 label: "Abriram Saiba mais",
                                                 value: details.qrTable.onboarding.learnMore,
+                                                conversionBase: details.qrTable.onboarding.viewed,
+                                                conversionLabel: "de Antes de começar",
                                             },
                                             {
                                                 label: "Compraram",
                                                 value: details.qrTable.onboarding.purchased,
+                                                conversionBase: details.qrTable.onboarding.viewed,
+                                                conversionLabel: "de Antes de começar",
+                                            },
+                                            {
+                                                label: "Passo 1",
+                                                value:
+                                                    data.pipeline.find(
+                                                        (step) => step.key === "step_1"
+                                                    )?.value ?? null,
+                                                conversionBase: details.qrTable.onboarding.viewed,
+                                                conversionLabel: "de Antes de começar",
                                             },
                                         ]}
                                     />
@@ -1126,17 +1140,28 @@ function QrTableFunnelCard({
     steps,
 }: {
     title: string;
-    steps: Array<{ label: string; value: number | null }>;
+    steps: Array<{
+        label: string;
+        value: number | null;
+        conversionBase?: number | null;
+        conversionLabel?: string;
+    }>;
 }) {
     return (
         <article className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
             <h3 className="font-semibold text-gray-900">{title}</h3>
             <div className="mt-4 grid gap-3">
                 {steps.map((step, index) => {
-                    const previous = index > 0 ? steps[index - 1].value : null;
+                    const previous =
+                        step.conversionBase !== undefined
+                            ? step.conversionBase
+                            : index > 0
+                              ? steps[index - 1].value
+                              : null;
                     const stepConversion = index > 0
                         ? conversion(step.value, previous)
                         : null;
+                    const conversionText = step.conversionLabel || "do passo anterior";
 
                     return (
                         <div
@@ -1151,7 +1176,7 @@ function QrTableFunnelCard({
                                     <p className="mt-0.5 text-xs text-gray-500">
                                         {stepConversion === null
                                             ? "Conversão indisponível"
-                                            : `${formatRatio(stepConversion)} do passo anterior`}
+                                            : `${formatRatio(stepConversion)} ${conversionText}`}
                                     </p>
                                 )}
                             </div>

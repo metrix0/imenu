@@ -128,6 +128,19 @@ function extractIncomingBody(payload: Record<string, any>): string {
     ]);
 }
 
+function isGeneratedOrderMessage(body: string): boolean {
+    const lines = body
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean);
+
+    return (
+        /^🧾\s*\*?PEDIDO\s+#.+\*?$/i.test(lines[0] || "") &&
+        lines.some((line) => /^🕐\s*Hora:/i.test(line)) &&
+        lines.some((line) => /^📦\s*Tipo:/i.test(line))
+    );
+}
+
 async function claimEvent(
     eventId: string,
     supabase: ReturnType<typeof createSupabaseServerClient>
@@ -358,11 +371,16 @@ export async function POST(request: NextRequest) {
         }
 
         if (eventName === "message" && payload.fromMe !== true) {
+            const incomingBody = extractIncomingBody(payload);
+            if (isGeneratedOrderMessage(incomingBody)) {
+                return NextResponse.json({ ok: true, ignored: "order_message" });
+            }
+
             await processIncomingWhatsAppMessage({
                 restaurantId: connection.restaurant_id,
                 sessionName,
                 chatId,
-                body: extractIncomingBody(payload),
+                body: incomingBody,
                 hasMedia: payload.hasMedia === true,
             });
         }

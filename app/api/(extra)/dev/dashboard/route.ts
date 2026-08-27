@@ -15,7 +15,7 @@ const ALLOWED_DEV_EMAIL = "joaovralmeida@hotmail.com";
 const TIME_ZONE = "America/Sao_Paulo";
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-const RANGE_KEYS = ["this_week", "last_week", "30d", "90d"] as const;
+const RANGE_KEYS = ["7d", "this_week", "last_week", "30d", "90d"] as const;
 type RangeKey = (typeof RANGE_KEYS)[number];
 
 type BoundsRow = {
@@ -145,7 +145,7 @@ async function authorize(request: Request): Promise<NextResponse | null> {
 function parseRange(value: string | null): RangeKey {
     return RANGE_KEYS.includes(value as RangeKey)
         ? (value as RangeKey)
-        : "this_week";
+        : "7d";
 }
 
 function toTimestamp(value: string | Date): number {
@@ -741,6 +741,8 @@ export async function GET(request: Request) {
                 )
                 SELECT
                     CASE $2::text
+                        WHEN '7d' THEN
+                            (date_trunc('day', local_now) - INTERVAL '6 days') AT TIME ZONE $1
                         WHEN 'this_week' THEN
                             date_trunc('week', local_now) AT TIME ZONE $1
                         WHEN 'last_week' THEN

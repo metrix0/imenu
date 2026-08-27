@@ -51,6 +51,30 @@ interface CheckoutState {
     setContinueBlocked: (v: boolean) => void;
 }
 
+function getActiveCheckoutModalRoot() {
+    if (typeof document === "undefined") return null;
+
+    const roots = Array.from(
+        document.querySelectorAll<HTMLElement>(".fixed.inset-0.z-41")
+    ).filter((element) => element.getClientRects().length > 0);
+
+    return roots[roots.length - 1] ?? null;
+}
+
+function resetCheckoutModalScroll() {
+    const root = getActiveCheckoutModalRoot();
+    if (!root) return;
+
+    const scrollTargets = [
+        root,
+        ...root.querySelectorAll<HTMLElement>(".overflow-y-auto"),
+    ];
+
+    scrollTargets.forEach((element) => {
+        element.scrollTop = 0;
+    });
+}
+
 export const useCheckoutStore = create<CheckoutState>()(
     persist(
         (set) => ({
@@ -90,20 +114,14 @@ export const useCheckoutStore = create<CheckoutState>()(
             setStep: (s) => {
                 set({ step: s });
 
-                if (s === "checkout" && typeof window !== "undefined") {
-                    requestAnimationFrame(() => {
-                        const mobileModals = Array.from(
-                            document.querySelectorAll<HTMLElement>(
-                                ".fixed.left-0.right-0.mx-auto.bg-white.rounded-t-xl.overflow-hidden"
-                            )
-                        ).filter((element) => element.offsetParent !== null);
-                        const activeModal = mobileModals[mobileModals.length - 1];
-                        const scrollContainer = activeModal?.querySelector<HTMLElement>(
-                            ".overflow-y-auto.h-full"
-                        );
+                if (typeof window !== "undefined") {
+                    const reset = () => resetCheckoutModalScroll();
 
-                        scrollContainer?.scrollTo({ top: 0, behavior: "auto" });
+                    reset();
+                    requestAnimationFrame(() => {
+                        requestAnimationFrame(reset);
                     });
+                    window.setTimeout(reset, 340);
                 }
             },
 
@@ -160,3 +178,81 @@ export const useCheckoutStore = create<CheckoutState>()(
         }
     )
 );
+
+type CheckoutSwipeWindow = Window & {
+    __imenuCheckoutSwipeInstalled?: boolean;
+};
+
+if (typeof window !== "undefined") {
+    const checkoutWindow = window as CheckoutSwipeWindow;
+
+    if (!checkoutWindow.__imenuCheckoutSwipeInstalled) {
+        checkoutWindow.__imenuCheckoutSwipeInstalled = true;
+
+        let touchStart: {
+            x: number;
+            y: number;
+            root: HTMLElement;
+        } | null = null;
+
+        document.addEventListener(
+            "touchstart",
+            (event) => {
+                const target = event.target;
+                if (!(target instanceof Element)) {
+                    touchStart = null;
+                    return;
+                }
+
+                const root = target.closest(
+                    ".fixed.inset-0.z-41"
+                ) as HTMLElement | null;
+                const touch = event.touches[0];
+
+                if (!root || !touch) {
+                    touchStart = null;
+                    return;
+                }
+
+                touchStart = {
+                    x: touch.clientX,
+                    y: touch.clientY,
+                    root,
+                };
+            },
+            { passive: true }
+        );
+
+        document.addEventListener(
+            "touchend",
+            (event) => {
+                if (!touchStart) return;
+
+                const start = touchStart;
+                touchStart = null;
+
+                if (start.root.getClientRects().length === 0) return;
+
+                const touch = event.changedTouches[0];
+                if (!touch) return;
+
+                const deltaX = touch.clientX - start.x;
+                const deltaY = touch.clientY - start.y;
+
+                const isBackSwipe =
+                    deltaX >= 70 &&
+                    Math.abs(deltaX) > Math.abs(deltaY) * 1.25;
+
+                if (!isBackSwipe) return;
+
+                const state = useCheckoutStore.getState();
+                if (state.step === "checkout") {
+                    state.setStep("info");
+                } else if (state.step === "info") {
+                    state.setStep("cart");
+                }
+            },
+            { passive: true }
+        );
+    }
+}

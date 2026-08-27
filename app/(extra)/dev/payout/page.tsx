@@ -11,6 +11,7 @@ import Modal from "@/components/ui/Modal";
 import { supabase } from "@/lib/database/supabaseClient";
 
 const ALLOWED_DEV_EMAIL = "joaovralmeida@hotmail.com";
+const HISTORY_PAGE_SIZE = 10;
 
 type AccessState = "checking" | "allowed" | "forbidden" | "signed-out";
 type PixKeyType = "CPF" | "CNPJ" | "EMAIL" | "PHONE" | "EVP";
@@ -31,6 +32,9 @@ type HistoryItem = {
     restaurant_id: string;
     restaurant_name: string;
     amount_cents: number;
+    gross_cents: number | null;
+    payzu_fee_cents: number | null;
+    discount_cents: number | null;
     status: string;
     created_at: string;
     paid_at: string | null;
@@ -85,6 +89,20 @@ const money = (cents: number) =>
         currency: "BRL",
     });
 
+const amountInput = (cents: number) =>
+    (cents / 100).toLocaleString("pt-BR", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    });
+
+const parseAmountInput = (value: string) => {
+    const normalized = value.trim().replace(/\./g, "").replace(",", ".");
+    if (!normalized) return null;
+    const number = Number(normalized);
+    if (!Number.isFinite(number)) return null;
+    return Math.round(number * 100);
+};
+
 const whatsappMoney = (cents: number) =>
     `R$ ${(cents / 100).toLocaleString("pt-BR", {
         minimumFractionDigits: 2,
@@ -126,10 +144,7 @@ function getDiscountCents(
     onePercentNet: boolean
 ) {
     if (onePercentNet) {
-        return Math.max(
-            0,
-            Math.round(item.grossCents * 0.01) - item.payzuFeeCents
-        );
+        return Math.round(item.grossCents * 0.01);
     }
     return Math.round(item.grossCents * (discountPercent / 100));
 }
@@ -144,10 +159,7 @@ function getNetCents(
         discountPercent,
         onePercentNet
     );
-    return Math.max(
-        0,
-        item.grossCents - discountCents - (onePercentNet ? item.payzuFeeCents : 0)
-    );
+    return Math.max(0, item.grossCents - discountCents);
 }
 
 export default function DevPayoutPage() {
@@ -155,6 +167,10 @@ export default function DevPayoutPage() {
     const [accessState, setAccessState] = useState<AccessState>("checking");
     const [data, setData] = useState<DashboardPayload | null>(null);
     const [restaurantPhones, setRestaurantPhones] = useState<Record<string, string>>({});
+    const [restaurantPixInfo, setRestaurantPixInfo] = useState<
+        Record<string, { pixKey: string; pixKeyType: string }>
+    >({});
+    const [manualAmounts, setManualAmounts] = useState<Record<string, string>>({});
     const [loading, setLoading] = useState(true);
     const [sending, setSending] = useState(false);
     const [transferringPayzu, setTransferringPayzu] = useState(false);
@@ -163,6 +179,7 @@ export default function DevPayoutPage() {
     const [discountPercent, setDiscountPercent] = useState("0.75");
     const [onePercentNet, setOnePercentNet] = useState(false);
     const [confirmOpen, setConfirmOpen] = useState(false);
+    const [historyPage, setHistoryPage] = useState(1);
     const [lastResult, setLastResult] = useState<SendResult | null>(null);
     const [lastPayzuTransfer, setLastPayzuTransfer] =
         useState<PayzuTransferResult | null>(null);
@@ -213,23 +230,58 @@ export default function DevPayoutPage() {
                     ...payload.history.map((item) => item.restaurant_id),
                 ])
             );
-            const phoneEntries = await Promise.all(
+            const restaurantEntries = await Promise.all(
                 restaurantIds.map(async (restaurantId) => {
                     try {
                         const restaurantResponse = await fetch(
                             `/api/restaurants/${restaurantId}`,
                             { cache: "no-store" }
                         );
-                        if (!restaurantResponse.ok) return [restaurantId, ""] as const;
+                        if (!restaurantResponse.ok) {
+                            return [
+                                restaurantId,
+                                { phone: "", pixKey: "", pixKeyType: "" },
+                            ] as const;
+                        }
                         const restaurant = await restaurantResponse.json();
-                        return [restaurantId, String(restaurant?.phone || "")] as const;
+                        return [
+                            restaurantId,
+                            {
+                                phone: String(restaurant?.phone || ""),
+                                pixKey: String(restaurant?.payment_info || ""),
+                                pixKeyType: String(restaurant?.payment_info_type || ""),
+                            },
+                        ] as const;
                     } catch {
-                        return [restaurantId, ""] as const;
+                        return [
+                            restaurantId,
+                            { phone: "", pixKey: "", pixKeyType: "" },
+                        ] as const;
                     }
                 })
             );
 
-            setRestaurantPhones(Object.fromEntries(phoneEntries));
+            setRestaurantPhones(
+                Object.fromEntries(
+                    restaurantEntries.map(([restaurantId, details]) => [
+                        restaurantId,
+                        details.phone,
+                    ])
+                )
+            );
+            setRestaurantPixInfo(
+                Object.fromEntries(
+                    restaurantEntries.map(([restaurantId, details]) => [
+                        restaurantId,
+                        {
+                            pixKey: details.pixKey,
+                            pixKeyType: details.pixKeyType,
+                        },
+                    ])
+                )
+            );
+            setManualAmounts({});
+            setHistoryPage(1);
             setAccessState("allowed");
             setData(payload);
         } catch (caught) {
@@ -249,6 +301,13 @@ export default function DevPayoutPage() {
     }, []);
 
     const payables = data?.payables || [];
+    const history = data?.history || [];
+    const historyPageCount = Math.max(1, Math.ceil(history.length / HISTORY_PAGE_SIZE));
+    const currentHistoryPage = Math.min(historyPage, historyPageCount);
+    const paginatedHistory = history.slice(
+        (currentHistoryPage - 1) * HISTORY_PAGE_SIZE,
+        currentHistoryPage * HISTORY_PAGE_SIZE
+    );
     const sendable = useMemo(
         () => data?.payables.filter((item) => item.canSend) || [],
         [data]
@@ -261,6 +320,21 @@ export default function DevPayoutPage() {
         () => data?.payables.filter((item) => item.pixKey && !item.pixKeyType) || [],
         [data]
     );
+
+    const getSendCents = (item: Payable) => {
+        const manual = manualAmounts[item.restaurantId];
+        if (manual === undefined) {
+            return getNetCents(item, numericDiscount, onePercentNet);
+        }
+        return parseAmountInput(manual) ?? 0;
+    };
+
+    const invalidManualAmounts = sendable.some((item) => {
+        const manual = manualAmounts[item.restaurantId];
+        if (manual === undefined) return false;
+        const cents = parseAmountInput(manual);
+        return cents === null || cents <= 0 || cents > item.grossCents;
+    });
 
     const grossOwedCents = payables.reduce(
         (sum, item) => sum + item.grossCents,
@@ -280,11 +354,12 @@ export default function DevPayoutPage() {
     );
 
     const netSendableCents = sendable.reduce(
-        (sum, item) => sum + getNetCents(item, numericDiscount, onePercentNet),
+        (sum, item) => sum + getSendCents(item),
         0
     );
 
     const handleAdjustToOnePercent = () => {
+        setManualAmounts({});
         setOnePercentNet(true);
     };
 
@@ -396,6 +471,12 @@ export default function DevPayoutPage() {
                 body: JSON.stringify({
                     discountPercent: numericDiscount,
                     adjustToOnePercent: onePercentNet,
+                    amounts: Object.fromEntries(
+                        sendable.map((item) => [
+                            item.restaurantId,
+                            getSendCents(item),
+                        ])
+                    ),
                 }),
             });
             const payload = await response.json();
@@ -503,7 +584,7 @@ export default function DevPayoutPage() {
                     value={money(netOwedCents)}
                     detail={
                         onePercentNet
-                            ? `${money(grossOwedCents)} bruto − ${money(payzuOwedCents)} PayZu − ${money(owedDiscountCents)} desconto`
+                            ? `${money(grossOwedCents)} bruto − ${money(owedDiscountCents)} (1%) · PayZu ${money(payzuOwedCents)} informativo`
                             : `${money(grossOwedCents)} bruto − ${money(owedDiscountCents)} (${numericDiscount.toLocaleString("pt-BR", { maximumFractionDigits: 4 })}%)`
                     }
                 />
@@ -549,6 +630,7 @@ export default function DevPayoutPage() {
                                 inputMode="decimal"
                                 value={discountPercent}
                                 onChange={(event) => {
+                                    setManualAmounts({});
                                     setOnePercentNet(false);
                                     setDiscountPercent(event.target.value);
                                 }}
@@ -572,6 +654,7 @@ export default function DevPayoutPage() {
                                 !data?.asaasConfigured ||
                                 sendable.length === 0 ||
                                 ambiguousPix.length > 0 ||
+                                invalidManualAmounts ||
                                 (!onePercentNet &&
                                     (numericDiscount < 0 || numericDiscount > 100))
                             }
@@ -593,12 +676,18 @@ export default function DevPayoutPage() {
                         Defina abaixo o tipo da chave PIX para: {ambiguousPix.map((item) => item.restaurantName).join(", ")}.
                     </div>
                 )}
+
+                {invalidManualAmounts && (
+                    <div className="mt-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                        O valor manual deve ser maior que R$ 0,00 e não pode ultrapassar o bruto do restaurante.
+                    </div>
+                )}
             </Card>
 
             <Card>
                 <h2 className="text-lg font-bold text-gray-900">Valores por restaurante</h2>
                 <p className="mt-1 text-sm text-gray-500">
-                    Apenas pedidos PIX Online confirmados desde o último repasse registrado são considerados.
+                    Apenas pedidos PIX Online confirmados desde o último repasse registrado são considerados. O valor em Enviar pode ser ajustado manualmente antes da confirmação.
                 </p>
 
                 <div className="mt-5 overflow-x-auto">
@@ -621,7 +710,7 @@ export default function DevPayoutPage() {
                                     numericDiscount,
                                     onePercentNet
                                 );
-                                const net = getNetCents(
+                                const calculatedNet = getNetCents(
                                     item,
                                     numericDiscount,
                                     onePercentNet
@@ -664,8 +753,36 @@ export default function DevPayoutPage() {
                                         </td>
                                         <td className="px-3 py-4 text-right">{money(item.grossCents)}</td>
                                         <td className="px-3 py-4 text-right text-gray-500">{money(item.payzuFeeCents)}</td>
-                                        <td className="px-3 py-4 text-right text-gray-500">{money(discountCents)}</td>
-                                        <td className="px-3 py-4 text-right font-bold">{item.canSend ? money(net) : "—"}</td>
+                                        <td className="px-3 py-4 text-right text-gray-500">
+                                            {onePercentNet && discountCents > 0
+                                                ? `-${money(discountCents)}`
+                                                : money(discountCents)}
+                                        </td>
+                                        <td className="px-3 py-4 text-right font-bold">
+                                            {item.canSend ? (
+                                                <div className="ml-auto flex w-32 items-center rounded-lg border border-gray-200 bg-white px-2 focus-within:border-brand">
+                                                    <span className="mr-1 text-xs font-medium text-gray-400">R$</span>
+                                                    <input
+                                                        type="text"
+                                                        inputMode="decimal"
+                                                        value={
+                                                            manualAmounts[item.restaurantId] ??
+                                                            amountInput(calculatedNet)
+                                                        }
+                                                        onChange={(event) =>
+                                                            setManualAmounts((current) => ({
+                                                                ...current,
+                                                                [item.restaurantId]: event.target.value,
+                                                            }))
+                                                        }
+                                                        className="h-9 w-full bg-transparent text-right font-bold outline-none"
+                                                        aria-label={`Valor a enviar para ${item.restaurantName}`}
+                                                    />
+                                                </div>
+                                            ) : (
+                                                "—"
+                                            )}
+                                        </td>
                                     </tr>
                                 );
                             })}
@@ -683,49 +800,157 @@ export default function DevPayoutPage() {
 
             <Card>
                 <h2 className="text-lg font-bold text-gray-900">Histórico de envios</h2>
-                <div className="mt-5 space-y-3">
-                    {(data?.history || []).map((item) => {
-                        const whatsappNumber = normalizeWhatsappNumber(
-                            restaurantPhones[item.restaurant_id]
-                        );
-                        return (
-                            <div
-                                key={item.id}
-                                className="flex flex-col gap-2 rounded-lg border border-gray-100 p-4 sm:flex-row sm:items-center sm:justify-between"
-                            >
-                                <div>
-                                    <div className="font-semibold text-gray-900">{item.restaurant_name}</div>
-                                    <div className="text-xs text-gray-500">{dateTime(item.created_at)}</div>
-                                </div>
-                                <div className="flex flex-wrap items-center gap-3">
-                                    {item.status === "processing" && (
-                                        <span className="rounded-full bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700">Processando</span>
-                                    )}
-                                    <span className="text-lg font-bold text-gray-900">{money(item.amount_cents)}</span>
-                                    <Button
-                                        variant="secondary"
-                                        disabled={!whatsappNumber}
-                                        onClick={() => {
-                                            if (!whatsappNumber) return;
-                                            const message = `Repasse iMenu - ${item.restaurant_name}: ${whatsappMoney(item.amount_cents)}`;
-                                            window.open(
-                                                `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`,
-                                                "_blank",
-                                                "noopener,noreferrer"
-                                            );
-                                        }}
-                                        className="px-3 py-1.5 text-xs"
-                                    >
-                                        WhatsApp
-                                    </Button>
-                                </div>
-                            </div>
-                        );
-                    })}
-                    {data?.history.length === 0 && (
-                        <div className="py-8 text-center text-gray-400">Nenhum repasse registrado.</div>
-                    )}
+                <div className="mt-5 overflow-x-auto">
+                    <table className="w-full min-w-[1250px] table-fixed text-left text-sm">
+                        <thead className="border-b border-gray-100 text-xs uppercase text-gray-400">
+                            <tr>
+                                <th className="w-48 px-3 py-3">Restaurante</th>
+                                <th className="w-40 px-3 py-3">Data</th>
+                                <th className="w-36 px-3 py-3">Telefone</th>
+                                <th className="w-56 px-3 py-3">PIX</th>
+                                <th className="w-28 px-3 py-3 text-right">Bruto</th>
+                                <th className="w-28 px-3 py-3 text-right">PayZu</th>
+                                <th className="w-28 px-3 py-3 text-right">Desconto</th>
+                                <th className="w-28 px-3 py-3 text-right">Enviado</th>
+                                <th className="w-28 px-3 py-3">Status</th>
+                                <th className="w-28 px-3 py-3 text-right">Ação</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                            {paginatedHistory.map((item) => {
+                                const phone = restaurantPhones[item.restaurant_id];
+                                const whatsappNumber = normalizeWhatsappNumber(phone);
+                                const pixInfo = restaurantPixInfo[item.restaurant_id];
+                                const pixLabel = pixInfo?.pixKey
+                                    ? `${pixInfo.pixKeyType ? `${pixInfo.pixKeyType} · ` : ""}${pixInfo.pixKey}`
+                                    : "—";
+                                const effectiveDiscountCents =
+                                    item.gross_cents == null
+                                        ? item.discount_cents
+                                        : Math.max(0, item.gross_cents - item.amount_cents);
+
+                                return (
+                                    <tr key={item.id}>
+                                        <td
+                                            className="truncate whitespace-nowrap px-3 py-4 font-semibold text-gray-900"
+                                            title={item.restaurant_name}
+                                        >
+                                            {item.restaurant_name}
+                                        </td>
+                                        <td className="truncate whitespace-nowrap px-3 py-4 text-gray-500">
+                                            {dateTime(item.created_at)}
+                                        </td>
+                                        <td
+                                            className="truncate whitespace-nowrap px-3 py-4 text-gray-500"
+                                            title={formatPhone(phone) || "—"}
+                                        >
+                                            {formatPhone(phone) || "—"}
+                                        </td>
+                                        <td
+                                            className="truncate whitespace-nowrap px-3 py-4 text-gray-500"
+                                            title={pixLabel}
+                                        >
+                                            {pixLabel}
+                                        </td>
+                                        <td className="whitespace-nowrap px-3 py-4 text-right">
+                                            {item.gross_cents == null ? "—" : money(item.gross_cents)}
+                                        </td>
+                                        <td className="whitespace-nowrap px-3 py-4 text-right text-gray-500">
+                                            {item.payzu_fee_cents == null ? "—" : money(item.payzu_fee_cents)}
+                                        </td>
+                                        <td className="whitespace-nowrap px-3 py-4 text-right text-gray-500">
+                                            {effectiveDiscountCents == null
+                                                ? "—"
+                                                : effectiveDiscountCents > 0
+                                                  ? `-${money(effectiveDiscountCents)}`
+                                                  : money(0)}
+                                        </td>
+                                        <td className="whitespace-nowrap px-3 py-4 text-right font-bold text-gray-900">
+                                            {money(item.amount_cents)}
+                                        </td>
+                                        <td className="whitespace-nowrap px-3 py-4">
+                                            {item.status === "processing" ? (
+                                                <span className="rounded-full bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700">
+                                                    Processando
+                                                </span>
+                                            ) : item.status === "paid" ? (
+                                                <span className="rounded-full bg-green-50 px-2 py-1 text-xs font-semibold text-green-700">
+                                                    Pago
+                                                </span>
+                                            ) : (
+                                                <span className="text-xs font-semibold text-gray-500">
+                                                    {item.status}
+                                                </span>
+                                            )}
+                                        </td>
+                                        <td className="whitespace-nowrap px-3 py-4 text-right">
+                                            <Button
+                                                variant="secondary"
+                                                disabled={!whatsappNumber}
+                                                onClick={() => {
+                                                    if (!whatsappNumber) return;
+                                                    const message = `Repasse iMenu - ${item.restaurant_name}: ${whatsappMoney(item.amount_cents)}`;
+                                                    window.open(
+                                                        `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`,
+                                                        "_blank",
+                                                        "noopener,noreferrer"
+                                                    );
+                                                }}
+                                                className="px-3 py-1.5 text-xs"
+                                            >
+                                                WhatsApp
+                                            </Button>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                            {history.length === 0 && (
+                                <tr>
+                                    <td colSpan={10} className="px-3 py-10 text-center text-gray-400">
+                                        Nenhum repasse registrado.
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
                 </div>
+
+                {historyPageCount > 1 && (
+                    <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
+                        <button
+                            type="button"
+                            onClick={() => setHistoryPage((page) => Math.max(1, page - 1))}
+                            disabled={currentHistoryPage === 1}
+                            className="h-9 cursor-pointer rounded-lg border border-gray-200 px-3 text-sm font-medium text-gray-600 transition hover:bg-gray-50 disabled:cursor-default disabled:opacity-40"
+                        >
+                            Anterior
+                        </button>
+                        {Array.from({ length: historyPageCount }, (_, index) => index + 1).map((page) => (
+                            <button
+                                key={page}
+                                type="button"
+                                onClick={() => setHistoryPage(page)}
+                                className={`h-9 min-w-9 cursor-pointer rounded-lg border px-3 text-sm font-semibold transition ${
+                                    page === currentHistoryPage
+                                        ? "border-brand bg-brand text-white"
+                                        : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                                }`}
+                            >
+                                {page}
+                            </button>
+                        ))}
+                        <button
+                            type="button"
+                            onClick={() =>
+                                setHistoryPage((page) => Math.min(historyPageCount, page + 1))
+                            }
+                            disabled={currentHistoryPage === historyPageCount}
+                            className="h-9 cursor-pointer rounded-lg border border-gray-200 px-3 text-sm font-medium text-gray-600 transition hover:bg-gray-50 disabled:cursor-default disabled:opacity-40"
+                        >
+                            Próxima
+                        </button>
+                    </div>
+                )}
             </Card>
 
             <Modal open={confirmOpen} onClose={() => !sending && setConfirmOpen(false)}>
@@ -733,8 +958,8 @@ export default function DevPayoutPage() {
                     <h2 className="text-xl font-bold text-gray-900">Confirmar envio</h2>
                     <p className="mt-2 text-sm text-gray-500">
                         {onePercentNet
-                            ? `Serão enviados ${money(netSendableCents)} para ${sendable.length} restaurante(s), com 1% líquido após PayZu calculado individualmente por restaurante.`
-                            : `Serão enviados ${money(netSendableCents)} para ${sendable.length} restaurante(s), com desconto de ${numericDiscount.toLocaleString("pt-BR", { maximumFractionDigits: 4 })}%.`}
+                            ? `Serão enviados ${money(netSendableCents)} para ${sendable.length} restaurante(s). O ajuste de 1% desconta exatamente 1% do bruto de cada restaurante; valores editados manualmente são respeitados.`
+                            : `Serão enviados ${money(netSendableCents)} para ${sendable.length} restaurante(s), com desconto de ${numericDiscount.toLocaleString("pt-BR", { maximumFractionDigits: 4 })}%. Valores editados manualmente são respeitados.`}
                     </p>
 
                     <div className="mt-5 max-h-64 space-y-2 overflow-y-auto rounded-lg border border-gray-100 p-3">
@@ -742,13 +967,7 @@ export default function DevPayoutPage() {
                             <div key={item.restaurantId} className="flex items-center justify-between gap-4 text-sm">
                                 <span className="truncate text-gray-600">{item.restaurantName}</span>
                                 <span className="shrink-0 font-semibold">
-                                    {money(
-                                        getNetCents(
-                                            item,
-                                            numericDiscount,
-                                            onePercentNet
-                                        )
-                                    )}
+                                    {money(getSendCents(item))}
                                 </span>
                             </div>
                         ))}

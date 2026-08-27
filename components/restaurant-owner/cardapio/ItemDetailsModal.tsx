@@ -14,6 +14,7 @@ interface ItemDetailsModalProps {
     onClose: () => void;
     item: { id: string; name: string } | null; 
     restaurantId: string; // NOVA PROP NECESSÁRIA
+    onOpenBulkComplements?: () => void;
 }
 
 type Subitem = {
@@ -91,7 +92,7 @@ const SubitemPriceInput = ({ priceCents, onChange }: { priceCents: number; onCha
     );
 };
 
-export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId }: ItemDetailsModalProps) {
+export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, onOpenBulkComplements }: ItemDetailsModalProps) {
 
     // NOVO ESTADO: Controla qual item TEM PERMISSÃO para ser arrastado
     const [allowDragId, setAllowDragId] = useState<string | null>(null);
@@ -660,8 +661,18 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId }
                     )}
                 </div>
 
-                <div className="p-6 border-t border-gray-100 flex justify-end shrink-0">
-                    <button onClick={onClose} className="cursor-pointer bg-brand text-white px-6 py-2 rounded-md font-medium hover:bg-orange-600 transition-colors">Concluir</button>
+                <div className="p-6 border-t border-gray-100 flex items-center gap-4 shrink-0">
+                    {onOpenBulkComplements && (
+                        <button
+                            type="button"
+                            onClick={onOpenBulkComplements}
+                            className="cursor-pointer text-left text-sm 2xl:text-base"
+                        >
+                            <span className="font-bold text-brand underline">Modificar complementos</span>
+                            <span className="text-gray-600"> em massa (e desativar/ativar)</span>
+                        </button>
+                    )}
+                    <button onClick={onClose} className="ml-auto cursor-pointer bg-brand text-white px-6 py-2 rounded-md font-medium hover:bg-orange-600 transition-colors">Concluir</button>
                 </div>
             </div>
         </Modal>

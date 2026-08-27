@@ -19,6 +19,23 @@ import Card from "@/components/ui/Card";
 import Tooltip from "@/components/ui/Tooltip";
 import { supabase } from "@/lib/database/supabaseClient";
 
+const futureSchedulingByRestaurant = new Map<string, PromiseLike<boolean>>();
+
+function getFutureSchedulingSetting(restaurantId: string) {
+    const cached = futureSchedulingByRestaurant.get(restaurantId);
+    if (cached) return cached;
+
+    const request = supabase
+        .from("restaurants")
+        .select("allow_future_order_scheduling")
+        .eq("id", restaurantId)
+        .single()
+        .then(({ data }) => data?.allow_future_order_scheduling === true);
+
+    futureSchedulingByRestaurant.set(restaurantId, request);
+    return request;
+}
+
 // Tipos baseados no seu schema
 export type OrderStatus = "pending_online_payment" | "pending_physical_payment" | "preparing" | "delivering" | "done" | "canceled" | "paid";
 
@@ -32,6 +49,7 @@ export interface OrderItemData {
 
 export interface OrderData {
     id: string;
+    restaurant_id?: string;
     display_id?: number; 
     created_at: string;
     scheduled_for?: string | null;
@@ -112,8 +130,22 @@ function TimeInfo({ text, time, scheduled }: { text: string; time: string; sched
 export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderCardProps) {
     const [loading, setLoading] = useState(false);
     const [currentTime, setCurrentTime] = useState(() => Date.now());
+    const [allowFutureOrderScheduling, setAllowFutureOrderScheduling] = useState(false);
     const isTableOrder = order.is_delivery === "mesa";
     const isPickup = isTableOrder || order.is_delivery === "retirada";
+
+    useEffect(() => {
+        if (!order.restaurant_id) return;
+
+        let active = true;
+        void getFutureSchedulingSetting(order.restaurant_id).then((enabled) => {
+            if (active) setAllowFutureOrderScheduling(enabled);
+        });
+
+        return () => {
+            active = false;
+        };
+    }, [order.restaurant_id]);
 
     useEffect(() => {
         let intervalId: number | undefined;
@@ -432,7 +464,7 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
                         <div className="mb-3 flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2 text-xs font-bold text-green-700 2xl:text-base">
                             <FontAwesomeIcon icon={faCalendarDays} />
                             <span>
-                                Agendado para {scheduledTime}{" "}
+                                Agendado para {allowFutureOrderScheduling ? `${scheduledDay} ` : ""}{scheduledTime}{" "}
                                 <span className="font-medium">({scheduledRelativeTime})</span>
                             </span>
                         </div>

@@ -9,7 +9,8 @@ import Button from "@/components/ui/Button";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
     faShareAlt,
-    faVolumeHigh,
+    faBell,
+    faBellSlash,
     faPlus,
     faChair,
 } from "@fortawesome/free-solid-svg-icons";
@@ -515,11 +516,7 @@ export default function PainelPedidosAtivosPage() {
     return (
         <div className="max-w-7xl 2xl:max-w-[90rem] mx-auto pb-20 px-4 sm:px-6 pt-8">
             {/* Header */}
-            <div
-                className={`flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 ${
-                    soundEnabled ? "mb-8" : "mb-4 sm:mb-8"
-                }`}
-            >
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 mb-8">
                 <div>
                     <h1 className="text-3xl font-bold text-gray-900 2xl:text-4xl">
                         Pedidos de Hoje
@@ -529,7 +526,7 @@ export default function PainelPedidosAtivosPage() {
                     </p>
                 </div>
 
-                <div className="flex flex-col sm:flex-row gap-3">
+                <div className="flex flex-row gap-2 sm:gap-3">
                     <Button
                         onClick={() => setIsCreateOrderOpen(true)}
                         className=""
@@ -554,10 +551,42 @@ export default function PainelPedidosAtivosPage() {
                     >
                         <FontAwesomeIcon icon={faShareAlt} className="" />
                     </Button>
+
+                    <div
+                        className={`sm:hidden shrink-0 overflow-hidden transition-[max-width,opacity] delay-600 duration-300 ${
+                            soundEnabled
+                                ? "pointer-events-none max-w-0 opacity-0"
+                                : "max-w-16 opacity-100"
+                        }`}
+                    >
+                        <button
+                            className={`p-4 cursor-pointer rounded-2xl transition-colors duration-300 ${
+                                soundEnabled
+                                    ? "bg-green/10 text-green-800"
+                                    : "bg-warning-bg text-warning"
+                            }`}
+                            onClick={async () => {
+                                try {
+                                    await audioRef.current?.play();
+                                    audioRef.current?.pause();
+                                    audioRef.current!.currentTime = 0;
+                                    setSoundEnabled(true);
+                                    console.log("🔓 Sound enabled");
+                                } catch (e) {
+                                    console.error("Still blocked", e);
+                                }
+                            }}
+                            aria-label="Ativar som dos pedidos"
+                        >
+                            <FontAwesomeIcon
+                                icon={soundEnabled ? faBell : faBellSlash}
+                            />
+                        </button>
+                    </div>
                 </div>
             </div>
             <div
-                className={`overflow-hidden delay-600 duration-300
+                className={`hidden sm:block overflow-hidden delay-600 duration-300
                 ${soundEnabled ? "pointer-events-none max-h-0" : "max-h-40"}
                 `}
             >
@@ -595,7 +624,7 @@ export default function PainelPedidosAtivosPage() {
                         {soundEnabled ? (
                             <>
                                 <FontAwesomeIcon
-                                    icon={faVolumeHigh}
+                                    icon={faBell}
                                     className="mr-2"
                                 />{" "}
                                 Som ativado!
@@ -603,7 +632,7 @@ export default function PainelPedidosAtivosPage() {
                         ) : (
                             <>
                                 <FontAwesomeIcon
-                                    icon={faVolumeHigh}
+                                    icon={faBellSlash}
                                     className="mr-2"
                                 />
                                 Clique para Ativar o <b>som dos pedidos</b>.

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
+    faCircleInfo,
     faCopy,
     faDownload,
     faSignOutAlt,
@@ -19,6 +20,7 @@ import Input from "@/components/ui/Input";
 import Loader from "@/components/ui/Loader";
 import Toast from "@/components/ui/Toast";
 import ConfirmModal from "@/components/ui/ConfirmModal";
+import Tooltip from "@/components/ui/Tooltip";
 import QrCodeMesaSettingsSection from "@/components/restaurant-owner/configuracoes/QrCodeMesaSettingsSection";
 
 type Restaurant = {
@@ -27,6 +29,8 @@ type Restaurant = {
     url_slug?: string | null;
     user_id?: string | null;
     phone?: string | null;
+    force_whatsapp_order_confirmation?: boolean | null;
+    allow_future_order_scheduling?: boolean | null;
 };
 
 type OrderDingleDuration = "short" | "medium" | "long";
@@ -191,6 +195,14 @@ export default function ConfiguracoesPage() {
         useState<OrderDingleDuration>("short");
     const [isTestingOrderDingle, setIsTestingOrderDingle] = useState(false);
     const orderDingleAudioRef = useRef<HTMLAudioElement | null>(null);
+    const [forceWhatsappOrderConfirmation, setForceWhatsappOrderConfirmation] =
+        useState(false);
+    const [isSavingWhatsappConfirmation, setIsSavingWhatsappConfirmation] =
+        useState(false);
+    const [allowFutureOrderScheduling, setAllowFutureOrderScheduling] =
+        useState(false);
+    const [isSavingOrderScheduling, setIsSavingOrderScheduling] =
+        useState(false);
     const [isLoggingOut, setIsLoggingOut] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -247,12 +259,20 @@ export default function ConfiguracoesPage() {
                 if (targetId) {
                     const { data: restData } = await supabase
                         .from("restaurants")
-                        .select("id, name, url_slug, user_id, phone")
+                        .select(
+                            "id, name, url_slug, user_id, phone, force_whatsapp_order_confirmation, allow_future_order_scheduling",
+                        )
                         .eq("id", targetId)
                         .single();
 
                     if (restData) {
                         setRestaurant(restData);
+                        setForceWhatsappOrderConfirmation(
+                            restData.force_whatsapp_order_confirmation === true,
+                        );
+                        setAllowFutureOrderScheduling(
+                            restData.allow_future_order_scheduling === true,
+                        );
                         const formattedPhone = formatPhone(
                             restData.phone || "",
                         );
@@ -298,6 +318,81 @@ export default function ConfiguracoesPage() {
 
         setSavedPhone(phone);
         setToast({ message: "Celular atualizado!", type: "success" });
+    };
+
+    const saveWhatsappOrderConfirmation = async (enabled: boolean) => {
+        if (!restaurant || isSavingWhatsappConfirmation) return;
+
+        setIsSavingWhatsappConfirmation(true);
+        const { error } = await supabase
+            .from("restaurants")
+            .update({ force_whatsapp_order_confirmation: enabled })
+            .eq("id", restaurant.id);
+        setIsSavingWhatsappConfirmation(false);
+
+        if (error) {
+            console.error(
+                "Erro ao salvar confirmação obrigatória por WhatsApp:",
+                error,
+            );
+            setToast({
+                message: "Erro ao salvar a configuração do WhatsApp.",
+                type: "error",
+            });
+            return;
+        }
+
+        setForceWhatsappOrderConfirmation(enabled);
+        setRestaurant((current) =>
+            current
+                ? {
+                      ...current,
+                      force_whatsapp_order_confirmation: enabled,
+                  }
+                : current,
+        );
+        setToast({
+            message: enabled
+                ? "Notificação por WhatsApp ativada."
+                : "Notificação por WhatsApp desativada.",
+            type: "success",
+        });
+    };
+
+    const saveOrderSchedulingMode = async (allowFuture: boolean) => {
+        if (!restaurant || isSavingOrderScheduling) return;
+
+        setIsSavingOrderScheduling(true);
+        const { error } = await supabase
+            .from("restaurants")
+            .update({ allow_future_order_scheduling: allowFuture })
+            .eq("id", restaurant.id);
+        setIsSavingOrderScheduling(false);
+
+        if (error) {
+            console.error("Erro ao salvar modo de agendamento:", error);
+            setToast({
+                message: "Erro ao salvar a configuração de agendamentos.",
+                type: "error",
+            });
+            return;
+        }
+
+        setAllowFutureOrderScheduling(allowFuture);
+        setRestaurant((current) =>
+            current
+                ? {
+                      ...current,
+                      allow_future_order_scheduling: allowFuture,
+                  }
+                : current,
+        );
+        setToast({
+            message: allowFuture
+                ? "Agendamentos para dias futuros ativados."
+                : "Agendamentos limitados ao dia atual.",
+            type: "success",
+        });
     };
 
     const saveOrderDingleDuration = (
@@ -557,6 +652,65 @@ export default function ConfiguracoesPage() {
                         </div>
                     </Card>
 
+                    {restaurant && (
+                        <QrCodeMesaSettingsSection
+                            restaurantId={restaurant.id}
+                        />
+                    )}
+
+                    <Card className="border border-gray-200 shadow-sm">
+                        <div className="mb-5">
+                            <h2 className="text-xl font-medium text-gray-900">
+                                Agendamento de pedidos
+                            </h2>
+                            <p className="mt-2 text-sm text-gray-500">
+                                Escolha se os clientes podem agendar somente para o dia atual ou também para dias futuros. Dias futuros é mais indicado para quem trabalha com encomendas.
+                            </p>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                            <button
+                                type="button"
+                                disabled={isSavingOrderScheduling}
+                                onClick={() => void saveOrderSchedulingMode(false)}
+                                className={`cursor-pointer rounded-xl border p-4 text-left transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                                    !allowFutureOrderScheduling
+                                        ? "border-brand bg-red-50"
+                                        : "border-gray-200 bg-white hover:border-gray-300"
+                                }`}
+                            >
+                                <span className={`block font-semibold ${!allowFutureOrderScheduling ? "text-brand" : "text-gray-900"}`}>
+                                    Dia atual
+                                </span>
+                                <span className="mt-1 block text-sm text-gray-500">
+                                    Permite agendar apenas horários disponíveis de hoje.
+                                </span>
+                            </button>
+
+                            <button
+                                type="button"
+                                disabled={isSavingOrderScheduling}
+                                onClick={() => void saveOrderSchedulingMode(true)}
+                                className={`cursor-pointer rounded-xl border p-4 text-left transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                                    allowFutureOrderScheduling
+                                        ? "border-brand bg-red-50"
+                                        : "border-gray-200 bg-white hover:border-gray-300"
+                                }`}
+                            >
+                                <span className={`block font-semibold ${allowFutureOrderScheduling ? "text-brand" : "text-gray-900"}`}>
+                                    Dias futuros
+                                </span>
+                                <span className="mt-1 block text-sm text-gray-500">
+                                    Ideal para encomendas: o cliente escolhe o dia e depois o horário disponível.
+                                </span>
+                            </button>
+                        </div>
+
+                        {isSavingOrderScheduling && (
+                            <p className="mt-3 text-xs text-gray-400">Salvando...</p>
+                        )}
+                    </Card>
+
                     <Card className="border border-gray-200 shadow-sm">
                         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                             <div>
@@ -618,14 +772,65 @@ export default function ConfiguracoesPage() {
                                 );
                             })}
                         </div>
-
                     </Card>
 
-                    {restaurant && (
-                        <QrCodeMesaSettingsSection
-                            restaurantId={restaurant.id}
-                        />
-                    )}
+                    <Card className="border border-gray-200 shadow-sm">
+                        <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="min-w-0">
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <h2 className="text-xl font-medium text-gray-900">
+                                        Obrigar envio de Notificação no WhatsApp
+                                    </h2>
+                                    <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700">
+                                        Não recomendado
+                                    </span>
+                                    <Tooltip
+                                        text="Isso adiciona uma etapa extra à finalização e pode criar atrito no pedido. O pedido é criado antes do WhatsApp: o cliente pode simplesmente não enviar a mensagem e o pedido continuará válido."
+                                        position="top"
+                                        size="medium"
+                                        showOnClick
+                                    >
+                                        <FontAwesomeIcon
+                                            icon={faCircleInfo}
+                                            className="cursor-help text-base text-gray-400 transition-colors hover:text-brand"
+                                        />
+                                    </Tooltip>
+                                </div>
+                                <p className="mt-2 text-sm text-gray-500">
+                                    Após confirmar o pedido, o cliente será direcionado ao
+                                    WhatsApp do restaurante com a comanda completa já
+                                    preenchida.
+                                </p>
+                            </div>
+
+                            <div className="flex shrink-0 items-center gap-3">
+                                {isSavingWhatsappConfirmation && (
+                                    <span className="text-xs text-gray-400">
+                                        Salvando...
+                                    </span>
+                                )}
+                                <button
+                                    type="button"
+                                    role="switch"
+                                    aria-checked={forceWhatsappOrderConfirmation}
+                                    aria-label="Obrigar envio de notificação no WhatsApp"
+                                    disabled={isSavingWhatsappConfirmation}
+                                    onClick={() =>
+                                        void saveWhatsappOrderConfirmation(
+                                            !forceWhatsappOrderConfirmation,
+                                        )
+                                    }
+                                    className={`flex h-7 w-12 cursor-pointer items-center rounded-full p-1 transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+                                        forceWhatsappOrderConfirmation
+                                            ? "justify-end bg-green-500"
+                                            : "justify-start bg-gray-300"
+                                    }`}
+                                >
+                                    <span className="h-5 w-5 rounded-full bg-white shadow-md" />
+                                </button>
+                            </div>
+                        </div>
+                    </Card>
 
                     {restaurant && shareableUrl && (
                         <Card className="border border-gray-200 shadow-sm">

@@ -24,7 +24,7 @@ type Category = { id: string; name: string; position: number };
 const TABS = [
     "Cardápio",
     "Produtos",
-    "Complemento",
+    "Complementos",
     "Upsells",
     "Promoções e Cupons",
     "Estoque",
@@ -245,7 +245,7 @@ export default function MenuManagerPage() {
                     />
                 )}
 
-                {activeTab === "Complemento" && (
+                {activeTab === "Complementos" && (
                     <ComplementosTab restaurantId={restaurantId} />
                 )}
 
@@ -280,6 +280,10 @@ export default function MenuManagerPage() {
                 onClose={() => setIsItemDetailsOpen(false)}
                 item={itemToEditDetails}
                 restaurantId={restaurantId}
+                onOpenBulkComplements={() => {
+                    setIsItemDetailsOpen(false);
+                    setActiveTab("Complementos");
+                }}
             />
 
             <ScanMenuModal

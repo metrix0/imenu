@@ -117,7 +117,7 @@ export default async function Page({
   const { data: restaurantData } = await supabase
     .from("restaurants")
     .select(
-      "id, name, is_closed, logo_url, rating, min_order_cents, description, banner_url, availability_json,delivery_fee_json, latitude, longitude, allowed_payment_methods, address, store_whatsapp, pickup_enabled",
+      "id, name, is_closed, logo_url, rating, min_order_cents, description, banner_url, availability_json,delivery_fee_json, latitude, longitude, allowed_payment_methods, address, store_whatsapp, pickup_enabled, force_whatsapp_order_confirmation, allow_future_order_scheduling",
     )
     .eq("url_slug", slug)
     .maybeSingle();
@@ -184,7 +184,11 @@ export default async function Page({
 
   const storeWhatsapp = getStoreWhatsapp(restaurantData.store_whatsapp);
 
-  const restaurant: Restaurant & { address: any } = {
+  const restaurant: Restaurant & {
+    address: any;
+    force_whatsapp_order_confirmation?: boolean;
+    allow_future_order_scheduling?: boolean;
+  } = {
     id: restaurantData.id,
     name: restaurantData.name,
     logo_url: getPublicUrl(
@@ -207,6 +211,10 @@ export default async function Page({
     allowed_payment_methods: restaurantData.allowed_payment_methods,
     address: restaurantData.address,
     pickup_enabled: restaurantData.pickup_enabled === true,
+    force_whatsapp_order_confirmation:
+      restaurantData.force_whatsapp_order_confirmation === true,
+    allow_future_order_scheduling:
+      restaurantData.allow_future_order_scheduling === true,
   };
 
   // The banner is the page LCP element. Start its request as soon as the

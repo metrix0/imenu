@@ -137,7 +137,6 @@ function inferPixKeyType(value: string | null): PixKeyType | null {
     if (digits.length === 14) return "CNPJ";
     if (digits.length === 13 && digits.startsWith("55")) return "PHONE";
 
-    // 11 raw digits can be either CPF or phone, so never guess.
     return null;
 }
 
@@ -288,6 +287,9 @@ export async function GET(request: Request) {
                 restaurant_id: string;
                 restaurant_name: string;
                 amount_cents: number;
+                gross_cents: number | null;
+                payzu_fee_cents: number | null;
+                discount_cents: number | null;
                 status: string;
                 created_at: string | Date;
                 paid_at: string | Date | null;
@@ -298,6 +300,9 @@ export async function GET(request: Request) {
                     p.restaurant_id,
                     COALESCE(r.name, 'Restaurante') AS restaurant_name,
                     p.amount_cents,
+                    p.gross_cents,
+                    p.payzu_fee_cents,
+                    p.discount_cents,
                     p.status,
                     p.created_at,
                     p.paid_at
@@ -337,6 +342,11 @@ export async function GET(request: Request) {
             history: historyResult.rows.map((row) => ({
                 ...row,
                 amount_cents: Number(row.amount_cents) || 0,
+                gross_cents: row.gross_cents == null ? null : Number(row.gross_cents),
+                payzu_fee_cents:
+                    row.payzu_fee_cents == null ? null : Number(row.payzu_fee_cents),
+                discount_cents:
+                    row.discount_cents == null ? null : Number(row.discount_cents),
             })),
         });
     } catch (error) {
@@ -359,7 +369,11 @@ export async function POST(request: Request) {
         );
     }
 
-    let body: { discountPercent?: unknown; adjustToOnePercent?: unknown };
+    let body: {
+        discountPercent?: unknown;
+        adjustToOnePercent?: unknown;
+        amounts?: unknown;
+    };
     try {
         body = await request.json();
     } catch {
@@ -368,6 +382,13 @@ export async function POST(request: Request) {
 
     const adjustToOnePercent = body.adjustToOnePercent === true;
     const discountPercent = Number(body.discountPercent ?? 0.75);
+    const amountOverrides =
+        body.amounts &&
+        typeof body.amounts === "object" &&
+        !Array.isArray(body.amounts)
+            ? (body.amounts as Record<string, unknown>)
+            : {};
+
     if (
         !adjustToOnePercent &&
         (!Number.isFinite(discountPercent) || discountPercent < 0 || discountPercent > 100)
@@ -405,11 +426,15 @@ export async function POST(request: Request) {
                 const grossCents = Number(row.gross_cents) || 0;
                 const payzuFeeCents = (Number(row.pix_order_count) || 0) * 10;
                 const discountCents = adjustToOnePercent
-                    ? Math.max(0, Math.round(grossCents * 0.01) - payzuFeeCents)
+                    ? Math.round(grossCents * 0.01)
                     : Math.round(grossCents * (discountPercent / 100));
-                const netCents = adjustToOnePercent
-                    ? Math.max(0, grossCents - payzuFeeCents - discountCents)
-                    : Math.max(0, grossCents - discountCents);
+                const calculatedNetCents = Math.max(0, grossCents - discountCents);
+                const requestedAmount = amountOverrides[row.restaurant_id];
+                const netCents =
+                    requestedAmount === undefined
+                        ? calculatedNetCents
+                        : Math.round(Number(requestedAmount));
+
                 return {
                     row,
                     grossCents,
@@ -417,8 +442,22 @@ export async function POST(request: Request) {
                     payzuFeeCents,
                     netCents,
                 };
-            })
-            .filter((item) => item.netCents > 0);
+            });
+
+        const invalidAmount = sendable.find(
+            (item) =>
+                !Number.isFinite(item.netCents) ||
+                item.netCents <= 0 ||
+                item.netCents > item.grossCents
+        );
+        if (invalidAmount) {
+            return NextResponse.json(
+                {
+                    error: `Valor de repasse inválido para ${invalidAmount.row.restaurant_name}.`,
+                },
+                { status: 400 }
+            );
+        }
 
         if (sendable.length === 0) {
             return NextResponse.json(
@@ -457,14 +496,24 @@ export async function POST(request: Request) {
                 INSERT INTO public.payouts (
                     restaurant_id,
                     amount_cents,
+                    gross_cents,
+                    payzu_fee_cents,
+                    discount_cents,
                     status,
                     created_at,
                     paid_at
                 )
-                VALUES ($1, $2, 'processing', $3, NULL)
+                VALUES ($1, $2, $3, $4, $5, 'processing', $6, NULL)
                 RETURNING id
                 `,
-                [item.row.restaurant_id, item.netCents, cutoffAt.toISOString()]
+                [
+                    item.row.restaurant_id,
+                    item.netCents,
+                    item.grossCents,
+                    item.payzuFeeCents,
+                    item.discountCents,
+                    cutoffAt.toISOString(),
+                ]
             );
             const payoutId = payoutInsert.rows[0]?.id;
             if (!payoutId) {
@@ -527,9 +576,6 @@ export async function POST(request: Request) {
                     });
                 }
             } catch (error) {
-                // A resposta de erro HTTP é definitiva e não representa transferência aceita.
-                // Se for uma falha de rede desconhecida, manter 'processing' evita pagamento duplicado;
-                // a próxima abertura do painel tenta reconciliar pelo externalReference.
                 const message = error instanceof Error ? error.message : "Falha ao enviar PIX.";
                 const isNetworkFailure = /fetch|network|socket|timeout|ECONN|UND_ERR/i.test(message);
 
