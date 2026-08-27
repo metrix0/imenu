@@ -99,8 +99,6 @@ export default function CartModal({
 
     const [openModal, setOpenModal] = useState(false);
 
-    // --- ADDED ---
-    // Local states for delivery fee + debounce
     const [deliveryFeeCents, setDeliveryFeeCents] = useState<number | null>(null);
     const [loadingCepLookup, setLoadingCepLookup] = useState(false);
     const [cepDebounceTimer, setCepDebounceTimer] = useState<number | null>(null);
@@ -120,6 +118,21 @@ export default function CartModal({
     const todayInput = formatDateInputValue(new Date());
     const [scheduleDate, setScheduleDate] = useState(todayInput);
     const allowFutureScheduling = restaurant?.allow_future_order_scheduling === true;
+    const scheduleDateOptions = Array.from({ length: 60 }, (_, index) => {
+        const date = new Date();
+        date.setHours(12, 0, 0, 0);
+        date.setDate(date.getDate() + index);
+        const value = formatDateInputValue(date);
+        const dateLabel = date.toLocaleDateString("pt-BR", {
+            weekday: "short",
+            day: "2-digit",
+            month: "2-digit",
+        });
+        return {
+            value,
+            label: index === 0 ? `Hoje • ${dateLabel}` : dateLabel,
+        };
+    });
     const coupon_code = useCheckoutStore((s) => s.coupon_code);
     const coupon_type = useCheckoutStore((s) => s.coupon_type);
     const coupon_discount_cents = useCheckoutStore((s) => s.coupon_discount_cents);
@@ -622,7 +635,6 @@ export default function CartModal({
                 return;
             }
 
-            // keep order defined in upsell table
             const ordered: Item[] = upsellRows
                 .map(u => {
                     const item = items.find(i => i.id === u.item_id);
@@ -669,11 +681,8 @@ export default function CartModal({
         }
     }, [step, isPickup, isTableOrder]);
 
-    // keep matching timeout so backdrop/slide finish
     const closeWithAnimation = () => {
-        // run slide/fade out (we keep openModal=false so backdrop fades)
         setOpenModal(false);
-        // give animation time (200ms)
         setTimeout(() => {
             setStep("cart");
             onClose();
@@ -779,7 +788,6 @@ export default function CartModal({
                     />
                 )}
                 
-                {/* HEADER */}
                 <div className="sticky top-[0.1%] z-60 flex items-center bg-white rounded-2xl justify-center pb-3 pt-4 2xl:pt-6 2xl:pb-6 pointer-events-none">
                     <button
                         className="md:hidden absolute left-5 md:left-auto md:right-5 2xl:right-8 text-sm pointer-events-auto cursor-pointer"
@@ -833,7 +841,6 @@ export default function CartModal({
                     )}
                 </div>
 
-                {/* SLIDER */}
                 <div className="w-full overflow-x-hidden ">
 
                     <div
@@ -849,7 +856,6 @@ export default function CartModal({
                         }}
                     >
 
-                {/* SACOLA */}
                 <div className="w-full px-4 2xl:px-8 overflow-y-auto pt-2 ">
                     <div className="flex items-center gap-3 mt-2 mb-4">
                         {restaurant?.logo_url && (
@@ -911,7 +917,7 @@ export default function CartModal({
                                     {(it.selectedSubitems?.length > 0 || it.observation) && (
                                         <div className="text-sm text-gray-500 mb-2 mt-2">
                                             {it.selectedSubitems?.map((s) => (
-                                                <p key={s.subitemId}>+ {(s.quantity || 1) > 1 ? `${s.quantity}x ` : ""}{s.subitemName}</p>
+                                                <p key={s.subitemId}>+ {s.subitemName}</p>
                                             ))}
                                             {it.observation && (
                                                 <p className="italic mt-1">Obs: {it.observation}</p>
@@ -954,7 +960,6 @@ export default function CartModal({
                         </button>
                     </div>
 
-                    {/* Upsells */}
                     {upsells.length > 0 && (
                     <div className="-mt-10 mb-10 md:-mt-13 md:mb-13 relative overflow-hidden">
                         <h3 className="text-base font-semibold mb-3">Peça também</h3>
@@ -993,7 +998,6 @@ export default function CartModal({
 
                 </div>
 
-                {/* PAGE 2 — INFO */}
                 <form className="w-full px-4 overflow-y-auto pt-4 pb-32 2xl:pb-10 2xl:px-8" autoComplete="on">
                     {isTableOrder ? (
                         <div className="space-y-6">
@@ -1212,7 +1216,6 @@ export default function CartModal({
                     )}
                 </form>
 
-                {/* PAGE 3 — CHECKOUT */}
                 <div className="w-full px-4 overflow-y-auto pt-4 md:pb-32 2xl:px-8">
 
                     <>
@@ -1255,28 +1258,25 @@ export default function CartModal({
                                         </div>
 
                                         {allowFutureScheduling && (
-                                            <label className="mt-4 block">
-                                                <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-green-800">
+                                            <div className="mt-4">
+                                                <div className="mb-1.5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-green-800">
+                                                    <FontAwesomeIcon icon={faCalendarDays} />
                                                     Dia
-                                                </span>
-                                                <div className="relative">
-                                                    <FontAwesomeIcon
-                                                        icon={faCalendarDays}
-                                                        className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-green-700"
-                                                    />
-                                                    <input
-                                                        type="date"
-                                                        min={todayInput}
-                                                        value={scheduleDate}
-                                                        onChange={(event) => {
-                                                            setScheduleDate(event.target.value || todayInput);
-                                                            setField("scheduled_for", null);
-                                                            setScheduleDropdownOpen(false);
-                                                        }}
-                                                        className="w-full cursor-pointer rounded-xl border border-green-200 bg-white py-3 pl-11 pr-4 text-sm font-medium text-gray-800 outline-none transition hover:border-green-300 focus:border-green-400 2xl:text-lg"
-                                                    />
                                                 </div>
-                                            </label>
+                                                <Dropdown
+                                                    aria-label="Dia do agendamento"
+                                                    value={scheduleDate}
+                                                    options={scheduleDateOptions}
+                                                    onChange={(event) => {
+                                                        setShowOptionalSchedule(true);
+                                                        setScheduleDate(event.target.value || todayInput);
+                                                        setField("scheduled_for", null);
+                                                        setScheduleDropdownOpen(false);
+                                                    }}
+                                                    className="!rounded-xl !border-green-200 !bg-white !py-3 !text-sm !font-medium hover:!border-green-300 focus:!border-green-400 2xl:!text-lg"
+                                                    chevronClassName="!text-green-700"
+                                                />
+                                            </div>
                                         )}
 
                                         {scheduledOptions.length > 0 ? (
