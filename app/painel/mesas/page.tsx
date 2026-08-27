@@ -9,12 +9,16 @@ import {
     faDownload,
     faEdit,
     faImage,
+    faPalette,
     faPlus,
     faQrcode,
     faTrash,
 } from "@fortawesome/free-solid-svg-icons";
 
 import QrCodeMesaSalesModal from "@/components/restaurant-owner/mesas/QrCodeMesaSalesModal";
+import QrDesignModal, {
+    type QrDesignTemplate,
+} from "@/components/restaurant-owner/mesas/QrDesignModal";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import ConfirmModal from "@/components/ui/ConfirmModal";
@@ -36,6 +40,9 @@ type Restaurant = {
     url_slug: string | null;
     custom_domain: string | null;
     banner_url: string | null;
+    logo_url: string | null;
+    qr_design_template: QrDesignTemplate | null;
+    qr_design_color: string | null;
 };
 
 type RestaurantTable = {
@@ -53,6 +60,7 @@ type ToastState = {
 };
 
 const DEMO_TABLES = ["Mesa 1", "Mesa 2", "Mesa 3"];
+const DEFAULT_QR_DESIGN_COLOR = "#F97316";
 
 function qrImageUrl(value: string, size = 220): string {
     return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(
@@ -68,6 +76,8 @@ export default function MesasPage() {
     const [loading, setLoading] = useState(true);
     const [salesOpen, setSalesOpen] = useState(false);
     const [buying, setBuying] = useState(false);
+    const [designOpen, setDesignOpen] = useState(false);
+    const [savingDesign, setSavingDesign] = useState(false);
     const [editorOpen, setEditorOpen] = useState(false);
     const [editingTable, setEditingTable] =
         useState<RestaurantTable | null>(null);
@@ -104,7 +114,9 @@ export default function MesasPage() {
             const { data: restaurantData, error: restaurantError } =
                 await supabase
                     .from("restaurants")
-                    .select("id, name, url_slug, custom_domain, banner_url")
+                    .select(
+                        "id, name, url_slug, custom_domain, banner_url, logo_url, qr_design_template, qr_design_color"
+                    )
                     .eq("id", targetRestaurantId)
                     .single();
             if (restaurantError) throw restaurantError;
@@ -196,6 +208,19 @@ export default function MesasPage() {
             .getPublicUrl(restaurant.banner_url).data.publicUrl;
     }, [restaurant]);
 
+    const logoUrl = useMemo(() => {
+        if (!restaurant?.logo_url) return "";
+        if (/^https?:\/\//i.test(restaurant.logo_url)) {
+            return restaurant.logo_url;
+        }
+        return supabase.storage
+            .from("restaurant-logos")
+            .getPublicUrl(restaurant.logo_url).data.publicUrl;
+    }, [restaurant]);
+
+    const qrDesignTemplate = restaurant?.qr_design_template || "classic";
+    const qrDesignColor = restaurant?.qr_design_color || DEFAULT_QR_DESIGN_COLOR;
+
     const openSalesModal = () => {
         setSalesOpen(true);
         void captureQrTableEvent("qr_code_mesa_learn_more_viewed", {
@@ -223,6 +248,42 @@ export default function MesasPage() {
                 type: "error",
             });
         }
+    };
+
+    const saveDesign = async (
+        template: QrDesignTemplate,
+        color: string
+    ) => {
+        if (!restaurant) return;
+        setSavingDesign(true);
+        const { error } = await supabase
+            .from("restaurants")
+            .update({
+                qr_design_template: template,
+                qr_design_color: color,
+            })
+            .eq("id", restaurant.id);
+        setSavingDesign(false);
+
+        if (error) {
+            setToast({
+                message: "Não foi possível salvar o design.",
+                type: "error",
+            });
+            return;
+        }
+
+        setRestaurant((current) =>
+            current
+                ? {
+                      ...current,
+                      qr_design_template: template,
+                      qr_design_color: color,
+                  }
+                : current
+        );
+        setDesignOpen(false);
+        setToast({ message: "Design salvo!", type: "success" });
     };
 
     const openNewTable = () => {
@@ -333,7 +394,10 @@ export default function MesasPage() {
                 displayUrl,
                 title,
                 bannerUrl,
+                logoUrl,
                 fileName,
+                template: qrDesignTemplate,
+                accentColor: qrDesignColor,
             });
         } catch {
             setToast({
@@ -375,6 +439,17 @@ export default function MesasPage() {
                 onBuy={() => void buy()}
                 buying={buying}
                 active={active}
+            />
+
+            <QrDesignModal
+                open={designOpen}
+                onClose={() => !savingDesign && setDesignOpen(false)}
+                currentTemplate={qrDesignTemplate}
+                currentColor={qrDesignColor}
+                bannerUrl={bannerUrl}
+                logoUrl={logoUrl}
+                saving={savingDesign}
+                onSave={(template, color) => void saveDesign(template, color)}
             />
 
             <Modal open={editorOpen} onClose={() => setEditorOpen(false)}>
@@ -437,10 +512,20 @@ export default function MesasPage() {
                             </p>
                         </div>
                         {active && (
-                            <Button type="button" onClick={openNewTable}>
-                                <FontAwesomeIcon icon={faPlus} className="mr-2" />
-                                Adicionar mesa
-                            </Button>
+                            <div className="flex flex-wrap gap-3">
+                                <Button
+                                    type="button"
+                                    variant="secondary"
+                                    onClick={() => setDesignOpen(true)}
+                                >
+                                    <FontAwesomeIcon icon={faPalette} className="mr-2" />
+                                    Configurar design
+                                </Button>
+                                <Button type="button" onClick={openNewTable}>
+                                    <FontAwesomeIcon icon={faPlus} className="mr-2" />
+                                    Adicionar mesa
+                                </Button>
+                            </div>
                         )}
                     </div>
 
