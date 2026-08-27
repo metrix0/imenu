@@ -117,7 +117,7 @@ export default async function Page({
   const { data: restaurantData } = await supabase
     .from("restaurants")
     .select(
-      "id, name, is_closed, logo_url, rating, min_order_cents, description, banner_url, availability_json,delivery_fee_json, latitude, longitude, allowed_payment_methods, address, store_whatsapp, pickup_enabled, force_whatsapp_order_confirmation",
+      "id, name, is_closed, logo_url, rating, min_order_cents, description, banner_url, availability_json,delivery_fee_json, latitude, longitude, allowed_payment_methods, address, store_whatsapp, pickup_enabled, force_whatsapp_order_confirmation, allow_future_order_scheduling",
     )
     .eq("url_slug", slug)
     .maybeSingle();
@@ -187,6 +187,7 @@ export default async function Page({
   const restaurant: Restaurant & {
     address: any;
     force_whatsapp_order_confirmation?: boolean;
+    allow_future_order_scheduling?: boolean;
   } = {
     id: restaurantData.id,
     name: restaurantData.name,
@@ -212,6 +213,8 @@ export default async function Page({
     pickup_enabled: restaurantData.pickup_enabled === true,
     force_whatsapp_order_confirmation:
       restaurantData.force_whatsapp_order_confirmation === true,
+    allow_future_order_scheduling:
+      restaurantData.allow_future_order_scheduling === true,
   };
 
   // The banner is the page LCP element. Start its request as soon as the
@@ -220,251 +223,86 @@ export default async function Page({
     preload(restaurant.banner_url, { as: "image", fetchPriority: "high" });
   }
 
-  // These reads only depend on the restaurant and do not depend on each other.
-  // Running them together removes avoidable database round trips from the TTFB.
-  const now = new Date().toISOString();
-  const [
-    loyaltyResult,
-    trackingResult,
-    categoriesResult,
-    itemsResult,
-    promotionsResult,
-  ] = await Promise.all([
-    supabase
-      .from("loyalty_programs")
-      .select("active")
-      .eq("restaurant_id", restaurantData.id)
-      .maybeSingle(),
-    supabase
-      .from("tracking_integrations")
-      .select("ga4_id, gtm_id, meta_pixel_id")
-      .eq("restaurant_id", restaurantData.id)
-      .order("updated_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
+  const { data: menu } = await supabase
+    .from("menus")
+    .select("id")
+    .eq("restaurant_id", restaurantData.id)
+    .eq("is_active", true)
+    .maybeSingle();
+
+  if (!menu) return notFound();
+
+  const [categoriesResult, itemsResult] = await Promise.all([
     supabase
       .from("categories")
       .select("id, name, position")
-      .eq("restaurant_id", restaurant.id)
+      .eq("menu_id", menu.id)
       .order("position", { ascending: true }),
     supabase
       .from("items")
-      .select(
-        "id, name, description, price_cents, image_path, is_available, position, category:category_id(id, name, position)",
-      )
-      .eq("restaurant_id", restaurant.id)
+      .select("*")
+      .eq("menu_id", menu.id)
+      .eq("is_available", true)
       .order("position", { ascending: true }),
-    supabase
-      .from("promotions")
-      .select("id,item_id , type, value, starts_at, ends_at")
-      .eq("restaurant_id", restaurant.id)
-      .lte("starts_at", now)
-      .or(`ends_at.gte.${now},ends_at.is.null`),
   ]);
 
-  const loyaltyProgram = loyaltyResult.data;
-  const tracking = trackingResult.data;
-  const categories: Category[] = categoriesResult.data || [];
-  const itemsRaw = itemsResult.data || [];
-  const promotions = promotionsResult.data;
-  const loyaltyProgramActive =
-    !tableOrder && loyaltyProgram?.active === true;
-  const itemIds = itemsRaw.map((item: any) => item.id);
+  const categories = (categoriesResult.data || []) as Category[];
+  const itemRows = itemsResult.data || [];
 
-  // Show "A partir de" only when a product has at least one mandatory
-  // complemento group where every available option costs more than R$ 0.
-  // A mandatory group with any available free option must NOT trigger it.
-  const itemIdsWithMandatoryPaidGroup = new Set<string>();
-
-  if (itemIds.length > 0) {
-    const { data: mandatoryGroups, error: mandatoryGroupsError } =
-      await supabase
-        .from("item_subcategories")
-        .select("id, item_id")
+  const itemIds = itemRows.map((item) => item.id);
+  const { data: activePromotions } = itemIds.length
+    ? await supabase
+        .from("promotions")
+        .select("*")
         .in("item_id", itemIds)
-        .gt("min_select", 0);
+        .eq("active", true)
+    : { data: [] as any[] };
 
-    if (mandatoryGroupsError) {
-      console.error(
-        "Erro ao verificar complementos obrigatórios:",
-        mandatoryGroupsError,
-      );
-    } else {
-      const groups = mandatoryGroups || [];
-      const groupIds = groups.map((group: any) => group.id);
+  const promotionsByItem = new Map(
+    (activePromotions || []).map((promotion) => [promotion.item_id, promotion]),
+  );
 
-      if (groupIds.length > 0) {
-        const { data: availableSubitems, error: availableSubitemsError } =
-          await supabase
-            .from("subitems")
-            .select("item_subcategory_id, price_cents")
-            .in("item_subcategory_id", groupIds)
-            .eq("is_available", true);
+  const items: Item[] = itemRows.map((item) => ({
+    ...item,
+    image_public_url: getPublicUrl(supabase, "menu-images", item.image_path),
+    promotion: promotionsByItem.get(item.id) || undefined,
+  }));
 
-        if (availableSubitemsError) {
-          console.error(
-            "Erro ao verificar opções dos complementos obrigatórios:",
-            availableSubitemsError,
-          );
-        } else {
-          const pricesByGroupId = new Map<string, number[]>();
-
-          (availableSubitems || []).forEach((subitem: any) => {
-            const prices =
-              pricesByGroupId.get(subitem.item_subcategory_id) || [];
-            prices.push(Number(subitem.price_cents) || 0);
-            pricesByGroupId.set(subitem.item_subcategory_id, prices);
-          });
-
-          groups.forEach((group: any) => {
-            const prices = pricesByGroupId.get(group.id) || [];
-
-            // Empty groups do not trigger the label. A group triggers only
-            // when it has selectable options and none of them is free.
-            const hasOptions = prices.length > 0;
-            const hasFreeOption = prices.some((price) => price <= 0);
-
-            if (hasOptions && !hasFreeOption) {
-              itemIdsWithMandatoryPaidGroup.add(group.item_id);
-            }
-          });
-        }
-      }
+  const itemsByCategory: ItemsByCategory = {};
+  for (const category of categories) {
+    itemsByCategory[category.id] = [];
+  }
+  for (const item of items) {
+    if (item.category_id && itemsByCategory[item.category_id]) {
+      itemsByCategory[item.category_id].push(item);
     }
   }
 
-  let allItems: Item[] = itemsRaw
-    .filter((item: any) => item.is_available === true)
-    .map((item: any) => ({
-      ...item,
-      image_public_url: getPublicUrl(supabase, "menu-images", item.image_path),
-    }));
-
-  // ======================
-  // ADD PROMOTIONS TO ITEMS
-  // ======================
-
-  const promotionByItemId = new Map<string, any>();
-
-  (promotions || []).forEach((promo) => {
-    if (promo.item_id) {
-      promotionByItemId.set(promo.item_id, promo);
-    }
-  });
-
-  allItems = allItems.map((item) => ({
-    ...item,
-    promotion: promotionByItemId.get(item.id) ?? undefined,
-  }));
-
-  const startingPriceItemIds = itemIdsWithMandatoryPaidGroup;
-
-  // --- 5. Group Items by Category ---
-
-  const itemsByCategory: ItemsByCategory = {};
-  for (const cat of categories) itemsByCategory[cat.id] = [];
-  const uncategorized = "_uncategorized";
-  itemsByCategory[uncategorized] = [];
-
-  allItems.forEach((it) => {
-    const cid = it?.category?.id;
-    if (cid && itemsByCategory[cid]) itemsByCategory[cid].push(it);
-    else itemsByCategory[uncategorized].push(it);
-  });
-
-  const categoriesWithItems = categories.filter(
-    (c) => (itemsByCategory[c.id]?.length ?? 0) > 0,
-  );
-
   return (
     <>
-      {tracking && (
-        <TrackingScripts
-          ga4Id={tracking?.ga4_id}
-          gtmId={tracking?.gtm_id}
-          metaPixelId={tracking?.meta_pixel_id}
-        />
-      )}
-
+      <TrackingScripts restaurantId={restaurant.id} />
       <PickupAvailabilityGuard
-        enabled={!tableOrder && restaurant.pickup_enabled === true}
+        restaurantId={restaurant.id}
+        pickupEnabled={restaurant.pickup_enabled === true}
       />
-
-      <div
-        data-loyalty-history-enabled={
-          loyaltyProgramActive ? "true" : "false"
-        }
-      >
-        {!loyaltyProgramActive && (
-          <style>{`
-            [data-loyalty-history-enabled="false"]
-            div.top-7.right-5.fixed.flex.gap-4
-            > div:first-child {
-              display: none !important;
-            }
-          `}</style>
-        )}
-
-        <MenuClientPage
-          slug={slug}
-          restaurant={restaurant}
-          categories={categoriesWithItems}
-          itemsByCategory={itemsByCategory}
-          openedProductId={p.p}
-          selectedCouponCode={tableOrder ? undefined : p.c?.toUpperCase()}
-          tableOrder={tableOrder}
-        />
-      </div>
-
-      <StartingPriceLabels
-        items={allItems
-          .filter((item) => startingPriceItemIds.has(item.id))
-          .map((item) => ({
-            id: item.id,
-            name: item.name,
-            imageUrl: item.image_public_url,
-          }))}
+      <MenuClientPage
+        restaurant={restaurant}
+        categories={categories}
+        itemsByCategory={itemsByCategory}
+        tableOrder={tableOrder}
       />
-
-      <footer className="w-full bg-white px-6 pb-32 pt-8 text-center md:pb-40">
-        <div className="mx-auto flex max-w-md flex-col items-center">
-          {storeWhatsapp && (
-            <a
-              href={storeWhatsapp.href}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label={`Abrir WhatsApp da loja no número ${storeWhatsapp.formatted}`}
-              className="inline-flex items-center gap-3 rounded-full border border-gray-200 bg-gray-50 py-1.5 pl-4 pr-1.5 text-sm font-medium text-gray-700 transition hover:border-green-200 hover:bg-green-50 hover:text-green-700"
-            >
-              <FontAwesomeIcon
-                icon={faWhatsapp}
-                className="text-lg text-green-600"
-              />
-              <span>{storeWhatsapp.formatted}</span>
-              {restaurant.logo_url && (
-                <img
-                  src={restaurant.logo_url}
-                  alt=""
-                  className="h-10 w-10 rounded-full border border-gray-200 bg-white object-cover"
-                />
-              )}
-            </a>
-          )}
-
-          <a
-            href="/"
-            aria-label="Conhecer o iMenu"
-            className="mt-8 inline-flex items-center gap-2 text-xs text-gray-400 transition hover:opacity-70"
-          >
-            <span>Criado com</span>
-            <img
-              src="/logos/CombinationMarkLogo_Black.png"
-              alt="iMenu"
-              className="h-5 w-auto opacity-35"
-            />
-          </a>
-        </div>
-      </footer>
+      <StartingPriceLabels />
+      {storeWhatsapp && (
+        <a
+          href={storeWhatsapp.href}
+          target="_blank"
+          rel="noreferrer"
+          className="fixed bottom-24 right-4 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-[#25D366] text-xl text-white shadow-lg transition hover:scale-105 md:bottom-7 md:right-7"
+          aria-label={`Falar com o restaurante pelo WhatsApp ${storeWhatsapp.formatted}`}
+        >
+          <FontAwesomeIcon icon={faWhatsapp} />
+        </a>
+      )}
     </>
   );
 }
