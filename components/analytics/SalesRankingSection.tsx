@@ -180,7 +180,7 @@ export default function SalesRankingSection({ range }: { range: RangeKey }) {
                                                 key={restaurant.id}
                                                 className="hover:bg-gray-50/70"
                                             >
-                                                <td className="px-5 py-4 text-center font-semibold tabular-nums text-gray-400">
+                                                <td className="px-5 py-4 text-center font-semibold tabular-nums text-gray-500">
                                                     {index + 1}
                                                 </td>
                                                 <td className="px-5 py-4 font-medium text-gray-900">
@@ -211,16 +211,23 @@ export default function SalesRankingSection({ range }: { range: RangeKey }) {
                                 </tbody>
                             </table>
                         </div>
-                        {data.restaurants.length > visibleCount && (
-                            <div className="border-t border-gray-100 p-3 text-center">
+
+                        {!data.restaurants.length && (
+                            <div className="p-8 text-center text-sm text-gray-400">
+                                Nenhuma venda válida no período.
+                            </div>
+                        )}
+
+                        {visibleCount < data.restaurants.length && (
+                            <div className="border-t border-gray-200 bg-gray-50 p-4 text-center">
                                 <button
                                     type="button"
                                     onClick={() =>
-                                        setVisibleCount((count) => count + 10)
+                                        setVisibleCount((current) => current + 10)
                                     }
-                                    className="rounded-lg px-4 py-2 text-sm font-semibold text-brand transition hover:bg-brand/5"
+                                    className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:border-brand/30 hover:text-brand"
                                 >
-                                    Mostrar mais
+                                    Mostrar +10
                                 </button>
                             </div>
                         )}
@@ -233,11 +240,11 @@ export default function SalesRankingSection({ range }: { range: RangeKey }) {
 
 function SummaryCard({ label, value }: { label: string; value: string }) {
     return (
-        <article className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
             <p className="text-sm font-medium text-gray-600">{label}</p>
             <p className="mt-2 text-2xl font-bold tracking-tight text-gray-950">
                 {value}
             </p>
-        </article>
+        </div>
     );
 }
