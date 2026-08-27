@@ -93,17 +93,31 @@ export const useCheckoutStore = create<CheckoutState>()(
                 if (s === "checkout" && typeof window !== "undefined") {
                     requestAnimationFrame(() => {
                         requestAnimationFrame(() => {
-                            const scrollContainers = Array.from(
-                                document.querySelectorAll<HTMLElement>(
-                                    ".overflow-y-auto.h-full"
-                                )
-                            ).filter((element) => element.offsetParent !== null);
-                            const activeScrollContainer =
-                                scrollContainers[scrollContainers.length - 1];
+                            const modalRoots = [
+                                ...document.querySelectorAll<HTMLElement>(
+                                    '[role="dialog"]'
+                                ),
+                                ...document.querySelectorAll<HTMLElement>(
+                                    ".fixed.left-0.right-0.mx-auto.bg-white.rounded-t-xl.overflow-hidden"
+                                ),
+                            ].filter(
+                                (element) => element.getClientRects().length > 0
+                            );
+                            const activeModal = modalRoots[modalRoots.length - 1];
+                            if (!activeModal) return;
 
-                            activeScrollContainer?.scrollTo({
-                                top: 0,
-                                behavior: "auto",
+                            const scrollTargets = [
+                                activeModal,
+                                ...activeModal.querySelectorAll<HTMLElement>(
+                                    ".overflow-y-auto"
+                                ),
+                            ];
+
+                            scrollTargets.forEach((element) => {
+                                element.scrollTo({
+                                    top: 0,
+                                    behavior: "auto",
+                                });
                             });
                         });
                     });
