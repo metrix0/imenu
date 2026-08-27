@@ -28,7 +28,10 @@ import Modal from "@/components/ui/Modal";
 import Toast from "@/components/ui/Toast";
 import { supabase } from "@/lib/database/supabaseClient";
 import { captureQrTableEvent } from "@/lib/qr-table/analytics";
-import { startQrTableCheckout } from "@/lib/qr-table/clientApi";
+import {
+    startQrTableCheckout,
+    updateQrTableDesign,
+} from "@/lib/qr-table/clientApi";
 import { downloadQrDesign } from "@/lib/qr-table/downloadQrDesign";
 import type { QrTableAddon } from "@/lib/qr-table/types";
 import { hasQrTableAccess } from "@/lib/qr-table/types";
@@ -41,8 +44,6 @@ type Restaurant = {
     custom_domain: string | null;
     banner_url: string | null;
     logo_url: string | null;
-    qr_design_template: QrDesignTemplate | null;
-    qr_design_color: string | null;
 };
 
 type RestaurantTable = {
@@ -115,7 +116,7 @@ export default function MesasPage() {
                 await supabase
                     .from("restaurants")
                     .select(
-                        "id, name, url_slug, custom_domain, banner_url, logo_url, qr_design_template, qr_design_color"
+                        "id, name, url_slug, custom_domain, banner_url, logo_url"
                     )
                     .eq("id", targetRestaurantId)
                     .single();
@@ -218,8 +219,8 @@ export default function MesasPage() {
             .getPublicUrl(restaurant.logo_url).data.publicUrl;
     }, [restaurant]);
 
-    const qrDesignTemplate = restaurant?.qr_design_template || "classic";
-    const qrDesignColor = restaurant?.qr_design_color || DEFAULT_QR_DESIGN_COLOR;
+    const qrDesignTemplate = addon?.qr_design_template || "banner";
+    const qrDesignColor = addon?.qr_design_color || DEFAULT_QR_DESIGN_COLOR;
 
     const openSalesModal = () => {
         setSalesOpen(true);
@@ -254,36 +255,30 @@ export default function MesasPage() {
         template: QrDesignTemplate,
         color: string
     ) => {
-        if (!restaurant) return;
+        if (!restaurant || !addon) return;
         setSavingDesign(true);
-        const { error } = await supabase
-            .from("restaurants")
-            .update({
-                qr_design_template: template,
-                qr_design_color: color,
-            })
-            .eq("id", restaurant.id);
-        setSavingDesign(false);
 
-        if (error) {
+        try {
+            await updateQrTableDesign(restaurant.id, template, color);
+            setAddon((current) =>
+                current
+                    ? {
+                          ...current,
+                          qr_design_template: template,
+                          qr_design_color: color.toUpperCase(),
+                      }
+                    : current
+            );
+            setDesignOpen(false);
+            setToast({ message: "Design salvo!", type: "success" });
+        } catch {
             setToast({
                 message: "Não foi possível salvar o design.",
                 type: "error",
             });
-            return;
+        } finally {
+            setSavingDesign(false);
         }
-
-        setRestaurant((current) =>
-            current
-                ? {
-                      ...current,
-                      qr_design_template: template,
-                      qr_design_color: color,
-                  }
-                : current
-        );
-        setDesignOpen(false);
-        setToast({ message: "Design salvo!", type: "success" });
     };
 
     const openNewTable = () => {

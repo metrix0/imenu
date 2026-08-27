@@ -27,6 +27,16 @@ export type QrTableAddon = {
     current_period_ends_at: string | null;
     activated_at: string | null;
     canceled_at: string | null;
+    qr_design_template:
+        | "classic"
+        | "dark"
+        | "banner"
+        | "logo"
+        | "xadrez"
+        | "gradient"
+        | "minimal"
+        | null;
+    qr_design_color: string | null;
 };
 
 export function hasQrTableAccess(
