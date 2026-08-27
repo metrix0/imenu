@@ -427,8 +427,7 @@ export default function CartBar({
                 if (confirmationResponse.ok) {
                     const confirmation = await confirmationResponse.json();
                     if (confirmation?.url) {
-                        window.location.href = confirmation.url;
-                        return;
+                        window.open(confirmation.url, "_blank", "noopener,noreferrer");
                     }
                 }
             } catch (error) {
