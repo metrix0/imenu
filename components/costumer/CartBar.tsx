@@ -6,10 +6,9 @@ import {
 } from "@/lib/stores/costumer/cartStore";
 import Button from "@/components/ui/Button";
 import Tooltip from "@/components/ui/Tooltip";
+import HybridModal from "@/components/ui/HybridModal";
 import { useCheckoutStore } from "@/lib/stores/costumer/checkoutStore";
-import { useState, useRef } from "react";
-import {FontAwesomeIcon} from "@fortawesome/react-fontawesome";
-import {icons} from "@/lib/utils/fontawesome";
+import { useState } from "react";
 import {formatPrice, promotionPrice} from "@/lib/utils/formatPrice";
 import { captureConsumerEvent } from "@/lib/analytics/captureConsumerEvent";
 import { CONSUMER_EVENTS } from "@/lib/analytics/consumerEvents";
@@ -40,18 +39,11 @@ export default function CartBar({
     const setStep = useCheckoutStore((s) => s.setStep);
     const setShowAddressWarning = useCheckoutStore(s => s.setShowAddressWarning);
     const [cartWarningVisible, setCartWarningVisible] = useState(false);
-    const [cartWarningClosing, setCartWarningClosing] = useState(false);
-    const [backdropVisible, setBackdropVisible] = useState(false);
 
     const checkoutState = useCheckoutStore((s) => s);
     const isTableOrder = Boolean(tableOrder);
     const isPickup = Boolean((checkoutState as any).is_pickup);
-    const [closedByDrag, setClosedByDrag] = useState(false);
-    const [translateY, setTranslateY] = useState(0);
-    const [dragging, setDragging] = useState(false);
     const isContinueBlocked = useCheckoutStore(state => state.isContinueBlocked);
-    const touchStartY = useRef<number | null>(null);
-    const CLOSE_THRESHOLD = 120;
 
     if (items.length === 0) return null;
 
@@ -140,7 +132,7 @@ export default function CartBar({
             const totalCents = items.reduce((acc,i)=>acc+i.total_cents,0);
 
             if (!isTableOrder && totalCents < restaurant.min_order_cents) {
-                showCartWarning(true)
+                setCartWarningVisible(true);
                 return;
             }
             if (!isTableOrder) {
@@ -221,42 +213,17 @@ export default function CartBar({
         }
     }
 
-    function showCartWarning(show: boolean) {
-        if (!show) {
-            setBackdropVisible(false);
-
-            if (closedByDrag) {
-                setCartWarningClosing(true);
-                setTimeout(() => {
-                    setCartWarningVisible(false);
-                    setCartWarningClosing(false);
-                    setTranslateY(0);
-                    setClosedByDrag(false);
-                }, 220);
-                return;
-            }
-
-            setCartWarningClosing(true);
-            setTimeout(() => {
-                setCartWarningVisible(false);
-                setCartWarningClosing(false);
-                setTranslateY(0);
-            }, 220);
-        } else {
-            setCartWarningVisible(true);
-            requestAnimationFrame(() => setBackdropVisible(true));
-        }
-    }
-
     async function createOrder() {
         const cart = useCartStore.getState();
         const checkout = useCheckoutStore.getState();
         const pickup = !isTableOrder && Boolean((checkout as any).is_pickup);
-        const whatsappWindow =
-            restaurant.force_whatsapp_order_confirmation &&
-            typeof window !== "undefined"
-                ? window.open("", "_blank")
-                : null;
+        const shouldOpenWhatsapp =
+            restaurant.force_whatsapp_order_confirmation === true &&
+            typeof window !== "undefined" &&
+            window.matchMedia("(max-width: 767px)").matches;
+        const whatsappWindow = shouldOpenWhatsapp
+            ? window.open("", "_blank")
+            : null;
 
         const subtotal_cents = cart.items.reduce(
             (sum, i) => sum + (promotionPrice(i) || i.total_cents),
@@ -373,7 +340,7 @@ export default function CartBar({
         useCheckoutStore.setState({ is_pickup: false, scheduled_for: null } as any);
 
         const createdOrderId = data.order_id || data.id;
-        if (restaurant.force_whatsapp_order_confirmation && createdOrderId) {
+        if (shouldOpenWhatsapp && createdOrderId) {
             try {
                 const confirmationResponse = await fetch(
                     `/api/orders/${createdOrderId}/whatsapp-confirmation`,
@@ -411,61 +378,21 @@ export default function CartBar({
 
     const displayTotalCents = total + (delivery_fee_cents || 0);
 
-    const handleTouchStart = (e: React.TouchEvent) => {
-        touchStartY.current = e.touches[0].clientY;
-        setDragging(true);
-        setTranslateY(0);
-    };
-
-    const handleTouchMove = (e: React.TouchEvent) => {
-        if (touchStartY.current === null) return;
-        const currentY = e.touches[0].clientY;
-        const diff = currentY - touchStartY.current;
-        if (diff <= 0) {
-            setTranslateY(0);
-            return;
-        }
-        const dampened = diff > 300 ? 300 + (diff - 300) * 0.2 : diff;
-        setTranslateY(dampened);
-    };
-
-    const handleTouchEnd = () => {
-        const final = translateY;
-        touchStartY.current = null;
-        setDragging(false);
-
-        if (final >= CLOSE_THRESHOLD) {
-            setClosedByDrag(true);
-            setCartWarningClosing(true);
-            setBackdropVisible(false);
-            const offscreen = typeof window !== "undefined" ? window.innerHeight : 1000;
-            setTranslateY(offscreen);
-            setTimeout(() => {
-                setCartWarningVisible(false);
-                setCartWarningClosing(false);
-                setTranslateY(0);
-                setClosedByDrag(false);
-            }, 260);
-            return;
-        }
-        setTranslateY(0);
-    };
-
     const minimumOrderContent = (
-        <div className="text-center">
-            <div className="text-text text-md font-medium mb-2 mt-4">
+        <div className="p-6 text-center md:p-8">
+            <div className="text-text mb-2 mt-2 text-md font-medium">
                 Valor mínimo do pedido.
             </div>
-            <p className="text-gray-500 mb-4 text-sm">
+            <p className="mb-4 text-sm text-gray-500">
                 O pedido mínimo deste restaurante é de <b>R$ {(restaurant.min_order_cents/100).toFixed(2).replace(".",",")}</b>, sem contar com a taxa de entrega.
             </p>
-            <Button variant="primary" className="text-sm w-full py-3" onClick={() => {
-                showCartWarning(false);
+            <Button variant="primary" className="w-full py-3 text-sm" onClick={() => {
+                setCartWarningVisible(false);
                 setCartOpenAction(false);
             }}>
                 Adicionar mais itens
             </Button>
-            <button type="button" className="cursor-pointer text-brand text-sm mt-4" onClick={() => showCartWarning(false)}>
+            <button type="button" className="mt-4 cursor-pointer text-sm text-brand" onClick={() => setCartWarningVisible(false)}>
                 Ok, entendi
             </button>
         </div>
@@ -508,39 +435,15 @@ export default function CartBar({
                 </div>
             </div>
 
-            {!isTableOrder && cartWarningVisible && (
-                <>
-                    <div
-                        onClick={() => showCartWarning(false)}
-                        className={`fixed inset-0 z-[70] bg-black/40 backdrop-blur-[1px] transition-opacity duration-300 md:hidden ${backdropVisible ? "opacity-100" : "opacity-0"}`}
-                    />
-
-                    <div
-                        onTouchStart={handleTouchStart}
-                        onTouchMove={handleTouchMove}
-                        onTouchEnd={handleTouchEnd}
-                        className={`fixed bottom-0 left-0 right-0 z-[71] h-[30vh] rounded-t-2xl bg-white p-6 shadow-xl md:hidden ${closedByDrag ? "" : cartWarningClosing ? "animate-slide-down" : "animate-slide-up"}`}
-                        style={{
-                            transform: `translateY(${translateY}px)`,
-                            transition: dragging ? "none" : "transform 250ms ease",
-                            touchAction: "pan-y"
-                        }}
-                    >
-                        {minimumOrderContent}
-                    </div>
-
-                    <div
-                        className={`fixed inset-0 z-[70] hidden items-center justify-center bg-black/40 p-6 backdrop-blur-[1px] transition-opacity duration-200 md:flex ${backdropVisible ? "opacity-100" : "opacity-0"}`}
-                        onClick={() => showCartWarning(false)}
-                    >
-                        <div
-                            className="w-full max-w-md rounded-2xl bg-white p-8 shadow-2xl"
-                            onClick={(event) => event.stopPropagation()}
-                        >
-                            {minimumOrderContent}
-                        </div>
-                    </div>
-                </>
+            {!isTableOrder && (
+                <HybridModal
+                    open={cartWarningVisible}
+                    onClose={() => setCartWarningVisible(false)}
+                    height={0.3}
+                    className="md:max-w-md"
+                >
+                    {minimumOrderContent}
+                </HybridModal>
             )}
         </>
     );
