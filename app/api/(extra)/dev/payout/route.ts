@@ -359,7 +359,11 @@ export async function POST(request: Request) {
         );
     }
 
-    let body: { discountPercent?: unknown; adjustToOnePercent?: unknown };
+    let body: {
+        discountPercent?: unknown;
+        adjustToOnePercent?: unknown;
+        amounts?: unknown;
+    };
     try {
         body = await request.json();
     } catch {
@@ -368,6 +372,13 @@ export async function POST(request: Request) {
 
     const adjustToOnePercent = body.adjustToOnePercent === true;
     const discountPercent = Number(body.discountPercent ?? 0.75);
+    const amountOverrides =
+        body.amounts &&
+        typeof body.amounts === "object" &&
+        !Array.isArray(body.amounts)
+            ? (body.amounts as Record<string, unknown>)
+            : {};
+
     if (
         !adjustToOnePercent &&
         (!Number.isFinite(discountPercent) || discountPercent < 0 || discountPercent > 100)
@@ -405,11 +416,18 @@ export async function POST(request: Request) {
                 const grossCents = Number(row.gross_cents) || 0;
                 const payzuFeeCents = (Number(row.pix_order_count) || 0) * 10;
                 const discountCents = adjustToOnePercent
-                    ? Math.max(0, Math.round(grossCents * 0.01) - payzuFeeCents)
+                    ? Math.round(grossCents * 0.01)
                     : Math.round(grossCents * (discountPercent / 100));
-                const netCents = adjustToOnePercent
-                    ? Math.max(0, grossCents - payzuFeeCents - discountCents)
-                    : Math.max(0, grossCents - discountCents);
+                const calculatedNetCents = Math.max(
+                    0,
+                    grossCents - discountCents
+                );
+                const requestedAmount = amountOverrides[row.restaurant_id];
+                const netCents =
+                    requestedAmount === undefined
+                        ? calculatedNetCents
+                        : Math.round(Number(requestedAmount));
+
                 return {
                     row,
                     grossCents,
@@ -417,8 +435,22 @@ export async function POST(request: Request) {
                     payzuFeeCents,
                     netCents,
                 };
-            })
-            .filter((item) => item.netCents > 0);
+            });
+
+        const invalidAmount = sendable.find(
+            (item) =>
+                !Number.isFinite(item.netCents) ||
+                item.netCents <= 0 ||
+                item.netCents > item.grossCents
+        );
+        if (invalidAmount) {
+            return NextResponse.json(
+                {
+                    error: `Valor de repasse inválido para ${invalidAmount.row.restaurant_name}.`,
+                },
+                { status: 400 }
+            );
+        }
 
         if (sendable.length === 0) {
             return NextResponse.json(
