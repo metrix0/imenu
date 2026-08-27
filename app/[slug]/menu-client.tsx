@@ -70,7 +70,7 @@ export default function MenuClientPage({
     const [showMobileSearch, setShowMobileSearch] = useState(false);
     const [activeTab, setActiveTab] = useState(categories[0]?.name ?? "");
     const [manualScrollLock, setManualScrollLock] = useState(false);
-    const [debouncedSearch, setDebouncedSearch] = useState(""); // used for filtering
+    const [debouncedSearch, setDebouncedSearch] = useState("");
     const [couponUsed, setCouponUsed] = useState("");
     const isItemModalOpen = Boolean(openedItem);
     const isTableOrder = Boolean(tableOrder);
@@ -102,13 +102,11 @@ export default function MenuClientPage({
         const eventID =
             crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
 
-        // Browser Pixel
         const fbq = (window as any).fbq;
         if (typeof fbq === "function") {
             fbq("track", eventName, customData ?? {}, { eventID });
         }
 
-        // Server CAPI
         fetch("/api/meta", {
             method: "POST",
             headers: { "content-type": "application/json" },
@@ -142,18 +140,14 @@ export default function MenuClientPage({
 
     useEffect(() => {
         if (!selectedCouponCode) return;
-
-        // avoid overwriting user edits
         if (coupon_code === selectedCouponCode) return;
-
         setField("coupon_code", selectedCouponCode);
     }, [selectedCouponCode]);
 
-    // debounce effect
     useEffect(() => {
         const timer = setTimeout(() => {
             setDebouncedSearch(searchText);
-        }, 300); // 100ms buffer
+        }, 300);
 
         return () => clearTimeout(timer);
     }, [searchText]);
@@ -220,7 +214,6 @@ export default function MenuClientPage({
         const cart = useCartStore.getState();
         const checkout = useCheckoutStore.getState();
 
-        // 🚫 block reused coupon (device-level)
         try {
             if (checkout.coupon_id && checkout.coupon_code && checkout.coupon_one_coupon_per_user === true) {
                 const raw = localStorage.getItem(`coupon_used_${checkout.restaurantId}`);
@@ -261,7 +254,6 @@ export default function MenuClientPage({
                 ? Number(checkout.delivery_fee_cents)
                 : 0;
 
-        // ❌ minimum order
         if (
             checkout.coupon_min_order &&
             cartSubtotal < checkout.coupon_min_order
@@ -272,24 +264,20 @@ export default function MenuClientPage({
 
         let discountCents = 0;
 
-        // % discount
         if (checkout.coupon_type === "percent") {
             discountCents = Math.floor(
                 cartSubtotal * checkout.coupon_value!
             );
         }
 
-        // fixed R$
         if (checkout.coupon_type === "fixed") {
             discountCents = checkout.coupon_value!;
         }
 
-        // delivery
         if (checkout.coupon_type === "delivery") {
             discountCents = deliveryFee;
         }
 
-        // cap
         if (
             checkout.coupon_max_value &&
             discountCents > checkout.coupon_max_value
@@ -297,7 +285,6 @@ export default function MenuClientPage({
             discountCents = checkout.coupon_max_value;
         }
 
-        // never exceed order total
         discountCents = Math.min(
             discountCents,
             cartSubtotal + deliveryFee
@@ -335,7 +322,6 @@ export default function MenuClientPage({
         const closedDate = new Date(restaurant.is_closed);
         const now = new Date();
 
-        // If before 4am, treat "today" as yesterday
         if (now.getHours() < 4) {
             now.setDate(now.getDate() - 1);
         }
@@ -379,7 +365,7 @@ export default function MenuClientPage({
             }
 
 
-            const normalized = await res.json(); // Already sorted + normalized by API
+            const normalized = await res.json();
 
             setOpenedItem({
                 item,
@@ -396,7 +382,6 @@ export default function MenuClientPage({
         setManualScrollLock(true);
         setActiveTab(tab);
 
-        // scroll the tab horizontally
         setTimeout(() => {
             const btn = document.querySelector(
                 `button[data-tab="${CSS.escape(tab)}"]`
@@ -404,18 +389,16 @@ export default function MenuClientPage({
             if (btn) btn.scrollIntoView({ behavior: "smooth", inline: "center" });
         }, 0);
 
-        // scroll to the category
         const cat = categories.find(c => c.name === tab);
         if (!cat) return;
         const el = document.getElementById(`cat-${cat.id}`);
         if (el) {
-            const yOffset = -250; // adjust for your fixed headers if needed
+            const yOffset = -250;
             const y = el.getBoundingClientRect().top + window.pageYOffset + yOffset;
             window.scrollTo({ top: y, behavior: "smooth" });
         }
 
 
-        // unlock
         setTimeout(() => setManualScrollLock(false), 600);
     };
 
@@ -494,11 +477,9 @@ export default function MenuClientPage({
 
         const now = new Date();
 
-        // ---- CLOSED DAY (empty or missing) ----
         if (!Array.isArray(slots) || slots.length === 0) {
             setTodaySlots([]);
 
-            // find next day with slots
             for (let i = 1; i <= 7; i++) {
                 const nextDay = (today + i) % 7;
                 const nextSlots = availability[nextDay];
@@ -625,11 +606,10 @@ export default function MenuClientPage({
         }
     }, []);
 
-// AUTO-HIGHLIGHT TAB WHEN USER SCROLLS
     useEffect(() => {
         const observer = new IntersectionObserver(
             (entries) => {
-                if (manualScrollLock) return; // ignore while programmatic scrolling
+                if (manualScrollLock) return;
                 entries.forEach((e) => {
                     if (e.isIntersecting) {
                         const id = e.target.getAttribute("data-cat")!;
@@ -675,9 +655,6 @@ export default function MenuClientPage({
     return (
 
         <div className="min-h-screen bg-white text-gray-900 pb-10">
-            {/* ============================
-                BANNER
-            ============================ */}
             <div className="relative w-full h-[21vh] overflow-hidden">
                 {restaurant.banner_url && (
                     <>
@@ -691,9 +668,6 @@ export default function MenuClientPage({
                 )}
             </div>
 
-            {/* ============================
-                CARD PRINCIPAL
-            ============================ */}
             <div className="relative -mt-8 ">
                 {restaurant.logo_url && (
                     <div className="absolute left-1/2 -translate-x-1/2 -top-8 z-20">
@@ -722,21 +696,6 @@ export default function MenuClientPage({
                             </>
                         )}
                     </p>
-
-                    {/*{(*/}
-                    {/*    <div className="flex items-center gap-2 mt-3 text-xs border-b border-gray-200 pb-3">*/}
-                    {/*        <FontAwesomeIcon*/}
-                    {/*            icon={faStar}*/}
-                    {/*            className="text-gray-700"*/}
-                    {/*        />*/}
-                    {/*        <span className="font-semibold">*/}
-                    {/*            4.7*/}
-                    {/*        </span>*/}
-                    {/*        <span className="text-gray-500">*/}
-                    {/*            (427 avaliações)*/}
-                    {/*        </span>*/}
-                    {/*    </div>*/}
-                    {/*)}*/}
 
                     <div className={"block md:flex justify-between mt-3"}>
                         {isTableOrder ? (
@@ -771,10 +730,6 @@ export default function MenuClientPage({
             </div>
             )}
 
-
-
-
-
             {(nextOpening !== null || closedForToday) && (
                 <WarningBox icon={icons.faTriangleExclamation} className="mt-10 mx-5 md:mx-48 2xl:mx-80">
                     {closedForToday && (
@@ -782,7 +737,9 @@ export default function MenuClientPage({
                         )}
                     {!isTableOrder && canScheduleToday && nextOpening && (
                         <>
-                            Restaurante fechado no momento. <b>Você pode montar seu pedido e agendar para hoje</b>.
+                            Restaurante fechado no momento. <b>{restaurant.allow_future_order_scheduling === true
+                                ? "Você pode montar seu pedido e agendar para qualquer dia"
+                                : "Você pode montar seu pedido e agendar para hoje"}</b>.
                         </>
                     )}
                     {nextOpening !== null && !closedForToday && (!canScheduleToday || isTableOrder) && (() => {
@@ -843,7 +800,6 @@ export default function MenuClientPage({
 
             )}
 
-            {/* === FLOATING BUTTONS === */}
             <div
                 className={`
         top-7 right-5 fixed flex gap-4 md:hidden
@@ -869,7 +825,6 @@ export default function MenuClientPage({
             </div>
 
 
-            {/* === MOBILE SEARCH + TABS (only after scroll) === */}
             <div
                 className={`
         md:hidden fixed w-full top-0 bg-white z-[40] border-b border-gray-100
@@ -879,7 +834,6 @@ export default function MenuClientPage({
                     : "opacity-0 -translate-y-2 pointer-events-none"}
     `}
             >
-                {/* Search trigger */}
                 <div className="px-4 py-2 shadow-sm flex items-center gap-3">
                     <button
                         onClick={() => setSearchOpen(true)}
@@ -896,7 +850,6 @@ export default function MenuClientPage({
                     </button>
                 </div>
 
-                {/* Category Tabs */}
                 <div className="hidden-x-scroll mt-1 px-2 overflow-x-auto">
                     <Tabs
                         tabs={categories.map((c) => c.name)}
@@ -909,9 +862,6 @@ export default function MenuClientPage({
             </div>
 
 
-            {/* ============================
-                CATEGORIAS
-            ============================ */}
             <div className="mt-8 px-4 md:mx-44 space-y-12 pb-20 2xl:mx-80 2xl:mt-12 relative">
                 <div className="absolute top-0 right-4 hidden md:flex justify-end gap-4">
                     <button
@@ -920,7 +870,7 @@ export default function MenuClientPage({
                         }`}
                         onClick={() => {
                             setSearchText("");
-                            setDebouncedSearch(""); // instant clear
+                            setDebouncedSearch("");
                         }}
                     >
                         Cancelar
@@ -1006,7 +956,6 @@ export default function MenuClientPage({
                                             loadingItemId === item.id ? "opacity-60" : ""
                                         }`}
                                     >
-                                        {/* LEFT SIDE (text) */}
                                         <div className="flex flex-col pr-4 flex-1 items-start justify-start max-w-[70%] ">
                                             <p className="text-sm 2xl:text-lg font-semibold leading-tight">
                                                 {item.name}
@@ -1023,7 +972,6 @@ export default function MenuClientPage({
                                             </p>
                                         </div>
 
-                                        {/* RIGHT SIDE (image) */}
                                         <div className="w-[22vw] h-[22vw] md:w-[10vw] md:h-[10vw] rounded-2xl overflow-hidden
                     bg-gray-200 shadow-sm flex-shrink-0">
                                             <img
@@ -1042,9 +990,6 @@ export default function MenuClientPage({
                 ))}
             </div>
 
-            {/* ============================
-                ITEM MODAL
-            ============================ */}
             {openedItem && (
                 <ItemModal
                     restaurant={restaurant}
@@ -1059,7 +1004,6 @@ export default function MenuClientPage({
                 />
             )}
 
-            {/* === SEARCH MODAL === */}
             {searchOpen && (
                 <SearchModal
                     restaurant={restaurant}
@@ -1069,8 +1013,10 @@ export default function MenuClientPage({
                 />
             )}
 
-            {/* AQUI! */}
-            {!closedForToday && (nextOpening === null || (!isTableOrder && canScheduleToday)) && (
+            {(isTableOrder
+                ? !closedForToday && nextOpening === null
+                : restaurant.allow_future_order_scheduling === true ||
+                  (!closedForToday && (nextOpening === null || canScheduleToday))) && (
                 <CartBar
                     onOpenCartAction={() => {
                         if (!cartOpen) {
@@ -1098,7 +1044,7 @@ export default function MenuClientPage({
                     restaurant={restaurant}
                     onClose={() => {
                         setCartOpen(false);
-                        setCartStep("cart"); // reset to first page when closing
+                        setCartStep("cart");
                     }}
                     step={cartStep}
                     setStep={setCartStep}
@@ -1112,11 +1058,8 @@ export default function MenuClientPage({
 
 
                     onSelectItem={(item: Item) => {
-                        // 1️⃣ close cart
                         setCartOpen(false);
                         setCartStep("cart");
-
-                        // 2️⃣ open item modal
                         handleItemClick(item);
                     }}
                 />
