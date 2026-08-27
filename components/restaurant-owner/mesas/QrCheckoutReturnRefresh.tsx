@@ -21,8 +21,8 @@ const CHECKOUT_RETURN_PATHS = new Set([
     "/painel/configuracoes",
     "/restaurante/criar/localizacao",
 ]);
-const CHECKOUT_RECONCILE_ATTEMPTS = 8;
-const CHECKOUT_RECONCILE_DELAY_MS = 1500;
+const CHECKOUT_RECONCILE_ATTEMPTS = 40;
+const CHECKOUT_RECONCILE_DELAY_MS = 5000;
 
 const BENEFITS = [
     {
