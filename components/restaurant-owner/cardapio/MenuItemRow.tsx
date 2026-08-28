@@ -4,8 +4,8 @@ import { useState, useRef, useEffect, ReactNode } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
     faBox,
-    faCog,
     faImage,
+    faLayerGroup,
     faSpinner,
 } from "@fortawesome/free-solid-svg-icons";
 import { icons } from "@/lib/utils/fontawesome";
@@ -39,6 +39,7 @@ interface MenuItemRowProps {
     onDuplicate?: (item: MenuItemType) => void;
     onCancel?: () => void;
     onOpenDetails?: () => void;
+    onEditingChange?: (isEditing: boolean) => void;
     dragHandle?: ReactNode;
 }
 
@@ -82,6 +83,7 @@ export default function MenuItemRow({
     onDuplicate,
     onCancel,
     onOpenDetails,
+    onEditingChange,
     dragHandle,
 }: MenuItemRowProps) {
     const restaurantSlug = useCreationStore((state) => state.restaurantSlug);
@@ -328,6 +330,7 @@ export default function MenuItemRow({
                 if (onCancel) onCancel();
             } else {
                 setIsEditing(false);
+                onEditingChange?.(false);
             }
         } catch {
             alert("Erro ao salvar.");
@@ -350,6 +353,7 @@ export default function MenuItemRow({
                 setPriceCents(item.price_cents);
                 setPriceInput(formatPriceInput(item.price_cents));
                 setIsEditing(false);
+                onEditingChange?.(false);
             }
         }
     };
@@ -440,7 +444,10 @@ export default function MenuItemRow({
                     className={`group flex items-center justify-between p-4 2xl:p-5 bg-white border-b border-gray-100 hover:bg-gray-50 transition-all cursor-pointer ${
                         !isAvailable ? "opacity-60 bg-gray-50" : ""
                     }`}
-                    onClick={() => setIsEditing(true)}
+                    onClick={() => {
+                        setIsEditing(true);
+                        onEditingChange?.(true);
+                    }}
                 >
                     <div className="flex min-w-0 items-center gap-3 overflow-hidden 2xl:gap-4">
                         {dragHandle && (
@@ -517,9 +524,9 @@ export default function MenuItemRow({
                                     className="px-3 py-1.5 h-auto text-sm font-medium text-gray-500 hover:border-brand gap-2"
                                     title="Gerenciar complementos e opções"
                                 >
-                                    <FontAwesomeIcon icon={faCog} />
+                                    <FontAwesomeIcon icon={faLayerGroup} />
                                     <span className="hidden sm:inline">
-                                        Opções
+                                        Complementos
                                     </span>
                                 </Button>
 
