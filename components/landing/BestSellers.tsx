@@ -133,8 +133,9 @@ export default function BestSellers() {
                             key={restaurant.id}
                             className="grid min-w-0 grid-cols-[auto_auto_minmax(0,1fr)] items-center gap-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm md:flex md:flex-col md:text-center 2xl:p-7"
                         >
-                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand/10 text-lg font-bold text-brand">
-                                {index + 1}º
+                            <span className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-brand/15 bg-gradient-to-br from-white via-white to-orange-50/70 text-xl font-extrabold tracking-tight text-brand shadow-[0_12px_28px_-18px_rgba(181,67,20,0.65)] ring-1 ring-brand/5 2xl:h-14 2xl:w-14 2xl:text-2xl">
+                                <span aria-hidden="true" className="absolute -top-3 -right-3 h-8 w-8 rounded-full bg-brand/10 blur-md" />
+                                <span className="relative">{index + 1}º</span>
                             </span>
 
                             <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-full border border-gray-200 bg-gray-50 2xl:h-20 2xl:w-20">
