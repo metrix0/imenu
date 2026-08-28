@@ -5,6 +5,10 @@ import { createPortal } from "react-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { icons } from "@/lib/utils/fontawesome";
 
+let activeScrollLocks = 0;
+let originalBodyOverflow = "";
+let originalHtmlOverflow = "";
+
 interface ModalProps {
     open: boolean;
     onClose: () => void;
@@ -22,22 +26,32 @@ export default function Modal({
 }: ModalProps) {
     const [mounted, setMounted] = useState(open);
     const [active, setActive] = useState(false);
-    const previousBodyOverflow = useRef("");
-    const previousHtmlOverflow = useRef("");
+    const scrollLocked = useRef(false);
 
     function lockPageScroll() {
-        previousBodyOverflow.current = document.body.style.overflow;
-        previousHtmlOverflow.current =
-            document.documentElement.style.overflow;
+        if (scrollLocked.current) return;
 
-        document.body.style.overflow = "hidden";
-        document.documentElement.style.overflow = "hidden";
+        if (activeScrollLocks === 0) {
+            originalBodyOverflow = document.body.style.overflow;
+            originalHtmlOverflow = document.documentElement.style.overflow;
+            document.body.style.overflow = "hidden";
+            document.documentElement.style.overflow = "hidden";
+        }
+
+        activeScrollLocks += 1;
+        scrollLocked.current = true;
     }
 
     function restorePageScroll() {
-        document.body.style.overflow = previousBodyOverflow.current;
-        document.documentElement.style.overflow =
-            previousHtmlOverflow.current;
+        if (!scrollLocked.current) return;
+
+        activeScrollLocks = Math.max(0, activeScrollLocks - 1);
+        scrollLocked.current = false;
+
+        if (activeScrollLocks === 0) {
+            document.body.style.overflow = originalBodyOverflow;
+            document.documentElement.style.overflow = originalHtmlOverflow;
+        }
     }
 
     useEffect(() => {
