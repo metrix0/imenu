@@ -31,6 +31,7 @@ type Subcategory = {
     name: string;
     min_select: number;
     max_select: number;
+    allow_multiple_units: boolean;
     required: boolean; 
     position: number;
     subitems: Subitem[];
@@ -82,6 +83,7 @@ const getImportGroupSignature = (group: ImportableGroup) =>
         description: normalizeImportText(group.original_data.description),
         minSelect: group.original_data.min_select,
         maxSelect: group.original_data.max_select,
+        allowMultipleUnits: Boolean(group.original_data.allow_multiple_units),
         options: group.subitems.map((subitem) => [
             normalizeImportText(subitem.name),
             normalizeImportText(subitem.description),
@@ -335,6 +337,7 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, 
             name: groupToImport.name,
             min_select: groupToImport.original_data.min_select,
             max_select: groupToImport.original_data.max_select,
+            allow_multiple_units: Boolean(groupToImport.original_data.allow_multiple_units),
             position: currentGroupsLength // Usa a posição calculada dinamicamente
         }).select().single();
         
@@ -381,6 +384,7 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, 
                 name: groupToImport.name,
                 min_select: groupToImport.original_data.min_select,
                 max_select: groupToImport.original_data.max_select,
+                allow_multiple_units: Boolean(groupToImport.original_data.allow_multiple_units),
                 position: groups.length
             }).select().single();
             
@@ -594,7 +598,7 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, 
                                             onBlur={(e) => handleUpdateGroup(group.id, { name: e.currentTarget.value })}
                                             onMouseDown={e => e.stopPropagation()} 
                                         />
-                                        <div className="flex gap-4 mt-2 text-sm 2xl:text-base text-gray-600">
+                                        <div className="flex flex-wrap gap-4 mt-2 text-sm 2xl:text-base text-gray-600">
                                             <label className="flex items-center gap-2 cursor-pointer select-none">
                                                 <input 
                                                     type="checkbox" 
@@ -615,6 +619,15 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, 
                                                     onMouseDown={e => e.stopPropagation()}
                                                 />
                                             </div>
+                                            <label className="flex items-center gap-2 cursor-pointer select-none">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={group.allow_multiple_units === true}
+                                                    onChange={(e) => handleUpdateGroup(group.id, { allow_multiple_units: e.target.checked })}
+                                                    className="rounded text-brand focus:ring-brand"
+                                                />
+                                                Mais de uma unidade por complemento
+                                            </label>
                                         </div>
                                     </div>
                                 </div>
