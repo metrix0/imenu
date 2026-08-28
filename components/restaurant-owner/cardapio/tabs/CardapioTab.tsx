@@ -60,6 +60,7 @@ export default function CardapioTab({
     const mobilePointerStartRef = useRef<{ x: number; y: number } | null>(null);
     const mobileDidMoveRef = useRef(false);
     const desktopDidDragRef = useRef(false);
+    const desktopCategoryDragIntentRef = useRef<string | null>(null);
     const normalizedRestaurantRef = useRef<string | null>(null);
 
     useEffect(() => {
@@ -138,6 +139,12 @@ export default function CardapioTab({
     }, []);
 
     const handleDragStart = (e: React.DragEvent, catId: string) => {
+        if (desktopCategoryDragIntentRef.current !== catId) {
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+        }
+
         desktopDidDragRef.current = true;
         setDraggedCatId(catId);
         e.dataTransfer.effectAllowed = "move";
@@ -151,6 +158,7 @@ export default function CardapioTab({
         const target = e.currentTarget as HTMLElement;
         target.style.opacity = "1";
         setDraggedCatId(null);
+        desktopCategoryDragIntentRef.current = null;
         window.setTimeout(() => {
             desktopDidDragRef.current = false;
         }, 0);
@@ -494,6 +502,15 @@ export default function CardapioTab({
                         key={category.id}
                         data-category-id={category.id}
                         draggable={!isFiltering}
+                        onMouseDownCapture={(e) => {
+                            if (
+                                !(e.target as HTMLElement).closest(
+                                    "[data-category-drag-handle='true']"
+                                )
+                            ) {
+                                desktopCategoryDragIntentRef.current = null;
+                            }
+                        }}
                         onDragStart={(e) => handleDragStart(e, category.id)}
                         onDragOver={(e) => handleDragOver(e, category.id)}
                         onDragEnd={handleFinalDragEnd}
@@ -513,7 +530,19 @@ export default function CardapioTab({
                             dragHandle={
                                 !isFiltering ? (
                                     <span
+                                        data-category-drag-handle="true"
                                         className="inline-flex touch-none"
+                                        onMouseDown={(e) => {
+                                            e.stopPropagation();
+                                            desktopCategoryDragIntentRef.current =
+                                                category.id;
+                                        }}
+                                        onMouseUp={() => {
+                                            if (!draggedCatId) {
+                                                desktopCategoryDragIntentRef.current =
+                                                    null;
+                                            }
+                                        }}
                                         onPointerDown={(e) =>
                                             handlePointerStart(e, category.id)
                                         }

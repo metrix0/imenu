@@ -396,6 +396,10 @@ export default function CartModal({
 
         const coords = await fetchCoordinates(fullAddress);
 
+        const latest = useCheckoutStore.getState() as any;
+        const latestFullAddress = `${latest.rua}, ${latest.numero}, ${latest.bairro}, ${latest.cidade} - ${latest.estado}, ${latest.cep}, Brasil`;
+        if (fullAddress !== latestFullAddress) return;
+
         if (!coords) {
             setDeliveryFeeCents(null);
             setField("delivery_fee_cents", null);
@@ -499,6 +503,10 @@ export default function CartModal({
         ) {
             return;
         }
+
+        setDeliveryFeeCents(null);
+        setField("delivery_fee_cents", false);
+        setField("delivery_time_minutes", null);
 
         const timer = window.setTimeout(() => {
             void recalcDeliveryFeeFromAddress();

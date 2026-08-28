@@ -471,6 +471,7 @@ export default function ItemModal({
                 <Tooltip
                     text={disabledReason}
                     showOnClick
+                    portal={false}
                     parentClassName="flex-1"
                     size="line"
                     tooltipClassName="text-center"
