@@ -54,7 +54,7 @@ export async function GET(
         // (Busca de subcategorias - sem mudança)
         const { data: subcatsRaw, error: scErr } = await supabase
             .from("item_subcategories")
-            .select("id, item_id, name, description, min_select, max_select, position")
+            .select("id, item_id, name, description, min_select, max_select, allow_multiple_units, position")
             .eq("item_id", id)
             .order("position", { ascending: true });
 
