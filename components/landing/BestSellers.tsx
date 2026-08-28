@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import Button from "@/components/ui/Button";
+import { icons } from "@/lib/utils/fontawesome";
 
 interface BestSeller {
     id: string;
@@ -73,24 +75,27 @@ export default function BestSellers() {
                             <p className="text-2xl font-extrabold text-gray-900 2xl:text-3xl">
                                 {numberFormatter.format(stats.total_users)}
                             </p>
-                            <p className="mt-1 text-sm text-gray-500 2xl:text-base">
-                                usuários cadastrados
+                            <p className="mt-1 flex items-center justify-center gap-2 text-sm text-gray-500 2xl:text-base">
+                                <FontAwesomeIcon icon={icons.faUser} className="text-brand" />
+                                usuários
                             </p>
                         </div>
                         <div className="rounded-2xl border border-gray-200 bg-white px-5 py-4 text-center shadow-sm 2xl:px-7 2xl:py-5">
                             <p className="text-2xl font-extrabold text-gray-900 2xl:text-3xl">
                                 {currencyFormatter.format(stats.total_gmv_cents / 100)}
                             </p>
-                            <p className="mt-1 text-sm text-gray-500 2xl:text-base">
-                                movimentados no total
+                            <p className="mt-1 flex items-center justify-center gap-2 text-sm text-gray-500 2xl:text-base">
+                                <FontAwesomeIcon icon={icons.faDollarSign} className="text-brand" />
+                                movimentados
                             </p>
                         </div>
                         <div className="rounded-2xl border border-gray-200 bg-white px-5 py-4 text-center shadow-sm 2xl:px-7 2xl:py-5">
                             <p className="text-2xl font-extrabold text-gray-900 2xl:text-3xl">
                                 {numberFormatter.format(stats.total_orders)}
                             </p>
-                            <p className="mt-1 text-sm text-gray-500 2xl:text-base">
-                                pedidos realizados
+                            <p className="mt-1 flex items-center justify-center gap-2 text-sm text-gray-500 2xl:text-base">
+                                <FontAwesomeIcon icon={icons.faTicket} className="text-brand" />
+                                pedidos
                             </p>
                         </div>
                     </div>
