@@ -143,10 +143,10 @@ function getDiscountCents(
     discountPercent: number,
     onePercentNet: boolean
 ) {
-    if (onePercentNet) {
-        return Math.round(item.grossCents * 0.01);
-    }
-    return Math.round(item.grossCents * (discountPercent / 100));
+    const totalDiscountCents = onePercentNet
+        ? Math.round(item.grossCents * 0.01)
+        : Math.round(item.grossCents * (discountPercent / 100));
+    return totalDiscountCents - item.payzuFeeCents;
 }
 
 function getNetCents(
@@ -159,7 +159,10 @@ function getNetCents(
         discountPercent,
         onePercentNet
     );
-    return Math.max(0, item.grossCents - discountCents);
+    return Math.max(
+        0,
+        item.grossCents - item.payzuFeeCents - discountCents
+    );
 }
 
 export default function DevPayoutPage() {
@@ -340,9 +343,10 @@ export default function DevPayoutPage() {
         (sum, item) => sum + item.grossCents,
         0
     );
-    const payzuOwedCents = onePercentNet
-        ? payables.reduce((sum, item) => sum + item.payzuFeeCents, 0)
-        : 0;
+    const payzuOwedCents = payables.reduce(
+        (sum, item) => sum + item.payzuFeeCents,
+        0
+    );
     const owedDiscountCents = payables.reduce(
         (sum, item) =>
             sum + getDiscountCents(item, numericDiscount, onePercentNet),
@@ -582,11 +586,7 @@ export default function DevPayoutPage() {
                 <MetricCard
                     label="Total que devo aos restaurantes"
                     value={money(netOwedCents)}
-                    detail={
-                        onePercentNet
-                            ? `${money(grossOwedCents)} bruto − ${money(owedDiscountCents)} (1%) · PayZu ${money(payzuOwedCents)} informativo`
-                            : `${money(grossOwedCents)} bruto − ${money(owedDiscountCents)} (${numericDiscount.toLocaleString("pt-BR", { maximumFractionDigits: 4 })}%)`
-                    }
+                    detail={`${money(grossOwedCents)} bruto · PayZu ${money(payzuOwedCents)} · Desconto ${money(owedDiscountCents)} · ${onePercentNet ? "1%" : `${numericDiscount.toLocaleString("pt-BR", { maximumFractionDigits: 4 })}%`} total`}
                 />
                 <MetricCard
                     label="Restaurantes com valor a receber"
@@ -754,9 +754,7 @@ export default function DevPayoutPage() {
                                         <td className="px-3 py-4 text-right">{money(item.grossCents)}</td>
                                         <td className="px-3 py-4 text-right text-gray-500">{money(item.payzuFeeCents)}</td>
                                         <td className="px-3 py-4 text-right text-gray-500">
-                                            {onePercentNet && discountCents > 0
-                                                ? `-${money(discountCents)}`
-                                                : money(discountCents)}
+                                            {money(discountCents)}
                                         </td>
                                         <td className="px-3 py-4 text-right font-bold">
                                             {item.canSend ? (
@@ -827,7 +825,9 @@ export default function DevPayoutPage() {
                                 const effectiveDiscountCents =
                                     item.gross_cents == null
                                         ? item.discount_cents
-                                        : Math.max(0, item.gross_cents - item.amount_cents);
+                                        : item.gross_cents -
+                                          item.amount_cents -
+                                          (item.payzu_fee_cents ?? 0);
 
                                 return (
                                     <tr key={item.id}>
@@ -861,9 +861,7 @@ export default function DevPayoutPage() {
                                         <td className="whitespace-nowrap px-3 py-4 text-right text-gray-500">
                                             {effectiveDiscountCents == null
                                                 ? "—"
-                                                : effectiveDiscountCents > 0
-                                                  ? `-${money(effectiveDiscountCents)}`
-                                                  : money(0)}
+                                                : money(effectiveDiscountCents)}
                                         </td>
                                         <td className="whitespace-nowrap px-3 py-4 text-right font-bold text-gray-900">
                                             {money(item.amount_cents)}
@@ -958,8 +956,8 @@ export default function DevPayoutPage() {
                     <h2 className="text-xl font-bold text-gray-900">Confirmar envio</h2>
                     <p className="mt-2 text-sm text-gray-500">
                         {onePercentNet
-                            ? `Serão enviados ${money(netSendableCents)} para ${sendable.length} restaurante(s). O ajuste de 1% desconta exatamente 1% do bruto de cada restaurante; valores editados manualmente são respeitados.`
-                            : `Serão enviados ${money(netSendableCents)} para ${sendable.length} restaurante(s), com desconto de ${numericDiscount.toLocaleString("pt-BR", { maximumFractionDigits: 4 })}%. Valores editados manualmente são respeitados.`}
+                            ? `Serão enviados ${money(netSendableCents)} para ${sendable.length} restaurante(s). PayZu + Desconto totalizam exatamente 1% do bruto de cada restaurante; valores editados manualmente são respeitados.`
+                            : `Serão enviados ${money(netSendableCents)} para ${sendable.length} restaurante(s). PayZu + Desconto totalizam ${numericDiscount.toLocaleString("pt-BR", { maximumFractionDigits: 4 })}% do bruto; valores editados manualmente são respeitados.`}
                     </p>
 
                     <div className="mt-5 max-h-64 space-y-2 overflow-y-auto rounded-lg border border-gray-100 p-3">

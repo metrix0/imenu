@@ -425,10 +425,14 @@ export async function POST(request: Request) {
             .map((row) => {
                 const grossCents = Number(row.gross_cents) || 0;
                 const payzuFeeCents = (Number(row.pix_order_count) || 0) * 10;
-                const discountCents = adjustToOnePercent
+                const totalDiscountCents = adjustToOnePercent
                     ? Math.round(grossCents * 0.01)
                     : Math.round(grossCents * (discountPercent / 100));
-                const calculatedNetCents = Math.max(0, grossCents - discountCents);
+                const discountCents = totalDiscountCents - payzuFeeCents;
+                const calculatedNetCents = Math.max(
+                    0,
+                    grossCents - payzuFeeCents - discountCents
+                );
                 const requestedAmount = amountOverrides[row.restaurant_id];
                 const netCents =
                     requestedAmount === undefined

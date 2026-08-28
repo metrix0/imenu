@@ -6,6 +6,7 @@ import Image from "next/image";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
     faArrowRight,
+    faBurger,
     faWandMagicSparkles,
 } from "@fortawesome/free-solid-svg-icons";
 import { icons } from "@/lib/utils/fontawesome";
@@ -326,7 +327,7 @@ export default function LandingPage() {
                                 </div>
                             </div>
 
-                            <div className="z-40 mt-4 ml-0 flex w-full flex-col justify-center gap-12 text-center md:mt-0 md:ml-3 md:w-[43%] md:text-left 2xl:gap-20">
+                            <div className="z-40 mt-4 ml-0 flex w-full flex-col justify-center gap-8 text-center md:mt-0 md:ml-3 md:w-[43%] md:text-left 2xl:gap-12">
                                 <div>
                                     <h3 className="mb-1 text-lg font-bold 2xl:text-[1.5rem]">
                                         Venda sem taxas
@@ -352,6 +353,18 @@ export default function LandingPage() {
                                         reconhece a foto do seu cardápio.
                                     </div>
                                 </div>
+                                <Button
+                                    variant="secondary"
+                                    onClick={() =>
+                                        window.location.assign(
+                                            "https://www.imenuapp.com.br/pizzaria-la-grucia"
+                                        )
+                                    }
+                                    className="gap-2 px-6 py-3 text-lg 2xl:px-10 2xl:py-4 2xl:text-[1.6rem]"
+                                >
+                                    <FontAwesomeIcon icon={faBurger} />
+                                    Ver Exemplo
+                                </Button>
                                 <Button
                                     onClick={() =>
                                         router.push("/restaurante/registrar")
@@ -463,6 +476,7 @@ export default function LandingPage() {
                                 ["Notificações no celular", "check", "Não"],
                                 ["QR Code na mesa", "R$ 4,90 por mês", "R$ 99,90 por mês (muito mais caro)"],
                                 ["Agendamento de pedido", "check", "Não"],
+                                ["Sem bugs", "Correção garantida em 2 dias úteis", "Correção leva meses"],
                             ].map(([feature, imenu, competitor]) => (
                                 <tr key={feature}>
                                     <td className="border-r border-gray-200">{feature}</td>
