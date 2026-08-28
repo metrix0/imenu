@@ -135,6 +135,8 @@ export default function WeeklyScheduleClick({
         slot: TimeSlot,
         mode: DragMode,
     ) => {
+        if (window.matchMedia("(max-width: 767px)").matches) return;
+
         event.preventDefault();
         event.stopPropagation();
         dragRef.current = {
