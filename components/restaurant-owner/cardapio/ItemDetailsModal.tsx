@@ -590,7 +590,7 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, 
                                         onTouchStart={() => setAllowGroupDragId(group.id)}>
                                         <FontAwesomeIcon icon={faGripVertical} className="text-sm" />
                                     </div>
-                                    <div className="flex-1">
+                                    <div className="flex-1 min-w-0">
                                         <input 
                                             className="bg-transparent font-bold text-gray-800 text-lg 2xl:text-xl w-full focus:outline-none focus:border-b focus:border-brand"
                                             value={group.name}
@@ -599,7 +599,7 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, 
                                             onMouseDown={e => e.stopPropagation()} 
                                         />
                                         <div className="flex flex-wrap gap-4 mt-2 text-sm 2xl:text-base text-gray-600">
-                                            <label className="flex items-center gap-2 cursor-pointer select-none">
+                                            <label className="flex items-center gap-2 cursor-pointer select-none shrink-0">
                                                 <input 
                                                     type="checkbox" 
                                                     checked={group.required}
@@ -608,26 +608,33 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, 
                                                 />
                                                 Obrigatório
                                             </label>
-                                            <div className="flex items-center gap-2 2xl:text-base">
-                                                <span>Até:</span>
-                                                <input 
-                                                    type="number" 
-                                                    className="w-12 p-1 text-center rounded border border-gray-300 text-sm 2xl:text-base"
-                                                    value={group.max_select}
-                                                    onChange={(e) => updateGroupLocally(group.id, { max_select: parseInt(e.target.value) || 1 })}
-                                                    onBlur={(e) => handleUpdateGroup(group.id, { max_select: parseInt(e.currentTarget.value) || 1 })}
-                                                    onMouseDown={e => e.stopPropagation()}
-                                                />
+                                            <div className="flex min-w-0 flex-1 items-center gap-4">
+                                                <div className="flex shrink-0 items-center gap-2 2xl:text-base">
+                                                    <span>Até:</span>
+                                                    <input 
+                                                        type="number" 
+                                                        className="w-12 p-1 text-center rounded border border-gray-300 text-sm 2xl:text-base"
+                                                        value={group.max_select}
+                                                        onChange={(e) => updateGroupLocally(group.id, { max_select: parseInt(e.target.value) || 1 })}
+                                                        onBlur={(e) => handleUpdateGroup(group.id, { max_select: parseInt(e.currentTarget.value) || 1 })}
+                                                        onMouseDown={e => e.stopPropagation()}
+                                                    />
+                                                </div>
+                                                <label className="flex min-w-0 flex-1 items-center gap-2 cursor-pointer select-none">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={group.allow_multiple_units === true}
+                                                        onChange={(e) => handleUpdateGroup(group.id, { allow_multiple_units: e.target.checked })}
+                                                        className="shrink-0 rounded text-brand focus:ring-brand"
+                                                    />
+                                                    <span
+                                                        className="truncate"
+                                                        title="Mais de uma unidade por complemento"
+                                                    >
+                                                        Mais de uma unidade por complemento
+                                                    </span>
+                                                </label>
                                             </div>
-                                            <label className="flex items-center gap-2 cursor-pointer select-none">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={group.allow_multiple_units === true}
-                                                    onChange={(e) => handleUpdateGroup(group.id, { allow_multiple_units: e.target.checked })}
-                                                    className="rounded text-brand focus:ring-brand"
-                                                />
-                                                Mais de uma unidade por complemento
-                                            </label>
                                         </div>
                                     </div>
                                 </div>
