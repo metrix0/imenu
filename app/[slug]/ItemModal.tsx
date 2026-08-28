@@ -317,6 +317,7 @@ export default function ItemModal({
                                         </span>
                                     )}
                                 </div>
+
                                 {[...sc.subitems]
                                     .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
                                     .map((si) => {
