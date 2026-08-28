@@ -317,7 +317,6 @@ export default function ItemModal({
                                         </span>
                                     )}
                                 </div>
-
                                 {[...sc.subitems]
                                     .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
                                     .map((si) => {
@@ -471,6 +470,7 @@ export default function ItemModal({
                 <Tooltip
                     text={disabledReason}
                     showOnClick
+                    portal={false}
                     parentClassName="flex-1"
                     size="line"
                     tooltipClassName="text-center"
