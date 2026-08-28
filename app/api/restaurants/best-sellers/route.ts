@@ -29,7 +29,7 @@ export async function GET() {
             `),
             query(`
                 SELECT
-                    (SELECT COUNT(*)::bigint FROM auth.users) AS total_users,
+                    (SELECT COUNT(*)::bigint FROM public.restaurants) AS total_restaurants,
                     COUNT(*)::bigint AS total_orders,
                     COALESCE(SUM(total_cents), 0)::bigint AS total_gmv_cents
                 FROM public.orders
@@ -54,7 +54,7 @@ export async function GET() {
         return NextResponse.json({
             restaurants,
             stats: {
-                total_users: Number(statsRow.total_users || 0),
+                total_restaurants: Number(statsRow.total_restaurants || 0),
                 total_orders: Number(statsRow.total_orders || 0),
                 total_gmv_cents: Number(statsRow.total_gmv_cents || 0),
             },
