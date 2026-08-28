@@ -15,7 +15,7 @@ interface BestSeller {
 }
 
 type LandingStats = {
-    total_users: number;
+    total_restaurants: number;
     total_orders: number;
     total_gmv_cents: number;
 };
@@ -70,33 +70,59 @@ export default function BestSellers() {
                 </div>
 
                 {stats && (
-                    <div className="mb-8 grid grid-cols-1 gap-3 sm:grid-cols-3 2xl:gap-5">
-                        <div className="rounded-2xl border border-gray-200 bg-white px-5 py-4 text-center shadow-sm 2xl:px-7 2xl:py-5">
-                            <p className="text-2xl font-extrabold text-gray-900 2xl:text-3xl">
-                                {numberFormatter.format(stats.total_users)}
-                            </p>
-                            <p className="mt-1 flex items-center justify-center gap-2 text-sm text-gray-500 2xl:text-base">
-                                <FontAwesomeIcon icon={icons.faUser} className="text-brand" />
-                                usuários
-                            </p>
+                    <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3 2xl:gap-6">
+                        <div className="group relative overflow-hidden rounded-3xl border border-brand/15 bg-gradient-to-br from-white via-white to-orange-50/70 px-5 py-5 shadow-[0_18px_45px_-28px_rgba(181,67,20,0.55)] transition duration-300 hover:-translate-y-0.5 hover:border-brand/30 hover:shadow-[0_22px_50px_-26px_rgba(181,67,20,0.65)] 2xl:px-7 2xl:py-6">
+                            <div aria-hidden="true" className="absolute -top-8 -right-8 h-24 w-24 rounded-full bg-brand/10 blur-2xl" />
+                            <div className="relative flex items-center gap-4">
+                                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-brand/10 text-lg text-brand ring-1 ring-brand/10 2xl:h-14 2xl:w-14 2xl:text-xl">
+                                    <FontAwesomeIcon icon={icons.faStore} />
+                                </span>
+                                <div className="min-w-0 text-left">
+                                    <p className="text-2xl font-extrabold tracking-tight text-gray-900 2xl:text-[2rem]">
+                                        {numberFormatter.format(stats.total_restaurants)}
+                                    </p>
+                                    <p className="mt-0.5 text-sm font-semibold text-gray-500 2xl:text-base">
+                                        restaurantes
+                                    </p>
+                                </div>
+                            </div>
+                            <div aria-hidden="true" className="absolute inset-x-5 bottom-0 h-px bg-gradient-to-r from-transparent via-brand/30 to-transparent" />
                         </div>
-                        <div className="rounded-2xl border border-gray-200 bg-white px-5 py-4 text-center shadow-sm 2xl:px-7 2xl:py-5">
-                            <p className="text-2xl font-extrabold text-gray-900 2xl:text-3xl">
-                                {currencyFormatter.format(stats.total_gmv_cents / 100)}
-                            </p>
-                            <p className="mt-1 flex items-center justify-center gap-2 text-sm text-gray-500 2xl:text-base">
-                                <FontAwesomeIcon icon={icons.faDollarSign} className="text-brand" />
-                                movimentados
-                            </p>
+
+                        <div className="group relative overflow-hidden rounded-3xl border border-brand/15 bg-gradient-to-br from-white via-white to-orange-50/70 px-5 py-5 shadow-[0_18px_45px_-28px_rgba(181,67,20,0.55)] transition duration-300 hover:-translate-y-0.5 hover:border-brand/30 hover:shadow-[0_22px_50px_-26px_rgba(181,67,20,0.65)] 2xl:px-7 2xl:py-6">
+                            <div aria-hidden="true" className="absolute -top-8 -right-8 h-24 w-24 rounded-full bg-brand/10 blur-2xl" />
+                            <div className="relative flex items-center gap-4">
+                                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-brand/10 text-lg text-brand ring-1 ring-brand/10 2xl:h-14 2xl:w-14 2xl:text-xl">
+                                    <FontAwesomeIcon icon={icons.faDollarSign} />
+                                </span>
+                                <div className="min-w-0 text-left">
+                                    <p className="text-2xl font-extrabold tracking-tight text-gray-900 2xl:text-[2rem]">
+                                        {currencyFormatter.format(stats.total_gmv_cents / 100)}
+                                    </p>
+                                    <p className="mt-0.5 text-sm font-semibold text-gray-500 2xl:text-base">
+                                        movimentados
+                                    </p>
+                                </div>
+                            </div>
+                            <div aria-hidden="true" className="absolute inset-x-5 bottom-0 h-px bg-gradient-to-r from-transparent via-brand/30 to-transparent" />
                         </div>
-                        <div className="rounded-2xl border border-gray-200 bg-white px-5 py-4 text-center shadow-sm 2xl:px-7 2xl:py-5">
-                            <p className="text-2xl font-extrabold text-gray-900 2xl:text-3xl">
-                                {numberFormatter.format(stats.total_orders)}
-                            </p>
-                            <p className="mt-1 flex items-center justify-center gap-2 text-sm text-gray-500 2xl:text-base">
-                                <FontAwesomeIcon icon={icons.faTicket} className="text-brand" />
-                                pedidos
-                            </p>
+
+                        <div className="group relative overflow-hidden rounded-3xl border border-brand/15 bg-gradient-to-br from-white via-white to-orange-50/70 px-5 py-5 shadow-[0_18px_45px_-28px_rgba(181,67,20,0.55)] transition duration-300 hover:-translate-y-0.5 hover:border-brand/30 hover:shadow-[0_22px_50px_-26px_rgba(181,67,20,0.65)] 2xl:px-7 2xl:py-6">
+                            <div aria-hidden="true" className="absolute -top-8 -right-8 h-24 w-24 rounded-full bg-brand/10 blur-2xl" />
+                            <div className="relative flex items-center gap-4">
+                                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-brand/10 text-lg text-brand ring-1 ring-brand/10 2xl:h-14 2xl:w-14 2xl:text-xl">
+                                    <FontAwesomeIcon icon={icons.faTicket} />
+                                </span>
+                                <div className="min-w-0 text-left">
+                                    <p className="text-2xl font-extrabold tracking-tight text-gray-900 2xl:text-[2rem]">
+                                        {numberFormatter.format(stats.total_orders)}
+                                    </p>
+                                    <p className="mt-0.5 text-sm font-semibold text-gray-500 2xl:text-base">
+                                        pedidos
+                                    </p>
+                                </div>
+                            </div>
+                            <div aria-hidden="true" className="absolute inset-x-5 bottom-0 h-px bg-gradient-to-r from-transparent via-brand/30 to-transparent" />
                         </div>
                     </div>
                 )}
