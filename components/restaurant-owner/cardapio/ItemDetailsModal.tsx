@@ -227,13 +227,19 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, 
     const [groupToDelete, setGroupToDelete] = useState<string | null>(null);
 
     useEffect(() => {
+        let clearGroupsTimer: ReturnType<typeof setTimeout> | null = null;
+
         if (isOpen && item) {
             loadComplements();
             setIsAddingGroup(false);
             setIsImporting(false);
         } else {
-            setGroups([]);
+            clearGroupsTimer = setTimeout(() => setGroups([]), 200);
         }
+
+        return () => {
+            if (clearGroupsTimer) clearTimeout(clearGroupsTimer);
+        };
     }, [isOpen, item]);
 
     const loadComplements = async () => {
