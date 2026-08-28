@@ -138,6 +138,15 @@ export default function CardapioTab({
     }, []);
 
     const handleDragStart = (e: React.DragEvent, catId: string) => {
+        if (
+            (e.target as HTMLElement).closest(
+                "input, textarea, [contenteditable='true']"
+            )
+        ) {
+            e.preventDefault();
+            return;
+        }
+
         desktopDidDragRef.current = true;
         setDraggedCatId(catId);
         e.dataTransfer.effectAllowed = "move";
