@@ -551,7 +551,7 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, 
                 <div className="p-6 border-b border-gray-100 flex justify-between items-center shrink-0">
                     <div>
                         <h2 className="text-xl 2xl:text-2xl font-bold text-gray-900">Complementos</h2>
-                        <p className="text-gray-500 text-sm 2xl:text-base 2xl:mt-1">Item: <span className="font-medium text-brand">{item?.name}</span></p>
+                        <p className="text-sm font-normal text-gray-400 2xl:mt-1 2xl:text-base">{item?.name}</p>
                     </div>
                     <button onClick={onClose} className="cursor-pointer text-gray-400 hover:text-gray-600">
                         <FontAwesomeIcon icon={icons.faTimes} className="text-xl" />
@@ -681,6 +681,7 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, 
                                     const productsCount = importGroup.itemNames.length;
                                     const productsPreview = importGroup.itemNames.slice(0, 3).join(", ");
                                     const remainingProducts = Math.max(0, productsCount - 3);
+                                    const complementOptions = importGroup.groups[0]?.subitems || [];
 
                                     return (
                                         <div key={importGroup.id} className="border border-gray-200 rounded-lg overflow-hidden">
@@ -721,20 +722,13 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, 
                                             <div className={`grid transition-[grid-template-rows] duration-200 ease-out ${expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
                                                 <div className="overflow-hidden">
                                                     <div className="divide-y divide-gray-100">
-                                                        {importGroup.groups.map(sourceGroup => (
-                                                            <button
-                                                                type="button"
-                                                                key={sourceGroup.id}
-                                                                className="group flex w-full cursor-pointer items-center justify-between p-3 pl-9 text-left hover:bg-gray-50"
-                                                                onClick={() => handleImportSingle(sourceGroup)}
+                                                        {complementOptions.map(complement => (
+                                                            <div
+                                                                key={complement.id}
+                                                                className="flex items-center justify-between p-3 pl-9 text-sm text-gray-600 2xl:text-base"
                                                             >
-                                                                <span className="font-medium text-gray-600 group-hover:text-gray-900">
-                                                                    {sourceGroup.item_name}
-                                                                </span>
-                                                                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-100 text-gray-300 transition-colors group-hover:bg-brand/10 group-hover:text-brand">
-                                                                    <FontAwesomeIcon icon={faPlus} className="text-xs" />
-                                                                </span>
-                                                            </button>
+                                                                <span>{complement.name}</span>
+                                                            </div>
                                                         ))}
                                                     </div>
                                                 </div>
