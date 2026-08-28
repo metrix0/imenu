@@ -15,6 +15,13 @@ type Category = {
     position?: number | null;
 };
 
+type RestaurantTable = {
+    id: string;
+    name: string;
+    public_token: string;
+    position?: number | null;
+};
+
 type Item = {
     id: string;
     category_id: string;
@@ -78,6 +85,7 @@ export default function CreatePanelOrderModal({
 }) {
     const [categories, setCategories] = useState<Category[]>([]);
     const [itemsByCategory, setItemsByCategory] = useState<Record<string, Item[]>>({});
+    const [tables, setTables] = useState<RestaurantTable[]>([]);
     const [isLoadingMenu, setIsLoadingMenu] = useState(false);
 
     const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([]);
@@ -88,6 +96,7 @@ export default function CreatePanelOrderModal({
     const [customerName, setCustomerName] = useState("");
     const [customerPhone, setCustomerPhone] = useState("");
     const [customerAddress, setCustomerAddress] = useState("");
+    const [selectedTableId, setSelectedTableId] = useState("");
     const [paymentMethod, setPaymentMethod] = useState<"" | "dinheiro" | "trazer-maquininha">("");
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [deliveryFeeInput, setDeliveryFeeInput] = useState("");
@@ -103,20 +112,29 @@ export default function CreatePanelOrderModal({
         const loadMenu = async () => {
             setIsLoadingMenu(true);
 
-            const [{ data: categoriesData, error: categoriesError }, { data: itemsData, error: itemsError }] =
-                await Promise.all([
-                    supabase
-                        .from("categories")
-                        .select("id, name, position")
-                        .eq("restaurant_id", restaurantId)
-                        .order("position", { ascending: true }),
-                    supabase
-                        .from("items")
-                        .select("id, category_id, name, description, price_cents, image_path, is_available, position, stock_enabled, stock_quantity")
-                        .eq("restaurant_id", restaurantId)
-                        .eq("is_available", true)
-                        .order("position", { ascending: true }),
-                ]);
+            const [
+                { data: categoriesData, error: categoriesError },
+                { data: itemsData, error: itemsError },
+                { data: tablesData, error: tablesError },
+            ] = await Promise.all([
+                supabase
+                    .from("categories")
+                    .select("id, name, position")
+                    .eq("restaurant_id", restaurantId)
+                    .order("position", { ascending: true }),
+                supabase
+                    .from("items")
+                    .select("id, category_id, name, description, price_cents, image_path, is_available, position, stock_enabled, stock_quantity")
+                    .eq("restaurant_id", restaurantId)
+                    .eq("is_available", true)
+                    .order("position", { ascending: true }),
+                supabase
+                    .from("restaurant_tables")
+                    .select("id, name, public_token, position")
+                    .eq("restaurant_id", restaurantId)
+                    .eq("is_active", true)
+                    .order("position", { ascending: true }),
+            ]);
 
             if (categoriesError) {
                 console.error("Erro ao buscar categorias:", categoriesError);
@@ -135,6 +153,13 @@ export default function CreatePanelOrderModal({
                     return acc;
                 }, {});
                 setItemsByCategory(grouped);
+            }
+
+            if (tablesError) {
+                console.error("Erro ao buscar mesas:", tablesError);
+                setTables([]);
+            } else {
+                setTables((tablesData as RestaurantTable[]) || []);
             }
 
             setIsLoadingMenu(false);
@@ -395,7 +420,12 @@ export default function CreatePanelOrderModal({
         return Math.round(value * 100);
     }, [deliveryFeeInput]);
 
-    const totalCents = itemsTotalCents + deliveryFeeCents;
+    const selectedTable = useMemo(
+        () => tables.find((table) => table.id === selectedTableId) || null,
+        [selectedTableId, tables]
+    );
+
+    const totalCents = itemsTotalCents + (selectedTable ? 0 : deliveryFeeCents);
 
     const handleSubmit = async () => {
         if (!restaurantId) return;
@@ -426,10 +456,17 @@ export default function CreatePanelOrderModal({
                 restaurantId,
                 customer_name: customerName.trim(),
                 customer_phone: customerPhone?.trim() || null,
-                customer_address: customerAddress?.trim() || null,
-                delivery_fee_cents: deliveryFeeCents,
-                delivery_time_minutes: 40,
-                paymentMethod: paymentMethod || "dinheiro",
+                customer_address: selectedTable
+                    ? null
+                    : customerAddress?.trim() || null,
+                delivery_fee_cents: selectedTable ? 0 : deliveryFeeCents,
+                delivery_time_minutes: selectedTable ? 0 : 40,
+                paymentMethod: selectedTable
+                    ? undefined
+                    : paymentMethod || "dinheiro",
+                is_delivery: selectedTable ? "mesa" : undefined,
+                table_id: selectedTable?.id,
+                table_token: selectedTable?.public_token,
                 coupon_discount_cents: 0,
                 items: selectedItems.map((item) => ({
                     id: item.id,
@@ -461,6 +498,7 @@ export default function CreatePanelOrderModal({
             setCustomerName("");
             setCustomerPhone("");
             setCustomerAddress("");
+            setSelectedTableId("");
             setDeliveryFeeInput("");
             setPaymentMethod("");
             setExpandedItems({});
@@ -586,25 +624,53 @@ export default function CreatePanelOrderModal({
                                             placeholder="Endereço (opcional)"
                                             className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none"
                                         />
-                                        <div className="flex flex-col md:flex-row gap-3">
 
-                                            <select
-                                                value={paymentMethod}
-                                                onChange={(e) =>
-                                                    setPaymentMethod(e.target.value as "" | "dinheiro" | "trazer-maquininha")
-                                                }
-                                                className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none bg-white"
-                                            >
-                                                <option value="">Forma de pgt. (opcional)</option>
-                                                <option value="dinheiro">Dinheiro</option>
-                                                <option value="trazer-maquininha">Trazer maquininha</option>
-                                            </select>
+                                        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                                            {tables.length > 0 && (
+                                                <div className="relative w-full">
+                                                    <select
+                                                        value={selectedTableId}
+                                                        onChange={(e) => setSelectedTableId(e.target.value)}
+                                                        className="w-full appearance-none rounded-xl border border-gray-200 bg-gray-50/60 px-4 py-3 pr-10 text-gray-700 shadow-sm outline-none transition-colors hover:border-gray-300 focus:border-brand focus:bg-white focus:ring-2 focus:ring-brand/10"
+                                                    >
+                                                        <option value="">Mesa (opcional)</option>
+                                                        {tables.map((table) => (
+                                                            <option key={table.id} value={table.id}>
+                                                                {table.name}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                    <FontAwesomeIcon
+                                                        icon={icons.faChevronDown}
+                                                        className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-xs text-gray-500"
+                                                    />
+                                                </div>
+                                            )}
+
+                                            <div className="relative w-full">
+                                                <select
+                                                    value={paymentMethod}
+                                                    onChange={(e) =>
+                                                        setPaymentMethod(e.target.value as "" | "dinheiro" | "trazer-maquininha")
+                                                    }
+                                                    className="w-full appearance-none rounded-xl border border-gray-200 bg-gray-50/60 px-4 py-3 pr-10 text-gray-700 shadow-sm outline-none transition-colors hover:border-gray-300 focus:border-brand focus:bg-white focus:ring-2 focus:ring-brand/10"
+                                                >
+                                                    <option value="">Forma de pgt. (opcional)</option>
+                                                    <option value="dinheiro">Dinheiro</option>
+                                                    <option value="trazer-maquininha">Trazer maquininha</option>
+                                                </select>
+                                                <FontAwesomeIcon
+                                                    icon={icons.faChevronDown}
+                                                    className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-xs text-gray-500"
+                                                />
+                                            </div>
+
                                             <input
                                                 value={deliveryFeeInput}
                                                 onChange={(e) => setDeliveryFeeInput(e.target.value)}
                                                 placeholder="Taxa (opcional)"
                                                 inputMode="decimal"
-                                                className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none"
+                                                className={`w-full border border-gray-200 rounded-xl px-4 py-3 outline-none ${tables.length > 0 ? "md:col-span-2" : ""}`}
                                             />
                                         </div>
                                     </div>
