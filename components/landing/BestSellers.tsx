@@ -131,14 +131,17 @@ export default function BestSellers() {
                     {restaurants.map((restaurant, index) => (
                         <article
                             key={restaurant.id}
-                            className="grid min-w-0 grid-cols-[auto_auto_minmax(0,1fr)] items-center gap-4 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm md:flex md:flex-col md:text-center 2xl:p-7"
+                            className="group relative grid min-w-0 grid-cols-[auto_auto_minmax(0,1fr)] items-center gap-4 overflow-hidden rounded-3xl border border-brand/15 bg-gradient-to-br from-white via-white to-orange-50/70 p-5 shadow-[0_18px_45px_-28px_rgba(181,67,20,0.55)] transition duration-300 hover:-translate-y-0.5 hover:border-brand/30 hover:shadow-[0_22px_50px_-26px_rgba(181,67,20,0.65)] md:flex md:flex-col md:text-center 2xl:p-7"
                         >
-                            <span className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-brand/15 bg-gradient-to-br from-white via-white to-orange-50/70 text-xl font-extrabold tracking-tight text-brand shadow-[0_12px_28px_-18px_rgba(181,67,20,0.65)] ring-1 ring-brand/5 2xl:h-14 2xl:w-14 2xl:text-2xl">
+                            <div aria-hidden="true" className="absolute -top-10 -right-10 h-28 w-28 rounded-full bg-brand/10 blur-2xl" />
+                            <div aria-hidden="true" className="absolute inset-x-5 bottom-0 h-px bg-gradient-to-r from-transparent via-brand/30 to-transparent" />
+
+                            <span className="relative z-10 flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-brand/15 bg-white/80 text-xl font-extrabold tracking-tight text-brand shadow-[0_12px_28px_-18px_rgba(181,67,20,0.65)] ring-1 ring-brand/5 2xl:h-14 2xl:w-14 2xl:text-2xl">
                                 <span aria-hidden="true" className="absolute -top-3 -right-3 h-8 w-8 rounded-full bg-brand/10 blur-md" />
                                 <span className="relative">{index + 1}º</span>
                             </span>
 
-                            <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-full border border-gray-200 bg-gray-50 2xl:h-20 2xl:w-20">
+                            <div className="relative z-10 h-16 w-16 shrink-0 overflow-hidden rounded-2xl border border-brand/15 bg-white shadow-sm ring-4 ring-white/80 2xl:h-20 2xl:w-20">
                                 {restaurant.logo_url ? (
                                     <img
                                         src={restaurant.logo_url}
@@ -153,8 +156,8 @@ export default function BestSellers() {
                                 )}
                             </div>
 
-                            <div className="min-w-0 md:flex-none">
-                                <h3 className="truncate text-lg font-bold text-gray-900 2xl:text-xl">
+                            <div className="relative z-10 min-w-0 md:flex-none">
+                                <h3 className="truncate text-lg font-extrabold tracking-tight text-gray-900 2xl:text-xl">
                                     {restaurant.name}
                                 </h3>
                             </div>
@@ -162,7 +165,7 @@ export default function BestSellers() {
                             <Button
                                 variant="primary"
                                 onClick={() => router.push(`/${restaurant.url_slug}`)}
-                                className="col-span-3 w-full whitespace-nowrap px-4 py-2 md:w-auto"
+                                className="relative z-10 col-span-3 w-full whitespace-nowrap px-4 py-2 shadow-sm md:w-auto"
                             >
                                 Ver cardápio
                             </Button>
