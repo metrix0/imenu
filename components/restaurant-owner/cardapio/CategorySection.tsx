@@ -33,6 +33,7 @@ export default function CategorySection({
 }: CategorySectionProps) {
     const [isCreating, setIsCreating] = useState(false);
     const [localItems, setLocalItems] = useState<MenuItemType[]>(items);
+    const [editingItemIds, setEditingItemIds] = useState<Set<string>>(new Set());
     const [desktopDraggedItemId, setDesktopDraggedItemId] = useState<string | null>(null);
     const [mobileDragPreview, setMobileDragPreview] = useState<{ name: string; x: number; y: number } | null>(null);
     const localItemsRef = useRef<MenuItemType[]>(items);
@@ -272,7 +273,7 @@ export default function CategorySection({
                     <div
                         key={item.id}
                         data-menu-item-id={item.id}
-                        draggable={!isCreating}
+                        draggable={!isCreating && !editingItemIds.has(item.id)}
                         onDragStart={(e) => handleDragStart(e, item.id)}
                         onDragOver={(e) => handleDragOver(e, item.id)}
                         onDragEnd={handleDragEnd}
@@ -284,6 +285,14 @@ export default function CategorySection({
                             onDelete={handleDeleteItem}
                             onOpenDetails={() => onOpenItemDetails(item)}
                             onDuplicate={handleDuplicateItem}
+                            onEditingChange={(isEditing) =>
+                                setEditingItemIds((current) => {
+                                    const next = new Set(current);
+                                    if (isEditing) next.add(item.id);
+                                    else next.delete(item.id);
+                                    return next;
+                                })
+                            }
                             dragHandle={!isCreating ? (
                                 <span
                                     className="inline-flex touch-none"
