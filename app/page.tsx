@@ -353,6 +353,17 @@ export default function LandingPage() {
                                     </div>
                                 </div>
                                 <Button
+                                    variant="secondary"
+                                    onClick={() =>
+                                        window.location.assign(
+                                            "https://www.imenuapp.com.br/pizzaria-la-grucia"
+                                        )
+                                    }
+                                    className="px-6 py-3 text-lg 2xl:px-10 2xl:py-4 2xl:text-[1.6rem]"
+                                >
+                                    Ver cardápio de exemplo
+                                </Button>
+                                <Button
                                     onClick={() =>
                                         router.push("/restaurante/registrar")
                                     }
@@ -463,6 +474,7 @@ export default function LandingPage() {
                                 ["Notificações no celular", "check", "Não"],
                                 ["QR Code na mesa", "R$ 4,90 por mês", "R$ 99,90 por mês (muito mais caro)"],
                                 ["Agendamento de pedido", "check", "Não"],
+                                ["Sem bugs", "Correção garantida em 2 dias úteis", "Correção leva meses"],
                             ].map(([feature, imenu, competitor]) => (
                                 <tr key={feature}>
                                     <td className="border-r border-gray-200">{feature}</td>
