@@ -31,16 +31,16 @@ const BENEFITS = [
             "Crie um QR para cada mesa e outro para o cliente escolher a mesa ao abrir.",
     },
     {
-        icon: faUsers,
-        title: "Todos podem pedir ao mesmo tempo",
+        icon: faChair,
+        title: "Sem limites de mesas",
         description:
-            "Vários clientes usam o mesmo QR Code sem limitar uma pessoa por mesa.",
+            "Por apenas R$ 5,00 por mês, você cria mesas ilimitadas e QR Codes ilimitados.",
     },
     {
-        icon: faChair,
+        icon: faUsers,
         title: "A mesa acompanha o pedido",
         description:
-            "A identificação aparece no painel e na impressão, sem endereço ou pedido mínimo.",
+            "O pedido vai direto para o painel e para impressão, o cliente acompanha pela página.",
     },
 ] as const;
 
@@ -131,8 +131,7 @@ export default function QrCodeMesaSalesModal({
                         Tudo pronto para atender pelas mesas
                     </h3>
                     <p className="mt-1 text-sm text-gray-500">
-                        Use QR Codes individuais ou comece com um único QR Code
-                        universal.
+                        Use o QR Code nas mesas e facilite sua operação.
                     </p>
                 </div>
 
