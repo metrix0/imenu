@@ -12,9 +12,22 @@ interface BestSeller {
     order_count: number;
 }
 
+type LandingStats = {
+    total_users: number;
+    total_orders: number;
+    total_gmv_cents: number;
+};
+
+const numberFormatter = new Intl.NumberFormat("pt-BR");
+const currencyFormatter = new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+});
+
 export default function BestSellers() {
     const router = useRouter();
     const [restaurants, setRestaurants] = useState<BestSeller[]>([]);
+    const [stats, setStats] = useState<LandingStats | null>(null);
 
     useEffect(() => {
         let active = true;
@@ -22,8 +35,13 @@ export default function BestSellers() {
         void fetch("/api/restaurants/best-sellers")
             .then((response) => (response.ok ? response.json() : null))
             .then((payload) => {
-                if (active && Array.isArray(payload?.restaurants)) {
+                if (!active) return;
+
+                if (Array.isArray(payload?.restaurants)) {
                     setRestaurants(payload.restaurants);
+                }
+                if (payload?.stats) {
+                    setStats(payload.stats);
                 }
             })
             .catch(() => {
@@ -48,6 +66,35 @@ export default function BestSellers() {
                         Mais Vendas na Semana
                     </h2>
                 </div>
+
+                {stats && (
+                    <div className="mb-8 grid grid-cols-1 gap-3 sm:grid-cols-3 2xl:gap-5">
+                        <div className="rounded-2xl border border-gray-200 bg-white px-5 py-4 text-center shadow-sm 2xl:px-7 2xl:py-5">
+                            <p className="text-2xl font-extrabold text-gray-900 2xl:text-3xl">
+                                {numberFormatter.format(stats.total_users)}
+                            </p>
+                            <p className="mt-1 text-sm text-gray-500 2xl:text-base">
+                                usuários cadastrados
+                            </p>
+                        </div>
+                        <div className="rounded-2xl border border-gray-200 bg-white px-5 py-4 text-center shadow-sm 2xl:px-7 2xl:py-5">
+                            <p className="text-2xl font-extrabold text-gray-900 2xl:text-3xl">
+                                {currencyFormatter.format(stats.total_gmv_cents / 100)}
+                            </p>
+                            <p className="mt-1 text-sm text-gray-500 2xl:text-base">
+                                movimentados no total
+                            </p>
+                        </div>
+                        <div className="rounded-2xl border border-gray-200 bg-white px-5 py-4 text-center shadow-sm 2xl:px-7 2xl:py-5">
+                            <p className="text-2xl font-extrabold text-gray-900 2xl:text-3xl">
+                                {numberFormatter.format(stats.total_orders)}
+                            </p>
+                            <p className="mt-1 text-sm text-gray-500 2xl:text-base">
+                                pedidos realizados
+                            </p>
+                        </div>
+                    </div>
+                )}
 
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-3 2xl:gap-7">
                     {restaurants.map((restaurant, index) => (
