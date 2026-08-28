@@ -550,8 +550,10 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, 
             <div className="w-full max-w-2xl bg-white rounded-lg flex flex-col max-h-[85vh]">
                 <div className="p-6 border-b border-gray-100 flex justify-between items-center shrink-0">
                     <div>
-                        <h2 className="text-xl 2xl:text-2xl font-bold text-gray-900">Complementos</h2>
-                        <p className="text-sm font-normal text-gray-400 2xl:mt-1 2xl:text-base">{item?.name}</p>
+                        <h2 className="flex items-baseline gap-2 text-xl font-bold text-gray-900 2xl:text-2xl">
+                            <span>Complementos</span>
+                            <span className="text-sm font-normal text-gray-400 2xl:text-base">{item?.name}</span>
+                        </h2>
                     </div>
                     <button onClick={onClose} className="cursor-pointer text-gray-400 hover:text-gray-600">
                         <FontAwesomeIcon icon={icons.faTimes} className="text-xl" />
