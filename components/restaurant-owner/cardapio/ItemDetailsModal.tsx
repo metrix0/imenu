@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/lib/database/supabaseClient";
 import Modal from "@/components/ui/Modal";
 import Input from "@/components/ui/Input";
+import Button from "@/components/ui/Button";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { icons } from "@/lib/utils/fontawesome";
 import { faTrash, faPlus, faGripLines, faGripVertical, faDownload, faSearch } from "@fortawesome/free-solid-svg-icons";
@@ -35,17 +36,121 @@ type Subcategory = {
     subitems: Subitem[];
 };
 
-// NOVAS DEFINIÇÕES DE TIPO PARA A IMPORTAÇÃO AGRUPADA
-type ImportableGroup = {
+type ImportableSubitem = {
     id: string;
+    item_subcategory_id: string;
     name: string;
-    original_data: any;
+    description?: string | null;
+    price_cents: number;
+    is_available: boolean;
+    position: number;
 };
 
-type ImportableItem = {
+type ImportableGroup = {
+    id: string;
+    item_id: string;
+    item_name: string;
+    name: string;
+    original_data: any;
+    subitems: ImportableSubitem[];
+};
+
+type ImportableGroupCluster = {
     id: string;
     name: string;
     groups: ImportableGroup[];
+    itemNames: string[];
+};
+
+const normalizeImportText = (value?: string | null) =>
+    (value || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .trim()
+        .replace(/\s+/g, " ")
+        .toLocaleLowerCase("pt-BR");
+
+const sortImportSubitems = (subitems: ImportableSubitem[]) =>
+    [...subitems].sort(
+        (first, second) =>
+            first.position - second.position || first.id.localeCompare(second.id)
+    );
+
+const getImportGroupSignature = (group: ImportableGroup) =>
+    JSON.stringify({
+        name: normalizeImportText(group.name),
+        description: normalizeImportText(group.original_data.description),
+        minSelect: group.original_data.min_select,
+        maxSelect: group.original_data.max_select,
+        options: group.subitems.map((subitem) => [
+            normalizeImportText(subitem.name),
+            normalizeImportText(subitem.description),
+            subitem.price_cents,
+        ]),
+    });
+
+const buildImportableGroups = (
+    items: { id: string; name: string }[],
+    groupRows: any[],
+    subitemRows: ImportableSubitem[]
+): ImportableGroupCluster[] => {
+    const itemNames = new Map(items.map((currentItem) => [currentItem.id, currentItem.name]));
+    const subitemsByGroup = new Map<string, ImportableSubitem[]>();
+
+    for (const subitem of subitemRows) {
+        const current = subitemsByGroup.get(subitem.item_subcategory_id) || [];
+        current.push(subitem);
+        subitemsByGroup.set(subitem.item_subcategory_id, current);
+    }
+
+    for (const [groupId, subitems] of subitemsByGroup) {
+        subitemsByGroup.set(groupId, sortImportSubitems(subitems));
+    }
+
+    const clustersBySignature = new Map<string, ImportableGroup[][]>();
+
+    for (const groupRow of groupRows) {
+        const importableGroup: ImportableGroup = {
+            id: groupRow.id,
+            item_id: groupRow.item_id,
+            item_name: itemNames.get(groupRow.item_id) || "Item desconhecido",
+            name: groupRow.name,
+            original_data: groupRow,
+            subitems: subitemsByGroup.get(groupRow.id) || [],
+        };
+        const signature = getImportGroupSignature(importableGroup);
+        const clusters = clustersBySignature.get(signature) || [];
+        const compatibleCluster = clusters.find(
+            (cluster) =>
+                !cluster.some(
+                    (currentGroup) =>
+                        currentGroup.item_id === importableGroup.item_id
+                )
+        );
+
+        if (compatibleCluster) compatibleCluster.push(importableGroup);
+        else clusters.push([importableGroup]);
+
+        clustersBySignature.set(signature, clusters);
+    }
+
+    const groupedImports: ImportableGroupCluster[] = [];
+
+    for (const clusters of clustersBySignature.values()) {
+        for (const cluster of clusters) {
+            const firstGroup = cluster[0];
+            groupedImports.push({
+                id: firstGroup.id,
+                name: firstGroup.name,
+                groups: cluster,
+                itemNames: Array.from(
+                    new Set(cluster.map((currentGroup) => currentGroup.item_name))
+                ).sort((first, second) => first.localeCompare(second, "pt-BR")),
+            });
+        }
+    }
+
+    return groupedImports;
 };
 
 const formatPriceInput = (cents: number) => (Math.max(0, cents) / 100).toFixed(2).replace(".", ",");
@@ -109,9 +214,10 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, 
 
     // Estados de Importação
     const [isImporting, setIsImporting] = useState(false);
-    const [importList, setImportList] = useState<ImportableItem[]>([]);
+    const [importList, setImportList] = useState<ImportableGroupCluster[]>([]);
     const [importSearch, setImportSearch] = useState("");
     const [importLoading, setImportLoading] = useState(false);
+    const [expandedImportGroupId, setExpandedImportGroupId] = useState<string | null>(null);
 
     // Drag States
     const [draggedSubitem, setDraggedSubitem] = useState<{ groupId: string, subitemId: string } | null>(null);
@@ -170,39 +276,50 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, 
         if (!restaurantId || !item) return;
         setImportLoading(true);
         try {
-            // 1. Busca todos os itens do restaurante (exceto o atual)
-            const { data: items } = await supabase.from("items").select("id, name").eq("restaurant_id", restaurantId).neq("id", item.id);
-            if (!items?.length) { setImportList([]); return; }
+            const { data: items, error: itemsError } = await supabase
+                .from("items")
+                .select("id, name")
+                .eq("restaurant_id", restaurantId)
+                .neq("id", item.id);
+            if (itemsError) throw itemsError;
+            if (!items?.length) {
+                setImportList([]);
+                return;
+            }
 
-            const itemIds = items.map(i => i.id);
-            //const itemsMap = new Map(items.map(i => [i.id, i.name]));
+            const itemIds = items.map((currentItem) => currentItem.id);
+            const { data: groupRows, error: groupsError } = await supabase
+                .from("item_subcategories")
+                .select("*")
+                .in("item_id", itemIds)
+                .order("position");
+            if (groupsError) throw groupsError;
 
-            // 2. Busca grupos desses itens
-            const { data: groups } = await supabase.from("item_subcategories").select("*").in("item_id", itemIds).order("position");
+            const groupIds = (groupRows || []).map((group) => group.id);
+            if (groupIds.length === 0) {
+                setImportList([]);
+                return;
+            }
 
-            // 3. Agrupa os dados: Item -> Grupos
-            const groupedData: ImportableItem[] = items.map(currentItem => {
-                const itemGroups = (groups || [])
-                    .filter(g => g.item_id === currentItem.id)
-                    .map(g => ({
-                        id: g.id,
-                        name: g.name,
-                        original_data: g
-                    }));
-            
-            return {
-                    id: currentItem.id,
-                    name: currentItem.name,
-                    groups: itemGroups
-                };
-            }).filter(i => i.groups.length > 0); // Remove itens sem complementos
+            const { data: subitemRows, error: subitemsError } = await supabase
+                .from("subitems")
+                .select("*")
+                .in("item_subcategory_id", groupIds)
+                .order("position");
+            if (subitemsError) throw subitemsError;
 
-            setImportList(groupedData);
+            setImportList(
+                buildImportableGroups(
+                    items,
+                    groupRows || [],
+                    (subitemRows || []) as ImportableSubitem[]
+                )
+            );
+            setExpandedImportGroupId(null);
         } catch (err) { console.error(err); } finally { setImportLoading(false); }
     };
 
     // --- FUNÇÃO AUXILIAR DE IMPORTAÇÃO (REUTILIZÁVEL) ---
-    // Retorna uma Promise para podermos usar no "Importar Todos"
     const importGroupInternal = async (groupToImport: ImportableGroup, currentGroupsLength: number) => {
         if (!item) return;
 
@@ -242,33 +359,6 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, 
             loadComplements();
         } catch (err) {
             alert("Erro ao importar grupo.");
-            console.error(err);
-        } finally {
-            setImportLoading(false);
-        }
-    };
-
-    // Handler para importar TODOS os grupos de um item
-    const handleImportAllFromItem = async (importableItem: ImportableItem) => {
-        if (!confirm(`Deseja importar todos os ${importableItem.groups.length} grupos de "${importableItem.name}"?`)) return;
-        
-        setImportLoading(true);
-        try {
-            // Executa em sequência ou paralelo. 
-            // Paralelo é mais rápido, mas precisamos calcular as posições corretamente.
-            // Vamos fazer um loop simples para garantir a ordem das posições.
-            
-            let currentPos = groups.length;
-            
-            for (const group of importableItem.groups) {
-                await importGroupInternal(group, currentPos);
-                currentPos++;
-            }
-
-            setIsImporting(false);
-            loadComplements();
-        } catch (err) {
-            alert("Erro ao importar alguns grupos.");
             console.error(err);
         } finally {
             setImportLoading(false);
@@ -444,23 +534,15 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, 
         loadComplements();
     };
 
-    // --- LÓGICA DE FILTRO ATUALIZADA ---
-    const filteredImports = importList.map(item => {
-        const searchLower = importSearch.toLowerCase();
-        
-        // Verifica se o Item dá match
-        const itemMatch = item.name.toLowerCase().includes(searchLower);
-        
-        // Verifica quais grupos dão match
-        const matchingGroups = item.groups.filter(g => g.name.toLowerCase().includes(searchLower));
-
-        // Se o Item der match, mostra ele e TODOS os grupos.
-        // Se só grupos derem match, mostra o item e SÓ os grupos que deram match.
-        if (itemMatch) return item;
-        if (matchingGroups.length > 0) return { ...item, groups: matchingGroups };
-        
-        return null;
-    }).filter(Boolean) as ImportableItem[];
+    const filteredImports = importList.filter((importGroup) => {
+        const search = normalizeImportText(importSearch);
+        return (
+            normalizeImportText(importGroup.name).includes(search) ||
+            importGroup.itemNames.some((itemName) =>
+                normalizeImportText(itemName).includes(search)
+            )
+        );
+    });
 
     return (
         <>
@@ -584,50 +666,82 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, 
                             
                             <div className="relative mb-4">
                                 <Input 
-                                    placeholder="Buscar Item ou Categoria..." 
+                                    placeholder="Buscar Item ou Grupo..." 
                                     value={importSearch}
                                     onChange={(e) => setImportSearch(e.target.value)}
                                     icon={<FontAwesomeIcon icon={faSearch} />}
                                 />
                             </div>
 
-                            <div className="max-h-60 overflow-y-auto space-y-4 pr-1">
+                            <div className="max-h-60 overflow-y-auto space-y-3 pr-1">
                                 {importLoading ? <div className="text-center py-4 text-gray-400">Carregando...</div> : 
                                 filteredImports.length === 0 ? <div className="text-center py-4 text-gray-400">Nenhum item encontrado.</div> :
-                                filteredImports.map(importItem => (
-                                    <div key={importItem.id} className="border border-gray-200 rounded-lg overflow-hidden">
-                                        
-                                        {/* HEADER DO ITEM (PAI) */}
-                                        <div className="bg-gray-50 p-3 flex justify-between items-center border-b border-gray-100">
-                                            <div className="font-bold text-gray-800 flex items-center gap-2">
-                                                <span className="text-brand">●</span> 
-                                                {importItem.name}
-                                            </div>
-                                            <button 
-                                                onClick={() => handleImportAllFromItem(importItem)}
-                                                className="cursor-pointer text-xs bg-white border border-brand text-brand hover:bg-brand hover:text-white px-3 py-1 rounded-full transition-colors font-medium shadow-sm"
-                                            >
-                                                Adicionar Todos ({importItem.groups.length})
-                                            </button>
-                                        </div>
+                                filteredImports.map(importGroup => {
+                                    const expanded = expandedImportGroupId === importGroup.id;
+                                    const productsCount = importGroup.itemNames.length;
+                                    const productsPreview = importGroup.itemNames.slice(0, 3).join(", ");
+                                    const remainingProducts = Math.max(0, productsCount - 3);
 
-                                        {/* LISTA DE GRUPOS (FILHOS) */}
-                                        <div className="divide-y divide-gray-100">
-                                            {importItem.groups.map(grp => (
-                                                <div 
-                                                    key={grp.id} 
-                                                    className="p-3 pl-6 hover:bg-gray-50 flex justify-between items-center group cursor-pointer"
-                                                    onClick={() => handleImportSingle(grp)}
+                                    return (
+                                        <div key={importGroup.id} className="border border-gray-200 rounded-lg overflow-hidden">
+                                            <div className="bg-gray-50 p-3 flex items-center gap-3">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setExpandedImportGroupId(expanded ? null : importGroup.id)}
+                                                    className="cursor-pointer flex min-w-0 flex-1 items-center gap-3 text-left"
                                                 >
-                                                    <span className="text-gray-600 font-medium group-hover:text-gray-900">{grp.name}</span>
-                                                    <div className="w-6 h-6 rounded-full bg-gray-100 group-hover:bg-green-500 group-hover:text-white flex items-center justify-center text-gray-300 transition-colors">
-                                                        <FontAwesomeIcon icon={faPlus} className="text-xs" />
+                                                    <FontAwesomeIcon
+                                                        icon={icons.faChevronDown}
+                                                        className={`shrink-0 text-xs text-gray-400 transition-transform duration-200 ${expanded ? "rotate-180" : ""}`}
+                                                    />
+                                                    <div className="min-w-0">
+                                                        <div className="flex flex-wrap items-center gap-2 font-bold text-gray-800">
+                                                            <span>{importGroup.name}</span>
+                                                            {productsCount > 1 && (
+                                                                <span className="rounded-full bg-brand/10 px-2 py-0.5 text-[10px] font-semibold text-brand 2xl:text-xs">
+                                                                    {productsCount} produtos
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <div className="mt-0.5 truncate text-xs text-gray-500 2xl:text-sm">
+                                                            {productsPreview}
+                                                            {remainingProducts > 0 ? ` +${remainingProducts}` : ""}
+                                                        </div>
+                                                    </div>
+                                                </button>
+                                                <Button
+                                                    type="button"
+                                                    onClick={() => handleImportSingle(importGroup.groups[0])}
+                                                    className="shrink-0 px-3 py-1.5 text-xs 2xl:px-4 2xl:py-2 2xl:text-base"
+                                                >
+                                                    Adicionar Grupo
+                                                </Button>
+                                            </div>
+
+                                            <div className={`grid transition-[grid-template-rows] duration-200 ease-out ${expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
+                                                <div className="overflow-hidden">
+                                                    <div className="divide-y divide-gray-100">
+                                                        {importGroup.groups.map(sourceGroup => (
+                                                            <button
+                                                                type="button"
+                                                                key={sourceGroup.id}
+                                                                className="group flex w-full cursor-pointer items-center justify-between p-3 pl-9 text-left hover:bg-gray-50"
+                                                                onClick={() => handleImportSingle(sourceGroup)}
+                                                            >
+                                                                <span className="font-medium text-gray-600 group-hover:text-gray-900">
+                                                                    {sourceGroup.item_name}
+                                                                </span>
+                                                                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-100 text-gray-300 transition-colors group-hover:bg-brand/10 group-hover:text-brand">
+                                                                    <FontAwesomeIcon icon={faPlus} className="text-xs" />
+                                                                </span>
+                                                            </button>
+                                                        ))}
                                                     </div>
                                                 </div>
-                                            ))}
+                                            </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         </div>
                     ) : isAddingGroup ? (
