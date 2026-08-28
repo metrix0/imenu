@@ -630,7 +630,7 @@ export default function PainelLayout({
                     </Link>
 
                     <div
-                        className={`mt-2 pb-1 transition-all duration-300 2xl:mt-8 ${
+                        className={`mt-1 pb-2 transition-all duration-300 2xl:mt-6 ${
                             expanded
                                 ? "w-full px-4"
                                 : "w-[4.5rem] self-start 2xl:w-20"
