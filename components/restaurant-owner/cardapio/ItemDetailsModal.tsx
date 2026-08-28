@@ -668,7 +668,7 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, 
                     {isImporting ? (
                         <div className="bg-white border border-gray-200 rounded-xl p-4 animate-fadeUp">
                             <div className="flex justify-between items-center mb-4">
-                                <h3 className="font-bold text-gray-800">Importar Complementos</h3>
+                                <h3 className="font-bold text-gray-800">Importar Grupo de Complementos</h3>
                                 <button onClick={() => setIsImporting(false)} className="cursor-pointer text-sm text-gray-500 hover:underline">Cancelar</button>
                             </div>
                             
