@@ -35,6 +35,8 @@ export type QrTableAddon = {
         | "xadrez"
         | "gradient"
         | "minimal"
+        | "white"
+        | "poster"
         | null;
     qr_design_color: string | null;
 };
