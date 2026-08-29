@@ -15,7 +15,9 @@ export type QrDesignTemplate =
     | "logo"
     | "xadrez"
     | "gradient"
-    | "minimal";
+    | "minimal"
+    | "white"
+    | "poster";
 
 type TemplateOption = {
     id: QrDesignTemplate;
@@ -25,34 +27,44 @@ type TemplateOption = {
 
 const TEMPLATES: TemplateOption[] = [
     {
+        id: "poster",
+        name: "Poster",
+        description: "Foto em tela cheia, texto branco forte e QR em destaque.",
+    },
+    {
+        id: "white",
+        name: "Texto branco",
+        description: "Cor sólida, texto branco e QR Code. Só o essencial.",
+    },
+    {
         id: "banner",
         name: "Sua capa",
-        description: "Editorial, com a capa do restaurante em destaque.",
+        description: "Capa em destaque com composição limpa e leitura forte.",
     },
     {
         id: "logo",
         name: "Sua logo",
-        description: "Limpo e moderno, valorizando a identidade da marca.",
+        description: "Visual claro e moderno com a logo do restaurante.",
     },
     {
         id: "dark",
         name: "Dark",
-        description: "Forte, sofisticado e com contraste alto para leitura.",
+        description: "Placa preta de alto contraste, inspirada em sinalização de mesa.",
     },
     {
         id: "xadrez",
         name: "Xadrez",
-        description: "Mais divertido e marcante, com tipografia própria.",
+        description: "Marcante e divertido, agora com tipografia limpa e legível.",
     },
     {
         id: "gradient",
         name: "Gradient",
-        description: "Visual premium com profundidade, vidro e serifada.",
+        description: "Cor intensa com texto branco e composição moderna.",
     },
     {
         id: "minimal",
         name: "Minimal",
-        description: "Editorial e elegante, com bastante espaço em branco.",
+        description: "Branco, direto e elegante, com bastante respiro.",
     },
     {
         id: "classic",
@@ -66,7 +78,11 @@ const PREVIEW_QR_VALUE = "https://imenuapp.com.br/mesa/preview";
 
 function rgbToHex(r: number, g: number, b: number) {
     return `#${[r, g, b]
-        .map((value) => Math.max(0, Math.min(255, value)).toString(16).padStart(2, "0"))
+        .map((value) =>
+            Math.max(0, Math.min(255, value))
+                .toString(16)
+                .padStart(2, "0")
+        )
         .join("")}`.toUpperCase();
 }
 
@@ -90,12 +106,17 @@ async function extractPalette(url: string): Promise<string[]> {
             const canvas = document.createElement("canvas");
             canvas.width = 72;
             canvas.height = 72;
-            const context = canvas.getContext("2d", { willReadFrequently: true });
+            const context = canvas.getContext("2d", {
+                willReadFrequently: true,
+            });
             if (!context) return [];
 
             context.drawImage(image, 0, 0, 72, 72);
             const pixels = context.getImageData(0, 0, 72, 72).data;
-            const buckets = new Map<string, { count: number; r: number; g: number; b: number }>();
+            const buckets = new Map<
+                string,
+                { count: number; r: number; g: number; b: number }
+            >();
 
             for (let index = 0; index < pixels.length; index += 16) {
                 const alpha = pixels[index + 3];
@@ -109,13 +130,20 @@ async function extractPalette(url: string): Promise<string[]> {
                 const brightness = (r + g + b) / 3;
                 const saturation = max - min;
 
-                if (brightness > 242 || brightness < 18 || saturation < 16) continue;
+                if (brightness > 242 || brightness < 18 || saturation < 16) {
+                    continue;
+                }
 
                 const qr = Math.round(r / 32) * 32;
                 const qg = Math.round(g / 32) * 32;
                 const qb = Math.round(b / 32) * 32;
                 const key = `${qr}-${qg}-${qb}`;
-                const bucket = buckets.get(key) || { count: 0, r: 0, g: 0, b: 0 };
+                const bucket = buckets.get(key) || {
+                    count: 0,
+                    r: 0,
+                    g: 0,
+                    b: 0,
+                };
                 bucket.count += 1;
                 bucket.r += r;
                 bucket.g += g;
@@ -142,7 +170,12 @@ async function extractPalette(url: string): Promise<string[]> {
                     const [sr, sg, sb] = [1, 3, 5].map((offset) =>
                         parseInt(saved.slice(offset, offset + 2), 16)
                     );
-                    return Math.abs(r - sr) + Math.abs(g - sg) + Math.abs(b - sb) < 90;
+                    return (
+                        Math.abs(r - sr) +
+                            Math.abs(g - sg) +
+                            Math.abs(b - sb) <
+                        90
+                    );
                 });
                 if (!tooClose) distinct.push(hex);
                 if (distinct.length === 3) break;
@@ -176,7 +209,8 @@ export default function QrDesignModal({
     saving: boolean;
     onSave: (template: QrDesignTemplate, color: string) => void;
 }) {
-    const [template, setTemplate] = useState<QrDesignTemplate>(currentTemplate);
+    const [template, setTemplate] =
+        useState<QrDesignTemplate>(currentTemplate);
     const [color, setColor] = useState(currentColor);
     const [bannerColors, setBannerColors] = useState<string[]>([]);
     const [logoColors, setLogoColors] = useState<string[]>([]);
@@ -187,21 +221,22 @@ export default function QrDesignModal({
         if (!open) return;
 
         let active = true;
-        void Promise.all([extractPalette(bannerUrl), extractPalette(logoUrl)]).then(
-            ([bannerPalette, logoPalette]) => {
-                if (!active) return;
-                setBannerColors(bannerPalette);
-                setLogoColors(logoPalette);
+        void Promise.all([
+            extractPalette(bannerUrl),
+            extractPalette(logoUrl),
+        ]).then(([bannerPalette, logoPalette]) => {
+            if (!active) return;
+            setBannerColors(bannerPalette);
+            setLogoColors(logoPalette);
 
-                if (currentColor.toUpperCase() === "#F97316") {
-                    const preferred =
-                        currentTemplate === "logo"
-                            ? logoPalette[0] || bannerPalette[0]
-                            : bannerPalette[0] || logoPalette[0];
-                    if (preferred) setColor(preferred);
-                }
+            if (currentColor.toUpperCase() === "#F97316") {
+                const preferred =
+                    currentTemplate === "logo"
+                        ? logoPalette[0] || bannerPalette[0]
+                        : bannerPalette[0] || logoPalette[0];
+                if (preferred) setColor(preferred);
             }
-        );
+        });
 
         return () => {
             active = false;
@@ -274,9 +309,12 @@ export default function QrDesignModal({
     return (
         <Modal open={open} onClose={onClose} className="max-w-7xl">
             <div className="border-b border-gray-100 px-5 py-4 sm:px-7 sm:py-5">
-                <h2 className="text-xl font-bold text-gray-900">Configurar design</h2>
+                <h2 className="text-xl font-bold text-gray-900">
+                    Configurar design
+                </h2>
                 <p className="mt-1 text-sm text-gray-500">
-                    Escolha o modelo e veja exatamente como o arquivo final será baixado.
+                    Escolha o modelo e veja exatamente como o arquivo final
+                    será baixado.
                 </p>
             </div>
 
@@ -284,7 +322,9 @@ export default function QrDesignModal({
                 <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)] lg:items-start">
                     <div className="order-2 space-y-6 lg:order-1">
                         <div>
-                            <div className="mb-3 text-sm font-bold text-gray-900">Template</div>
+                            <div className="mb-3 text-sm font-bold text-gray-900">
+                                Template
+                            </div>
                             <div className="grid gap-3 sm:grid-cols-2">
                                 {TEMPLATES.map((item) => {
                                     const selected = item.id === template;
@@ -292,7 +332,9 @@ export default function QrDesignModal({
                                         <button
                                             key={item.id}
                                             type="button"
-                                            onClick={() => chooseTemplate(item.id)}
+                                            onClick={() =>
+                                                chooseTemplate(item.id)
+                                            }
                                             className={`relative cursor-pointer rounded-2xl border p-4 text-left transition ${
                                                 selected
                                                     ? "border-brand bg-brand/5 ring-2 ring-brand/15"
@@ -301,10 +343,14 @@ export default function QrDesignModal({
                                         >
                                             {selected && (
                                                 <span className="absolute right-3 top-3 flex h-6 w-6 items-center justify-center rounded-full bg-brand text-[10px] text-white">
-                                                    <FontAwesomeIcon icon={faCheck} />
+                                                    <FontAwesomeIcon
+                                                        icon={faCheck}
+                                                    />
                                                 </span>
                                             )}
-                                            <div className="pr-8 font-bold text-gray-900">{item.name}</div>
+                                            <div className="pr-8 font-bold text-gray-900">
+                                                {item.name}
+                                            </div>
                                             <div className="mt-1 text-xs leading-relaxed text-gray-500">
                                                 {item.description}
                                             </div>
@@ -318,10 +364,12 @@ export default function QrDesignModal({
                             <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
                                 <div>
                                     <div className="font-bold text-gray-900">
-                                        Cor do template · {selectedTemplate.name}
+                                        Cor do template ·{" "}
+                                        {selectedTemplate.name}
                                     </div>
                                     <div className="mt-1 text-sm text-gray-500">
-                                        Sugestões extraídas da capa e da logo do restaurante.
+                                        Sugestões extraídas da capa e da logo
+                                        do restaurante.
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-3">
@@ -329,15 +377,20 @@ export default function QrDesignModal({
                                         <button
                                             key={suggested}
                                             type="button"
-                                            onClick={() => setColor(suggested)}
+                                            onClick={() =>
+                                                setColor(suggested)
+                                            }
                                             aria-label={`Usar cor ${suggested}`}
                                             title={suggested}
                                             className={`h-10 w-10 cursor-pointer rounded-full border-4 shadow-sm transition hover:scale-105 ${
-                                                color.toLowerCase() === suggested.toLowerCase()
+                                                color.toLowerCase() ===
+                                                suggested.toLowerCase()
                                                     ? "border-gray-900"
                                                     : "border-white"
                                             }`}
-                                            style={{ backgroundColor: suggested }}
+                                            style={{
+                                                backgroundColor: suggested,
+                                            }}
                                         />
                                     ))}
                                     <label
@@ -348,7 +401,11 @@ export default function QrDesignModal({
                                         <input
                                             type="color"
                                             value={color}
-                                            onChange={(event) => setColor(event.target.value.toUpperCase())}
+                                            onChange={(event) =>
+                                                setColor(
+                                                    event.target.value.toUpperCase()
+                                                )
+                                            }
                                             className="absolute inset-0 cursor-pointer opacity-0"
                                             aria-label="Escolher outra cor"
                                         />
@@ -360,7 +417,9 @@ export default function QrDesignModal({
                                     className="h-6 w-6 rounded-full border border-black/10"
                                     style={{ backgroundColor: color }}
                                 />
-                                <span className="font-mono font-semibold uppercase">{color}</span>
+                                <span className="font-mono font-semibold uppercase">
+                                    {color}
+                                </span>
                             </div>
                         </div>
                     </div>
@@ -369,8 +428,12 @@ export default function QrDesignModal({
                         <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 sm:p-5">
                             <div className="mb-3 flex items-center justify-between gap-3">
                                 <div>
-                                    <div className="font-bold text-gray-900">Resultado final</div>
-                                    <div className="text-xs text-gray-500">1080 × 1600 px</div>
+                                    <div className="font-bold text-gray-900">
+                                        Resultado final
+                                    </div>
+                                    <div className="text-xs text-gray-500">
+                                        1080 × 1600 px
+                                    </div>
                                 </div>
                                 <div className="text-xs font-semibold text-gray-500">
                                     {selectedTemplate.name}
@@ -395,7 +458,9 @@ export default function QrDesignModal({
                                     </div>
                                 ) : (
                                     <div className="flex aspect-[27/40] items-center justify-center text-sm text-gray-400">
-                                        {previewLoading ? "Gerando prévia…" : "Prévia indisponível"}
+                                        {previewLoading
+                                            ? "Gerando prévia…"
+                                            : "Prévia indisponível"}
                                     </div>
                                 )}
                             </div>
@@ -405,10 +470,19 @@ export default function QrDesignModal({
             </div>
 
             <div className="flex justify-end gap-3 border-t border-gray-100 px-5 py-4 sm:px-7 sm:py-5">
-                <Button type="button" variant="secondary" onClick={onClose} disabled={saving}>
+                <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={onClose}
+                    disabled={saving}
+                >
                     Cancelar
                 </Button>
-                <Button type="button" loading={saving} onClick={() => onSave(template, color)}>
+                <Button
+                    type="button"
+                    loading={saving}
+                    onClick={() => onSave(template, color)}
+                >
                     Salvar design
                 </Button>
             </div>
