@@ -33,6 +33,7 @@ type ComplementGroupRow = {
     description: string | null;
     min_select: number;
     max_select: number;
+    allow_multiple_units: boolean;
     position: number;
     created_at: string;
 };
@@ -75,6 +76,7 @@ const getGroupSignature = (
         description: normalizeText(group.description),
         minSelect: group.min_select,
         maxSelect: group.max_select,
+        allowMultipleUnits: Boolean(group.allow_multiple_units),
         options: options.map((option) => [
             normalizeText(option.name),
             normalizeText(option.description),
@@ -187,6 +189,7 @@ const buildSharedGroups = (
                 description: firstGroup.description,
                 min_select: firstGroup.min_select,
                 max_select: firstGroup.max_select,
+                allow_multiple_units: Boolean(firstGroup.allow_multiple_units),
                 options,
             });
         }
@@ -234,7 +237,7 @@ export default function ComplementosTab({
             const { data: groupRows, error: groupsError } = await supabase
                 .from("item_subcategories")
                 .select(
-                    "id, item_id, name, description, min_select, max_select, position, created_at"
+                    "id, item_id, name, description, min_select, max_select, allow_multiple_units, position, created_at"
                 )
                 .in("item_id", itemIds)
                 .order("created_at", { ascending: false });
@@ -400,6 +403,15 @@ export default function ComplementosTab({
                                     <h4 className="text-lg font-bold text-gray-900">
                                         {group.name}
                                     </h4>
+                                    <button
+                                        type="button"
+                                        onClick={() => setGroupToDelete(group)}
+                                        title="Excluir grupo"
+                                        aria-label={`Excluir ${group.name}`}
+                                        className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center text-gray-400 transition-all hover:text-red-600 2xl:text-xl"
+                                    >
+                                        <FontAwesomeIcon icon={faTrash} />
+                                    </button>
                                     {productsCount > 1 && (
                                         <span className="rounded-full bg-brand/10 px-2 py-0.5 text-xs font-semibold text-brand 2xl:text-sm">
                                             {productsCount} produtos
@@ -449,15 +461,6 @@ export default function ComplementosTab({
                                     />
                                     Editar
                                 </Button>
-                                <button
-                                    type="button"
-                                    onClick={() => setGroupToDelete(group)}
-                                    title="Excluir grupo"
-                                    aria-label={`Excluir ${group.name}`}
-                                    className="flex h-8 w-8 cursor-pointer items-center justify-center text-gray-400 transition-all hover:text-red-600 2xl:text-xl"
-                                >
-                                    <FontAwesomeIcon icon={faTrash} />
-                                </button>
                             </div>
                         </div>
                     );
