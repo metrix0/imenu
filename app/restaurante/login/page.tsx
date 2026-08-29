@@ -104,9 +104,15 @@ export default function AdminLogin() {
         setRestaurantId(restaurant.id);
         setRestaurantSlug(restaurant.url_slug);
 
+        const requestedNext =
+            typeof window !== "undefined"
+                ? new URLSearchParams(window.location.search).get("next")
+                : null;
         const target =
             restaurant.first_time === false
-                ? "/painel"
+                ? requestedNext === "/garcom"
+                    ? "/garcom"
+                    : "/painel"
                 : getCreationStepPath(restaurant.creation_step);
 
         setToast(true);
