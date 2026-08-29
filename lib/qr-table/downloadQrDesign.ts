@@ -420,7 +420,7 @@ async function saveCanvas(
 
 /**
  * Keep this renderer unchanged: it is the original/main QR design,
- * exposed in the UI as "Legado".
+ * exposed in the UI as "Padrão".
  */
 async function renderLegacyDesign({
     qrValue,
@@ -489,9 +489,9 @@ async function renderLegacyDesign({
             context.measureText(title).width;
         const badgeWidth = Math.min(
             940,
-            Math.max(360, badgeTextWidth + 140)
+            Math.max(360, badgeTextWidth + 180)
         );
-        const badgeHeight = 150;
+        const badgeHeight = 180;
         const badgeX = (canvas.width - badgeWidth) / 2;
         const badgeY = 120;
 
@@ -506,7 +506,7 @@ async function renderLegacyDesign({
             badgeY,
             badgeWidth,
             badgeHeight,
-            75
+            90
         );
         context.fill();
         context.restore();
@@ -580,7 +580,7 @@ export async function renderQrDesignCanvas({
     title,
     bannerUrl,
     logoUrl,
-    template = "banner",
+    template = "classic",
     accentColor,
 }: RenderQrDesignOptions): Promise<HTMLCanvasElement> {
     if (template === "classic") {
