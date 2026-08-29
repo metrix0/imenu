@@ -433,6 +433,28 @@ export default function DevDashboardPage() {
         };
     }, [data]);
 
+    const paymentMethodShares = useMemo(() => {
+        if (!data) return [];
+
+        const methods = data.paymentMethods.datasets.map((dataset) => ({
+            key: dataset.key,
+            label: dataset.label,
+            valueCents: dataset.values.reduce((sum, value) => sum + value, 0),
+        }));
+        const totalCents = methods.reduce(
+            (sum, method) => sum + method.valueCents,
+            0
+        );
+
+        return methods.map((method) => ({
+            ...method,
+            percentage:
+                totalCents > 0
+                    ? Number(((method.valueCents / totalCents) * 100).toFixed(1))
+                    : 0,
+        }));
+    }, [data]);
+
     if (accessState === "checking") {
         return <CenteredMessage title="Carregando dashboard…" />;
     }
@@ -596,6 +618,18 @@ export default function DevDashboardPage() {
                                 title="Formas de pagamento"
                                 description="Valor movimentado por forma de pagamento ao longo do período."
                             />
+                            {paymentMethodShares.length > 0 && (
+                                <div className="mb-4 flex flex-wrap gap-x-5 gap-y-2 text-sm text-gray-600">
+                                    {paymentMethodShares.map((method) => (
+                                        <span key={method.key}>
+                                            <span className="font-medium text-gray-800">
+                                                {method.label}
+                                            </span>{" "}
+                                            {formatRatio(method.percentage)}
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
                             <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
                                 <div className="h-[360px]">
                                     {data.paymentMethods.datasets.length ? (
@@ -846,6 +880,8 @@ export default function DevDashboardPage() {
 
                                     const postHogOrdered =
                                         details?.funnelSummary.orderedConsumers ?? null;
+                                    const orderedConsumers =
+                                        postHogOrdered ?? step.value;
                                     const paymentStarted =
                                         data.consumerPipeline.find(
                                             (item) => item.key === "payment_started"
@@ -853,14 +889,18 @@ export default function DevDashboardPage() {
 
                                     return {
                                         ...step,
-                                        value: postHogOrdered,
-                                        secondaryValue: step.value,
+                                        value: orderedConsumers,
+                                        secondaryValue: null,
                                         conversion: conversion(
-                                            postHogOrdered,
+                                            orderedConsumers,
                                             paymentStarted
                                         ),
-                                        available: postHogOrdered !== null,
-                                        note: null,
+                                        available:
+                                            postHogOrdered !== null || step.available,
+                                        note:
+                                            postHogOrdered !== null
+                                                ? null
+                                                : step.note,
                                     };
                                 })}
                                 postHogAvailable={
