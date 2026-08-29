@@ -37,6 +37,7 @@ export type SharedComplementGroup = {
     description: string | null;
     min_select: number;
     max_select: number;
+    allow_multiple_units: boolean;
     options: SharedComplementOption[];
 };
 
@@ -188,7 +189,7 @@ export default function ManageComplementGroupModal({
         updates: Partial<
             Pick<
                 SharedComplementGroup,
-                "name" | "min_select" | "max_select"
+                "name" | "min_select" | "max_select" | "allow_multiple_units"
             >
         >
     ) => {
@@ -533,7 +534,7 @@ export default function ManageComplementGroupModal({
                                 className="w-full bg-transparent text-lg font-bold text-gray-800 focus:border-b focus:border-brand focus:outline-none disabled:opacity-60 2xl:text-xl"
                             />
 
-                            <div className="mt-3 flex flex-wrap items-center gap-4 text-sm text-gray-600 2xl:text-base">
+                            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-gray-600 2xl:text-base">
                                 <label className="flex cursor-pointer select-none items-center gap-2">
                                     <input
                                         type="checkbox"
@@ -591,6 +592,29 @@ export default function ManageComplementGroupModal({
                                         className="w-14 rounded border border-gray-300 p-1 text-center text-sm disabled:opacity-60 2xl:text-base"
                                     />
                                 </div>
+
+                                <label className="flex basis-full cursor-pointer select-none items-center gap-2 sm:basis-auto">
+                                    <input
+                                        type="checkbox"
+                                        checked={draft.allow_multiple_units === true}
+                                        disabled={isSaving}
+                                        onChange={(event) => {
+                                            const allow_multiple_units =
+                                                event.target.checked;
+                                            setDraft({
+                                                ...draft,
+                                                allow_multiple_units,
+                                            });
+                                            void updateGroup({
+                                                allow_multiple_units,
+                                            });
+                                        }}
+                                        className="shrink-0 rounded text-brand focus:ring-brand"
+                                    />
+                                    <span>
+                                        Mais de uma unidade por complemento
+                                    </span>
+                                </label>
                             </div>
                         </div>
 
@@ -699,7 +723,7 @@ export default function ManageComplementGroupModal({
                                                             );
                                                         }
                                                     }}
-                                                    className="min-w-0 flex-1 bg-transparent text-sm text-gray-700 focus:outline-none disabled:opacity-60 2xl:text-base"
+                                                    className="min-w-0 flex-1 truncate bg-transparent text-sm text-gray-700 focus:outline-none disabled:opacity-60 2xl:text-base"
                                                 />
 
                                                 {option.availability ===
@@ -718,7 +742,7 @@ export default function ManageComplementGroupModal({
                                         </div>
 
                                         <div className="ml-auto flex w-full items-center justify-end gap-3 pl-8 sm:w-auto sm:pl-0">
-                                            <div className="relative flex w-24 items-center gap-1 2xl:w-28">
+                                            <div className="relative flex w-28 shrink-0 items-center gap-1 2xl:w-28">
                                                 <span className="absolute left-2 text-xs text-gray-400 2xl:text-base">
                                                     R$
                                                 </span>
