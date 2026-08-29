@@ -10,7 +10,6 @@ const ALLOWED_DEV_EMAIL = "joaovralmeida@hotmail.com";
 const ASAAS_BASE_URL = (
     process.env.ASAAS_API_BASE_URL?.trim() || "https://api.asaas.com/v3"
 ).replace(/\/+$/, "");
-const PROCESSING_PAYOUT_RECONCILIATION_GRACE_MS = 15 * 60 * 1000;
 
 type PixKeyType = "CPF" | "CNPJ" | "EMAIL" | "PHONE" | "EVP";
 
@@ -245,19 +244,7 @@ async function reconcileProcessingPayouts(): Promise<void> {
 
     for (const payout of rows) {
         const transfer = byReference.get(`imenu-payout-${payout.id}`);
-        if (!transfer?.status) {
-            const createdAt = new Date(payout.created_at).getTime();
-            if (
-                Number.isFinite(createdAt) &&
-                Date.now() - createdAt >= PROCESSING_PAYOUT_RECONCILIATION_GRACE_MS
-            ) {
-                await query(
-                    `DELETE FROM public.payouts WHERE id = $1 AND status = 'processing'`,
-                    [payout.id]
-                );
-            }
-            continue;
-        }
+        if (!transfer?.status) continue;
 
         if (transfer.status === "DONE") {
             await query(
@@ -266,7 +253,7 @@ async function reconcileProcessingPayouts(): Promise<void> {
             );
         } else if (transfer.status === "CANCELLED") {
             await query(
-                `DELETE FROM public.payouts WHERE id = $1 AND status = 'processing'`,
+                `UPDATE public.payouts SET status = 'cancelled' WHERE id = $1 AND status = 'processing'`,
                 [payout.id]
             );
         }
@@ -503,11 +490,12 @@ export async function POST(request: Request) {
                     gross_cents,
                     payzu_fee_cents,
                     discount_cents,
+                    pix_address_key,
                     status,
                     created_at,
                     paid_at
                 )
-                VALUES ($1, $2, $3, $4, $5, 'processing', $6, NULL)
+                VALUES ($1, $2, $3, $4, $5, $6, 'processing', $7, NULL)
                 RETURNING id
                 `,
                 [
@@ -516,6 +504,7 @@ export async function POST(request: Request) {
                     item.grossCents,
                     item.payzuFeeCents,
                     item.discountCents,
+                    pixKey,
                     cutoffAt.toISOString(),
                 ]
             );
@@ -546,7 +535,7 @@ export async function POST(request: Request) {
 
                 if (transfer.status === "CANCELLED") {
                     await query(
-                        `DELETE FROM public.payouts WHERE id = $1 AND status = 'processing'`,
+                        `UPDATE public.payouts SET status = 'cancelled' WHERE id = $1 AND status = 'processing'`,
                         [payoutId]
                     );
                     results.push({
@@ -585,7 +574,7 @@ export async function POST(request: Request) {
 
                 if (!isNetworkFailure) {
                     await query(
-                        `DELETE FROM public.payouts WHERE id = $1 AND status = 'processing'`,
+                        `UPDATE public.payouts SET status = 'failed' WHERE id = $1 AND status = 'processing'`,
                         [payoutId]
                     );
                 }
