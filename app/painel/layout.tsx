@@ -322,6 +322,7 @@ export default function PainelLayout({
     const menuItems: MenuItem[] = [
         { label: "Pedidos", icon: faHome, href: `${base}/` },
         { label: "Histórico", icon: faBox, href: `${base}/pedidos` },
+        { label: "Cardápio", icon: faUtensils, href: cardapioHref },
         { label: "Mesas", icon: faChair, href: `${base}/mesas` },
         {
             label: "Financeiro",
@@ -333,7 +334,6 @@ export default function PainelLayout({
             icon: faChartLine,
             href: `${base}/analytics`,
         },
-        { label: "Cardápio", icon: faUtensils, href: cardapioHref },
         { type: "divider" },
         { label: "Promoções", icon: faPercent, href: `${base}/promocoes` },
         { label: "Fidelidade", icon: faGift, href: `${base}/fidelidade` },
@@ -630,7 +630,7 @@ export default function PainelLayout({
                     </Link>
 
                     <div
-                        className={`mt-2 pb-1 transition-all duration-300 2xl:mt-8 ${
+                        className={`mt-1 pb-2 transition-all duration-300 2xl:mt-6 ${
                             expanded
                                 ? "w-full px-4"
                                 : "w-[4.5rem] self-start 2xl:w-20"

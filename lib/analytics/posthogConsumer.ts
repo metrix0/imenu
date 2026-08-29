@@ -121,6 +121,18 @@ function restaurantEventFilter(filter?: ConsumerPostHogFilter): string {
           )`;
 }
 
+function nonMesaEventFilter(): string {
+    return `
+          AND NOT startsWith(
+                toString(properties.$pathname),
+                '/mesa/'
+          )
+          AND NOT startsWith(
+                toString(properties.consumer_pathname),
+                '/mesa/'
+          )`;
+}
+
 export async function loadPostHogConsumerMetrics(
     startAt: number,
     endAt: number,
@@ -144,6 +156,7 @@ export async function loadPostHogConsumerMetrics(
         .join(", ");
 
     const restaurantFilter = restaurantEventFilter(filter);
+    const nonMesaFilter = nonMesaEventFilter();
 
     const pipelineHogql = `
         SELECT
@@ -152,10 +165,6 @@ export async function loadPostHogConsumerMetrics(
             uniqIf(distinct_id, event = ${hogqlString(
                 CONSUMER_EVENTS.itemAddedToCart
             )}) AS added_to_cart,
-            avgIf(
-                properties.cart_total_cents,
-                event = ${hogqlString(CONSUMER_EVENTS.informationStarted)}
-            ) AS average_cart_cents,
             uniqIf(distinct_id, event = ${hogqlString(
                 CONSUMER_EVENTS.informationStarted
             )}) AS information_started,
@@ -169,7 +178,24 @@ export async function loadPostHogConsumerMetrics(
         WHERE timestamp >= parseDateTimeBestEffort('${start}')
           AND timestamp < parseDateTimeBestEffort('${end}')
           AND event IN (${trackedEvents})
+          ${nonMesaFilter}
           ${restaurantFilter}
+    `;
+
+    const averageCartHogql = `
+        SELECT avg(cart_total_cents)
+        FROM (
+            SELECT
+                distinct_id,
+                argMax(properties.cart_total_cents, timestamp) AS cart_total_cents
+            FROM events
+            WHERE timestamp >= parseDateTimeBestEffort('${start}')
+              AND timestamp < parseDateTimeBestEffort('${end}')
+              AND event = ${hogqlString(CONSUMER_EVENTS.informationStarted)}
+              ${nonMesaFilter}
+              ${restaurantFilter}
+            GROUP BY distinct_id
+        )
     `;
 
     const sourceRestaurantFilter = filter
@@ -197,6 +223,7 @@ export async function loadPostHogConsumerMetrics(
         WHERE timestamp >= parseDateTimeBestEffort('${start}')
           AND timestamp < parseDateTimeBestEffort('${end}')
           AND event = ${hogqlString(CONSUMER_EVENTS.menuViewed)}
+          ${nonMesaFilter}
           ${sourceRestaurantFilter}
         GROUP BY source
         ORDER BY clicks DESC, source ASC
@@ -212,6 +239,24 @@ export async function loadPostHogConsumerMetrics(
         );
         const row = pipelineRows[0];
         if (!row) throw new Error("PostHog returned no result row.");
+
+        let averageCartCents: number | null = null;
+        try {
+            const averageRows = await runHogQL(
+                config.rawHost,
+                config.projectId,
+                config.personalApiKey,
+                averageCartHogql
+            );
+            averageCartCents = averageRows[0]?.[0] == null
+                ? 0
+                : Number(averageRows[0][0]) || 0;
+        } catch (error) {
+            console.warn(
+                "[CONSUMER_PIPELINE] Unique average cart unavailable:",
+                error
+            );
+        }
 
         let sources: ConsumerTrafficSource[] = [];
 
@@ -242,10 +287,10 @@ export async function loadPostHogConsumerMetrics(
             menuViews: Number(row[0]) || 0,
             itemViews: Number(row[1]) || 0,
             addedToCart: Number(row[2]) || 0,
-            averageCartCents: Number(row[3]) || 0,
-            informationStarted: Number(row[4]) || 0,
-            addressStarted: Number(row[5]) || 0,
-            paymentStarted: Number(row[6]) || 0,
+            averageCartCents,
+            informationStarted: Number(row[3]) || 0,
+            addressStarted: Number(row[4]) || 0,
+            paymentStarted: Number(row[5]) || 0,
             sources,
         };
     } catch (error) {
@@ -283,6 +328,7 @@ export async function loadPostHogConsumerTimeSeries(
         WHERE timestamp >= parseDateTimeBestEffort('${start}')
           AND timestamp < parseDateTimeBestEffort('${end}')
           AND event IN (${trackedEvents})
+          ${nonMesaEventFilter()}
           ${restaurantEventFilter(filter)}
         GROUP BY date
         ORDER BY date ASC

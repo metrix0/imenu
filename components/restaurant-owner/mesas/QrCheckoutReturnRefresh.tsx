@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -13,6 +13,7 @@ import {
 
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
+import { reconcileQrTableCheckout } from "@/lib/qr-table/clientApi";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 
 const CHECKOUT_RETURN_PATHS = new Set([
@@ -20,6 +21,8 @@ const CHECKOUT_RETURN_PATHS = new Set([
     "/painel/configuracoes",
     "/restaurante/criar/localizacao",
 ]);
+const CHECKOUT_RECONCILE_ATTEMPTS = 40;
+const CHECKOUT_RECONCILE_DELAY_MS = 5000;
 
 const BENEFITS = [
     {
@@ -109,40 +112,107 @@ function launchPartyPoppers(): () => void {
     return () => pieces.forEach((piece) => piece.remove());
 }
 
+function removeCheckoutStateFromUrl() {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("checkout");
+    window.history.replaceState(
+        {},
+        "",
+        `${url.pathname}${url.search}${url.hash}`
+    );
+}
+
+function delay(ms: number): Promise<void> {
+    return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
 export default function QrCheckoutReturnRefresh() {
     const [open, setOpen] = useState(false);
+    const restaurantId = useCreationStore((state) => state.restaurantId);
     const setProductSelectionCompleted = useCreationStore(
         (state) => state.setProductSelectionCompleted
     );
+    const partyCleanupRef = useRef<(() => void) | null>(null);
+    const reloadAfterCloseRef = useRef(false);
 
-    useLayoutEffect(() => {
+    useEffect(() => {
         if (!CHECKOUT_RETURN_PATHS.has(window.location.pathname)) return;
 
         const checkoutState = new URLSearchParams(window.location.search).get(
             "checkout"
         );
-        if (checkoutState !== "success") return;
+        const returnedFromSuccessfulCheckout = checkoutState === "success";
+        let cancelled = false;
 
-        const url = new URL(window.location.href);
-        url.searchParams.delete("checkout");
-        window.history.replaceState(
-            {},
-            "",
-            `${url.pathname}${url.search}${url.hash}`
-        );
+        const celebrateActivation = () => {
+            if (returnedFromSuccessfulCheckout) {
+                removeCheckoutStateFromUrl();
+            }
 
-        if (window.location.pathname === "/restaurante/criar/localizacao") {
-            setProductSelectionCompleted(true);
+            if (window.location.pathname === "/restaurante/criar/localizacao") {
+                setProductSelectionCompleted(true);
+            }
+
+            reloadAfterCloseRef.current = true;
+            setOpen(true);
+            partyCleanupRef.current?.();
+            partyCleanupRef.current = launchPartyPoppers();
+        };
+
+        const reconcile = async () => {
+            const attempts = returnedFromSuccessfulCheckout
+                ? CHECKOUT_RECONCILE_ATTEMPTS
+                : 1;
+
+            for (let attempt = 0; attempt < attempts; attempt += 1) {
+                if (attempt > 0) {
+                    await delay(CHECKOUT_RECONCILE_DELAY_MS);
+                }
+                if (cancelled) return;
+
+                try {
+                    const result = await reconcileQrTableCheckout(restaurantId);
+                    if (cancelled) return;
+
+                    if (result.active) {
+                        if (
+                            returnedFromSuccessfulCheckout ||
+                            result.activatedNow
+                        ) {
+                            celebrateActivation();
+                        }
+                        return;
+                    }
+                } catch {
+                    if (!returnedFromSuccessfulCheckout) return;
+                }
+            }
+        };
+
+        void reconcile();
+
+        return () => {
+            cancelled = true;
+            partyCleanupRef.current?.();
+            partyCleanupRef.current = null;
+        };
+    }, [restaurantId, setProductSelectionCompleted]);
+
+    const closeCelebration = () => {
+        partyCleanupRef.current?.();
+        partyCleanupRef.current = null;
+        setOpen(false);
+
+        if (reloadAfterCloseRef.current) {
+            reloadAfterCloseRef.current = false;
+            window.location.reload();
         }
-
-        setOpen(true);
-        return launchPartyPoppers();
-    }, [setProductSelectionCompleted]);
+    };
 
     return (
         <Modal
             open={open}
-            onClose={() => setOpen(false)}
+            onClose={closeCelebration}
             className="max-w-xl"
             showCloseButton
         >
@@ -161,8 +231,8 @@ export default function QrCheckoutReturnRefresh() {
                     Obrigado pela compra!
                 </h2>
                 <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-gray-600 sm:text-base">
-                    Seu iMenu QR Code Mesa está sendo ativado. Agora você tem
-                    novos recursos para atender seus clientes direto pela mesa.
+                    Seu iMenu QR Code Mesa foi ativado. Agora você tem novos
+                    recursos para atender seus clientes direto pela mesa.
                 </p>
 
                 <div className="mt-6 space-y-3 text-left">
@@ -205,7 +275,7 @@ export default function QrCheckoutReturnRefresh() {
                 <Button
                     type="button"
                     className="mt-6 w-full"
-                    onClick={() => setOpen(false)}
+                    onClick={closeCelebration}
                 >
                     Começar a usar
                 </Button>

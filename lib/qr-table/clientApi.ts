@@ -69,3 +69,31 @@ export async function updateQrTableDesign(
         );
     }
 }
+
+export type QrTableReconcileResult = {
+    active: boolean;
+    activatedNow: boolean;
+    status: string;
+    paymentStatus: string | null;
+};
+
+export async function reconcileQrTableCheckout(
+    restaurantId?: string | null
+): Promise<QrTableReconcileResult> {
+    const response = await qrTableAuthenticatedFetch("/api/qr-table/reconcile", {
+        method: "POST",
+        body: JSON.stringify(restaurantId ? { restaurantId } : {}),
+        cache: "no-store",
+    });
+    const payload = (await response.json()) as QrTableReconcileResult & {
+        error?: string;
+    };
+
+    if (!response.ok) {
+        throw new Error(
+            payload.error || "Não foi possível confirmar o pagamento."
+        );
+    }
+
+    return payload;
+}

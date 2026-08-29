@@ -40,6 +40,7 @@ export default function ItemModal({
     const [observation, setObservation] = useState("");
     const [open, setOpen] = useState(false);
     const [selected, setSelected] = useState<Record<string, Set<string>>>({});
+    const [selectedQuantities, setSelectedQuantities] = useState<Record<string, Record<string, number>>>({});
     const addToCart = useCartStore((s) => s.addItem);
     const [isRestaurantOpen, setIsRestaurantOpen] = useState(false);
     const [canScheduleToday, setCanScheduleToday] = useState(false);
@@ -144,15 +145,45 @@ export default function ItemModal({
         });
     };
 
+    const getQuantityGroupCount = (group?: Record<string, number>) =>
+        Object.values(group || {}).reduce((sum, currentQuantity) => sum + currentQuantity, 0);
+
+    const changeSubitemQuantity = (sc: Subcategory, si: Subitem, delta: number) => {
+        setSelectedQuantities((prev) => {
+            const group = { ...(prev[sc.id] || {}) };
+            const currentQuantity = group[si.id] || 0;
+            const currentGroupCount = getQuantityGroupCount(group);
+
+            if (delta > 0 && sc.max_select > 0 && currentGroupCount >= sc.max_select) {
+                return prev;
+            }
+
+            const nextQuantity = Math.max(0, Math.min(99, currentQuantity + delta));
+            if (nextQuantity === 0) delete group[si.id];
+            else group[si.id] = nextQuantity;
+
+            return { ...prev, [sc.id]: group };
+        });
+    };
+
     const extrasTotal = useMemo(() => {
         let sum = 0;
         for (const sc of subcategories) {
+            if (sc.allow_multiple_units) {
+                const quantities = selectedQuantities[sc.id];
+                if (!quantities) continue;
+                for (const si of sc.subitems) {
+                    sum += si.price_cents * (quantities[si.id] || 0);
+                }
+                continue;
+            }
+
             const ids = selected[sc.id];
             if (!ids) continue;
             for (const si of sc.subitems) if (ids.has(si.id)) sum += si.price_cents;
         }
         return sum;
-    }, [selected, subcategories]);
+    }, [selected, selectedQuantities, subcategories]);
 
     const unitTotal = item.price_cents + extrasTotal;
     const total = unitTotal * qty;
@@ -166,10 +197,13 @@ export default function ItemModal({
     const missingRequired = useMemo(() => {
         return subcategories.some((sc) => {
             if (sc.min_select <= 0) return false;
+            if (sc.allow_multiple_units) {
+                return getQuantityGroupCount(selectedQuantities[sc.id]) < sc.min_select;
+            }
             const ids = selected[sc.id];
             return !ids || ids.size < sc.min_select;
         });
-    }, [selected, subcategories]);
+    }, [selected, selectedQuantities, subcategories]);
 
     const canAdd = !missingRequired;
     const canOrderNow =
@@ -188,6 +222,26 @@ export default function ItemModal({
         const selectedSubitems: any[] = [];
 
         for (const sc of subcategories) {
+            if (sc.allow_multiple_units) {
+                const quantities = selectedQuantities[sc.id];
+                if (!quantities) continue;
+
+                for (const si of sc.subitems) {
+                    const quantity = quantities[si.id] || 0;
+                    if (quantity > 0) {
+                        selectedSubitems.push({
+                            subcategoryId: sc.id,
+                            subcategoryName: sc.name,
+                            subitemId: si.id,
+                            subitemName: si.name,
+                            price_cents: si.price_cents,
+                            quantity,
+                        });
+                    }
+                }
+                continue;
+            }
+
             const ids = selected[sc.id];
             if (!ids) continue;
 
@@ -298,6 +352,9 @@ export default function ItemModal({
                 <div className="mt-6">
                     {subcategories.map((sc) => {
                         const set = selected[sc.id];
+                        const quantities = selectedQuantities[sc.id] || {};
+                        const quantityGroupCount = getQuantityGroupCount(quantities);
+                        const quantityLimitReached = sc.max_select > 0 && quantityGroupCount >= sc.max_select;
                         const isSingle =
                             sc.max_select === 1 || sc.max_select === 0;
 
@@ -325,6 +382,62 @@ export default function ItemModal({
                                 {[...sc.subitems]
                                     .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
                                     .map((si) => {
+                                        if (sc.allow_multiple_units) {
+                                            const quantity = quantities[si.id] || 0;
+
+                                            return (
+                                                <div
+                                                    key={si.id}
+                                                    className="2xl:text-lg w-full px-4 py-3 flex items-center justify-between gap-4"
+                                                >
+                                                    <div className="text-left">
+                                                        <p className="font-medium 2xl:text-lg">
+                                                            {si.name.replace(/\n/g, " ")}
+                                                        </p>
+
+                                                        {si.price_cents > 0 && (
+                                                            <p className="text-[13px] 2xl:text-lg text-gray-500">
+                                                                + {formatPrice(si.price_cents)}
+                                                            </p>
+                                                        )}
+                                                    </div>
+
+                                                    {quantity === 0 ? (
+                                                        <button
+                                                            type="button"
+                                                            aria-label={`Adicionar ${si.name}`}
+                                                            disabled={quantityLimitReached}
+                                                            onClick={() => changeSubitemQuantity(sc, si, 1)}
+                                                            className="cursor-pointer w-7 h-7 2xl:w-10 2xl:h-10 rounded-full border border-gray-300 bg-gray-100 text-gray-500 flex items-center justify-center disabled:cursor-default disabled:opacity-40"
+                                                        >
+                                                            <FontAwesomeIcon icon={icons.faPlus} className="text-xs 2xl:text-lg" />
+                                                        </button>
+                                                    ) : (
+                                                        <div className="flex shrink-0 items-center gap-3 rounded-xl border border-gray-200 px-2 py-1.5">
+                                                            <button
+                                                                type="button"
+                                                                aria-label={`Remover ${si.name}`}
+                                                                onClick={() => changeSubitemQuantity(sc, si, -1)}
+                                                                className="w-6 h-6 2xl:w-9 2xl:h-9 flex items-center justify-center text-gray-400 cursor-pointer"
+                                                            >
+                                                                <FontAwesomeIcon icon={icons.faMinus} />
+                                                            </button>
+                                                            <span className="min-w-5 text-center text-[15px] 2xl:text-lg">{quantity}</span>
+                                                            <button
+                                                                type="button"
+                                                                aria-label={`Adicionar ${si.name}`}
+                                                                disabled={quantityLimitReached}
+                                                                onClick={() => changeSubitemQuantity(sc, si, 1)}
+                                                                className="w-6 h-6 2xl:w-9 2xl:h-9 flex items-center justify-center text-brand cursor-pointer disabled:cursor-default disabled:opacity-40"
+                                                            >
+                                                                <FontAwesomeIcon icon={icons.faPlus} />
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        }
+
                                         const isSelected = set?.has(si.id);
 
                                     return (
@@ -475,6 +588,7 @@ export default function ItemModal({
                 <Tooltip
                     text={disabledReason}
                     showOnClick
+                    portal={false}
                     parentClassName="flex-1"
                     size="line"
                     tooltipClassName="text-center"
