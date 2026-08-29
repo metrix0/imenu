@@ -5,7 +5,9 @@ export type QrDesignTemplate =
     | "logo"
     | "xadrez"
     | "gradient"
-    | "minimal";
+    | "minimal"
+    | "white"
+    | "poster";
 
 type DownloadQrDesignOptions = {
     qrValue: string;
@@ -18,20 +20,23 @@ type DownloadQrDesignOptions = {
     accentColor?: string;
 };
 
-export type RenderQrDesignOptions = Omit<DownloadQrDesignOptions, "fileName">;
+export type RenderQrDesignOptions = Omit<
+    DownloadQrDesignOptions,
+    "fileName"
+>;
 
 const FONT_FAMILY = '"Inter", "Segoe UI", Arial, sans-serif';
-const FONT_EDITORIAL = 'Georgia, "Times New Roman", serif';
-const FONT_MODERN = '"Trebuchet MS", Arial, sans-serif';
-const FONT_GEOMETRIC = 'Verdana, Geneva, sans-serif';
-const FONT_BOLD = '"Arial Black", Impact, Arial, sans-serif';
-const FONT_MONO = '"Courier New", Courier, monospace';
-const FONT_CLEAN = '"Helvetica Neue", Arial, sans-serif';
+const FONT_DISPLAY = '"Trebuchet MS", "Segoe UI", Arial, sans-serif';
+const FONT_GEOMETRIC = 'Verdana, "Segoe UI", Arial, sans-serif';
+const FONT_CLEAN = '"Helvetica Neue", "Segoe UI", Arial, sans-serif';
+const FONT_COMPACT = '"Arial Narrow", "Helvetica Neue", Arial, sans-serif';
 
 function loadImage(url: string): Promise<HTMLImageElement> {
     return fetch(url)
         .then((response) => {
-            if (!response.ok) throw new Error("Não foi possível carregar a imagem.");
+            if (!response.ok) {
+                throw new Error("Não foi possível carregar a imagem.");
+            }
             return response.blob();
         })
         .then(
@@ -45,14 +50,18 @@ function loadImage(url: string): Promise<HTMLImageElement> {
                     };
                     image.onerror = () => {
                         URL.revokeObjectURL(objectUrl);
-                        reject(new Error("Não foi possível carregar a imagem."));
+                        reject(
+                            new Error("Não foi possível carregar a imagem.")
+                        );
                     };
                     image.src = objectUrl;
                 })
         );
 }
 
-async function loadOptionalImage(url?: string): Promise<HTMLImageElement | null> {
+async function loadOptionalImage(
+    url?: string
+): Promise<HTMLImageElement | null> {
     if (!url) return null;
     try {
         return await loadImage(url);
@@ -131,12 +140,11 @@ function fitStyledTextSize(
     maxSize: number,
     minSize: number,
     weight: number,
-    fontFamily: string,
-    italic = false
+    fontFamily: string
 ): number {
     let size = maxSize;
     while (size > minSize) {
-        context.font = `${italic ? "italic " : ""}${weight} ${size}px ${fontFamily}`;
+        context.font = `${weight} ${size}px ${fontFamily}`;
         if (context.measureText(text).width <= maxWidth) break;
         size -= 2;
     }
@@ -144,7 +152,9 @@ function fitStyledTextSize(
 }
 
 function normalizeHex(value?: string): string {
-    return /^#[0-9a-f]{6}$/i.test(value || "") ? String(value).toUpperCase() : "#F97316";
+    return /^#[0-9a-f]{6}$/i.test(value || "")
+        ? String(value).toUpperCase()
+        : "#F97316";
 }
 
 function hexRgb(hex: string) {
@@ -163,8 +173,22 @@ function alpha(hex: string, opacity: number) {
 
 function shade(hex: string, amount: number) {
     const { r, g, b } = hexRgb(hex);
-    const adjust = (value: number) => Math.max(0, Math.min(255, Math.round(value + amount)));
+    const adjust = (value: number) =>
+        Math.max(0, Math.min(255, Math.round(value + amount)));
     return `rgb(${adjust(r)}, ${adjust(g)}, ${adjust(b)})`;
+}
+
+function backgroundForWhiteText(hex: string): string {
+    const { r, g, b } = hexRgb(hex);
+    const luminance =
+        (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+
+    if (luminance <= 0.55) return hex;
+
+    const target = 0.55 / luminance;
+    return `rgb(${Math.round(r * target)}, ${Math.round(
+        g * target
+    )}, ${Math.round(b * target)})`;
 }
 
 function roundedRect(
@@ -182,15 +206,24 @@ function roundedRect(
     context.fill();
 }
 
-function drawChecker(context: CanvasRenderingContext2D, accent: string) {
-    const size = 84;
-    context.fillStyle = "#FFFDF8";
+function drawChecker(
+    context: CanvasRenderingContext2D,
+    accent: string
+) {
+    const size = 96;
+    context.fillStyle = "#FFFFFF";
     context.fillRect(0, 0, 1080, 1600);
-    context.fillStyle = alpha(accent, 0.92);
+    context.fillStyle = alpha(accent, 0.16);
+
     for (let row = 0; row < Math.ceil(1600 / size); row += 1) {
         for (let col = 0; col < Math.ceil(1080 / size); col += 1) {
             if ((row + col) % 2 === 0) {
-                context.fillRect(col * size, row * size, size, size);
+                context.fillRect(
+                    col * size,
+                    row * size,
+                    size,
+                    size
+                );
             }
         }
     }
@@ -205,19 +238,32 @@ function drawQrCard(
         radius?: number;
         borderColor?: string;
         borderWidth?: number;
+        size?: number;
     }
 ) {
     const shadow = options?.shadow ?? true;
     const radius = options?.radius ?? 56;
     const borderWidth = options?.borderWidth ?? 0;
+    const cardSize = options?.size ?? 760;
+    const x = (1080 - cardSize) / 2;
+    const qrPadding = Math.round(cardSize * 0.072);
+    const qrSize = cardSize - qrPadding * 2;
 
     context.save();
     if (shadow) {
-        context.shadowColor = "rgba(15, 23, 42, 0.22)";
-        context.shadowBlur = 50;
-        context.shadowOffsetY = 18;
+        context.shadowColor = "rgba(15, 23, 42, 0.20)";
+        context.shadowBlur = 46;
+        context.shadowOffsetY = 16;
     }
-    roundedRect(context, 160, y, 760, 760, radius, "#FFFFFF");
+    roundedRect(
+        context,
+        x,
+        y,
+        cardSize,
+        cardSize,
+        radius,
+        "#FFFFFF"
+    );
     context.restore();
 
     if (options?.borderColor && borderWidth > 0) {
@@ -226,21 +272,30 @@ function drawQrCard(
         context.lineWidth = borderWidth;
         context.beginPath();
         context.roundRect(
-            160 + borderWidth / 2,
+            x + borderWidth / 2,
             y + borderWidth / 2,
-            760 - borderWidth,
-            760 - borderWidth,
+            cardSize - borderWidth,
+            cardSize - borderWidth,
             Math.max(0, radius - borderWidth / 2)
         );
         context.stroke();
         context.restore();
     }
 
-    context.drawImage(qrCode, 215, y + 55, 650, 650);
+    context.drawImage(
+        qrCode,
+        x + qrPadding,
+        y + qrPadding,
+        qrSize,
+        qrSize
+    );
 }
 
 function isUniversalTitle(title: string) {
-    return !title.trim() || title.trim().toLowerCase() === "universal";
+    return (
+        !title.trim() ||
+        title.trim().toLowerCase() === "universal"
+    );
 }
 
 function drawTableName(
@@ -254,7 +309,6 @@ function drawTableName(
         weight?: number;
         maxSize?: number;
         minSize?: number;
-        italic?: boolean;
         paddingX?: number;
         height?: number;
         radius?: number;
@@ -264,11 +318,12 @@ function drawTableName(
     if (isUniversalTitle(title)) return;
 
     const weight = options.weight ?? 800;
-    const maxSize = options.maxSize ?? 78;
-    const minSize = options.minSize ?? 44;
+    const maxSize = options.maxSize ?? 84;
+    const minSize = options.minSize ?? 46;
     const paddingX = options.paddingX ?? 120;
-    const height = options.height ?? 112;
+    const height = options.height ?? 116;
     const radius = options.radius ?? height / 2;
+
     const size = fitStyledTextSize(
         context,
         title,
@@ -276,17 +331,22 @@ function drawTableName(
         maxSize,
         minSize,
         weight,
-        options.fontFamily,
-        options.italic
+        options.fontFamily
     );
 
-    context.font = `${options.italic ? "italic " : ""}${weight} ${size}px ${options.fontFamily}`;
-    const width = Math.min(940, Math.max(320, context.measureText(title).width + paddingX));
+    context.font = `${weight} ${size}px ${options.fontFamily}`;
+    const width = Math.min(
+        940,
+        Math.max(
+            320,
+            context.measureText(title).width + paddingX
+        )
+    );
 
     if (options.background) {
         context.save();
         if (options.shadow) {
-            context.shadowColor = "rgba(15, 23, 42, 0.20)";
+            context.shadowColor = "rgba(15, 23, 42, 0.22)";
             context.shadowBlur = 28;
             context.shadowOffsetY = 8;
         }
@@ -305,7 +365,12 @@ function drawTableName(
     context.fillStyle = options.foreground;
     context.textAlign = "center";
     context.textBaseline = "middle";
-    context.fillText(title, 540, y + height / 2, width - 60);
+    context.fillText(
+        title,
+        540,
+        y + height / 2,
+        width - 60
+    );
 }
 
 function drawOpenMenu(
@@ -316,23 +381,31 @@ function drawOpenMenu(
         fontFamily: string;
         size?: number;
         weight?: number;
-        italic?: boolean;
     }
 ) {
-    const size = options.size ?? 66;
+    const size = options.size ?? 62;
     const weight = options.weight ?? 800;
     context.fillStyle = options.color;
-    context.font = `${options.italic ? "italic " : ""}${weight} ${size}px ${options.fontFamily}`;
+    context.font = `${weight} ${size}px ${options.fontFamily}`;
     context.textAlign = "center";
     context.textBaseline = "middle";
     context.fillText("Abrir cardápio", 540, y, 900);
 }
 
-async function saveCanvas(canvas: HTMLCanvasElement, fileName: string) {
+async function saveCanvas(
+    canvas: HTMLCanvasElement,
+    fileName: string
+) {
     const blob = await new Promise<Blob>((resolve, reject) => {
         canvas.toBlob((result) => {
             if (result) resolve(result);
-            else reject(new Error("Não foi possível gerar o arquivo."));
+            else {
+                reject(
+                    new Error(
+                        "Não foi possível gerar o arquivo."
+                    )
+                );
+            }
         }, "image/png");
     });
 
@@ -344,6 +417,10 @@ async function saveCanvas(canvas: HTMLCanvasElement, fileName: string) {
     URL.revokeObjectURL(objectUrl);
 }
 
+/**
+ * Keep this renderer unchanged: it is the original/main QR design,
+ * exposed in the UI as "Legado".
+ */
 async function renderLegacyDesign({
     qrValue,
     displayUrl,
@@ -362,13 +439,16 @@ async function renderLegacyDesign({
     canvas.width = 1080;
     canvas.height = 1600;
     const context = canvas.getContext("2d");
-    if (!context) throw new Error("Não foi possível criar o QR Code.");
+    if (!context) {
+        throw new Error("Não foi possível criar o QR Code.");
+    }
 
     const cleanDisplayUrl = displayUrl
         .replace(/^https?:\/\//i, "")
         .replace(/\/$/, "");
     const showTitleBadge =
-        title.trim() !== "" && title.trim().toLowerCase() !== "universal";
+        title.trim() !== "" &&
+        title.trim().toLowerCase() !== "universal";
 
     context.fillStyle = "#ffffff";
     context.fillRect(0, 0, canvas.width, canvas.height);
@@ -378,7 +458,14 @@ async function renderLegacyDesign({
     context.rect(0, 0, canvas.width, 390);
     context.clip();
     context.filter = "blur(12px)";
-    drawCoverImage(context, banner, -24, -24, canvas.width + 48, 438);
+    drawCoverImage(
+        context,
+        banner,
+        -24,
+        -24,
+        canvas.width + 48,
+        438
+    );
     context.restore();
 
     context.fillStyle = "rgba(0, 0, 0, 0.20)";
@@ -388,10 +475,21 @@ async function renderLegacyDesign({
     context.textBaseline = "middle";
 
     if (showTitleBadge) {
-        const badgeFontSize = fitTextSize(context, title, 820, 104, 54, 800);
+        const badgeFontSize = fitTextSize(
+            context,
+            title,
+            820,
+            104,
+            54,
+            800
+        );
         context.font = `800 ${badgeFontSize}px ${FONT_FAMILY}`;
-        const badgeTextWidth = context.measureText(title).width;
-        const badgeWidth = Math.min(940, Math.max(360, badgeTextWidth + 140));
+        const badgeTextWidth =
+            context.measureText(title).width;
+        const badgeWidth = Math.min(
+            940,
+            Math.max(360, badgeTextWidth + 140)
+        );
         const badgeHeight = 150;
         const badgeX = (canvas.width - badgeWidth) / 2;
         const badgeY = 120;
@@ -402,12 +500,23 @@ async function renderLegacyDesign({
         context.shadowOffsetY = 10;
         context.fillStyle = "rgba(255, 255, 255, 0.94)";
         context.beginPath();
-        context.roundRect(badgeX, badgeY, badgeWidth, badgeHeight, 75);
+        context.roundRect(
+            badgeX,
+            badgeY,
+            badgeWidth,
+            badgeHeight,
+            75
+        );
         context.fill();
         context.restore();
 
         context.fillStyle = "#111827";
-        context.fillText(title, 540, badgeY + badgeHeight / 2, badgeWidth - 80);
+        context.fillText(
+            title,
+            540,
+            badgeY + badgeHeight / 2,
+            badgeWidth - 80
+        );
     }
 
     context.textBaseline = "alphabetic";
@@ -430,10 +539,15 @@ async function renderLegacyDesign({
         700
     );
     context.font = `700 ${urlFontSize}px ${FONT_FAMILY}`;
-    const urlTextWidth = context.measureText(cleanDisplayUrl).width;
-    const urlBadgeWidth = Math.min(900, Math.max(360, urlTextWidth + 90));
+    const urlTextWidth =
+        context.measureText(cleanDisplayUrl).width;
+    const urlBadgeWidth = Math.min(
+        900,
+        Math.max(360, urlTextWidth + 90)
+    );
     const urlBadgeHeight = 78;
-    const urlBadgeX = (canvas.width - urlBadgeWidth) / 2;
+    const urlBadgeX =
+        (canvas.width - urlBadgeWidth) / 2;
     const urlBadgeY = 1408;
 
     context.fillStyle = "#f3f4f6";
@@ -481,7 +595,10 @@ export async function renderQrDesignCanvas({
     }
 
     const accent = normalizeHex(accentColor);
-    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=720x720&data=${encodeURIComponent(qrValue)}`;
+    const darkAccent = backgroundForWhiteText(accent);
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=720x720&data=${encodeURIComponent(
+        qrValue
+    )}`;
     const [qrCode, banner, logo] = await Promise.all([
         loadImage(qrUrl),
         loadOptionalImage(bannerUrl),
@@ -492,249 +609,432 @@ export async function renderQrDesignCanvas({
     canvas.width = 1080;
     canvas.height = 1600;
     const context = canvas.getContext("2d");
-    if (!context) throw new Error("Não foi possível criar o QR Code.");
+    if (!context) {
+        throw new Error("Não foi possível criar o QR Code.");
+    }
 
     context.textAlign = "center";
     context.textBaseline = "middle";
     const universal = isUniversalTitle(title);
 
-    if (template === "dark") {
-        context.fillStyle = "#07090D";
+    if (template === "white") {
+        context.fillStyle = darkAccent;
         context.fillRect(0, 0, 1080, 1600);
 
-        context.fillStyle = alpha(accent, 0.2);
-        context.beginPath();
-        context.arc(930, 120, 360, 0, Math.PI * 2);
-        context.fill();
-        context.fillStyle = alpha(accent, 0.1);
-        context.beginPath();
-        context.arc(70, 1440, 330, 0, Math.PI * 2);
-        context.fill();
+        drawTableName(context, title, 170, {
+            foreground: "#FFFFFF",
+            background: null,
+            fontFamily: FONT_CLEAN,
+            weight: 800,
+            maxSize: 98,
+            minSize: 52,
+            height: 120,
+        });
 
-        context.fillStyle = accent;
-        context.fillRect(0, 0, 1080, 18);
-        context.fillRect(390, universal ? 320 : 390, 300, 8);
+        drawOpenMenu(
+            context,
+            universal ? 245 : 330,
+            {
+                color: "#FFFFFF",
+                fontFamily: FONT_CLEAN,
+                size: 60,
+                weight: 700,
+            }
+        );
+
+        drawQrCard(
+            context,
+            qrCode,
+            universal ? 405 : 475,
+            {
+                shadow: false,
+                radius: 30,
+                borderColor: "#FFFFFF",
+                borderWidth: 4,
+            }
+        );
+    } else if (template === "poster") {
+        if (banner) {
+            drawCoverImage(
+                context,
+                banner,
+                0,
+                0,
+                1080,
+                1600
+            );
+        } else {
+            context.fillStyle = darkAccent;
+            context.fillRect(0, 0, 1080, 1600);
+        }
+
+        const overlay =
+            context.createLinearGradient(0, 0, 0, 1600);
+        overlay.addColorStop(0, "rgba(0,0,0,.58)");
+        overlay.addColorStop(0.32, "rgba(0,0,0,.24)");
+        overlay.addColorStop(0.72, "rgba(0,0,0,.25)");
+        overlay.addColorStop(1, "rgba(0,0,0,.72)");
+        context.fillStyle = overlay;
+        context.fillRect(0, 0, 1080, 1600);
+
+        drawTableName(context, title, 120, {
+            foreground: "#FFFFFF",
+            background: "rgba(0,0,0,.28)",
+            fontFamily: FONT_DISPLAY,
+            weight: 800,
+            maxSize: 98,
+            minSize: 52,
+            height: 126,
+            radius: 28,
+            shadow: true,
+        });
+
+        drawQrCard(
+            context,
+            qrCode,
+            universal ? 405 : 455,
+            {
+                shadow: true,
+                radius: 38,
+                borderColor: "#FFFFFF",
+                borderWidth: 8,
+            }
+        );
+
+        drawOpenMenu(
+            context,
+            universal ? 1275 : 1325,
+            {
+                color: "#FFFFFF",
+                fontFamily: FONT_CLEAN,
+                size: 64,
+                weight: 800,
+            }
+        );
+    } else if (template === "dark") {
+        context.fillStyle = "#080808";
+        context.fillRect(0, 0, 1080, 1600);
+
+        context.save();
+        context.strokeStyle = "#FFFFFF";
+        context.lineWidth = 5;
+        context.strokeRect(64, 64, 952, 1472);
+        context.restore();
 
         drawTableName(context, title, 150, {
             foreground: "#FFFFFF",
             background: null,
-            fontFamily: FONT_BOLD,
-            weight: 900,
-            maxSize: 98,
+            fontFamily: FONT_COMPACT,
+            weight: 800,
+            maxSize: 102,
             minSize: 54,
             height: 120,
         });
-        drawOpenMenu(context, universal ? 255 : 330, {
-            color: "#FFFFFF",
-            fontFamily: FONT_MODERN,
-            size: 58,
-            weight: 800,
-        });
-        drawQrCard(context, qrCode, universal ? 400 : 470, {
-            shadow: true,
-            radius: 64,
-            borderColor: accent,
-            borderWidth: 8,
-        });
+
+        drawOpenMenu(
+            context,
+            universal ? 250 : 330,
+            {
+                color: "#FFFFFF",
+                fontFamily: FONT_CLEAN,
+                size: 58,
+                weight: 700,
+            }
+        );
+
+        drawQrCard(
+            context,
+            qrCode,
+            universal ? 405 : 475,
+            {
+                shadow: false,
+                radius: 12,
+                borderColor: "#FFFFFF",
+                borderWidth: 5,
+            }
+        );
     } else if (template === "banner") {
-        context.fillStyle = "#FAF8F4";
+        context.fillStyle = "#FFFFFF";
         context.fillRect(0, 0, 1080, 1600);
 
         if (banner) {
             context.save();
             context.beginPath();
-            context.rect(0, 0, 1080, 540);
+            context.rect(0, 0, 1080, 570);
             context.clip();
-            drawCoverImage(context, banner, 0, 0, 1080, 540);
+            drawCoverImage(
+                context,
+                banner,
+                0,
+                0,
+                1080,
+                570
+            );
             context.restore();
         } else {
-            context.fillStyle = accent;
-            context.fillRect(0, 0, 1080, 540);
+            context.fillStyle = darkAccent;
+            context.fillRect(0, 0, 1080, 570);
         }
 
-        const overlay = context.createLinearGradient(0, 0, 0, 540);
-        overlay.addColorStop(0, "rgba(0,0,0,.05)");
-        overlay.addColorStop(1, "rgba(0,0,0,.58)");
+        const overlay =
+            context.createLinearGradient(0, 0, 0, 570);
+        overlay.addColorStop(0, "rgba(0,0,0,.18)");
+        overlay.addColorStop(1, "rgba(0,0,0,.60)");
         context.fillStyle = overlay;
-        context.fillRect(0, 0, 1080, 540);
+        context.fillRect(0, 0, 1080, 570);
 
-        drawTableName(context, title, 165, {
+        drawTableName(context, title, 175, {
             foreground: "#FFFFFF",
-            background: null,
-            fontFamily: FONT_EDITORIAL,
-            weight: 700,
-            maxSize: 100,
-            minSize: 52,
-            height: 130,
+            background: "rgba(0,0,0,.25)",
+            fontFamily: FONT_DISPLAY,
+            weight: 800,
+            maxSize: 94,
+            minSize: 50,
+            height: 120,
+            radius: 26,
         });
-        drawOpenMenu(context, universal ? 550 : 610, {
-            color: "#111827",
-            fontFamily: FONT_MODERN,
-            size: 64,
-            weight: 900,
-        });
-        roundedRect(context, 445, universal ? 600 : 660, 190, 8, 4, accent);
-        drawQrCard(context, qrCode, universal ? 650 : 710, {
-            shadow: true,
-            radius: 62,
-            borderColor: "rgba(255,255,255,.95)",
-            borderWidth: 10,
-        });
+
+        drawOpenMenu(
+            context,
+            universal ? 610 : 635,
+            {
+                color: "#111827",
+                fontFamily: FONT_CLEAN,
+                size: 60,
+                weight: 800,
+            }
+        );
+
+        drawQrCard(
+            context,
+            qrCode,
+            universal ? 690 : 715,
+            {
+                shadow: true,
+                radius: 44,
+                borderColor: "#E5E7EB",
+                borderWidth: 3,
+            }
+        );
     } else if (template === "logo") {
         context.fillStyle = "#FFFFFF";
         context.fillRect(0, 0, 1080, 1600);
-        context.fillStyle = alpha(accent, 0.08);
-        context.beginPath();
-        context.arc(1020, 80, 340, 0, Math.PI * 2);
-        context.fill();
-        context.fillStyle = alpha(accent, 0.05);
-        context.beginPath();
-        context.arc(70, 1540, 280, 0, Math.PI * 2);
-        context.fill();
+
         context.fillStyle = accent;
         context.fillRect(0, 0, 1080, 18);
 
         if (logo) {
-            roundedRect(context, 345, 70, 390, 165, 42, "#FFFFFF");
-            drawContainImage(context, logo, 390, 95, 300, 115);
+            drawContainImage(
+                context,
+                logo,
+                365,
+                70,
+                350,
+                145
+            );
         }
 
-        drawTableName(context, title, logo ? 265 : 155, {
+        drawTableName(
+            context,
+            title,
+            logo ? 250 : 145,
+            {
+                foreground: "#111827",
+                background: null,
+                fontFamily: FONT_GEOMETRIC,
+                weight: 800,
+                maxSize: 84,
+                minSize: 48,
+                height: 112,
+            }
+        );
+
+        drawQrCard(
+            context,
+            qrCode,
+            universal
+                ? logo
+                    ? 365
+                    : 305
+                : logo
+                  ? 430
+                  : 365,
+            {
+                shadow: true,
+                radius: 44,
+                borderColor: "#E5E7EB",
+                borderWidth: 3,
+            }
+        );
+
+        roundedRect(
+            context,
+            315,
+            universal
+                ? logo
+                    ? 1200
+                    : 1140
+                : logo
+                  ? 1265
+                  : 1200,
+            450,
+            112,
+            56,
+            darkAccent
+        );
+        drawOpenMenu(
+            context,
+            universal
+                ? logo
+                    ? 1256
+                    : 1196
+                : logo
+                  ? 1321
+                  : 1256,
+            {
+                color: "#FFFFFF",
+                fontFamily: FONT_CLEAN,
+                size: 50,
+                weight: 800,
+            }
+        );
+    } else if (template === "xadrez") {
+        drawChecker(context, accent);
+        roundedRect(
+            context,
+            78,
+            78,
+            924,
+            1444,
+            54,
+            "rgba(255,255,255,.98)"
+        );
+
+        drawTableName(context, title, 155, {
             foreground: "#111827",
             background: null,
             fontFamily: FONT_GEOMETRIC,
-            weight: 900,
-            maxSize: 78,
-            minSize: 46,
-            height: 110,
-        });
-        drawOpenMenu(context, universal ? (logo ? 315 : 220) : logo ? 385 : 280, {
-            color: "#111827",
-            fontFamily: FONT_CLEAN,
-            size: 56,
             weight: 800,
+            maxSize: 86,
+            minSize: 48,
+            height: 116,
         });
-        drawQrCard(context, qrCode, universal ? (logo ? 405 : 335) : logo ? 470 : 390, {
-            shadow: true,
-            radius: 54,
-            borderColor: accent,
-            borderWidth: 6,
-        });
-    } else if (template === "xadrez") {
-        drawChecker(context, accent);
-        roundedRect(context, 82, 78, 916, 1444, 74, "rgba(255,255,255,.97)");
 
-        context.save();
-        context.strokeStyle = "rgba(17,24,39,.10)";
-        context.lineWidth = 3;
-        context.beginPath();
-        context.roundRect(82, 78, 916, 1444, 74);
-        context.stroke();
-        context.restore();
+        drawOpenMenu(
+            context,
+            universal ? 250 : 330,
+            {
+                color: "#111827",
+                fontFamily: FONT_CLEAN,
+                size: 56,
+                weight: 800,
+            }
+        );
 
-        drawTableName(context, title, 160, {
-            foreground: "#111111",
-            background: null,
-            fontFamily: FONT_MONO,
-            weight: 900,
-            maxSize: 82,
-            minSize: 46,
-            height: 115,
-        });
-        drawOpenMenu(context, universal ? 250 : 325, {
-            color: "#111111",
-            fontFamily: FONT_BOLD,
-            size: 54,
-            weight: 900,
-        });
-        roundedRect(context, 420, universal ? 300 : 375, 240, 10, 5, accent);
-        drawQrCard(context, qrCode, universal ? 390 : 460, {
-            shadow: false,
-            radius: 28,
-            borderColor: "#111111",
-            borderWidth: 5,
-        });
+        drawQrCard(
+            context,
+            qrCode,
+            universal ? 400 : 470,
+            {
+                shadow: false,
+                radius: 28,
+                borderColor: darkAccent,
+                borderWidth: 6,
+            }
+        );
     } else if (template === "gradient") {
-        const gradient = context.createLinearGradient(40, 40, 1040, 1560);
-        gradient.addColorStop(0, accent);
-        gradient.addColorStop(0.52, shade(accent, -58));
+        const gradient =
+            context.createLinearGradient(0, 0, 1080, 1600);
+        gradient.addColorStop(0, darkAccent);
+        gradient.addColorStop(0.62, shade(accent, -70));
         gradient.addColorStop(1, "#0B1220");
         context.fillStyle = gradient;
         context.fillRect(0, 0, 1080, 1600);
 
-        context.fillStyle = "rgba(255,255,255,.10)";
-        context.beginPath();
-        context.arc(865, 160, 320, 0, Math.PI * 2);
-        context.fill();
-        context.fillStyle = "rgba(255,255,255,.06)";
-        context.beginPath();
-        context.arc(120, 1460, 390, 0, Math.PI * 2);
-        context.fill();
-
-        drawTableName(context, title, 150, {
+        drawTableName(context, title, 160, {
             foreground: "#FFFFFF",
             background: "rgba(255,255,255,.12)",
-            fontFamily: FONT_EDITORIAL,
-            weight: 700,
-            maxSize: 82,
-            minSize: 46,
-            italic: true,
-            height: 116,
-            radius: 58,
-            shadow: true,
-        });
-        drawOpenMenu(context, universal ? 260 : 340, {
-            color: "#FFFFFF",
-            fontFamily: FONT_GEOMETRIC,
-            size: 55,
+            fontFamily: FONT_DISPLAY,
             weight: 800,
+            maxSize: 90,
+            minSize: 50,
+            height: 118,
+            radius: 30,
         });
-        drawQrCard(context, qrCode, universal ? 405 : 480, {
-            shadow: true,
-            radius: 68,
-            borderColor: "rgba(255,255,255,.45)",
-            borderWidth: 5,
-        });
+
+        drawOpenMenu(
+            context,
+            universal ? 250 : 330,
+            {
+                color: "#FFFFFF",
+                fontFamily: FONT_CLEAN,
+                size: 58,
+                weight: 700,
+            }
+        );
+
+        drawQrCard(
+            context,
+            qrCode,
+            universal ? 405 : 475,
+            {
+                shadow: true,
+                radius: 52,
+                borderColor: "rgba(255,255,255,.7)",
+                borderWidth: 4,
+            }
+        );
     } else if (template === "minimal") {
-        context.fillStyle = "#FCFCFA";
+        context.fillStyle = "#FFFFFF";
         context.fillRect(0, 0, 1080, 1600);
-        context.fillStyle = accent;
-        context.fillRect(0, 0, 20, 1600);
 
-        context.strokeStyle = alpha(accent, 0.35);
-        context.lineWidth = 2;
-        context.beginPath();
-        context.moveTo(250, universal ? 275 : 350);
-        context.lineTo(830, universal ? 275 : 350);
-        context.stroke();
-
-        drawTableName(context, title, 145, {
+        drawTableName(context, title, 165, {
             foreground: "#111827",
             background: null,
-            fontFamily: FONT_EDITORIAL,
-            weight: 700,
-            maxSize: 104,
-            minSize: 54,
-            height: 125,
-        });
-        drawOpenMenu(context, universal ? 220 : 305, {
-            color: "#4B5563",
             fontFamily: FONT_CLEAN,
-            size: 48,
             weight: 700,
+            maxSize: 90,
+            minSize: 50,
+            height: 118,
         });
-        drawQrCard(context, qrCode, universal ? 390 : 455, {
-            shadow: false,
-            radius: 0,
-            borderColor: "#E5E7EB",
-            borderWidth: 3,
-        });
+
+        context.strokeStyle = "#D1D5DB";
+        context.lineWidth = 2;
+        context.beginPath();
+        context.moveTo(350, universal ? 270 : 350);
+        context.lineTo(730, universal ? 270 : 350);
+        context.stroke();
+
+        drawOpenMenu(
+            context,
+            universal ? 220 : 305,
+            {
+                color: "#374151",
+                fontFamily: FONT_CLEAN,
+                size: 50,
+                weight: 600,
+            }
+        );
+
+        drawQrCard(
+            context,
+            qrCode,
+            universal ? 390 : 455,
+            {
+                shadow: false,
+                radius: 0,
+                borderColor: "#E5E7EB",
+                borderWidth: 3,
+            }
+        );
     }
 
     return canvas;
 }
 
-export async function downloadQrDesign(options: DownloadQrDesignOptions): Promise<void> {
+export async function downloadQrDesign(
+    options: DownloadQrDesignOptions
+): Promise<void> {
     const canvas = await renderQrDesignCanvas(options);
     await saveCanvas(canvas, options.fileName);
 }
