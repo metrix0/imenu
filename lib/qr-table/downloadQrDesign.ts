@@ -186,14 +186,18 @@ function drawQrCard(
     context.drawImage(qrCode, 215, y + 55, 650, 650);
 }
 
-function drawTitleBadge(
+function isUniversalTitle(title: string) {
+    return !title.trim() || title.trim().toLowerCase() === "universal";
+}
+
+function drawTableName(
     context: CanvasRenderingContext2D,
     title: string,
     y: number,
     background: string,
     foreground: string
 ) {
-    if (!title.trim() || title.trim().toLowerCase() === "universal") return;
+    if (isUniversalTitle(title)) return;
     const size = fitTextSize(context, title, 760, 72, 44, 800);
     context.font = `800 ${size}px ${FONT_FAMILY}`;
     const width = Math.min(870, Math.max(320, context.measureText(title).width + 120));
@@ -204,42 +208,167 @@ function drawTitleBadge(
     context.fillText(title, 540, y + 54, width - 70);
 }
 
-function drawFooter(
+function drawOpenMenu(
     context: CanvasRenderingContext2D,
-    displayUrl: string,
-    textColor: string,
-    mutedColor: string,
-    badgeBackground: string
+    y: number,
+    color: string,
+    size = 74
 ) {
-    const cleanDisplayUrl = displayUrl
-        .replace(/^https?:\/\//i, "")
-        .replace(/\/$/, "");
+    context.fillStyle = color;
+    context.font = `900 ${size}px ${FONT_FAMILY}`;
     context.textAlign = "center";
-    context.textBaseline = "alphabetic";
-    context.fillStyle = mutedColor;
-    context.font = `600 27px ${FONT_FAMILY}`;
-    context.fillText("Ou acesse pelo link", 540, 1390);
-
-    const urlFontSize = fitTextSize(context, cleanDisplayUrl, 790, 30, 20, 800);
-    context.font = `800 ${urlFontSize}px ${FONT_FAMILY}`;
-    const textWidth = context.measureText(cleanDisplayUrl).width;
-    const width = Math.min(900, Math.max(360, textWidth + 90));
-    roundedRect(context, (1080 - width) / 2, 1423, width, 82, 41, badgeBackground);
-    context.fillStyle = textColor;
     context.textBaseline = "middle";
-    context.fillText(cleanDisplayUrl, 540, 1464, width - 60);
+    context.fillText("Abrir cardápio", 540, y, 900);
 }
 
-export async function downloadQrDesign({
+async function saveCanvas(canvas: HTMLCanvasElement, fileName: string) {
+    const blob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob((result) => {
+            if (result) resolve(result);
+            else reject(new Error("Não foi possível gerar o arquivo."));
+        }, "image/png");
+    });
+
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = objectUrl;
+    link.download = fileName;
+    link.click();
+    URL.revokeObjectURL(objectUrl);
+}
+
+async function downloadLegacyDesign({
     qrValue,
     displayUrl,
     title,
     bannerUrl,
-    logoUrl,
     fileName,
-    template = "classic",
-    accentColor,
-}: DownloadQrDesignOptions): Promise<void> {
+}: DownloadQrDesignOptions) {
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=720x720&data=${encodeURIComponent(
+        qrValue
+    )}`;
+    const [banner, qrCode] = await Promise.all([
+        loadImage(bannerUrl),
+        loadImage(qrUrl),
+    ]);
+
+    const canvas = document.createElement("canvas");
+    canvas.width = 1080;
+    canvas.height = 1600;
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("Não foi possível criar o QR Code.");
+
+    const cleanDisplayUrl = displayUrl
+        .replace(/^https?:\/\//i, "")
+        .replace(/\/$/, "");
+    const showTitleBadge =
+        title.trim() !== "" && title.trim().toLowerCase() !== "universal";
+
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+
+    context.save();
+    context.beginPath();
+    context.rect(0, 0, canvas.width, 390);
+    context.clip();
+    context.filter = "blur(12px)";
+    drawCoverImage(context, banner, -24, -24, canvas.width + 48, 438);
+    context.restore();
+
+    context.fillStyle = "rgba(0, 0, 0, 0.20)";
+    context.fillRect(0, 0, canvas.width, 390);
+
+    context.textAlign = "center";
+    context.textBaseline = "middle";
+
+    if (showTitleBadge) {
+        const badgeFontSize = fitTextSize(context, title, 820, 104, 54, 800);
+        context.font = `800 ${badgeFontSize}px ${FONT_FAMILY}`;
+        const badgeTextWidth = context.measureText(title).width;
+        const badgeWidth = Math.min(940, Math.max(360, badgeTextWidth + 140));
+        const badgeHeight = 150;
+        const badgeX = (canvas.width - badgeWidth) / 2;
+        const badgeY = 120;
+
+        context.save();
+        context.shadowColor = "rgba(17, 24, 39, 0.20)";
+        context.shadowBlur = 28;
+        context.shadowOffsetY = 10;
+        context.fillStyle = "rgba(255, 255, 255, 0.94)";
+        context.beginPath();
+        context.roundRect(badgeX, badgeY, badgeWidth, badgeHeight, 75);
+        context.fill();
+        context.restore();
+
+        context.fillStyle = "#111827";
+        context.fillText(title, 540, badgeY + badgeHeight / 2, badgeWidth - 80);
+    }
+
+    context.textBaseline = "alphabetic";
+    context.fillStyle = "#111827";
+    context.font = `800 82px ${FONT_FAMILY}`;
+    context.fillText("Abrir cardápio", 540, 530, 900);
+
+    context.drawImage(qrCode, 215, 610, 650, 650);
+
+    context.fillStyle = "#6b7280";
+    context.font = `500 28px ${FONT_FAMILY}`;
+    context.fillText("Ou acesse pelo link", 540, 1370);
+
+    const urlFontSize = fitTextSize(
+        context,
+        cleanDisplayUrl,
+        790,
+        30,
+        20,
+        700
+    );
+    context.font = `700 ${urlFontSize}px ${FONT_FAMILY}`;
+    const urlTextWidth = context.measureText(cleanDisplayUrl).width;
+    const urlBadgeWidth = Math.min(900, Math.max(360, urlTextWidth + 90));
+    const urlBadgeHeight = 78;
+    const urlBadgeX = (canvas.width - urlBadgeWidth) / 2;
+    const urlBadgeY = 1408;
+
+    context.fillStyle = "#f3f4f6";
+    context.beginPath();
+    context.roundRect(
+        urlBadgeX,
+        urlBadgeY,
+        urlBadgeWidth,
+        urlBadgeHeight,
+        39
+    );
+    context.fill();
+
+    context.fillStyle = "#111827";
+    context.textBaseline = "middle";
+    context.fillText(
+        cleanDisplayUrl,
+        540,
+        urlBadgeY + urlBadgeHeight / 2,
+        urlBadgeWidth - 60
+    );
+
+    await saveCanvas(canvas, fileName);
+}
+
+export async function downloadQrDesign(options: DownloadQrDesignOptions): Promise<void> {
+    const {
+        qrValue,
+        title,
+        bannerUrl,
+        logoUrl,
+        fileName,
+        template = "classic",
+        accentColor,
+    } = options;
+
+    if (template === "classic") {
+        await downloadLegacyDesign(options);
+        return;
+    }
+
     const accent = normalizeHex(accentColor);
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=720x720&data=${encodeURIComponent(qrValue)}`;
     const [qrCode, banner, logo] = await Promise.all([
@@ -270,12 +399,9 @@ export async function downloadQrDesign({
         context.fill();
         context.fillStyle = accent;
         context.fillRect(0, 0, 1080, 18);
-        context.fillStyle = "#FFFFFF";
-        context.font = `900 74px ${FONT_FAMILY}`;
-        context.fillText("ABRIR CARDÁPIO", 540, 235, 900);
-        drawTitleBadge(context, title, 310, alpha(accent, 0.18), "#FFFFFF");
-        drawQrCard(context, qrCode, 470);
-        drawFooter(context, displayUrl, "#FFFFFF", "#94A3B8", alpha(accent, 0.2));
+        drawOpenMenu(context, 230, "#FFFFFF");
+        drawTableName(context, title, 315, alpha(accent, 0.18), "#FFFFFF");
+        drawQrCard(context, qrCode, isUniversalTitle(title) ? 420 : 485);
     } else if (template === "banner") {
         context.fillStyle = "#FFFFFF";
         context.fillRect(0, 0, 1080, 1600);
@@ -295,45 +421,29 @@ export async function downloadQrDesign({
         overlay.addColorStop(1, "rgba(0,0,0,.58)");
         context.fillStyle = overlay;
         context.fillRect(0, 0, 1080, 455);
-        context.fillStyle = "#FFFFFF";
-        context.font = `900 76px ${FONT_FAMILY}`;
-        context.fillText("SEU PEDIDO COMEÇA AQUI", 540, 215, 930);
-        drawTitleBadge(context, title, 310, "rgba(255,255,255,.94)", "#111827");
-        drawQrCard(context, qrCode, 500);
-        context.fillStyle = accent;
-        roundedRect(context, 430, 1300, 220, 12, 6, accent);
-        drawFooter(context, displayUrl, "#111827", "#6B7280", "#F3F4F6");
+        drawTableName(context, title, 175, "rgba(255,255,255,.94)", "#111827");
+        drawOpenMenu(context, isUniversalTitle(title) ? 500 : 480, "#111827", 72);
+        drawQrCard(context, qrCode, isUniversalTitle(title) ? 585 : 570);
     } else if (template === "logo") {
         context.fillStyle = "#FFFFFF";
         context.fillRect(0, 0, 1080, 1600);
         context.fillStyle = alpha(accent, 0.09);
-        context.fillRect(0, 0, 1080, 420);
+        context.fillRect(0, 0, 1080, 360);
         context.fillStyle = accent;
         context.fillRect(0, 0, 1080, 18);
         if (logo) {
-            roundedRect(context, 335, 70, 410, 170, 36, "#FFFFFF");
-            drawContainImage(context, logo, 380, 95, 320, 120);
-        } else {
-            context.fillStyle = accent;
-            context.font = `900 58px ${FONT_FAMILY}`;
-            context.fillText("SUA MARCA", 540, 150, 780);
+            roundedRect(context, 335, 55, 410, 145, 36, "#FFFFFF");
+            drawContainImage(context, logo, 380, 75, 320, 105);
         }
-        context.fillStyle = "#111827";
-        context.font = `900 62px ${FONT_FAMILY}`;
-        context.fillText("ESCANEIE E PEÇA", 540, 320, 900);
-        drawTitleBadge(context, title, 370, accent, "#FFFFFF");
-        drawQrCard(context, qrCode, 510);
-        drawFooter(context, displayUrl, "#111827", "#6B7280", alpha(accent, 0.1));
+        drawOpenMenu(context, 300, "#111827", 68);
+        drawTableName(context, title, 370, accent, "#FFFFFF");
+        drawQrCard(context, qrCode, isUniversalTitle(title) ? 430 : 500);
     } else if (template === "xadrez") {
         drawChecker(context, accent);
-        context.fillStyle = "rgba(255,255,255,.96)";
         roundedRect(context, 90, 85, 900, 1430, 70, "rgba(255,255,255,.96)");
-        context.fillStyle = "#111827";
-        context.font = `900 70px ${FONT_FAMILY}`;
-        context.fillText("PEÇA PELO QR CODE", 540, 220, 850);
-        drawTitleBadge(context, title, 305, accent, "#FFFFFF");
-        drawQrCard(context, qrCode, 470, false);
-        drawFooter(context, displayUrl, "#111827", "#6B7280", alpha(accent, 0.13));
+        drawOpenMenu(context, 215, "#111827", 70);
+        drawTableName(context, title, 300, accent, "#FFFFFF");
+        drawQrCard(context, qrCode, isUniversalTitle(title) ? 405 : 470, false);
     } else if (template === "gradient") {
         const gradient = context.createLinearGradient(40, 40, 1040, 1560);
         gradient.addColorStop(0, accent);
@@ -345,12 +455,9 @@ export async function downloadQrDesign({
         context.beginPath();
         context.arc(850, 210, 300, 0, Math.PI * 2);
         context.fill();
-        context.fillStyle = "#FFFFFF";
-        context.font = `900 70px ${FONT_FAMILY}`;
-        context.fillText("SEU CARDÁPIO, NA MESA", 540, 220, 920);
-        drawTitleBadge(context, title, 310, "rgba(255,255,255,.16)", "#FFFFFF");
-        drawQrCard(context, qrCode, 470);
-        drawFooter(context, displayUrl, "#FFFFFF", "rgba(255,255,255,.72)", "rgba(255,255,255,.14)");
+        drawOpenMenu(context, 215, "#FFFFFF", 70);
+        drawTableName(context, title, 300, "rgba(255,255,255,.16)", "#FFFFFF");
+        drawQrCard(context, qrCode, isUniversalTitle(title) ? 405 : 470);
     } else if (template === "minimal") {
         context.fillStyle = "#FFFFFF";
         context.fillRect(0, 0, 1080, 1600);
@@ -358,52 +465,10 @@ export async function downloadQrDesign({
         context.fillRect(0, 0, 22, 1600);
         context.fillStyle = alpha(accent, 0.08);
         context.fillRect(22, 0, 1058, 360);
-        context.fillStyle = "#111827";
-        context.font = `900 34px ${FONT_FAMILY}`;
-        context.fillText("CARDÁPIO DIGITAL", 540, 125, 800);
-        context.font = `900 74px ${FONT_FAMILY}`;
-        context.fillText("APONTE. ESCANEIE. PEÇA.", 540, 230, 900);
-        drawTitleBadge(context, title, 330, "#111827", "#FFFFFF");
-        drawQrCard(context, qrCode, 490, false);
-        drawFooter(context, displayUrl, "#111827", "#9CA3AF", "#F9FAFB");
-    } else {
-        context.fillStyle = "#FFFFFF";
-        context.fillRect(0, 0, 1080, 1600);
-        if (banner) {
-            context.save();
-            context.beginPath();
-            context.rect(0, 0, 1080, 390);
-            context.clip();
-            context.filter = "blur(10px)";
-            drawCoverImage(context, banner, -20, -20, 1120, 430);
-            context.restore();
-            context.fillStyle = "rgba(0,0,0,.28)";
-            context.fillRect(0, 0, 1080, 390);
-        } else {
-            context.fillStyle = accent;
-            context.fillRect(0, 0, 1080, 390);
-        }
-        drawTitleBadge(context, title, 135, "rgba(255,255,255,.95)", "#111827");
-        context.fillStyle = "#111827";
-        context.font = `900 78px ${FONT_FAMILY}`;
-        context.fillText("Abrir cardápio", 540, 505, 900);
-        context.fillStyle = accent;
-        roundedRect(context, 450, 550, 180, 10, 5, accent);
-        drawQrCard(context, qrCode, 605, false);
-        drawFooter(context, displayUrl, "#111827", "#6B7280", "#F3F4F6");
+        drawOpenMenu(context, 215, "#111827", 70);
+        drawTableName(context, title, 300, "#111827", "#FFFFFF");
+        drawQrCard(context, qrCode, isUniversalTitle(title) ? 405 : 470, false);
     }
 
-    const blob = await new Promise<Blob>((resolve, reject) => {
-        canvas.toBlob((result) => {
-            if (result) resolve(result);
-            else reject(new Error("Não foi possível gerar o arquivo."));
-        }, "image/png");
-    });
-
-    const objectUrl = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = objectUrl;
-    link.download = fileName;
-    link.click();
-    URL.revokeObjectURL(objectUrl);
+    await saveCanvas(canvas, fileName);
 }
