@@ -9,6 +9,7 @@ import {
     faDownload,
     faEdit,
     faImage,
+    faLink,
     faPalette,
     faPlus,
     faQrcode,
@@ -508,6 +509,20 @@ export default function MesasPage() {
                         </div>
                         {active && (
                             <div className="flex flex-wrap gap-3">
+                                <Button
+                                    type="button"
+                                    variant="secondary"
+                                    onClick={() =>
+                                        window.open(
+                                            "/garcom",
+                                            "_blank",
+                                            "noopener,noreferrer"
+                                        )
+                                    }
+                                >
+                                    <FontAwesomeIcon icon={faLink} className="mr-2" />
+                                    Link Garçon
+                                </Button>
                                 <Button
                                     type="button"
                                     variant="secondary"
