@@ -135,6 +135,8 @@ export default function WeeklyScheduleClick({
         slot: TimeSlot,
         mode: DragMode,
     ) => {
+        if (window.matchMedia("(max-width: 767px)").matches) return;
+
         event.preventDefault();
         event.stopPropagation();
         dragRef.current = {
@@ -257,7 +259,7 @@ export default function WeeklyScheduleClick({
                     {gridHours.map((hour) => (
                         <div
                             key={hour}
-                            className="absolute w-full -mt-2 pr-3 text-right text-[11px] font-medium text-gray-400 2xl:pr-5 2xl:text-base"
+                            className="absolute w-full -mt-2 pr-3 text-right text-[11px] font-medium text-gray-400 min-[1800px]:pr-5 min-[1800px]:text-base"
                             style={{ top: hour * PX_PER_HOUR }}
                         >
                             {String(hour).padStart(2, "0")}h
@@ -335,7 +337,7 @@ export default function WeeklyScheduleClick({
                                             </span>
                                         )}
                                         {height >= 26 && (
-                                            <span className="text-center text-sm font-bold leading-tight 2xl:text-lg">
+                                            <span className="text-center text-sm font-bold leading-tight min-[1800px]:text-lg">
                                                 {slot.open}–
                                                 {slot.close === "24:00"
                                                     ? "00:00"

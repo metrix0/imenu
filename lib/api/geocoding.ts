@@ -16,6 +16,7 @@ export type GeoAddress = {
 };
 
 const GOOGLE_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+const TOMTOM_API_KEY = process.env.NEXT_PUBLIC_TOMTOM_API_KEY;
 
 /**
  * 1. Busca dados do endereço via CEP (BrasilAPI)
@@ -50,6 +51,7 @@ export async function fetchAddressByCEP(cep: string): Promise<GeoAddress | null>
  */
 export async function fetchCoordinates(fullAddress: string): Promise<{ latitude: number; longitude: number } | null> {
     console.log("[geocoding] start", { fullAddress, hasGoogleKey: Boolean(GOOGLE_API_KEY) });
+    let googleQuotaExceeded = false;
 
     const geocodeGoogle = async (address: string): Promise<{ latitude: number; longitude: number } | null> => {
         if (!GOOGLE_API_KEY) {
@@ -73,6 +75,10 @@ export async function fetchCoordinates(fullAddress: string): Promise<{ latitude:
                 errorMessage: json.error_message ?? null,
             });
 
+            if (json.status === "OVER_QUERY_LIMIT") {
+                googleQuotaExceeded = true;
+            }
+
             if (json.status !== "OK" || !json.results?.length) {
                 return null;
             }
@@ -85,6 +91,39 @@ export async function fetchCoordinates(fullAddress: string): Promise<{ latitude:
             };
         } catch (error) {
             console.log("[geocoding] Google request failed", { address, error });
+            return null;
+        }
+    };
+
+    const geocodeTomTom = async (address: string): Promise<{ latitude: number; longitude: number } | null> => {
+        if (!TOMTOM_API_KEY) {
+            console.log("[geocoding] TomTom skipped: no key");
+            return null;
+        }
+
+        try {
+            const res = await fetch(
+                `https://api.tomtom.com/search/2/geocode/${encodeURIComponent(address)}.json?key=${TOMTOM_API_KEY}&countrySet=BR&limit=1&language=pt-BR`
+            );
+
+            if (!res.ok) {
+                console.log("[geocoding] TomTom HTTP failure", { address, status: res.status });
+                return null;
+            }
+
+            const json = await res.json();
+            console.log("[geocoding] TomTom response", {
+                address,
+                resultCount: json.results?.length ?? 0,
+            });
+
+            const latitude = Number(json.results?.[0]?.position?.lat);
+            const longitude = Number(json.results?.[0]?.position?.lon);
+            if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+
+            return { latitude, longitude };
+        } catch (error) {
+            console.log("[geocoding] TomTom request failed", { address, error });
             return null;
         }
     };
@@ -128,12 +167,18 @@ export async function fetchCoordinates(fullAddress: string): Promise<{ latitude:
         ? [addressParts[0], ...addressParts.slice(2)].join(", ")
         : fullAddress;
 
-    if (addressWithoutNumber !== fullAddress) {
+    if (!googleQuotaExceeded && addressWithoutNumber !== fullAddress) {
         const googleFallback = await geocodeGoogle(addressWithoutNumber);
         if (googleFallback) {
             console.log("[geocoding] resolved with Google without number", googleFallback);
             return googleFallback;
         }
+    }
+
+    const tomTomFallback = await geocodeTomTom(fullAddress);
+    if (tomTomFallback) {
+        console.log("[geocoding] resolved with TomTom", tomTomFallback);
+        return tomTomFallback;
     }
 
     const nominatimFallback = await geocodeNominatim(addressWithoutNumber);

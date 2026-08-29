@@ -884,6 +884,18 @@ export async function POST(request: Request) {
                                 );
                             }
 
+                            const subitemQuantity = isRewardItem
+                                ? 1
+                                : Math.max(
+                                      1,
+                                      Math.min(
+                                          99,
+                                          Math.round(
+                                              Number(subitem?.quantity) || 1
+                                          )
+                                      )
+                                  );
+
                             await client.query(
                                 `
                                     INSERT INTO order_item_subitems (
@@ -898,7 +910,7 @@ export async function POST(request: Request) {
                                         (SELECT id FROM subitems WHERE id = $2),
                                         $3,
                                         $4,
-                                        1
+                                        $5
                                     )
                                 `,
                                 [
@@ -911,6 +923,7 @@ export async function POST(request: Request) {
                                               subitem.price_cents
                                           ) ||
                                           0,
+                                    subitemQuantity,
                                 ]
                             );
                         }

@@ -69,6 +69,7 @@ export type Subcategory = {
     description: string | null;
     min_select: number;
     max_select: number;
+    allow_multiple_units: boolean;
     position: number;
     subitems: Subitem[];
 };
@@ -103,6 +104,7 @@ export type CartItem = {
         subitemId: string;
         subitemName: string;
         price_cents: number;
+        quantity?: number;
     }[];
     promotion?: Promotion;
 };

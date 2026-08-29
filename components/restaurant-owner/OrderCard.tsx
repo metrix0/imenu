@@ -98,7 +98,7 @@ function TimeInfo({ text, time, scheduled }: { text: string; time: string; sched
     const badge = (
         <div
             tabIndex={text ? 0 : undefined}
-            className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium outline-none 2xl:px-3 2xl:py-1 2xl:text-base ${text ? "cursor-help" : ""} ${
+            className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium outline-none min-[1800px]:px-3 min-[1800px]:py-1 min-[1800px]:text-base ${text ? "cursor-help" : ""} ${
                 scheduled
                     ? "bg-green-50 text-green-700"
                     : "bg-red-50 text-red-600"
@@ -395,17 +395,17 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
     return (
         <Card className={`!p-0 overflow-hidden border-l-4 ${config.borderColor} flex flex-col h-full`}>
             {/* Header do Card */}
-            <div className="rounded-t-xl bg-gray-50 border-b border-gray-100 px-5 py-4 2xl:px-6 2xl:py-5">
-                <div className="flex items-center gap-2 whitespace-nowrap 2xl:gap-4">
+            <div className="rounded-t-xl bg-gray-50 border-b border-gray-100 px-5 py-4 min-[1800px]:px-6 min-[1800px]:py-5">
+                <div className="flex items-center gap-2 whitespace-nowrap min-[1800px]:gap-4">
                     <span className="shrink-0 font-bold text-gray-900 text-lg">
                         #{order.display_id || order.id.slice(0, 4)}
                     </span>
-                    <span className={`shrink-0 text-xs px-2 py-0.5 rounded-full font-medium 2xl:text-base 2xl:px-3 2xl:py-1 ${config.color}`}>
+                    <span className={`shrink-0 text-xs px-2 py-0.5 rounded-full font-medium min-[1800px]:text-base min-[1800px]:px-3 min-[1800px]:py-1 ${config.color}`}>
                         {config.label}
                     </span>
                     {!isTableOrder && (
                         <div
-                            className={`flex shrink-0 items-center text-xs -ml-1 px-2 py-0.5 rounded-full font-medium 2xl:text-base 2xl:px-3 2xl:py-1 ${
+                            className={`flex shrink-0 items-center text-xs -ml-1 px-2 py-0.5 rounded-full font-medium min-[1800px]:text-base min-[1800px]:px-3 min-[1800px]:py-1 ${
                                 paymentMethod === "pix"
                                     ? "bg-green-100 text-green-800"
                                     : "bg-gray-200 text-gray-700"
@@ -434,7 +434,7 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
                     )}
                 </div>
 
-                <div className="mt-2 flex w-full min-w-0 items-center gap-3 text-sm font-medium text-gray-700 2xl:text-base">
+                <div className="mt-2 flex w-full min-w-0 items-center gap-3 text-sm font-medium text-gray-700 min-[1800px]:text-base">
                     <span className="flex min-w-0 flex-1 items-center gap-1.5" title={order.customer_name}>
                         <FontAwesomeIcon icon={faUser} className="shrink-0 text-gray-400" />
                         <span className="min-w-0 truncate">{order.customer_name}</span>
@@ -457,11 +457,11 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
             </div>
 
             {/* Conteúdo */}
-            <div className="flex flex-1 flex-col px-5 py-4 2xl:px-6 2xl:mt-2">
+            <div className="flex flex-1 flex-col px-5 py-4 min-[1800px]:px-6 min-[1800px]:mt-2">
                 {/* Itens */}
-                <div className="space-y-2 2xl:space-y-3">
+                <div className="space-y-2 min-[1800px]:space-y-3">
                     {isScheduled ? (
-                        <div className="mb-3 flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2 text-xs font-bold text-green-700 2xl:text-base">
+                        <div className="mb-3 flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2 text-xs font-bold text-green-700 min-[1800px]:text-base">
                             <FontAwesomeIcon icon={faCalendarDays} />
                             <span>
                                 Agendado para {allowFutureOrderScheduling ? `${scheduledDay} ` : ""}{scheduledTime}{" "}
@@ -470,7 +470,7 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
                         </div>
                     ) : null}
                     {itemsToShow.map((item, idx) => (
-                        <div key={`${order.id}-item-${idx}`} className="flex min-w-0 justify-between gap-3 text-sm 2xl:text-base">
+                        <div key={`${order.id}-item-${idx}`} className="flex min-w-0 justify-between gap-3 text-sm min-[1800px]:text-base">
                             <div className="flex min-w-0 gap-2">
                                 <span className="font-bold text-gray-900">{item.quantity}x</span>
                                 <span className="min-w-0 text-gray-700 line-clamp-1">{item.name}</span>
@@ -494,7 +494,7 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
                     <hr className="border-gray-100" />
 
                     {/* Dados de Entrega e Totais */}
-                    <div className="text-sm space-y-1 2xl:space-y-2">
+                    <div className="text-sm space-y-1 min-[1800px]:space-y-2">
                         <div className="flex min-w-0 items-center gap-2 text-gray-600 font-medium">
                             <FontAwesomeIcon icon={isTableOrder ? faChair : isPickup ? faBagShopping : faMapMarkerAlt} className="shrink-0 text-gray-400" />
                             <span
@@ -505,12 +505,12 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
                             </span>
                         </div>
                         {!isPickup && (
-                            <div className="flex justify-between text-gray-500 pt-2 2xl:text-base">
+                            <div className="flex justify-between text-gray-500 pt-2 min-[1800px]:text-base">
                                 <span>Taxa de Entrega</span>
                                 <span>{fmtMoney(order.delivery_cents)}</span>
                             </div>
                         )}
-                        <div className="flex justify-between font-bold text-lg 2xl:text-xl text-gray-900">
+                        <div className="flex justify-between font-bold text-lg min-[1800px]:text-xl text-gray-900">
                             <span>Total</span>
                             <span>{fmtMoney(order.total_cents)}</span>
                         </div>
@@ -518,7 +518,7 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
 
                     {/* Botões de Ação */}
                     {config.btn && (
-                        <div className="flex gap-2 mt-2 2xl:mt-5">
+                        <div className="flex gap-2 mt-2 min-[1800px]:mt-5">
                             {showBackButton && (
                                 <Button 
                                     variant="secondary"
