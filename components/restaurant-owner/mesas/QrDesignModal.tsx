@@ -315,7 +315,12 @@ export default function QrDesignModal({
     };
 
     return (
-        <Modal open={open} onClose={onClose} className="max-w-7xl">
+        <Modal
+            open={open}
+            onClose={onClose}
+            className="max-w-7xl"
+            showCloseButton
+        >
             <div className="border-b border-gray-100 px-5 py-4 sm:px-7 sm:py-5">
                 <h2 className="text-xl font-bold text-gray-900">
                     Configurar design
