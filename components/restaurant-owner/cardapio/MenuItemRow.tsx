@@ -449,7 +449,7 @@ export default function MenuItemRow({
                         onEditingChange?.(true);
                     }}
                 >
-                    <div className="flex min-w-0 items-center gap-3 overflow-hidden 2xl:gap-4">
+                    <div className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden 2xl:gap-4">
                         {dragHandle && (
                             <div
                                 className="text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing p-1 -ml-2"
@@ -461,7 +461,7 @@ export default function MenuItemRow({
 
                         {renderImageArea()}
 
-                        <div className="flex min-w-0 flex-col 2xl:text-lg">
+                        <div className="flex min-w-0 flex-1 flex-col 2xl:text-lg">
                             <div className="flex min-w-0 items-center gap-2">
                                 <span className="truncate font-medium text-gray-900">
                                     {name}
@@ -489,6 +489,12 @@ export default function MenuItemRow({
                                             Sem estoque
                                         </span>
                                     )}
+                                <span className="ml-auto shrink-0 pl-2 font-medium text-gray-900 whitespace-nowrap md:hidden">
+                                    {(priceCents / 100).toLocaleString("pt-BR", {
+                                        style: "currency",
+                                        currency: "BRL",
+                                    })}
+                                </span>
                             </div>
 
                             {description ? (
@@ -506,7 +512,7 @@ export default function MenuItemRow({
                     <div className="flex items-center gap-4 2xl:gap-6 pl-4 2xl:text-lg">
                         {renderStockInput()}
 
-                        <span className="font-medium text-gray-900 whitespace-nowrap">
+                        <span className="hidden font-medium text-gray-900 whitespace-nowrap md:inline">
                             {(priceCents / 100).toLocaleString("pt-BR", {
                                 style: "currency",
                                 currency: "BRL",

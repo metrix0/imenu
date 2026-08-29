@@ -10,6 +10,7 @@ import {
 import Modal from "@/components/ui/Modal";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import Toast from "@/components/ui/Toast";
+import Tooltip from "@/components/ui/Tooltip";
 import { supabase } from "@/lib/database/supabaseClient";
 import { icons } from "@/lib/utils/fontawesome";
 
@@ -37,6 +38,7 @@ export type SharedComplementGroup = {
     description: string | null;
     min_select: number;
     max_select: number;
+    allow_multiple_units: boolean;
     options: SharedComplementOption[];
 };
 
@@ -188,7 +190,7 @@ export default function ManageComplementGroupModal({
         updates: Partial<
             Pick<
                 SharedComplementGroup,
-                "name" | "min_select" | "max_select"
+                "name" | "min_select" | "max_select" | "allow_multiple_units"
             >
         >
     ) => {
@@ -533,7 +535,7 @@ export default function ManageComplementGroupModal({
                                 className="w-full bg-transparent text-lg font-bold text-gray-800 focus:border-b focus:border-brand focus:outline-none disabled:opacity-60 2xl:text-xl"
                             />
 
-                            <div className="mt-3 flex flex-wrap items-center gap-4 text-sm text-gray-600 2xl:text-base">
+                            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-gray-600 2xl:text-base">
                                 <label className="flex cursor-pointer select-none items-center gap-2">
                                     <input
                                         type="checkbox"
@@ -590,6 +592,37 @@ export default function ManageComplementGroupModal({
                                         }}
                                         className="w-14 rounded border border-gray-300 p-1 text-center text-sm disabled:opacity-60 2xl:text-base"
                                     />
+                                </div>
+
+                                <div className="flex basis-full min-w-0 items-center gap-2 sm:basis-auto">
+                                    <input
+                                        type="checkbox"
+                                        aria-label="Mais de uma unidade por complemento"
+                                        checked={draft.allow_multiple_units === true}
+                                        disabled={isSaving}
+                                        onChange={(event) => {
+                                            const allow_multiple_units =
+                                                event.target.checked;
+                                            setDraft({
+                                                ...draft,
+                                                allow_multiple_units,
+                                            });
+                                            void updateGroup({
+                                                allow_multiple_units,
+                                            });
+                                        }}
+                                        className="shrink-0 rounded text-brand focus:ring-brand"
+                                    />
+                                    <Tooltip
+                                        text="Mais de uma unidade por complemento"
+                                        showOnClick
+                                        position="top"
+                                        parentClassName="min-w-0 max-w-full overflow-hidden sm:max-w-none sm:overflow-visible"
+                                    >
+                                        <span className="block max-w-full cursor-help truncate">
+                                            Mais de uma unidade por complemento
+                                        </span>
+                                    </Tooltip>
                                 </div>
                             </div>
                         </div>
@@ -699,7 +732,7 @@ export default function ManageComplementGroupModal({
                                                             );
                                                         }
                                                     }}
-                                                    className="min-w-0 flex-1 bg-transparent text-sm text-gray-700 focus:outline-none disabled:opacity-60 2xl:text-base"
+                                                    className="min-w-0 flex-1 truncate bg-transparent text-sm text-gray-700 focus:outline-none disabled:opacity-60 2xl:text-base"
                                                 />
 
                                                 {option.availability ===
@@ -718,7 +751,7 @@ export default function ManageComplementGroupModal({
                                         </div>
 
                                         <div className="ml-auto flex w-full items-center justify-end gap-3 pl-8 sm:w-auto sm:pl-0">
-                                            <div className="relative flex w-24 items-center gap-1 2xl:w-28">
+                                            <div className="relative flex w-24 shrink-0 items-center gap-1 sm:w-28 2xl:w-28">
                                                 <span className="absolute left-2 text-xs text-gray-400 2xl:text-base">
                                                     R$
                                                 </span>
