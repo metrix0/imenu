@@ -135,7 +135,12 @@ export default function WeeklyScheduleClick({
         slot: TimeSlot,
         mode: DragMode,
     ) => {
-        if (window.matchMedia("(max-width: 767px)").matches) return;
+        if (
+            event.pointerType === "touch" ||
+            window.matchMedia("(max-width: 767px)").matches
+        ) {
+            return;
+        }
 
         event.preventDefault();
         event.stopPropagation();
@@ -208,6 +213,17 @@ export default function WeeklyScheduleClick({
             ),
         });
         setEditModal((prev) => ({ ...prev, isOpen: false }));
+    };
+    const openDeleteModal = () => {
+        setEditModal((prev) => ({ ...prev, isOpen: false }));
+        window.setTimeout(() => setIsDeleteModalOpen(true), 220);
+    };
+    const closeDeleteModal = () => {
+        setIsDeleteModalOpen(false);
+        window.setTimeout(
+            () => setEditModal((prev) => ({ ...prev, isOpen: true })),
+            220,
+        );
     };
     const deleteSlot = async () => {
         if (editModal.slotIndex !== null) {
@@ -310,7 +326,7 @@ export default function WeeklyScheduleClick({
                                                 "move",
                                             )
                                         }
-                                        className="group absolute left-1 right-1 z-10 flex cursor-move flex-col items-center justify-center overflow-hidden rounded-md border border-gray-900 bg-gray-800 p-1 text-white shadow-sm transition-colors hover:bg-gray-700"
+                                        className="group absolute left-1 right-1 z-10 flex cursor-pointer flex-col items-center justify-center overflow-hidden rounded-md border border-gray-900 bg-gray-800 p-1 text-white shadow-sm transition-colors hover:bg-gray-700 sm:cursor-move"
                                         style={{
                                             top: (start / 60) * PX_PER_HOUR,
                                             height,
@@ -329,7 +345,7 @@ export default function WeeklyScheduleClick({
                                                     "resize-start",
                                                 )
                                             }
-                                            className="absolute inset-x-0 top-0 h-2 cursor-ns-resize bg-white/0 transition-colors hover:bg-white/25"
+                                            className="absolute inset-x-0 top-0 hidden h-2 cursor-ns-resize bg-white/0 transition-colors hover:bg-white/25 sm:block"
                                         />
                                         {height >= 60 && (
                                             <span className="mb-1 text-[10px] font-bold uppercase tracking-wide opacity-80">
@@ -356,7 +372,7 @@ export default function WeeklyScheduleClick({
                                                     "resize-end",
                                                 )
                                             }
-                                            className="absolute inset-x-0 bottom-0 h-2 cursor-ns-resize bg-white/0 transition-colors hover:bg-white/25"
+                                            className="absolute inset-x-0 bottom-0 hidden h-2 cursor-ns-resize bg-white/0 transition-colors hover:bg-white/25 sm:block"
                                         />
                                     </div>
                                 );
@@ -429,7 +445,7 @@ export default function WeeklyScheduleClick({
                         {editModal.slotIndex !== null && (
                             <button
                                 type="button"
-                                onClick={() => setIsDeleteModalOpen(true)}
+                                onClick={openDeleteModal}
                                 className="flex h-[50px] w-[50px] shrink-0 cursor-pointer items-center justify-center rounded-full text-brand transition-colors hover:bg-red-50 hover:text-red-700"
                             >
                                 <FontAwesomeIcon icon={faTrash} />
@@ -455,7 +471,7 @@ export default function WeeklyScheduleClick({
             </Modal>
             <ConfirmModal
                 open={isDeleteModalOpen}
-                onClose={() => setIsDeleteModalOpen(false)}
+                onClose={closeDeleteModal}
                 onConfirm={deleteSlot}
                 title="Excluir horário?"
                 description={`Excluir ${editModal.startTime}–${editModal.endTime} de ${dayName(editModal.dayKey)}?`}

@@ -52,6 +52,24 @@ export async function startQrTableCheckout(
     window.location.assign(payload.checkoutUrl);
 }
 
+export async function updateQrTableDesign(
+    restaurantId: string,
+    template: string,
+    color: string
+): Promise<void> {
+    const response = await qrTableAuthenticatedFetch("/api/qr-table/design", {
+        method: "POST",
+        body: JSON.stringify({ restaurantId, template, color }),
+    });
+    const payload = (await response.json()) as { error?: string };
+
+    if (!response.ok) {
+        throw new Error(
+            payload.error || "Não foi possível salvar o design."
+        );
+    }
+}
+
 export type QrTableReconcileResult = {
     active: boolean;
     activatedNow: boolean;
