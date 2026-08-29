@@ -17,6 +17,8 @@ const QR_DESIGN_TEMPLATES = new Set([
     "xadrez",
     "gradient",
     "minimal",
+    "white",
+    "poster",
 ]);
 
 export async function POST(request: Request) {
@@ -76,7 +78,10 @@ export async function POST(request: Request) {
 
         return NextResponse.json({ ok: true });
     } catch (error) {
-        console.error("[QR_TABLE_DESIGN] Falha ao salvar design:", error);
+        console.error(
+            "[QR_TABLE_DESIGN] Falha ao salvar design:",
+            error
+        );
 
         if (error instanceof RestaurantOwnerAuthError) {
             return NextResponse.json(
