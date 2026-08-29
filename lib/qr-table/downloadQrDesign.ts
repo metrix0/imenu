@@ -27,9 +27,11 @@ export type RenderQrDesignOptions = Omit<
 
 const FONT_FAMILY = '"Inter", "Segoe UI", Arial, sans-serif';
 const FONT_DISPLAY = '"Trebuchet MS", "Segoe UI", Arial, sans-serif';
+const FONT_EDITORIAL = 'Georgia, "Times New Roman", serif';
+const FONT_BOLD = '"Arial Black", Impact, Arial, sans-serif';
+const FONT_MONO = '"Courier New", Courier, monospace';
 const FONT_GEOMETRIC = 'Verdana, "Segoe UI", Arial, sans-serif';
 const FONT_CLEAN = '"Helvetica Neue", "Segoe UI", Arial, sans-serif';
-const FONT_COMPACT = '"Arial Narrow", "Helvetica Neue", Arial, sans-serif';
 
 function loadImage(url: string): Promise<HTMLImageElement> {
     return fetch(url)
@@ -210,11 +212,10 @@ function drawChecker(
     context: CanvasRenderingContext2D,
     accent: string
 ) {
-    const size = 96;
-    context.fillStyle = "#FFFFFF";
+    const size = 84;
+    context.fillStyle = "#FFFDF8";
     context.fillRect(0, 0, 1080, 1600);
-    context.fillStyle = alpha(accent, 0.16);
-
+    context.fillStyle = alpha(accent, 0.92);
     for (let row = 0; row < Math.ceil(1600 / size); row += 1) {
         for (let col = 0; col < Math.ceil(1080 / size); col += 1) {
             if ((row + col) % 2 === 0) {
@@ -680,12 +681,13 @@ export async function renderQrDesignCanvas({
         drawTableName(context, title, 120, {
             foreground: "#FFFFFF",
             background: "rgba(0,0,0,.28)",
-            fontFamily: FONT_DISPLAY,
-            weight: 800,
-            maxSize: 98,
-            minSize: 52,
-            height: 126,
-            radius: 28,
+            fontFamily: FONT_EDITORIAL,
+            weight: 700,
+            maxSize: 94,
+            minSize: 50,
+            paddingX: 220,
+            height: 132,
+            radius: 36,
             shadow: true,
         });
 
@@ -718,16 +720,18 @@ export async function renderQrDesignCanvas({
         context.save();
         context.strokeStyle = "#FFFFFF";
         context.lineWidth = 5;
-        context.strokeRect(64, 64, 952, 1472);
+        context.beginPath();
+        context.roundRect(64, 64, 952, 1472, 48);
+        context.stroke();
         context.restore();
 
         drawTableName(context, title, 150, {
             foreground: "#FFFFFF",
             background: null,
-            fontFamily: FONT_COMPACT,
+            fontFamily: FONT_CLEAN,
             weight: 800,
-            maxSize: 102,
-            minSize: 54,
+            maxSize: 94,
+            minSize: 52,
             height: 120,
         });
 
@@ -748,7 +752,7 @@ export async function renderQrDesignCanvas({
             universal ? 405 : 475,
             {
                 shadow: false,
-                radius: 12,
+                radius: 40,
                 borderColor: "#FFFFFF",
                 borderWidth: 5,
             }
@@ -786,29 +790,30 @@ export async function renderQrDesignCanvas({
         drawTableName(context, title, 175, {
             foreground: "#FFFFFF",
             background: "rgba(0,0,0,.25)",
-            fontFamily: FONT_DISPLAY,
-            weight: 800,
+            fontFamily: FONT_EDITORIAL,
+            weight: 700,
             maxSize: 94,
             minSize: 50,
-            height: 120,
-            radius: 26,
+            paddingX: 220,
+            height: 132,
+            radius: 36,
         });
 
         drawOpenMenu(
             context,
-            universal ? 610 : 635,
+            universal ? 650 : 675,
             {
                 color: "#111827",
-                fontFamily: FONT_CLEAN,
-                size: 60,
-                weight: 800,
+                fontFamily: FONT_DISPLAY,
+                size: 58,
+                weight: 500,
             }
         );
 
         drawQrCard(
             context,
             qrCode,
-            universal ? 690 : 715,
+            universal ? 735 : 760,
             {
                 shadow: true,
                 radius: 44,
@@ -824,20 +829,27 @@ export async function renderQrDesignCanvas({
         context.fillRect(0, 0, 1080, 18);
 
         if (logo) {
+            context.save();
+            context.fillStyle = "#FFFFFF";
+            context.beginPath();
+            context.arc(540, 205, 150, 0, Math.PI * 2);
+            context.fill();
+            context.clip();
             drawContainImage(
                 context,
                 logo,
-                365,
+                405,
                 70,
-                350,
-                145
+                270,
+                270
             );
+            context.restore();
         }
 
         drawTableName(
             context,
             title,
-            logo ? 250 : 145,
+            logo ? 385 : 145,
             {
                 foreground: "#111827",
                 background: null,
@@ -854,10 +866,10 @@ export async function renderQrDesignCanvas({
             qrCode,
             universal
                 ? logo
-                    ? 365
+                    ? 405
                     : 305
                 : logo
-                  ? 430
+                  ? 525
                   : 365,
             {
                 shadow: true,
@@ -875,7 +887,7 @@ export async function renderQrDesignCanvas({
                     ? 1200
                     : 1140
                 : logo
-                  ? 1265
+                  ? 1320
                   : 1200,
             450,
             112,
@@ -889,7 +901,7 @@ export async function renderQrDesignCanvas({
                     ? 1256
                     : 1196
                 : logo
-                  ? 1321
+                  ? 1376
                   : 1256,
             {
                 color: "#FFFFFF",
@@ -902,44 +914,61 @@ export async function renderQrDesignCanvas({
         drawChecker(context, accent);
         roundedRect(
             context,
+            82,
             78,
-            78,
-            924,
+            916,
             1444,
-            54,
-            "rgba(255,255,255,.98)"
+            74,
+            "rgba(255,255,255,.97)"
         );
 
-        drawTableName(context, title, 155, {
-            foreground: "#111827",
+        context.save();
+        context.strokeStyle = "rgba(17,24,39,.10)";
+        context.lineWidth = 3;
+        context.beginPath();
+        context.roundRect(82, 78, 916, 1444, 74);
+        context.stroke();
+        context.restore();
+
+        drawTableName(context, title, 160, {
+            foreground: "#111111",
             background: null,
-            fontFamily: FONT_GEOMETRIC,
-            weight: 800,
-            maxSize: 86,
-            minSize: 48,
-            height: 116,
+            fontFamily: FONT_MONO,
+            weight: 900,
+            maxSize: 82,
+            minSize: 46,
+            height: 115,
         });
 
         drawOpenMenu(
             context,
-            universal ? 250 : 330,
+            universal ? 250 : 325,
             {
-                color: "#111827",
-                fontFamily: FONT_CLEAN,
-                size: 56,
-                weight: 800,
+                color: "#111111",
+                fontFamily: FONT_BOLD,
+                size: 54,
+                weight: 900,
             }
         );
 
+        roundedRect(
+            context,
+            420,
+            universal ? 300 : 375,
+            240,
+            10,
+            5,
+            accent
+        );
         drawQrCard(
             context,
             qrCode,
-            universal ? 400 : 470,
+            universal ? 390 : 460,
             {
                 shadow: false,
                 radius: 28,
-                borderColor: darkAccent,
-                borderWidth: 6,
+                borderColor: "#111111",
+                borderWidth: 5,
             }
         );
     } else if (template === "gradient") {
@@ -1022,7 +1051,7 @@ export async function renderQrDesignCanvas({
             universal ? 390 : 455,
             {
                 shadow: false,
-                radius: 0,
+                radius: 36,
                 borderColor: "#E5E7EB",
                 borderWidth: 3,
             }
