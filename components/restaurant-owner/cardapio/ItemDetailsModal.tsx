@@ -582,8 +582,8 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, 
                             onDragEnd={handleGroupDragEnd}
                         >
                             {/* Header do Grupo */}
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 pb-4 border-b border-gray-200">
-                                <div className="flex-1 flex items-center gap-3">
+                            <div className="mb-4 border-b border-gray-200 pb-4">
+                                <div className="flex items-start gap-3">
                                     <div className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 p-1"
                                         onMouseEnter={() => setAllowGroupDragId(group.id)}
                                         onMouseLeave={() => setAllowGroupDragId(null)}
@@ -591,14 +591,19 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, 
                                         <FontAwesomeIcon icon={faGripVertical} className="text-sm" />
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <input 
-                                            className="bg-transparent font-bold text-gray-800 text-lg 2xl:text-xl w-full focus:outline-none focus:border-b focus:border-brand"
-                                            value={group.name}
-                                            onChange={(e) => updateGroupLocally(group.id, { name: e.target.value })}
-                                            onBlur={(e) => handleUpdateGroup(group.id, { name: e.currentTarget.value })}
-                                            onMouseDown={e => e.stopPropagation()} 
-                                        />
-                                        <div className="flex flex-wrap gap-4 mt-2 text-sm 2xl:text-base text-gray-600">
+                                        <div className="flex min-w-0 items-center gap-2">
+                                            <input 
+                                                className="min-w-0 flex-1 bg-transparent font-bold text-gray-800 text-lg 2xl:text-xl focus:outline-none focus:border-b focus:border-brand"
+                                                value={group.name}
+                                                onChange={(e) => updateGroupLocally(group.id, { name: e.target.value })}
+                                                onBlur={(e) => handleUpdateGroup(group.id, { name: e.currentTarget.value })}
+                                                onMouseDown={e => e.stopPropagation()} 
+                                            />
+                                            <button onClick={() => handleDeleteGroupClick(group.id)} className="shrink-0 cursor-pointer text-gray-400 hover:text-red-600 px-2">
+                                                <FontAwesomeIcon icon={faTrash} />
+                                            </button>
+                                        </div>
+                                        <div className="flex flex-wrap gap-x-4 gap-y-2 mt-2 text-sm 2xl:text-base text-gray-600">
                                             <label className="flex items-center gap-2 cursor-pointer select-none shrink-0">
                                                 <input 
                                                     type="checkbox" 
@@ -608,39 +613,31 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, 
                                                 />
                                                 Obrigatório
                                             </label>
-                                            <div className="flex min-w-0 flex-1 items-center gap-4">
-                                                <div className="flex shrink-0 items-center gap-2 2xl:text-base">
-                                                    <span>Até:</span>
-                                                    <input 
-                                                        type="number" 
-                                                        className="w-12 p-1 text-center rounded border border-gray-300 text-sm 2xl:text-base"
-                                                        value={group.max_select}
-                                                        onChange={(e) => updateGroupLocally(group.id, { max_select: parseInt(e.target.value) || 1 })}
-                                                        onBlur={(e) => handleUpdateGroup(group.id, { max_select: parseInt(e.currentTarget.value) || 1 })}
-                                                        onMouseDown={e => e.stopPropagation()}
-                                                    />
-                                                </div>
-                                                <label className="flex min-w-0 flex-1 items-center gap-2 cursor-pointer select-none">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={group.allow_multiple_units === true}
-                                                        onChange={(e) => handleUpdateGroup(group.id, { allow_multiple_units: e.target.checked })}
-                                                        className="shrink-0 rounded text-brand focus:ring-brand"
-                                                    />
-                                                    <span
-                                                        className="truncate"
-                                                        title="Mais de uma unidade por complemento"
-                                                    >
-                                                        Mais de uma unidade por complemento
-                                                    </span>
-                                                </label>
+                                            <div className="flex shrink-0 items-center gap-2 2xl:text-base">
+                                                <span>Até:</span>
+                                                <input 
+                                                    type="number" 
+                                                    className="w-12 p-1 text-center rounded border border-gray-300 text-sm 2xl:text-base"
+                                                    value={group.max_select}
+                                                    onChange={(e) => updateGroupLocally(group.id, { max_select: parseInt(e.target.value) || 1 })}
+                                                    onBlur={(e) => handleUpdateGroup(group.id, { max_select: parseInt(e.currentTarget.value) || 1 })}
+                                                    onMouseDown={e => e.stopPropagation()}
+                                                />
                                             </div>
+                                            <label className="flex basis-full items-center gap-2 cursor-pointer select-none sm:basis-auto">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={group.allow_multiple_units === true}
+                                                    onChange={(e) => handleUpdateGroup(group.id, { allow_multiple_units: e.target.checked })}
+                                                    className="shrink-0 rounded text-brand focus:ring-brand"
+                                                />
+                                                <span>
+                                                    Mais de uma unidade por complemento
+                                                </span>
+                                            </label>
                                         </div>
                                     </div>
                                 </div>
-                                <button onClick={() => handleDeleteGroupClick(group.id)} className="cursor-pointer text-gray-400 hover:text-red-600 px-2">
-                                    <FontAwesomeIcon icon={faTrash} />
-                                </button>
                             </div>
 
                             {/* Subitens */}
@@ -659,13 +656,13 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, 
                                         // Suporte mobile simples (opcional, mas recomendado)
                                         onTouchStart={() => setAllowDragId(sub.id)}><FontAwesomeIcon icon={faGripVertical} className="text-xs 2xl:text-base" /></div>
                                         <input 
-                                            className="flex-1 text-sm 2xl:text-base text-gray-700 focus:outline-none bg-transparent"
+                                            className="min-w-0 flex-1 truncate text-sm 2xl:text-base text-gray-700 focus:outline-none bg-transparent"
                                             value={sub.name}
                                             onChange={(e) => updateSubitemLocally(sub.id, { name: e.target.value })}
                                             onBlur={(e) => handleUpdateSubitem(sub.id, { name: e.currentTarget.value })}
                                             onMouseDown={e => e.stopPropagation()}
                                         />
-                                        <div className="flex items-center gap-1 relative">
+                                        <div className="relative flex w-28 shrink-0 items-center gap-1 sm:w-32">
                                             <span className="text-xs text-gray-400 2xl:text-base">R$</span>
                                             <SubitemPriceInput 
                                                 priceCents={sub.price_cents}
@@ -780,7 +777,7 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, 
                             </div>
                         </div>
                     ) : (
-                        /* BOTÕES DE AÇÃO PRINCIPAIS */
+                        /* BOTÕES DE AÇÃO PRINCIPAIS */}
                         <div className="flex gap-3">
                             <button onClick={() => setIsAddingGroup(true)} className="cursor-pointer flex-1 py-4 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 font-medium hover:border-brand hover:text-brand transition-all flex flex-col items-center gap-2">
                                 <FontAwesomeIcon icon={faPlus} />
