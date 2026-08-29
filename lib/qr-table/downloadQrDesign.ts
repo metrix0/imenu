@@ -580,7 +580,7 @@ export async function renderQrDesignCanvas({
     title,
     bannerUrl,
     logoUrl,
-    template = "classic",
+    template = "banner",
     accentColor,
 }: RenderQrDesignOptions): Promise<HTMLCanvasElement> {
     if (template === "classic") {
@@ -681,13 +681,13 @@ export async function renderQrDesignCanvas({
         drawTableName(context, title, 120, {
             foreground: "#FFFFFF",
             background: "rgba(0,0,0,.28)",
-            fontFamily: FONT_EDITORIAL,
+            fontFamily: FONT_FAMILY,
             weight: 700,
             maxSize: 94,
             minSize: 50,
             paddingX: 220,
-            height: 132,
-            radius: 36,
+            height: 160,
+            radius: 40,
             shadow: true,
         });
 
@@ -790,13 +790,13 @@ export async function renderQrDesignCanvas({
         drawTableName(context, title, 175, {
             foreground: "#FFFFFF",
             background: "rgba(0,0,0,.25)",
-            fontFamily: FONT_EDITORIAL,
+            fontFamily: FONT_FAMILY,
             weight: 700,
             maxSize: 94,
             minSize: 50,
             paddingX: 220,
-            height: 132,
-            radius: 36,
+            height: 160,
+            radius: 40,
         });
 
         drawOpenMenu(
