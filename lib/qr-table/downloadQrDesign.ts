@@ -829,19 +829,20 @@ export async function renderQrDesignCanvas({
         context.fillRect(0, 0, 1080, 18);
 
         if (logo) {
+            const logoSize = 300;
+            const logoX = 540 - logoSize / 2;
+            const logoY = 205 - logoSize / 2;
             context.save();
-            context.fillStyle = "#FFFFFF";
             context.beginPath();
-            context.arc(540, 205, 150, 0, Math.PI * 2);
-            context.fill();
+            context.arc(540, 205, logoSize / 2, 0, Math.PI * 2);
             context.clip();
-            drawContainImage(
+            drawCoverImage(
                 context,
                 logo,
-                405,
-                70,
-                270,
-                270
+                logoX,
+                logoY,
+                logoSize,
+                logoSize
             );
             context.restore();
         }
@@ -933,10 +934,10 @@ export async function renderQrDesignCanvas({
         drawTableName(context, title, 160, {
             foreground: "#111111",
             background: null,
-            fontFamily: FONT_MONO,
-            weight: 900,
-            maxSize: 82,
-            minSize: 46,
+            fontFamily: FONT_FAMILY,
+            weight: 800,
+            maxSize: 88,
+            minSize: 48,
             height: 115,
         });
 
@@ -945,9 +946,9 @@ export async function renderQrDesignCanvas({
             universal ? 250 : 325,
             {
                 color: "#111111",
-                fontFamily: FONT_BOLD,
+                fontFamily: FONT_CLEAN,
                 size: 54,
-                weight: 900,
+                weight: 700,
             }
         );
 
@@ -967,8 +968,6 @@ export async function renderQrDesignCanvas({
             {
                 shadow: false,
                 radius: 28,
-                borderColor: "#111111",
-                borderWidth: 5,
             }
         );
     } else if (template === "gradient") {
@@ -987,13 +986,14 @@ export async function renderQrDesignCanvas({
             weight: 800,
             maxSize: 90,
             minSize: 50,
-            height: 118,
-            radius: 30,
+            paddingX: 200,
+            height: 150,
+            radius: 36,
         });
 
         drawOpenMenu(
             context,
-            universal ? 250 : 330,
+            universal ? 250 : 350,
             {
                 color: "#FFFFFF",
                 fontFamily: FONT_CLEAN,
@@ -1005,7 +1005,7 @@ export async function renderQrDesignCanvas({
         drawQrCard(
             context,
             qrCode,
-            universal ? 405 : 475,
+            universal ? 405 : 495,
             {
                 shadow: true,
                 radius: 52,
