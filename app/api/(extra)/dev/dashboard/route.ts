@@ -229,6 +229,14 @@ function distinctAccounts(orders: NormalizedOrder[]): number {
     return distinctAccountSet(orders).size;
 }
 
+function distinctCustomers(orders: NormalizedOrder[]): number {
+    return new Set(
+        orders
+            .map((order) => order.customerKey)
+            .filter((value): value is string => Boolean(value))
+    ).size;
+}
+
 function firstOrderByAccount(orders: NormalizedOrder[]): Map<string, number> {
     const firstOrders = new Map<string, number>();
 
@@ -639,8 +647,8 @@ async function loadPostHogConsumerTimeline(
     const hogql = `
         SELECT
             multiIf(${bucketExpression}, -1) AS bucket_index,
-            countIf(event = '${CONSUMER_EVENTS.menuViewed}') AS menu_views,
-            countIf(event = '${CONSUMER_EVENTS.itemAddedToCart}') AS cart_adds,
+            uniqIf(distinct_id, event = '${CONSUMER_EVENTS.menuViewed}') AS menu_views,
+            uniqIf(distinct_id, event = '${CONSUMER_EVENTS.itemAddedToCart}') AS cart_adds,
             avgIf(
                 properties.cart_total_cents,
                 event = '${CONSUMER_EVENTS.itemAddedToCart}'
@@ -652,6 +660,8 @@ async function loadPostHogConsumerTimeline(
               '${CONSUMER_EVENTS.menuViewed}',
               '${CONSUMER_EVENTS.itemAddedToCart}'
           )
+          AND NOT startsWith(toString(properties.$pathname), '/mesa/')
+          AND NOT startsWith(toString(properties.consumer_pathname), '/mesa/')
         GROUP BY bucket_index
         HAVING bucket_index >= 0
         ORDER BY bucket_index
@@ -840,6 +850,7 @@ export async function GET(request: Request) {
                 LEFT JOIN restaurants AS r
                     ON r.id = o.restaurant_id
                 WHERE o.created_at < $1
+                  AND o.table_id IS NULL
                 ORDER BY o.created_at ASC
             `,
             [new Date(endAt).toISOString()]
@@ -987,12 +998,14 @@ export async function GET(request: Request) {
 
         const orderSeries = buckets.map((bucket) => ({
             label: bucket.label,
-            value: ordersInside(history, bucket.start, bucket.end).length,
+            value: distinctCustomers(
+                ordersInside(history, bucket.start, bucket.end).filter(isHandledOrder)
+            ),
         }));
 
         const consumerPipeline = buildConsumerPipeline(
             consumerTracking,
-            selected.length
+            distinctCustomers(selected.filter(isHandledOrder))
         );
 
         const pipeline = [
