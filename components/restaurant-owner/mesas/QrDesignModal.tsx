@@ -27,6 +27,16 @@ type TemplateOption = {
 
 const TEMPLATES: TemplateOption[] = [
     {
+        id: "classic",
+        name: "Padrão",
+        description: "Modelo padrão do iMenu.",
+    },
+    {
+        id: "banner",
+        name: "Sua capa",
+        description: "Capa em destaque com composição limpa e leitura forte.",
+    },
+    {
         id: "poster",
         name: "Poster",
         description: "Foto em tela cheia, texto branco forte e QR em destaque.",
@@ -35,11 +45,6 @@ const TEMPLATES: TemplateOption[] = [
         id: "white",
         name: "Texto branco",
         description: "Cor sólida, texto branco e QR Code. Só o essencial.",
-    },
-    {
-        id: "banner",
-        name: "Sua capa",
-        description: "Capa em destaque com composição limpa e leitura forte.",
     },
     {
         id: "logo",
@@ -66,13 +71,15 @@ const TEMPLATES: TemplateOption[] = [
         name: "Minimal",
         description: "Branco, direto e elegante, com bastante respiro.",
     },
-    {
-        id: "classic",
-        name: "Legado",
-        description: "Modelo original usado atualmente no iMenu.",
-    },
 ];
 
+const NO_COLOR_TEMPLATES = new Set<QrDesignTemplate>([
+    "classic",
+    "banner",
+    "poster",
+    "dark",
+    "minimal",
+]);
 const FALLBACK_COLORS = ["#F97316", "#111827", "#2563EB"];
 const PREVIEW_QR_VALUE = "https://imenuapp.com.br/mesa/preview";
 
@@ -245,7 +252,7 @@ export default function QrDesignModal({
 
     useEffect(() => {
         if (!open) return;
-        setTemplate(currentTemplate || "banner");
+        setTemplate(currentTemplate || "classic");
         setColor(currentColor);
     }, [currentColor, currentTemplate, open]);
 
@@ -285,6 +292,7 @@ export default function QrDesignModal({
         () => TEMPLATES.find((item) => item.id === template) || TEMPLATES[0],
         [template]
     );
+    const usesColor = !NO_COLOR_TEMPLATES.has(template);
 
     const suggestedColors = useMemo(() => {
         const source =
@@ -297,7 +305,7 @@ export default function QrDesignModal({
 
     const chooseTemplate = (nextTemplate: QrDesignTemplate) => {
         setTemplate(nextTemplate);
-        if (nextTemplate === "classic") return;
+        if (NO_COLOR_TEMPLATES.has(nextTemplate)) return;
 
         const nextColor =
             nextTemplate === "logo"
@@ -360,67 +368,84 @@ export default function QrDesignModal({
                             </div>
                         </div>
 
-                        <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5">
+                        <div
+                            className={`rounded-2xl border border-gray-200 p-5 ${
+                                usesColor
+                                    ? "bg-gray-50"
+                                    : "bg-white opacity-60"
+                            }`}
+                        >
                             <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
                                 <div>
-                                    <div className="font-bold text-gray-900">
+                                    <div
+                                        className={`font-bold ${
+                                            usesColor
+                                                ? "text-gray-900"
+                                                : "text-gray-500"
+                                        }`}
+                                    >
                                         Cor do template ·{" "}
                                         {selectedTemplate.name}
                                     </div>
                                     <div className="mt-1 text-sm text-gray-500">
-                                        Sugestões extraídas da capa e da logo
-                                        do restaurante.
+                                        {usesColor
+                                            ? "Sugestões extraídas da capa e da logo do restaurante."
+                                            : "Esse template não usa cor."}
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-3">
-                                    {suggestedColors.map((suggested) => (
-                                        <button
-                                            key={suggested}
-                                            type="button"
-                                            onClick={() =>
-                                                setColor(suggested)
-                                            }
-                                            aria-label={`Usar cor ${suggested}`}
-                                            title={suggested}
-                                            className={`h-10 w-10 cursor-pointer rounded-full border-4 shadow-sm transition hover:scale-105 ${
-                                                color.toLowerCase() ===
-                                                suggested.toLowerCase()
-                                                    ? "border-gray-900"
-                                                    : "border-white"
-                                            }`}
-                                            style={{
-                                                backgroundColor: suggested,
-                                            }}
-                                        />
-                                    ))}
-                                    <label
-                                        className="relative flex h-10 w-10 cursor-pointer items-center justify-center overflow-hidden rounded-full border-2 border-dashed border-gray-300 bg-white text-gray-500 transition hover:border-brand hover:text-brand"
-                                        title="Escolher outra cor"
-                                    >
-                                        <FontAwesomeIcon icon={faPlus} />
-                                        <input
-                                            type="color"
-                                            value={color}
-                                            onChange={(event) =>
-                                                setColor(
-                                                    event.target.value.toUpperCase()
-                                                )
-                                            }
-                                            className="absolute inset-0 cursor-pointer opacity-0"
-                                            aria-label="Escolher outra cor"
-                                        />
-                                    </label>
+                                {usesColor && (
+                                    <div className="flex items-center gap-3">
+                                        {suggestedColors.map((suggested) => (
+                                            <button
+                                                key={suggested}
+                                                type="button"
+                                                onClick={() =>
+                                                    setColor(suggested)
+                                                }
+                                                aria-label={`Usar cor ${suggested}`}
+                                                title={suggested}
+                                                className={`h-10 w-10 cursor-pointer rounded-full border-4 shadow-sm transition hover:scale-105 ${
+                                                    color.toLowerCase() ===
+                                                    suggested.toLowerCase()
+                                                        ? "border-gray-900"
+                                                        : "border-white"
+                                                }`}
+                                                style={{
+                                                    backgroundColor: suggested,
+                                                }}
+                                            />
+                                        ))}
+                                        <label
+                                            className="relative flex h-10 w-10 cursor-pointer items-center justify-center overflow-hidden rounded-full border-2 border-dashed border-gray-300 bg-white text-gray-500 transition hover:border-brand hover:text-brand"
+                                            title="Escolher outra cor"
+                                        >
+                                            <FontAwesomeIcon icon={faPlus} />
+                                            <input
+                                                type="color"
+                                                value={color}
+                                                onChange={(event) =>
+                                                    setColor(
+                                                        event.target.value.toUpperCase()
+                                                    )
+                                                }
+                                                className="absolute inset-0 cursor-pointer opacity-0"
+                                                aria-label="Escolher outra cor"
+                                            />
+                                        </label>
+                                    </div>
+                                )}
+                            </div>
+                            {usesColor && (
+                                <div className="mt-4 flex items-center gap-3 text-sm text-gray-600">
+                                    <span
+                                        className="h-6 w-6 rounded-full border border-black/10"
+                                        style={{ backgroundColor: color }}
+                                    />
+                                    <span className="font-mono font-semibold uppercase">
+                                        {color}
+                                    </span>
                                 </div>
-                            </div>
-                            <div className="mt-4 flex items-center gap-3 text-sm text-gray-600">
-                                <span
-                                    className="h-6 w-6 rounded-full border border-black/10"
-                                    style={{ backgroundColor: color }}
-                                />
-                                <span className="font-mono font-semibold uppercase">
-                                    {color}
-                                </span>
-                            </div>
+                            )}
                         </div>
                     </div>
 
