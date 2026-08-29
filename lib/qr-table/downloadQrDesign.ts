@@ -18,6 +18,8 @@ type DownloadQrDesignOptions = {
     accentColor?: string;
 };
 
+export type RenderQrDesignOptions = Omit<DownloadQrDesignOptions, "fileName">;
+
 const FONT_FAMILY = '"Inter", "Segoe UI", Arial, sans-serif';
 const FONT_EDITORIAL = 'Georgia, "Times New Roman", serif';
 const FONT_MODERN = '"Trebuchet MS", Arial, sans-serif';
@@ -342,13 +344,12 @@ async function saveCanvas(canvas: HTMLCanvasElement, fileName: string) {
     URL.revokeObjectURL(objectUrl);
 }
 
-async function downloadLegacyDesign({
+async function renderLegacyDesign({
     qrValue,
     displayUrl,
     title,
     bannerUrl,
-    fileName,
-}: DownloadQrDesignOptions) {
+}: RenderQrDesignOptions): Promise<HTMLCanvasElement> {
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=720x720&data=${encodeURIComponent(
         qrValue
     )}`;
@@ -455,23 +456,28 @@ async function downloadLegacyDesign({
         urlBadgeWidth - 60
     );
 
-    await saveCanvas(canvas, fileName);
+    return canvas;
 }
 
-export async function downloadQrDesign(options: DownloadQrDesignOptions): Promise<void> {
-    const {
-        qrValue,
-        title,
-        bannerUrl,
-        logoUrl,
-        fileName,
-        template = "classic",
-        accentColor,
-    } = options;
-
+export async function renderQrDesignCanvas({
+    qrValue,
+    displayUrl,
+    title,
+    bannerUrl,
+    logoUrl,
+    template = "classic",
+    accentColor,
+}: RenderQrDesignOptions): Promise<HTMLCanvasElement> {
     if (template === "classic") {
-        await downloadLegacyDesign(options);
-        return;
+        return renderLegacyDesign({
+            qrValue,
+            displayUrl,
+            title,
+            bannerUrl,
+            logoUrl,
+            template,
+            accentColor,
+        });
     }
 
     const accent = normalizeHex(accentColor);
@@ -725,5 +731,10 @@ export async function downloadQrDesign(options: DownloadQrDesignOptions): Promis
         });
     }
 
-    await saveCanvas(canvas, fileName);
+    return canvas;
+}
+
+export async function downloadQrDesign(options: DownloadQrDesignOptions): Promise<void> {
+    const canvas = await renderQrDesignCanvas(options);
+    await saveCanvas(canvas, options.fileName);
 }
