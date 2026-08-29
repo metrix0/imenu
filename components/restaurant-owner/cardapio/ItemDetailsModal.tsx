@@ -5,6 +5,7 @@ import { supabase } from "@/lib/database/supabaseClient";
 import Modal from "@/components/ui/Modal";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
+import Tooltip from "@/components/ui/Tooltip";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { icons } from "@/lib/utils/fontawesome";
 import { faTrash, faPlus, faGripLines, faGripVertical, faDownload, faSearch } from "@fortawesome/free-solid-svg-icons";
@@ -185,7 +186,7 @@ const SubitemPriceInput = ({ priceCents, onChange }: { priceCents: number; onCha
 
     return (
         <input 
-            className="w-full pl-6 pr-1 py-1 text-sm 2xl:text-base text-right border rounded border-gray-200 focus:border-brand focus:outline-none"
+            className="w-full pl-2 pr-1 py-1 text-sm 2xl:text-base text-right border rounded border-gray-200 focus:border-brand focus:outline-none"
             type="text"
             inputMode="decimal"
             value={localValue}
@@ -624,17 +625,25 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, 
                                                     onMouseDown={e => e.stopPropagation()}
                                                 />
                                             </div>
-                                            <label className="flex basis-full items-center gap-2 cursor-pointer select-none sm:basis-auto">
+                                            <div className="flex basis-full min-w-0 items-center gap-2 sm:basis-auto">
                                                 <input
                                                     type="checkbox"
+                                                    aria-label="Mais de uma unidade por complemento"
                                                     checked={group.allow_multiple_units === true}
                                                     onChange={(e) => handleUpdateGroup(group.id, { allow_multiple_units: e.target.checked })}
                                                     className="shrink-0 rounded text-brand focus:ring-brand"
                                                 />
-                                                <span>
-                                                    Mais de uma unidade por complemento
-                                                </span>
-                                            </label>
+                                                <Tooltip
+                                                    text="Mais de uma unidade por complemento"
+                                                    showOnClick
+                                                    position="top"
+                                                    parentClassName="min-w-0 max-w-full overflow-hidden sm:max-w-none sm:overflow-visible"
+                                                >
+                                                    <span className="block max-w-full cursor-help truncate">
+                                                        Mais de uma unidade por complemento
+                                                    </span>
+                                                </Tooltip>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -662,7 +671,7 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, 
                                             onBlur={(e) => handleUpdateSubitem(sub.id, { name: e.currentTarget.value })}
                                             onMouseDown={e => e.stopPropagation()}
                                         />
-                                        <div className="relative flex w-28 shrink-0 items-center gap-1 sm:w-32">
+                                        <div className="relative flex w-20 shrink-0 items-center gap-1 sm:w-32">
                                             <span className="text-xs text-gray-400 2xl:text-base">R$</span>
                                             <SubitemPriceInput 
                                                 priceCents={sub.price_cents}
