@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
+import { CONSUMER_EVENTS } from "@/lib/analytics/consumerEvents";
 import { query } from "@/lib/database/sql";
 
 export const runtime = "nodejs";
@@ -308,32 +309,49 @@ async function loadFunnelSummary(
         '^/[^/]+/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$';
     const legacyOrderPathRegex =
         '^/pedido/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$';
-    const hogql = `
-        SELECT
-            countIf(
-                event = '$pageview'
-                AND properties.$pathname = '/restaurante/criar/localizacao'
-            ) AS registration_complete,
-            uniqIf(
-                distinct_id,
-                event = '$pageview'
-                AND (
-                    match(toString(properties.$pathname), '${orderPathRegex}')
-                    OR match(toString(properties.$pathname), '${legacyOrderPathRegex}')
-                )
-            ) AS ordered_consumers
+    const registrationHogql = `
+        SELECT countIf(
+            event = '$pageview'
+            AND properties.$pathname = '/restaurante/criar/localizacao'
+        )
         FROM events
         WHERE timestamp >= parseDateTimeBestEffort('${start}')
           AND timestamp < parseDateTimeBestEffort('${end}')
     `;
+    const orderedHogql = `
+        SELECT count()
+        FROM (
+            SELECT distinct_id
+            FROM events
+            WHERE timestamp >= parseDateTimeBestEffort('${start}')
+              AND timestamp < parseDateTimeBestEffort('${end}')
+              AND event IN (
+                  '$pageview',
+                  '${CONSUMER_EVENTS.paymentStarted}'
+              )
+            GROUP BY distinct_id
+            HAVING countIf(
+                event = '${CONSUMER_EVENTS.paymentStarted}'
+            ) > 0
+              AND countIf(
+                    event = '$pageview'
+                    AND (
+                        match(toString(properties.$pathname), '${orderPathRegex}')
+                        OR match(toString(properties.$pathname), '${legacyOrderPathRegex}')
+                    )
+              ) > 0
+        )
+    `;
 
     try {
-        const row = (await runPostHogQuery(hogql))[0];
-        if (!row) throw new Error("PostHog returned no result row.");
+        const [registrationRows, orderedRows] = await Promise.all([
+            runPostHogQuery(registrationHogql),
+            runPostHogQuery(orderedHogql),
+        ]);
 
         return {
-            registrationComplete: Number(row[0]) || 0,
-            orderedConsumers: Number(row[1]) || 0,
+            registrationComplete: Number(registrationRows[0]?.[0]) || 0,
+            orderedConsumers: Number(orderedRows[0]?.[0]) || 0,
         };
     } catch (error) {
         console.warn("[DEV_DASHBOARD_DETAILS] Funnel metrics unavailable:", error);
@@ -481,6 +499,7 @@ export async function GET(request: Request) {
                         ON r.id = o.restaurant_id
                     WHERE o.created_at >= $1
                       AND o.created_at < $2
+                      AND o.table_id IS NULL
                     ORDER BY o.created_at ASC
                 `,
                 [
