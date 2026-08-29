@@ -777,7 +777,7 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, 
                             </div>
                         </div>
                     ) : (
-                        /* BOTÕES DE AÇÃO PRINCIPAIS */}
+                        /* BOTÕES DE AÇÃO PRINCIPAIS */
                         <div className="flex gap-3">
                             <button onClick={() => setIsAddingGroup(true)} className="cursor-pointer flex-1 py-4 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 font-medium hover:border-brand hover:text-brand transition-all flex flex-col items-center gap-2">
                                 <FontAwesomeIcon icon={faPlus} />
