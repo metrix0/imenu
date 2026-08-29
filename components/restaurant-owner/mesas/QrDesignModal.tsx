@@ -156,25 +156,11 @@ async function extractPalette(url: string): Promise<string[]> {
     }
 }
 
-function RealQr() {
+function RealQr({ className = "" }: { className?: string }) {
     return (
-        <div className="rounded-xl bg-white p-2 shadow-md">
+        <div className={`bg-white p-2 ${className}`}>
             <img src={PREVIEW_QR} alt="Prévia real do QR Code" className="h-24 w-24" />
         </div>
-    );
-}
-
-function RequiredPreviewContent({
-    textClassName = "text-gray-900",
-}: {
-    textClassName?: string;
-}) {
-    return (
-        <>
-            <div className={`text-[11px] font-black ${textClassName}`}>Mesa 1</div>
-            <div className={`text-[11px] font-extrabold ${textClassName}`}>Abrir cardápio</div>
-            <RealQr />
-        </>
     );
 }
 
@@ -191,18 +177,30 @@ function Preview({
 }) {
     if (template === "banner") {
         return (
-            <div className="relative h-60 overflow-hidden rounded-xl bg-white shadow-sm">
+            <div className="relative h-60 overflow-hidden rounded-xl bg-[#FAF8F4] shadow-sm">
                 <div
-                    className="h-[34%] bg-cover bg-center"
+                    className="absolute inset-x-0 top-0 h-[44%] bg-cover bg-center"
                     style={{
                         backgroundColor: color,
                         backgroundImage: bannerUrl
-                            ? `linear-gradient(rgba(0,0,0,.08),rgba(0,0,0,.52)), url(${bannerUrl})`
+                            ? `linear-gradient(rgba(0,0,0,.08),rgba(0,0,0,.48)), url(${bannerUrl})`
                             : undefined,
                     }}
                 />
-                <div className="flex -translate-y-5 flex-col items-center gap-2 px-3">
-                    <RequiredPreviewContent />
+                <div
+                    className="absolute inset-x-4 top-5 text-center text-[20px] font-bold leading-none text-white drop-shadow"
+                    style={{ fontFamily: 'Georgia, "Times New Roman", serif' }}
+                >
+                    Mesa 1
+                </div>
+                <div className="absolute inset-x-0 top-[78px] flex flex-col items-center gap-2">
+                    <RealQr className="rounded-[18px] shadow-xl ring-4 ring-white/80" />
+                    <div
+                        className="text-[12px] font-black tracking-tight text-gray-900"
+                        style={{ fontFamily: '"Trebuchet MS", Arial, sans-serif' }}
+                    >
+                        Abrir cardápio
+                    </div>
                 </div>
             </div>
         );
@@ -210,28 +208,71 @@ function Preview({
 
     if (template === "logo") {
         return (
-            <div
-                className="flex h-60 flex-col items-center justify-center gap-2 overflow-hidden rounded-xl bg-white p-4 shadow-sm"
-                style={{ borderTop: `8px solid ${color}` }}
-            >
+            <div className="relative flex h-60 flex-col items-center overflow-hidden rounded-xl bg-white px-4 py-4 shadow-sm">
+                <div
+                    className="absolute inset-x-0 top-0 h-1.5"
+                    style={{ background: color }}
+                />
+                <div
+                    className="absolute -right-12 -top-14 h-28 w-28 rounded-full opacity-10"
+                    style={{ background: color }}
+                />
                 {logoUrl && (
                     <img
                         src={logoUrl}
                         alt="Logo do restaurante"
-                        className="h-8 max-w-28 object-contain"
+                        className="mt-1 h-7 max-w-24 object-contain"
                     />
                 )}
-                <RequiredPreviewContent />
+                <div
+                    className="mt-2 text-[15px] font-black tracking-tight text-gray-900"
+                    style={{ fontFamily: 'Verdana, Geneva, sans-serif' }}
+                >
+                    Mesa 1
+                </div>
+                <RealQr className="mt-2 rounded-2xl shadow-md ring-2 ring-gray-100" />
+                <div
+                    className="mt-2 rounded-full px-4 py-1 text-[10px] font-bold text-white"
+                    style={{
+                        background: color,
+                        fontFamily: '"Helvetica Neue", Arial, sans-serif',
+                    }}
+                >
+                    Abrir cardápio
+                </div>
             </div>
         );
     }
 
     if (template === "dark") {
         return (
-            <div className="relative flex h-60 overflow-hidden rounded-xl bg-[#090D16] p-4 shadow-sm">
-                <div className="absolute inset-x-0 top-0 h-2" style={{ background: color }} />
-                <div className="flex w-full flex-col items-center justify-center gap-3">
-                    <RequiredPreviewContent textClassName="text-white" />
+            <div className="relative flex h-60 overflow-hidden rounded-xl bg-[#080A0F] p-4 shadow-sm">
+                <div
+                    className="absolute -right-12 -top-10 h-32 w-32 rounded-full opacity-20 blur-xl"
+                    style={{ background: color }}
+                />
+                <div
+                    className="absolute -bottom-16 -left-14 h-36 w-36 rounded-full opacity-10 blur-xl"
+                    style={{ background: color }}
+                />
+                <div className="relative flex w-full flex-col items-center justify-center">
+                    <div
+                        className="text-[18px] font-black uppercase leading-none tracking-[-0.06em] text-white"
+                        style={{ fontFamily: '"Arial Black", Impact, Arial, sans-serif' }}
+                    >
+                        Mesa 1
+                    </div>
+                    <div
+                        className="mt-1 h-[3px] w-10 rounded-full"
+                        style={{ background: color }}
+                    />
+                    <RealQr className="mt-3 rounded-[20px] shadow-2xl ring-2 ring-white/10" />
+                    <div
+                        className="mt-3 text-[10px] font-bold uppercase tracking-[0.14em] text-white"
+                        style={{ fontFamily: '"Trebuchet MS", Arial, sans-serif' }}
+                    >
+                        Abrir cardápio
+                    </div>
                 </div>
             </div>
         );
@@ -240,16 +281,31 @@ function Preview({
     if (template === "xadrez") {
         return (
             <div
-                className="flex h-60 items-center justify-center rounded-xl p-4 shadow-sm"
+                className="flex h-60 items-center justify-center rounded-xl p-3 shadow-sm"
                 style={{
                     backgroundColor: "#fff",
                     backgroundImage: `linear-gradient(45deg, ${color} 25%, transparent 25%), linear-gradient(-45deg, ${color} 25%, transparent 25%), linear-gradient(45deg, transparent 75%, ${color} 75%), linear-gradient(-45deg, transparent 75%, ${color} 75%)`,
-                    backgroundSize: "34px 34px",
-                    backgroundPosition: "0 0, 0 17px, 17px -17px, -17px 0px",
+                    backgroundSize: "28px 28px",
+                    backgroundPosition: "0 0, 0 14px, 14px -14px, -14px 0px",
                 }}
             >
-                <div className="flex w-full flex-col items-center gap-2 rounded-xl bg-white/95 p-3 shadow-lg">
-                    <RequiredPreviewContent />
+                <div className="flex h-full w-full flex-col items-center justify-center rounded-[18px] bg-white/95 p-3 shadow-xl ring-1 ring-black/5">
+                    <div
+                        className="text-[14px] font-black uppercase tracking-[-0.04em] text-gray-950"
+                        style={{ fontFamily: '"Courier New", Courier, monospace' }}
+                    >
+                        Mesa 1
+                    </div>
+                    <RealQr className="mt-2 rounded-lg shadow-sm ring-2 ring-black/10" />
+                    <div
+                        className="mt-2 border-b-[3px] pb-0.5 text-[11px] font-black text-gray-950"
+                        style={{
+                            borderColor: color,
+                            fontFamily: '"Arial Black", Arial, sans-serif',
+                        }}
+                    >
+                        Abrir cardápio
+                    </div>
                 </div>
             </div>
         );
@@ -258,19 +314,54 @@ function Preview({
     if (template === "gradient") {
         return (
             <div
-                className="flex h-60 flex-col items-center justify-center gap-3 rounded-xl p-4 shadow-sm"
-                style={{ background: `linear-gradient(145deg, ${color}, #0F172A)` }}
+                className="relative flex h-60 flex-col items-center justify-center overflow-hidden rounded-xl p-4 shadow-sm"
+                style={{ background: `linear-gradient(145deg, ${color}, #0F172A 82%)` }}
             >
-                <RequiredPreviewContent textClassName="text-white" />
+                <div className="absolute -left-10 top-0 h-28 w-28 rounded-full bg-white/10 blur-xl" />
+                <div className="absolute -bottom-12 right-0 h-32 w-32 rounded-full bg-white/10 blur-2xl" />
+                <div
+                    className="relative mb-2 rounded-full border border-white/20 bg-white/10 px-4 py-1 text-[15px] font-bold italic text-white shadow-sm backdrop-blur"
+                    style={{ fontFamily: 'Georgia, "Times New Roman", serif' }}
+                >
+                    Mesa 1
+                </div>
+                <RealQr className="relative rounded-[22px] shadow-2xl ring-1 ring-white/30" />
+                <div
+                    className="relative mt-3 text-[11px] font-bold tracking-wide text-white"
+                    style={{ fontFamily: 'Verdana, Geneva, sans-serif' }}
+                >
+                    Abrir cardápio
+                </div>
             </div>
         );
     }
 
     if (template === "minimal") {
         return (
-            <div className="relative flex h-60 flex-col items-center justify-center gap-3 overflow-hidden rounded-xl bg-white p-4 shadow-sm">
-                <span className="absolute left-0 top-0 h-full w-2" style={{ background: color }} />
-                <RequiredPreviewContent />
+            <div className="relative h-60 overflow-hidden rounded-xl bg-[#FCFCFA] p-5 shadow-sm">
+                <span
+                    className="absolute left-0 top-0 h-full w-1.5"
+                    style={{ background: color }}
+                />
+                <div className="flex h-full flex-col items-center justify-center">
+                    <div
+                        className="text-[19px] font-bold leading-none text-gray-950"
+                        style={{ fontFamily: 'Georgia, "Times New Roman", serif' }}
+                    >
+                        Mesa 1
+                    </div>
+                    <div
+                        className="my-2 h-px w-12"
+                        style={{ background: color }}
+                    />
+                    <div
+                        className="mb-2 text-[9px] font-bold uppercase tracking-[0.18em] text-gray-500"
+                        style={{ fontFamily: '"Helvetica Neue", Arial, sans-serif' }}
+                    >
+                        Abrir cardápio
+                    </div>
+                    <RealQr className="rounded-none shadow-none ring-1 ring-gray-200" />
+                </div>
             </div>
         );
     }
