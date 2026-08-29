@@ -55,8 +55,8 @@ const TEMPLATES: TemplateOption[] = [
     },
     {
         id: "classic",
-        name: "Clássico",
-        description: "Limpo, claro e com destaque para o QR Code.",
+        name: "Legado",
+        description: "Modelo original usado atualmente no iMenu.",
     },
 ];
 
@@ -164,6 +164,20 @@ function RealQr() {
     );
 }
 
+function RequiredPreviewContent({
+    textClassName = "text-gray-900",
+}: {
+    textClassName?: string;
+}) {
+    return (
+        <>
+            <div className={`text-[11px] font-black ${textClassName}`}>Mesa 1</div>
+            <div className={`text-[11px] font-extrabold ${textClassName}`}>Abrir cardápio</div>
+            <RealQr />
+        </>
+    );
+}
+
 function Preview({
     template,
     color,
@@ -187,16 +201,8 @@ function Preview({
                             : undefined,
                     }}
                 />
-                <div className="absolute inset-x-0 top-7 text-center text-[11px] font-black tracking-wide text-white">
-                    SEU PEDIDO COMEÇA AQUI
-                </div>
                 <div className="flex -translate-y-5 flex-col items-center gap-2 px-3">
-                    <RealQr />
-                    <div className="text-[11px] font-extrabold text-gray-900">Abrir cardápio</div>
-                    <span className="h-1.5 w-16 rounded-full" style={{ background: color }} />
-                    <div className="rounded-full bg-gray-100 px-3 py-1 text-[9px] font-bold text-gray-500">
-                        imenuapp.com.br/mesa
-                    </div>
+                    <RequiredPreviewContent />
                 </div>
             </div>
         );
@@ -204,17 +210,18 @@ function Preview({
 
     if (template === "logo") {
         return (
-            <div className="flex h-60 flex-col items-center justify-center gap-2 overflow-hidden rounded-xl bg-white p-4 shadow-sm" style={{ borderTop: `8px solid ${color}` }}>
-                {logoUrl ? (
-                    <img src={logoUrl} alt="Logo do restaurante" className="h-10 max-w-32 object-contain" />
-                ) : (
-                    <div className="text-xs font-black" style={{ color }}>SUA LOGO</div>
+            <div
+                className="flex h-60 flex-col items-center justify-center gap-2 overflow-hidden rounded-xl bg-white p-4 shadow-sm"
+                style={{ borderTop: `8px solid ${color}` }}
+            >
+                {logoUrl && (
+                    <img
+                        src={logoUrl}
+                        alt="Logo do restaurante"
+                        className="h-8 max-w-28 object-contain"
+                    />
                 )}
-                <div className="text-[10px] font-black text-gray-900">ESCANEIE E PEÇA</div>
-                <RealQr />
-                <div className="rounded-full px-3 py-1 text-[9px] font-bold text-white" style={{ background: color }}>
-                    imenuapp.com.br/mesa
-                </div>
+                <RequiredPreviewContent />
             </div>
         );
     }
@@ -224,11 +231,7 @@ function Preview({
             <div className="relative flex h-60 overflow-hidden rounded-xl bg-[#090D16] p-4 shadow-sm">
                 <div className="absolute inset-x-0 top-0 h-2" style={{ background: color }} />
                 <div className="flex w-full flex-col items-center justify-center gap-3">
-                    <div className="text-center text-xs font-black text-white">ABRIR CARDÁPIO</div>
-                    <RealQr />
-                    <div className="rounded-full px-3 py-1 text-[9px] font-bold text-white" style={{ background: color }}>
-                        imenuapp.com.br/mesa
-                    </div>
+                    <RequiredPreviewContent textClassName="text-white" />
                 </div>
             </div>
         );
@@ -246,9 +249,7 @@ function Preview({
                 }}
             >
                 <div className="flex w-full flex-col items-center gap-2 rounded-xl bg-white/95 p-3 shadow-lg">
-                    <div className="text-[10px] font-black text-gray-900">PEÇA PELO QR CODE</div>
-                    <RealQr />
-                    <div className="text-[9px] font-bold" style={{ color }}>ESCANEIE E PEÇA</div>
+                    <RequiredPreviewContent />
                 </div>
             </div>
         );
@@ -260,9 +261,7 @@ function Preview({
                 className="flex h-60 flex-col items-center justify-center gap-3 rounded-xl p-4 shadow-sm"
                 style={{ background: `linear-gradient(145deg, ${color}, #0F172A)` }}
             >
-                <div className="text-xs font-black text-white">SEU CARDÁPIO, NA MESA</div>
-                <RealQr />
-                <div className="text-[9px] font-semibold text-white/80">Escaneie para abrir o cardápio</div>
+                <RequiredPreviewContent textClassName="text-white" />
             </div>
         );
     }
@@ -271,18 +270,31 @@ function Preview({
         return (
             <div className="relative flex h-60 flex-col items-center justify-center gap-3 overflow-hidden rounded-xl bg-white p-4 shadow-sm">
                 <span className="absolute left-0 top-0 h-full w-2" style={{ background: color }} />
-                <div className="text-[10px] font-black tracking-[0.18em] text-gray-900">CARDÁPIO DIGITAL</div>
-                <RealQr />
-                <div className="text-[9px] font-medium text-gray-400">aponte · escaneie · peça</div>
+                <RequiredPreviewContent />
             </div>
         );
     }
 
     return (
-        <div className="flex h-60 flex-col items-center justify-center gap-3 rounded-xl bg-white p-4 shadow-sm" style={{ borderTop: `8px solid ${color}` }}>
-            <div className="text-xs font-extrabold text-gray-900">Abrir cardápio</div>
-            <RealQr />
-            <div className="rounded-full bg-gray-100 px-3 py-1 text-[9px] font-bold text-gray-600">imenuapp.com.br/mesa</div>
+        <div className="relative h-60 overflow-hidden rounded-xl bg-white shadow-sm">
+            <div
+                className="h-[25%] bg-cover bg-center blur-[1px]"
+                style={{
+                    backgroundColor: color,
+                    backgroundImage: bannerUrl ? `url(${bannerUrl})` : undefined,
+                }}
+            />
+            <div className="flex -translate-y-4 flex-col items-center gap-2 px-3">
+                <div className="rounded-full bg-white px-4 py-1 text-[11px] font-black text-gray-900 shadow">
+                    Mesa 1
+                </div>
+                <div className="text-[11px] font-extrabold text-gray-900">Abrir cardápio</div>
+                <RealQr />
+                <div className="text-[8px] font-medium text-gray-500">Ou acesse pelo link</div>
+                <div className="rounded-full bg-gray-100 px-3 py-1 text-[8px] font-bold text-gray-700">
+                    imenuapp.com.br/mesa
+                </div>
+            </div>
         </div>
     );
 }
