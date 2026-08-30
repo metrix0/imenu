@@ -6,7 +6,9 @@ import { useRouter } from "next/navigation";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
     faArrowLeft,
+    faBellConcierge,
     faChair,
+    faLink,
     faPlus,
 } from "@fortawesome/free-solid-svg-icons";
 
@@ -90,6 +92,7 @@ export default function GarcomPage() {
     const [orders, setOrders] = useState<WaiterOrder[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [linkCopied, setLinkCopied] = useState(false);
 
     const loadData = useCallback(async () => {
         setLoading(true);
@@ -193,6 +196,12 @@ export default function GarcomPage() {
         );
     };
 
+    const copyWaiterLink = async () => {
+        await navigator.clipboard.writeText(window.location.href);
+        setLinkCopied(true);
+        window.setTimeout(() => setLinkCopied(false), 2000);
+    };
+
     if (loading) {
         return (
             <div className="flex min-h-screen items-center justify-center bg-gray-50">
@@ -234,7 +243,26 @@ export default function GarcomPage() {
                 </Link>
 
                 <div className="mb-6 mt-5">
-                    <h1 className="text-3xl font-bold text-gray-900">Garçom</h1>
+                    <div className="flex flex-wrap items-center gap-3">
+                        <h1 className="flex items-center gap-3 text-3xl font-bold text-gray-900">
+                            <FontAwesomeIcon icon={faBellConcierge} className="text-brand" />
+                            Garçom
+                        </h1>
+                        <button
+                            type="button"
+                            onClick={() => void copyWaiterLink()}
+                            aria-label="Copiar link do painel garçom"
+                            title="Copiar link"
+                            className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-brand"
+                        >
+                            <FontAwesomeIcon icon={faLink} />
+                        </button>
+                        {linkCopied && (
+                            <span className="text-sm font-medium text-brand">
+                                Link copiado
+                            </span>
+                        )}
+                    </div>
                     <p className="mt-1 text-sm text-gray-500">
                         {restaurant.name || "Restaurante"}
                     </p>
