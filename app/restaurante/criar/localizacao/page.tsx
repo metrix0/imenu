@@ -15,5 +15,5 @@ export default function LocalizacaoPage() {
     const save = async (data: AddressData) => { if (!id) return; setSaving(true); try { const response = await fetch(`/api/restaurants/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ address: data, latitude: data.latitude, longitude: data.longitude, creation_step: 2 }) }); if (!response.ok) throw new Error(); router.push("/restaurante/criar/tempo-e-taxa"); } catch { alert("Não foi possível salvar. Tente novamente."); } finally { setSaving(false); } };
     if (loading) return <main className="flex min-h-[50vh] items-center justify-center"><Loader className="border-t-brand" /></main>;
     if (!productSelectionCompleted && id) return <QrTableOnboardingSelection restaurantId={id} onContinue={() => setProductSelectionCompleted(true)} />;
-    return <main className="w-full min-w-0 overflow-x-hidden px-4 pb-32 pt-4"><AddressForm initialData={initial} onSubmit={save} isLoading={saving} onValidityChange={() => {}} /></main>;
+    return <main className="w-full min-w-0 overflow-x-hidden px-4 pb-32 pt-4"><AddressForm initialData={initial} onSubmit={save} isLoading={saving} onValidityChange={() => {}} onBack={() => setProductSelectionCompleted(false)} /></main>;
 }
