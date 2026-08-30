@@ -508,10 +508,11 @@ export default function MesasPage() {
                             </p>
                         </div>
                         {active && (
-                            <div className="flex flex-wrap gap-3">
+                            <div className="grid w-full grid-cols-2 gap-3 sm:w-auto sm:flex sm:flex-nowrap">
                                 <Button
                                     type="button"
                                     variant="secondary"
+                                    className="w-full sm:w-auto"
                                     onClick={() =>
                                         window.open(
                                             "/garcom",
@@ -529,12 +530,17 @@ export default function MesasPage() {
                                 <Button
                                     type="button"
                                     variant="secondary"
+                                    className="w-full sm:w-auto"
                                     onClick={() => setDesignOpen(true)}
                                 >
                                     <FontAwesomeIcon icon={faPalette} className="mr-2" />
                                     Configurar design
                                 </Button>
-                                <Button type="button" onClick={openNewTable}>
+                                <Button
+                                    type="button"
+                                    className="col-span-2 w-full sm:w-auto"
+                                    onClick={openNewTable}
+                                >
                                     <FontAwesomeIcon icon={faPlus} className="mr-2" />
                                     Adicionar mesa
                                 </Button>
