@@ -101,6 +101,8 @@ export default function CreatePanelOrderModal({
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [deliveryFeeInput, setDeliveryFeeInput] = useState("");
     const [isOrderInfoCollapsed, setIsOrderInfoCollapsed] = useState(false);
+    const [mobileView, setMobileView] = useState<"menu" | "order">("menu");
+    const [menuSearch, setMenuSearch] = useState("");
     const [toast, setToast] = useState<{
         message: string;
         type?: "success" | "error" | "info";
@@ -167,6 +169,12 @@ export default function CreatePanelOrderModal({
 
         loadMenu();
     }, [isOpen, restaurantId]);
+
+    useEffect(() => {
+        if (!isOpen) return;
+        setMobileView("menu");
+        setMenuSearch("");
+    }, [isOpen]);
 
     const fetchSubcategoriesForItem = async (baseItemId: string) => {
         if (subcategoriesByItemId[baseItemId]) return subcategoriesByItemId[baseItemId];
@@ -427,6 +435,34 @@ export default function CreatePanelOrderModal({
 
     const totalCents = itemsTotalCents + (selectedTable ? 0 : deliveryFeeCents);
 
+    const selectedItemCount = useMemo(
+        () => selectedItems.reduce((sum, item) => sum + item.qty, 0),
+        [selectedItems]
+    );
+
+    const selectedQuantityByItemId = useMemo(() => {
+        return selectedItems.reduce<Record<string, number>>((acc, item) => {
+            acc[item.base_item_id] = (acc[item.base_item_id] || 0) + item.qty;
+            return acc;
+        }, {});
+    }, [selectedItems]);
+
+    const visibleMenuCategories = useMemo(() => {
+        const query = menuSearch.trim().toLocaleLowerCase("pt-BR");
+
+        return categories
+            .map((category) => ({
+                category,
+                items: (itemsByCategory[category.id] || []).filter((item) => {
+                    if (!query) return true;
+                    return `${item.name} ${item.description || ""}`
+                        .toLocaleLowerCase("pt-BR")
+                        .includes(query);
+                }),
+            }))
+            .filter(({ items }) => items.length > 0);
+    }, [categories, itemsByCategory, menuSearch]);
+
     const handleSubmit = async () => {
         if (!restaurantId) return;
 
@@ -518,122 +554,238 @@ export default function CreatePanelOrderModal({
         <HybridModal
             open={isOpen}
             onClose={onClose}
-            height={0.94}
+            height={0.96}
             xPadding={false}
-            className="md:!max-w-6xl min-h-[90vh]"
+            contentClassName="!overflow-hidden !pb-0"
+            className="md:!h-[88dvh] md:!max-h-[900px] md:!max-w-7xl md:!overflow-hidden"
         >
-            <div className="pt-2 md:p-6">
-                <div className="flex items-center justify-between mb-4 px-4 md:px-0">
-                    <h2 className="text-xl font-bold text-gray-900">Adicionar Pedido</h2>
-                    <button onClick={onClose} className="cursor-pointer text-gray-500 hover:text-gray-900">
-                        <FontAwesomeIcon icon={icons.faTimes} />
-                    </button>
+            <div className="flex h-full min-h-0 flex-col bg-white">
+                <div className="shrink-0 border-b border-gray-100 bg-white px-4 pb-4 pt-4 md:px-6 md:py-5">
+                    <div className="flex items-center justify-between gap-4">
+                        <div>
+                            <h2 className="text-xl font-bold text-gray-900 md:text-2xl">
+                                Adicionar Pedido
+                            </h2>
+                            <p className="mt-1 text-sm text-gray-500">
+                                Selecione os itens e finalize os dados do pedido.
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            aria-label="Fechar"
+                            className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
+                        >
+                            <FontAwesomeIcon icon={icons.faTimes} />
+                        </button>
+                    </div>
+
+                    <div className="mt-4 grid grid-cols-2 rounded-xl bg-gray-100 p-1 lg:hidden">
+                        <button
+                            type="button"
+                            onClick={() => setMobileView("menu")}
+                            className={`cursor-pointer rounded-lg px-3 py-2.5 text-sm font-semibold transition ${
+                                mobileView === "menu"
+                                    ? "bg-white text-gray-900 shadow-sm"
+                                    : "text-gray-500"
+                            }`}
+                        >
+                            Cardápio
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setMobileView("order")}
+                            className={`cursor-pointer rounded-lg px-3 py-2.5 text-sm font-semibold transition ${
+                                mobileView === "order"
+                                    ? "bg-white text-gray-900 shadow-sm"
+                                    : "text-gray-500"
+                            }`}
+                        >
+                            Pedido{selectedItemCount > 0 ? ` (${selectedItemCount})` : ""}
+                        </button>
+                    </div>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 px-4 md:px-0">
-                    <div>
-                        {isLoadingMenu ? (
-                            <p className="text-gray-500">Carregando itens...</p>
-                        ) : (
-                            <div className="max-h-[73dvh] overflow-y-auto pr-1 space-y-8">
-                                {categories
-                                    .filter((cat) => (itemsByCategory[cat.id] || []).length > 0)
-                                    .map((cat) => (
-                                        <div key={cat.id}>
-                                            <h4 className="text-lg font-semibold text-gray-900 mb-4">
-                                                {cat.name}
+                <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1.12fr)_minmax(390px,0.88fr)]">
+                    <section
+                        className={`${
+                            mobileView === "menu" ? "flex" : "hidden"
+                        } min-h-0 flex-col bg-white lg:flex lg:border-r lg:border-gray-100`}
+                    >
+                        <div className="shrink-0 px-4 pb-3 pt-4 md:px-6">
+                            <div className="mb-3 flex items-center justify-between gap-3">
+                                <h3 className="font-semibold text-gray-900">Cardápio</h3>
+                                {selectedItemCount > 0 && (
+                                    <span className="rounded-full bg-brand/10 px-2.5 py-1 text-xs font-semibold text-brand">
+                                        {selectedItemCount} {selectedItemCount === 1 ? "item" : "itens"}
+                                    </span>
+                                )}
+                            </div>
+                            <div className="relative">
+                                <FontAwesomeIcon
+                                    icon={icons.faMagnifyingGlass}
+                                    className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-gray-400"
+                                />
+                                <input
+                                    value={menuSearch}
+                                    onChange={(event) => setMenuSearch(event.target.value)}
+                                    placeholder="Buscar item..."
+                                    className="w-full rounded-xl border border-gray-200 bg-gray-50/60 py-3 pl-10 pr-4 text-sm outline-none transition focus:border-brand focus:bg-white focus:ring-2 focus:ring-brand/10"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-5 md:px-6">
+                            {isLoadingMenu ? (
+                                <div className="flex min-h-40 items-center justify-center text-sm text-gray-500">
+                                    Carregando itens...
+                                </div>
+                            ) : visibleMenuCategories.length === 0 ? (
+                                <div className="flex min-h-40 flex-col items-center justify-center text-center">
+                                    <FontAwesomeIcon
+                                        icon={icons.faMagnifyingGlass}
+                                        className="mb-3 text-xl text-gray-300"
+                                    />
+                                    <p className="text-sm font-medium text-gray-600">
+                                        Nenhum item encontrado
+                                    </p>
+                                </div>
+                            ) : (
+                                <div className="space-y-7">
+                                    {visibleMenuCategories.map(({ category, items }) => (
+                                        <div key={category.id}>
+                                            <h4 className="sticky top-0 z-10 mb-2 bg-white/95 py-2 text-sm font-bold uppercase tracking-wide text-gray-500 backdrop-blur-sm">
+                                                {category.name}
                                             </h4>
 
-                                            <div className="space-y-0 mr-4 ml-2">
-                                                {(itemsByCategory[cat.id] || []).map((item) => (
-                                                    <button
-                                                        key={item.id}
-                                                        type="button"
-                                                        onClick={() => handleAddItem(item)}
-                                                        className="hover:bg-gray-200 duration-200 cursor-pointer w-full flex justify-between items-start text-left border-b border-gray-200 p-4 pt-5 pb-5 rounded-xl"
-                                                    >
-                                                        <div className={"flex justify-between w-full"}>
-                                                            <div className="flex flex-col pr-4 flex-1 items-start justify-start max-w-[100%]">
-                                                                <p className="text-sm font-normal leading-tight">
-                                                                    {item.name}
-                                                                </p>
+                                            <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
+                                                {items.map((item, index) => {
+                                                    const selectedQty = selectedQuantityByItemId[item.id] || 0;
 
-                                                                <p className="text-sm font-bold mt-2">
+                                                    return (
+                                                        <button
+                                                            key={item.id}
+                                                            type="button"
+                                                            onClick={() => void handleAddItem(item)}
+                                                            className={`flex w-full cursor-pointer items-center justify-between gap-4 px-4 py-4 text-left transition hover:bg-gray-50 active:bg-gray-100 ${
+                                                                index > 0 ? "border-t border-gray-100" : ""
+                                                            }`}
+                                                        >
+                                                            <div className="min-w-0 flex-1">
+                                                                <div className="flex items-center gap-2">
+                                                                    <p className="truncate text-sm font-semibold text-gray-900 md:text-base">
+                                                                        {item.name}
+                                                                    </p>
+                                                                    {selectedQty > 0 && (
+                                                                        <span className="flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full bg-brand px-1.5 text-xs font-bold text-white">
+                                                                            {selectedQty}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                                {item.description && (
+                                                                    <p className="mt-1 line-clamp-1 text-xs text-gray-500">
+                                                                        {item.description}
+                                                                    </p>
+                                                                )}
+                                                                <p className="mt-2 text-sm font-bold text-gray-900">
                                                                     {formatPrice(item.price_cents)}
                                                                 </p>
                                                             </div>
-                                                            {item.stock_enabled && (
-                                                                <div>
-                                                                    <p className="text-sm font-normal leading-tight text-gray-500">Estoque: {item.stock_quantity}</p>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    </button>
-                                                ))}
+
+                                                            <div className="flex shrink-0 items-center gap-3">
+                                                                {item.stock_enabled && (
+                                                                    <span className="hidden text-xs text-gray-400 sm:inline">
+                                                                        Estoque: {item.stock_quantity}
+                                                                    </span>
+                                                                )}
+                                                                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand/10 text-brand">
+                                                                    <FontAwesomeIcon icon={icons.faPlus} className="text-sm" />
+                                                                </span>
+                                                            </div>
+                                                        </button>
+                                                    );
+                                                })}
                                             </div>
                                         </div>
                                     ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {selectedItemCount > 0 && (
+                            <div className="shrink-0 border-t border-gray-100 bg-white p-4 lg:hidden">
+                                <Button
+                                    type="button"
+                                    className="w-full"
+                                    onClick={() => setMobileView("order")}
+                                >
+                                    Ver pedido ({selectedItemCount}) · {formatPrice(totalCents)}
+                                </Button>
                             </div>
                         )}
-                    </div>
+                    </section>
 
-                    <div>
-                        <div className="mb-4">
-                            <button
-                                type="button"
-                                onClick={() => setIsOrderInfoCollapsed((prev) => !prev)}
-                                className="cursor-pointer w-full flex items-center gap-2 mb-3"
-                            >
-                                <FontAwesomeIcon
-                                    icon={icons.faChevronDown}
-                                    className={`text-gray-500 transition-transform duration-200 ${
-                                        isOrderInfoCollapsed ? "-rotate-90" : "rotate-0"
+                    <section
+                        className={`${
+                            mobileView === "order" ? "flex" : "hidden"
+                        } min-h-0 flex-col bg-gray-50/50 lg:flex`}
+                    >
+                        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 md:px-6 md:py-5">
+                            <div className="mb-5 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsOrderInfoCollapsed((prev) => !prev)}
+                                    className="mb-3 flex w-full cursor-pointer items-center justify-between gap-3 text-left"
+                                >
+                                    <div>
+                                        <h3 className="font-semibold text-gray-900">
+                                            Informações do pedido
+                                        </h3>
+                                        <p className="mt-0.5 text-xs text-gray-500">
+                                            Cliente, mesa e pagamento
+                                        </p>
+                                    </div>
+                                    <FontAwesomeIcon
+                                        icon={icons.faChevronDown}
+                                        className={`text-gray-400 transition-transform duration-200 ${
+                                            isOrderInfoCollapsed ? "-rotate-90" : "rotate-0"
+                                        }`}
+                                    />
+                                </button>
+
+                                <div
+                                    className={`grid transition-all duration-200 ${
+                                        isOrderInfoCollapsed
+                                            ? "grid-rows-[0fr] opacity-0"
+                                            : "grid-rows-[1fr] opacity-100"
                                     }`}
-                                />
-                                <h3 className="font-semibold text-gray-900">Informações do Cliente</h3>
-                            </button>
+                                >
+                                    <div className="overflow-hidden">
+                                        <div className="space-y-3 pt-1">
+                                            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                                                <input
+                                                    value={customerName}
+                                                    onChange={(e) => setCustomerName(e.target.value)}
+                                                    placeholder="Nome do cliente *"
+                                                    className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/10"
+                                                />
 
-                            <div
-                                className={`grid transition-all duration-200 ${
-                                    isOrderInfoCollapsed
-                                        ? "grid-rows-[0fr] opacity-0"
-                                        : "grid-rows-[1fr] opacity-100"
-                                }`}
-                            >
-                                <div className="overflow-hidden">
-                                    <div className="space-y-3">
-                                        <div className="flex flex-col md:flex-row gap-3">
-                                            <input
-                                                value={customerName}
-                                                onChange={(e) => setCustomerName(e.target.value)}
-                                                placeholder="Nome do cliente"
-                                                className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none"
-                                            />
+                                                <input
+                                                    value={customerPhone}
+                                                    onChange={(e) => setCustomerPhone(e.target.value)}
+                                                    placeholder="Telefone (opcional)"
+                                                    className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/10"
+                                                />
+                                            </div>
 
-                                            <input
-                                                value={customerPhone}
-                                                onChange={(e) => setCustomerPhone(e.target.value)}
-                                                placeholder="Telefone (opcional)"
-                                                className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none"
-                                            />
-                                        </div>
-
-                                        <input
-                                            value={customerAddress}
-                                            onChange={(e) => setCustomerAddress(e.target.value)}
-                                            placeholder="Endereço (opcional)"
-                                            className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none"
-                                        />
-
-                                        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                                             {tables.length > 0 && (
                                                 <div className="relative w-full">
                                                     <select
                                                         value={selectedTableId}
                                                         onChange={(e) => setSelectedTableId(e.target.value)}
-                                                        className="w-full appearance-none rounded-xl border border-gray-200 bg-gray-50/60 px-4 py-3 pr-10 text-gray-700 shadow-sm outline-none transition-colors hover:border-gray-300 focus:border-brand focus:bg-white focus:ring-2 focus:ring-brand/10"
+                                                        className="w-full appearance-none rounded-xl border border-gray-200 bg-white px-4 py-3 pr-10 text-gray-700 outline-none transition hover:border-gray-300 focus:border-brand focus:ring-2 focus:ring-brand/10"
                                                     >
-                                                        <option value="">Mesa (opcional)</option>
+                                                        <option value="">Entrega / balcão</option>
                                                         {tables.map((table) => (
                                                             <option key={table.id} value={table.id}>
                                                                 {table.name}
@@ -647,257 +799,300 @@ export default function CreatePanelOrderModal({
                                                 </div>
                                             )}
 
-                                            <div className="relative w-full">
-                                                <select
-                                                    value={paymentMethod}
-                                                    onChange={(e) =>
-                                                        setPaymentMethod(e.target.value as "" | "dinheiro" | "trazer-maquininha")
-                                                    }
-                                                    className="w-full appearance-none rounded-xl border border-gray-200 bg-gray-50/60 px-4 py-3 pr-10 text-gray-700 shadow-sm outline-none transition-colors hover:border-gray-300 focus:border-brand focus:bg-white focus:ring-2 focus:ring-brand/10"
-                                                >
-                                                    <option value="">Forma de pgt. (opcional)</option>
-                                                    <option value="dinheiro">Dinheiro</option>
-                                                    <option value="trazer-maquininha">Trazer maquininha</option>
-                                                </select>
-                                                <FontAwesomeIcon
-                                                    icon={icons.faChevronDown}
-                                                    className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-xs text-gray-500"
-                                                />
-                                            </div>
+                                            {selectedTable ? (
+                                                <div className="rounded-xl border border-brand/20 bg-brand/5 px-4 py-3">
+                                                    <p className="text-sm font-semibold text-gray-900">
+                                                        Pedido para {selectedTable.name}
+                                                    </p>
+                                                    <p className="mt-1 text-xs text-gray-500">
+                                                        Sem endereço, taxa de entrega ou forma de pagamento antecipada.
+                                                    </p>
+                                                </div>
+                                            ) : (
+                                                <>
+                                                    <input
+                                                        value={customerAddress}
+                                                        onChange={(e) => setCustomerAddress(e.target.value)}
+                                                        placeholder="Endereço (opcional)"
+                                                        className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/10"
+                                                    />
 
-                                            <input
-                                                value={deliveryFeeInput}
-                                                onChange={(e) => setDeliveryFeeInput(e.target.value)}
-                                                placeholder="Taxa (opcional)"
-                                                inputMode="decimal"
-                                                className={`w-full border border-gray-200 rounded-xl px-4 py-3 outline-none ${tables.length > 0 ? "md:col-span-2" : ""}`}
-                                            />
+                                                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                                                        <div className="relative w-full">
+                                                            <select
+                                                                value={paymentMethod}
+                                                                onChange={(e) =>
+                                                                    setPaymentMethod(e.target.value as "" | "dinheiro" | "trazer-maquininha")
+                                                                }
+                                                                className="w-full appearance-none rounded-xl border border-gray-200 bg-white px-4 py-3 pr-10 text-gray-700 outline-none transition hover:border-gray-300 focus:border-brand focus:ring-2 focus:ring-brand/10"
+                                                            >
+                                                                <option value="">Forma de pagamento (opcional)</option>
+                                                                <option value="dinheiro">Dinheiro</option>
+                                                                <option value="trazer-maquininha">Trazer maquininha</option>
+                                                            </select>
+                                                            <FontAwesomeIcon
+                                                                icon={icons.faChevronDown}
+                                                                className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-xs text-gray-500"
+                                                            />
+                                                        </div>
+
+                                                        <input
+                                                            value={deliveryFeeInput}
+                                                            onChange={(e) => setDeliveryFeeInput(e.target.value)}
+                                                            placeholder="Taxa de entrega (opcional)"
+                                                            inputMode="decimal"
+                                                            className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/10"
+                                                        />
+                                                    </div>
+                                                </>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <div className={`mt-6 overflow-y-auto pr-1 ${isOrderInfoCollapsed ? "max-h-[65vh]" : "max-h-[42dvh]"}`}>
-                            <div>
-                                <h3 className="font-semibold text-gray-900 mb-3">Itens selecionados</h3>
+                            <div className="mb-2 flex items-center justify-between gap-3">
+                                <h3 className="font-semibold text-gray-900">Itens selecionados</h3>
+                                <button
+                                    type="button"
+                                    onClick={() => setMobileView("menu")}
+                                    className="cursor-pointer text-sm font-medium text-brand lg:hidden"
+                                >
+                                    + Adicionar itens
+                                </button>
+                            </div>
 
-                                {selectedItems.length === 0 ? (
-                                    <p className="text-gray-500">Nenhum item selecionado.</p>
-                                ) : (
-                                    <div className="space-y-3 pb-6">
-                                        {selectedItems.map((item) => {
-                                            const subcategories = subcategoriesByItemId[item.base_item_id] || [];
-                                            const isExpanded = !!expandedItems[item.id];
-                                            const isLoadingSubcategories = !!loadingSubcategoriesByItemId[item.base_item_id];
-                                            const missingRequired = isMissingRequiredForSelectedItem(item);
+                            {selectedItems.length === 0 ? (
+                                <button
+                                    type="button"
+                                    onClick={() => setMobileView("menu")}
+                                    className="flex w-full cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-gray-200 bg-white px-4 py-10 text-center transition hover:border-brand/40"
+                                >
+                                    <span className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-brand/10 text-brand">
+                                        <FontAwesomeIcon icon={icons.faPlus} />
+                                    </span>
+                                    <span className="text-sm font-semibold text-gray-700">
+                                        Adicione itens ao pedido
+                                    </span>
+                                    <span className="mt-1 text-xs text-gray-500 lg:hidden">
+                                        Toque para voltar ao cardápio
+                                    </span>
+                                </button>
+                            ) : (
+                                <div className="space-y-3 pb-3">
+                                    {selectedItems.map((item) => {
+                                        const subcategories = subcategoriesByItemId[item.base_item_id] || [];
+                                        const isExpanded = !!expandedItems[item.id];
+                                        const isLoadingSubcategories = !!loadingSubcategoriesByItemId[item.base_item_id];
+                                        const missingRequired = isMissingRequiredForSelectedItem(item);
 
-                                            return (
-                                                <div key={item.id} className={`border border-gray-200 rounded-xl p-3`}>
-                                                    <div className="flex items-start justify-between gap-3">
-                                                        <div className="min-w-0">
-                                                            <div className="font-medium text-gray-900">{item.name}</div>
+                                        return (
+                                            <div key={item.id} className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+                                                <div className="flex items-start justify-between gap-3">
+                                                    <div className="min-w-0">
+                                                        <div className="font-semibold text-gray-900">{item.name}</div>
 
-                                                            <div className="text-sm text-gray-500 mt-1">
-                                                                {formatPrice(item.unit_price_cents)} cada
-                                                            </div>
-
-                                                            {!isExpanded && item.selectedSubitems.length > 0 && (
-                                                                <div className="mt-2 text-sm text-gray-500 space-y-1">
-                                                                    {item.selectedSubitems.map((sub) => (
-                                                                        <div key={`${item.id}-${sub.subitemId}`}>
-                                                                            + {sub.subitemName}
-                                                                        </div>
-                                                                    ))}
-                                                                </div>
-                                                            )}
-
-                                                            {!isExpanded && item.observation && (
-                                                                <div className="mt-2 text-sm text-gray-500">
-                                                                    Obs: {item.observation}
-                                                                </div>
-                                                            )}
-
-                                                            {!isExpanded && missingRequired && (
-                                                                <div className="mt-2 text-xs text-warning">
-                                                                    Faltam opções obrigatórias.
-                                                                </div>
-                                                            )}
+                                                        <div className="mt-1 text-sm text-gray-500">
+                                                            {formatPrice(item.unit_price_cents)} cada
                                                         </div>
+
+                                                        {!isExpanded && item.selectedSubitems.length > 0 && (
+                                                            <div className="mt-2 space-y-1 text-sm text-gray-500">
+                                                                {item.selectedSubitems.map((sub) => (
+                                                                    <div key={`${item.id}-${sub.subitemId}`}>
+                                                                        + {sub.subitemName}
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        )}
+
+                                                        {!isExpanded && item.observation && (
+                                                            <div className="mt-2 text-sm text-gray-500">
+                                                                Obs: {item.observation}
+                                                            </div>
+                                                        )}
+
+                                                        {!isExpanded && missingRequired && (
+                                                            <div className="mt-2 text-xs font-medium text-warning">
+                                                                Faltam opções obrigatórias.
+                                                            </div>
+                                                        )}
+                                                    </div>
+
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => void toggleExpanded(item.id, item.base_item_id)}
+                                                        className="cursor-pointer whitespace-nowrap text-sm font-medium text-brand"
+                                                    >
+                                                        {isExpanded ? "Fechar" : "Opções"}
+                                                    </button>
+                                                </div>
+
+                                                <div className="mt-3 flex items-center justify-between gap-3 border-t border-gray-100 pt-3">
+                                                    <div className="flex items-center gap-2 rounded-xl bg-gray-50 p-1">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() =>
+                                                                changeSelectedItemQty(
+                                                                    item.id,
+                                                                    item.qty === 1 ? 0 : item.qty - 1
+                                                                )
+                                                            }
+                                                            className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-gray-600 transition hover:bg-white hover:shadow-sm"
+                                                        >
+                                                            <FontAwesomeIcon
+                                                                icon={item.qty === 1 ? icons.faTrash : icons.faMinus}
+                                                                className="text-sm"
+                                                            />
+                                                        </button>
+
+                                                        <span className="min-w-6 text-center text-sm font-semibold">{item.qty}</span>
 
                                                         <button
                                                             type="button"
-                                                            onClick={() => toggleExpanded(item.id, item.base_item_id)}
-                                                            className="text-sm text-brand font-medium cursor-pointer whitespace-nowrap"
+                                                            onClick={() => changeSelectedItemQty(item.id, item.qty + 1)}
+                                                            className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-gray-600 transition hover:bg-white hover:shadow-sm"
                                                         >
-                                                            {isExpanded ? "Fechar opções" : "Abrir opções"}
+                                                            <FontAwesomeIcon icon={icons.faPlus} className="text-sm" />
                                                         </button>
                                                     </div>
 
-                                                    <div className="mt-2 flex items-center justify-between gap-3">
-                                                        <div className="flex items-center gap-2">
-                                                            <button
-                                                                type="button"
-                                                                onClick={() =>
-                                                                    changeSelectedItemQty(
-                                                                        item.id,
-                                                                        item.qty === 1 ? 0 : item.qty - 1
-                                                                    )
-                                                                }
-                                                                className="w-4 h-4 cursor-pointer rounded-lg flex items-center justify-center"
-                                                            >
-                                                                <FontAwesomeIcon
-                                                                    icon={item.qty === 1 ? icons.faTrash : icons.faMinus}
-                                                                    className="text-sm"
-                                                                />
-                                                            </button>
-
-                                                            <span className="min-w-5 text-center">{item.qty}</span>
-
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => changeSelectedItemQty(item.id, item.qty + 1)}
-                                                                className="w-4 h-4 cursor-pointer  rounded-lg flex items-center justify-center"
-                                                            >
-                                                                <FontAwesomeIcon icon={icons.faPlus} className="text-sm cursor-pointer"/>
-                                                            </button>
-                                                        </div>
-
-                                                        <div className="text-right font-semibold text-gray-900">
-                                                            {formatPrice(item.total_cents)}
-                                                        </div>
+                                                    <div className="text-right font-bold text-gray-900">
+                                                        {formatPrice(item.total_cents)}
                                                     </div>
+                                                </div>
 
-                                                    {isExpanded && (
-                                                        <div className="mt-4 border-t border-gray-100 pt-4">
-                                                            {isLoadingSubcategories ? (
-                                                                <div className="text-sm text-gray-500 mb-4">
-                                                                    Carregando complementos...
-                                                                </div>
-                                                            ) : (
-                                                                <div className="space-y-4">
-                                                                    {subcategories.map((sc) => {
-                                                                        const selectedSet = getSelectedSetForSubcategory(item, sc.id);
-                                                                        const isSingle = sc.max_select === 1 || sc.max_select === 0;
+                                                {isExpanded && (
+                                                    <div className="mt-4 border-t border-gray-100 pt-4">
+                                                        {isLoadingSubcategories ? (
+                                                            <div className="mb-4 text-sm text-gray-500">
+                                                                Carregando complementos...
+                                                            </div>
+                                                        ) : (
+                                                            <div className="space-y-4">
+                                                                {subcategories.map((sc) => {
+                                                                    const selectedSet = getSelectedSetForSubcategory(item, sc.id);
+                                                                    const isSingle = sc.max_select === 1 || sc.max_select === 0;
 
-                                                                        return (
-                                                                            <div key={sc.id} className="border border-gray-100 rounded-xl overflow-hidden">
-                                                                                <div className="bg-gray-50 px-4 py-3 flex justify-between gap-3">
-                                                                                    <div>
-                                                                                        <p className="font-semibold text-gray-700">
-                                                                                            {sc.name}
-                                                                                        </p>
-                                                                                        <p className="text-[13px] text-gray-500">
-                                                                                            {sc.max_select > 0
-                                                                                                ? `Escolha até ${sc.max_select}`
-                                                                                                : "Escolha o quanto quiser"}
-                                                                                        </p>
-                                                                                    </div>
-
-                                                                                    {sc.min_select > 0 && (
-                                                                                        <span className="text-[11px] text-gray-600 px-2 py-1 rounded-full whitespace-nowrap">
-                                                                                            OBRIGATÓRIO
-                                                                                        </span>
-                                                                                    )}
-                                                                                </div>
-
+                                                                    return (
+                                                                        <div key={sc.id} className="overflow-hidden rounded-xl border border-gray-100">
+                                                                            <div className="flex justify-between gap-3 bg-gray-50 px-4 py-3">
                                                                                 <div>
-                                                                                    {[...sc.subitems]
-                                                                                        .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
-                                                                                        .map((si) => {
-                                                                                            const isSelected = selectedSet.has(si.id);
-
-                                                                                            return (
-                                                                                                <button
-                                                                                                    key={si.id}
-                                                                                                    type="button"
-                                                                                                    onClick={() =>
-                                                                                                        toggleSubitemForSelectedItem(item.id, sc, si)
-                                                                                                    }
-                                                                                                    className="cursor-pointer w-full px-4 py-3 flex justify-between items-center text-left border-t border-gray-100 first:border-t-0"
-                                                                                                >
-                                                                                                    <div className="pr-4">
-                                                                                                        <p className="font-medium text-sm text-gray-900">
-                                                                                                            {si.name.replace(/\n/g, " ")}
-                                                                                                        </p>
-
-                                                                                                        {si.price_cents > 0 && (
-                                                                                                            <p className="text-[13px] text-gray-500">
-                                                                                                                + {formatPrice(si.price_cents)}
-                                                                                                            </p>
-                                                                                                        )}
-                                                                                                    </div>
-
-                                                                                                    <div className="flex items-center">
-                                                                                                        {isSingle ? (
-                                                                                                            <span
-                                                                                                                className={`w-7 h-7 rounded-full border flex items-center justify-center ${
-                                                                                                                    isSelected
-                                                                                                                        ? "border-brand bg-brand text-white"
-                                                                                                                        : "border-gray-300 bg-gray-100 text-gray-400"
-                                                                                                                }`}
-                                                                                                            >
-                                                                                                                <FontAwesomeIcon icon={icons.faCheck} className="text-xs" />
-                                                                                                            </span>
-                                                                                                        ) : (
-                                                                                                            <span
-                                                                                                                className={`w-7 h-7 rounded-full border flex items-center justify-center ${
-                                                                                                                    isSelected
-                                                                                                                        ? "border-brand bg-brand text-white"
-                                                                                                                        : "border-gray-300 bg-gray-100 text-gray-400"
-                                                                                                                }`}
-                                                                                                            >
-                                                                                                                {isSelected ? "–" : "+"}
-                                                                                                            </span>
-                                                                                                        )}
-                                                                                                    </div>
-                                                                                                </button>
-                                                                                            );
-                                                                                        })}
+                                                                                    <p className="font-semibold text-gray-700">
+                                                                                        {sc.name}
+                                                                                    </p>
+                                                                                    <p className="text-[13px] text-gray-500">
+                                                                                        {sc.max_select > 0
+                                                                                            ? `Escolha até ${sc.max_select}`
+                                                                                            : "Escolha o quanto quiser"}
+                                                                                    </p>
                                                                                 </div>
+
+                                                                                {sc.min_select > 0 && (
+                                                                                    <span className="whitespace-nowrap rounded-full bg-white px-2 py-1 text-[11px] font-semibold text-gray-600">
+                                                                                        OBRIGATÓRIO
+                                                                                    </span>
+                                                                                )}
                                                                             </div>
-                                                                        );
-                                                                    })}
 
-                                                                    <textarea
-                                                                        value={item.observation || ""}
-                                                                        onChange={(e) =>
-                                                                            changeSelectedItemObservation(item.id, e.target.value.slice(0, 140))
-                                                                        }
-                                                                        placeholder="Observação"
-                                                                        className="w-full border border-gray-200 rounded-xl px-4 py-3 outline-none resize-none text-sm"
-                                                                        rows={3}
-                                                                    />
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            );
-                                        })}
-                                        <div className="mt-6 flex items-center justify-between">
-                                            <div>
-                                                <div className="text-sm text-gray-500">Total</div>
-                                                <div className="text-xl font-bold text-gray-900">
-                                                    {formatPrice(totalCents)}
-                                                </div>
+                                                                            <div>
+                                                                                {[...sc.subitems]
+                                                                                    .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+                                                                                    .map((si) => {
+                                                                                        const isSelected = selectedSet.has(si.id);
+
+                                                                                        return (
+                                                                                            <button
+                                                                                                key={si.id}
+                                                                                                type="button"
+                                                                                                onClick={() =>
+                                                                                                    toggleSubitemForSelectedItem(item.id, sc, si)
+                                                                                                }
+                                                                                                className="flex w-full cursor-pointer items-center justify-between border-t border-gray-100 px-4 py-3 text-left first:border-t-0 hover:bg-gray-50"
+                                                                                            >
+                                                                                                <div className="pr-4">
+                                                                                                    <p className="text-sm font-medium text-gray-900">
+                                                                                                        {si.name.replace(/\n/g, " ")}
+                                                                                                    </p>
+
+                                                                                                    {si.price_cents > 0 && (
+                                                                                                        <p className="text-[13px] text-gray-500">
+                                                                                                            + {formatPrice(si.price_cents)}
+                                                                                                        </p>
+                                                                                                    )}
+                                                                                                </div>
+
+                                                                                                <div className="flex items-center">
+                                                                                                    {isSingle ? (
+                                                                                                        <span
+                                                                                                            className={`flex h-7 w-7 items-center justify-center rounded-full border ${
+                                                                                                                isSelected
+                                                                                                                    ? "border-brand bg-brand text-white"
+                                                                                                                    : "border-gray-300 bg-gray-100 text-gray-400"
+                                                                                                            }`}
+                                                                                                        >
+                                                                                                            <FontAwesomeIcon icon={icons.faCheck} className="text-xs" />
+                                                                                                        </span>
+                                                                                                    ) : (
+                                                                                                        <span
+                                                                                                            className={`flex h-7 w-7 items-center justify-center rounded-full border ${
+                                                                                                                isSelected
+                                                                                                                    ? "border-brand bg-brand text-white"
+                                                                                                                    : "border-gray-300 bg-gray-100 text-gray-400"
+                                                                                                            }`}
+                                                                                                        >
+                                                                                                            {isSelected ? "–" : "+"}
+                                                                                                        </span>
+                                                                                                    )}
+                                                                                                </div>
+                                                                                            </button>
+                                                                                        );
+                                                                                    })}
+                                                                            </div>
+                                                                        </div>
+                                                                    );
+                                                                })}
+
+                                                                <textarea
+                                                                    value={item.observation || ""}
+                                                                    onChange={(e) =>
+                                                                        changeSelectedItemObservation(item.id, e.target.value.slice(0, 140))
+                                                                    }
+                                                                    placeholder="Observação"
+                                                                    className="w-full resize-none rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/10"
+                                                                    rows={3}
+                                                                />
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
                                             </div>
-
-                                            <Button
-                                                onClick={handleSubmit}
-                                                loading={isSubmitting}
-                                                className="bg-brand text-white border-transparent hover:opacity-90 shadow-sm"
-                                            >
-                                                Criar pedido
-                                            </Button>
-                                        </div>
-
-                                    </div>
-                                )}
-                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
                         </div>
 
-                    </div>
+                        <div className="shrink-0 border-t border-gray-200 bg-white px-4 py-4 md:px-6">
+                            <div className="flex items-center gap-4">
+                                <div className="min-w-0 flex-1">
+                                    <div className="text-xs font-medium text-gray-500">Total do pedido</div>
+                                    <div className="truncate text-xl font-bold text-gray-900">
+                                        {formatPrice(totalCents)}
+                                    </div>
+                                </div>
+
+                                <Button
+                                    onClick={() => void handleSubmit()}
+                                    loading={isSubmitting}
+                                    disabled={selectedItems.length === 0}
+                                    className="min-w-36 bg-brand text-white border-transparent hover:opacity-90 shadow-sm"
+                                >
+                                    Criar pedido
+                                </Button>
+                            </div>
+                        </div>
+                    </section>
                 </div>
             </div>
             {toast && (
