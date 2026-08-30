@@ -73,6 +73,7 @@ type OrderRow = {
     customer_phone: string | null;
     customer_address: string | null;
     payment_method: string | null;
+    status: string;
     is_delivery: string | boolean | null;
     table_name_snapshot: string | null;
     subtotal_cents: number | null;
@@ -232,6 +233,7 @@ export async function GET(
                     orders.customer_phone,
                     orders.customer_address,
                     orders.payment_method,
+                    orders.status,
                     orders.is_delivery,
                     orders.table_name_snapshot,
                     orders.subtotal_cents,
@@ -257,6 +259,14 @@ export async function GET(
 
         if (order.force_whatsapp_order_confirmation !== true) {
             return NextResponse.json({ enabled: false, url: null });
+        }
+
+        if (order.status === "pending_online_payment") {
+            return NextResponse.json({
+                enabled: true,
+                pendingPayment: true,
+                url: null,
+            });
         }
 
         const whatsappPhone = normalizeWhatsAppPhone(
