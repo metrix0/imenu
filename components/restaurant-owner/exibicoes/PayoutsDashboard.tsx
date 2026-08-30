@@ -17,10 +17,8 @@ interface Payout {
     restaurant_id: string;
     amount_cents: number;
     created_at: string;
-    status: string;
-    start_date: string;
-    end_date: string;
 }
+
 
 interface PayoutsDashboardProps {
     menuId: string;
