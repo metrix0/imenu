@@ -200,7 +200,7 @@ export default function MenuProductCards({
                         <button
                             type="button"
                             onClick={stopAndLearnMore}
-                            className="w-fit cursor-pointer text-left text-sm font-semibold text-gray-700 transition-colors hover:text-brand"
+                            className="w-fit cursor-pointer text-left text-sm font-semibold text-gray-700 transition-colors hover:text-brand xl:whitespace-nowrap"
                         >
                             Ver tudo que o sistema faz
                         </button>
@@ -209,7 +209,7 @@ export default function MenuProductCards({
                             <button
                                 type="button"
                                 onClick={stopAndHandleQrAction}
-                                className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg bg-brand px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-dark-brand"
+                                className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg bg-brand px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-dark-brand xl:whitespace-nowrap"
                             >
                                 {selected
                                     ? "Selecionado"
