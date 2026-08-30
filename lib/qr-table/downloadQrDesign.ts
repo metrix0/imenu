@@ -993,7 +993,7 @@ export async function renderQrDesignCanvas({
 
         drawOpenMenu(
             context,
-            universal ? 250 : 350,
+            universal ? 250 : 390,
             {
                 color: "#FFFFFF",
                 fontFamily: FONT_CLEAN,
