@@ -124,11 +124,11 @@ function restaurantEventFilter(filter?: ConsumerPostHogFilter): string {
 function nonMesaEventFilter(): string {
     return `
           AND NOT startsWith(
-                toString(properties.$pathname),
+                coalesce(toString(properties.$pathname), ''),
                 '/mesa/'
           )
           AND NOT startsWith(
-                toString(properties.consumer_pathname),
+                coalesce(toString(properties.consumer_pathname), ''),
                 '/mesa/'
           )`;
 }
