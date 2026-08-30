@@ -28,7 +28,7 @@ export default function ToggleInput({
                     }`}
                 />
             </div>
-            {label && <span className={"text-sm md:whitespace-nowrap 2xl:text-base"}>{label}</span>}
+            {label && <span className={"text-sm 2xl:text-base"}>{label}</span>}
             <input
                 type="checkbox"
                 checked={checked}
