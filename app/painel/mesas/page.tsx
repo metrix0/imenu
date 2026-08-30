@@ -4,12 +4,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import Image from "next/image";
 import {
+    faBellConcierge,
     faChair,
     faCopy,
     faDownload,
     faEdit,
     faImage,
-    faLink,
     faPalette,
     faPlus,
     faQrcode,
@@ -520,8 +520,11 @@ export default function MesasPage() {
                                         )
                                     }
                                 >
-                                    <FontAwesomeIcon icon={faLink} className="mr-2" />
-                                    Link Garçon
+                                    <FontAwesomeIcon
+                                        icon={faBellConcierge}
+                                        className="mr-2"
+                                    />
+                                    Painel Garçom
                                 </Button>
                                 <Button
                                     type="button"
