@@ -334,6 +334,8 @@ function churnAccountSets(
 ): {
     abandonedActiveUsers: Set<string>;
     abandonedActiveCustomerUsers: Set<string>;
+    eligibleActiveUsers: Set<string>;
+    eligibleActiveCustomerUsers: Set<string>;
 } {
     const inactivityStart = asOf - 7 * DAY_MS;
     const priorActiveWindow = ordersInside(
@@ -366,18 +368,32 @@ function churnAccountSets(
                 (accountId) => !accountsWithRecentOrders.has(accountId)
             )
         ),
+        eligibleActiveUsers: previouslyActiveAccounts,
+        eligibleActiveCustomerUsers: previouslyQualifiedCustomerAccounts,
     };
 }
 
 function churnAt(
     orders: NormalizedOrder[],
     asOf: number
-): { abandonedActiveUsers: number; abandonedActiveCustomerUsers: number } {
+): {
+    abandonedActiveUsers: number;
+    abandonedActiveCustomerUsers: number;
+    eligibleActiveUsers: number;
+    eligibleActiveCustomerUsers: number;
+} {
     const sets = churnAccountSets(orders, asOf);
     return {
         abandonedActiveUsers: sets.abandonedActiveUsers.size,
         abandonedActiveCustomerUsers: sets.abandonedActiveCustomerUsers.size,
+        eligibleActiveUsers: sets.eligibleActiveUsers.size,
+        eligibleActiveCustomerUsers: sets.eligibleActiveCustomerUsers.size,
     };
+}
+
+function percentage(part: number, total: number): number {
+    if (total <= 0) return 0;
+    return Number(((part / total) * 100).toFixed(1));
 }
 
 function paymentLabel(value: string): string {
@@ -660,8 +676,14 @@ async function loadPostHogConsumerTimeline(
               '${CONSUMER_EVENTS.menuViewed}',
               '${CONSUMER_EVENTS.itemAddedToCart}'
           )
-          AND NOT startsWith(toString(properties.$pathname), '/mesa/')
-          AND NOT startsWith(toString(properties.consumer_pathname), '/mesa/')
+          AND NOT startsWith(
+              coalesce(toString(properties.$pathname), ''),
+              '/mesa/'
+          )
+          AND NOT startsWith(
+              coalesce(toString(properties.consumer_pathname), ''),
+              '/mesa/'
+          )
         GROUP BY bucket_index
         HAVING bucket_index >= 0
         ORDER BY bucket_index
@@ -924,6 +946,10 @@ export async function GET(request: Request) {
             abandonedActiveUsers: [] as SeriesPoint[],
             abandonedActiveCustomerUsers: [] as SeriesPoint[],
         };
+        const abandonmentRates = {
+            activeUsers: [] as SeriesPoint[],
+            activeCustomerUsers: [] as SeriesPoint[],
+        };
 
         const paymentMethods = new Set<string>();
         const paymentValuesByBucket: Array<Map<string, number>> = [];
@@ -975,6 +1001,20 @@ export async function GET(request: Request) {
             metricSeries.abandonedActiveCustomerUsers.push({
                 label: bucket.label,
                 value: churn.abandonedActiveCustomerUsers,
+            });
+            abandonmentRates.activeUsers.push({
+                label: bucket.label,
+                value: percentage(
+                    churn.abandonedActiveUsers,
+                    churn.eligibleActiveUsers
+                ),
+            });
+            abandonmentRates.activeCustomerUsers.push({
+                label: bucket.label,
+                value: percentage(
+                    churn.abandonedActiveCustomerUsers,
+                    churn.eligibleActiveCustomerUsers
+                ),
             });
 
             const bucketPayments = new Map<string, number>();
@@ -1110,6 +1150,7 @@ export async function GET(request: Request) {
                 },
                 cards,
                 series: metricSeries,
+                abandonmentRates,
                 abandonedUsers,
                 paymentMethods: {
                     labels: buckets.map((bucket) => bucket.label),
