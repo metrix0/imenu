@@ -7,6 +7,13 @@ import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 
+const PAYMENT_COMPLETED_STATUSES = new Set([
+    "paid",
+    "preparing",
+    "delivering",
+    "done",
+]);
+
 export default function PostPaymentWhatsappPrompt({
     orderId,
 }: {
@@ -39,7 +46,7 @@ export default function PostPaymentWhatsappPrompt({
                     return;
                 }
 
-                if (status !== "paid") return;
+                if (!PAYMENT_COMPLETED_STATUSES.has(status)) return;
 
                 const confirmationResponse = await fetch(
                     `/api/orders/${orderId}/whatsapp-confirmation`,
