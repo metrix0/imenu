@@ -451,6 +451,7 @@ export default function LandingPage() {
                                 ["Pedidos ilimitados", "check", "Cada vez mais caro"],
                                 ["Robô WhatsApp", "check", "Taxas adicionais"],
                                 ["Aplicativo para celular", "check", "Não"],
+                                ["App para garçom", "check", "Pago"],
                                 ["Converte o cliente", "check", "Baixa Conversão"],
                                 ["Gestor de pedidos (balcão)", "check", "Limitado"],
                                 ["Suporte humanizado", "Todos os dias", "Robô, fila ou e-mail"],
