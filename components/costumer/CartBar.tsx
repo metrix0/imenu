@@ -196,6 +196,16 @@ export default function CartBar({
                 consumerProperties()
             );
             setStep("checkout");
+            if (
+                typeof window !== "undefined" &&
+                window.matchMedia("(min-width: 768px)").matches
+            ) {
+                requestAnimationFrame(() => {
+                    document
+                        .querySelector<HTMLElement>('[role="dialog"]')
+                        ?.scrollTo({ top: 0, behavior: "auto" });
+                });
+            }
             return;
         }
 
