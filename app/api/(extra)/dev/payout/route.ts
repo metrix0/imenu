@@ -1,3 +1,6 @@
+import * as https from "node:https";
+import { HttpsProxyAgent } from "https-proxy-agent";
+
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
@@ -10,6 +13,7 @@ const ALLOWED_DEV_EMAIL = "joaovralmeida@hotmail.com";
 const ASAAS_BASE_URL = (
     process.env.ASAAS_API_BASE_URL?.trim() || "https://api.asaas.com/v3"
 ).replace(/\/+$/, "");
+const ASAAS_REQUEST_TIMEOUT_MS = 10_000;
 
 type PixKeyType = "CPF" | "CNPJ" | "EMAIL" | "PHONE" | "EVP";
 
@@ -88,34 +92,86 @@ function getAsaasApiKey(): string | null {
     return process.env.ASAAS_API_KEY?.trim() || null;
 }
 
+function getFixieUrl(): string {
+    const fixieUrl = process.env.FIXIE_URL?.trim();
+    if (!fixieUrl) throw new Error("FIXIE_URL não configurado para os repasses Asaas.");
+    return fixieUrl;
+}
+
+function parseJsonText(text: string): any {
+    if (!text) return {};
+
+    try {
+        return JSON.parse(text);
+    } catch {
+        return { error: text };
+    }
+}
+
 async function asaasRequest<T>(
     path: string,
-    init: RequestInit = {}
+    init: { method?: "GET" | "POST"; body?: string } = {}
 ): Promise<T> {
     const apiKey = getAsaasApiKey();
     if (!apiKey) throw new Error("ASAAS_API_KEY não configurada.");
 
-    const response = await fetch(`${ASAAS_BASE_URL}${path}`, {
-        ...init,
-        headers: {
-            accept: "application/json",
-            access_token: apiKey,
-            ...(init.body ? { "content-type": "application/json" } : {}),
-            ...(init.headers || {}),
-        },
-        cache: "no-store",
+    const target = new URL(`${ASAAS_BASE_URL}${path}`);
+    const agent = new HttpsProxyAgent(getFixieUrl());
+
+    return new Promise((resolve, reject) => {
+        const request = https.request(
+            target,
+            {
+                method: init.method || "GET",
+                agent,
+                headers: {
+                    accept: "application/json",
+                    access_token: apiKey,
+                    ...(init.body
+                        ? {
+                              "content-type": "application/json",
+                              "content-length": Buffer.byteLength(init.body),
+                          }
+                        : {}),
+                },
+                timeout: ASAAS_REQUEST_TIMEOUT_MS,
+            },
+            (response) => {
+                const chunks: Buffer[] = [];
+
+                response.on("data", (chunk) => {
+                    chunks.push(
+                        Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
+                    );
+                });
+                response.on("error", reject);
+                response.on("end", () => {
+                    const status = response.statusCode ?? 500;
+                    const payload = parseJsonText(
+                        Buffer.concat(chunks).toString("utf8")
+                    );
+
+                    if (status < 200 || status >= 300) {
+                        const message =
+                            payload?.errors?.[0]?.description ||
+                            payload?.error ||
+                            `Asaas retornou HTTP ${status}.`;
+                        reject(new Error(message));
+                        return;
+                    }
+
+                    resolve(payload as T);
+                });
+            }
+        );
+
+        request.on("timeout", () => {
+            request.destroy(new Error("Tempo limite excedido ao chamar Asaas."));
+        });
+        request.on("error", reject);
+        if (init.body) request.write(init.body);
+        request.end();
     });
-
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) {
-        const message =
-            payload?.errors?.[0]?.description ||
-            payload?.error ||
-            `Asaas retornou HTTP ${response.status}.`;
-        throw new Error(message);
-    }
-
-    return payload as T;
 }
 
 function inferPixKeyType(value: string | null): PixKeyType | null {
