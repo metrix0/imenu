@@ -661,9 +661,37 @@ export default function MenuClientPage({
             nextOpening.getDate() === now.getDate();
     })();
 
+    const nextOpeningForWarning = (() => {
+        if (!restaurant.availability_json) return null;
+
+        const availability = restaurant.availability_json;
+        const now = new Date();
+        const today = now.getDay();
+
+        for (let i = 0; i <= 7; i++) {
+            const day = (today + i) % 7;
+            const slots = availability[day];
+
+            if (!Array.isArray(slots) || slots.length === 0) continue;
+
+            for (const slot of slots) {
+                const [openH, openM] = slot.open.split(":").map(Number);
+                const opening = new Date(now);
+                opening.setDate(now.getDate() + i);
+                opening.setHours(openH, openM, 0, 0);
+
+                if (opening > now) return opening;
+            }
+        }
+
+        return null;
+    })();
+
+    const warningOpening = nextOpening ?? nextOpeningForWarning;
+
     const openingHoursSlots = (() => {
-        if (closedForToday || !nextOpening) return todaySlots;
-        const slots = restaurant.availability_json?.[nextOpening.getDay()] ?? [];
+        if (closedForToday || !warningOpening) return todaySlots;
+        const slots = restaurant.availability_json?.[warningOpening.getDay()] ?? [];
         return Array.isArray(slots) ? slots : [];
     })();
 
@@ -759,18 +787,18 @@ export default function MenuClientPage({
                                 : "Você pode montar seu pedido e agendar para hoje"}</b>.
                         </>
                     )}
-                    {nextOpening !== null && !closedForToday && (!canScheduleToday || isTableOrder) && (() => {
+                    {warningOpening !== null && !closedForToday && (!canScheduleToday || isTableOrder) && (() => {
                         const now = new Date();
-                        const diffMs = nextOpening.getTime() - now.getTime();
+                        const diffMs = warningOpening.getTime() - now.getTime();
 
                         if (diffMs <= 0) return null;
 
                         const todayStart = new Date(now);
                         todayStart.setHours(0, 0, 0, 0);
-                        const openingStart = new Date(nextOpening);
+                        const openingStart = new Date(warningOpening);
                         openingStart.setHours(0, 0, 0, 0);
                         const days = Math.round((openingStart.getTime() - todayStart.getTime()) / 86_400_000);
-                        const weekdayRaw = nextOpening.toLocaleDateString("pt-BR", { weekday: "long" });
+                        const weekdayRaw = warningOpening.toLocaleDateString("pt-BR", { weekday: "long" });
                         const weekday = weekdayRaw.charAt(0).toUpperCase() + weekdayRaw.slice(1);
 
                         if (days === 1) {
@@ -801,11 +829,6 @@ export default function MenuClientPage({
                             </>
                         );
                     })()}
-                    {!closedForToday && nextOpening === null && (
-                        todaySlots.length === 0
-                            ? "Restaurante fechado hoje."
-                            : "Restaurante fechado no momento."
-                    )}
 
 
                     {openingHoursSlots.length > 0 && (
