@@ -17,6 +17,20 @@ export type BlogArticleDefinition = {
 
 export const BLOG_ARTICLES: BlogArticleDefinition[] = [
     {
+        slug: "aplicativo-para-garcom",
+        title: "Aplicativo para garçom: como fazer pedidos pelo celular e organizar as mesas",
+        shortTitle: "Aplicativo para garçom",
+        metaTitle: "Aplicativo para Garçom: Pedidos pelo Celular | iMenu",
+        metaDescription:
+            "Veja como funciona um aplicativo para garçom, a diferença para comanda eletrônica e como lançar e acompanhar pedidos das mesas pelo celular.",
+        excerpt:
+            "Entenda como transformar o celular da equipe em um painel de mesas e pedidos, sem depender de papel e sem confundir app do garçom com autoatendimento.",
+        category: "Gestão",
+        readingTime: "10 min de leitura",
+        publishedAt: "2026-08-31",
+        updatedAt: "2026-08-31",
+    },
+    {
         slug: "melhor-qr-code-mesa-restaurante",
         title: "Melhor QR Code para restaurante em 2026: 4 sistemas para pedidos na mesa",
         shortTitle: "Melhor QR Code para restaurante",
