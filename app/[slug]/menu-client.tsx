@@ -55,6 +55,7 @@ export default function MenuClientPage({
     const [cartStep, setCartStep] = useState<"cart" | "info" | "checkout">("cart");
     const [nextOpening, setNextOpening] = useState<Date | null>(null);
     const [isRestaurantOpen, setIsRestaurantOpen] = useState(false);
+    const [availabilityChecked, setAvailabilityChecked] = useState(false);
     const [todaySlots, setTodaySlots] = useState<
         { open: string; close: string }[]
     >([]);
@@ -588,6 +589,7 @@ export default function MenuClientPage({
 
     useEffect(() => {
         checkRestaurantAvailability();
+        setAvailabilityChecked(true);
     }, [restaurant]);
 
     useEffect(() => {
@@ -745,7 +747,7 @@ export default function MenuClientPage({
             </div>
             )}
 
-            {(nextOpening !== null || closedForToday) && (
+            {availabilityChecked && (!isRestaurantOpen || closedForToday) && (
                 <WarningBox icon={icons.faTriangleExclamation} className="mt-10 mx-5 md:mx-48 2xl:mx-80">
                     {closedForToday && (
                         "Hoje o restaurante está fechado no horário comum de funcionamento, devido à possíveis feriados ou eventos especiais."
@@ -799,6 +801,11 @@ export default function MenuClientPage({
                             </>
                         );
                     })()}
+                    {!closedForToday && nextOpening === null && (
+                        todaySlots.length === 0
+                            ? "Restaurante fechado hoje."
+                            : "Restaurante fechado no momento."
+                    )}
 
 
                     {openingHoursSlots.length > 0 && (
