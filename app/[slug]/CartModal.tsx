@@ -849,7 +849,7 @@ export default function CartModal({
                     )}
                 </div>
 
-                <div className="w-full overflow-x-hidden ">
+                <div data-checkout-scroll className="w-full overflow-x-hidden ">
 
                     <div
                         className="flex transition-transform duration-300 overflow-x-hidden "
