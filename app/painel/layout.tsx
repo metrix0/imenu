@@ -37,6 +37,7 @@ import Loader from "@/components/ui/Loader";
 import SupportButton, {
     type SupportButtonRef,
 } from "@/components/common/SupportButton";
+import { OrderSoundProvider } from "@/components/restaurant-owner/OrderSoundProvider";
 import { supabase } from "@/lib/database/supabaseClient";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 import "./mobile.css";
@@ -409,7 +410,7 @@ export default function PainelLayout({
     );
 
     return (
-        <>
+        <OrderSoundProvider>
             <Script id="ms-clarity-panel" strategy="afterInteractive">
                 {`
                 (function(c,l,a,r,i,t,y){
@@ -754,6 +755,6 @@ export default function PainelLayout({
                     </div>
                 </main>
             </div>
-        </>
+        </OrderSoundProvider>
     );
 }
