@@ -718,7 +718,7 @@ export default function MenuClientPage({
                     <div className="absolute left-1/2 -translate-x-1/2 -top-8 z-20">
                         <img
                             src={restaurant.logo_url}
-                            className="w-17 h-17 md:w-23 md:h-23 2xl:h-30 2xl:w-30 rounded-full border-1 border-gray-200 object-cover"
+                            className="h-[78px] w-[78px] md:w-23 md:h-23 2xl:h-30 2xl:w-30 rounded-full border-1 border-gray-200 object-cover"
                             alt="Logo"
                         />
                     </div>

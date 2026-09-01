@@ -17,7 +17,6 @@ import ManageCategoryModal from "@/components/restaurant-owner/cardapio/ManageCa
 import ItemDetailsModal from "@/components/restaurant-owner/cardapio/ItemDetailsModal";
 import ScanMenuModal from "@/components/restaurant-owner/ScanMenuImageModal";
 import { MenuItemType } from "@/components/restaurant-owner/cardapio/MenuItemRow";
-import { useRouter } from "next/navigation";
 
 type Category = { id: string; name: string; position: number };
 
@@ -26,7 +25,6 @@ const TABS = [
     "Produtos",
     "Complementos",
     "Upsells",
-    "Promoções e Cupons",
     "Estoque",
 ];
 
@@ -51,14 +49,6 @@ export default function MenuManagerPage() {
     const [itemToEditDetails, setItemToEditDetails] =
         useState<MenuItemType | null>(null);
     const [aiModalOpen, setAiModalOpen] = useState(false);
-
-    const router = useRouter();
-
-    useEffect(() => {
-        if (activeTab === "Promoções e Cupons") {
-            router.push("/painel/promocoes");
-        }
-    }, [activeTab, router]);
 
     const loadMenuData = async (id: string) => {
         setIsLoading(true);
