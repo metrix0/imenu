@@ -938,7 +938,10 @@ export default function DevDashboardPage() {
                                     return {
                                         ...step,
                                         value: orderedConsumers,
-                                        secondaryValue: null,
+                                        secondaryValue:
+                                            postHogOrdered !== null
+                                                ? step.value
+                                                : null,
                                         conversion: conversion(
                                             orderedConsumers,
                                             paymentStarted

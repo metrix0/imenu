@@ -60,6 +60,10 @@ type OnboardingFunnelRow = {
     step_4: number | string;
 };
 
+type OrderCountRow = {
+    total_orders: number | string;
+};
+
 type PostHogMetrics = {
     available: boolean;
     landingViews: number | null;
@@ -620,7 +624,7 @@ async function loadPostHogSeoTraffic(
                               )
                             : 0,
                 };
-            }),
+            }).sort((a, b) => b.visitors - a.visitors),
         };
     } catch (error) {
         console.warn("[DEV_DASHBOARD] SEO traffic unavailable:", error);
@@ -809,6 +813,7 @@ export async function GET(request: Request) {
             consumerTracking,
             consumerTimeline,
             seoTraffic,
+            orderCountResult,
         ] =
             await Promise.all([
                 query<OnboardingFunnelRow>(
@@ -848,6 +853,17 @@ export async function GET(request: Request) {
                 loadPostHogConsumerMetrics(startAt, endAt),
                 loadPostHogConsumerTimeline(buckets),
                 loadPostHogSeoTraffic(startAt, endAt),
+                query<OrderCountRow>(
+                    `
+                        SELECT COUNT(*)::int AS total_orders
+                        FROM orders
+                        WHERE created_at >= $1
+                          AND created_at < $2
+                          AND status IS DISTINCT FROM 'canceled'
+                          AND status IS DISTINCT FROM 'pending_online_payment'
+                    `,
+                    [startIso, endIso]
+                ),
             ]);
 
         const onboardingRow = onboardingResult.rows[0];
@@ -1045,7 +1061,7 @@ export async function GET(request: Request) {
 
         const consumerPipeline = buildConsumerPipeline(
             consumerTracking,
-            distinctCustomers(selected.filter(isHandledOrder))
+            Number(orderCountResult.rows[0]?.total_orders) || 0
         );
 
         const pipeline = [
