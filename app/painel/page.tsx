@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/database/supabaseClient"; // Ajustado para o seu import padrão
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore"; // Ajustado para o seu import padrão
+import { hasQrTableAccess } from "@/lib/qr-table/types";
 import Loader from "@/components/ui/Loader";
 import Button from "@/components/ui/Button";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -156,6 +157,7 @@ export default function PainelPedidosAtivosPage() {
     const [orders, setOrders] = useState<OrderData[]>([]);
     const [isShareModalOpen, setIsShareModalOpen] = useState(false);
     const [isTablesModalOpen, setIsTablesModalOpen] = useState(false);
+    const [hasMesasAccess, setHasMesasAccess] = useState(false);
 
     // Novo: Estado para detalhes do pedido
     const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
@@ -221,6 +223,24 @@ export default function PainelPedidosAtivosPage() {
 
         setOrders((data as any[]) || []);
     };
+
+    const fetchMesasAccess = async (restId: string) => {
+        const { data, error } = await supabase
+            .from("restaurant_addons")
+            .select("status, current_period_ends_at")
+            .eq("restaurant_id", restId)
+            .eq("product_key", "qr_code_mesa")
+            .maybeSingle();
+
+        if (error) {
+            console.error("Erro ao verificar acesso Mesas:", error);
+            setHasMesasAccess(false);
+            return;
+        }
+
+        setHasMesasAccess(hasQrTableAccess(data));
+    };
+
     // --- HELPER PARA TRATAR FIRST TIME ---
     const handleFirstTime = async (restId: string, isFirstTime: boolean) => {
         if (isFirstTime) {
@@ -292,6 +312,7 @@ export default function PainelPedidosAtivosPage() {
             // CENÁRIO A: Já temos o ID no Zustand (Navegação interna)
             if (restaurantId) {
                 fetchOrders(restaurantId);
+                void fetchMesasAccess(restaurantId);
 
                 // Precisamos verificar o first_time e o slug mesmo se já tivermos o ID
                 const { data } = await supabase
@@ -331,6 +352,7 @@ export default function PainelPedidosAtivosPage() {
                 setRestaurantSlug(restaurant.url_slug);
 
                 await fetchOrders(restaurant.id);
+                await fetchMesasAccess(restaurant.id);
 
                 // Verifica se é a primeira vez
                 handleFirstTime(restaurant.id, restaurant.first_time);
@@ -537,13 +559,15 @@ export default function PainelPedidosAtivosPage() {
                         <span className="sm:hidden">Pedido</span>
                     </Button>
 
-                    <Button
-                        onClick={() => setIsTablesModalOpen(true)}
-                        variant="secondary"
-                    >
-                        <FontAwesomeIcon icon={faChair} className="mr-2" />
-                        Mesas
-                    </Button>
+                    {hasMesasAccess && (
+                        <Button
+                            onClick={() => setIsTablesModalOpen(true)}
+                            variant="secondary"
+                        >
+                            <FontAwesomeIcon icon={faChair} className="mr-2" />
+                            Mesas
+                        </Button>
+                    )}
 
                     <Button
                         onClick={() => setIsShareModalOpen(true)}

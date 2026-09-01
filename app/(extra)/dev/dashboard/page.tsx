@@ -53,6 +53,10 @@ type DashboardPayload = {
     };
     cards: Record<MetricKey, number>;
     series: Record<MetricKey, SeriesPoint[]>;
+    abandonmentRates: {
+        activeUsers: SeriesPoint[];
+        activeCustomerUsers: SeriesPoint[];
+    };
     abandonedUsers: Array<{
         accountId: string;
         restaurantName: string;
@@ -253,7 +257,7 @@ function normalizeWhatsappNumber(value: string | null): string | null {
     return digits.length >= 12 ? digits : null;
 }
 
-function lineOptions(currency = false) {
+function lineOptions(currency = false, percentage = false) {
     return {
         responsive: true,
         maintainAspectRatio: false,
@@ -262,10 +266,11 @@ function lineOptions(currency = false) {
             legend: { display: false },
             tooltip: {
                 callbacks: {
-                    label: (context: any) =>
-                        currency
-                            ? formatCurrency(Number(context.parsed.y) || 0)
-                            : formatCount(Number(context.parsed.y) || 0),
+                    label: (context: any) => {
+                        const value = Number(context.parsed.y) || 0;
+                        if (percentage) return formatRatio(value);
+                        return currency ? formatCurrency(value) : formatCount(value);
+                    },
                 },
             },
         },
@@ -276,12 +281,16 @@ function lineOptions(currency = false) {
             },
             y: {
                 beginAtZero: true,
+                ...(percentage ? { max: 100 } : {}),
                 ticks: {
-                    precision: 0,
-                    callback: (value: string | number) =>
-                        currency
-                            ? formatCurrency(Number(value) || 0)
-                            : formatCount(Number(value) || 0),
+                    precision: percentage ? 1 : 0,
+                    callback: (value: string | number) => {
+                        const numericValue = Number(value) || 0;
+                        if (percentage) return formatRatio(numericValue);
+                        return currency
+                            ? formatCurrency(numericValue)
+                            : formatCount(numericValue);
+                    },
                 },
             },
         },
@@ -325,6 +334,9 @@ export default function DevDashboardPage() {
     const [data, setData] = useState<DashboardPayload | null>(null);
     const [details, setDetails] = useState<DashboardDetailsPayload | null>(null);
     const [showAllAbandoned, setShowAllAbandoned] = useState(false);
+    const [abandonmentView, setAbandonmentView] = useState<"percentage" | "absolute">(
+        "percentage"
+    );
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
 
@@ -724,10 +736,38 @@ export default function DevDashboardPage() {
                         </section>
 
                         <section>
-                            <SectionHeading
-                                title="Abandono"
-                                description="Situação calculada em relação ao fim do período selecionado e ao fim de cada intervalo do gráfico."
-                            />
+                            <div className="mb-4 flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
+                                <div>
+                                    <h2 className="text-xl font-bold text-gray-900">Abandono</h2>
+                                    <p className="mt-1 text-sm text-gray-500">
+                                        Situação calculada em relação ao fim do período selecionado e ao fim de cada intervalo do gráfico.
+                                    </p>
+                                </div>
+                                <div className="flex w-fit rounded-xl border border-gray-200 bg-white p-1 shadow-sm">
+                                    <button
+                                        type="button"
+                                        onClick={() => setAbandonmentView("percentage")}
+                                        className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
+                                            abandonmentView === "percentage"
+                                                ? "bg-gray-900 text-white"
+                                                : "text-gray-500 hover:bg-gray-100"
+                                        }`}
+                                    >
+                                        %
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setAbandonmentView("absolute")}
+                                        className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
+                                            abandonmentView === "absolute"
+                                                ? "bg-gray-900 text-white"
+                                                : "text-gray-500 hover:bg-gray-100"
+                                        }`}
+                                    >
+                                        Bruto
+                                    </button>
+                                </div>
+                            </div>
                             <div className="grid gap-4 sm:grid-cols-2">
                                 <MetricCard
                                     title="Usuários ativos abandonados"
@@ -856,15 +896,23 @@ export default function DevDashboardPage() {
                             <div className="mt-5 grid gap-5 xl:grid-cols-2">
                                 <MetricChart
                                     title="Usuários ativos abandonados"
-                                    series={data.series.abandonedActiveUsers}
+                                    series={
+                                        abandonmentView === "percentage"
+                                            ? data.abandonmentRates.activeUsers
+                                            : data.series.abandonedActiveUsers
+                                    }
                                     color="#dc2626"
+                                    percentage={abandonmentView === "percentage"}
                                 />
                                 <MetricChart
                                     title="Usuários com clientes ativos abandonados"
                                     series={
-                                        data.series.abandonedActiveCustomerUsers
+                                        abandonmentView === "percentage"
+                                            ? data.abandonmentRates.activeCustomerUsers
+                                            : data.series.abandonedActiveCustomerUsers
                                     }
                                     color="#ea580c"
+                                    percentage={abandonmentView === "percentage"}
                                 />
                             </div>
                         </section>
@@ -1280,11 +1328,13 @@ function MetricChart({
     series,
     color,
     currency = false,
+    percentage = false,
 }: {
     title: string;
     series: SeriesPoint[];
     color: string;
     currency?: boolean;
+    percentage?: boolean;
 }) {
     const chartData = {
         labels: series.map((point) => point.label),
@@ -1309,7 +1359,10 @@ function MetricChart({
             <h3 className="text-base font-semibold text-gray-900">{title}</h3>
             <div className="mt-4 h-[280px]">
                 {series.length ? (
-                    <Line data={chartData} options={lineOptions(currency)} />
+                    <Line
+                        data={chartData}
+                        options={lineOptions(currency, percentage)}
+                    />
                 ) : (
                     <EmptyChart />
                 )}

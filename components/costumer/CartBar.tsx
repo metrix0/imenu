@@ -196,6 +196,16 @@ export default function CartBar({
                 consumerProperties()
             );
             setStep("checkout");
+            if (
+                typeof window !== "undefined" &&
+                window.matchMedia("(min-width: 768px)").matches
+            ) {
+                requestAnimationFrame(() => {
+                    document
+                        .querySelector<HTMLElement>('[role="dialog"]')
+                        ?.scrollTo({ top: 0, behavior: "auto" });
+                });
+            }
             return;
         }
 
@@ -217,6 +227,10 @@ export default function CartBar({
         const cart = useCartStore.getState();
         const checkout = useCheckoutStore.getState();
         const pickup = !isTableOrder && Boolean((checkout as any).is_pickup);
+        const shouldReturnToGarcom =
+            isTableOrder &&
+            typeof window !== "undefined" &&
+            new URLSearchParams(window.location.search).get("source") === "garcom";
         const shouldOpenWhatsapp =
             restaurant.force_whatsapp_order_confirmation === true &&
             typeof window !== "undefined" &&
@@ -363,6 +377,11 @@ export default function CartBar({
                 console.error("[WHATSAPP_ORDER_CONFIRMATION] Failed to open WhatsApp:", error);
             }
         } else whatsappWindow?.close();
+
+        if (shouldReturnToGarcom) {
+            window.location.href = "/garcom";
+            return;
+        }
 
         if (data.payment_type === "offline") {
             window.location.href = data.redirect;

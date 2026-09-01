@@ -80,7 +80,7 @@ export default function QrTableOnboardingSelection({
                 buying={submitting}
             />
 
-            <main className="mx-auto w-full max-w-5xl px-4 pb-32 pt-5 sm:px-6 sm:pt-10">
+            <main className="mx-auto w-full max-w-6xl px-4 pb-32 pt-5 sm:px-6 sm:pt-10">
                 <div className="mx-auto max-w-3xl text-center">
                     <p className="text-xs font-bold uppercase tracking-[0.18em] text-brand">
                         Antes de começar

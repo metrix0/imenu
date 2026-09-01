@@ -105,7 +105,7 @@ export default function StoreVisuals({
     };
 
     return (
-        <div className="relative mb-12">
+        <div className="relative mb-12 2xl:mb-16">
             
             {/* --- MODAL DE RECORTE --- */}
             <Modal open={!!cropImage} onClose={handleCloseCrop} className="max-w-2xl w-full">

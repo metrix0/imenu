@@ -4,6 +4,7 @@ import Link from "next/link";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
     faArrowRight,
+    faBellConcierge,
     faBookOpen,
     faChartLine,
     faComments,
@@ -44,6 +45,7 @@ export const metadata: Metadata = {
 };
 
 const articleIcons = [
+    faBellConcierge,
     faComments,
     faUtensils,
     faStore,

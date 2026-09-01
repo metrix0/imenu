@@ -109,7 +109,7 @@ export default function PayoutsDashboard({ menuId, startDate, endDate }: Payouts
         <Card>
             <div className="mb-6">
                 <h2 className="text-lg font-bold text-gray-900 2xl:text-xl">Histórico de Repasses</h2>
-                <p className="text-sm text-gray-500 2xl:text-lg">Acompanhe os valores transferidos semanalmente, <b>todo domingo no Pix cadastrado</b>.</p>
+                <p className="text-sm text-gray-500 2xl:text-lg">Repasses diários às 12:00</p>
             </div>
 
             <div className="space-y-3">

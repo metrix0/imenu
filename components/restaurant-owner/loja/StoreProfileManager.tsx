@@ -279,7 +279,7 @@ export default function StoreProfileManager({
                             <div className="flex items-center gap-2 text-xs font-medium 2xl:text-base">
                                 <span>Chave Pix para Repasse</span>
                                 <Tooltip
-                                    text="Repasses são apenas para clientes que pagaram com Pix Online. São feitos todo domingo às 14:00 no PIX cadastrado."
+                                    text="Repasses são apenas para clientes que pagaram com Pix Online. Repasses diários às 12:00 no PIX cadastrado."
                                     size="medium"
                                     showOnClick
                                 >
@@ -391,8 +391,7 @@ export default function StoreProfileManager({
                         className="mt-4 bg-brand! text-white!"
                     >
                         <b>AVISO:</b> Repasses de pagamentos em Pix (ONLINE) são
-                        realizados semanalmente, sempre aos domingos a partir
-                        das 14h. O repasse é realizado na Chave Pix cadastrada
+                        realizados diariamente às 12:00 na Chave Pix cadastrada
                         acima.
                     </WarningBox>
                 </div>

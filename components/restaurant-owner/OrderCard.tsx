@@ -334,7 +334,7 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
             label: isPickup ? "Pronto" : "Em Rota",
             color: isPickup ? "bg-green-100 text-green-800 border-green-200" : "bg-purple-100 text-purple-800 border-purple-800",
             borderColor: isPickup ? "border-l-green-500" : "border-l-purple-500",
-            btn: isPickup ? "Entregue" : "Concluir",
+            btn: isTableOrder ? "Pago" : isPickup ? "Entregue" : "Concluir",
             btnColor: "primary"
         },
         done: { 

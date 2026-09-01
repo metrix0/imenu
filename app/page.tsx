@@ -475,6 +475,7 @@ export default function LandingPage() {
                                 ["Sistema disponível para celulares", "check", "Indisponível"],
                                 ["Notificações no celular", "check", "Não"],
                                 ["QR Code na mesa", "R$ 4,90 por mês", "R$ 99,90 por mês (muito mais caro)"],
+                                ["App para garçom", "check", "Pago"],
                                 ["Agendamento de pedido", "check", "Não"],
                                 ["Sem bugs", "Correção garantida em 2 dias úteis", "Correção leva meses"],
                             ].map(([feature, imenu, competitor]) => (
