@@ -541,19 +541,21 @@ export default function MenuClientPage({
             return;
         }
 
-        if (slots[0]) {
-            const [openH, openM] = slots[0].open.split(":").map(Number);
-            const next = new Date();
-            next.setHours(openH, openM, 0, 0);
+        for (let i = 1; i <= 7; i++) {
+            const nextDay = (today + i) % 7;
+            const nextSlots = availability[nextDay];
 
-            if (next < now) {
-                next.setDate(next.getDate() + 1);
+            if (Array.isArray(nextSlots) && nextSlots.length > 0) {
+                const [openH, openM] = nextSlots[0].open.split(":").map(Number);
+                const next = new Date();
+                next.setDate(now.getDate() + i);
+                next.setHours(openH, openM, 0, 0);
+                setNextOpening(next);
+                return;
             }
-
-            setNextOpening(next);
-        } else {
-            setNextOpening(null);
         }
+
+        setNextOpening(null);
     };
 
     const couponLabel = () => {
@@ -715,7 +717,7 @@ export default function MenuClientPage({
 
             <div className="relative -mt-8 ">
                 {restaurant.logo_url && (
-                    <div className="absolute left-1/2 -translate-x-1/2 -top-8 z-20">
+                    <div className="absolute left-1/2 -translate-x-1/2 -top-10 md:-top-8 z-20">
                         <img
                             src={restaurant.logo_url}
                             className="h-[78px] w-[78px] md:w-23 md:h-23 2xl:h-30 2xl:w-30 rounded-full border-1 border-gray-200 object-cover"
@@ -800,6 +802,7 @@ export default function MenuClientPage({
                         const days = Math.round((openingStart.getTime() - todayStart.getTime()) / 86_400_000);
                         const weekdayRaw = warningOpening.toLocaleDateString("pt-BR", { weekday: "long" });
                         const weekday = weekdayRaw.charAt(0).toUpperCase() + weekdayRaw.slice(1);
+                        const weekdayPreposition = [0, 6].includes(warningOpening.getDay()) ? "no" : "na";
 
                         if (days === 1) {
                             return (
@@ -812,7 +815,7 @@ export default function MenuClientPage({
                         if (days > 1) {
                             return (
                                 <>
-                                    Restaurante fechado. Abre em <b>{days} dias</b>, no <b>{weekday}</b>.
+                                    Restaurante fechado. Abre em <b>{days} dias, {weekdayPreposition} {weekday}</b>.
                                 </>
                             );
                         }
@@ -829,6 +832,13 @@ export default function MenuClientPage({
                             </>
                         );
                     })()}
+                    {!isTableOrder &&
+                        restaurant.allow_future_order_scheduling === true &&
+                        warningOpening !== null &&
+                        !closedForToday &&
+                        !canScheduleToday && (
+                            <> <b>Você pode montar seu pedido e agendar para qualquer dia</b>.</>
+                        )}
 
 
                     {openingHoursSlots.length > 0 && (
