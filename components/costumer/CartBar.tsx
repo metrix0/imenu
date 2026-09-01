@@ -126,6 +126,19 @@ export default function CartBar({
         return children;
     };
 
+    const resetCheckoutScroll = () => {
+        if (
+            typeof window !== "undefined" &&
+            window.matchMedia("(min-width: 768px)").matches
+        ) {
+            requestAnimationFrame(() => {
+                document
+                    .querySelector<HTMLElement>("[data-checkout-scroll]")
+                    ?.scrollTo({ top: 0, behavior: "auto" });
+            });
+        }
+    };
+
     async function handleClick() {
         closeItemModalOpen();
         if (cartOpen && step === "cart") {
@@ -142,6 +155,7 @@ export default function CartBar({
                 );
             }
             setStep("info");
+            resetCheckoutScroll();
             return;
         }
 
@@ -174,6 +188,7 @@ export default function CartBar({
                 consumerProperties()
             );
             onOpenCartAction();
+            resetCheckoutScroll();
             return;
         }
 
@@ -196,16 +211,7 @@ export default function CartBar({
                 consumerProperties()
             );
             setStep("checkout");
-            if (
-                typeof window !== "undefined" &&
-                window.matchMedia("(min-width: 768px)").matches
-            ) {
-                requestAnimationFrame(() => {
-                    document
-                        .querySelector<HTMLElement>("[data-checkout-scroll]")
-                        ?.scrollTo({ top: 0, behavior: "auto" });
-                });
-            }
+            resetCheckoutScroll();
             return;
         }
 
