@@ -127,6 +127,7 @@ async function asaasRequest<T>(
                 headers: {
                     accept: "application/json",
                     access_token: apiKey,
+                    "user-agent": "iMenu/1.0",
                     ...(init.body
                         ? {
                               "content-type": "application/json",
