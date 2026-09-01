@@ -6,15 +6,12 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
 import { query } from "@/lib/database/sql";
+import { asaasRequest } from "@/lib/services/asaas";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const ALLOWED_DEV_EMAIL = "joaovralmeida@hotmail.com";
-const ASAAS_BASE_URL = (
-    process.env.ASAAS_API_BASE_URL?.trim() || "https://api.asaas.com/v3"
-).replace(/\/+$/, "");
-const ASAAS_REQUEST_TIMEOUT_MS = 10_000;
 const PAYZU_BASE_URL = "https://api.payzu.processamento.com/v1";
 const PAYZU_REQUEST_TIMEOUT_MS = 10_000;
 const PAYZU_TEST_AMOUNT_CENTS = 100;
@@ -163,12 +160,6 @@ async function getAsaasBalanceCents(): Promise<number> {
     return Math.round(balance * 100);
 }
 
-function getAsaasApiKey(): string {
-    const apiKey = process.env.ASAAS_API_KEY?.trim();
-    if (!apiKey) throw new Error("ASAAS_API_KEY não configurada.");
-    return apiKey;
-}
-
 function getPayZuToken(): string {
     const token = process.env.PAYZU_TOKEN?.trim();
     if (!token) throw new Error("PAYZU_TOKEN não configurado.");
@@ -177,7 +168,7 @@ function getPayZuToken(): string {
 
 function getFixieUrl(): string {
     const fixieUrl = process.env.FIXIE_URL?.trim();
-    if (!fixieUrl) throw new Error("FIXIE_URL não configurado.");
+    if (!fixieUrl) throw new Error("FIXIE_URL não configurado para o saque PayZu de teste.");
     return fixieUrl;
 }
 
@@ -219,71 +210,6 @@ function parseJsonText(text: string): any {
     } catch {
         return { message: text };
     }
-}
-
-async function asaasRequest<T>(
-    path: string,
-    init: { method?: "GET" | "POST"; body?: string } = {}
-): Promise<T> {
-    const target = new URL(`${ASAAS_BASE_URL}${path}`);
-    const agent = new HttpsProxyAgent(getFixieUrl());
-
-    return new Promise((resolve, reject) => {
-        const request = https.request(
-            target,
-            {
-                method: init.method || "GET",
-                agent,
-                headers: {
-                    accept: "application/json",
-                    access_token: getAsaasApiKey(),
-                    "user-agent": "iMenu/1.0",
-                    ...(init.body
-                        ? {
-                              "content-type": "application/json",
-                              "content-length": Buffer.byteLength(init.body),
-                          }
-                        : {}),
-                },
-                timeout: ASAAS_REQUEST_TIMEOUT_MS,
-            },
-            (response) => {
-                const chunks: Buffer[] = [];
-
-                response.on("data", (chunk) => {
-                    chunks.push(
-                        Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
-                    );
-                });
-                response.on("error", reject);
-                response.on("end", () => {
-                    const status = response.statusCode ?? 500;
-                    const data = parseJsonText(
-                        Buffer.concat(chunks).toString("utf8")
-                    );
-
-                    if (status < 200 || status >= 300) {
-                        const message =
-                            data?.errors?.[0]?.description ||
-                            data?.error ||
-                            data?.message ||
-                            `Asaas retornou HTTP ${status}.`;
-                        reject(new Error(message));
-                        return;
-                    }
-
-                    resolve(data as T);
-                });
-            }
-        );
-
-        request.on("timeout", () => {
-            request.destroy(new Error("Tempo limite excedido ao chamar Asaas."));
-        });
-        request.on("error", reject);
-        if (init.body) request.write(init.body);
-        request.end();
-    });
 }
 
 async function payzuRequest<T>(
