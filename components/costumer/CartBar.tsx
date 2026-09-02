@@ -126,20 +126,6 @@ export default function CartBar({
         return children;
     };
 
-    const resetCheckoutScroll = () => {
-        if (typeof window === "undefined") return;
-
-        window.setTimeout(() => {
-            document
-                .querySelectorAll<HTMLElement>(
-                    "[data-checkout-scroll], .checkout-scroll-mobile"
-                )
-                .forEach((element) =>
-                    element.scrollTo({ top: 0, behavior: "auto" })
-                );
-        }, 60);
-    };
-
     async function handleClick() {
         closeItemModalOpen();
         if (cartOpen && step === "cart") {
@@ -156,7 +142,6 @@ export default function CartBar({
                 );
             }
             setStep("info");
-            resetCheckoutScroll();
             return;
         }
 
@@ -189,7 +174,6 @@ export default function CartBar({
                 consumerProperties()
             );
             onOpenCartAction();
-            resetCheckoutScroll();
             return;
         }
 
@@ -212,7 +196,6 @@ export default function CartBar({
                 consumerProperties()
             );
             setStep("checkout");
-            resetCheckoutScroll();
             return;
         }
 

@@ -785,8 +785,8 @@ export default function CartModal({
                 height={0.93}
                 handle={false}
                 xPadding={false}
-                contentClassName="checkout-scroll-mobile"
-                className={"md:!h-[80vh] md:!mb-[12vh]"}
+                contentClassName="!overflow-y-hidden flex flex-col"
+                className={"md:!h-[80vh] md:!mb-[12vh] md:!overflow-hidden"}
             >
 
                 {showNoGeolocationToast && (
@@ -850,10 +850,10 @@ export default function CartModal({
                     )}
                 </div>
 
-                <div data-checkout-scroll className="w-full overflow-x-hidden ">
+                <div className="w-full flex-1 min-h-0 overflow-hidden">
 
                     <div
-                        className="flex transition-transform duration-300 overflow-x-hidden "
+                        className="flex h-full transition-transform duration-300 overflow-hidden"
                         style={{
                             width: "300%",
                             transform:
@@ -865,7 +865,7 @@ export default function CartModal({
                         }}
                     >
 
-                <div className="w-full px-4 2xl:px-8 overflow-y-auto pt-2 ">
+                <div className="w-full h-full min-h-0 px-4 2xl:px-8 overflow-y-auto pt-2 ">
                     <div className="flex items-center gap-3 mt-2 mb-4">
                         {restaurant?.logo_url && (
                             <img
@@ -1007,7 +1007,7 @@ export default function CartModal({
 
                 </div>
 
-                <form className="w-full px-4 overflow-y-auto pt-4 pb-32 2xl:pb-10 2xl:px-8" autoComplete="on">
+                <form className="w-full h-full min-h-0 px-4 overflow-y-auto pt-4 pb-32 2xl:pb-10 2xl:px-8" autoComplete="on">
                     {isTableOrder ? (
                         <div className="space-y-6">
                             {tableOrder?.requiresTableSelection ? (
@@ -1225,7 +1225,7 @@ export default function CartModal({
                     )}
                 </form>
 
-                <div className="w-full px-4 overflow-y-auto pt-4 md:pb-32 2xl:px-8">
+                <div className="w-full h-full min-h-0 px-4 overflow-y-auto pt-4 md:pb-32 2xl:px-8">
 
                     <>
                         {hasSchedulingChoice && (
