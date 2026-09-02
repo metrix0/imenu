@@ -641,10 +641,13 @@ export default function DevPayoutPage() {
                         <thead className="border-b border-gray-100 text-xs uppercase text-gray-400">
                             <tr>
                                 <th className="px-3 py-3">Data</th>
-                                <th className="px-3 py-3">1. Transferir saldo</th>
-                                <th className="px-3 py-3">2. Ajustar p/ 1% líquido</th>
-                                <th className="px-3 py-3">3. Comparação</th>
-                                <th className="px-3 py-3">4. Enviar p/ todos</th>
+                                <th className="px-3 py-3">Transferir saldo</th>
+                                <th className="px-3 py-3">Ajustar p/ 1% líquido</th>
+                                <th className="px-3 py-3">Comparação</th>
+                                <th className="px-3 py-3">Enviar p/ todos</th>
+                                <th className="px-3 py-3 text-right">Bruto</th>
+                                <th className="px-3 py-3 text-right">PayZu</th>
+                                <th className="px-3 py-3 text-right">Desconto</th>
                                 <th className="px-3 py-3 text-right">Lucro líquido</th>
                                 <th className="px-3 py-3">Erro</th>
                             </tr>
@@ -685,11 +688,6 @@ export default function DevPayoutPage() {
                                             <div className="mt-2 font-semibold text-gray-900">
                                                 {run.payout_cents == null ? "—" : money(run.payout_cents)} para enviar
                                             </div>
-                                            {run.gross_cents != null && (
-                                                <div className="mt-1 text-xs text-gray-500">
-                                                    Bruto {money(run.gross_cents)} · PayZu {money(run.payzu_fee_cents || 0)} · Desconto {money(run.discount_cents || 0)}
-                                                </div>
-                                            )}
                                         </td>
                                         <td className="px-3 py-4 align-top">
                                             <StatusBadge status={run.comparison_step_status} />
@@ -714,6 +712,15 @@ export default function DevPayoutPage() {
                                                 </div>
                                             )}
                                         </td>
+                                        <td className="whitespace-nowrap px-3 py-4 text-right align-top">
+                                            {run.gross_cents == null ? "—" : money(run.gross_cents)}
+                                        </td>
+                                        <td className="whitespace-nowrap px-3 py-4 text-right align-top text-gray-500">
+                                            {run.payzu_fee_cents == null ? "—" : money(run.payzu_fee_cents)}
+                                        </td>
+                                        <td className="whitespace-nowrap px-3 py-4 text-right align-top text-gray-500">
+                                            {run.discount_cents == null ? "—" : money(run.discount_cents)}
+                                        </td>
                                         <td className={`whitespace-nowrap px-3 py-4 text-right align-top font-bold ${
                                             (finalProfitCents || 0) >= 0 ? "text-green-700" : "text-red-700"
                                         }`}>
@@ -727,7 +734,7 @@ export default function DevPayoutPage() {
                             })}
                             {automationRuns.length === 0 && (
                                 <tr>
-                                    <td colSpan={7} className="px-3 py-10 text-center text-gray-400">
+                                    <td colSpan={10} className="px-3 py-10 text-center text-gray-400">
                                         Nenhuma execução automática registrada.
                                     </td>
                                 </tr>
