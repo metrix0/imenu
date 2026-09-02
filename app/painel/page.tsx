@@ -1,7 +1,7 @@
 // app/painel/page.tsx
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/database/supabaseClient"; // Ajustado para o seu import padrão
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore"; // Ajustado para o seu import padrão
 import { hasQrTableAccess } from "@/lib/qr-table/types";
@@ -22,126 +22,10 @@ import ShareMenuModal from "@/components/restaurant-owner/ShareMenuModal";
 import OrderDetailsModal from "@/components/restaurant-owner/pedidos/OrderDetailsModal";
 import CreatePanelOrderModal from "@/components/restaurant-owner/CreatePanelOrderModal";
 import TablesOrdersModal from "@/components/restaurant-owner/mesas/TablesOrdersModal";
-
-type OrderDingleDuration = "short" | "medium" | "long";
-
-const ORDER_DINGLE_DURATION_STORAGE_KEY = "imenu:order-dingle-duration";
-const ORDER_DINGLE_DURATION_EVENT = "imenu:order-dingle-duration-changed";
-const ORDER_DINGLE_DURATION_VERSION_KEY = "imenu:order-dingle-duration-version";
-const ORDER_DINGLE_DURATION_VERSION = "2";
-
-function normalizeOrderDingleDuration(value: unknown): OrderDingleDuration {
-    return value === "medium" || value === "long" ? value : "short";
-}
-
-function resolveOrderDingleDuration(fallback?: unknown): OrderDingleDuration {
-    const storedDuration = window.localStorage.getItem(
-        ORDER_DINGLE_DURATION_STORAGE_KEY,
-    );
-    const isCurrentVersion =
-        window.localStorage.getItem(ORDER_DINGLE_DURATION_VERSION_KEY) ===
-        ORDER_DINGLE_DURATION_VERSION;
-
-    if (isCurrentVersion) {
-        return normalizeOrderDingleDuration(storedDuration ?? fallback);
-    }
-
-    const legacyDuration = normalizeOrderDingleDuration(
-        storedDuration ?? fallback,
-    );
-    const migratedDuration: OrderDingleDuration =
-        legacyDuration === "long" ? "medium" : "short";
-
-    window.localStorage.setItem(
-        ORDER_DINGLE_DURATION_STORAGE_KEY,
-        migratedDuration,
-    );
-    window.localStorage.setItem(
-        ORDER_DINGLE_DURATION_VERSION_KEY,
-        ORDER_DINGLE_DURATION_VERSION,
-    );
-
-    return migratedDuration;
-}
-
-function playAudioOnce(audio: HTMLAudioElement) {
-    return new Promise<void>((resolve, reject) => {
-        let settled = false;
-
-        const cleanup = () => {
-            audio.removeEventListener("ended", handleEnded);
-            audio.removeEventListener("error", handleError);
-        };
-
-        const finish = () => {
-            if (settled) return;
-            settled = true;
-            cleanup();
-            resolve();
-        };
-
-        const handleEnded = () => finish();
-        const handleError = () => {
-            if (settled) return;
-            settled = true;
-            cleanup();
-            reject(new Error("Falha ao reproduzir o som do pedido."));
-        };
-
-        audio.addEventListener("ended", handleEnded);
-        audio.addEventListener("error", handleError);
-        audio.currentTime = 0;
-
-        void audio.play().catch((error) => {
-            if (settled) return;
-            settled = true;
-            cleanup();
-            reject(error);
-        });
-    });
-}
-
-function playAudioAfterDelay(audio: HTMLAudioElement, delayMs: number) {
-    return new Promise<void>((resolve, reject) => {
-        window.setTimeout(() => {
-            void playAudioOnce(audio).then(resolve).catch(reject);
-        }, delayMs);
-    });
-}
-
-async function playOrderDingleWithDuration(
-    audio: HTMLAudioElement,
-    duration: OrderDingleDuration,
-) {
-    if (duration === "short") {
-        await playAudioOnce(audio);
-        return;
-    }
-
-    const secondAudio = audio.cloneNode(true) as HTMLAudioElement;
-    secondAudio.preload = "auto";
-
-    const playbacks = [
-        playAudioOnce(audio),
-        playAudioAfterDelay(secondAudio, 1000),
-    ];
-
-    let thirdAudio: HTMLAudioElement | null = null;
-    if (duration === "long") {
-        thirdAudio = audio.cloneNode(true) as HTMLAudioElement;
-        thirdAudio.preload = "auto";
-        playbacks.push(playAudioAfterDelay(thirdAudio, 2000));
-    }
-
-    try {
-        await Promise.all(playbacks);
-    } finally {
-        secondAudio.pause();
-        secondAudio.currentTime = 0;
-        thirdAudio?.pause();
-        if (thirdAudio) thirdAudio.currentTime = 0;
-    }
-}
+import {
+    ORDER_REALTIME_EVENT,
+    useOrderSound,
+} from "@/components/restaurant-owner/OrderSoundProvider";
 
 export default function PainelPedidosAtivosPage() {
     const [isLoading, setIsLoading] = useState(true);
@@ -162,30 +46,11 @@ export default function PainelPedidosAtivosPage() {
     // Novo: Estado para detalhes do pedido
     const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
     const [isDetailsOpen, setIsDetailsOpen] = useState(false);
-
-    const audioRef = useRef<HTMLAudioElement>(
-        typeof window !== "undefined"
-            ? new Audio("/sounds/new-order.mp3")
-            : (null as any),
-    );
-    if (audioRef.current) {
-        audioRef.current.preload = "auto";
-    }
-    const [soundEnabled, setSoundEnabled] = useState(false);
-    const [orderDingleDuration, setOrderDingleDuration] =
-        useState<OrderDingleDuration>("short");
-    const knownOrderIdsRef = useRef<Set<string>>(new Set());
+    const { soundEnabled, enableSound } = useOrderSound();
     const [isCreateOrderOpen, setIsCreateOrderOpen] = useState(false);
 
-    const playOrderDingle = useCallback(async () => {
-        const audio = audioRef.current;
-        if (!audio) return;
-
-        await playOrderDingleWithDuration(audio, orderDingleDuration);
-    }, [orderDingleDuration]);
-
     // --- FETCH ORDERS ---
-    const fetchOrders = async (restId: string) => {
+    const fetchOrders = useCallback(async (restId: string) => {
         const { data, error } = await supabase
             .from("orders")
             .select(`
@@ -222,7 +87,7 @@ export default function PainelPedidosAtivosPage() {
         }
 
         setOrders((data as any[]) || []);
-    };
+    }, []);
 
     const fetchMesasAccess = async (restId: string) => {
         const { data, error } = await supabase
@@ -261,50 +126,6 @@ export default function PainelPedidosAtivosPage() {
         setSelectedOrder(order);
         setIsDetailsOpen(true);
     };
-
-    useEffect(() => {
-        const applyStoredDuration = (fallback?: unknown) => {
-            setOrderDingleDuration(resolveOrderDingleDuration(fallback));
-        };
-
-        const loadOrderDingleDuration = async () => {
-            const {
-                data: { session },
-            } = await supabase.auth.getSession();
-
-            applyStoredDuration(
-                session?.user.user_metadata?.order_dingle_duration,
-            );
-        };
-
-        const handleDurationChange = (event: Event) => {
-            const customEvent = event as CustomEvent<OrderDingleDuration>;
-            setOrderDingleDuration(
-                normalizeOrderDingleDuration(customEvent.detail),
-            );
-        };
-
-        const handleStorage = (event: StorageEvent) => {
-            if (event.key === ORDER_DINGLE_DURATION_STORAGE_KEY) {
-                applyStoredDuration();
-            }
-        };
-
-        void loadOrderDingleDuration();
-        window.addEventListener(
-            ORDER_DINGLE_DURATION_EVENT,
-            handleDurationChange,
-        );
-        window.addEventListener("storage", handleStorage);
-
-        return () => {
-            window.removeEventListener(
-                ORDER_DINGLE_DURATION_EVENT,
-                handleDurationChange,
-            );
-            window.removeEventListener("storage", handleStorage);
-        };
-    }, []);
 
     // --- INIT ---
     useEffect(() => {
@@ -363,160 +184,21 @@ export default function PainelPedidosAtivosPage() {
         init();
     }, [restaurantId, setRestaurantId]);
 
-    // --- REALTIME SUBSCRIPTION (DB > Client) ---
     useEffect(() => {
         if (!restaurantId) return;
 
-        console.log("🔌 Conectando Realtime Pedidos para:", restaurantId);
+        const handleRealtimeUpdate = () => {
+            void fetchOrders(restaurantId);
+        };
 
-        const channel = supabase
-            .channel(`orders-live-${restaurantId}`)
-            .on(
-                "postgres_changes",
-                {
-                    event: "*",
-                    schema: "public",
-                    table: "orders",
-                    filter: `restaurant_id=eq.${restaurantId}`,
-                },
-                async (payload) => {
-                    console.log(
-                        "soundEnabled:",
-                        soundEnabled,
-                        "audioRef:",
-                        !!audioRef.current,
-                    );
-                    console.log("STATUS DEBUG:", status);
-
-                    const isRelevantStatus = (status: string) =>
-                        status === "paid" ||
-                        status === "pending_physical_payment";
-
-                    if (payload.eventType === "INSERT") {
-                        const newOrder = payload.new as any;
-                        const newId = String(newOrder?.id);
-                        const status = newOrder?.status;
-
-                        const shouldPlaySound = isRelevantStatus(status);
-
-                        if (newId) {
-                            const alreadySeen =
-                                knownOrderIdsRef.current.has(newId);
-
-                            // 👇 only play if it's NEW and relevant
-                            if (
-                                !alreadySeen &&
-                                shouldPlaySound &&
-                                soundEnabled &&
-                                audioRef.current
-                            ) {
-                                try {
-                                    await playOrderDingle();
-                                } catch (e) {
-                                    console.error(
-                                        "❌ audio play failed in realtime",
-                                        e,
-                                    );
-                                }
-                            }
-
-                            knownOrderIdsRef.current.add(newId);
-                        }
-                    } else if (payload.eventType === "UPDATE") {
-                        const updated = payload.new as any;
-                        const id = String(updated?.id);
-
-                        const isRelevant =
-                            updated.status === "paid" ||
-                            updated.status === "pending_physical_payment";
-
-                        const alreadySeen = knownOrderIdsRef.current.has(id);
-
-                        if (
-                            isRelevant &&
-                            !alreadySeen &&
-                            soundEnabled &&
-                            audioRef.current
-                        ) {
-                            try {
-                                await playOrderDingle();
-                            } catch (e) {
-                                console.error(
-                                    "❌ audio play failed on update",
-                                    e,
-                                );
-                            }
-                        }
-
-                        if (id) {
-                            knownOrderIdsRef.current.add(id);
-                        }
-                    }
-
-                    console.log("🔔 Atualização recebida:", payload);
-                    fetchOrders(restaurantId);
-                },
-            )
-            .subscribe();
-
+        window.addEventListener(ORDER_REALTIME_EVENT, handleRealtimeUpdate);
         return () => {
-            supabase.removeChannel(channel);
+            window.removeEventListener(
+                ORDER_REALTIME_EVENT,
+                handleRealtimeUpdate,
+            );
         };
-    }, [restaurantId, soundEnabled, playOrderDingle]);
-
-    useEffect(() => {
-        const enableSound = async () => {
-            if (!audioRef.current) return;
-
-            try {
-                await audioRef.current.play();
-                audioRef.current.pause();
-                audioRef.current.currentTime = 0;
-                setSoundEnabled(true);
-                console.log("🔓 Audio unlocked");
-            } catch (e) {
-                console.log("Still locked");
-            }
-        };
-
-        window.addEventListener("click", enableSound, { once: true });
-
-        return () => {
-            window.removeEventListener("click", enableSound);
-        };
-    }, []);
-    useEffect(() => {
-        // Keep a local set of what we've already seen
-        const set = knownOrderIdsRef.current;
-        for (const o of orders) set.add(String(o.id));
-    }, [orders]);
-
-    useEffect(() => {
-        const enableSound = async () => {
-            if (!audioRef.current) return;
-
-            try {
-                await audioRef.current.play();
-                audioRef.current.pause();
-                audioRef.current.currentTime = 0;
-                setSoundEnabled(true);
-                console.log("🔓 Audio unlocked");
-            } catch (e) {
-                console.log("Still locked");
-            }
-        };
-
-        window.addEventListener("click", enableSound, { once: true });
-
-        return () => {
-            window.removeEventListener("click", enableSound);
-        };
-    }, []);
-    useEffect(() => {
-        // Keep a local set of what we've already seen
-        const set = knownOrderIdsRef.current;
-        for (const o of orders) set.add(String(o.id));
-    }, [orders]);
+    }, [fetchOrders, restaurantId]);
 
     if (isLoading) {
         return (
@@ -589,17 +271,7 @@ export default function PainelPedidosAtivosPage() {
                                     ? "bg-green/10 text-green-800"
                                     : "bg-warning-bg text-warning"
                             }`}
-                            onClick={async () => {
-                                try {
-                                    await audioRef.current?.play();
-                                    audioRef.current?.pause();
-                                    audioRef.current!.currentTime = 0;
-                                    setSoundEnabled(true);
-                                    console.log("🔓 Sound enabled");
-                                } catch (e) {
-                                    console.error("Still blocked", e);
-                                }
-                            }}
+                            onClick={() => void enableSound()}
                             aria-label="Ativar som dos pedidos"
                         >
                             <FontAwesomeIcon
@@ -633,17 +305,7 @@ export default function PainelPedidosAtivosPage() {
                 : "bg-warning-bg text-warning"
         }
       `}
-                        onClick={async () => {
-                            try {
-                                await audioRef.current?.play();
-                                audioRef.current?.pause();
-                                audioRef.current!.currentTime = 0;
-                                setSoundEnabled(true);
-                                console.log("🔓 Sound enabled");
-                            } catch (e) {
-                                console.error("Still blocked", e);
-                            }
-                        }}
+                        onClick={() => void enableSound()}
                     >
                         {soundEnabled ? (
                             <>

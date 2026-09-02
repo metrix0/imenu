@@ -197,7 +197,7 @@ export default function StoreVisuals({
                 
                 {/* Dica de Resolução Banner */}
                 <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/60 text-white text-[10px] px-2 py-1 rounded backdrop-blur-sm pointer-events-none">
-                    Recomendado: 560x250px
+                    Recomendado: 1920x480px
                 </div>
             </div>
 

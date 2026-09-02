@@ -196,16 +196,6 @@ export default function CartBar({
                 consumerProperties()
             );
             setStep("checkout");
-            if (
-                typeof window !== "undefined" &&
-                window.matchMedia("(min-width: 768px)").matches
-            ) {
-                requestAnimationFrame(() => {
-                    document
-                        .querySelector<HTMLElement>('[role="dialog"]')
-                        ?.scrollTo({ top: 0, behavior: "auto" });
-                });
-            }
             return;
         }
 
@@ -392,7 +382,12 @@ export default function CartBar({
             window.location.href = data.init_point;
             return;
         }
-        if (data.id) window.location.href = `/pedido/${data.id}`;
+        if (data.id) {
+            const orderSlug = slug || restaurant?.url_slug;
+            window.location.href = orderSlug
+                ? `/${orderSlug}/${data.id}`
+                : `/pedido/${data.id}`;
+        }
     }
 
     const displayTotalCents = total + (delivery_fee_cents || 0);
