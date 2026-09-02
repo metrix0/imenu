@@ -40,6 +40,33 @@ type HistoryItem = {
     paid_at: string | null;
 };
 
+type AutomationRun = {
+    id: string;
+    run_date: string;
+    status: string;
+    started_at: string;
+    finished_at: string | null;
+    payzu_step_status: string;
+    adjustment_step_status: string;
+    comparison_step_status: string;
+    payout_step_status: string;
+    payzu_balance_before_cents: number | null;
+    payzu_reserve_cents: number | null;
+    transferred_cents: number | null;
+    asaas_balance_before_payout_cents: number | null;
+    gross_cents: number | null;
+    payzu_fee_cents: number | null;
+    discount_cents: number | null;
+    payout_cents: number | null;
+    difference_cents: number | null;
+    restaurant_count: number;
+    paid_count: number;
+    processing_count: number;
+    failed_count: number;
+    payzu_transaction_status: string | null;
+    error_message: string | null;
+};
+
 type DashboardPayload = {
     asaasConfigured: boolean;
     asaasBalanceCents: number | null;
@@ -47,6 +74,7 @@ type DashboardPayload = {
     generatedAt: string;
     payables: Payable[];
     history: HistoryItem[];
+    automationRuns: AutomationRun[];
     error?: string;
 };
 
@@ -117,6 +145,36 @@ const dateTime = (value: string) =>
         hour: "2-digit",
         minute: "2-digit",
     });
+
+const runDate = (value: string) => value.split("-").reverse().join("/");
+
+const STEP_LABELS: Record<string, string> = {
+    pending: "Pendente",
+    running: "Executando",
+    processing: "Processando",
+    completed: "Concluído",
+    skipped: "Não executado",
+    blocked: "Bloqueado",
+    partial: "Parcial",
+    failed: "Falhou",
+};
+
+function StatusBadge({ status }: { status: string }) {
+    const className =
+        status === "completed"
+            ? "bg-green-50 text-green-700"
+            : status === "running" || status === "processing"
+              ? "bg-blue-50 text-blue-700"
+              : status === "blocked" || status === "failed" || status === "partial"
+                ? "bg-red-50 text-red-700"
+                : "bg-gray-100 text-gray-600";
+
+    return (
+        <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${className}`}>
+            {STEP_LABELS[status] || status}
+        </span>
+    );
+}
 
 function formatPhone(value: string | undefined) {
     let digits = String(value || "").replace(/\D/g, "");
@@ -305,6 +363,7 @@ export default function DevPayoutPage() {
 
     const payables = data?.payables || [];
     const history = data?.history || [];
+    const automationRuns = data?.automationRuns || [];
     const historyPageCount = Math.max(1, Math.ceil(history.length / HISTORY_PAGE_SIZE));
     const currentHistoryPage = Math.min(historyPage, historyPageCount);
     const paginatedHistory = history.slice(
@@ -539,7 +598,7 @@ export default function DevPayoutPage() {
                 <div>
                     <h1 className="text-3xl font-bold text-gray-900">Repasses</h1>
                     <p className="mt-1 text-sm text-gray-500">
-                        Envio manual via Asaas para as chaves PIX cadastradas dos restaurantes.
+                        Automação diária e envio manual via Asaas para as chaves PIX cadastradas dos restaurantes.
                     </p>
                 </div>
                 <Button
@@ -570,6 +629,113 @@ export default function DevPayoutPage() {
                         : `Transferidos ${money(lastPayzuTransfer.amountCents || 0)} da PayZu para o Asaas. Reserva mantida: ${money(lastPayzuTransfer.reserveCents)}.`}
                 </div>
             )}
+
+            <Card>
+                <h2 className="text-lg font-bold text-gray-900">Histórico da automação diária</h2>
+                <p className="mt-1 text-sm text-gray-500">
+                    Executa todos os dias às 12h. Só envia quando Transferido − Enviar fica entre −R$ 3,00 e +R$ 10,00.
+                </p>
+
+                <div className="mt-5 overflow-x-auto">
+                    <table className="w-full min-w-[1450px] text-left text-sm">
+                        <thead className="border-b border-gray-100 text-xs uppercase text-gray-400">
+                            <tr>
+                                <th className="px-3 py-3">Data</th>
+                                <th className="px-3 py-3">1. Transferir saldo</th>
+                                <th className="px-3 py-3">2. Ajustar p/ 1% líquido</th>
+                                <th className="px-3 py-3">3. Comparação</th>
+                                <th className="px-3 py-3">4. Enviar p/ todos</th>
+                                <th className="px-3 py-3 text-right">Lucro líquido</th>
+                                <th className="px-3 py-3">Erro</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                            {automationRuns.map((run) => {
+                                const comparisonSafe =
+                                    run.difference_cents != null &&
+                                    run.difference_cents >= -300 &&
+                                    run.difference_cents <= 1000;
+                                const finalProfitCents =
+                                    run.status === "completed"
+                                        ? run.difference_cents
+                                        : null;
+
+                                return (
+                                    <tr key={run.id}>
+                                        <td className="whitespace-nowrap px-3 py-4 align-top">
+                                            <div className="font-semibold text-gray-900">{runDate(run.run_date)}</div>
+                                            <div className="mt-2"><StatusBadge status={run.status} /></div>
+                                        </td>
+                                        <td className="px-3 py-4 align-top">
+                                            <StatusBadge status={run.payzu_step_status} />
+                                            <div className="mt-2 font-semibold text-gray-900">
+                                                {run.transferred_cents == null ? "—" : money(run.transferred_cents)}
+                                            </div>
+                                            {run.payzu_balance_before_cents != null && (
+                                                <div className="mt-1 text-xs text-gray-500">
+                                                    Saldo {money(run.payzu_balance_before_cents)} · Reserva {money(run.payzu_reserve_cents || 0)}
+                                                </div>
+                                            )}
+                                            {run.payzu_transaction_status && (
+                                                <div className="mt-1 text-xs text-gray-500">PayZu: {run.payzu_transaction_status}</div>
+                                            )}
+                                        </td>
+                                        <td className="px-3 py-4 align-top">
+                                            <StatusBadge status={run.adjustment_step_status} />
+                                            <div className="mt-2 font-semibold text-gray-900">
+                                                {run.payout_cents == null ? "—" : money(run.payout_cents)} para enviar
+                                            </div>
+                                            {run.gross_cents != null && (
+                                                <div className="mt-1 text-xs text-gray-500">
+                                                    Bruto {money(run.gross_cents)} · PayZu {money(run.payzu_fee_cents || 0)} · Desconto {money(run.discount_cents || 0)}
+                                                </div>
+                                            )}
+                                        </td>
+                                        <td className="px-3 py-4 align-top">
+                                            <StatusBadge status={run.comparison_step_status} />
+                                            <div className={`mt-2 font-semibold ${comparisonSafe ? "text-green-700" : "text-gray-900"}`}>
+                                                {run.difference_cents == null
+                                                    ? "—"
+                                                    : `${money(run.difference_cents)} · ${comparisonSafe ? "Dentro da faixa" : "Fora da faixa"}`}
+                                            </div>
+                                            <div className="mt-1 text-xs text-gray-500">Transferido − Enviar</div>
+                                        </td>
+                                        <td className="px-3 py-4 align-top">
+                                            <StatusBadge status={run.payout_step_status} />
+                                            <div className="mt-2 font-semibold text-gray-900">
+                                                {run.payout_cents == null ? "—" : money(run.payout_cents)} · {run.restaurant_count} restaurante(s)
+                                            </div>
+                                            <div className="mt-1 text-xs text-gray-500">
+                                                {run.paid_count} pagos · {run.processing_count} processando · {run.failed_count} falhas
+                                            </div>
+                                            {run.asaas_balance_before_payout_cents != null && (
+                                                <div className="mt-1 text-xs text-gray-500">
+                                                    Saldo Asaas: {money(run.asaas_balance_before_payout_cents)}
+                                                </div>
+                                            )}
+                                        </td>
+                                        <td className={`whitespace-nowrap px-3 py-4 text-right align-top font-bold ${
+                                            (finalProfitCents || 0) >= 0 ? "text-green-700" : "text-red-700"
+                                        }`}>
+                                            {finalProfitCents == null ? "—" : money(finalProfitCents)}
+                                        </td>
+                                        <td className="max-w-72 px-3 py-4 align-top text-xs text-red-700">
+                                            {run.error_message || "—"}
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                            {automationRuns.length === 0 && (
+                                <tr>
+                                    <td colSpan={7} className="px-3 py-10 text-center text-gray-400">
+                                        Nenhuma execução automática registrada.
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </Card>
 
             <div className="grid gap-4 md:grid-cols-3">
                 <MetricCard

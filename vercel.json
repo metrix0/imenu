@@ -4,5 +4,11 @@
     "deploymentEnabled": {
       "main": true
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/daily-payout",
+      "schedule": "0 15 * * *"
+    }
+  ]
 }
