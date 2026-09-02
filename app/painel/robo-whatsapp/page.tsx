@@ -517,7 +517,9 @@ function VariablePicker({
                                     key={variable.key}
                                     type="button"
                                     onClick={() => onSelect(variable)}
-                                    className={`cursor-pointer rounded-full border px-3 py-1.5 text-left text-xs transition-colors ${
+                                    className={`cursor-pointer border px-3 py-1.5 text-left text-xs transition-colors ${
+                                        variable.value.includes("\n") ? "rounded-md" : "rounded-full"
+                                    } ${
                                         isWhatsAppVariable(variable)
                                             ? "border-green-200 bg-green-50 text-green-700 hover:bg-green-100"
                                             : "border-brand/20 bg-brand/5 text-brand hover:bg-brand/10"
