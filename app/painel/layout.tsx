@@ -25,13 +25,13 @@ import {
     faPowerOff,
     faPrint,
     faPuzzlePiece,
+    faRobot,
     faStore,
     faTimes,
     faTruck,
     faUtensils,
     type IconDefinition,
 } from "@fortawesome/free-solid-svg-icons";
-import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
 
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import Loader from "@/components/ui/Loader";
@@ -354,7 +354,7 @@ export default function PainelLayout({
         { label: "Impressora", icon: faPrint, href: `${base}/impressora` },
         {
             label: "Robô WhatsApp",
-            icon: faWhatsapp,
+            icon: faRobot,
             href: `${base}/robo-whatsapp`,
         },
         {

@@ -14,6 +14,17 @@ export const WHATSAPP_TEMPLATE_KEYS = [
     "status_notification",
 ] as const;
 
+export const CUSTOMIZABLE_WHATSAPP_TEMPLATE_KEYS = [
+    "welcome",
+    "menu_link",
+    "delivery",
+    "payment",
+    "order_status_found",
+    "handoff",
+    "order_tracking",
+    "status_notification",
+] as const;
+
 export type WhatsAppTemplateKey = (typeof WHATSAPP_TEMPLATE_KEYS)[number];
 export type WhatsAppMessageTemplates = Record<WhatsAppTemplateKey, string>;
 export type WhatsAppTemplateVariables = Record<string, string>;
@@ -239,6 +250,31 @@ export function validateWhatsAppTemplates(
     return Object.fromEntries(
         WHATSAPP_TEMPLATE_KEYS.map((key) => [key, String(templates[key])])
     ) as WhatsAppMessageTemplates;
+}
+
+export function getWhatsAppTemplateOverrides(
+    value: unknown
+): Partial<WhatsAppMessageTemplates> | null {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+    const templates = value as Record<string, unknown>;
+    const overrides: Partial<WhatsAppMessageTemplates> = {};
+
+    for (const key of CUSTOMIZABLE_WHATSAPP_TEMPLATE_KEYS) {
+        const template = templates[key];
+        if (
+            typeof template !== "string" ||
+            !template.trim() ||
+            template.length > 4000
+        ) {
+            return null;
+        }
+
+        if (template !== DEFAULT_WHATSAPP_MESSAGE_TEMPLATES[key]) {
+            overrides[key] = template;
+        }
+    }
+
+    return overrides;
 }
 
 export async function getWhatsAppTemplates(

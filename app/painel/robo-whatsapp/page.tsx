@@ -1,11 +1,13 @@
 "use client";
 
 import {
+    forwardRef,
     useEffect,
+    useImperativeHandle,
     useMemo,
     useRef,
     useState,
-    type MutableRefObject,
+    type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
@@ -86,15 +88,27 @@ type TemplateField = {
     variables: string[];
 };
 
-const BASE_VARIABLES = [
+type TemplateEditorHandle = {
+    insertVariable: (variable: TemplateVariable) => void;
+};
+
+const RESTAURANT_VARIABLES = [
     "NOME_DO_RESTAURANTE",
-    "NOME_DO_CLIENTE",
     "HORARIOS_DE_ABERTURA",
     "LINK_DO_CARDAPIO",
     "PEDIDO_MINIMO",
     "INFORMACOES_DE_ENTREGA",
     "FORMAS_DE_PAGAMENTO",
 ];
+
+const WHATSAPP_VARIABLES = [
+    "NOME_DO_CLIENTE",
+    "NUMERO_DO_PEDIDO",
+    "STATUS_DO_PEDIDO",
+    "LINK_DE_ACOMPANHAMENTO",
+];
+
+const BASE_VARIABLES = [...RESTAURANT_VARIABLES, "NOME_DO_CLIENTE"];
 
 const TEMPLATE_FIELDS: TemplateField[] = [
     {
@@ -123,32 +137,14 @@ const TEMPLATE_FIELDS: TemplateField[] = [
     },
     {
         key: "order_status_found",
-        title: "Status do pedido encontrado",
+        title: "Status do pedido",
         description: "Enviada quando o robô localiza um pedido recente.",
         variables: [...BASE_VARIABLES, "NUMERO_DO_PEDIDO", "STATUS_DO_PEDIDO"],
-    },
-    {
-        key: "order_status_not_found",
-        title: "Pedido não encontrado",
-        description: "Enviada quando não há pedido recente para o número.",
-        variables: BASE_VARIABLES,
     },
     {
         key: "handoff",
         title: "Atendimento humano",
         description: "Confirma que o robô parou e a equipe assumiu.",
-        variables: BASE_VARIABLES,
-    },
-    {
-        key: "unsupported_media",
-        title: "Arquivo recebido",
-        description: "Enviada ao receber uma imagem, áudio ou arquivo sem texto.",
-        variables: BASE_VARIABLES,
-    },
-    {
-        key: "fallback",
-        title: "Mensagem não entendida",
-        description: "Enviada sem repetir o menu automaticamente.",
         variables: BASE_VARIABLES,
     },
     {
@@ -232,37 +228,260 @@ function connectionPresentation(connection: WhatsAppConnection | null) {
     }
 }
 
+function isWhatsAppVariable(variable: TemplateVariable): boolean {
+    return WHATSAPP_VARIABLES.includes(variable.key);
+}
+
+function getVariableTone(variable: TemplateVariable): string {
+    return isWhatsAppVariable(variable)
+        ? "border-green-200 bg-green-50 text-green-700"
+        : "border-brand/20 bg-brand/5 text-brand";
+}
+
+function createVariableBadge(variable: TemplateVariable): HTMLSpanElement {
+    const badge = document.createElement("span");
+    badge.contentEditable = "false";
+    badge.dataset.variableToken = variable.token;
+    badge.className = `group relative mx-0.5 inline-flex max-w-full cursor-default items-center rounded-md border px-2 py-0.5 align-middle text-xs font-medium ${getVariableTone(variable)}`;
+
+    const value = document.createElement("span");
+    value.className = "max-w-full whitespace-pre-wrap break-words";
+    value.textContent = variable.value;
+
+    const tooltip = document.createElement("span");
+    tooltip.className =
+        "pointer-events-none absolute bottom-full left-1/2 z-20 mb-1 -translate-x-1/2 whitespace-nowrap rounded bg-gray-900 px-2 py-1 text-[11px] font-medium text-white opacity-0 shadow-sm transition-opacity group-hover:opacity-100";
+    tooltip.textContent = variable.token;
+
+    badge.append(value, tooltip);
+    return badge;
+}
+
+function appendTextWithBreaks(parent: HTMLElement, text: string) {
+    const lines = text.split("\n");
+    lines.forEach((line, index) => {
+        if (line) parent.append(document.createTextNode(line));
+        if (index < lines.length - 1) parent.append(document.createElement("br"));
+    });
+}
+
+function renderTemplateValue(
+    editor: HTMLElement,
+    value: string,
+    variables: TemplateVariable[]
+) {
+    const variableByToken = new Map(
+        variables.map((variable) => [variable.token, variable])
+    );
+    editor.replaceChildren();
+
+    for (const part of value.split(/(\{\{[A-Z0-9_]+\}\})/g)) {
+        if (!part) continue;
+        const variable = variableByToken.get(part);
+        if (variable) editor.append(createVariableBadge(variable));
+        else appendTextWithBreaks(editor, part);
+    }
+}
+
+function serializeTemplateNode(node: Node): string {
+    if (node.nodeType === Node.TEXT_NODE) {
+        return (node.textContent || "").replace(/\u200B/g, "");
+    }
+
+    if (!(node instanceof HTMLElement)) return "";
+    if (node.dataset.variableToken) return node.dataset.variableToken;
+    if (node.tagName === "BR") return "\n";
+
+    return Array.from(node.childNodes)
+        .map((child) => serializeTemplateNode(child))
+        .join("");
+}
+
+const TemplateEditor = forwardRef<
+    TemplateEditorHandle,
+    {
+        value: string;
+        variables: TemplateVariable[];
+        ariaLabel: string;
+        onChange: (value: string) => void;
+    }
+>(function TemplateEditor({ value, variables, ariaLabel, onChange }, ref) {
+    const editorRef = useRef<HTMLDivElement | null>(null);
+    const savedRangeRef = useRef<Range | null>(null);
+    const lastSerializedRef = useRef<string | null>(null);
+    const lastVariableSignatureRef = useRef("");
+    const variableSignature = useMemo(
+        () => variables.map((variable) => `${variable.token}:${variable.value}`).join("|"),
+        [variables]
+    );
+
+    const saveSelection = () => {
+        const editor = editorRef.current;
+        const selection = window.getSelection();
+        if (!editor || !selection?.rangeCount) return;
+        const range = selection.getRangeAt(0);
+        if (editor.contains(range.commonAncestorContainer)) {
+            savedRangeRef.current = range.cloneRange();
+        }
+    };
+
+    const syncFromDom = () => {
+        const editor = editorRef.current;
+        if (!editor) return;
+        const next = Array.from(editor.childNodes)
+            .map((node) => serializeTemplateNode(node))
+            .join("");
+        lastSerializedRef.current = next;
+        onChange(next);
+        saveSelection();
+    };
+
+    useEffect(() => {
+        const editor = editorRef.current;
+        if (!editor) return;
+
+        if (
+            value !== lastSerializedRef.current ||
+            variableSignature !== lastVariableSignatureRef.current
+        ) {
+            renderTemplateValue(editor, value, variables);
+            lastSerializedRef.current = value;
+            lastVariableSignatureRef.current = variableSignature;
+        }
+    }, [value, variableSignature, variables]);
+
+    useImperativeHandle(
+        ref,
+        () => ({
+            insertVariable(variable: TemplateVariable) {
+                const editor = editorRef.current;
+                if (!editor) return;
+
+                editor.focus();
+                const selection = window.getSelection();
+                let range = savedRangeRef.current?.cloneRange() || null;
+                if (!range || !editor.contains(range.commonAncestorContainer)) {
+                    range = document.createRange();
+                    range.selectNodeContents(editor);
+                    range.collapse(false);
+                }
+
+                range.deleteContents();
+                const badge = createVariableBadge(variable);
+                range.insertNode(badge);
+                range.setStartAfter(badge);
+                range.collapse(true);
+                selection?.removeAllRanges();
+                selection?.addRange(range);
+                savedRangeRef.current = range.cloneRange();
+                syncFromDom();
+            },
+        }),
+        [onChange]
+    );
+
+    const handleKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+        if (event.key !== "Enter") return;
+        event.preventDefault();
+
+        const editor = editorRef.current;
+        const selection = window.getSelection();
+        if (!editor || !selection) return;
+
+        let range = selection.rangeCount ? selection.getRangeAt(0) : null;
+        if (!range || !editor.contains(range.commonAncestorContainer)) {
+            range = document.createRange();
+            range.selectNodeContents(editor);
+            range.collapse(false);
+        }
+
+        range.deleteContents();
+        const lineBreak = document.createElement("br");
+        const marker = document.createTextNode("\u200B");
+        range.insertNode(lineBreak);
+        lineBreak.parentNode?.insertBefore(marker, lineBreak.nextSibling);
+        range.setStart(marker, 1);
+        range.collapse(true);
+        selection.removeAllRanges();
+        selection.addRange(range);
+        savedRangeRef.current = range.cloneRange();
+        syncFromDom();
+    };
+
+    return (
+        <div
+            ref={editorRef}
+            contentEditable
+            suppressContentEditableWarning
+            role="textbox"
+            aria-label={ariaLabel}
+            aria-multiline="true"
+            spellCheck
+            onInput={syncFromDom}
+            onBlur={saveSelection}
+            onKeyUp={saveSelection}
+            onMouseUp={saveSelection}
+            onKeyDown={handleKeyDown}
+            onPaste={(event) => {
+                event.preventDefault();
+                document.execCommand(
+                    "insertText",
+                    false,
+                    event.clipboardData.getData("text/plain")
+                );
+                window.requestAnimationFrame(syncFromDom);
+            }}
+            className="min-h-[148px] w-full whitespace-pre-wrap break-words rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 outline-none transition-colors focus:border-brand focus:ring-2 focus:ring-brand/10"
+        />
+    );
+});
+
 function VariablePicker({
     field,
     variables,
+    open,
     onSelect,
 }: {
     field: TemplateField;
     variables: TemplateVariable[];
+    open: boolean;
     onSelect: (variable: TemplateVariable) => void;
 }) {
     return (
-        <div className="mt-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
-            <p className="mb-2 text-xs font-medium text-gray-600">
-                Clique em uma variável para inserir na mensagem:
-            </p>
-            <div className="flex flex-wrap gap-2">
-                {variables
-                    .filter((variable) => field.variables.includes(variable.key))
-                    .map((variable) => (
-                        <button
-                            key={variable.key}
-                            type="button"
-                            onClick={() => onSelect(variable)}
-                            className="cursor-pointer rounded-full border border-brand/20 bg-white px-3 py-1.5 text-left text-xs text-brand transition-colors hover:bg-brand/5"
-                            title={variable.value}
-                        >
-                            <span className="font-semibold">{variable.label}</span>
-                            <span className="ml-1 text-gray-500">
-                                ({variable.value})
-                            </span>
-                        </button>
-                    ))}
+        <div
+            className={`grid transition-[grid-template-rows,opacity,transform] duration-300 ease-out ${
+                open
+                    ? "grid-rows-[1fr] translate-y-0 opacity-100"
+                    : "pointer-events-none grid-rows-[0fr] -translate-y-1 opacity-0"
+            }`}
+            aria-hidden={!open}
+        >
+            <div className="min-h-0 overflow-hidden">
+                <div className="mt-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
+                    <p className="mb-2 text-xs font-medium text-gray-600">
+                        Clique em uma variável para inserir na mensagem:
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                        {variables
+                            .filter((variable) => field.variables.includes(variable.key))
+                            .map((variable) => (
+                                <button
+                                    key={variable.key}
+                                    type="button"
+                                    onClick={() => onSelect(variable)}
+                                    className={`cursor-pointer rounded-full border px-3 py-1.5 text-left text-xs transition-colors ${
+                                        isWhatsAppVariable(variable)
+                                            ? "border-green-200 bg-green-50 text-green-700 hover:bg-green-100"
+                                            : "border-brand/20 bg-brand/5 text-brand hover:bg-brand/10"
+                                    }`}
+                                    title={variable.token}
+                                >
+                                    <span className="font-semibold">{variable.label}</span>
+                                    <span className="ml-1 opacity-75">({variable.value})</span>
+                                </button>
+                            ))}
+                    </div>
+                </div>
             </div>
         </div>
     );
@@ -270,7 +489,7 @@ function VariablePicker({
 
 export default function RoboWhatsAppPage() {
     const { restaurantId, setRestaurantId } = useCreationStore();
-    const textareaRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
+    const editorRefs = useRef<Record<string, TemplateEditorHandle | null>>({});
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [whatsAppAction, setWhatsAppAction] = useState<
@@ -473,27 +692,6 @@ export default function RoboWhatsAppPage() {
         }
     };
 
-    const insertVariable = (
-        field: TemplateField,
-        variable: TemplateVariable,
-        refs: MutableRefObject<Record<string, HTMLTextAreaElement | null>>
-    ) => {
-        if (!templates) return;
-        const current = templates[field.key];
-        const textarea = refs.current[field.key];
-        const start = textarea?.selectionStart ?? current.length;
-        const end = textarea?.selectionEnd ?? current.length;
-        const next = `${current.slice(0, start)}${variable.token}${current.slice(end)}`;
-        setTemplates({ ...templates, [field.key]: next });
-        setOpenVariables(null);
-        window.requestAnimationFrame(() => {
-            const input = refs.current[field.key];
-            input?.focus();
-            const cursor = start + variable.token.length;
-            input?.setSelectionRange(cursor, cursor);
-        });
-    };
-
     const resumeBot = async (chatId: string) => {
         if (!restaurantId || resumingChat) return;
         const session = await getAuthenticatedSession();
@@ -682,7 +880,7 @@ export default function RoboWhatsAppPage() {
                                     Mensagens automáticas
                                 </h3>
                                 <p className="mt-1 text-sm text-gray-600">
-                                    Personalize o texto. As variáveis usam os dados atuais do restaurante e do pedido.
+                                    Personalize as mensagens principais. Só alterações feitas por você são salvas.
                                 </p>
                             </div>
                             <Button onClick={saveTemplates} loading={saving}>
@@ -714,51 +912,62 @@ export default function RoboWhatsAppPage() {
                                             </span>
                                             <FontAwesomeIcon
                                                 icon={faChevronDown}
-                                                className={`text-gray-400 transition-transform ${isOpen ? "rotate-180" : ""}`}
+                                                className={`text-gray-400 transition-transform duration-300 ${isOpen ? "rotate-180" : ""}`}
                                             />
                                         </button>
 
-                                        {isOpen && (
-                                            <div className="border-t border-gray-100 px-4 pb-5 pt-4">
-                                                <textarea
-                                                    ref={(element) => {
-                                                        textareaRefs.current[field.key] = element;
-                                                    }}
-                                                    value={templates[field.key]}
-                                                    aria-label={`Mensagem: ${field.title}`}
-                                                    onChange={(event) =>
-                                                        setTemplates({
-                                                            ...templates,
-                                                            [field.key]: event.target.value,
-                                                        })
-                                                    }
-                                                    rows={6}
-                                                    maxLength={4000}
-                                                    className="w-full resize-y rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 outline-none transition-colors focus:border-brand focus:ring-2 focus:ring-brand/10"
-                                                />
-                                                <button
-                                                    type="button"
-                                                    onClick={() =>
-                                                        setOpenVariables(
-                                                            openVariables === field.key ? null : field.key
-                                                        )
-                                                    }
-                                                    className="mt-3 cursor-pointer rounded-md border border-brand/20 px-3 py-2 text-sm font-medium text-brand transition-colors hover:bg-brand/5"
-                                                >
-                                                    <FontAwesomeIcon icon={faPlus} className="mr-2" />
-                                                    Adicionar variável
-                                                </button>
-                                                {openVariables === field.key && (
+                                        <div
+                                            className={`grid transition-[grid-template-rows,opacity,transform] duration-300 ease-out ${
+                                                isOpen
+                                                    ? "grid-rows-[1fr] translate-y-0 opacity-100"
+                                                    : "pointer-events-none grid-rows-[0fr] -translate-y-1 opacity-0"
+                                            }`}
+                                            aria-hidden={!isOpen}
+                                        >
+                                            <div className="min-h-0 overflow-hidden">
+                                                <div className="border-t border-gray-100 px-4 pb-5 pt-4">
+                                                    <TemplateEditor
+                                                        ref={(editor) => {
+                                                            editorRefs.current[field.key] = editor;
+                                                        }}
+                                                        value={templates[field.key]}
+                                                        variables={variables}
+                                                        ariaLabel={`Mensagem: ${field.title}`}
+                                                        onChange={(value) =>
+                                                            setTemplates((current) =>
+                                                                current
+                                                                    ? {
+                                                                          ...current,
+                                                                          [field.key]: value,
+                                                                      }
+                                                                    : current
+                                                            )
+                                                        }
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() =>
+                                                            setOpenVariables(
+                                                                openVariables === field.key ? null : field.key
+                                                            )
+                                                        }
+                                                        className="mt-3 cursor-pointer rounded-md border border-brand/20 px-3 py-2 text-sm font-medium text-brand transition-colors hover:bg-brand/5"
+                                                    >
+                                                        <FontAwesomeIcon icon={faPlus} className="mr-2" />
+                                                        Adicionar variável
+                                                    </button>
                                                     <VariablePicker
                                                         field={field}
                                                         variables={variables}
-                                                        onSelect={(variable) =>
-                                                            insertVariable(field, variable, textareaRefs)
-                                                        }
+                                                        open={openVariables === field.key}
+                                                        onSelect={(variable) => {
+                                                            editorRefs.current[field.key]?.insertVariable(variable);
+                                                            setOpenVariables(null);
+                                                        }}
                                                     />
-                                                )}
+                                                </div>
                                             </div>
-                                        )}
+                                        </div>
                                     </div>
                                 );
                             })}

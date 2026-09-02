@@ -8,8 +8,9 @@ import { query } from "@/lib/database/sql";
 import {
     buildRestaurantTemplateVariables,
     getRestaurantTemplateData,
+    getWhatsAppTemplateOverrides,
     getWhatsAppTemplates,
-    validateWhatsAppTemplates,
+    mergeWhatsAppTemplates,
 } from "@/lib/services/whatsappMessageTemplates";
 
 export const runtime = "nodejs";
@@ -121,31 +122,41 @@ export async function PUT(request: NextRequest) {
 
         await requireRestaurantOwner(request, restaurantId);
         const body = await request.json();
-        const templates = validateWhatsAppTemplates(body?.templates);
-        if (!templates) {
+        const overrides = getWhatsAppTemplateOverrides(body?.templates);
+        if (!overrides) {
             return NextResponse.json(
                 { error: "Revise as mensagens antes de salvar." },
                 { status: 400 }
             );
         }
 
-        await query(
-            `
-                INSERT INTO whatsapp_bot_settings (
-                    restaurant_id,
-                    message_templates,
-                    updated_at
-                )
-                VALUES ($1, $2::jsonb, NOW())
-                ON CONFLICT (restaurant_id)
-                DO UPDATE SET
-                    message_templates = EXCLUDED.message_templates,
-                    updated_at = NOW()
-            `,
-            [restaurantId, JSON.stringify(templates)]
-        );
+        if (Object.keys(overrides).length === 0) {
+            await query(
+                `DELETE FROM whatsapp_bot_settings WHERE restaurant_id = $1`,
+                [restaurantId]
+            );
+        } else {
+            await query(
+                `
+                    INSERT INTO whatsapp_bot_settings (
+                        restaurant_id,
+                        message_templates,
+                        updated_at
+                    )
+                    VALUES ($1, $2::jsonb, NOW())
+                    ON CONFLICT (restaurant_id)
+                    DO UPDATE SET
+                        message_templates = EXCLUDED.message_templates,
+                        updated_at = NOW()
+                `,
+                [restaurantId, JSON.stringify(overrides)]
+            );
+        }
 
-        return NextResponse.json({ ok: true, templates });
+        return NextResponse.json({
+            ok: true,
+            templates: mergeWhatsAppTemplates(overrides),
+        });
     } catch (error) {
         return jsonError(error);
     }
