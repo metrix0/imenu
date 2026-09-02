@@ -83,6 +83,10 @@ async function markRunFailed(
 }
 
 export async function GET(request: Request) {
+    if (process.env.PAYOUT_CRON_ENABLED !== "true") {
+        return NextResponse.json({ error: "Cron desativado." }, { status: 403 });
+    }
+
     if (!isAuthorized(request)) {
         return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
     }
