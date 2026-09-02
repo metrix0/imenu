@@ -27,7 +27,7 @@ import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
 
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
-import ListLoader from "@/components/ui/ListLoader";
+import Loader from "@/components/ui/Loader";
 import Toast from "@/components/ui/Toast";
 import { supabase } from "@/lib/database/supabaseClient";
 import type {
@@ -242,27 +242,71 @@ function createVariableBadge(variable: TemplateVariable): HTMLSpanElement {
     const badge = document.createElement("span");
     badge.contentEditable = "false";
     badge.dataset.variableToken = variable.token;
-    badge.className = `group relative mx-0.5 inline-flex max-w-full cursor-default items-center rounded-md border px-2 py-0.5 align-middle text-xs font-medium ${getVariableTone(variable)}`;
+    badge.className =
+        "group relative mx-0.5 inline-grid max-w-full cursor-default gap-0.5 align-middle text-xs";
+    badge.style.fontWeight = "inherit";
 
-    const value = document.createElement("span");
-    value.className = "max-w-full whitespace-pre-wrap break-words";
-    value.textContent = variable.value;
+    for (const line of variable.value.split("\n")) {
+        const valueLine = document.createElement("span");
+        valueLine.className = `block max-w-full whitespace-pre-wrap break-words rounded-sm border px-1.5 py-0.5 leading-5 ${getVariableTone(variable)}`;
+        valueLine.textContent = line || "\u00A0";
+        badge.append(valueLine);
+    }
 
     const tooltip = document.createElement("span");
     tooltip.className =
         "pointer-events-none absolute bottom-full left-1/2 z-20 mb-1 -translate-x-1/2 whitespace-nowrap rounded bg-gray-900 px-2 py-1 text-[11px] font-medium text-white opacity-0 shadow-sm transition-opacity group-hover:opacity-100";
     tooltip.textContent = variable.token;
 
-    badge.append(value, tooltip);
+    badge.append(tooltip);
     return badge;
 }
 
-function appendTextWithBreaks(parent: HTMLElement, text: string) {
-    const lines = text.split("\n");
-    lines.forEach((line, index) => {
-        if (line) parent.append(document.createTextNode(line));
-        if (index < lines.length - 1) parent.append(document.createElement("br"));
-    });
+function appendNode(parent: HTMLElement, node: Node, bold: boolean) {
+    if (!bold) {
+        parent.append(node);
+        return;
+    }
+
+    const strong = document.createElement("strong");
+    strong.className = "font-bold";
+    strong.append(node);
+    parent.append(strong);
+}
+
+function appendFormattedText(
+    parent: HTMLElement,
+    text: string,
+    initialBold: boolean
+): boolean {
+    let bold = initialBold;
+    let buffer = "";
+
+    const flush = () => {
+        if (!buffer) return;
+        appendNode(parent, document.createTextNode(buffer), bold);
+        buffer = "";
+    };
+
+    for (const character of text) {
+        if (character === "*") {
+            flush();
+            appendNode(parent, document.createTextNode("*"), true);
+            bold = !bold;
+            continue;
+        }
+
+        if (character === "\n") {
+            flush();
+            parent.append(document.createElement("br"));
+            continue;
+        }
+
+        buffer += character;
+    }
+
+    flush();
+    return bold;
 }
 
 function renderTemplateValue(
@@ -274,12 +318,16 @@ function renderTemplateValue(
         variables.map((variable) => [variable.token, variable])
     );
     editor.replaceChildren();
+    let bold = false;
 
     for (const part of value.split(/(\{\{[A-Z0-9_]+\}\})/g)) {
         if (!part) continue;
         const variable = variableByToken.get(part);
-        if (variable) editor.append(createVariableBadge(variable));
-        else appendTextWithBreaks(editor, part);
+        if (variable) {
+            appendNode(editor, createVariableBadge(variable), bold);
+        } else {
+            bold = appendFormattedText(editor, part, bold);
+        }
     }
 }
 
@@ -477,7 +525,9 @@ function VariablePicker({
                                     title={variable.token}
                                 >
                                     <span className="font-semibold">{variable.label}</span>
-                                    <span className="ml-1 opacity-75">({variable.value})</span>
+                                    <span className="ml-1 whitespace-pre-line opacity-75">
+                                        ({variable.value})
+                                    </span>
                                 </button>
                             ))}
                     </div>
@@ -735,7 +785,7 @@ export default function RoboWhatsAppPage() {
     if (loading) {
         return (
             <div className="flex h-64 items-center justify-center">
-                <ListLoader lines={4} />
+                <Loader />
             </div>
         );
     }
@@ -877,10 +927,10 @@ export default function RoboWhatsAppPage() {
                         <div className="flex flex-wrap items-start justify-between gap-4">
                             <div>
                                 <h3 className="text-lg font-semibold text-gray-900">
-                                    Mensagens automáticas
+                                    Customizar mensagens automáticas
                                 </h3>
                                 <p className="mt-1 text-sm text-gray-600">
-                                    Personalize as mensagens principais. Só alterações feitas por você são salvas.
+                                    Personalize as mensagens principais.
                                 </p>
                             </div>
                             <Button onClick={saveTemplates} loading={saving}>
