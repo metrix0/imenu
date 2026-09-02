@@ -31,6 +31,7 @@ import {
     faUtensils,
     type IconDefinition,
 } from "@fortawesome/free-solid-svg-icons";
+import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
 
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import Loader from "@/components/ui/Loader";
@@ -351,6 +352,11 @@ export default function PainelLayout({
         { label: "Loja", icon: faStore, href: `${base}/loja` },
         { type: "divider" },
         { label: "Impressora", icon: faPrint, href: `${base}/impressora` },
+        {
+            label: "Robô WhatsApp",
+            icon: faWhatsapp,
+            href: `${base}/robo-whatsapp`,
+        },
         {
             label: "Integrações",
             icon: faPuzzlePiece,

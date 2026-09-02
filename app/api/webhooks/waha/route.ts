@@ -1,7 +1,8 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 
 import { createSupabaseServerClient } from "@/lib/database/supabaseServerClient";
+import { query } from "@/lib/database/sql";
 import {
     extractWahaPhone,
     getWahaQrCode,
@@ -128,6 +129,46 @@ function extractIncomingBody(payload: Record<string, any>): string {
     ]);
 }
 
+function extractSelectedRowId(payload: Record<string, any>): string {
+    return firstNonEmptyString([
+        payload.selectedRowId,
+        payload.selectedRowID,
+        payload.listResponse?.singleSelectReply?.selectedRowId,
+        payload.listResponse?.singleSelectReply?.selectedRowID,
+        payload._data?.selectedRowId,
+        payload._data?.selectedRowID,
+        payload._data?.Info?.SelectedRowID,
+    ]);
+}
+
+function extractCustomerName(payload: Record<string, any>): string | null {
+    const name = firstNonEmptyString([
+        payload.notifyName,
+        payload.pushName,
+        payload.senderName,
+        payload._data?.notifyName,
+        payload._data?.pushName,
+        payload._data?.Info?.PushName,
+        payload._data?.info?.pushName,
+    ]);
+
+    return name || null;
+}
+
+function getStableMessageId(event: WahaEvent, rawBody: string): string {
+    const payload = event.payload || {};
+    const candidate = firstNonEmptyString([
+        payload.id,
+        payload._data?.id,
+        payload._data?.key?.id,
+        payload._data?.Info?.ID,
+        payload._data?.info?.id,
+        event.id,
+    ]);
+
+    return candidate || createHash("sha256").update(rawBody).digest("hex");
+}
+
 function isGeneratedOrderMessage(body: string): boolean {
     const lines = body
         .split(/\r?\n/)
@@ -141,39 +182,64 @@ function isGeneratedOrderMessage(body: string): boolean {
     );
 }
 
-async function claimEvent(
-    eventId: string,
-    supabase: ReturnType<typeof createSupabaseServerClient>
-): Promise<boolean> {
-    const { data, error } = await supabase
-        .from("whatsapp_webhook_events")
-        .insert({ event_id: eventId })
-        .select("event_id")
-        .maybeSingle();
-
-    if (error) {
-        if (error.code === "23505") return false;
-        throw error;
-    }
+async function claimEvent(eventId: string): Promise<boolean> {
+    const result = await query(
+        `
+            INSERT INTO whatsapp_webhook_events (
+                event_id,
+                status,
+                attempt_count,
+                updated_at
+            )
+            VALUES ($1, 'processing', 1, NOW())
+            ON CONFLICT (event_id)
+            DO UPDATE SET
+                status = 'processing',
+                attempt_count = whatsapp_webhook_events.attempt_count + 1,
+                last_error = NULL,
+                updated_at = NOW()
+            WHERE whatsapp_webhook_events.status = 'failed'
+            RETURNING event_id
+        `,
+        [eventId]
+    );
 
     if (Math.random() < 0.02) {
-        const { error: cleanupError } = await supabase
-            .from("whatsapp_webhook_events")
-            .delete()
-            .lt(
-                "received_at",
-                new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
-            );
-
-        if (cleanupError) {
-            console.warn(
-                "[WAHA_WEBHOOK] Failed to clean old event claims:",
-                cleanupError
-            );
-        }
+        void query(
+            `DELETE FROM whatsapp_webhook_events
+             WHERE received_at < NOW() - INTERVAL '7 days'`
+        ).catch((error) =>
+            console.warn("[WAHA_WEBHOOK] Failed to clean old event claims:", error)
+        );
     }
 
-    return Boolean(data);
+    return result.rowCount > 0;
+}
+
+async function finishEvent(
+    eventId: string,
+    status: "processed" | "failed",
+    error?: unknown
+): Promise<void> {
+    await query(
+        `
+            UPDATE whatsapp_webhook_events
+            SET status = $2,
+                processed_at = CASE WHEN $2 = 'processed' THEN NOW() ELSE processed_at END,
+                last_error = $3,
+                updated_at = NOW()
+            WHERE event_id = $1
+        `,
+        [
+            eventId,
+            status,
+            status === "failed"
+                ? error instanceof Error
+                    ? error.message.slice(0, 500)
+                    : "Falha desconhecida"
+                : null,
+        ]
+    );
 }
 
 async function getConnection(
@@ -304,9 +370,6 @@ async function updateSessionStatus({
 export async function POST(request: NextRequest) {
     const rawBody = await request.text();
     let claimedEventId: string | null = null;
-    let claimedSupabase: ReturnType<
-        typeof createSupabaseServerClient
-    > | null = null;
 
     try {
         if (!verifyWebhook(rawBody, request)) {
@@ -323,27 +386,6 @@ export async function POST(request: NextRequest) {
         }
 
         const supabase = createSupabaseServerClient();
-        // Message events can trigger replies or transfer a conversation, so they
-        // must remain idempotent. Session status updates are already idempotent
-        // and arrive very frequently while QR codes rotate or sessions retry;
-        // storing a permanent claim for each one only creates database churn.
-        if (eventName === "message" || eventName === "message.any") {
-            const baseEventId =
-                event.id ||
-                request.headers.get("x-webhook-request-id") ||
-                payload.id ||
-                payload.timestamp ||
-                rawBody.length;
-            const eventId = `${eventName}:${sessionName}:${String(baseEventId)}`;
-
-            if (!(await claimEvent(eventId, supabase))) {
-                return NextResponse.json({ ok: true, duplicate: true });
-            }
-
-            claimedEventId = eventId;
-            claimedSupabase = supabase;
-        }
-
         const connection = await getConnection(sessionName, supabase);
         if (!connection) {
             return NextResponse.json({ ok: true, ignored: "unknown_session" });
@@ -360,20 +402,38 @@ export async function POST(request: NextRequest) {
         }
 
         if (eventName === "message.any") {
-            if (payload.fromMe === true && payload.source !== "api") {
-                await markOwnerTookOverConversation({
-                    restaurantId: connection.restaurant_id,
-                    chatId,
-                });
+            if (payload.fromMe !== true || payload.source === "api") {
+                return NextResponse.json({ ok: true });
             }
 
+            const messageId = getStableMessageId(event, rawBody);
+            claimedEventId = `owner:${sessionName}:${messageId}`;
+            if (!(await claimEvent(claimedEventId))) {
+                return NextResponse.json({ ok: true, duplicate: true });
+            }
+
+            await markOwnerTookOverConversation({
+                restaurantId: connection.restaurant_id,
+                chatId,
+            });
+            await finishEvent(claimedEventId, "processed");
             return NextResponse.json({ ok: true });
         }
 
         if (eventName === "message" && payload.fromMe !== true) {
-            const incomingBody = extractIncomingBody(payload);
+            const selectedRowId = extractSelectedRowId(payload);
+            const incomingBody =
+                selectedRowId === "menu"
+                    ? "menu_link"
+                    : selectedRowId || extractIncomingBody(payload);
             if (isGeneratedOrderMessage(incomingBody)) {
                 return NextResponse.json({ ok: true, ignored: "order_message" });
+            }
+
+            const messageId = getStableMessageId(event, rawBody);
+            claimedEventId = `inbound:${sessionName}:${messageId}`;
+            if (!(await claimEvent(claimedEventId))) {
+                return NextResponse.json({ ok: true, duplicate: true });
             }
 
             await processIncomingWhatsAppMessage({
@@ -382,23 +442,23 @@ export async function POST(request: NextRequest) {
                 chatId,
                 body: incomingBody,
                 hasMedia: payload.hasMedia === true,
+                messageId,
+                customerName: extractCustomerName(payload),
             });
+            await finishEvent(claimedEventId, "processed");
         }
 
         return NextResponse.json({ ok: true });
     } catch (error) {
         console.error("[WAHA_WEBHOOK]", error);
 
-        if (claimedEventId && claimedSupabase) {
+        if (claimedEventId) {
             try {
-                await claimedSupabase
-                    .from("whatsapp_webhook_events")
-                    .delete()
-                    .eq("event_id", claimedEventId);
-            } catch (releaseError) {
+                await finishEvent(claimedEventId, "failed", error);
+            } catch (finishError) {
                 console.error(
-                    "[WAHA_WEBHOOK] Failed to release event claim:",
-                    releaseError
+                    "[WAHA_WEBHOOK] Failed to mark event as failed:",
+                    finishError
                 );
             }
         }

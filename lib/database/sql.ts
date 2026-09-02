@@ -41,3 +41,26 @@ export async function withTransaction<T>(
         client.release();
     }
 }
+
+export async function withAdvisoryLock<T>(
+    key: string,
+    callback: () => Promise<T>
+): Promise<T> {
+    const client = await pool.connect();
+
+    try {
+        await client.query("SELECT pg_advisory_lock(hashtextextended($1, 0))", [
+            key,
+        ]);
+        return await callback();
+    } finally {
+        try {
+            await client.query(
+                "SELECT pg_advisory_unlock(hashtextextended($1, 0))",
+                [key]
+            );
+        } finally {
+            client.release();
+        }
+    }
+}

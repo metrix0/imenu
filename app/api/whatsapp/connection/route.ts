@@ -8,13 +8,14 @@ import {
     getWahaQrCode,
     getWahaSession,
     logoutWahaSession,
+    restartWahaSession,
     type WahaSession,
 } from "@/lib/services/wahaClient";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-type ConnectionAction = "connect" | "refresh_qr" | "disconnect";
+type ConnectionAction = "connect" | "reconnect" | "refresh_qr" | "disconnect";
 
 type ConnectionRow = {
     restaurant_id: string;
@@ -242,7 +243,7 @@ export async function POST(request: NextRequest) {
 
         if (
             !restaurantId ||
-            !["connect", "refresh_qr", "disconnect"].includes(action)
+            !["connect", "reconnect", "refresh_qr", "disconnect"].includes(action)
         ) {
             return NextResponse.json(
                 { error: "Invalid request" },
@@ -305,7 +306,7 @@ export async function POST(request: NextRequest) {
                     qr_code_data: null,
                     qr_updated_at: null,
                     last_restart_at:
-                        action === "refresh_qr"
+                        action === "refresh_qr" || action === "reconnect"
                             ? now
                             : existing?.last_restart_at,
                     last_error: null,
@@ -327,7 +328,15 @@ export async function POST(request: NextRequest) {
             }
         }
 
-        let session = await ensureWahaSession(restaurantId, sessionName);
+        let session: WahaSession;
+        if (action === "reconnect") {
+            const savedSession = await getWahaSession(sessionName);
+            session = savedSession
+                ? await restartWahaSession(sessionName)
+                : await ensureWahaSession(restaurantId, sessionName);
+        } else {
+            session = await ensureWahaSession(restaurantId, sessionName);
+        }
 
         if (session.status === "STARTING") {
             await new Promise((resolve) => setTimeout(resolve, 700));

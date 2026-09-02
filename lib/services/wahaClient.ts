@@ -260,8 +260,8 @@ export async function sendWahaText(
     sessionName: string,
     chatId: string,
     text: string
-): Promise<void> {
-    await wahaRequest<void>("/api/sendText", {
+): Promise<unknown> {
+    return wahaRequest<unknown>("/api/sendText", {
         method: "POST",
         body: JSON.stringify({
             session: sessionName,
@@ -276,8 +276,8 @@ export async function sendWahaList(
     sessionName: string,
     chatId: string,
     rows: WahaListRow[]
-): Promise<void> {
-    await wahaRequest<void>("/api/sendList", {
+): Promise<unknown> {
+    return wahaRequest<unknown>("/api/sendList", {
         method: "POST",
         body: JSON.stringify({
             session: sessionName,
