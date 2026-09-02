@@ -137,7 +137,7 @@ export default function CartBar({
                 .forEach((element) =>
                     element.scrollTo({ top: 0, behavior: "auto" })
                 );
-        }, 30);
+        }, 60);
     };
 
     async function handleClick() {
