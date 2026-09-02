@@ -127,16 +127,17 @@ export default function CartBar({
     };
 
     const resetCheckoutScroll = () => {
-        if (
-            typeof window !== "undefined" &&
-            window.matchMedia("(min-width: 768px)").matches
-        ) {
-            requestAnimationFrame(() => {
-                document
-                    .querySelector<HTMLElement>("[data-checkout-scroll]")
-                    ?.scrollTo({ top: 0, behavior: "auto" });
-            });
-        }
+        if (typeof window === "undefined") return;
+
+        window.setTimeout(() => {
+            document
+                .querySelectorAll<HTMLElement>(
+                    "[data-checkout-scroll], .checkout-scroll-mobile"
+                )
+                .forEach((element) =>
+                    element.scrollTo({ top: 0, behavior: "auto" })
+                );
+        }, 30);
     };
 
     async function handleClick() {

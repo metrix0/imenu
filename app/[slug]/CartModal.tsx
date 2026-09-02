@@ -785,6 +785,7 @@ export default function CartModal({
                 height={0.93}
                 handle={false}
                 xPadding={false}
+                contentClassName="checkout-scroll-mobile"
                 className={"md:!h-[80vh] md:!mb-[12vh]"}
             >
 
