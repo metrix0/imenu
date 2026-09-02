@@ -51,30 +51,6 @@ interface CheckoutState {
     setContinueBlocked: (v: boolean) => void;
 }
 
-function getActiveCheckoutModalRoot() {
-    if (typeof document === "undefined") return null;
-
-    const roots = Array.from(
-        document.querySelectorAll<HTMLElement>(".fixed.inset-0.z-41")
-    ).filter((element) => element.getClientRects().length > 0);
-
-    return roots[roots.length - 1] ?? null;
-}
-
-function resetCheckoutModalScroll() {
-    const root = getActiveCheckoutModalRoot();
-    if (!root) return;
-
-    const scrollTargets = [
-        root,
-        ...root.querySelectorAll<HTMLElement>(".overflow-y-auto"),
-    ];
-
-    scrollTargets.forEach((element) => {
-        element.scrollTop = 0;
-    });
-}
-
 export const useCheckoutStore = create<CheckoutState>()(
     persist(
         (set) => ({
@@ -113,16 +89,6 @@ export const useCheckoutStore = create<CheckoutState>()(
 
             setStep: (s) => {
                 set({ step: s });
-
-                if (typeof window !== "undefined") {
-                    const reset = () => resetCheckoutModalScroll();
-
-                    reset();
-                    requestAnimationFrame(() => {
-                        requestAnimationFrame(reset);
-                    });
-                    window.setTimeout(reset, 340);
-                }
             },
 
             setField: (key, value) => {
