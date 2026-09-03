@@ -690,7 +690,13 @@ export async function processIncomingWhatsAppMessage({
             restaurantId,
             sessionName,
             chatId,
-            text: renderWhatsAppTemplate(templates.fallback, variables),
+            text: "Não entendi essa mensagem.",
+        });
+        await sendTrackedMenu({
+            dedupeKey: `${messageId}:main_menu`,
+            restaurantId,
+            sessionName,
+            chatId,
         });
     });
 }
