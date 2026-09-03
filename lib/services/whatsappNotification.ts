@@ -1,8 +1,15 @@
 import { query } from "@/lib/database/sql";
 import { sendWahaText } from "@/lib/services/wahaClient";
+import {
+    buildRestaurantTemplateVariables,
+    getRestaurantTemplateData,
+    getWhatsAppTemplates,
+    renderWhatsAppTemplate,
+} from "@/lib/services/whatsappMessageTemplates";
 
 type OrderNotificationRow = {
     id: string;
+    restaurant_id: string;
     display_id: number | null;
     customer_phone: string | null;
     customer_name: string | null;
@@ -70,6 +77,7 @@ export async function notifyOrderStatusUpdate(
             `
                 SELECT
                     orders.id,
+                    orders.restaurant_id,
                     orders.display_id,
                     orders.customer_phone,
                     orders.customer_name,
@@ -114,14 +122,23 @@ export async function notifyOrderStatusUpdate(
             return;
         }
 
+        const [restaurant, templates] = await Promise.all([
+            getRestaurantTemplateData(order.restaurant_id),
+            getWhatsAppTemplates(order.restaurant_id),
+        ]);
+        if (!restaurant) return;
+
         const customerName = order.customer_name?.trim() || "Cliente";
         const orderNumber =
             order.display_id ?? order.id.slice(0, 4).toUpperCase();
-        const message = [
-            `Olá, ${customerName}! 👋`,
-            "",
-            `Seu pedido *#${orderNumber}* no *${order.restaurant_name}* ${statusText}`,
-        ].join("\n");
+        const message = renderWhatsAppTemplate(
+            templates.status_notification,
+            buildRestaurantTemplateVariables(restaurant, {
+                NOME_DO_CLIENTE: customerName,
+                NUMERO_DO_PEDIDO: String(orderNumber),
+                STATUS_DO_PEDIDO: statusText,
+            })
+        );
 
         await sendWahaText(
             order.whatsapp_session_name,

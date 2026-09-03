@@ -25,6 +25,7 @@ import {
     faPowerOff,
     faPrint,
     faPuzzlePiece,
+    faRobot,
     faStore,
     faTimes,
     faTruck,
@@ -351,6 +352,11 @@ export default function PainelLayout({
         { label: "Loja", icon: faStore, href: `${base}/loja` },
         { type: "divider" },
         { label: "Impressora", icon: faPrint, href: `${base}/impressora` },
+        {
+            label: "Robô WhatsApp",
+            icon: faRobot,
+            href: `${base}/robo-whatsapp`,
+        },
         {
             label: "Integrações",
             icon: faPuzzlePiece,
