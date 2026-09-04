@@ -59,6 +59,62 @@ async function waitForAsaasBalance(requiredCents: number): Promise<number> {
     return balanceCents;
 }
 
+async function notifyPayoutAlarm({
+    runId,
+    runDate,
+    status,
+    step,
+    message,
+}: {
+    runId: string;
+    runDate: string;
+    status: string;
+    step: AutomationStep;
+    message: string;
+}): Promise<void> {
+    const topic = process.env.NTFY_TOPIC?.trim();
+    if (!topic) {
+        console.error("[DAILY_PAYOUT] NTFY_TOPIC não configurado; alerta não enviado.", {
+            runId,
+            runDate,
+            status,
+            step,
+        });
+        return;
+    }
+
+    try {
+        const response = await fetch(`https://ntfy.sh/${encodeURIComponent(topic)}`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "text/plain; charset=utf-8",
+                Title: "ALARM TRIGGER - iMenu payout automático",
+            },
+            body: [
+                "Pagamento automático não foi concluído.",
+                `Data: ${runDate}`,
+                `Status: ${status}`,
+                `Etapa: ${step}`,
+                `Motivo: ${message}`,
+                `Run: ${runId}`,
+            ].join("\n"),
+            cache: "no-store",
+        });
+
+        if (!response.ok) {
+            throw new Error(`ntfy HTTP ${response.status}`);
+        }
+    } catch (error) {
+        console.error("[DAILY_PAYOUT] Falha ao enviar alerta ntfy", {
+            runId,
+            runDate,
+            status,
+            step,
+            error: error instanceof Error ? error.message : String(error),
+        });
+    }
+}
+
 async function markRunFailed(
     runId: string,
     step: AutomationStep,
@@ -182,6 +238,13 @@ export async function GET(request: Request) {
                 `,
                 [runId, message]
             );
+            await notifyPayoutAlarm({
+                runId,
+                runDate,
+                status: "blocked",
+                step: currentStep,
+                message,
+            });
             return NextResponse.json({ success: false, blocked: true, error: message });
         }
 
@@ -237,6 +300,13 @@ export async function GET(request: Request) {
                 `,
                 [runId, differenceCents, message]
             );
+            await notifyPayoutAlarm({
+                runId,
+                runDate,
+                status: "blocked",
+                step: currentStep,
+                message,
+            });
             return NextResponse.json({
                 success: false,
                 blocked: true,
@@ -324,6 +394,17 @@ export async function GET(request: Request) {
             ]
         );
 
+        if (status !== "completed") {
+            const message = `Execução terminou com status ${status}. Pagos: ${payoutResult.paidCount}; em processamento: ${payoutResult.processingCount}; falhas: ${payoutResult.failedCount}; restaurantes ignorados: ${skippedRestaurantCount}.`;
+            await notifyPayoutAlarm({
+                runId,
+                runDate,
+                status,
+                step: currentStep,
+                message,
+            });
+        }
+
         return NextResponse.json({
             success: payoutResult.failedCount === 0,
             runId,
@@ -335,6 +416,13 @@ export async function GET(request: Request) {
         });
     } catch (error) {
         const message = error instanceof Error ? error.message : "Erro interno.";
+        await notifyPayoutAlarm({
+            runId,
+            runDate,
+            status: "failed",
+            step: currentStep,
+            message,
+        });
         await markRunFailed(runId, currentStep, message);
 
         console.error("[DAILY_PAYOUT] Falha", {
