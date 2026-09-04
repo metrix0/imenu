@@ -2,12 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import {
-    faBell,
-    faMobileScreenButton,
-} from "@fortawesome/free-solid-svg-icons";
+import { faMobileScreenButton } from "@fortawesome/free-solid-svg-icons";
 
-import ApplicationSetup from "@/components/restaurant-owner/aplicativo/ApplicationSetup";
+import ApplicationPanelContent from "@/components/restaurant-owner/aplicativo/ApplicationPanelContent";
 import Card from "@/components/ui/Card";
 import Loader from "@/components/ui/Loader";
 
@@ -63,20 +60,7 @@ export default function AplicativoPage() {
 
     return (
         <div className="p-4 pb-24 sm:p-6">
-            <div className="mb-7">
-                <h1 className="text-2xl font-bold text-gray-900">Aplicativo</h1>
-                <p className="mt-2 text-sm leading-6 text-gray-600">
-                    Tenha o painel do iMenu sempre à mão com
-                    <FontAwesomeIcon
-                        icon={faBell}
-                        className="mx-1.5 text-brand"
-                        aria-hidden="true"
-                    />
-                    notificações ao vivo!
-                </p>
-            </div>
-
-            <ApplicationSetup />
+            <ApplicationPanelContent />
         </div>
     );
 }
