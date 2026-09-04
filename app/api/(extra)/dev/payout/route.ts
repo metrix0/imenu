@@ -77,7 +77,7 @@ export async function GET(request: Request) {
             ...data,
             automationRuns: data.automationRuns.map((run: any) => ({
                 ...run,
-                run_date: String(run.run_date).slice(0, 10),
+                run_date: new Date(run.run_date).toISOString().slice(0, 10),
             })),
         });
     } catch (error) {
