@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState, type ComponentProps } from "react";
 
 import LegacyCartModal from "./CartModalLegacy";
-import { supabase } from "@/lib/database/supabaseClient";
 import { useCheckoutStore } from "@/lib/stores/costumer/checkoutStore";
 import { setNeighborhoodDeliveryGeocodingBypass } from "@/lib/api/geocoding";
 import {
@@ -31,57 +30,28 @@ export default function CartModal(props: LegacyProps) {
 
         let active = true;
 
-        const load = async () => {
-            const { data, error } = await supabase
-                .from("restaurants")
-                .select("delivery_fee_mode, delivery_neighborhood_fee_json")
-                .eq("id", restaurantId)
-                .single();
-
-            if (!active || error || !data) return;
-
-            setDeliveryConfig({
-                mode:
-                    data.delivery_fee_mode === "neighborhood"
-                        ? "neighborhood"
-                        : "radius",
-                rules: parseNeighborhoodDeliveryRules(
-                    data.delivery_neighborhood_fee_json
-                ),
-            });
-        };
-
-        void load();
-
-        const channel = supabase
-            .channel(`delivery-mode:${restaurantId}`)
-            .on(
-                "postgres_changes",
-                {
-                    event: "UPDATE",
-                    schema: "public",
-                    table: "restaurants",
-                    filter: `id=eq.${restaurantId}`,
-                },
-                (payload) => {
-                    if (!active) return;
-                    const row = payload.new as Record<string, unknown>;
-                    setDeliveryConfig({
-                        mode:
-                            row.delivery_fee_mode === "neighborhood"
-                                ? "neighborhood"
-                                : "radius",
-                        rules: parseNeighborhoodDeliveryRules(
-                            row.delivery_neighborhood_fee_json
-                        ),
-                    });
-                }
-            )
-            .subscribe();
+        void fetch(
+            `/api/checkout/delivery-config?restaurantId=${encodeURIComponent(restaurantId)}`,
+            { cache: "no-store" }
+        )
+            .then(async (response) => {
+                if (!response.ok) return null;
+                return response.json();
+            })
+            .then((data) => {
+                if (!active || !data) return;
+                setDeliveryConfig({
+                    mode:
+                        data.mode === "neighborhood"
+                            ? "neighborhood"
+                            : "radius",
+                    rules: parseNeighborhoodDeliveryRules(data.rules),
+                });
+            })
+            .catch(() => undefined);
 
         return () => {
             active = false;
-            void supabase.removeChannel(channel);
         };
     }, [restaurantId]);
 
