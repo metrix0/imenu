@@ -163,29 +163,7 @@ export async function GET(request: Request) {
             discountPercent: 1,
             adjustToOnePercent: true,
         });
-
-        if (plan.ambiguous.length > 0) {
-            const names = plan.ambiguous
-                .map((row) => row.restaurant_name)
-                .join(", ");
-            const message = `Chaves PIX com tipo ambíguo: ${names}. Nenhum repasse foi enviado.`;
-            await query(
-                `
-                UPDATE public.payout_automation_runs
-                SET
-                    status = 'blocked',
-                    adjustment_step_status = 'blocked',
-                    comparison_step_status = 'skipped',
-                    payout_step_status = 'skipped',
-                    error_message = $2,
-                    finished_at = NOW(),
-                    updated_at = NOW()
-                WHERE id = $1
-                `,
-                [runId, message]
-            );
-            return NextResponse.json({ success: false, blocked: true, error: message });
-        }
+        const skippedRestaurantCount = plan.payables.length - plan.sendable.length;
 
         if (plan.sendable.length === 0) {
             const message = "Nenhum restaurante com valor e chave PIX válidos para pagar.";
@@ -226,19 +204,24 @@ export async function GET(request: Request) {
                 plan.payzuFeeCents,
                 plan.discountCents,
                 plan.totalNetCents,
-                plan.sendable.length,
+                plan.payables.length,
             ]
         );
 
         currentStep = "comparison";
         const transferredCents = payzuTransfer.amountCents || 0;
         const differenceCents = transferredCents - plan.totalNetCents;
-        const isSimilar = isSafePayoutDifference(differenceCents);
+        const isSimilar =
+            skippedRestaurantCount > 0
+                ? differenceCents >= MIN_PAYOUT_DIFFERENCE_CENTS
+                : isSafePayoutDifference(differenceCents);
 
         if (!isSimilar) {
             const message =
-                `Diferença fora da faixa segura: ${differenceCents} centavos. ` +
-                `Permitido: ${MIN_PAYOUT_DIFFERENCE_CENTS} a ${MAX_PAYOUT_DIFFERENCE_CENTS} centavos. Nenhum repasse foi enviado.`;
+                skippedRestaurantCount > 0
+                    ? `Diferença abaixo da faixa segura: ${differenceCents} centavos. Mínimo permitido: ${MIN_PAYOUT_DIFFERENCE_CENTS} centavos. Nenhum repasse foi enviado.`
+                    : `Diferença fora da faixa segura: ${differenceCents} centavos. ` +
+                      `Permitido: ${MIN_PAYOUT_DIFFERENCE_CENTS} a ${MAX_PAYOUT_DIFFERENCE_CENTS} centavos. Nenhum repasse foi enviado.`;
             await query(
                 `
                 UPDATE public.payout_automation_runs
@@ -308,7 +291,9 @@ export async function GET(request: Request) {
                   ? "partial"
                   : payoutResult.failedCount > 0
                     ? "failed"
-                    : "completed";
+                    : skippedRestaurantCount > 0
+                      ? "partial"
+                      : "completed";
         const payoutStepStatus =
             payoutResult.processingCount > 0
                 ? "processing"
@@ -345,6 +330,7 @@ export async function GET(request: Request) {
             transferredCents,
             payoutCents: plan.totalNetCents,
             differenceCents,
+            skippedRestaurantCount,
             ...payoutResult,
         });
     } catch (error) {
