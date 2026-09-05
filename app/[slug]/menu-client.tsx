@@ -21,6 +21,7 @@ import Tabs from "@/components/ui/Tabs";
 import SearchModal from "./SearchModal";
 import HistoryModal from "@/components/costumer/HistoryModal";
 import type { QrTableMenuContext } from "@/lib/qr-table/types";
+import { parseNeighborhoodDeliveryRules } from "@/lib/delivery/neighborhood";
 
 
 
@@ -433,7 +434,10 @@ export default function MenuClientPage({
     }, []);
 
     const deliveryTax = (() => {
-        const fees = restaurant.delivery_fee_json.map(
+        const rules = restaurant.delivery_fee_mode === "neighborhood"
+            ? parseNeighborhoodDeliveryRules(restaurant.delivery_neighborhood_fee_json)
+            : restaurant.delivery_fee_json;
+        const fees = rules.map(
             (i: { fee_cents: number }) => i.fee_cents
         );
 

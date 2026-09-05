@@ -293,6 +293,7 @@ async function syncAutomationRuns(): Promise<void> {
                 WHEN counts.processing_count > 0 THEN 'processing'
                 WHEN counts.failed_count > 0 AND counts.paid_count > 0 THEN 'partial'
                 WHEN counts.failed_count > 0 THEN 'failed'
+                WHEN counts.paid_count < run.restaurant_count THEN 'partial'
                 ELSE 'completed'
             END,
             finished_at = CASE
@@ -443,19 +444,6 @@ export async function sendPayouts(input: {
         adjustToOnePercent: input.adjustToOnePercent,
         amountOverrides: input.amountOverrides,
     });
-
-    if (plan.ambiguous.length > 0) {
-        throw new PayoutValidationError(
-            "Existem chaves PIX cadastradas com tipo ambíguo. Defina o tipo antes de enviar.",
-            409,
-            {
-                blocked: plan.ambiguous.map((row) => ({
-                    restaurantId: row.restaurant_id,
-                    restaurantName: row.restaurant_name,
-                })),
-            }
-        );
-    }
 
     const invalidAmount = plan.sendable.find(
         (item) =>

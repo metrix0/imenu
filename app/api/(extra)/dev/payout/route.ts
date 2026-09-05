@@ -72,7 +72,14 @@ export async function GET(request: Request) {
     if (denied) return denied;
 
     try {
-        return NextResponse.json(await getPayoutDashboardData());
+        const data = await getPayoutDashboardData();
+        return NextResponse.json({
+            ...data,
+            automationRuns: data.automationRuns.map((run: any) => ({
+                ...run,
+                run_date: new Date(run.run_date).toISOString().slice(0, 10),
+            })),
+        });
     } catch (error) {
         console.error("[DEV PAYOUT] Falha ao carregar:", error);
         return NextResponse.json(

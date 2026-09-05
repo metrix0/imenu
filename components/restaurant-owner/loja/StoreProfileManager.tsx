@@ -35,6 +35,8 @@ interface StoreProfileProps {
     compact?: boolean;
 }
 
+type PixKeyType = "CPF" | "CNPJ" | "EMAIL" | "PHONE" | "EVP";
+
 function sanitizeSlug(value: string): string {
     return value
         .toLowerCase()
@@ -55,6 +57,26 @@ function formatPhone(value: string): string {
     return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
 }
 
+function inferPixKeyType(value: string): PixKeyType | null {
+    const raw = value.trim();
+    if (!raw) return null;
+
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(raw)) {
+        return "EVP";
+    }
+    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw)) return "EMAIL";
+    if (/^\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}$/.test(raw)) return "CNPJ";
+    if (/^\d{3}\.\d{3}\.\d{3}-\d{2}$/.test(raw)) return "CPF";
+    if (/^\+55\D*\d{2}\D*\d{8,9}$/.test(raw) || /^\(\d{2}\)\s*\d{4,5}-?\d{4}$/.test(raw)) {
+        return "PHONE";
+    }
+
+    const digits = raw.replace(/\D/g, "");
+    if (digits.length === 14) return "CNPJ";
+    if (digits.length === 13 && digits.startsWith("55")) return "PHONE";
+    return null;
+}
+
 export default function StoreProfileManager({
     restaurant,
 }: StoreProfileProps) {
@@ -70,7 +92,10 @@ export default function StoreProfileManager({
         restaurant.payment_info || ""
     );
     const [paymentInfoType, setPaymentInfoType] = useState(
-        restaurant.payment_info_type || "AUTO"
+        restaurant.payment_info_type ||
+            (restaurant.payment_info && !inferPixKeyType(restaurant.payment_info)
+                ? ""
+                : "AUTO")
     );
     const [storeWhatsapp, setStoreWhatsapp] = useState(
         formatPhone(restaurant.store_whatsapp || "")
@@ -81,6 +106,7 @@ export default function StoreProfileManager({
     );
     const [customDomainVerified, setCustomDomainVerified] = useState(false);
     const [customDomainOpen, setCustomDomainOpen] = useState(false);
+    const needsPixType = Boolean(paymentInfo.trim() && !paymentInfoType);
 
     useEffect(() => {
         if (restaurant.logo_url) {
@@ -158,6 +184,29 @@ export default function StoreProfileManager({
         } finally {
             setIsSaving(false);
         }
+    };
+
+    const savePaymentInfo = async () => {
+        if (paymentInfoType === "AUTO" && paymentInfo.trim()) {
+            const detectedType = inferPixKeyType(paymentInfo);
+            if (detectedType) {
+                setPaymentInfoType(detectedType);
+                await saveFields({
+                    payment_info: paymentInfo,
+                    payment_info_type: detectedType,
+                });
+                return;
+            }
+
+            setPaymentInfoType("");
+            await saveFields({
+                payment_info: paymentInfo,
+                payment_info_type: null,
+            });
+            return;
+        }
+
+        await saveFields({ payment_info: paymentInfo });
     };
 
     const saveSlug = async () => {
@@ -256,6 +305,7 @@ export default function StoreProfileManager({
                             </div>
                             <Dropdown
                                 options={[
+                                    { value: "", label: "Definir tipo de chave" },
                                     { value: "AUTO", label: "Detectar automaticamente" },
                                     { value: "CPF", label: "CPF" },
                                     { value: "CNPJ", label: "CNPJ" },
@@ -266,17 +316,31 @@ export default function StoreProfileManager({
                                 value={paymentInfoType}
                                 onChange={(event) => {
                                     const nextType = event.target.value;
+                                    if (nextType === "AUTO" && paymentInfo.trim()) {
+                                        const detectedType = inferPixKeyType(paymentInfo);
+                                        if (detectedType) {
+                                            setPaymentInfoType(detectedType);
+                                            void saveFields({ payment_info_type: detectedType });
+                                        } else {
+                                            setPaymentInfoType("");
+                                            void saveFields({ payment_info_type: null });
+                                        }
+                                        return;
+                                    }
+
                                     setPaymentInfoType(nextType);
                                     void saveFields({
                                         payment_info_type:
-                                            nextType === "AUTO" ? null : nextType,
+                                            nextType === "AUTO" || !nextType
+                                                ? null
+                                                : nextType,
                                     });
                                 }}
                             />
                         </div>
 
                         <div className="flex min-w-0 flex-col gap-1">
-                            <div className="flex items-center gap-2 text-xs font-medium 2xl:text-base">
+                            <div className={`flex items-center gap-2 text-xs font-medium 2xl:text-base ${needsPixType ? "text-red-600" : ""}`}>
                                 <span>Chave Pix para Repasse</span>
                                 <Tooltip
                                     text="Repasses são apenas para clientes que pagaram com Pix Online. Repasses diários às 12:00 no PIX cadastrado."
@@ -295,10 +359,14 @@ export default function StoreProfileManager({
                                 onChange={(event) =>
                                     setPaymentInfo(event.target.value)
                                 }
-                                onBlur={() =>
-                                    void saveFields({ payment_info: paymentInfo })
-                                }
+                                onBlur={() => void savePaymentInfo()}
+                                className={needsPixType ? "border-red-400 focus:border-red-500 focus:ring-red-100" : ""}
                             />
+                            {needsPixType && (
+                                <p className="text-xs font-medium text-red-600">
+                                    Defina o tipo da chave PIX acima.
+                                </p>
+                            )}
                         </div>
                     </div>
 

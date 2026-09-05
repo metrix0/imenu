@@ -59,6 +59,62 @@ async function waitForAsaasBalance(requiredCents: number): Promise<number> {
     return balanceCents;
 }
 
+async function notifyPayoutAlarm({
+    runId,
+    runDate,
+    status,
+    step,
+    message,
+}: {
+    runId: string;
+    runDate: string;
+    status: string;
+    step: AutomationStep;
+    message: string;
+}): Promise<void> {
+    const topic = process.env.NTFY_TOPIC?.trim();
+    if (!topic) {
+        console.error("[DAILY_PAYOUT] NTFY_TOPIC não configurado; alerta não enviado.", {
+            runId,
+            runDate,
+            status,
+            step,
+        });
+        return;
+    }
+
+    try {
+        const response = await fetch(`https://ntfy.sh/${encodeURIComponent(topic)}`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "text/plain; charset=utf-8",
+                Title: "ALARM TRIGGER - iMenu payout automático",
+            },
+            body: [
+                "Pagamento automático não foi concluído.",
+                `Data: ${runDate}`,
+                `Status: ${status}`,
+                `Etapa: ${step}`,
+                `Motivo: ${message}`,
+                `Run: ${runId}`,
+            ].join("\n"),
+            cache: "no-store",
+        });
+
+        if (!response.ok) {
+            throw new Error(`ntfy HTTP ${response.status}`);
+        }
+    } catch (error) {
+        console.error("[DAILY_PAYOUT] Falha ao enviar alerta ntfy", {
+            runId,
+            runDate,
+            status,
+            step,
+            error: error instanceof Error ? error.message : String(error),
+        });
+    }
+}
+
 async function markRunFailed(
     runId: string,
     step: AutomationStep,
@@ -163,29 +219,7 @@ export async function GET(request: Request) {
             discountPercent: 1,
             adjustToOnePercent: true,
         });
-
-        if (plan.ambiguous.length > 0) {
-            const names = plan.ambiguous
-                .map((row) => row.restaurant_name)
-                .join(", ");
-            const message = `Chaves PIX com tipo ambíguo: ${names}. Nenhum repasse foi enviado.`;
-            await query(
-                `
-                UPDATE public.payout_automation_runs
-                SET
-                    status = 'blocked',
-                    adjustment_step_status = 'blocked',
-                    comparison_step_status = 'skipped',
-                    payout_step_status = 'skipped',
-                    error_message = $2,
-                    finished_at = NOW(),
-                    updated_at = NOW()
-                WHERE id = $1
-                `,
-                [runId, message]
-            );
-            return NextResponse.json({ success: false, blocked: true, error: message });
-        }
+        const skippedRestaurantCount = plan.payables.length - plan.sendable.length;
 
         if (plan.sendable.length === 0) {
             const message = "Nenhum restaurante com valor e chave PIX válidos para pagar.";
@@ -204,6 +238,13 @@ export async function GET(request: Request) {
                 `,
                 [runId, message]
             );
+            await notifyPayoutAlarm({
+                runId,
+                runDate,
+                status: "blocked",
+                step: currentStep,
+                message,
+            });
             return NextResponse.json({ success: false, blocked: true, error: message });
         }
 
@@ -226,19 +267,24 @@ export async function GET(request: Request) {
                 plan.payzuFeeCents,
                 plan.discountCents,
                 plan.totalNetCents,
-                plan.sendable.length,
+                plan.payables.length,
             ]
         );
 
         currentStep = "comparison";
         const transferredCents = payzuTransfer.amountCents || 0;
         const differenceCents = transferredCents - plan.totalNetCents;
-        const isSimilar = isSafePayoutDifference(differenceCents);
+        const isSimilar =
+            skippedRestaurantCount > 0
+                ? differenceCents >= MIN_PAYOUT_DIFFERENCE_CENTS
+                : isSafePayoutDifference(differenceCents);
 
         if (!isSimilar) {
             const message =
-                `Diferença fora da faixa segura: ${differenceCents} centavos. ` +
-                `Permitido: ${MIN_PAYOUT_DIFFERENCE_CENTS} a ${MAX_PAYOUT_DIFFERENCE_CENTS} centavos. Nenhum repasse foi enviado.`;
+                skippedRestaurantCount > 0
+                    ? `Diferença abaixo da faixa segura: ${differenceCents} centavos. Mínimo permitido: ${MIN_PAYOUT_DIFFERENCE_CENTS} centavos. Nenhum repasse foi enviado.`
+                    : `Diferença fora da faixa segura: ${differenceCents} centavos. ` +
+                      `Permitido: ${MIN_PAYOUT_DIFFERENCE_CENTS} a ${MAX_PAYOUT_DIFFERENCE_CENTS} centavos. Nenhum repasse foi enviado.`;
             await query(
                 `
                 UPDATE public.payout_automation_runs
@@ -254,6 +300,13 @@ export async function GET(request: Request) {
                 `,
                 [runId, differenceCents, message]
             );
+            await notifyPayoutAlarm({
+                runId,
+                runDate,
+                status: "blocked",
+                step: currentStep,
+                message,
+            });
             return NextResponse.json({
                 success: false,
                 blocked: true,
@@ -308,7 +361,9 @@ export async function GET(request: Request) {
                   ? "partial"
                   : payoutResult.failedCount > 0
                     ? "failed"
-                    : "completed";
+                    : skippedRestaurantCount > 0
+                      ? "partial"
+                      : "completed";
         const payoutStepStatus =
             payoutResult.processingCount > 0
                 ? "processing"
@@ -339,16 +394,35 @@ export async function GET(request: Request) {
             ]
         );
 
+        if (status !== "completed") {
+            const message = `Execução terminou com status ${status}. Pagos: ${payoutResult.paidCount}; em processamento: ${payoutResult.processingCount}; falhas: ${payoutResult.failedCount}; restaurantes ignorados: ${skippedRestaurantCount}.`;
+            await notifyPayoutAlarm({
+                runId,
+                runDate,
+                status,
+                step: currentStep,
+                message,
+            });
+        }
+
         return NextResponse.json({
             success: payoutResult.failedCount === 0,
             runId,
             transferredCents,
             payoutCents: plan.totalNetCents,
             differenceCents,
+            skippedRestaurantCount,
             ...payoutResult,
         });
     } catch (error) {
         const message = error instanceof Error ? error.message : "Erro interno.";
+        await notifyPayoutAlarm({
+            runId,
+            runDate,
+            status: "failed",
+            step: currentStep,
+            message,
+        });
         await markRunFailed(runId, currentStep, message);
 
         console.error("[DAILY_PAYOUT] Falha", {
