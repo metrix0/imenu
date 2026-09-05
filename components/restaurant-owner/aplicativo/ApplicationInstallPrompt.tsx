@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faBell } from "@fortawesome/free-solid-svg-icons";
 
-import ApplicationPanelContent from "./ApplicationPanelContent";
+import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import { supabase } from "@/lib/database/supabaseClient";
 
@@ -42,6 +44,7 @@ function rememberDismissal() {
 
 export default function ApplicationInstallPrompt() {
     const pathname = usePathname();
+    const router = useRouter();
     const [open, setOpen] = useState(false);
 
     useEffect(() => {
@@ -109,10 +112,40 @@ export default function ApplicationInstallPrompt() {
             open={open}
             onClose={close}
             showCloseButton
-            className="max-w-3xl"
+            className="max-w-sm"
         >
-            <div className="p-5 pb-7 pt-4 sm:p-6">
-                <ApplicationPanelContent />
+            <div className="p-6 pt-10 text-center">
+                <video
+                    src="/images/CellphoneVideo.webm"
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    aria-hidden="true"
+                    className="mx-auto h-[26dvh] max-h-56 w-full object-contain"
+                />
+                <h2 className="mt-4 text-2xl font-bold text-gray-900">
+                    Tenha o app do iMenu!
+                </h2>
+                <p className="mt-3 text-sm leading-6 text-gray-600">
+                    Acesse seu painel direto da tela inicial do celular e receba
+                    <FontAwesomeIcon
+                        icon={faBell}
+                        className="mx-1.5 text-brand"
+                        aria-hidden="true"
+                    />
+                    notificações de novos pedidos.
+                </p>
+                <Button
+                    type="button"
+                    className="mt-6 w-full"
+                    onClick={() => {
+                        close();
+                        router.push("/painel/aplicativo");
+                    }}
+                >
+                    Ir para Aplicativo
+                </Button>
             </div>
         </Modal>
     );
