@@ -304,12 +304,57 @@ export default function MenuItemRow({
     const handleSave = async () => {
         if (!name.trim()) return;
 
+        let nextStockQuantity = item.stock_quantity ?? null;
+        let nextIsAvailable = isAvailable;
+
+        if (item.stock_enabled && !isNew) {
+            const rawStock = stockInput.trim();
+            const parsedStock = Number(rawStock);
+
+            if (
+                rawStock === "" ||
+                Number.isNaN(parsedStock) ||
+                parsedStock < 0 ||
+                !Number.isInteger(parsedStock)
+            ) {
+                setStockInput(String(item.stock_quantity ?? 0));
+                setToast({
+                    message: "Informe uma quantidade válida.",
+                    type: "error",
+                });
+                return;
+            }
+
+            nextStockQuantity = parsedStock;
+            if (parsedStock !== Number(item.stock_quantity ?? 0)) {
+                nextIsAvailable = parsedStock > 0;
+            }
+        }
+
         const nextPriceCents = priceInputToCents(priceInput);
         setPriceCents(nextPriceCents);
         setPriceInput(formatPriceInput(nextPriceCents));
         setIsLoading(true);
 
         try {
+            if (
+                item.stock_enabled &&
+                !isNew &&
+                nextStockQuantity !== item.stock_quantity
+            ) {
+                const { error } = await supabase
+                    .from("items")
+                    .update({
+                        stock_quantity: nextStockQuantity,
+                        is_available: nextIsAvailable,
+                    })
+                    .eq("id", item.id)
+                    .eq("restaurant_id", restaurantId);
+
+                if (error) throw error;
+                setIsAvailable(nextIsAvailable);
+            }
+
             await onSave({
                 ...item,
                 name,
@@ -317,7 +362,10 @@ export default function MenuItemRow({
                 price_cents: nextPriceCents,
                 image_path: imagePath,
                 image_url: imageUrl,
-                is_available: isAvailable,
+                is_available: nextIsAvailable,
+                ...(item.stock_enabled && !isNew
+                    ? { stock_quantity: nextStockQuantity }
+                    : {}),
             });
 
             if (isNew) {
