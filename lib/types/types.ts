@@ -23,6 +23,8 @@ export type Restaurant = {
     prep_time_computed_at?: string | null;
     availability_json: any;
     delivery_fee_json: any;
+    delivery_fee_mode?: "radius" | "neighborhood" | null;
+    delivery_neighborhood_fee_json?: unknown;
     latitude: number;
     longitude: number;
     is_closed: any;

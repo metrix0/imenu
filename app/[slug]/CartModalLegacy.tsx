@@ -96,6 +96,9 @@ export default function CartModal({
     } = useCheckoutStore();
     const isPickup = useCheckoutStore((state: any) => Boolean(state.is_pickup));
     const isTableOrder = Boolean(tableOrder);
+    const neighborhoodAddressHint = restaurant.delivery_fee_mode === "neighborhood"
+        ? " (Verifique se o bairro está escrito corretamente)"
+        : "";
 
     const [openModal, setOpenModal] = useState(false);
 
@@ -791,7 +794,7 @@ export default function CartModal({
 
                 {showNoGeolocationToast && (
                     <Toast
-                        message="Insira o endereço manualmente!"
+                        message={`Insira o endereço manualmente!${neighborhoodAddressHint}`}
                         type="error"
                         onClose={() => setShowNoGeolocationToast(false)}
                     />
@@ -1138,6 +1141,7 @@ export default function CartModal({
                                 {!cepLocationError
                                     ? "O restaurante está muito longe deste endereço para entrega!"
                                     : "Verifique se o endereço está correto ou tente usar sua localização."}
+                                {neighborhoodAddressHint}
                             </WarningBox>
                         }
 

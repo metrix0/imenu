@@ -21,8 +21,8 @@ type DeliveryConfig = {
 export default function CartModal(props: LegacyProps) {
     const restaurantId = String(props.restaurant?.id || "");
     const [deliveryConfig, setDeliveryConfig] = useState<DeliveryConfig>({
-        mode: "radius",
-        rules: [],
+        mode: props.restaurant.delivery_fee_mode === "neighborhood" ? "neighborhood" : "radius",
+        rules: parseNeighborhoodDeliveryRules(props.restaurant.delivery_neighborhood_fee_json),
     });
 
     useEffect(() => {
