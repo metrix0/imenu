@@ -128,14 +128,16 @@ export default function ApplicationInstallPrompt() {
                     Tenha o app do iMenu!
                 </h2>
                 <p className="mt-3 text-sm leading-6 text-gray-600">
-                    Acesse seu painel direto da tela inicial do celular e receba
+                    Acesse seu painel direto da tela inicial do celular.
+                </p>
+                <div className="mt-4 inline-flex items-center justify-center gap-2 rounded-full bg-brand/10 px-4 py-2 text-sm font-semibold text-brand">
                     <FontAwesomeIcon
                         icon={faBell}
-                        className="mx-1.5 text-brand"
+                        className="shrink-0"
                         aria-hidden="true"
                     />
-                    notificações de novos pedidos.
-                </p>
+                    <span>Notificações de novos pedidos</span>
+                </div>
                 <Button
                     type="button"
                     className="mt-6 w-full"
