@@ -22,6 +22,7 @@ import Toast from "@/components/ui/Toast";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import Tooltip from "@/components/ui/Tooltip";
 import QrCodeMesaSettingsSection from "@/components/restaurant-owner/configuracoes/QrCodeMesaSettingsSection";
+import ResetOrderCountSection from "@/components/restaurant-owner/configuracoes/ResetOrderCountSection";
 
 type Restaurant = {
     id: string;
@@ -656,6 +657,10 @@ export default function ConfiguracoesPage() {
                         <QrCodeMesaSettingsSection
                             restaurantId={restaurant.id}
                         />
+                    )}
+
+                    {restaurant && (
+                        <ResetOrderCountSection restaurantId={restaurant.id} />
                     )}
 
                     <Card className="border border-gray-200 shadow-sm">
