@@ -696,7 +696,7 @@ export default function PainelLayout({
                                             : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                                     }`}
                                 >
-                                    <div className="flex h-6 w-6 items-center justify-center 2xl:h-10 2xl:w-12">
+                                    <div className="flex h-6 w-6 shrink-0 items-center justify-center 2xl:h-10 2xl:w-12">
                                         <FontAwesomeIcon
                                             icon={item.icon}
                                             className={`text-lg transition-colors 2xl:text-2xl ${
@@ -729,7 +729,7 @@ export default function PainelLayout({
                                     : "w-[4.5rem] self-start justify-center px-0 2xl:w-20"
                             }`}
                         >
-                            <div className="flex h-6 w-6 items-center justify-center 2xl:h-10 2xl:w-12">
+                            <div className="flex h-6 w-6 shrink-0 items-center justify-center 2xl:h-10 2xl:w-12">
                                 <FontAwesomeIcon
                                     icon={faCircleQuestion}
                                     className="text-lg text-gray-400 transition-colors group-hover:text-gray-600 2xl:text-2xl"
