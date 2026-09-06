@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { createSupabaseServerClient } from "@/lib/database/supabaseServerClient";
 import { getRestaurantDirectory } from "@/lib/seo/restaurantDirectory";
 import {
     getRestaurantToolPath,
@@ -12,6 +13,7 @@ import {
 export const revalidate = 3600;
 
 const SITE_URL = "https://www.imenuapp.com.br";
+const PAGE_SIZE = 1000;
 
 const STATIC_ROUTES: MetadataRoute.Sitemap = [
     { url: SITE_URL + "/", priority: 1 },
@@ -44,9 +46,42 @@ const STATIC_ROUTES: MetadataRoute.Sitemap = [
     })),
 ];
 
+async function getRestaurantSlugsWithAvailableItems(): Promise<Set<string>> {
+    const supabase = createSupabaseServerClient();
+    const slugs = new Set<string>();
+
+    for (let from = 0; ; from += PAGE_SIZE) {
+        const { data, error } = await supabase
+            .from("restaurants")
+            .select("url_slug, items!inner(id)")
+            .eq("first_time", false)
+            .eq("items.is_available", true)
+            .not("url_slug", "is", null)
+            .limit(1, { foreignTable: "items" })
+            .order("url_slug", { ascending: true })
+            .range(from, from + PAGE_SIZE - 1);
+
+        if (error) throw error;
+
+        const batch = Array.isArray(data) ? data : [];
+        for (const row of batch) {
+            if (typeof row.url_slug === "string" && row.url_slug.trim()) {
+                slugs.add(row.url_slug);
+            }
+        }
+
+        if (batch.length < PAGE_SIZE) break;
+    }
+
+    return slugs;
+}
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     try {
-        const cities = await getRestaurantDirectory();
+        const [cities, restaurantSlugsWithAvailableItems] = await Promise.all([
+            getRestaurantDirectory(),
+            getRestaurantSlugsWithAvailableItems(),
+        ]);
         const staticUrls = new Set(
             STATIC_ROUTES.map((route) => route.url)
         );
@@ -63,15 +98,19 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
         const restaurantRoutes: MetadataRoute.Sitemap = cities.flatMap(
             (city) =>
-                city.restaurants.map((restaurant) => ({
-                    url:
-                        SITE_URL +
-                        "/" +
-                        encodeURIComponent(restaurant.slug),
-                    lastModified: restaurant.updatedAt || undefined,
-                    changeFrequency: "daily" as const,
-                    priority: 0.7,
-                }))
+                city.restaurants
+                    .filter((restaurant) =>
+                        restaurantSlugsWithAvailableItems.has(restaurant.slug)
+                    )
+                    .map((restaurant) => ({
+                        url:
+                            SITE_URL +
+                            "/" +
+                            encodeURIComponent(restaurant.slug),
+                        lastModified: restaurant.updatedAt || undefined,
+                        changeFrequency: "daily" as const,
+                        priority: 0.7,
+                    }))
         );
 
         const seenUrls = new Set(staticUrls);

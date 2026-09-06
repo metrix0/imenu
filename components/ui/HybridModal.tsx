@@ -23,7 +23,6 @@ export default function DraggableModal({
                                        }: DraggableModalProps) {
     const startY = useRef(0);
     const currentY = useRef(0);
-    const contentRef = useRef<HTMLDivElement>(null);
     const closingRef = useRef(false); // 🔥 prevents double-close
 
     const [translateY, setTranslateY] = useState(1000);
@@ -71,11 +70,11 @@ export default function DraggableModal({
     };
 
     const onPanelTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
-        const content = contentRef.current;
-        const canScroll = Boolean(content && content.scrollHeight > content.clientHeight + 1);
+        const touch = e.touches[0];
+        const panelTop = e.currentTarget.getBoundingClientRect().top;
 
-        if (!canScroll) {
-            handleStart(e.touches[0].clientY);
+        if (touch.clientY - panelTop <= 28) {
+            handleStart(touch.clientY);
         }
     };
 
@@ -159,7 +158,7 @@ export default function DraggableModal({
                     </Modal>
             :
         <div
-            className={`fixed inset-0 z-[51] transition-opacity duration-300 ${
+            className={`fixed inset-0 ${height <= 0.3 ? "z-[70]" : "z-[51]"} transition-opacity duration-300 ${
                 open ? "opacity-100" : "opacity-0 pointer-events-none"
             }`}
             style={{ background: "rgba(0,0,0,0.35)", overscrollBehavior: "none" }}
@@ -171,7 +170,7 @@ export default function DraggableModal({
                 onTouchStart={onPanelTouchStart}
                 className={`fixed left-0 right-0 mx-auto bg-white rounded-t-xl overflow-hidden ${props.className ?? ""}`}
                 style={{
-                    height: `${height * 100}svh`,
+                    height: `${height * 100}dvh`,
                     bottom: 0,
                     transform: `translateY(${translateY}px)`,
                     transition: animating ? "transform 0.25s ease-out" : "none",
@@ -202,7 +201,6 @@ export default function DraggableModal({
                 )}
 
                 <div
-                    ref={contentRef}
                     className={`overflow-y-auto h-full pb-32 ${xPadding ? "px-4" : ""} ${contentClassName ?? ""}`}
                     style={{ overscrollBehaviorY: "contain" }}
                 >

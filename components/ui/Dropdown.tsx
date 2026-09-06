@@ -12,6 +12,7 @@ type DropdownProps = React.SelectHTMLAttributes<HTMLSelectElement> & {
     label?: string;
     options: DropdownOption[];
     chevronClassName?: string;
+    custom?: boolean;
 };
 
 const Dropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(function Dropdown(
@@ -20,12 +21,31 @@ const Dropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(function Dro
         options,
         className = "",
         chevronClassName,
+        custom = false,
         ...props
     },
     ref
 ) {
     const [open, setOpen] = React.useState(false);
     const selectRef = React.useRef<HTMLSelectElement>(null);
+    const rootRef = React.useRef<HTMLDivElement>(null);
+    const triggerRef = React.useRef<HTMLButtonElement>(null);
+    const listRef = React.useRef<HTMLDivElement>(null);
+    const listId = React.useId();
+
+    React.useEffect(() => {
+        if (!custom || !open) return;
+        const closeOutside = (event: PointerEvent) => {
+            if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+        };
+        document.addEventListener("pointerdown", closeOutside);
+        return () => document.removeEventListener("pointerdown", closeOutside);
+    }, [custom, open]);
+
+    const focusOption = (index: number) => {
+        const buttons = listRef.current?.querySelectorAll<HTMLButtonElement>('[role="option"]');
+        if (buttons?.length) buttons[(index + buttons.length) % buttons.length]?.focus();
+    };
 
     React.useImperativeHandle(ref, () => selectRef.current as HTMLSelectElement);
 
@@ -40,8 +60,8 @@ const Dropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(function Dro
             (option) => option.value === "" && option.label === "Selecione sua mesa"
         );
 
-    if (isTablePicker) {
-        const selectedValue = props.value ?? props.defaultValue ?? "";
+    if (isTablePicker || custom) {
+        const selectedValue = props.value ?? props.defaultValue ?? (custom ? options[0]?.value : "") ?? "";
         const selectedOption = options.find(
             (option) => String(option.value) === String(selectedValue)
         );
@@ -54,10 +74,15 @@ const Dropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(function Dro
                 );
             }
             setOpen(false);
+            if (custom) triggerRef.current?.focus();
         };
 
         return (
-            <div className="flex flex-col gap-1 2xl:gap-2">
+            <div ref={rootRef} className={`flex flex-col gap-1 2xl:gap-2 ${custom ? "min-w-0" : ""}`}
+                onBlur={custom ? (event) => {
+                    if (!event.currentTarget.contains(event.relatedTarget as Node)) setOpen(false);
+                } : undefined}
+            >
                 {label && (
                     <label className="text-xs font-medium 2xl:text-base">
                         {label}
@@ -79,11 +104,23 @@ const Dropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(function Dro
                     </select>
 
                     <button
+                        ref={triggerRef}
                         type="button"
                         aria-haspopup="listbox"
                         aria-expanded={open}
+                        aria-controls={custom ? listId : undefined}
+                        aria-label={custom ? props["aria-label"] || label : undefined}
+                        disabled={custom ? props.disabled : undefined}
+                        onKeyDown={custom ? (event) => {
+                            if (["ArrowDown", "ArrowUp"].includes(event.key)) {
+                                event.preventDefault();
+                                setOpen(true);
+                                const index = Math.max(0, options.findIndex(option => String(option.value) === String(selectedValue)));
+                                requestAnimationFrame(() => focusOption(index));
+                            } else if (event.key === "Escape") setOpen(false);
+                        } : undefined}
                         onClick={() => setOpen((prev) => !prev)}
-                        className="flex w-full cursor-pointer items-center justify-between rounded-xl border border-gray-300 bg-white px-4 py-3 text-left text-sm font-medium text-gray-900 outline-none transition hover:border-gray-400 focus:border-brand 2xl:px-5 2xl:py-4 2xl:text-lg"
+                        className={`flex w-full cursor-pointer items-center justify-between rounded-xl border border-gray-300 bg-white px-4 py-3 text-left text-sm font-medium text-gray-900 outline-none transition hover:border-gray-400 focus:border-brand 2xl:px-5 2xl:py-4 2xl:text-lg ${custom ? className : ""}`}
                     >
                         <span
                             className={`truncate ${
@@ -92,7 +129,7 @@ const Dropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(function Dro
                                     : "text-gray-900"
                             }`}
                         >
-                            {selectedOption?.label || "Selecione sua mesa"}
+                            {selectedOption?.label || (custom ? "Selecione" : "Selecione sua mesa")}
                         </span>
                         <FontAwesomeIcon
                             icon={faChevronDown}
@@ -103,7 +140,12 @@ const Dropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(function Dro
                     </button>
 
                     <div
+                        ref={listRef}
+                        id={custom ? listId : undefined}
                         role="listbox"
+                        aria-label={custom ? props["aria-label"] || label : undefined}
+                        aria-hidden={custom ? !open : undefined}
+                        inert={custom ? !open : undefined}
                         className={`absolute left-0 right-0 top-full z-[110] mt-2 origin-top overflow-hidden rounded-xl border bg-white shadow-lg transition-all duration-200 ease-out ${
                             open
                                 ? "max-h-64 translate-y-0 scale-y-100 border-gray-200 opacity-100"
@@ -111,7 +153,7 @@ const Dropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(function Dro
                         }`}
                     >
                         <div className="max-h-64 overflow-y-auto p-1.5">
-                            {options.map((option) => {
+                            {options.map((option, index) => {
                                 const selected =
                                     String(option.value) === String(selectedValue);
                                 const placeholder = option.value === "";
@@ -122,6 +164,16 @@ const Dropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(function Dro
                                         type="button"
                                         role="option"
                                         aria-selected={selected}
+                                        onKeyDown={custom ? (event) => {
+                                            if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
+                                                event.preventDefault();
+                                                focusOption(event.key === "Home" ? 0 : event.key === "End" ? options.length - 1 : index + (event.key === "ArrowDown" ? 1 : -1));
+                                            } else if (event.key === "Escape") {
+                                                event.preventDefault();
+                                                setOpen(false);
+                                                triggerRef.current?.focus();
+                                            }
+                                        } : undefined}
                                         onClick={() => handleSelect(option.value)}
                                         className={`flex w-full cursor-pointer items-center justify-between gap-3 rounded-lg px-3.5 py-2.5 text-left text-sm font-medium transition 2xl:text-base ${
                                             selected && !placeholder

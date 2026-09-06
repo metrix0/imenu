@@ -402,9 +402,8 @@ export default function HistoryModal({
                                                 <div>
                                                     <p className="text-sm font-medium text-gray-800">
                                                         Pedido #
-                                                        {
-                                                            order.display_id
-                                                        }
+                                                        {order.display_id ??
+                                                            order.id.slice(0, 4)}
                                                     </p>
                                                     <p className="text-xs text-gray-400">
                                                         {new Date(

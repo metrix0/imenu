@@ -67,7 +67,8 @@ export const useCartStore = create<CartState>()(
                         i.base_item_id === item.base_item_id &&
                         i.observation === item.observation &&
                         JSON.stringify(i.selectedSubitems) === JSON.stringify(item.selectedSubitems) &&
-                        i.is_reward === item.is_reward
+                        i.is_reward === item.is_reward &&
+                        i.automatic_promotion_id === item.automatic_promotion_id
                     );
 
                     // Se já existe, aumenta a quantidade
@@ -81,7 +82,9 @@ export const useCartStore = create<CartState>()(
                                     ? {
                                         ...i,
                                         qty: i.qty + item.qty,
-                                        total_cents: (i.qty + item.qty) * i.unit_price_cents,
+                                        total_cents: existing.automatic_promotion_id
+                                            ? 0
+                                            : (i.qty + item.qty) * i.unit_price_cents,
                                     }
                                     : i
                             ),
@@ -100,6 +103,9 @@ export const useCartStore = create<CartState>()(
                     // 🛑 TRAVA DE SEGURANÇA: Impede aumentar qty de prêmios
                     if (item?.is_reward && qty > 1) {
                         return state; // Retorna o estado sem alterações
+                    }
+                    if (item?.automatic_promotion_id) {
+                        return state;
                     }
 
                     return {

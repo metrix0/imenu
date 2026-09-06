@@ -6,6 +6,8 @@ import {
     withTransaction,
 } from "@/lib/database/sql";
 import { createPayZuPixCharge } from "@/lib/payzu";
+import { automaticOrderPricing, PromotionPricingError } from "@/lib/promotions/orderPricing";
+import type { AppliedPromotion } from "@/lib/promotions/automatic";
 import { promotionPrice } from "@/lib/utils/formatPrice";
 
 export const dynamic = "force-dynamic";
@@ -234,7 +236,7 @@ export async function POST(request: Request) {
             customer_name,
             customer_phone,
             customer_address,
-            items,
+            items: requestedItems,
             delivery_fee_cents,
             delivery_time_minutes,
             paymentMethod,
@@ -246,7 +248,12 @@ export async function POST(request: Request) {
             scheduled_for,
             table_token,
             table_id,
+            expected_promotion,
         } = body;
+
+        let items = requestedItems;
+        let appliedPromotion: AppliedPromotion | null = null;
+        let promotionCouponDiscount: number | null = null;
 
         const isTableOrder =
             String(is_delivery || "").toLowerCase() === "mesa";
@@ -302,7 +309,7 @@ export async function POST(request: Request) {
                   0
               );
 
-        const subtotal = items.reduce(
+        let subtotal = items.reduce(
             (totalValue: number, item: any) =>
                 totalValue +
                 (promotionPrice(item) ||
@@ -311,7 +318,7 @@ export async function POST(request: Request) {
             0
         );
 
-        const safeCouponDiscount = isTableOrder
+        let safeCouponDiscount = isTableOrder
             ? 0
             : coupon_type === "delivery" &&
             isPickup
@@ -326,7 +333,7 @@ export async function POST(request: Request) {
                     )
                   : 0;
 
-        const total = Math.max(
+        let total = Math.max(
             subtotal +
                 safeDeliveryFeeCents -
                 safeCouponDiscount,
@@ -480,10 +487,10 @@ export async function POST(request: Request) {
             Date.now() +
                 deliveryTime * 60_000
         );
-        const isOnlinePix = !isTableOrder &&
+        let isOnlinePix = !isTableOrder &&
             paymentMethod === "pix" &&
             total > 0;
-        const orderStatus = isOnlinePix
+        let orderStatus = isOnlinePix
             ? "pending_online_payment"
             : "pending_physical_payment";
 
@@ -536,6 +543,36 @@ export async function POST(request: Request) {
                                 "Mesa inválida ou QR Code inativo."
                             );
                         }
+                    }
+
+                    const restaurantResult = await client.query(
+                        "SELECT url_slug, automatic_promotions FROM restaurants WHERE id = $1",
+                        [restaurantId]
+                    );
+                    if (!restaurantResult.rows[0]) throw new OrderRequestError("Restaurante não encontrado.");
+                    const pricing = await automaticOrderPricing(client, {
+                        restaurantId, promotions: restaurantResult.rows[0].automatic_promotions,
+                        items: items.map((item: any) => item === rewardItem ? Object.assign(item, { is_reward: true }) : item),
+                        subtotal_cents: subtotal, delivery_cents: safeDeliveryFeeCents,
+                        coupon_discount_cents: safeCouponDiscount, coupon_type,
+                        channel: isTableOrder ? "mesa" : "delivery", pickup: isPickup,
+                        at: scheduledFor ?? new Date(),
+                    });
+                    if (expected_promotion && (pricing.result.promotion || expected_promotion.id) && (
+                        expected_promotion.id !== (pricing.result.promotion?.id || null) ||
+                        expected_promotion.total_cents !== pricing.result.total_cents
+                    )) throw new OrderRequestError("A promoção ou os preços mudaram. Atualize a sacola e confira o total antes de confirmar novamente.", 409);
+                    if (pricing.result.promotion) {
+                        items = pricing.items;
+                        subtotal = pricing.subtotal_cents;
+                        appliedPromotion = pricing.result.promotion;
+                        promotionCouponDiscount = pricing.result.coupon_discount_cents;
+                        // Legacy printers read this field as the total discount.
+                        // applied_promotion keeps the automatic/coupon breakdown.
+                        safeCouponDiscount = pricing.result.discount_cents;
+                        total = pricing.result.total_cents;
+                        isOnlinePix = !isTableOrder && paymentMethod === "pix" && total > 0;
+                        orderStatus = isOnlinePix ? "pending_online_payment" : "pending_physical_payment";
                     }
 
                     const lockedItems =
@@ -738,7 +775,8 @@ export async function POST(request: Request) {
                                     coupon_code,
                                     coupon_discount_cents,
                                     table_id,
-                                    table_name_snapshot
+                                    table_name_snapshot,
+                                    applied_promotion
                                 )
                                 VALUES (
                                     $1,
@@ -758,7 +796,8 @@ export async function POST(request: Request) {
                                     $15,
                                     $16,
                                     $17,
-                                    $18
+                                    $18,
+                                    $19::jsonb
                                 )
                                 RETURNING id
                             `,
@@ -784,13 +823,14 @@ export async function POST(request: Request) {
                                     : is_delivery ??
                                       null,
                                 pointsToDeduct,
-                                isTableOrder ? null : coupon_id ?? null,
-                                isTableOrder ? null : coupon_code ?? null,
+                                isTableOrder || promotionCouponDiscount === 0 ? null : coupon_id ?? null,
+                                isTableOrder || promotionCouponDiscount === 0 ? null : coupon_code ?? null,
                                 safeCouponDiscount > 0
                                     ? safeCouponDiscount
                                     : null,
                                 validatedTable?.id ?? null,
                                 validatedTable?.name ?? null,
+                                appliedPromotion ? JSON.stringify(appliedPromotion) : null,
                             ]
                         );
 
@@ -967,16 +1007,6 @@ export async function POST(request: Request) {
                         }
                     }
 
-                    const restaurantResult =
-                        await client.query(
-                            `
-                                SELECT url_slug
-                                FROM restaurants
-                                WHERE id = $1
-                            `,
-                            [restaurantId]
-                        );
-
                     return {
                         orderId,
                         slug:
@@ -1057,6 +1087,9 @@ export async function POST(request: Request) {
             error
         );
 
+        if (error instanceof PromotionPricingError) {
+            return NextResponse.json({ error: error.message }, { status: 400 });
+        }
         if (error instanceof OrderRequestError) {
             return NextResponse.json(
                 { error: error.message },

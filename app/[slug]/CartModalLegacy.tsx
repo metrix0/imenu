@@ -1,6 +1,9 @@
 // app/[slug]/CartModal.tsx
 "use client";
 
+import PromotionSummary from "@/components/costumer/PromotionSummary";
+import type { PromotionResult } from "@/lib/promotions/automatic";
+
 import { useEffect, useState, useRef } from "react";
 import { useCartStore } from "@/lib/stores/costumer/cartStore";
 import { useCheckoutStore } from "@/lib/stores/costumer/checkoutStore";
@@ -65,8 +68,9 @@ export default function CartModal({
                                        onClose,
                                        restaurant,
     selectedCouponCode, onSelectItem, tableOrder, selectedTableId,
-    selectedTableName, onTableChange
+    selectedTableName, onTableChange, promotionResult
                                    }: {
+    promotionResult?: PromotionResult;
     onClose: () => void;
     restaurant: any;
     step: "cart" | "info" | "checkout";
@@ -138,7 +142,8 @@ export default function CartModal({
     });
     const coupon_code = useCheckoutStore((s) => s.coupon_code);
     const coupon_type = useCheckoutStore((s) => s.coupon_type);
-    const coupon_discount_cents = useCheckoutStore((s) => s.coupon_discount_cents);
+    const storedCouponDiscount = useCheckoutStore((s) => s.coupon_discount_cents);
+    const coupon_discount_cents = promotionResult?.coupon_discount_cents ?? storedCouponDiscount;
     const scheduled_for = useCheckoutStore((s) => s.scheduled_for);
     const troco = useCheckoutStore((s: any) => String(s.troco ?? ""));
 
@@ -907,7 +912,11 @@ export default function CartModal({
                         Itens adicionados
                     </h2>
 
-                    {items.map((it) => (
+                    {items.map((it, cartIndex) => {
+                        const freeItem = promotionResult?.free_items?.find(item => item.cart_index === cartIndex);
+                        const lineTotal = promotionPrice(it) || it.unit_price_cents * it.qty;
+                        const discountedTotal = Math.max(0, lineTotal - (freeItem?.discount_cents || 0));
+                        return (
                         <div
                             key={it.id}
                             className="flex items-start justify-between py-4 2xl:py-6 w-full"
@@ -921,10 +930,14 @@ export default function CartModal({
                                     <p className="font-semibold 2xl:text-lg line-clamp-2 leading-normal">{it.name}</p>
 
                                     <p className="font-semibold 2xl:text-base sm:text-sm mt-0.5">
-                                        {(it.promotion && it.promotion.value > 0) ? <><span className={"text-green"}>{formatPrice(promotionPrice(it) || it.unit_price_cents*it.qty)}</span> <span className={"font-normal text-gray-400 line-through text-xs"}>{formatPrice(it.unit_price_cents*it.qty)}</span></>
+                                        {freeItem ? <><span className="font-semibold text-green-700">{discountedTotal === 0 ? "GRÁTIS" : formatPrice(discountedTotal)}</span> <span className="font-normal text-gray-400 line-through text-xs">{formatPrice(it.unit_price_cents * it.qty)}</span></> : (it.promotion && it.promotion.value > 0) ? <><span className={"text-green"}>{formatPrice(promotionPrice(it) || it.unit_price_cents*it.qty)}</span> <span className={"font-normal text-gray-400 line-through text-xs"}>{formatPrice(it.unit_price_cents*it.qty)}</span></>
                                             : formatPrice(it.unit_price_cents*it.qty)
                                         }
                                     </p>
+
+                                    {freeItem && discountedTotal > 0 && (
+                                        <span className="mt-1 inline-block rounded-full bg-green-50 px-2 py-1 text-xs font-semibold text-green-700">{freeItem.quantity}× GRÁTIS</span>
+                                    )}
 
                                     {(it.selectedSubitems?.length > 0 || it.observation) && (
                                         <div className="text-sm text-gray-500 mb-2 mt-2">
@@ -961,8 +974,9 @@ export default function CartModal({
                                 </button>
                             </div>
                         </div>
-                    ))}
+                    );})}
 
+                    <PromotionSummary promotion={promotionResult?.promotion} />
                     <div className="mt-6 mb-20">
                         <button
                             onClick={closeWithAnimation}
@@ -1075,11 +1089,12 @@ export default function CartModal({
                                         )}
                                     </span>
                                 </div>
+                                <PromotionSummary promotion={promotionResult?.promotion} />
                                 <div className="mt-3 flex justify-between border-t border-gray-200 pt-3 text-lg font-bold text-gray-900 2xl:text-xl">
                                     <span>Total</span>
                                     <span>
                                         {formatPrice(
-                                            items.reduce(
+                                            promotionResult?.total_cents ?? items.reduce(
                                                 (total, item) =>
                                                     total +
                                                     (promotionPrice(item) ||
@@ -1424,7 +1439,7 @@ export default function CartModal({
                             Math.max(
                                 items.reduce((acc, i) => acc + (promotionPrice(i) || i.total_cents), 0) +
                                 (effectiveDeliveryFeeCents ?? 0) -
-                                (coupon_discount_cents ? Number(coupon_discount_cents) : 0),
+                                (coupon_discount_cents ? Number(coupon_discount_cents) : 0) - (promotionResult?.promotion?.discount_cents || 0),
                                 0
                             ) < 100 && (
                             <WarningBox
@@ -1487,6 +1502,8 @@ export default function CartModal({
                             </span>
                         </div>
 
+                        <PromotionSummary promotion={promotionResult?.promotion} />
+
                         { (coupon_code && coupon_discount_cents) && (
                         <div className="flex justify-between text-[15px] mb-2 2xl:text-lg border-t border-gray-200 pt-2">
                             <span>Cupom: {coupon_code}</span>
@@ -1505,7 +1522,7 @@ export default function CartModal({
                                         0
                                     ) /
                                     100 +
-                                    (((effectiveDeliveryFeeCents ?? 0) / 100)-(coupon_discount_cents ? coupon_discount_cents / 100 : 0))
+                                    (((effectiveDeliveryFeeCents ?? 0) / 100)-(coupon_discount_cents ? coupon_discount_cents / 100 : 0)) - (promotionResult?.promotion?.discount_cents || 0) / 100
                                 )
                                     .toFixed(2)
                                     .replace(".", ",")}

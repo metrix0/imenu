@@ -1,5 +1,6 @@
 "use client";
 
+import PromotionSummary from "@/components/costumer/PromotionSummary";
 import { use, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/database/supabaseClient";
@@ -407,6 +408,7 @@ export default function PedidoPage({
                         </div>
                     ))
                 )}
+                <PromotionSummary promotion={order.applied_promotion} />
                 {isTableOrder && (
                     <div className="flex items-center justify-between border-t border-gray-200 pt-4 text-lg font-semibold">
                         <span>Total</span>

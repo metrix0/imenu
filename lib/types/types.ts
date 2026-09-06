@@ -11,6 +11,7 @@ export interface Promotion {
 }
 
 export type Restaurant = {
+    automatic_promotions?: import("@/lib/promotions/automatic").AutomaticPromotion[];
     id: string;
     name: string;
     logo_url: string | null;
@@ -100,6 +101,7 @@ export type CartItem = {
     total_cents: number;
     observation?: string;
     is_reward?: boolean;
+    automatic_promotion_id?: string;
     selectedSubitems: {
         subcategoryId: string;
         subcategoryName: string;

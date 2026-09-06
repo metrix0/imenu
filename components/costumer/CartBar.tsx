@@ -8,10 +8,12 @@ import Button from "@/components/ui/Button";
 import Tooltip from "@/components/ui/Tooltip";
 import HybridModal from "@/components/ui/HybridModal";
 import { useCheckoutStore } from "@/lib/stores/costumer/checkoutStore";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {formatPrice, promotionPrice} from "@/lib/utils/formatPrice";
 import { captureConsumerEvent } from "@/lib/analytics/captureConsumerEvent";
 import { CONSUMER_EVENTS } from "@/lib/analytics/consumerEvents";
+import { useRouter } from "next/navigation";
+import type { PromotionResult } from "@/lib/promotions/automatic";
 import type { QrTableMenuContext } from "@/lib/qr-table/types";
 
 export default function CartBar({
@@ -20,7 +22,7 @@ export default function CartBar({
                                     restaurant,
                                     setCartOpenAction,
     closeItemModalOpen, trackMeta, slug, tableOrder, selectedTableId,
-    selectedTableName
+    selectedTableName, promotionResult
                                 }: {
     onOpenCartAction: () => void,
     cartOpen: boolean,
@@ -32,7 +34,9 @@ export default function CartBar({
     tableOrder?: QrTableMenuContext | null;
     selectedTableId?: string | null;
     selectedTableName?: string | null;
+    promotionResult?: PromotionResult;
 }) {
+    const router = useRouter();
     const items = useCartStore((s) => s.items);
 
     const step = useCheckoutStore((s) => s.step);
@@ -44,6 +48,72 @@ export default function CartBar({
     const isTableOrder = Boolean(tableOrder);
     const isPickup = Boolean((checkoutState as any).is_pickup);
     const isContinueBlocked = useCheckoutStore(state => state.isContinueBlocked);
+
+    useEffect(() => {
+        const promotionId = promotionResult?.promotion?.id || null;
+        const store = useCartStore.getState();
+
+        for (const item of store.items) {
+            if (item.automatic_promotion_id && item.automatic_promotion_id !== promotionId) {
+                store.removeItem(item.id);
+            }
+        }
+
+        if (!promotionId || !promotionResult?.free_products?.length) return;
+
+        const controller = new AbortController();
+        void (async () => {
+            for (const gift of promotionResult.free_products || []) {
+                const beforeFetch = useCartStore.getState().items;
+                const currentQuantity = beforeFetch
+                    .filter(
+                        (item) =>
+                            item.automatic_promotion_id === promotionId &&
+                            item.base_item_id === gift.item_id
+                    )
+                    .reduce((sum, item) => sum + item.qty, 0);
+                const targetQuantity = currentQuantity + gift.quantity;
+
+                try {
+                    const response = await fetch(`/api/items/${gift.item_id}`, {
+                        signal: controller.signal,
+                    });
+                    if (!response.ok || controller.signal.aborted) continue;
+                    const data = await response.json();
+                    const product = data?.item;
+                    if (!product?.id || product.is_available === false) continue;
+
+                    const latestQuantity = useCartStore.getState().items
+                        .filter(
+                            (item) =>
+                                item.automatic_promotion_id === promotionId &&
+                                item.base_item_id === gift.item_id
+                        )
+                        .reduce((sum, item) => sum + item.qty, 0);
+                    const missingQuantity = Math.max(0, targetQuantity - latestQuantity);
+                    if (!missingQuantity || controller.signal.aborted) continue;
+
+                    useCartStore.getState().addItem({
+                        id: crypto.randomUUID(),
+                        base_item_id: product.id,
+                        name: product.name,
+                        image: product.image_public_url || "",
+                        qty: missingQuantity,
+                        unit_price_cents: Number(product.price_cents) || 0,
+                        total_cents: 0,
+                        selectedSubitems: [],
+                        automatic_promotion_id: promotionId,
+                    });
+                } catch (error: any) {
+                    if (error?.name !== "AbortError") {
+                        console.error("[AUTOMATIC_PROMOTION] Failed to add free item:", error);
+                    }
+                }
+            }
+        })();
+
+        return () => controller.abort();
+    }, [promotionResult?.promotion?.id, promotionResult?.free_products]);
 
     if (items.length === 0) return null;
 
@@ -94,8 +164,8 @@ export default function CartBar({
             : "";
 
     const originalTotalCents = total + delivery_fee_cents;
-    const finalTotalCents = Math.max(originalTotalCents - discount_cents, 0);
-    const hasDiscount = discount_cents > 0;
+    const finalTotalCents = promotionResult?.total_cents ?? Math.max(originalTotalCents - discount_cents, 0);
+    const hasDiscount = (promotionResult?.discount_cents ?? discount_cents) > 0;
 
     const consumerProperties = () => {
         const currentItems = useCartStore.getState().items;
@@ -245,7 +315,8 @@ export default function CartBar({
             ? String((checkout as any).troco ?? "").replace(/^R\$\s*/i, "").trim()
             : "";
         const changeObservation = changeFor ? `Troco para: R$ ${changeFor}` : "";
-        const total_cents = subtotal_cents + delivery_fee_cents - discount_cents;
+        const currentPromotion = promotionResult;
+        const total_cents = currentPromotion?.total_cents ?? subtotal_cents + delivery_fee_cents - discount_cents;
 
         if (trackMeta && slug) {
             trackMeta?.(slug, "Purchase", {
@@ -258,6 +329,7 @@ export default function CartBar({
 
         const body = {
             restaurantId: restaurant.id,
+            expected_promotion: { id: currentPromotion?.promotion?.id || null, total_cents },
             customer_name: checkout.nome,
             customer_phone: isTableOrder ? null : checkout.celular,
             customer_address: pickup || isTableOrder
@@ -287,7 +359,9 @@ export default function CartBar({
                     total_cents: i.total_cents,
                     observation,
                     selectedSubitems: i.selectedSubitems,
-                    promotion: i.promotion
+                    promotion: i.promotion,
+                    is_reward: i.is_reward === true,
+                    automatic_promotion_id: i.automatic_promotion_id,
                 };
             }),
             coupon_id: isTableOrder ? null : checkout.coupon_id || null,
@@ -308,12 +382,13 @@ export default function CartBar({
 
         if (!res.ok) {
             whatsappWindow?.close();
+            if (res.status === 409) router.refresh();
             window.alert(data?.error || "Não foi possível criar o pedido. Tente novamente.");
             return;
         }
 
         try {
-            if (!isTableOrder && checkout.coupon_id) {
+            if (!isTableOrder && checkout.coupon_id && (!currentPromotion?.promotion || currentPromotion.coupon_discount_cents > 0)) {
                 const couponUsage = {
                     coupon_id: checkout.coupon_id,
                     coupon_code: checkout.coupon_code,
@@ -415,6 +490,15 @@ export default function CartBar({
     return (
         <>
             <div className={`fixed pb-8 2xl:pb-6 2xl:pt-5 md:pb-4 bottom-0 left-0 right-0 ${cartOpen ? "z-[60]" : "z-[40]"} isolate bg-white shadow-[0_-4px_12px_rgba(0,0,0,0.12)] px-4 py-3 border-t border-gray-200`}>
+                {promotionResult?.promotion && (
+                    <div className="mb-2 flex flex-wrap gap-1.5 md:hidden" aria-live="polite">
+                        {promotionResult.promotion.benefits.map((benefit, index) => (
+                            <span key={index} className="rounded-full bg-green-50 px-2.5 py-1 text-xs font-semibold text-green-700">
+                                PROMOÇÃO: {benefit.label}
+                            </span>
+                        ))}
+                    </div>
+                )}
                 <div className="relative z-10 flex items-center justify-between w-full md:px-7 2xl:px-12">
                     <div className="flex flex-col text-left text-[12px] 2xl:text-lg text-gray-600">
                         <span>
@@ -429,6 +513,15 @@ export default function CartBar({
                                 {formatPrice(displayTotalCents)}
                             </span>
                             {hasDiscount && <span className="ml-1 font-semibold text-black text-lg 2xl:text-xl leading-tight tracking-tighter">{formatPrice(finalTotalCents)}</span>}
+                            {promotionResult?.promotion && (
+                                <span className="ml-2 hidden md:inline-flex items-center gap-1.5 whitespace-nowrap align-middle" aria-live="polite">
+                                    {promotionResult.promotion.benefits.map((benefit, index) => (
+                                        <span key={index} className="rounded-full bg-green-50 px-2.5 py-1 text-xs font-semibold text-green-700">
+                                            PROMOÇÃO: {benefit.label}
+                                        </span>
+                                    ))}
+                                </span>
+                            )}
                             <span> / {itemCount} {itemCount === 1 ? "item" : "itens"}</span>
                         </span>
                     </div>

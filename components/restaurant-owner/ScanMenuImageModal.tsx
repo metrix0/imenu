@@ -46,7 +46,7 @@ type CategoryMapping = {
     createNew: boolean;
 };
 
-const MAX_MENU_FILES = 4;
+const MAX_MENU_FILES = 8;
 
 export default function ScanMenuModal({
     open,
@@ -538,7 +538,7 @@ function ScanModal({
                                         Adicione seu Cardápio
                                     </p>
                                     <p className="text-sm text-gray-500 2xl:text-base">
-                                        JPG, PNG, PDF. <b>Use os arquivos de imagem do seu cardápio para melhores resultados.</b> Limite: 4 PDFs e/ou imagens.
+                                        JPG, PNG, PDF. <b>Use os arquivos de imagem do seu cardápio para melhores resultados.</b> Limite: 8 PDFs e/ou imagens.
                                     </p>
                                 </div>
 
