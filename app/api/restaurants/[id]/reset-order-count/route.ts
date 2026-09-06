@@ -39,7 +39,7 @@ export async function POST(
                 ),
                 updated AS (
                     UPDATE public.orders
-                    SET display_id = NULL
+                    SET display_id = 0
                     WHERE restaurant_id = $1
                     RETURNING 1
                 )
