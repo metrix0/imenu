@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 
 import ApplicationInstallPrompt from "@/components/restaurant-owner/aplicativo/ApplicationInstallPrompt";
 import PanelLayoutBase from "./PanelLayoutBase";
@@ -31,10 +31,10 @@ export default function PainelLayout({
 }: {
     children: React.ReactNode;
 }) {
-    const contentRef = useRef<HTMLDivElement>(null);
-
     useEffect(() => {
-        const content = contentRef.current;
+        const content = document.querySelector<HTMLElement>(
+            ".panel-mobile-content"
+        );
         if (!content) return;
 
         const stopSidebarSwipe = (event: TouchEvent) => {
@@ -58,11 +58,7 @@ export default function PainelLayout({
 
     return (
         <>
-            <PanelLayoutBase>
-                <div ref={contentRef} className="contents">
-                    {children}
-                </div>
-            </PanelLayoutBase>
+            <PanelLayoutBase>{children}</PanelLayoutBase>
             <ApplicationInstallPrompt />
         </>
     );
