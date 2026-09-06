@@ -659,10 +659,6 @@ export default function ConfiguracoesPage() {
                         />
                     )}
 
-                    {restaurant && (
-                        <ResetOrderCountSection restaurantId={restaurant.id} />
-                    )}
-
                     <Card className="border border-gray-200 shadow-sm">
                         <div className="mb-5">
                             <h2 className="text-xl font-medium text-gray-900">
@@ -885,6 +881,10 @@ export default function ConfiguracoesPage() {
                                 </Button>
                             </div>
                         </Card>
+                    )}
+
+                    {restaurant && (
+                        <ResetOrderCountSection restaurantId={restaurant.id} />
                     )}
 
                     <Card className="border-red-200 bg-red-50/30">

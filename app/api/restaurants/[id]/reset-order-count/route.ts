@@ -38,11 +38,9 @@ export async function POST(
                     WHERE restaurant_id = $1
                 ),
                 updated AS (
-                    UPDATE public.orders AS orders
-                    SET display_id = orders.display_id - current_max.value
-                    FROM current_max
-                    WHERE orders.restaurant_id = $1
-                      AND current_max.value > 0
+                    UPDATE public.orders
+                    SET display_id = NULL
+                    WHERE restaurant_id = $1
                     RETURNING 1
                 )
                 SELECT
