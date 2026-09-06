@@ -400,6 +400,11 @@ function percentage(part: number, total: number): number {
     return Number(((part / total) * 100).toFixed(1));
 }
 
+function percentageChange(current: number, previous: number): number | null {
+    if (previous === 0) return current === 0 ? 0 : null;
+    return Number((((current - previous) / previous) * 100).toFixed(1));
+}
+
 function paymentLabel(value: string): string {
     const labels: Record<string, string> = {
         pix: "Pix online",
@@ -803,6 +808,7 @@ export async function GET(request: Request) {
 
         const startAt = toTimestamp(bounds.start_at);
         const endAt = toTimestamp(bounds.end_at);
+        const previousStartAt = startAt - (endAt - startAt);
         const startIso = new Date(startAt).toISOString();
         const endIso = new Date(endAt).toISOString();
         const buckets = buildBuckets(startAt, endAt, range);
@@ -914,6 +920,57 @@ export async function GET(request: Request) {
             abandonedActiveUsers: churnSets.abandonedActiveUsers.size,
             abandonedActiveCustomerUsers:
                 churnSets.abandonedActiveCustomerUsers.size,
+        };
+        const previousSelected = ordersInside(history, previousStartAt, startAt);
+        const previousActiveWindow = ordersInside(
+            history,
+            startAt - 7 * DAY_MS,
+            startAt
+        );
+        const previousCustomerWindow = ordersInside(
+            history,
+            startAt - 30 * DAY_MS,
+            startAt
+        );
+        const previousCards = {
+            activatedUsers: activatedAccountSet(
+                firstOrders,
+                previousStartAt,
+                startAt
+            ).size,
+            activeUsers: distinctAccounts(
+                previousActiveWindow.filter((order) => order.status === "done")
+            ),
+            realActiveUsers: realActiveAccounts(previousActiveWindow),
+            activeCustomerUsers: customerQualifiedAccounts(previousCustomerWindow).size,
+            moneyHandledCents: handledMoney(previousSelected),
+            onlineMoneyHandledCents: onlineMoney(previousSelected),
+        };
+        const cardChanges = {
+            activatedUsers: percentageChange(
+                cards.activatedUsers,
+                previousCards.activatedUsers
+            ),
+            activeUsers: percentageChange(
+                cards.activeUsers,
+                previousCards.activeUsers
+            ),
+            realActiveUsers: percentageChange(
+                cards.realActiveUsers,
+                previousCards.realActiveUsers
+            ),
+            activeCustomerUsers: percentageChange(
+                cards.activeCustomerUsers,
+                previousCards.activeCustomerUsers
+            ),
+            moneyHandledCents: percentageChange(
+                cards.moneyHandledCents,
+                previousCards.moneyHandledCents
+            ),
+            onlineMoneyHandledCents: percentageChange(
+                cards.onlineMoneyHandledCents,
+                previousCards.onlineMoneyHandledCents
+            ),
         };
 
         const accountNamesResult = await query<{
@@ -1165,6 +1222,7 @@ export async function GET(request: Request) {
                     bucket: range === "90d" ? "week" : "day",
                 },
                 cards,
+                cardChanges,
                 series: metricSeries,
                 abandonmentRates,
                 abandonedUsers,
