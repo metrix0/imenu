@@ -20,7 +20,7 @@ export const BLOG_ARTICLES: BlogArticleDefinition[] = [
         slug: "taxa-de-entrega-por-bairro",
         title: "Taxa de entrega por bairro: como calcular e configurar no delivery",
         shortTitle: "Taxa de entrega por bairro",
-        metaTitle: "Taxa de Entrega por Bairro no Delivery | iMenu",
+        metaTitle: "Taxa de Entrega por Bairro: Como Calcular | iMenu",
         metaDescription:
             "Aprenda a calcular taxa de entrega por bairro, definir valores por região e automatizar a cobrança no cardápio digital do seu delivery.",
         excerpt:
