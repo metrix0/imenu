@@ -507,12 +507,6 @@ export default function CartBar({
                                 : isPickup ? "Total para retirada "
                                 : checkoutState.delivery_fee_cents === null || checkoutState.delivery_fee_cents === undefined || !checkoutState.delivery_fee_cents
                                     ? "Total sem a entrega " : "Total com a entrega "}
-                        </span>
-                        <span>
-                            <span className={`${hasDiscount && "line-through text-gray-400 !text-sm 2xl:!text-base"} font-semibold text-black text-lg 2xl:text-xl leading-tight tracking-tighter`}>
-                                {formatPrice(displayTotalCents)}
-                            </span>
-                            {hasDiscount && <span className="ml-1 font-semibold text-black text-lg 2xl:text-xl leading-tight tracking-tighter">{formatPrice(finalTotalCents)}</span>}
                             {promotionResult?.promotion && (
                                 <span className="ml-2 hidden md:inline-flex items-center gap-1.5 whitespace-nowrap align-middle" aria-live="polite">
                                     {promotionResult.promotion.benefits.map((benefit, index) => (
@@ -522,6 +516,12 @@ export default function CartBar({
                                     ))}
                                 </span>
                             )}
+                        </span>
+                        <span>
+                            <span className={`${hasDiscount && "line-through text-gray-400 !text-sm 2xl:!text-base"} font-semibold text-black text-lg 2xl:text-xl leading-tight tracking-tighter`}>
+                                {formatPrice(displayTotalCents)}
+                            </span>
+                            {hasDiscount && <span className="ml-1 font-semibold text-black text-lg 2xl:text-xl leading-tight tracking-tighter">{formatPrice(finalTotalCents)}</span>}
                             <span> / {itemCount} {itemCount === 1 ? "item" : "itens"}</span>
                         </span>
                     </div>

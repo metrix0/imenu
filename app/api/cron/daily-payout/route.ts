@@ -13,8 +13,8 @@ import {
     transferPayzuToAsaas,
 } from "@/lib/services/payzuPayout";
 import {
+    getMaxPayoutDifferenceCents,
     isSafePayoutDifference,
-    MAX_PAYOUT_DIFFERENCE_CENTS,
     MIN_PAYOUT_DIFFERENCE_CENTS,
 } from "@/lib/services/payoutSafety";
 
@@ -288,17 +288,18 @@ export async function GET(request: Request) {
         currentStep = "comparison";
         const transferredCents = payzuTransfer.amountCents || 0;
         const differenceCents = transferredCents - plan.totalNetCents;
+        const maxDifferenceCents = getMaxPayoutDifferenceCents(plan.totalNetCents);
         const isSimilar =
             skippedRestaurantCount > 0
                 ? differenceCents >= MIN_PAYOUT_DIFFERENCE_CENTS
-                : isSafePayoutDifference(differenceCents);
+                : isSafePayoutDifference(differenceCents, plan.totalNetCents);
 
         if (!isSimilar) {
             const message =
                 skippedRestaurantCount > 0
                     ? `Diferença abaixo da faixa segura: ${differenceCents} centavos. Mínimo permitido: ${MIN_PAYOUT_DIFFERENCE_CENTS} centavos. Nenhum repasse foi enviado.`
                     : `Diferença fora da faixa segura: ${differenceCents} centavos. ` +
-                      `Permitido: ${MIN_PAYOUT_DIFFERENCE_CENTS} a ${MAX_PAYOUT_DIFFERENCE_CENTS} centavos. Nenhum repasse foi enviado.`;
+                      `Permitido: ${MIN_PAYOUT_DIFFERENCE_CENTS} a ${maxDifferenceCents} centavos (1% do total a enviar). Nenhum repasse foi enviado.`;
             await query(
                 `
                 UPDATE public.payout_automation_runs

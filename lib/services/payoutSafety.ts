@@ -1,5 +1,8 @@
 export const MIN_PAYOUT_DIFFERENCE_CENTS = -300;
-export const MAX_PAYOUT_DIFFERENCE_CENTS = 1_000;
+
+export function getMaxPayoutDifferenceCents(totalCents: number): number {
+    return Math.max(0, Math.round(totalCents * 0.01));
+}
 
 export function calculateOnePercentPayout(
     grossCents: number,
@@ -16,9 +19,12 @@ export function calculateOnePercentPayout(
     return { payzuFeeCents, discountCents, netCents };
 }
 
-export function isSafePayoutDifference(differenceCents: number): boolean {
+export function isSafePayoutDifference(
+    differenceCents: number,
+    totalCents: number
+): boolean {
     return (
         differenceCents >= MIN_PAYOUT_DIFFERENCE_CENTS &&
-        differenceCents <= MAX_PAYOUT_DIFFERENCE_CENTS
+        differenceCents <= getMaxPayoutDifferenceCents(totalCents)
     );
 }

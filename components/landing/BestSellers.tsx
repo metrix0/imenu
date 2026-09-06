@@ -70,78 +70,62 @@ export default function BestSellers() {
                 </div>
 
                 {stats && (
-                    <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3 2xl:gap-6">
-                        <div className="group relative overflow-hidden rounded-3xl border border-brand/15 bg-gradient-to-br from-white via-white to-orange-50/70 px-5 py-5 shadow-[0_18px_45px_-28px_rgba(181,67,20,0.55)] transition duration-300 hover:-translate-y-0.5 hover:border-brand/30 hover:shadow-[0_22px_50px_-26px_rgba(181,67,20,0.65)] 2xl:px-7 2xl:py-6">
-                            <div aria-hidden="true" className="absolute -top-8 -right-8 h-24 w-24 rounded-full bg-brand/10 blur-2xl" />
-                            <div className="relative flex items-center gap-4">
-                                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-brand/10 text-lg text-brand ring-1 ring-brand/10 2xl:h-14 2xl:w-14 2xl:text-xl">
-                                    <FontAwesomeIcon icon={icons.faStore} />
-                                </span>
-                                <div className="min-w-0 text-left">
-                                    <p className="text-2xl font-extrabold tracking-tight text-gray-900 2xl:text-[2rem]">
-                                        {numberFormatter.format(stats.total_restaurants)}
-                                    </p>
-                                    <p className="mt-0.5 text-sm font-semibold text-gray-500 2xl:text-base">
-                                        restaurantes
-                                    </p>
-                                </div>
+                    <div className="mb-8 grid grid-cols-1 overflow-hidden rounded-2xl border border-gray-200 bg-gray-50 sm:grid-cols-3 sm:divide-x sm:divide-gray-200">
+                        <div className="flex items-center gap-4 px-5 py-5 2xl:px-7 2xl:py-6">
+                            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand/10 text-base text-brand 2xl:h-12 2xl:w-12 2xl:text-lg">
+                                <FontAwesomeIcon icon={icons.faStore} />
+                            </span>
+                            <div className="min-w-0 text-left">
+                                <p className="text-2xl font-extrabold tracking-tight text-gray-900 2xl:text-[2rem]">
+                                    +{numberFormatter.format(stats.total_restaurants)}
+                                </p>
+                                <p className="mt-0.5 text-sm font-medium text-gray-500 2xl:text-base">
+                                    restaurantes
+                                </p>
                             </div>
-                            <div aria-hidden="true" className="absolute inset-x-5 bottom-0 h-px bg-gradient-to-r from-transparent via-brand/30 to-transparent" />
                         </div>
 
-                        <div className="group relative overflow-hidden rounded-3xl border border-brand/15 bg-gradient-to-br from-white via-white to-orange-50/70 px-5 py-5 shadow-[0_18px_45px_-28px_rgba(181,67,20,0.55)] transition duration-300 hover:-translate-y-0.5 hover:border-brand/30 hover:shadow-[0_22px_50px_-26px_rgba(181,67,20,0.65)] 2xl:px-7 2xl:py-6">
-                            <div aria-hidden="true" className="absolute -top-8 -right-8 h-24 w-24 rounded-full bg-brand/10 blur-2xl" />
-                            <div className="relative flex items-center gap-4">
-                                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-brand/10 text-lg text-brand ring-1 ring-brand/10 2xl:h-14 2xl:w-14 2xl:text-xl">
-                                    <FontAwesomeIcon icon={icons.faDollarSign} />
-                                </span>
-                                <div className="min-w-0 text-left">
-                                    <p className="text-2xl font-extrabold tracking-tight text-gray-900 2xl:text-[2rem]">
-                                        {currencyFormatter.format(stats.total_gmv_cents / 100)}
-                                    </p>
-                                    <p className="mt-0.5 text-sm font-semibold text-gray-500 2xl:text-base">
-                                        movimentados
-                                    </p>
-                                </div>
+                        <div className="flex items-center gap-4 border-t border-gray-200 px-5 py-5 sm:border-t-0 2xl:px-7 2xl:py-6">
+                            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand/10 text-base text-brand 2xl:h-12 2xl:w-12 2xl:text-lg">
+                                <FontAwesomeIcon icon={icons.faDollarSign} />
+                            </span>
+                            <div className="min-w-0 text-left">
+                                <p className="text-2xl font-extrabold tracking-tight text-gray-900 2xl:text-[2rem]">
+                                    +{currencyFormatter.format(stats.total_gmv_cents / 100)}
+                                </p>
+                                <p className="mt-0.5 text-sm font-medium text-gray-500 2xl:text-base">
+                                    movimentados
+                                </p>
                             </div>
-                            <div aria-hidden="true" className="absolute inset-x-5 bottom-0 h-px bg-gradient-to-r from-transparent via-brand/30 to-transparent" />
                         </div>
 
-                        <div className="group relative overflow-hidden rounded-3xl border border-brand/15 bg-gradient-to-br from-white via-white to-orange-50/70 px-5 py-5 shadow-[0_18px_45px_-28px_rgba(181,67,20,0.55)] transition duration-300 hover:-translate-y-0.5 hover:border-brand/30 hover:shadow-[0_22px_50px_-26px_rgba(181,67,20,0.65)] 2xl:px-7 2xl:py-6">
-                            <div aria-hidden="true" className="absolute -top-8 -right-8 h-24 w-24 rounded-full bg-brand/10 blur-2xl" />
-                            <div className="relative flex items-center gap-4">
-                                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-brand/10 text-lg text-brand ring-1 ring-brand/10 2xl:h-14 2xl:w-14 2xl:text-xl">
-                                    <FontAwesomeIcon icon={icons.faTicket} />
-                                </span>
-                                <div className="min-w-0 text-left">
-                                    <p className="text-2xl font-extrabold tracking-tight text-gray-900 2xl:text-[2rem]">
-                                        {numberFormatter.format(stats.total_orders)}
-                                    </p>
-                                    <p className="mt-0.5 text-sm font-semibold text-gray-500 2xl:text-base">
-                                        pedidos
-                                    </p>
-                                </div>
+                        <div className="flex items-center gap-4 border-t border-gray-200 px-5 py-5 sm:border-t-0 2xl:px-7 2xl:py-6">
+                            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand/10 text-base text-brand 2xl:h-12 2xl:w-12 2xl:text-lg">
+                                <FontAwesomeIcon icon={icons.faTicket} />
+                            </span>
+                            <div className="min-w-0 text-left">
+                                <p className="text-2xl font-extrabold tracking-tight text-gray-900 2xl:text-[2rem]">
+                                    +{numberFormatter.format(stats.total_orders)}
+                                </p>
+                                <p className="mt-0.5 text-sm font-medium text-gray-500 2xl:text-base">
+                                    pedidos
+                                </p>
                             </div>
-                            <div aria-hidden="true" className="absolute inset-x-5 bottom-0 h-px bg-gradient-to-r from-transparent via-brand/30 to-transparent" />
                         </div>
                     </div>
                 )}
 
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-3 2xl:gap-7">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-3 2xl:gap-6">
                     {restaurants.map((restaurant, index) => (
                         <article
                             key={restaurant.id}
-                            className="group relative grid min-w-0 grid-cols-[auto_auto_minmax(0,1fr)] items-center gap-4 overflow-hidden rounded-3xl border border-brand/15 bg-gradient-to-br from-white via-white to-orange-50/70 p-5 shadow-[0_18px_45px_-28px_rgba(181,67,20,0.55)] transition duration-300 hover:-translate-y-0.5 hover:border-brand/30 hover:shadow-[0_22px_50px_-26px_rgba(181,67,20,0.65)] md:flex md:flex-col md:text-center 2xl:p-7"
+                            className="grid min-w-0 grid-cols-[auto_auto_minmax(0,1fr)] items-center gap-4 rounded-3xl border border-gray-100 bg-white p-5 shadow-[0_8px_24px_-16px_rgba(0,0,0,0.25)] md:flex md:flex-col md:text-center 2xl:p-7"
                         >
-                            <div aria-hidden="true" className="absolute -top-10 -right-10 h-28 w-28 rounded-full bg-brand/10 blur-2xl" />
-                            <div aria-hidden="true" className="absolute inset-x-5 bottom-0 h-px bg-gradient-to-r from-transparent via-brand/30 to-transparent" />
-
-                            <span className="relative z-10 flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-brand/15 bg-white/80 text-xl font-extrabold tracking-tight text-brand shadow-[0_12px_28px_-18px_rgba(181,67,20,0.65)] ring-1 ring-brand/5 2xl:h-14 2xl:w-14 2xl:text-2xl">
-                                <span aria-hidden="true" className="absolute -top-3 -right-3 h-8 w-8 rounded-full bg-brand/10 blur-md" />
-                                <span className="relative">{index + 1}º</span>
+                            <span className="text-xl font-extrabold tracking-tight text-brand 2xl:text-2xl">
+                                {index + 1}º
                             </span>
 
-                            <div className="relative z-10 h-16 w-16 shrink-0 overflow-hidden rounded-2xl border border-brand/15 bg-white shadow-sm ring-4 ring-white/80 2xl:h-20 2xl:w-20">
+                            <div className="h-16 w-16 shrink-0 overflow-hidden rounded-2xl border border-gray-200 bg-white 2xl:h-20 2xl:w-20">
                                 {restaurant.logo_url ? (
                                     <img
                                         src={restaurant.logo_url}
@@ -156,8 +140,8 @@ export default function BestSellers() {
                                 )}
                             </div>
 
-                            <div className="relative z-10 min-w-0 md:flex-none">
-                                <h3 className="truncate text-lg font-extrabold tracking-tight text-gray-900 2xl:text-xl">
+                            <div className="min-w-0 md:flex-none">
+                                <h3 className="truncate text-lg font-bold tracking-tight text-gray-900 2xl:text-xl">
                                     {restaurant.name}
                                 </h3>
                             </div>
@@ -165,7 +149,7 @@ export default function BestSellers() {
                             <Button
                                 variant="primary"
                                 onClick={() => router.push(`/${restaurant.url_slug}`)}
-                                className="relative z-10 col-span-3 w-full whitespace-nowrap px-4 py-2 shadow-sm md:w-auto"
+                                className="col-span-3 w-full whitespace-nowrap px-4 py-2 md:mt-auto md:w-auto"
                             >
                                 Ver cardápio
                             </Button>

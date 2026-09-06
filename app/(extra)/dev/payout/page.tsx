@@ -633,7 +633,7 @@ export default function DevPayoutPage() {
             <Card>
                 <h2 className="text-lg font-bold text-gray-900">Histórico da automação diária</h2>
                 <p className="mt-1 text-sm text-gray-500">
-                    Executa todos os dias às 12h. Só envia quando Transferido − Enviar fica entre −R$ 3,00 e +R$ 10,00.
+                    Executa todos os dias às 12h. Só envia quando Transferido − Enviar fica entre −R$ 3,00 e +1% do total a enviar.
                 </p>
 
                 <div className="mt-5 overflow-x-auto">
@@ -654,10 +654,7 @@ export default function DevPayoutPage() {
                         </thead>
                         <tbody className="divide-y divide-gray-100">
                             {automationRuns.map((run) => {
-                                const comparisonSafe =
-                                    run.difference_cents != null &&
-                                    run.difference_cents >= -300 &&
-                                    run.difference_cents <= 1000;
+                                const comparisonSafe = run.comparison_step_status === "completed";
                                 const finalProfitCents =
                                     run.status === "completed"
                                         ? run.difference_cents

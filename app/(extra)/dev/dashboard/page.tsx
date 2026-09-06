@@ -52,6 +52,14 @@ type DashboardPayload = {
         bucket: "day" | "week";
     };
     cards: Record<MetricKey, number>;
+    cardChanges: {
+        activatedUsers: number | null;
+        activeUsers: number | null;
+        realActiveUsers: number | null;
+        activeCustomerUsers: number | null;
+        moneyHandledCents: number | null;
+        onlineMoneyHandledCents: number | null;
+    };
     series: Record<MetricKey, SeriesPoint[]>;
     abandonmentRates: {
         activeUsers: SeriesPoint[];
@@ -548,21 +556,25 @@ export default function DevDashboardPage() {
                                 <MetricCard
                                     title="Usuários ativados"
                                     value={formatCount(data.cards.activatedUsers)}
+                                    change={data.cardChanges.activatedUsers}
                                     description="Fizeram o primeiro pedido no período e não tinham nenhum pedido anterior."
                                 />
                                 <MetricCard
                                     title="Usuários ativos"
                                     value={formatCount(data.cards.activeUsers)}
+                                    change={data.cardChanges.activeUsers}
                                     description="Tiveram pelo menos um pedido concluído nos sete dias anteriores ao fim do período."
                                 />
                                 <MetricCard
                                     title="Usuários realmente ativos"
                                     value={formatCount(data.cards.realActiveUsers)}
+                                    change={data.cardChanges.realActiveUsers}
                                     description="Tiveram pedidos concluídos de pelo menos dois clientes diferentes nos últimos sete dias."
                                 />
                                 <MetricCard
                                     title="Usuários com clientes ativos"
                                     value={formatCount(data.cards.activeCustomerUsers)}
+                                    change={data.cardChanges.activeCustomerUsers}
                                     description="Atingiram quatro pedidos válidos de quatro clientes diferentes nos últimos 30 dias."
                                 />
                                 <MetricCard
@@ -570,6 +582,7 @@ export default function DevDashboardPage() {
                                     value={formatCurrencyFromCents(
                                         data.cards.moneyHandledCents
                                     )}
+                                    change={data.cardChanges.moneyHandledCents}
                                     description="Valor dos pedidos válidos, sem cancelados ou Pix online ainda não pagos."
                                 />
                                 <MetricCard
@@ -577,6 +590,7 @@ export default function DevDashboardPage() {
                                     value={formatCurrencyFromCents(
                                         data.cards.onlineMoneyHandledCents
                                     )}
+                                    change={data.cardChanges.onlineMoneyHandledCents}
                                     description="Valor dos pedidos pagos com Pix online."
                                 />
                             </div>
@@ -1299,11 +1313,13 @@ function qrTableStatusLabel(status: string): string {
 function MetricCard({
     title,
     value,
+    change,
     description,
     danger = false,
 }: {
     title: string;
     value: string;
+    change?: number | null;
     description: string;
     danger?: boolean;
 }) {
@@ -1321,6 +1337,22 @@ function MetricCard({
             >
                 {value}
             </p>
+            {change !== undefined && (
+                <p
+                    className={`mt-1 text-sm font-semibold ${
+                        change === null
+                            ? "text-gray-500"
+                            : change >= 0
+                              ? "text-green-600"
+                              : "text-red-600"
+                    }`}
+                >
+                    {change === null
+                        ? "—"
+                        : `${change >= 0 ? "+" : ""}${formatRatio(change)}`} {" "}
+                    <span className="font-normal text-gray-500">vs. período anterior</span>
+                </p>
+            )}
             <p className="mt-3 text-xs leading-5 text-gray-500">{description}</p>
         </article>
     );
