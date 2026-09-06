@@ -108,7 +108,7 @@ async function imageFileToPdf(file: File): Promise<File> {
         const pdfBytes = concatBytes([header, ...objects, xref]);
         const baseName = file.name.replace(/\.[^.]+$/, "") || "cardapio";
 
-        return new File([pdfBytes], `${baseName}.pdf`, {
+        return new File([pdfBytes.buffer as ArrayBuffer], `${baseName}.pdf`, {
             type: "application/pdf",
             lastModified: file.lastModified,
         });
