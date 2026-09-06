@@ -408,7 +408,7 @@ export async function GET(request: Request) {
             ]
         );
 
-        if (status !== "completed") {
+        if (status !== "completed" && status !== "processing") {
             const message = `Execução terminou com status ${status}. Pagos: ${payoutResult.paidCount}; em processamento: ${payoutResult.processingCount}; falhas: ${payoutResult.failedCount}; restaurantes ignorados: ${skippedRestaurantCount}.`;
             await notifyPayoutAlarm({
                 runId,
