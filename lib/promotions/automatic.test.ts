@@ -306,7 +306,7 @@ describe("automatic promotion rules and totals", () => {
       result.free_items?.reduce((sum, row) => sum + row.discount_cents, 0),
     ).toBe(result.promotion?.discount_cents);
   });
-  it("removes free markings when rules stop matching or another offer wins", () => {
+  it("keeps free markings when minimum matches and removes them when another offer wins", () => {
     const p = offer(
       [{ type: "minimum", cents: 6000, comparison: "gte" }],
       [{ type: "product", item_id: drink, quantity: 1 }],
@@ -316,7 +316,9 @@ describe("automatic promotion rules and totals", () => {
         items: [item(), item(drink, 1000)],
         subtotal_cents: 6000,
       }).free_items,
-    ).toBeUndefined();
+    ).toEqual([
+      { cart_index: 1, quantity: 1, discount_cents: 1000 },
+    ]);
     expect(
       calculate(
         [
@@ -327,17 +329,19 @@ describe("automatic promotion rules and totals", () => {
       ).free_items,
     ).toBeUndefined();
   });
-  it("does not count the free product or delivery toward minimum spend", () => {
+  it("checks minimum spend before applying the free product benefit", () => {
     const p = offer(
       [{ type: "minimum", cents: 5500, comparison: "gte" }],
       [{ type: "product", item_id: drink, quantity: 1 }],
     );
-    expect(
-      calculate([p], {
-        items: [item(), item(drink, 1000)],
-        subtotal_cents: 6000,
-      }).promotion,
-    ).toBeNull();
+    const result = calculate([p], {
+      items: [item(), item(drink, 1000)],
+      subtotal_cents: 6000,
+    });
+    expect(result.promotion?.id).toBe(p.id);
+    expect(result.free_items).toEqual([
+      { cart_index: 1, quantity: 1, discount_cents: 1000 },
+    ]);
   });
   it("does not duplicate free units and keeps breakdown equal to the discount", () => {
     const p = {

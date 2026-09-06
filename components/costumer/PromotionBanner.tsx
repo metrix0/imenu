@@ -16,14 +16,6 @@ export default function PromotionBanner({
   applied?: boolean;
 }) {
   const description = promotionDescription(promotion, products);
-  const hasFreeProduct = promotion.benefits.some((b) => b.type === "product");
-  const hasProductRule = promotion.rules.some((r) => r.type === "product");
-  const instruction =
-    hasFreeProduct || hasProductRule
-      ? null
-      : promotion.benefits.every((b) => b.type === "delivery")
-        ? "Monte sua sacola e informe o endereço para receber a entrega grátis."
-        : "Monte sua sacola para receber o desconto automaticamente.";
   return (
     <div
       className={`flex min-w-0 items-start gap-3 rounded-2xl border p-4 sm:p-5 transition-colors duration-300 ${applied ? "border-green-200 bg-green-50" : "border-brand/20 bg-brand/5"}`}
@@ -53,13 +45,6 @@ export default function PromotionBanner({
         <p className="mt-1 text-sm leading-relaxed text-gray-600">
           Válida {description.conditions}.
         </p>
-        {(applied || instruction) && (
-          <p
-            className={`mt-2 text-sm ${applied ? "text-green-700" : "text-gray-500"}`}
-          >
-            {applied ? "Benefício aplicado na sua sacola." : instruction}
-          </p>
-        )}
       </div>
     </div>
   );

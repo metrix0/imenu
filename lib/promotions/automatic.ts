@@ -296,7 +296,6 @@ export function evaluateAutomaticPromotions(
       0,
       delivery - (appliedCoupon - couponFromGoods),
     );
-    let giftValue = 0;
     // Allocate free units across real cart lines. The base-price share keeps
     // selected extras paid and preserves existing product discounts/rounding.
     const reserved = new Map(required);
@@ -353,7 +352,6 @@ export function evaluateAutomaticPromotions(
             rawValue: line.baseUnit * take,
           });
       }
-      giftValue += Math.round(rawValue);
       const value = Math.min(remainingSubtotal, Math.round(rawValue));
       if (quantity <= 0 || (value <= 0 && rawValue > 0)) continue;
       // Expose the same free-unit allocation to the cart without changing pricing.
@@ -387,8 +385,7 @@ export function evaluateAutomaticPromotions(
       });
     }
 
-    // Minimum spend excludes the gifted base product, delivery and loyalty rewards.
-    const qualifyingSubtotal = Math.max(0, subtotal - giftValue);
+    const qualifyingSubtotal = subtotal;
     if (
       p.rules.some(
         (r) =>
