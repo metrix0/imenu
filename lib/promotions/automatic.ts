@@ -265,8 +265,8 @@ export function evaluateAutomaticPromotions(
     const quantities = new Map<string, number>();
     for (const item of paidItems)
       quantities.set(
-        item.base_item_id,
-        (quantities.get(item.base_item_id) || 0) + item.qty,
+        item.base_item_id || (item as any).item_id,
+        (quantities.get(item.base_item_id || (item as any).item_id) || 0) + item.qty,
       );
     const required = new Map<string, number>();
     for (const rule of p.rules)
@@ -302,12 +302,13 @@ export function evaluateAutomaticPromotions(
     const reserved = new Map(required);
     const freeUnits = paidItems.map((item) => {
       const product = input.products.find(
-        (p) => p.id === item.base_item_id && p.is_available,
+        (p) => p.id === (item.base_item_id || (item as any).item_id) && p.is_available,
       );
-      const skip = Math.min(item.qty, reserved.get(item.base_item_id) || 0);
+      const itemId = item.base_item_id || (item as any).item_id;
+      const skip = Math.min(item.qty, reserved.get(itemId) || 0);
       reserved.set(
-        item.base_item_id,
-        (reserved.get(item.base_item_id) || 0) - skip,
+        itemId,
+        (reserved.get(itemId) || 0) - skip,
       );
       const lineTotal = Math.max(0, promotionPrice(item) || item.total_cents);
       const baseTotal =
@@ -321,7 +322,7 @@ export function evaluateAutomaticPromotions(
           : 0;
       return {
         cart_index: input.items.indexOf(item),
-        item_id: item.base_item_id,
+        item_id: itemId,
         quantity: item.qty - skip,
         baseUnit: baseTotal / item.qty,
       };
