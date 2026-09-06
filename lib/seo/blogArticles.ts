@@ -17,6 +17,34 @@ export type BlogArticleDefinition = {
 
 export const BLOG_ARTICLES: BlogArticleDefinition[] = [
     {
+        slug: "taxa-de-entrega-por-bairro",
+        title: "Taxa de entrega por bairro: como calcular e configurar no delivery",
+        shortTitle: "Taxa de entrega por bairro",
+        metaTitle: "Taxa de Entrega por Bairro no Delivery | iMenu",
+        metaDescription:
+            "Aprenda a calcular taxa de entrega por bairro, definir valores por região e automatizar a cobrança no cardápio digital do seu delivery.",
+        excerpt:
+            "Veja quando cobrar por bairro faz mais sentido do que por quilômetro, como proteger a margem e como configurar taxas e prazos diferentes por região.",
+        category: "Delivery",
+        readingTime: "11 min de leitura",
+        publishedAt: "2026-09-06",
+        updatedAt: "2026-09-06",
+    },
+    {
+        slug: "promocoes-para-delivery",
+        title: "Promoções para delivery: 8 ideias para vender mais sem perder margem",
+        shortTitle: "Promoções para delivery",
+        metaTitle: "Promoções para Delivery: 8 Ideias que Vendem | iMenu",
+        metaDescription:
+            "Veja 8 ideias de promoções para delivery com frete grátis, descontos, valor mínimo e brindes para aumentar vendas sem destruir a margem.",
+        excerpt:
+            "Use promoções com objetivo claro: aumentar ticket, movimentar dias fracos, reduzir a barreira do frete e criar ofertas automáticas sem depender de cupom.",
+        category: "Vendas",
+        readingTime: "12 min de leitura",
+        publishedAt: "2026-09-06",
+        updatedAt: "2026-09-06",
+    },
+    {
         slug: "aplicativo-para-garcom",
         title: "Aplicativo para garçom: como fazer pedidos pelo celular e organizar as mesas",
         shortTitle: "Aplicativo para garçom",
