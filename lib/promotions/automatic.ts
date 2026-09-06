@@ -354,7 +354,7 @@ export function evaluateAutomaticPromotions(
       }
       giftValue += Math.round(rawValue);
       const value = Math.min(remainingSubtotal, Math.round(rawValue));
-      if (value <= 0) continue;
+      if (quantity <= 0 || (value <= 0 && rawValue > 0)) continue;
       // Expose the same free-unit allocation to the cart without changing pricing.
       let allocated = 0;
       let cumulativeValue = 0;
@@ -365,7 +365,7 @@ export function evaluateAutomaticPromotions(
           Math.min(value, Math.round(cumulativeValue)) - allocated,
         );
         allocated += discount;
-        if (!discount) continue;
+        if (!discount && allocation.rawValue > 0) continue;
         const existing = freeItems.find(
           (item) => item.cart_index === allocation.cart_index,
         );
@@ -424,14 +424,29 @@ export function evaluateAutomaticPromotions(
         remainingSubtotal -= value;
         label = `${benefit.value.toLocaleString("pt-BR")}% de desconto`;
       }
-      if (value > 0) applied.push({ label, discount_cents: value });
+      if (
+        value > 0 ||
+        (benefit.type === "delivery" &&
+          input.channel === "delivery" &&
+          !input.pickup &&
+          !applied.some((b) => b.label === label))
+      )
+        applied.push({ label, discount_cents: value });
     }
     const promoDiscount = Math.min(
       applied.reduce((sum, b) => sum + b.discount_cents, 0),
       Math.max(0, subtotal + delivery - appliedCoupon),
     );
     const discount = appliedCoupon + promoDiscount;
-    if (promoDiscount > 0 && discount > best.discount_cents)
+    // A free product or delivery can already cost zero. It still applies,
+    // but must never replace a better coupon or another automatic promotion.
+    if (
+      applied.length > 0 &&
+      (discount > best.discount_cents ||
+        (discount === best.discount_cents &&
+          !best.promotion &&
+          (coupon === 0 || p.allow_coupon)))
+    )
       best = {
         promotion: {
           id: p.id,

@@ -182,6 +182,33 @@ it("charges PIX using the final server total", async () => {
   );
 });
 
+it("accepts an applied everyday delivery promotion with a zero fee and preserves the charged total", async () => {
+  offers = [
+    {
+      ...offer,
+      rules: [{ type: "weekdays", days: [0, 1, 2, 3, 4, 5, 6] }],
+      benefits: [{ type: "delivery" }],
+    },
+  ];
+  const response = await send({
+    delivery_fee_cents: 0,
+    paymentMethod: "pix",
+    expected_promotion: { id: offer.id, total_cents: 5000 },
+  });
+  expect(response.status).toBe(200);
+  expect(saved()[2]).toBe(5000);
+  expect(saved()[3]).toBe(0);
+  expect(saved()[4]).toBe(5000);
+  expect(saved()[15]).toBeNull();
+  expect(JSON.parse(saved()[18])).toMatchObject({
+    id: offer.id,
+    discount_cents: 0,
+  });
+  expect(createPayZuPixCharge).toHaveBeenCalledWith(
+    expect.objectContaining({ amount: 50 }),
+  );
+});
+
 it("does not create a PIX charge for a fully free order", async () => {
   offers = [
     {

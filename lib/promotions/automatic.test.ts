@@ -78,6 +78,86 @@ describe("automatic promotion rules and totals", () => {
     ).toBe(false);
     expect(calculate([p], { at: tuesday }).discount_cents).toBe(800);
   });
+  it("shows Sunday offers only on Sunday in Brasília, and everyday offers on every weekday", () => {
+    const sundayOnly = offer([{ type: "weekdays", days: [0] }]);
+    const everyday = offer([{ type: "weekdays", days: [0, 1, 2, 3, 4, 5, 6] }]);
+    for (let day = 0; day < 7; day++) {
+      const date = new Date(
+        `2026-09-${String(6 + day).padStart(2, "0")}T15:00:00Z`,
+      );
+      expect(promotionAvailable(sundayOnly, "delivery", date)).toBe(day === 0);
+      expect(promotionAvailable(everyday, "delivery", date)).toBe(true);
+    }
+  });
+  it("recognizes the weekend/minimum-spend gift when its catalog base price is zero", () => {
+    const p = offer(
+      [
+        { type: "weekdays", days: [6, 0] },
+        { type: "minimum", cents: 1000, comparison: "gte" },
+      ],
+      [{ type: "product", item_id: drink, quantity: 1 }],
+    );
+    const cart = [item(burger, 1000), item(drink, 0)];
+    const input = {
+      items: cart,
+      products: products.map((p) =>
+        p.id === drink ? { ...p, price_cents: 0 } : p,
+      ),
+      subtotal_cents: 1000,
+      at: new Date("2026-09-06T15:00:00Z"),
+    };
+    const result = calculate([p], input);
+    expect(result.promotion?.id).toBe(p.id);
+    expect(result.promotion?.discount_cents).toBe(0);
+    expect(result.free_items).toEqual([
+      { cart_index: 1, quantity: 1, discount_cents: 0 },
+    ]);
+    expect(result.total_cents).toBe(1800);
+    expect(
+      calculate([p], { ...input, subtotal_cents: 999 }).promotion,
+    ).toBeNull();
+    expect(
+      calculate([p], { ...input, at: new Date("2026-09-07T15:00:00Z") })
+        .promotion,
+    ).toBeNull();
+    expect(calculate([p], { ...input, items: [cart[0]] }).promotion).toBeNull();
+  });
+  it("recognizes everyday free delivery even before a nonzero fee, without applying it to pickup or Mesa", () => {
+    const p = offer([{ type: "weekdays", days: [0, 1, 2, 3, 4, 5, 6] }]);
+    const result = calculate([p], { delivery_cents: 0 });
+    expect(result.promotion?.id).toBe(p.id);
+    expect(result.total_cents).toBe(5000);
+    expect(result.promotion?.benefits).toEqual([
+      { label: "Entrega grátis", discount_cents: 0 },
+    ]);
+    expect(calculate([p], { delivery_cents: 800 }).total_cents).toBe(5000);
+    expect(calculate([p], { pickup: true }).promotion).toBeNull();
+    expect(calculate([p], { channel: "mesa" }).promotion).toBeNull();
+    expect(calculate([p], { items: [] }).promotion).toBeNull();
+  });
+  it("does not let zero-value benefits replace a better coupon or automatic discount", () => {
+    const freeDelivery = offer();
+    const fixed = {
+      ...offer([], [{ type: "fixed", cents: 500 }]),
+      id: "20000000-0000-4000-8000-000000000002",
+    };
+    expect(
+      calculate([freeDelivery], {
+        delivery_cents: 0,
+        coupon_discount_cents: 700,
+      }).promotion,
+    ).toBeNull();
+    expect(
+      calculate([freeDelivery, fixed], { delivery_cents: 0 }).promotion?.id,
+    ).toBe(fixed.id);
+    expect(
+      calculate([fixed, freeDelivery], { delivery_cents: 0 }).promotion?.id,
+    ).toBe(fixed.id);
+    const duplicate = offer([], [{ type: "delivery" }, { type: "delivery" }]);
+    expect(
+      calculate([duplicate], { delivery_cents: 0 }).promotion?.benefits,
+    ).toHaveLength(1);
+  });
   it("checks channels independently and never discounts delivery on pickup or Mesa", () => {
     const p = { ...offer(), mesa: false };
     expect(calculate([p], { channel: "mesa" }).discount_cents).toBe(0);

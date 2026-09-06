@@ -427,7 +427,7 @@ export default function CartBar({
                     <div className="mb-2 flex flex-wrap gap-1.5 md:px-7 2xl:px-12" aria-live="polite">
                         {promotionResult.promotion.benefits.map((benefit, index) => (
                             <span key={index} className="rounded-full bg-green-50 px-2.5 py-1 text-xs font-semibold text-green-700">
-                                {benefit.label}
+                                PROMOÇÃO {benefit.label}
                             </span>
                         ))}
                     </div>

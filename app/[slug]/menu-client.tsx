@@ -105,8 +105,8 @@ export default function MenuClientPage({
         pickup: Boolean((promotionCheckout as any).is_pickup),
         channel: isTableOrder ? "mesa" : "delivery", at: promotionDate,
     }) : undefined;
-    const visiblePromotions = promotionDate ? automaticPromotions.filter(p => p.show_on_menu &&
-        promotionAvailable(p, isTableOrder ? "mesa" : "delivery", promotionDate) &&
+    const visiblePromotions = promotionNow ? automaticPromotions.filter(p => p.show_on_menu &&
+        promotionAvailable(p, isTableOrder ? "mesa" : "delivery", promotionNow) &&
         [...p.rules, ...p.benefits].every(r => r.type !== "product" || promotionProducts.some(item => item.id === r.item_id && item.is_available))) : [];
     const selectedTable = tableOrder?.tables.find(
         (table) => table.id === selectedTableId

@@ -20,7 +20,7 @@ export default function PromotionBanner({
   const hasProductRule = promotion.rules.some((r) => r.type === "product");
   const instruction =
     hasFreeProduct || hasProductRule
-      ? "Adicione os produtos na sacola."
+      ? null
       : promotion.benefits.every((b) => b.type === "delivery")
         ? "Monte sua sacola e informe o endereço para receber a entrega grátis."
         : "Monte sua sacola para receber o desconto automaticamente.";
@@ -53,11 +53,13 @@ export default function PromotionBanner({
         <p className="mt-1 text-sm leading-relaxed text-gray-600">
           Válida {description.conditions}.
         </p>
-        <p
-          className={`mt-2 text-sm ${applied ? "text-green-700" : "text-gray-500"}`}
-        >
-          {applied ? "Benefício aplicado na sua sacola." : instruction}
-        </p>
+        {(applied || instruction) && (
+          <p
+            className={`mt-2 text-sm ${applied ? "text-green-700" : "text-gray-500"}`}
+          >
+            {applied ? "Benefício aplicado na sua sacola." : instruction}
+          </p>
+        )}
       </div>
     </div>
   );

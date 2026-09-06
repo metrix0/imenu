@@ -163,7 +163,7 @@ export default function AutomaticPromotionsPanel({
       id: crypto.randomUUID(),
       name: "",
       active: true,
-      show_on_menu: false,
+      show_on_menu: true,
       delivery: true,
       mesa: false,
       allow_coupon: false,
