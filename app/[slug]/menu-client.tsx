@@ -949,6 +949,12 @@ export default function MenuClientPage({
             </div>
 
 
+            {!debouncedSearch && visiblePromotions.length > 0 && (
+                <div className="mt-8 mx-5 md:mx-48 2xl:mx-80 space-y-3">
+                    {visiblePromotions.map(p => <PromotionBanner key={p.id} promotion={p} products={promotionProducts} applied={promotionResult?.promotion?.id === p.id} />)}
+                </div>
+            )}
+
             <div className="mt-8 px-4 md:mx-44 space-y-12 pb-20 2xl:mx-80 2xl:mt-12 relative">
                 <div className="absolute top-0 right-4 hidden md:flex justify-end gap-4">
                     <button
@@ -976,12 +982,6 @@ export default function MenuClientPage({
                     <div className="flex flex-col items-center justify-center text-center mx-10 pt-16">
                         <img src="/images/meh_emoji.png" alt="Nada encontrado" className="w-38 h-38 mb-4 2xl:w-46 2xl:h-46" />
                         <p className="text-gray-500 text-md 2xl:text-xl">Nenhum item encontrado para <b>{searchText}</b>.</p>
-                    </div>
-                )}
-
-                {!debouncedSearch && visiblePromotions.length > 0 && (
-                    <div className="space-y-3">
-                        {visiblePromotions.map(p => <PromotionBanner key={p.id} promotion={p} products={promotionProducts} />)}
                     </div>
                 )}
 

@@ -22,7 +22,7 @@ export default function PromocoesPage() {
 
     const [restaurant, setRestaurant] = useState<any>({id: restaurantId || '', url_slug: ''});
     const [loading, setLoading] = useState(!restaurantId);
-    const [tab, setTab] = useState("Produtos");
+    const [tab, setTab] = useState("Promoções");
     const [showForm, setShowForm] = useState(false);
     const [editingCoupon, setEditingCoupon] = useState<any>(null);
 
@@ -105,7 +105,7 @@ export default function PromocoesPage() {
 
 
             <Tabs
-                tabs={["Produtos", "Promoções", "Cupons"]}
+                tabs={["Promoções", "Produtos", "Cupons"]}
                 active={tab}
                 onChange={(t) => {
                     setTab(t);

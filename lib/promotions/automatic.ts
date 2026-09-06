@@ -53,6 +53,11 @@ export type PromotionResult = {
   coupon_discount_cents: number;
   discount_cents: number;
   total_cents: number;
+  free_items?: {
+    cart_index: number;
+    quantity: number;
+    discount_cents: number;
+  }[];
 };
 
 export const WEEKDAYS = [
@@ -280,6 +285,7 @@ export function evaluateAutomaticPromotions(
       continue;
 
     const applied: AppliedPromotion["benefits"] = [];
+    const freeItems: NonNullable<PromotionResult["free_items"]> = [];
     const appliedCoupon = p.allow_coupon ? coupon : 0;
     const couponFromGoods =
       input.coupon_type === "delivery"
@@ -314,6 +320,7 @@ export function evaluateAutomaticPromotions(
             )
           : 0;
       return {
+        cart_index: input.items.indexOf(item),
         item_id: item.base_item_id,
         quantity: item.qty - skip,
         baseUnit: baseTotal / item.qty,
@@ -327,16 +334,51 @@ export function evaluateAutomaticPromotions(
       if (!product) continue;
       let quantity = 0;
       let rawValue = 0;
+      const allocations: {
+        cart_index: number;
+        quantity: number;
+        rawValue: number;
+      }[] = [];
       for (const line of freeUnits) {
         if (line.item_id !== product.id) continue;
         const take = Math.min(benefit.quantity - quantity, line.quantity);
         line.quantity -= take;
         quantity += take;
         rawValue += line.baseUnit * take;
+        if (take > 0)
+          allocations.push({
+            cart_index: line.cart_index,
+            quantity: take,
+            rawValue: line.baseUnit * take,
+          });
       }
       giftValue += Math.round(rawValue);
       const value = Math.min(remainingSubtotal, Math.round(rawValue));
       if (value <= 0) continue;
+      // Expose the same free-unit allocation to the cart without changing pricing.
+      let allocated = 0;
+      let cumulativeValue = 0;
+      for (const allocation of allocations) {
+        cumulativeValue += allocation.rawValue;
+        const discount = Math.max(
+          0,
+          Math.min(value, Math.round(cumulativeValue)) - allocated,
+        );
+        allocated += discount;
+        if (!discount) continue;
+        const existing = freeItems.find(
+          (item) => item.cart_index === allocation.cart_index,
+        );
+        if (existing) {
+          existing.quantity += allocation.quantity;
+          existing.discount_cents += discount;
+        } else
+          freeItems.push({
+            cart_index: allocation.cart_index,
+            quantity: allocation.quantity,
+            discount_cents: discount,
+          });
+      }
       remainingSubtotal -= value;
       applied.push({
         label: `${quantity}× ${product.name} grátis`,
@@ -400,6 +442,7 @@ export function evaluateAutomaticPromotions(
         coupon_discount_cents: appliedCoupon,
         discount_cents: discount,
         total_cents: Math.max(0, subtotal + delivery - discount),
+        ...(freeItems.length ? { free_items: freeItems } : {}),
       };
   }
   return best;

@@ -912,7 +912,11 @@ export default function CartModal({
                         Itens adicionados
                     </h2>
 
-                    {items.map((it) => (
+                    {items.map((it, cartIndex) => {
+                        const freeItem = promotionResult?.free_items?.find(item => item.cart_index === cartIndex);
+                        const lineTotal = promotionPrice(it) || it.unit_price_cents * it.qty;
+                        const discountedTotal = Math.max(0, lineTotal - (freeItem?.discount_cents || 0));
+                        return (
                         <div
                             key={it.id}
                             className="flex items-start justify-between py-4 2xl:py-6 w-full"
@@ -926,10 +930,14 @@ export default function CartModal({
                                     <p className="font-semibold 2xl:text-lg line-clamp-2 leading-normal">{it.name}</p>
 
                                     <p className="font-semibold 2xl:text-base sm:text-sm mt-0.5">
-                                        {(it.promotion && it.promotion.value > 0) ? <><span className={"text-green"}>{formatPrice(promotionPrice(it) || it.unit_price_cents*it.qty)}</span> <span className={"font-normal text-gray-400 line-through text-xs"}>{formatPrice(it.unit_price_cents*it.qty)}</span></>
+                                        {freeItem ? <><span className="font-semibold text-green-700">{discountedTotal === 0 ? "GRÁTIS" : formatPrice(discountedTotal)}</span> <span className="font-normal text-gray-400 line-through text-xs">{formatPrice(it.unit_price_cents * it.qty)}</span></> : (it.promotion && it.promotion.value > 0) ? <><span className={"text-green"}>{formatPrice(promotionPrice(it) || it.unit_price_cents*it.qty)}</span> <span className={"font-normal text-gray-400 line-through text-xs"}>{formatPrice(it.unit_price_cents*it.qty)}</span></>
                                             : formatPrice(it.unit_price_cents*it.qty)
                                         }
                                     </p>
+
+                                    {freeItem && discountedTotal > 0 && (
+                                        <span className="mt-1 inline-block rounded-full bg-green-50 px-2 py-1 text-xs font-semibold text-green-700">{freeItem.quantity}× GRÁTIS</span>
+                                    )}
 
                                     {(it.selectedSubitems?.length > 0 || it.observation) && (
                                         <div className="text-sm text-gray-500 mb-2 mt-2">
@@ -966,7 +974,7 @@ export default function CartModal({
                                 </button>
                             </div>
                         </div>
-                    ))}
+                    );})}
 
                     <PromotionSummary promotion={promotionResult?.promotion} />
                     <div className="mt-6 mb-20">

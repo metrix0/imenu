@@ -15,6 +15,7 @@ import {
   faTrash,
   faPen,
   faChevronDown,
+  faGear,
 } from "@fortawesome/free-solid-svg-icons";
 import {
   WEEKDAYS,
@@ -196,6 +197,7 @@ export default function AutomaticPromotionsPanel({
   ) => (
     <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_5.5rem] gap-3">
       <Dropdown
+        custom
         aria-label="Produto"
         options={productOptions}
         value={value.item_id}
@@ -282,6 +284,7 @@ export default function AutomaticPromotionsPanel({
                 >
                   <div className="grid grid-cols-[minmax(0,1fr)_2.75rem] gap-2">
                     <Dropdown
+                      custom
                       aria-label={`Tipo da regra ${index + 1}`}
                       options={ruleOptions}
                       value={rule.type}
@@ -341,6 +344,7 @@ export default function AutomaticPromotionsPanel({
                   {rule.type === "minimum" && (
                     <div className="grid grid-cols-2 gap-3">
                       <Dropdown
+                        custom
                         aria-label="Comparação do valor"
                         options={[
                           { value: "gte", label: "A partir de" },
@@ -412,6 +416,7 @@ export default function AutomaticPromotionsPanel({
                 >
                   <div className="grid grid-cols-[minmax(0,1fr)_2.75rem] gap-2">
                     <Dropdown
+                      custom
                       aria-label={`Tipo do benefício ${index + 1}`}
                       options={benefitOptions}
                       value={benefit.type}
@@ -514,6 +519,18 @@ export default function AutomaticPromotionsPanel({
             </Button>
           </Card>
           <Card className="!p-4 sm:!p-5 border border-gray-200 !shadow-sm space-y-2">
+            <Toggle
+              label="Mostrar promoção no cardápio"
+              checked={editing.show_on_menu}
+              onChange={(value) =>
+                setEditing({ ...editing, show_on_menu: value })
+              }
+            />
+            {editing.show_on_menu && (
+              <div className="pt-2 pb-3">
+                <PromotionBanner promotion={editing} products={products} />
+              </div>
+            )}
             <button
               type="button"
               aria-expanded={advancedOptions}
@@ -521,7 +538,10 @@ export default function AutomaticPromotionsPanel({
               onClick={() => setAdvancedOptions((open) => !open)}
               className="flex min-h-11 w-full cursor-pointer items-center justify-between gap-3 text-left font-semibold"
             >
-              Configurações avançadas
+              <span className="flex items-center gap-2">
+                <FontAwesomeIcon icon={faGear} className="text-gray-500" />
+                Configurações avançadas
+              </span>
               <FontAwesomeIcon
                 icon={faChevronDown}
                 className={`text-xs transition-transform duration-300 motion-reduce:transition-none ${advancedOptions ? "rotate-180" : ""}`}
@@ -535,21 +555,6 @@ export default function AutomaticPromotionsPanel({
             >
               <div className="min-h-0 overflow-hidden">
                 <div className="space-y-2 pt-2">
-                  <Toggle
-                    label="Mostrar promoção no cardápio"
-                    checked={editing.show_on_menu}
-                    onChange={(value) =>
-                      setEditing({ ...editing, show_on_menu: value })
-                    }
-                  />
-                  {editing.show_on_menu && (
-                    <div className="pt-2 pb-3">
-                      <PromotionBanner
-                        promotion={editing}
-                        products={products}
-                      />
-                    </div>
-                  )}
                   <Toggle
                     label="Permitir acumular com cupom"
                     checked={editing.allow_coupon}
@@ -565,15 +570,12 @@ export default function AutomaticPromotionsPanel({
                   <div className="mt-4 border-t border-gray-200 pt-3">
                     <h3 className="mb-2 font-semibold">Ativar para</h3>
                     <Toggle
-                      label="Delivery"
+                      label="Delivery e Retirada"
                       checked={editing.delivery}
                       onChange={(value) =>
                         setEditing({ ...editing, delivery: value })
                       }
                     />
-                    <p className="text-xs text-gray-500">
-                      Inclui retirada. Entrega grátis vale só para entrega.
-                    </p>
                     <Toggle
                       label="Mesa"
                       checked={editing.mesa}
@@ -648,7 +650,7 @@ export default function AutomaticPromotionsPanel({
                 <div className="mt-3 flex flex-wrap gap-2 text-xs text-gray-500">
                   {p.delivery && (
                     <span className="rounded-full bg-gray-100 px-2 py-1">
-                      Delivery
+                      Delivery e Retirada
                     </span>
                   )}
                   {p.mesa && (

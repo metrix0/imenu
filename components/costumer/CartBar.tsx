@@ -423,6 +423,15 @@ export default function CartBar({
     return (
         <>
             <div className={`fixed pb-8 2xl:pb-6 2xl:pt-5 md:pb-4 bottom-0 left-0 right-0 ${cartOpen ? "z-[60]" : "z-[40]"} isolate bg-white shadow-[0_-4px_12px_rgba(0,0,0,0.12)] px-4 py-3 border-t border-gray-200`}>
+                {promotionResult?.promotion && (
+                    <div className="mb-2 flex flex-wrap gap-1.5 md:px-7 2xl:px-12" aria-live="polite">
+                        {promotionResult.promotion.benefits.map((benefit, index) => (
+                            <span key={index} className="rounded-full bg-green-50 px-2.5 py-1 text-xs font-semibold text-green-700">
+                                {benefit.label}
+                            </span>
+                        ))}
+                    </div>
+                )}
                 <div className="relative z-10 flex items-center justify-between w-full md:px-7 2xl:px-12">
                     <div className="flex flex-col text-left text-[12px] 2xl:text-lg text-gray-600">
                         <span>
