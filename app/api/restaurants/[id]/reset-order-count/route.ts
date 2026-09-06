@@ -9,11 +9,6 @@ import { query } from "@/lib/database/sql";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-type ResetResult = {
-    reset_from: string | number;
-    updated_count: string | number;
-};
-
 export async function POST(
     request: Request,
     context: { params: Promise<{ id: string }> },
@@ -30,32 +25,16 @@ export async function POST(
     try {
         await requireRestaurantOwner(request, id);
 
-        const result = await query<ResetResult>(
+        await query(
             `
-                WITH current_max AS (
-                    SELECT COALESCE(MAX(display_id), 0)::bigint AS value
-                    FROM public.orders
-                    WHERE restaurant_id = $1
-                ),
-                updated AS (
-                    UPDATE public.orders
-                    SET display_id = 0
-                    WHERE restaurant_id = $1
-                    RETURNING 1
-                )
-                SELECT
-                    value AS reset_from,
-                    (SELECT COUNT(*) FROM updated)::int AS updated_count
-                FROM current_max
+                UPDATE public.restaurants
+                SET order_number_reset_at = NOW()
+                WHERE id = $1
             `,
             [id],
         );
 
-        return NextResponse.json({
-            success: true,
-            resetFrom: Number(result.rows[0]?.reset_from) || 0,
-            updatedCount: Number(result.rows[0]?.updated_count) || 0,
-        });
+        return NextResponse.json({ success: true });
     } catch (error) {
         if (error instanceof RestaurantOwnerAuthError) {
             return NextResponse.json(
