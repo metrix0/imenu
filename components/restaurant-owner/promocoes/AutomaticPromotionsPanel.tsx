@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { supabase } from "@/lib/database/supabaseClient";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
@@ -10,7 +10,12 @@ import ListLoader from "@/components/ui/ListLoader";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import PromotionBanner from "@/components/costumer/PromotionBanner";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faPlus, faTrash, faPen } from "@fortawesome/free-solid-svg-icons";
+import {
+  faPlus,
+  faTrash,
+  faPen,
+  faChevronDown,
+} from "@fortawesome/free-solid-svg-icons";
 import {
   WEEKDAYS,
   promotionDescription,
@@ -21,7 +26,7 @@ import {
   type PromotionProduct,
 } from "@/lib/promotions/automatic";
 
-const controlClass = "min-h-11 !text-base sm:!text-sm";
+const controlClass = "h-12 2xl:h-14";
 const ruleOptions = [
   { value: "weekdays", label: "Dias da semana" },
   { value: "minimum", label: "Valor do pedido" },
@@ -75,6 +80,8 @@ export default function AutomaticPromotionsPanel({
   const [editing, setEditing] = useState<AutomaticPromotion | null>(null);
   const [deleting, setDeleting] = useState<AutomaticPromotion | null>(null);
   const [error, setError] = useState("");
+  const [advancedOptions, setAdvancedOptions] = useState(false);
+  const advancedOptionsId = useId();
 
   async function api(method: string, data?: unknown) {
     const {
@@ -150,6 +157,7 @@ export default function AutomaticPromotionsPanel({
 
   const create = () => {
     setError("");
+    setAdvancedOptions(false);
     setEditing({
       id: crypto.randomUUID(),
       name: "",
@@ -229,7 +237,7 @@ export default function AutomaticPromotionsPanel({
   if (editing)
     return (
       <form
-        className="mt-6 max-w-3xl space-y-5"
+        className="mx-auto mt-6 w-full max-w-3xl space-y-5 animate-fadeUp motion-reduce:animate-none"
         onSubmit={(e) => {
           e.preventDefault();
           void save(editing, true);
@@ -247,7 +255,7 @@ export default function AutomaticPromotionsPanel({
               variant="secondary"
               onClick={() => setEditing(null)}
             >
-              Voltar
+              Cancelar
             </Button>
           </div>
           <Input
@@ -261,10 +269,10 @@ export default function AutomaticPromotionsPanel({
             className={controlClass}
           />
           <Card className="!p-4 sm:!p-5 border border-gray-200 !shadow-sm">
-            <h3 className="font-semibold">Quando aplicar</h3>
+            <h3 className="font-semibold">Regra da promoção</h3>
             <p className="mt-1 mb-4 text-sm text-gray-500">
-              Todas as regras precisam ser atendidas. Sem regras, vale para
-              qualquer pedido.
+              Os clientes devem cumprir todas as regras adicionadas para
+              receberem a promoção.
             </p>
             <div className="space-y-3">
               {editing.rules.map((rule, index) => (
@@ -394,7 +402,7 @@ export default function AutomaticPromotionsPanel({
           <Card className="!p-4 sm:!p-5 border border-gray-200 !shadow-sm">
             <h3 className="font-semibold">O cliente ganha</h3>
             <p className="mt-1 mb-4 text-sm text-gray-500">
-              Os benefícios se somam, uma vez por pedido.
+              O(s) benefício(s) são aplicados uma vez por pedido.
             </p>
             <div className="space-y-3">
               {editing.benefits.map((benefit, index) => (
@@ -506,47 +514,76 @@ export default function AutomaticPromotionsPanel({
             </Button>
           </Card>
           <Card className="!p-4 sm:!p-5 border border-gray-200 !shadow-sm space-y-2">
-            <Toggle
-              label="Mostrar promoção no cardápio"
-              checked={editing.show_on_menu}
-              onChange={(value) =>
-                setEditing({ ...editing, show_on_menu: value })
-              }
-            />
-            {editing.show_on_menu && (
-              <div className="pt-2 pb-3">
-                <PromotionBanner promotion={editing} products={products} />
+            <button
+              type="button"
+              aria-expanded={advancedOptions}
+              aria-controls={advancedOptionsId}
+              onClick={() => setAdvancedOptions((open) => !open)}
+              className="flex min-h-11 w-full cursor-pointer items-center justify-between gap-3 text-left font-semibold"
+            >
+              Configurações avançadas
+              <FontAwesomeIcon
+                icon={faChevronDown}
+                className={`text-xs transition-transform duration-300 motion-reduce:transition-none ${advancedOptions ? "rotate-180" : ""}`}
+              />
+            </button>
+            <div
+              id={advancedOptionsId}
+              aria-hidden={!advancedOptions}
+              inert={!advancedOptions}
+              className={`grid transition-[grid-template-rows,opacity,transform] duration-300 ease-out motion-reduce:transition-none ${advancedOptions ? "grid-rows-[1fr] translate-y-0 opacity-100" : "pointer-events-none grid-rows-[0fr] -translate-y-1 opacity-0"}`}
+            >
+              <div className="min-h-0 overflow-hidden">
+                <div className="space-y-2 pt-2">
+                  <Toggle
+                    label="Mostrar promoção no cardápio"
+                    checked={editing.show_on_menu}
+                    onChange={(value) =>
+                      setEditing({ ...editing, show_on_menu: value })
+                    }
+                  />
+                  {editing.show_on_menu && (
+                    <div className="pt-2 pb-3">
+                      <PromotionBanner
+                        promotion={editing}
+                        products={products}
+                      />
+                    </div>
+                  )}
+                  <Toggle
+                    label="Permitir acumular com cupom"
+                    checked={editing.allow_coupon}
+                    onChange={(value) =>
+                      setEditing({ ...editing, allow_coupon: value })
+                    }
+                  />
+                  <p className="text-xs leading-relaxed text-gray-500">
+                    Entre promoções automáticas, vale a de maior desconto. Se o
+                    cupom for melhor, ele é mantido. Percentuais são calculados
+                    sobre o saldo após os outros descontos. Horário de Brasília.
+                  </p>
+                  <div className="mt-4 border-t border-gray-200 pt-3">
+                    <h3 className="mb-2 font-semibold">Ativar para</h3>
+                    <Toggle
+                      label="Delivery"
+                      checked={editing.delivery}
+                      onChange={(value) =>
+                        setEditing({ ...editing, delivery: value })
+                      }
+                    />
+                    <p className="text-xs text-gray-500">
+                      Inclui retirada. Entrega grátis vale só para entrega.
+                    </p>
+                    <Toggle
+                      label="Mesa"
+                      checked={editing.mesa}
+                      onChange={(value) =>
+                        setEditing({ ...editing, mesa: value })
+                      }
+                    />
+                  </div>
+                </div>
               </div>
-            )}
-            <Toggle
-              label="Permitir acumular com cupom"
-              checked={editing.allow_coupon}
-              onChange={(value) =>
-                setEditing({ ...editing, allow_coupon: value })
-              }
-            />
-            <p className="text-xs leading-relaxed text-gray-500">
-              Entre promoções automáticas, vale a de maior desconto. Se o cupom
-              for melhor, ele é mantido. Percentuais são calculados sobre o
-              saldo após os outros descontos. Horário de Brasília.
-            </p>
-            <div className="mt-4 border-t border-gray-200 pt-3">
-              <h3 className="mb-2 font-semibold">Ativar para</h3>
-              <Toggle
-                label="Delivery"
-                checked={editing.delivery}
-                onChange={(value) =>
-                  setEditing({ ...editing, delivery: value })
-                }
-              />
-              <p className="text-xs text-gray-500">
-                Inclui retirada. Entrega grátis vale só para entrega.
-              </p>
-              <Toggle
-                label="Mesa"
-                checked={editing.mesa}
-                onChange={(value) => setEditing({ ...editing, mesa: value })}
-              />
             </div>
             <div className="border-t border-gray-200 pt-2">
               <Toggle
@@ -581,13 +618,19 @@ export default function AutomaticPromotionsPanel({
         </Button>
       </div>
       {!promotions.length && (
-        <Card className="border border-gray-200 !shadow-sm text-center">
-          <p className="font-medium">Nenhuma promoção criada.</p>
-          <p className="mt-1 text-sm text-gray-500">
-            Combine dias, valor do pedido e produtos com os benefícios que
-            quiser.
+        <div className="flex flex-col items-center justify-center px-4 py-8 text-center">
+          <img
+            src="/images/eyebrow_emoji.png"
+            alt="Nenhuma promoção"
+            className="mb-4 h-38 w-38"
+          />
+          <p className="font-medium text-gray-500">
+            Nenhuma promoção criada ainda.
           </p>
-        </Card>
+          <p className="mt-1 max-w-sm text-sm text-gray-500">
+            Crie regras e escolha os benefícios da sua primeira promoção.
+          </p>
+        </div>
       )}
       {promotions.map((p) => {
         const description = promotionDescription(p, products);
@@ -638,6 +681,7 @@ export default function AutomaticPromotionsPanel({
                   aria-label={`Editar ${p.name}`}
                   onClick={() => {
                     setError("");
+                    setAdvancedOptions(false);
                     setEditing(structuredClone(p));
                   }}
                   className="min-h-11 gap-2"
