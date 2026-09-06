@@ -120,7 +120,33 @@ describe("automatic promotion rules and totals", () => {
       calculate([p], { ...input, at: new Date("2026-09-07T15:00:00Z") })
         .promotion,
     ).toBeNull();
-    expect(calculate([p], { ...input, items: [cart[0]] }).promotion).toBeNull();
+    const withoutGiftInCart = calculate([p], { ...input, items: [cart[0]] });
+    expect(withoutGiftInCart.promotion?.id).toBe(p.id);
+    expect(withoutGiftInCart.free_products).toEqual([
+      { item_id: drink, name: "Suco", quantity: 1, unit_price_cents: 0 },
+    ]);
+  });
+  it("automatically applies and adds a missing free product after minimum spend", () => {
+    const p = offer(
+      [
+        { type: "weekdays", days: [6, 0] },
+        { type: "minimum", cents: 1000, comparison: "gte" },
+      ],
+      [{ type: "product", item_id: drink, quantity: 1 }],
+    );
+    const result = calculate([p], {
+      items: [item(burger, 1100)],
+      subtotal_cents: 1100,
+      at: new Date("2026-09-06T15:00:00Z"),
+    });
+    expect(result.promotion?.id).toBe(p.id);
+    expect(result.promotion?.benefits).toEqual([
+      { label: "1× Suco grátis", discount_cents: 0 },
+    ]);
+    expect(result.free_products).toEqual([
+      { item_id: drink, name: "Suco", quantity: 1, unit_price_cents: 1000 },
+    ]);
+    expect(result.total_cents).toBe(1900);
   });
   it("recognizes everyday free delivery even before a nonzero fee, without applying it to pickup or Mesa", () => {
     const p = offer([{ type: "weekdays", days: [0, 1, 2, 3, 4, 5, 6] }]);
@@ -260,12 +286,16 @@ describe("automatic promotion rules and totals", () => {
       { cart_index: 1, quantity: 1, discount_cents: 1000 },
     ]);
   });
-  it("requires additional free units when the purchased and free product match", () => {
+  it("automatically adds the additional free unit when purchased and free product match", () => {
     const p = offer(
       [{ type: "product", item_id: burger, quantity: 1 }],
       [{ type: "product", item_id: burger, quantity: 1 }],
     );
-    expect(calculate([p]).promotion).toBeNull();
+    const result = calculate([p]);
+    expect(result.promotion?.id).toBe(p.id);
+    expect(result.free_products).toEqual([
+      { item_id: burger, name: "Hambúrguer", quantity: 1, unit_price_cents: 5000 },
+    ]);
     expect(
       calculate([p], { items: [item(burger, 5000, 2)], subtotal_cents: 10_000 })
         .discount_cents,

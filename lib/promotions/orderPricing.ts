@@ -132,5 +132,20 @@ export async function automaticOrderPricing(
       items: input.items,
       subtotal_cents: input.subtotal_cents,
     };
-  return { result, items: pricedItems, subtotal_cents: subtotal };
+
+  const promotionGiftItems = (result.free_products || []).map((gift) => ({
+    base_item_id: gift.item_id,
+    name: gift.name,
+    qty: gift.quantity,
+    unit_price_cents: 0,
+    total_cents: 0,
+    selectedSubitems: [],
+    is_promotion_reward: true,
+  }));
+
+  return {
+    result,
+    items: [...pricedItems, ...promotionGiftItems],
+    subtotal_cents: subtotal,
+  };
 }
