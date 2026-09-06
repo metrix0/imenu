@@ -3,7 +3,7 @@
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
     faArrowRotateLeft,
-    faChair,
+    faBellConcierge,
     faCreditCard,
     faQrcode,
     faUsers,
@@ -26,15 +26,15 @@ type QrCodeMesaSalesModalProps = {
 const BENEFITS = [
     {
         icon: faQrcode,
-        title: "QR Code por mesa e universal",
-        description:
-            "Crie um QR para cada mesa e outro para o cliente escolher a mesa ao abrir.",
-    },
-    {
-        icon: faChair,
         title: "Sem limites de mesas",
         description:
             "Por apenas R$ 5,00 por mês, você cria mesas ilimitadas e QR Codes ilimitados.",
+    },
+    {
+        icon: faBellConcierge,
+        title: "Painel do Garçom",
+        description:
+            "Acompanhe os pedidos de cada mesa e adicione novos pedidos direto pelo painel do garçom.",
     },
     {
         icon: faUsers,
