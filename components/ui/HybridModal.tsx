@@ -23,7 +23,6 @@ export default function DraggableModal({
                                        }: DraggableModalProps) {
     const startY = useRef(0);
     const currentY = useRef(0);
-    const contentRef = useRef<HTMLDivElement>(null);
     const closingRef = useRef(false); // 🔥 prevents double-close
 
     const [translateY, setTranslateY] = useState(1000);
@@ -68,15 +67,6 @@ export default function DraggableModal({
 
     const onTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
         handleStart(e.touches[0].clientY);
-    };
-
-    const onPanelTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
-        const content = contentRef.current;
-        const canScroll = Boolean(content && content.scrollHeight > content.clientHeight + 1);
-
-        if (!canScroll) {
-            handleStart(e.touches[0].clientY);
-        }
     };
 
     // === Move ===
@@ -168,10 +158,9 @@ export default function DraggableModal({
             <div
                 {...props}
                 onClick={(e) => e.stopPropagation()}
-                onTouchStart={onPanelTouchStart}
                 className={`fixed left-0 right-0 mx-auto bg-white rounded-t-xl overflow-hidden ${props.className ?? ""}`}
                 style={{
-                    height: `${height * 100}svh`,
+                    height: `${height * 100}vh`,
                     bottom: 0,
                     transform: `translateY(${translateY}px)`,
                     transition: animating ? "transform 0.25s ease-out" : "none",
@@ -202,7 +191,6 @@ export default function DraggableModal({
                 )}
 
                 <div
-                    ref={contentRef}
                     className={`overflow-y-auto h-full pb-32 ${xPadding ? "px-4" : ""} ${contentClassName ?? ""}`}
                     style={{ overscrollBehaviorY: "contain" }}
                 >
