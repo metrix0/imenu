@@ -231,11 +231,6 @@ export default function PainelLayout({
             }
 
             const touch = event.touches[0];
-            if (!mobileMenuOpen && touch.clientX > 24) {
-                swipeStartRef.current = null;
-                return;
-            }
-
             swipeStartRef.current = { x: touch.clientX, y: touch.clientY };
         };
 
