@@ -37,28 +37,66 @@
     white-space: nowrap;
 }
 
-@media (min-width: 768px) {
-    #logos + div > div:last-child {
-        gap: 1.5rem !important;
-        max-height: 65svh;
-    }
-
+@media (min-width: 1536px) {
     #logos + div > div:last-child > button {
-        align-self: flex-start;
-        margin-bottom: 0 !important;
-        padding: 0.625rem 1.25rem !important;
-        font-size: 1rem !important;
-        line-height: 1.25rem !important;
-    }
-
-    #logos + div > div:last-child > button + button {
-        margin-top: -0.75rem;
+        padding: 0.75rem 1.5rem !important;
+        font-size: 1.125rem !important;
     }
 }
 
-@media (min-width: 1200px) and (max-width: 1600px) {
-    body:has(#logos) > div.w-full.max-w-screen {
-        width: 111.111111%;
-        zoom: 0.9;
+/* Laptop viewport only: keep the original layout/centering and only tame oversized 2xl typography/spacing. */
+@media (min-width: 1500px) and (max-width: 1560px) {
+    body:has(#logos) section:first-of-type h1 {
+        font-size: 3.6rem !important;
+    }
+
+    body:has(#logos) section:first-of-type h2,
+    body:has(#logos) section:first-of-type > div:first-child > div[class*="text-gray-500"] {
+        font-size: 1.25rem !important;
+    }
+
+    body:has(#logos) section:first-of-type [class~="2xl:text-[1.6rem]"] {
+        font-size: 1.45rem !important;
+    }
+
+    body:has(#logos) section:has(#logos) > h2 {
+        font-size: 2.9rem !important;
+    }
+
+    #logos + div > div:last-child {
+        gap: 1.5rem !important;
+    }
+
+    #logos + div > div:last-child h3 {
+        font-size: 1.35rem !important;
+    }
+
+    #logos + div > div:last-child p,
+    #logos + div > div:last-child > div > div {
+        font-size: 1.125rem !important;
+    }
+
+    #logos + div > div:last-child > button + button {
+        margin-top: -0.5rem;
+    }
+
+    body:has(#logos) #recursos > h2:first-of-type {
+        font-size: 2.9rem !important;
+    }
+
+    body:has(#logos) #recursos > h2:nth-of-type(2) {
+        font-size: 1.125rem !important;
+    }
+
+    body:has(#logos) #recursos table {
+        font-size: 1.25rem !important;
+    }
+
+    body:has(#logos) #recursos + section h2 {
+        font-size: 3.6rem !important;
+    }
+
+    body:has(#logos) #recursos + section p {
+        font-size: 1.35rem !important;
     }
 }
