@@ -23,6 +23,7 @@ export async function GET(
         id,
         status,
         subtotal_cents,
+        applied_promotion,
         delivery_cents,
         total_cents,
         delivery_eta,

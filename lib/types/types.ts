@@ -11,6 +11,7 @@ export interface Promotion {
 }
 
 export type Restaurant = {
+    automatic_promotions?: import("@/lib/promotions/automatic").AutomaticPromotion[];
     id: string;
     name: string;
     logo_url: string | null;

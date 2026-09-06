@@ -7,6 +7,8 @@ import HybridModal from "@/components/ui/HybridModal";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { icons } from "@/lib/utils/fontawesome";
 import { formatPrice } from "@/lib/utils/formatPrice";
+import PromotionSummary from "@/components/costumer/PromotionSummary";
+import { evaluateAutomaticPromotions, parseAutomaticPromotions, type AutomaticPromotion } from "@/lib/promotions/automatic";
 import Toast from "@/components/ui/Toast";
 
 type Category = {
@@ -88,6 +90,15 @@ export default function CreatePanelOrderModal({
     const [tables, setTables] = useState<RestaurantTable[]>([]);
     const [isLoadingMenu, setIsLoadingMenu] = useState(false);
 
+    const [automaticPromotions, setAutomaticPromotions] = useState<AutomaticPromotion[]>([]);
+    const [promotionLoadError, setPromotionLoadError] = useState(false);
+    const [promotionNow, setPromotionNow] = useState(new Date());
+    const [menuVersion, setMenuVersion] = useState(0);
+    useEffect(() => {
+        if (!isOpen || !automaticPromotions.length) return;
+        const timer = window.setInterval(() => setPromotionNow(new Date()), 30_000);
+        return () => window.clearInterval(timer);
+    }, [isOpen, automaticPromotions]);
     const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([]);
     const [subcategoriesByItemId, setSubcategoriesByItemId] = useState<Record<string, Subcategory[]>>({});
     const [loadingSubcategoriesByItemId, setLoadingSubcategoriesByItemId] = useState<Record<string, boolean>>({});
@@ -118,6 +129,7 @@ export default function CreatePanelOrderModal({
                 { data: categoriesData, error: categoriesError },
                 { data: itemsData, error: itemsError },
                 { data: tablesData, error: tablesError },
+                { data: promotionData, error: promotionError },
             ] = await Promise.all([
                 supabase
                     .from("categories")
@@ -136,6 +148,7 @@ export default function CreatePanelOrderModal({
                     .eq("restaurant_id", restaurantId)
                     .eq("is_active", true)
                     .order("position", { ascending: true }),
+                supabase.from("restaurants").select("automatic_promotions").eq("id", restaurantId).single(),
             ]);
 
             if (categoriesError) {
@@ -164,11 +177,14 @@ export default function CreatePanelOrderModal({
                 setTables((tablesData as RestaurantTable[]) || []);
             }
 
+            setPromotionLoadError(Boolean(promotionError));
+            setAutomaticPromotions(parseAutomaticPromotions(promotionData?.automatic_promotions));
+            setPromotionNow(new Date());
             setIsLoadingMenu(false);
         };
 
         loadMenu();
-    }, [isOpen, restaurantId]);
+    }, [isOpen, restaurantId, menuVersion]);
 
     useEffect(() => {
         if (!isOpen) return;
@@ -433,7 +449,12 @@ export default function CreatePanelOrderModal({
         [selectedTableId, tables]
     );
 
-    const totalCents = itemsTotalCents + (selectedTable ? 0 : deliveryFeeCents);
+    const promotionResult = automaticPromotions.length ? evaluateAutomaticPromotions(automaticPromotions, {
+        items: selectedItems, products: Object.values(itemsByCategory).flat(),
+        subtotal_cents: itemsTotalCents, delivery_cents: selectedTable ? 0 : deliveryFeeCents,
+        coupon_discount_cents: 0, channel: selectedTable ? "mesa" : "delivery", at: promotionNow,
+    }) : undefined;
+    const totalCents = promotionResult?.total_cents ?? itemsTotalCents + (selectedTable ? 0 : deliveryFeeCents);
 
     const selectedItemCount = useMemo(
         () => selectedItems.reduce((sum, item) => sum + item.qty, 0),
@@ -464,7 +485,7 @@ export default function CreatePanelOrderModal({
     }, [categories, itemsByCategory, menuSearch]);
 
     const handleSubmit = async () => {
-        if (!restaurantId) return;
+        if (!restaurantId || promotionLoadError || isLoadingMenu) return;
 
         if (!customerName.trim()) {
             setToast({
@@ -490,6 +511,7 @@ export default function CreatePanelOrderModal({
         try {
             const body = {
                 restaurantId,
+                expected_promotion: { id: promotionResult?.promotion?.id || null, total_cents: totalCents },
                 customer_name: customerName.trim(),
                 customer_phone: customerPhone?.trim() || null,
                 customer_address: selectedTable
@@ -525,6 +547,7 @@ export default function CreatePanelOrderModal({
             const data = await res.json();
 
             if (!res.ok) {
+                if (res.status === 409) setMenuVersion(v => v + 1);
                 console.error(data);
                 alert(data?.error || "Erro ao criar pedido.");
                 return;
@@ -1074,6 +1097,8 @@ export default function CreatePanelOrderModal({
                         </div>
 
                         <div className="shrink-0 border-t border-gray-200 bg-white px-4 py-4 md:px-6">
+                            <PromotionSummary promotion={promotionResult?.promotion} />
+                            {promotionLoadError && <p role="alert" className="mb-3 text-sm text-red-600">Não foi possível carregar as promoções. <button onClick={() => setMenuVersion(v => v + 1)} className="underline">Tentar novamente</button></p>}
                             <div className="flex items-center gap-4">
                                 <div className="min-w-0 flex-1">
                                     <div className="text-xs font-medium text-gray-500">Total do pedido</div>
@@ -1085,7 +1110,7 @@ export default function CreatePanelOrderModal({
                                 <Button
                                     onClick={() => void handleSubmit()}
                                     loading={isSubmitting}
-                                    disabled={selectedItems.length === 0}
+                                    disabled={selectedItems.length === 0 || promotionLoadError || isLoadingMenu}
                                     className="min-w-36 bg-brand text-white border-transparent hover:opacity-90 shadow-sm"
                                 >
                                     Criar pedido

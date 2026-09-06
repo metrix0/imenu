@@ -1,6 +1,9 @@
 // app/[slug]/CartModal.tsx
 "use client";
 
+import PromotionSummary from "@/components/costumer/PromotionSummary";
+import type { PromotionResult } from "@/lib/promotions/automatic";
+
 import { useEffect, useState, useRef } from "react";
 import { useCartStore } from "@/lib/stores/costumer/cartStore";
 import { useCheckoutStore } from "@/lib/stores/costumer/checkoutStore";
@@ -65,8 +68,9 @@ export default function CartModal({
                                        onClose,
                                        restaurant,
     selectedCouponCode, onSelectItem, tableOrder, selectedTableId,
-    selectedTableName, onTableChange
+    selectedTableName, onTableChange, promotionResult
                                    }: {
+    promotionResult?: PromotionResult;
     onClose: () => void;
     restaurant: any;
     step: "cart" | "info" | "checkout";
@@ -138,7 +142,8 @@ export default function CartModal({
     });
     const coupon_code = useCheckoutStore((s) => s.coupon_code);
     const coupon_type = useCheckoutStore((s) => s.coupon_type);
-    const coupon_discount_cents = useCheckoutStore((s) => s.coupon_discount_cents);
+    const storedCouponDiscount = useCheckoutStore((s) => s.coupon_discount_cents);
+    const coupon_discount_cents = promotionResult?.coupon_discount_cents ?? storedCouponDiscount;
     const scheduled_for = useCheckoutStore((s) => s.scheduled_for);
     const troco = useCheckoutStore((s: any) => String(s.troco ?? ""));
 
@@ -963,6 +968,7 @@ export default function CartModal({
                         </div>
                     ))}
 
+                    <PromotionSummary promotion={promotionResult?.promotion} />
                     <div className="mt-6 mb-20">
                         <button
                             onClick={closeWithAnimation}
@@ -1075,11 +1081,12 @@ export default function CartModal({
                                         )}
                                     </span>
                                 </div>
+                                <PromotionSummary promotion={promotionResult?.promotion} />
                                 <div className="mt-3 flex justify-between border-t border-gray-200 pt-3 text-lg font-bold text-gray-900 2xl:text-xl">
                                     <span>Total</span>
                                     <span>
                                         {formatPrice(
-                                            items.reduce(
+                                            promotionResult?.total_cents ?? items.reduce(
                                                 (total, item) =>
                                                     total +
                                                     (promotionPrice(item) ||
@@ -1424,7 +1431,7 @@ export default function CartModal({
                             Math.max(
                                 items.reduce((acc, i) => acc + (promotionPrice(i) || i.total_cents), 0) +
                                 (effectiveDeliveryFeeCents ?? 0) -
-                                (coupon_discount_cents ? Number(coupon_discount_cents) : 0),
+                                (coupon_discount_cents ? Number(coupon_discount_cents) : 0) - (promotionResult?.promotion?.discount_cents || 0),
                                 0
                             ) < 100 && (
                             <WarningBox
@@ -1487,6 +1494,8 @@ export default function CartModal({
                             </span>
                         </div>
 
+                        <PromotionSummary promotion={promotionResult?.promotion} />
+
                         { (coupon_code && coupon_discount_cents) && (
                         <div className="flex justify-between text-[15px] mb-2 2xl:text-lg border-t border-gray-200 pt-2">
                             <span>Cupom: {coupon_code}</span>
@@ -1505,7 +1514,7 @@ export default function CartModal({
                                         0
                                     ) /
                                     100 +
-                                    (((effectiveDeliveryFeeCents ?? 0) / 100)-(coupon_discount_cents ? coupon_discount_cents / 100 : 0))
+                                    (((effectiveDeliveryFeeCents ?? 0) / 100)-(coupon_discount_cents ? coupon_discount_cents / 100 : 0)) - (promotionResult?.promotion?.discount_cents || 0) / 100
                                 )
                                     .toFixed(2)
                                     .replace(".", ",")}

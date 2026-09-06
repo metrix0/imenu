@@ -12,6 +12,8 @@ import { useState } from "react";
 import {formatPrice, promotionPrice} from "@/lib/utils/formatPrice";
 import { captureConsumerEvent } from "@/lib/analytics/captureConsumerEvent";
 import { CONSUMER_EVENTS } from "@/lib/analytics/consumerEvents";
+import { useRouter } from "next/navigation";
+import type { PromotionResult } from "@/lib/promotions/automatic";
 import type { QrTableMenuContext } from "@/lib/qr-table/types";
 
 export default function CartBar({
@@ -20,7 +22,7 @@ export default function CartBar({
                                     restaurant,
                                     setCartOpenAction,
     closeItemModalOpen, trackMeta, slug, tableOrder, selectedTableId,
-    selectedTableName
+    selectedTableName, promotionResult
                                 }: {
     onOpenCartAction: () => void,
     cartOpen: boolean,
@@ -32,7 +34,9 @@ export default function CartBar({
     tableOrder?: QrTableMenuContext | null;
     selectedTableId?: string | null;
     selectedTableName?: string | null;
+    promotionResult?: PromotionResult;
 }) {
+    const router = useRouter();
     const items = useCartStore((s) => s.items);
 
     const step = useCheckoutStore((s) => s.step);
@@ -94,8 +98,8 @@ export default function CartBar({
             : "";
 
     const originalTotalCents = total + delivery_fee_cents;
-    const finalTotalCents = Math.max(originalTotalCents - discount_cents, 0);
-    const hasDiscount = discount_cents > 0;
+    const finalTotalCents = promotionResult?.total_cents ?? Math.max(originalTotalCents - discount_cents, 0);
+    const hasDiscount = (promotionResult?.discount_cents ?? discount_cents) > 0;
 
     const consumerProperties = () => {
         const currentItems = useCartStore.getState().items;
@@ -245,7 +249,8 @@ export default function CartBar({
             ? String((checkout as any).troco ?? "").replace(/^R\$\s*/i, "").trim()
             : "";
         const changeObservation = changeFor ? `Troco para: R$ ${changeFor}` : "";
-        const total_cents = subtotal_cents + delivery_fee_cents - discount_cents;
+        const currentPromotion = promotionResult;
+        const total_cents = currentPromotion?.total_cents ?? subtotal_cents + delivery_fee_cents - discount_cents;
 
         if (trackMeta && slug) {
             trackMeta?.(slug, "Purchase", {
@@ -258,6 +263,7 @@ export default function CartBar({
 
         const body = {
             restaurantId: restaurant.id,
+            expected_promotion: { id: currentPromotion?.promotion?.id || null, total_cents },
             customer_name: checkout.nome,
             customer_phone: isTableOrder ? null : checkout.celular,
             customer_address: pickup || isTableOrder
@@ -287,7 +293,8 @@ export default function CartBar({
                     total_cents: i.total_cents,
                     observation,
                     selectedSubitems: i.selectedSubitems,
-                    promotion: i.promotion
+                    promotion: i.promotion,
+                    is_reward: i.is_reward === true
                 };
             }),
             coupon_id: isTableOrder ? null : checkout.coupon_id || null,
@@ -308,12 +315,13 @@ export default function CartBar({
 
         if (!res.ok) {
             whatsappWindow?.close();
+            if (res.status === 409) router.refresh();
             window.alert(data?.error || "Não foi possível criar o pedido. Tente novamente.");
             return;
         }
 
         try {
-            if (!isTableOrder && checkout.coupon_id) {
+            if (!isTableOrder && checkout.coupon_id && (!currentPromotion?.promotion || currentPromotion.coupon_discount_cents > 0)) {
                 const couponUsage = {
                     coupon_id: checkout.coupon_id,
                     coupon_code: checkout.coupon_code,

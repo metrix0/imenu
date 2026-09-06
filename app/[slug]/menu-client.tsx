@@ -21,6 +21,8 @@ import Tabs from "@/components/ui/Tabs";
 import SearchModal from "./SearchModal";
 import HistoryModal from "@/components/costumer/HistoryModal";
 import type { QrTableMenuContext } from "@/lib/qr-table/types";
+import PromotionBanner from "@/components/costumer/PromotionBanner";
+import { evaluateAutomaticPromotions, parseAutomaticPromotions, promotionAvailable, promotionCartSubtotal } from "@/lib/promotions/automatic";
 import { parseNeighborhoodDeliveryRules } from "@/lib/delivery/neighborhood";
 
 
@@ -80,6 +82,32 @@ export default function MenuClientPage({
     const [selectedTableId, setSelectedTableId] = useState(
         tableOrder?.tableId || ""
     );
+    const promotionCart = useCartStore(s => s.items);
+    const promotionCheckout = useCheckoutStore(s => s);
+    const [promotionNow, setPromotionNow] = useState<Date | null>(null);
+    const automaticPromotions = parseAutomaticPromotions(restaurant.automatic_promotions);
+    const promotionProducts = Object.values(itemsByCategory).flat();
+    useEffect(() => {
+        if (!restaurant.automatic_promotions?.length) return;
+        const update = () => setPromotionNow(new Date());
+        update();
+        const timer = window.setInterval(update, 30_000);
+        window.addEventListener("focus", update);
+        return () => { window.clearInterval(timer); window.removeEventListener("focus", update); };
+    }, [restaurant.automatic_promotions]);
+    const promotionDate = !isTableOrder && promotionCheckout.scheduled_for ? new Date(promotionCheckout.scheduled_for) : promotionNow;
+    const promotionResult = automaticPromotions.length && promotionDate ? evaluateAutomaticPromotions(automaticPromotions, {
+        items: promotionCart, products: promotionProducts,
+        subtotal_cents: promotionCartSubtotal(promotionCart),
+        delivery_cents: Number(promotionCheckout.delivery_fee_cents) || 0,
+        coupon_discount_cents: Number(promotionCheckout.coupon_discount_cents) || 0,
+        coupon_type: promotionCheckout.coupon_type,
+        pickup: Boolean((promotionCheckout as any).is_pickup),
+        channel: isTableOrder ? "mesa" : "delivery", at: promotionDate,
+    }) : undefined;
+    const visiblePromotions = promotionDate ? automaticPromotions.filter(p => p.show_on_menu &&
+        promotionAvailable(p, isTableOrder ? "mesa" : "delivery", promotionDate) &&
+        [...p.rules, ...p.benefits].every(r => r.type !== "product" || promotionProducts.some(item => item.id === r.item_id && item.is_available))) : [];
     const selectedTable = tableOrder?.tables.find(
         (table) => table.id === selectedTableId
     );
@@ -764,7 +792,7 @@ export default function MenuClientPage({
                             </div>
                         )}
                         <div className={"hidden md:inline-block"}>
-                            {!isTableOrder && (coupon_code && coupon_type) && (
+                            {!isTableOrder && (!promotionResult?.promotion || promotionResult.coupon_discount_cents > 0) && (coupon_code && coupon_type) && (
                                 <div className="px-2.5 py-1.5 rounded-lg bg-brand/10 text-brand text-xs 2xl:text-sm font-normal">
                                     <FontAwesomeIcon icon={icons.faTicket} /> CUPOM {coupon_code} APLICADO - <b>{couponLabel()}</b>
                                 </div>
@@ -773,7 +801,7 @@ export default function MenuClientPage({
                     </div>
                 </div>
             </div>
-            {!isTableOrder && coupon_code && (
+            {!isTableOrder && (!promotionResult?.promotion || promotionResult.coupon_discount_cents > 0) && coupon_code && (
             <div className={"mt-6 -mb-4 mx-5 flex md:hidden justify-center"}>
                     <div className="px-2.5 py-1.5 rounded-lg bg-brand/10 text-brand text-xs 2xl:text-sm font-normal">
                         <FontAwesomeIcon icon={icons.faTicket} /> CUPOM {coupon_code} APLICADO - <b>{couponLabel()}</b>
@@ -951,6 +979,12 @@ export default function MenuClientPage({
                     </div>
                 )}
 
+                {!debouncedSearch && visiblePromotions.length > 0 && (
+                    <div className="space-y-3">
+                        {visiblePromotions.map(p => <PromotionBanner key={p.id} promotion={p} products={promotionProducts} />)}
+                    </div>
+                )}
+
                 {categories.filter(cat => filteredItemsByCat[cat.id]?.length > 0).map((cat) => (
                     <div key={cat.id}>
                     {cat.position === 1
@@ -1077,6 +1111,7 @@ export default function MenuClientPage({
                 : restaurant.allow_future_order_scheduling === true ||
                   (!closedForToday && (isRestaurantOpen || canScheduleToday))) && (
                 <CartBar
+                    promotionResult={promotionResult}
                     onOpenCartAction={() => {
                         if (!cartOpen) {
                             setCartOpen(true);
@@ -1100,6 +1135,7 @@ export default function MenuClientPage({
 
             {cartOpen && (
                 <CartModal
+                    promotionResult={promotionResult}
                     restaurant={restaurant}
                     onClose={() => {
                         setCartOpen(false);

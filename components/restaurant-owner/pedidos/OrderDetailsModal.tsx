@@ -9,6 +9,8 @@ import Modal from "@/components/ui/Modal";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import Button from "@/components/ui/Button";
 import ListLoader from "@/components/ui/ListLoader";
+import PromotionSummary from "@/components/costumer/PromotionSummary";
+import type { AppliedPromotion } from "@/lib/promotions/automatic";
 import { Order } from "./OrdersTable"; 
 
 interface OrderDetailsModalProps {
@@ -20,6 +22,7 @@ interface OrderDetailsModalProps {
 
 type OrderDetail = Omit<Order, "status"> & {
     status: Order["status"] | "paid";
+    applied_promotion?: AppliedPromotion | null;
     subtotal_cents: number;
     delivery_cents: number;
     coupon_discount_cents: number | null;
@@ -67,9 +70,9 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
             0
         )
         : 0;
-    const couponDiscountCents = storedCouponDiscountCents > 0
+    const couponDiscountCents = Math.max(0, (storedCouponDiscountCents > 0
         ? storedCouponDiscountCents
-        : derivedCouponDiscountCents;
+        : derivedCouponDiscountCents) - (details?.applied_promotion?.discount_cents || 0));
 
     const formatEtaRange = (iso: string | null | undefined) => {
         if (!iso) return null;
@@ -426,6 +429,7 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
                                                 <span>{fmtMoney(details.delivery_cents || 0)}</span>
                                             </div>
                                         )}
+                                        <PromotionSummary promotion={details.applied_promotion} />
                                         {!isTableOrder && couponDiscountCents > 0 && (
                                             <div className="flex justify-between text-sm 2xl:text-base text-gray-500">
                                                 <span>{details.coupon_code ? `Cupom: ${details.coupon_code}` : "Desconto"}</span>
