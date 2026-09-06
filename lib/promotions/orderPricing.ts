@@ -133,19 +133,35 @@ export async function automaticOrderPricing(
       subtotal_cents: input.subtotal_cents,
     };
 
-  const promotionGiftItems = (result.free_products || []).map((gift) => ({
-    base_item_id: gift.item_id,
-    name: gift.name,
-    qty: gift.quantity,
-    unit_price_cents: 0,
-    total_cents: 0,
-    selectedSubitems: [],
-    is_promotion_reward: true,
-  }));
+  if (result.free_products?.length) {
+    throw new PromotionPricingError(
+      "A promoção adicionou um item grátis. Confira a sacola antes de confirmar novamente.",
+    );
+  }
+
+  const finalItems = pricedItems.map((item, index) => {
+    if (!item.automatic_promotion_id) return item;
+    const freeItem = result.free_items?.find((entry) => entry.cart_index === index);
+    if (
+      item.automatic_promotion_id !== result.promotion?.id ||
+      !freeItem ||
+      freeItem.quantity !== item.qty
+    ) {
+      throw new PromotionPricingError(
+        "A promoção mudou. Atualize a sacola e confira os itens antes de confirmar novamente.",
+      );
+    }
+    return {
+      ...item,
+      unit_price_cents: 0,
+      total_cents: 0,
+      promotion: undefined,
+    };
+  });
 
   return {
     result,
-    items: [...pricedItems, ...promotionGiftItems],
-    subtotal_cents: subtotal,
+    items: finalItems,
+    subtotal_cents: promotionCartSubtotal(finalItems as PromotionCartItem[]),
   };
 }

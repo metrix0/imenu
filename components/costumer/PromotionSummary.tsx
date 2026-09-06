@@ -1,25 +1,30 @@
+"use client";
+
 import { formatPrice } from "@/lib/utils/formatPrice";
 import type { AppliedPromotion } from "@/lib/promotions/automatic";
+import { useCheckoutStore } from "@/lib/stores/costumer/checkoutStore";
 
 export default function PromotionSummary({
   promotion,
 }: {
   promotion?: AppliedPromotion | null;
 }) {
-  if (!promotion) return null;
+  const step = useCheckoutStore((state) => state.step);
+  if (!promotion || step !== "checkout") return null;
+
   return (
-    <div className="my-3 rounded-xl border border-green-200 bg-green-50 p-3 text-sm text-green-800">
-      <div className="flex items-start justify-between gap-3">
-        <span className="min-w-0 break-words font-semibold">
-          Promoção: {promotion.name}
-        </span>
-        <span className="shrink-0 font-semibold">
-          −{formatPrice(promotion.discount_cents)}
-        </span>
-      </div>
-      <p className="mt-1 text-xs leading-relaxed">
-        {promotion.benefits.map((b) => b.label).join(" · ")}
-      </p>
+    <div className="space-y-2 text-[15px] 2xl:text-lg">
+      {promotion.benefits.map((benefit, index) => {
+        const isFree = /grátis/i.test(benefit.label);
+        return (
+          <div key={`${benefit.label}-${index}`} className="flex justify-between gap-3">
+            <span>{benefit.label}</span>
+            <span>
+              {isFree ? "GRÁTIS" : `- ${formatPrice(benefit.discount_cents)}`}
+            </span>
+          </div>
+        );
+      })}
     </div>
   );
 }

@@ -8,7 +8,7 @@ import Button from "@/components/ui/Button";
 import Tooltip from "@/components/ui/Tooltip";
 import HybridModal from "@/components/ui/HybridModal";
 import { useCheckoutStore } from "@/lib/stores/costumer/checkoutStore";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {formatPrice, promotionPrice} from "@/lib/utils/formatPrice";
 import { captureConsumerEvent } from "@/lib/analytics/captureConsumerEvent";
 import { CONSUMER_EVENTS } from "@/lib/analytics/consumerEvents";
@@ -48,6 +48,72 @@ export default function CartBar({
     const isTableOrder = Boolean(tableOrder);
     const isPickup = Boolean((checkoutState as any).is_pickup);
     const isContinueBlocked = useCheckoutStore(state => state.isContinueBlocked);
+
+    useEffect(() => {
+        const promotionId = promotionResult?.promotion?.id || null;
+        const store = useCartStore.getState();
+
+        for (const item of store.items) {
+            if (item.automatic_promotion_id && item.automatic_promotion_id !== promotionId) {
+                store.removeItem(item.id);
+            }
+        }
+
+        if (!promotionId || !promotionResult?.free_products?.length) return;
+
+        const controller = new AbortController();
+        void (async () => {
+            for (const gift of promotionResult.free_products || []) {
+                const beforeFetch = useCartStore.getState().items;
+                const currentQuantity = beforeFetch
+                    .filter(
+                        (item) =>
+                            item.automatic_promotion_id === promotionId &&
+                            item.base_item_id === gift.item_id
+                    )
+                    .reduce((sum, item) => sum + item.qty, 0);
+                const targetQuantity = currentQuantity + gift.quantity;
+
+                try {
+                    const response = await fetch(`/api/items/${gift.item_id}`, {
+                        signal: controller.signal,
+                    });
+                    if (!response.ok || controller.signal.aborted) continue;
+                    const data = await response.json();
+                    const product = data?.item;
+                    if (!product?.id || product.is_available === false) continue;
+
+                    const latestQuantity = useCartStore.getState().items
+                        .filter(
+                            (item) =>
+                                item.automatic_promotion_id === promotionId &&
+                                item.base_item_id === gift.item_id
+                        )
+                        .reduce((sum, item) => sum + item.qty, 0);
+                    const missingQuantity = Math.max(0, targetQuantity - latestQuantity);
+                    if (!missingQuantity || controller.signal.aborted) continue;
+
+                    useCartStore.getState().addItem({
+                        id: crypto.randomUUID(),
+                        base_item_id: product.id,
+                        name: product.name,
+                        image: product.image_public_url || "",
+                        qty: missingQuantity,
+                        unit_price_cents: Number(product.price_cents) || 0,
+                        total_cents: 0,
+                        selectedSubitems: [],
+                        automatic_promotion_id: promotionId,
+                    });
+                } catch (error: any) {
+                    if (error?.name !== "AbortError") {
+                        console.error("[AUTOMATIC_PROMOTION] Failed to add free item:", error);
+                    }
+                }
+            }
+        })();
+
+        return () => controller.abort();
+    }, [promotionResult?.promotion?.id, promotionResult?.free_products]);
 
     if (items.length === 0) return null;
 
@@ -294,7 +360,8 @@ export default function CartBar({
                     observation,
                     selectedSubitems: i.selectedSubitems,
                     promotion: i.promotion,
-                    is_reward: i.is_reward === true
+                    is_reward: i.is_reward === true,
+                    automatic_promotion_id: i.automatic_promotion_id,
                 };
             }),
             coupon_id: isTableOrder ? null : checkout.coupon_id || null,

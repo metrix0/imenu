@@ -29,6 +29,7 @@ export type PromotionCartItem = {
   unit_price_cents: number;
   total_cents: number;
   is_reward?: boolean;
+  automatic_promotion_id?: string;
   promotion?: any;
   selectedSubitems?: { price_cents: number; quantity?: number }[];
 };
@@ -244,7 +245,14 @@ export function evaluateAutomaticPromotions(
     at?: Date;
   },
 ): PromotionResult {
-  const subtotal = Math.max(0, Math.round(input.subtotal_cents));
+  const rawSubtotal = Math.max(0, Math.round(input.subtotal_cents));
+  const automaticGiftChargedSubtotal = input.items
+    .filter((item) => Boolean(item.automatic_promotion_id))
+    .reduce(
+      (sum, item) => sum + Math.max(0, promotionPrice(item) || item.total_cents),
+      0,
+    );
+  const subtotal = Math.max(0, rawSubtotal - automaticGiftChargedSubtotal);
   const delivery =
     input.channel === "mesa" || input.pickup
       ? 0
@@ -263,41 +271,58 @@ export function evaluateAutomaticPromotions(
     discount_cents: coupon,
     total_cents: Math.max(0, subtotal + delivery - coupon),
   };
-  if (!input.items.some((i) => !i.is_reward && i.qty > 0)) return best;
+  let bestValue = coupon;
+  if (
+    !input.items.some(
+      (item) =>
+        !item.is_reward && !item.automatic_promotion_id && item.qty > 0,
+    )
+  )
+    return best;
 
   for (const p of promotions) {
     if (!promotionAvailable(p, input.channel, input.at)) continue;
-    const paidItems = input.items.filter((i) => !i.is_reward);
+
+    const paidItems = input.items.filter(
+      (item) => !item.is_reward && !item.automatic_promotion_id,
+    );
+    const automaticGiftItems = input.items.filter(
+      (item) =>
+        !item.is_reward && item.automatic_promotion_id === p.id && item.qty > 0,
+    );
+
     const quantities = new Map<string, number>();
-    for (const item of paidItems)
-      quantities.set(
-        item.base_item_id || (item as any).item_id || (item as any).id,
-        (quantities.get(item.base_item_id || (item as any).item_id || (item as any).id) || 0) + item.qty,
-      );
+    for (const item of paidItems) {
+      const itemId = item.base_item_id || (item as any).item_id || (item as any).id;
+      quantities.set(itemId, (quantities.get(itemId) || 0) + item.qty);
+    }
+
     const required = new Map<string, number>();
-    for (const rule of p.rules)
-      if (rule.type === "product")
+    for (const rule of p.rules) {
+      if (rule.type === "product") {
         required.set(
           rule.item_id,
           (required.get(rule.item_id) || 0) + rule.quantity,
         );
+      }
+    }
+
     if (
       [...required].some(
         ([id, qty]) =>
           (quantities.get(id) || 0) < qty ||
-          !input.products.some((p) => p.id === id && p.is_available),
+          !input.products.some((product) => product.id === id && product.is_available),
       )
     )
       continue;
 
-    const qualifyingSubtotal = subtotal;
     if (
       p.rules.some(
-        (r) =>
-          r.type === "minimum" &&
-          (r.comparison === "gt"
-            ? qualifyingSubtotal <= r.cents
-            : qualifyingSubtotal < r.cents),
+        (rule) =>
+          rule.type === "minimum" &&
+          (rule.comparison === "gt"
+            ? subtotal <= rule.cents
+            : subtotal < rule.cents),
       )
     )
       continue;
@@ -315,88 +340,39 @@ export function evaluateAutomaticPromotions(
       0,
       delivery - (appliedCoupon - couponFromGoods),
     );
-    // Allocate free units across real cart lines. If the configured free product
-    // is not in the cart yet, keep it as an automatic gift to append at checkout.
-    const reserved = new Map(required);
-    const freeUnits = paidItems.map((item) => {
-      const product = input.products.find(
-        (p) => p.id === (item.base_item_id || (item as any).item_id || (item as any).id) && p.is_available,
-      );
-      const itemId = item.base_item_id || (item as any).item_id || (item as any).id;
-      const skip = Math.min(item.qty, reserved.get(itemId) || 0);
-      reserved.set(
-        itemId,
-        (reserved.get(itemId) || 0) - skip,
-      );
-      const lineTotal = Math.max(0, promotionPrice(item) || item.total_cents);
-      const baseTotal =
-        product && item.unit_price_cents > 0
-          ? Math.min(
-              lineTotal,
-              Math.round(
-                (lineTotal * product.price_cents) / item.unit_price_cents,
-              ),
-            )
-          : 0;
-      return {
-        cart_index: input.items.indexOf(item),
-        item_id: itemId,
-        quantity: item.qty - skip,
-        baseUnit: baseTotal / item.qty,
-      };
-    });
+    let giftValueForSelection = 0;
+
+    const giftUnits = automaticGiftItems.map((item) => ({
+      cart_index: input.items.indexOf(item),
+      item_id: item.base_item_id || (item as any).item_id || (item as any).id,
+      quantity: item.qty,
+      unit_price_cents: item.unit_price_cents,
+    }));
+
     for (const benefit of p.benefits) {
       if (benefit.type !== "product") continue;
       const product = input.products.find(
-        (i) => i.id === benefit.item_id && i.is_available,
+        (item) => item.id === benefit.item_id && item.is_available,
       );
       if (!product) continue;
+
       let quantity = 0;
-      let rawValue = 0;
-      const allocations: {
-        cart_index: number;
-        quantity: number;
-        rawValue: number;
-      }[] = [];
-      for (const line of freeUnits) {
-        if (line.item_id !== product.id) continue;
+      for (const line of giftUnits) {
+        if (line.item_id !== product.id || quantity >= benefit.quantity) continue;
         const take = Math.min(benefit.quantity - quantity, line.quantity);
+        if (take <= 0) continue;
         line.quantity -= take;
         quantity += take;
-        rawValue += line.baseUnit * take;
-        if (take > 0)
-          allocations.push({
-            cart_index: line.cart_index,
-            quantity: take,
-            rawValue: line.baseUnit * take,
-          });
-      }
-      const value = Math.min(remainingSubtotal, Math.round(rawValue));
-      if (quantity > 0 && (value > 0 || rawValue === 0)) {
-        let allocated = 0;
-        let cumulativeValue = 0;
-        for (const allocation of allocations) {
-          cumulativeValue += allocation.rawValue;
-          const discount = Math.max(
+        freeItems.push({
+          cart_index: line.cart_index,
+          quantity: take,
+          discount_cents: Math.max(
             0,
-            Math.min(value, Math.round(cumulativeValue)) - allocated,
-          );
-          allocated += discount;
-          if (!discount && allocation.rawValue > 0) continue;
-          const existing = freeItems.find(
-            (item) => item.cart_index === allocation.cart_index,
-          );
-          if (existing) {
-            existing.quantity += allocation.quantity;
-            existing.discount_cents += discount;
-          } else
-            freeItems.push({
-              cart_index: allocation.cart_index,
-              quantity: allocation.quantity,
-              discount_cents: discount,
-            });
-        }
+            Math.round((line.unit_price_cents || product.price_cents) * take),
+          ),
+        });
       }
+
       const missingQuantity = Math.max(0, benefit.quantity - quantity);
       if (missingQuantity > 0) {
         freeProducts.push({
@@ -407,19 +383,21 @@ export function evaluateAutomaticPromotions(
         });
         quantity += missingQuantity;
       }
+
       if (quantity <= 0) continue;
-      remainingSubtotal -= value;
+      giftValueForSelection += Math.max(0, product.price_cents * benefit.quantity);
       applied.push({
-        label: `${quantity}× ${product.name} grátis`,
-        discount_cents: value,
+        label: `${benefit.quantity}× ${product.name} grátis`,
+        discount_cents: 0,
       });
     }
 
     const monetaryBenefits = [
-      ...p.benefits.filter((b) => b.type === "fixed"),
-      ...p.benefits.filter((b) => b.type === "percent"),
-      ...p.benefits.filter((b) => b.type === "delivery"),
+      ...p.benefits.filter((benefit) => benefit.type === "fixed"),
+      ...p.benefits.filter((benefit) => benefit.type === "percent"),
+      ...p.benefits.filter((benefit) => benefit.type === "delivery"),
     ];
+
     for (const benefit of monetaryBenefits) {
       let value = 0;
       let label = "";
@@ -446,24 +424,26 @@ export function evaluateAutomaticPromotions(
         (benefit.type === "delivery" &&
           input.channel === "delivery" &&
           !input.pickup &&
-          !applied.some((b) => b.label === label))
+          !applied.some((entry) => entry.label === label))
       )
         applied.push({ label, discount_cents: value });
     }
+
     const promoDiscount = Math.min(
-      applied.reduce((sum, b) => sum + b.discount_cents, 0),
+      applied.reduce((sum, benefit) => sum + benefit.discount_cents, 0),
       Math.max(0, subtotal + delivery - appliedCoupon),
     );
     const discount = appliedCoupon + promoDiscount;
-    // A free product or delivery can already cost zero. It still applies,
-    // but must never replace a better coupon or another automatic promotion.
+    const selectionValue = discount + giftValueForSelection;
+
     if (
       applied.length > 0 &&
-      (discount > best.discount_cents ||
-        (discount === best.discount_cents &&
+      (selectionValue > bestValue ||
+        (selectionValue === bestValue &&
           !best.promotion &&
           (coupon === 0 || p.allow_coupon)))
-    )
+    ) {
+      bestValue = selectionValue;
       best = {
         promotion: {
           id: p.id,
@@ -477,6 +457,8 @@ export function evaluateAutomaticPromotions(
         ...(freeItems.length ? { free_items: freeItems } : {}),
         ...(freeProducts.length ? { free_products: freeProducts } : {}),
       };
+    }
   }
+
   return best;
 }

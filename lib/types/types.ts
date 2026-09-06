@@ -101,6 +101,7 @@ export type CartItem = {
     total_cents: number;
     observation?: string;
     is_reward?: boolean;
+    automatic_promotion_id?: string;
     selectedSubitems: {
         subcategoryId: string;
         subcategoryName: string;
