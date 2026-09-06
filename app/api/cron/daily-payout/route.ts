@@ -24,7 +24,7 @@ export const maxDuration = 60;
 
 const BUSINESS_TIME_ZONE = "America/Sao_Paulo";
 
-type AutomationStep = "payzu" | "adjustment" | "comparison" | "payout";
+type AutomationStep = "preflight" | "payzu" | "adjustment" | "comparison" | "payout";
 
 function getBusinessDate(date: Date): string {
     const parts = new Intl.DateTimeFormat("en-US", {
@@ -66,7 +66,7 @@ async function notifyPayoutAlarm({
     step,
     message,
 }: {
-    runId: string;
+    runId?: string;
     runDate: string;
     status: string;
     step: AutomationStep;
@@ -96,7 +96,7 @@ async function notifyPayoutAlarm({
                 `Status: ${status}`,
                 `Etapa: ${step}`,
                 `Motivo: ${message}`,
-                `Run: ${runId}`,
+                `Run: ${runId || "não iniciado"}`,
             ].join("\n"),
             cache: "no-store",
         });
@@ -139,11 +139,25 @@ async function markRunFailed(
 }
 
 export async function GET(request: Request) {
+    const preflightRunDate = getBusinessDate(new Date());
+
     if (process.env.PAYOUT_CRON_ENABLED !== "true") {
+        await notifyPayoutAlarm({
+            runDate: preflightRunDate,
+            status: "blocked",
+            step: "preflight",
+            message: "Cron desativado: PAYOUT_CRON_ENABLED não está definido como true.",
+        });
         return NextResponse.json({ error: "Cron desativado." }, { status: 403 });
     }
 
     if (!isAuthorized(request)) {
+        await notifyPayoutAlarm({
+            runDate: preflightRunDate,
+            status: "failed",
+            step: "preflight",
+            message: "Falha de autorização do cron.",
+        });
         return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
     }
 
