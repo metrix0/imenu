@@ -1,5 +1,6 @@
 import {
     calculateOnePercentPayout,
+    getMaxPayoutDifferenceCents,
     isSafePayoutDifference,
 } from "./payoutSafety";
 
@@ -14,14 +15,20 @@ describe("payout safety", () => {
     it.each([-300, -1, 0, 1_000])(
         "accepts the inclusive safe difference %i cents",
         (differenceCents) => {
-            expect(isSafePayoutDifference(differenceCents)).toBe(true);
+            expect(isSafePayoutDifference(differenceCents, 100_000)).toBe(true);
         }
     );
 
     it.each([-301, 1_001])(
         "blocks the out-of-range difference %i cents",
         (differenceCents) => {
-            expect(isSafePayoutDifference(differenceCents)).toBe(false);
+            expect(isSafePayoutDifference(differenceCents, 100_000)).toBe(false);
         }
     );
+
+    it("uses one percent of the total payout as the positive limit", () => {
+        expect(getMaxPayoutDifferenceCents(250_000)).toBe(2_500);
+        expect(isSafePayoutDifference(2_500, 250_000)).toBe(true);
+        expect(isSafePayoutDifference(2_501, 250_000)).toBe(false);
+    });
 });
