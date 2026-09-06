@@ -265,8 +265,8 @@ export function evaluateAutomaticPromotions(
     const quantities = new Map<string, number>();
     for (const item of paidItems)
       quantities.set(
-        item.base_item_id || (item as any).item_id,
-        (quantities.get(item.base_item_id || (item as any).item_id) || 0) + item.qty,
+        item.base_item_id || (item as any).item_id || (item as any).id,
+        (quantities.get(item.base_item_id || (item as any).item_id || (item as any).id) || 0) + item.qty,
       );
     const required = new Map<string, number>();
     for (const rule of p.rules)
@@ -302,9 +302,9 @@ export function evaluateAutomaticPromotions(
     const reserved = new Map(required);
     const freeUnits = paidItems.map((item) => {
       const product = input.products.find(
-        (p) => p.id === (item.base_item_id || (item as any).item_id) && p.is_available,
+        (p) => p.id === (item.base_item_id || (item as any).item_id || (item as any).id) && p.is_available,
       );
-      const itemId = item.base_item_id || (item as any).item_id;
+      const itemId = item.base_item_id || (item as any).item_id || (item as any).id;
       const skip = Math.min(item.qty, reserved.get(itemId) || 0);
       reserved.set(
         itemId,

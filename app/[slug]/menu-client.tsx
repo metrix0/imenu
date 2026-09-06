@@ -95,8 +95,8 @@ export default function MenuClientPage({
         window.addEventListener("focus", update);
         return () => { window.clearInterval(timer); window.removeEventListener("focus", update); };
     }, [restaurant.automatic_promotions]);
-    const promotionDate = !isTableOrder && promotionCheckout.scheduled_for ? new Date(promotionCheckout.scheduled_for) : (promotionNow || new Date());
-    const promotionResult = automaticPromotions.length ? evaluateAutomaticPromotions(automaticPromotions, {
+    const promotionDate = !isTableOrder && promotionCheckout.scheduled_for ? new Date(promotionCheckout.scheduled_for) : promotionNow;
+    const promotionResult = automaticPromotions.length && promotionDate ? evaluateAutomaticPromotions(automaticPromotions, {
         items: promotionCart, products: promotionProducts,
         subtotal_cents: promotionCartSubtotal(promotionCart),
         delivery_cents: Number(promotionCheckout.delivery_fee_cents) || 0,
