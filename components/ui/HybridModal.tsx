@@ -158,7 +158,7 @@ export default function DraggableModal({
                     </Modal>
             :
         <div
-            className={`fixed inset-0 z-[51] transition-opacity duration-300 ${
+            className={`fixed inset-0 ${height <= 0.3 ? "z-[70]" : "z-[51]"} transition-opacity duration-300 ${
                 open ? "opacity-100" : "opacity-0 pointer-events-none"
             }`}
             style={{ background: "rgba(0,0,0,0.35)", overscrollBehavior: "none" }}
