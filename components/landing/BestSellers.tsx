@@ -115,12 +115,16 @@ export default function BestSellers() {
                     </div>
                 )}
 
-                <div className="grid overflow-hidden rounded-2xl border border-gray-200 bg-white md:grid-cols-3 md:divide-x md:divide-gray-200">
-                    {restaurants.map((restaurant) => (
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-3 2xl:gap-6">
+                    {restaurants.map((restaurant, index) => (
                         <article
                             key={restaurant.id}
-                            className="flex min-w-0 items-center gap-4 border-t border-gray-200 p-5 first:border-t-0 md:flex-col md:border-t-0 md:p-6 md:text-center 2xl:p-7"
+                            className="grid min-w-0 grid-cols-[auto_auto_minmax(0,1fr)] items-center gap-4 rounded-3xl border border-gray-100 bg-white p-5 shadow-[0_8px_24px_-16px_rgba(0,0,0,0.25)] md:flex md:flex-col md:text-center 2xl:p-7"
                         >
+                            <span className="text-xl font-extrabold tracking-tight text-brand 2xl:text-2xl">
+                                {index + 1}º
+                            </span>
+
                             <div className="h-16 w-16 shrink-0 overflow-hidden rounded-2xl border border-gray-200 bg-white 2xl:h-20 2xl:w-20">
                                 {restaurant.logo_url ? (
                                     <img
@@ -136,7 +140,7 @@ export default function BestSellers() {
                                 )}
                             </div>
 
-                            <div className="min-w-0 flex-1 md:flex-none">
+                            <div className="min-w-0 md:flex-none">
                                 <h3 className="truncate text-lg font-bold tracking-tight text-gray-900 2xl:text-xl">
                                     {restaurant.name}
                                 </h3>
@@ -145,7 +149,7 @@ export default function BestSellers() {
                             <Button
                                 variant="primary"
                                 onClick={() => router.push(`/${restaurant.url_slug}`)}
-                                className="shrink-0 whitespace-nowrap px-4 py-2 md:mt-auto"
+                                className="col-span-3 w-full whitespace-nowrap px-4 py-2 md:mt-auto md:w-auto"
                             >
                                 Ver cardápio
                             </Button>

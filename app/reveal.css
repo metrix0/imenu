@@ -37,9 +37,28 @@
     white-space: nowrap;
 }
 
-@media (min-width: 1536px) {
+@media (min-width: 768px) {
+    #logos + div > div:last-child {
+        gap: 1.5rem !important;
+        max-height: 65svh;
+    }
+
     #logos + div > div:last-child > button {
-        padding: 0.75rem 1.5rem !important;
-        font-size: 1.125rem !important;
+        align-self: flex-start;
+        margin-bottom: 0 !important;
+        padding: 0.625rem 1.25rem !important;
+        font-size: 1rem !important;
+        line-height: 1.25rem !important;
+    }
+
+    #logos + div > div:last-child > button + button {
+        margin-top: -0.75rem;
+    }
+}
+
+@media (min-width: 1200px) and (max-width: 1600px) {
+    body:has(#logos) > div.w-full.max-w-screen {
+        width: 111.111111%;
+        zoom: 0.9;
     }
 }
