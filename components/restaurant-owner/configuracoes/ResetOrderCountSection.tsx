@@ -94,7 +94,7 @@ export default function ResetOrderCountSection({ restaurantId }: Props) {
                 <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
                     <div>
                         <h2 className="mb-2 text-xl font-medium text-gray-900">
-                            Numeração dos pedidos
+                            Reiniciar numeração dos pedidos
                         </h2>
                         <p className="text-sm text-gray-500">
                             Reinicie a numeração exibida nos pedidos. O próximo pedido será #1.
