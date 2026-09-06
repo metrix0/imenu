@@ -69,6 +69,15 @@ export default function DraggableModal({
         handleStart(e.touches[0].clientY);
     };
 
+    const onPanelTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+        const touch = e.touches[0];
+        const panelTop = e.currentTarget.getBoundingClientRect().top;
+
+        if (touch.clientY - panelTop <= 28) {
+            handleStart(touch.clientY);
+        }
+    };
+
     // === Move ===
     const onMove = (e: MouseEvent | TouchEvent) => {
         const y = "touches" in e ? e.touches[0].clientY : e.clientY;
@@ -158,9 +167,10 @@ export default function DraggableModal({
             <div
                 {...props}
                 onClick={(e) => e.stopPropagation()}
+                onTouchStart={onPanelTouchStart}
                 className={`fixed left-0 right-0 mx-auto bg-white rounded-t-xl overflow-hidden ${props.className ?? ""}`}
                 style={{
-                    height: `${height * 100}vh`,
+                    height: `${height * 100}dvh`,
                     bottom: 0,
                     transform: `translateY(${translateY}px)`,
                     transition: animating ? "transform 0.25s ease-out" : "none",
