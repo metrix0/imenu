@@ -130,8 +130,8 @@ export default function PreparationTimeCard({
                 </div>
 
                 <p className="mb-5 text-sm text-gray-500">
-                    Defina a estimativa exibida aos clientes. As alterações são
-                    salvas automaticamente.
+                    Defina a estimativa exibida aos clientes. A diferença deve
+                    ser de pelo menos 20 minutos.
                 </p>
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -149,14 +149,11 @@ export default function PreparationTimeCard({
                     />
                 </div>
 
-                <p
-                    className={`mt-2 text-xs ${
-                        validationMessage ? "text-red-600" : "text-gray-500"
-                    }`}
-                >
-                    {validationMessage ||
-                        "A diferença deve ser de pelo menos 20 minutos."}
-                </p>
+                {validationMessage && (
+                    <p className="mt-2 text-xs text-red-600">
+                        {validationMessage}
+                    </p>
+                )}
             </Card>
 
             {toast && (

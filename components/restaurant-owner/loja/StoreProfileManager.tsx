@@ -14,7 +14,6 @@ import Toast from "@/components/ui/Toast";
 import Input from "@/components/ui/Input";
 import Dropdown from "@/components/ui/Dropdown";
 import Tooltip from "@/components/ui/Tooltip";
-import WarningBox from "@/components/ui/WarningBox";
 import StoreVisuals from "./StoreVisuals";
 import CustomDomainModal from "./CustomDomainModal";
 
@@ -259,7 +258,7 @@ export default function StoreProfileManager({
 
     return (
         <div className="space-y-8">
-            <div className="flex items-end justify-between gap-4 px-2">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                 <div>
                     <h1 className="text-3xl font-bold text-gray-900">
                         Perfil da Loja
@@ -268,7 +267,7 @@ export default function StoreProfileManager({
                         Como seu restaurante aparece para os clientes.
                     </p>
                 </div>
-                <div className="h-6 text-sm font-medium">
+                <div className="shrink-0 text-sm font-medium">
                     {isSaving ? (
                         <span className="animate-pulse text-brand">Salvando...</span>
                     ) : (
@@ -277,7 +276,7 @@ export default function StoreProfileManager({
                 </div>
             </div>
 
-            <Card className="overflow-visible border border-gray-200 px-4 pb-8 shadow-sm">
+            <Card className="overflow-visible">
                 <StoreVisuals
                     restaurantId={restaurant.id}
                     logoUrl={logoUrl}
@@ -295,55 +294,56 @@ export default function StoreProfileManager({
                         onChange={(event) => setName(event.target.value)}
                         onBlur={() => void saveFields({ name: name.trim() })}
                         placeholder="Ex: Burger King"
-                        className="text-lg font-medium"
+                        className="font-medium"
                     />
 
-                    <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                        <div className="relative z-10 flex min-w-0 flex-col gap-1">
-                            <div className="text-xs font-medium 2xl:text-base">
-                                Tipo da chave PIX
-                            </div>
-                            <Dropdown
-                                options={[
-                                    { value: "", label: "Definir tipo de chave" },
-                                    { value: "AUTO", label: "Detectar automaticamente" },
-                                    { value: "CPF", label: "CPF" },
-                                    { value: "CNPJ", label: "CNPJ" },
-                                    { value: "EMAIL", label: "E-mail" },
-                                    { value: "PHONE", label: "Telefone" },
-                                    { value: "EVP", label: "Chave aleatória" },
-                                ]}
-                                value={paymentInfoType}
-                                onChange={(event) => {
-                                    const nextType = event.target.value;
-                                    if (nextType === "AUTO" && paymentInfo.trim()) {
-                                        const detectedType = inferPixKeyType(paymentInfo);
-                                        if (detectedType) {
-                                            setPaymentInfoType(detectedType);
-                                            void saveFields({ payment_info_type: detectedType });
-                                        } else {
-                                            setPaymentInfoType("");
-                                            void saveFields({ payment_info_type: null });
-                                        }
-                                        return;
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                        <Dropdown
+                            label="Tipo da chave PIX"
+                            options={[
+                                { value: "", label: "Definir tipo de chave" },
+                                { value: "AUTO", label: "Detectar automaticamente" },
+                                { value: "CPF", label: "CPF" },
+                                { value: "CNPJ", label: "CNPJ" },
+                                { value: "EMAIL", label: "E-mail" },
+                                { value: "PHONE", label: "Telefone" },
+                                { value: "EVP", label: "Chave aleatória" },
+                            ]}
+                            value={paymentInfoType}
+                            onChange={(event) => {
+                                const nextType = event.target.value;
+                                if (nextType === "AUTO" && paymentInfo.trim()) {
+                                    const detectedType = inferPixKeyType(paymentInfo);
+                                    if (detectedType) {
+                                        setPaymentInfoType(detectedType);
+                                        void saveFields({ payment_info_type: detectedType });
+                                    } else {
+                                        setPaymentInfoType("");
+                                        void saveFields({ payment_info_type: null });
                                     }
+                                    return;
+                                }
 
-                                    setPaymentInfoType(nextType);
-                                    void saveFields({
-                                        payment_info_type:
-                                            nextType === "AUTO" || !nextType
-                                                ? null
-                                                : nextType,
-                                    });
-                                }}
-                            />
-                        </div>
+                                setPaymentInfoType(nextType);
+                                void saveFields({
+                                    payment_info_type:
+                                        nextType === "AUTO" || !nextType
+                                            ? null
+                                            : nextType,
+                                });
+                            }}
+                        />
 
-                        <div className="flex min-w-0 flex-col gap-1">
-                            <div className={`flex items-center gap-2 text-xs font-medium 2xl:text-base ${needsPixType ? "text-red-600" : ""}`}>
+                        <div data-ui="field" className="min-w-0">
+                            <div
+                                data-ui="field-label"
+                                className={`flex items-center gap-2 ${
+                                    needsPixType ? "text-red-600" : ""
+                                }`}
+                            >
                                 <span>Chave Pix para Repasse</span>
                                 <Tooltip
-                                    text="Repasses são apenas para clientes que pagaram com Pix Online. Repasses diários às 12:00 no PIX cadastrado."
+                                    text="Repasses do Pix Online são enviados diariamente às 12:00 para esta chave."
                                     size="medium"
                                     showOnClick
                                 >
@@ -360,7 +360,11 @@ export default function StoreProfileManager({
                                     setPaymentInfo(event.target.value)
                                 }
                                 onBlur={() => void savePaymentInfo()}
-                                className={needsPixType ? "border-red-400 focus:border-red-500 focus:ring-red-100" : ""}
+                                className={
+                                    needsPixType
+                                        ? "border-red-400 focus:border-red-500 focus:ring-red-100"
+                                        : ""
+                                }
                             />
                             {needsPixType && (
                                 <p className="text-xs font-medium text-red-600">
@@ -370,7 +374,7 @@ export default function StoreProfileManager({
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)_auto] md:gap-4">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)_auto] md:items-end">
                         <Input
                             label="WhatsApp da loja"
                             placeholder="(00) 00000-0000"
@@ -392,7 +396,7 @@ export default function StoreProfileManager({
                         {customDomain && customDomainVerified ? (
                             <Input
                                 label="Link do cardápio"
-                                value={customDomain}
+                                value={`https://${customDomain}`}
                                 readOnly
                                 locked
                                 iconPosition="right"
@@ -409,27 +413,37 @@ export default function StoreProfileManager({
                                 }
                             />
                         ) : (
-                            <div className="min-w-0">
-                                <Input
-                                    label="Link do cardápio"
-                                    value={urlSlug}
-                                    placeholder="nome-da-loja"
-                                    onChange={(event) =>
-                                        setUrlSlug(sanitizeSlug(event.target.value))
-                                    }
-                                    onBlur={saveSlug}
-                                    autoComplete="off"
-                                />
-                                <div className="mt-1 flex min-w-0 items-center gap-2 text-xs text-gray-500">
-                                    <span className="min-w-0 break-all">
-                                        imenuapp.com.br/{urlSlug || "nome-da-loja"}
+                            <div data-ui="field" className="min-w-0">
+                                <label
+                                    data-ui="field-label"
+                                    htmlFor={`menu-link-${restaurant.id}`}
+                                >
+                                    Link do cardápio
+                                </label>
+                                <div className="flex h-11 min-w-0 overflow-hidden rounded-lg border border-gray-200 bg-white transition focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/10">
+                                    <span className="flex shrink-0 items-center border-r border-gray-200 bg-gray-50 px-3 text-xs text-gray-500 sm:text-sm">
+                                        imenuapp.com.br/
                                     </span>
+                                    <input
+                                        id={`menu-link-${restaurant.id}`}
+                                        value={urlSlug}
+                                        placeholder="nome-da-loja"
+                                        onChange={(event) =>
+                                            setUrlSlug(
+                                                sanitizeSlug(event.target.value)
+                                            )
+                                        }
+                                        onBlur={saveSlug}
+                                        autoComplete="off"
+                                        spellCheck={false}
+                                        className="min-w-0 flex-1 bg-transparent px-3 text-base text-gray-900 outline-none md:text-sm"
+                                    />
                                     <button
                                         type="button"
                                         onClick={() => void copyMenuLink()}
                                         aria-label="Copiar link do cardápio"
                                         title="Copiar link"
-                                        className="shrink-0 cursor-pointer text-gray-500 hover:text-brand"
+                                        className="flex w-11 shrink-0 cursor-pointer items-center justify-center border-l border-gray-200 text-gray-500 transition-colors hover:bg-gray-50 hover:text-brand"
                                     >
                                         <FontAwesomeIcon icon={faCopy} />
                                     </button>
@@ -445,7 +459,7 @@ export default function StoreProfileManager({
                                     : "primary"
                             }
                             onClick={() => setCustomDomainOpen(true)}
-                            className="w-fit shrink-0 self-start border border-transparent py-3! md:mt-5 2xl:mt-8 2xl:text-lg"
+                            className="h-11 w-full shrink-0 md:w-auto"
                         >
                             <FontAwesomeIcon icon={faGlobe} className="mr-2" />
                             {customDomain && customDomainVerified
@@ -453,15 +467,6 @@ export default function StoreProfileManager({
                                 : "Usar meu domínio"}
                         </Button>
                     </div>
-
-                    <WarningBox
-                        icon={faCircleInfo}
-                        className="mt-4 bg-brand! text-white!"
-                    >
-                        <b>AVISO:</b> Repasses de pagamentos em Pix (ONLINE) são
-                        realizados diariamente às 12:00 na Chave Pix cadastrada
-                        acima.
-                    </WarningBox>
                 </div>
             </Card>
 

@@ -4,7 +4,7 @@ import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { faPix } from "@fortawesome/free-brands-svg-icons";
 import { icons } from "@/lib/utils/fontawesome";
 import Card from "@/components/ui/Card";
-import Switch from "@/components/ui/Switch";
+import ToggleOptionCard from "@/components/ui/ToggleOptionCard";
 
 export const DEFAULT_ALLOWED_PAYMENT_METHODS = [
     "pix",
@@ -55,42 +55,19 @@ export default function AllowedPaymentMethods({
                 Escolha quais formas aparecem para o cliente no checkout.
             </p>
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-x-12">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {PAYMENT_OPTIONS.map((option) => {
                     const active = selected.includes(option.value);
 
                     return (
-                        <div
+                        <ToggleOptionCard
                             key={option.value}
-                            className={`flex items-center justify-between gap-4 rounded-lg border p-4 transition-colors ${
-                                active
-                                    ? "border-gray-200 bg-brand/5"
-                                    : "border-gray-200 bg-white"
-                            }`}
-                        >
-                            <div className="flex min-w-0 items-center gap-3">
-                                <FontAwesomeIcon
-                                    icon={option.icon}
-                                    className={
-                                        active ? "text-brand" : "text-gray-500"
-                                    }
-                                />
-                                <span className="min-w-0 font-medium text-gray-800">
-                                    {option.label}
-                                    {option.recommended && (
-                                        <span className="ml-2 whitespace-nowrap text-[10px] font-bold uppercase tracking-wide text-brand">
-                                            ★ Recomendado
-                                        </span>
-                                    )}
-                                </span>
-                            </div>
-
-                            <Switch
-                                checked={active}
-                                onClick={() => toggle(option.value)}
-                                aria-label={`${active ? "Desativar" : "Ativar"} ${option.label}`}
-                            />
-                        </div>
+                            label={option.label}
+                            checked={active}
+                            onChange={() => toggle(option.value)}
+                            icon={<FontAwesomeIcon icon={option.icon} />}
+                            badge={option.recommended ? "★ Recomendado" : undefined}
+                        />
                     );
                 })}
             </div>
