@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { icons } from "@/lib/utils/fontawesome";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { faClock } from "@fortawesome/free-solid-svg-icons";
 import { supabase } from "@/lib/database/supabaseClient";
 

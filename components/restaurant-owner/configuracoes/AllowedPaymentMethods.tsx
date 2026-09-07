@@ -1,5 +1,5 @@
 "use client";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { faPix } from "@fortawesome/free-brands-svg-icons";
 import { icons } from "@/lib/utils/fontawesome";
 import ToggleInput from "@/components/ui/ToggleInput";

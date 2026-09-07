@@ -23,6 +23,8 @@ export default function Button({
 
     return (
         <button
+            data-ui="button"
+            data-variant={variant}
             className={`2xl:text-lg  ${base} ${variants[variant]} ${className}
             ${loading ? "cursor-not-allowed pointer-events-none" : "pointer-events-auto"}
             `}

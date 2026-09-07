@@ -1,5 +1,7 @@
 "use client";
 
+import Textarea from "@/components/ui/Textarea";
+
 interface StoreBioProps {
     value: string;
     onChange: (val: string) => void;
@@ -10,7 +12,7 @@ export default function StoreBio({ value, onChange, onBlur }: StoreBioProps) {
     return (
         <div >
             <label className="block text-sm font-medium text-gray-700 mb-1">Descrição / Bio</label>
-            <textarea 
+            <Textarea
                 className="w-full border border-gray-300 rounded-md p-3 text-sm focus:ring-brand focus:border-brand outline-none min-h-[100px] resize-none"
                 placeholder="Conte um pouco sobre sua loja..."
                 value={value}

@@ -5,7 +5,7 @@ import Button from "@/components/ui/Button";
 import ToggleInput from "@/components/ui/ToggleInput";
 import Modal from "@/components/ui/Modal";
 import { supabase } from "@/lib/database/supabaseClient";
-import {FontAwesomeIcon} from "@fortawesome/react-fontawesome";
+import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { icons } from "@/lib/utils/fontawesome";
 import Tooltip from "@/components/ui/Tooltip";
 import ListLoader from "@/components/ui/ListLoader";

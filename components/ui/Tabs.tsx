@@ -1,7 +1,7 @@
 
 "use client";
 import * as React from "react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { faChevronRight } from "@fortawesome/free-solid-svg-icons";
 
 type TabsProps<T extends string = string> = {
@@ -46,6 +46,7 @@ export default function Tabs<T extends string>({
         <div className="relative">
             <div
                 ref={scrollRef}
+                data-ui="tabs"
                 className={`flex gap-2 border-b border-gray-200 overflow-x-auto whitespace-nowrap ${className}`}
             >
                 {tabs.map((tab) => (

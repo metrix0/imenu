@@ -1,6 +1,6 @@
 "use client";
 
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { faChair, faEye } from "@fortawesome/free-solid-svg-icons";
 import Card from "@/components/ui/Card";
 import ListLoader from "@/components/ui/ListLoader";

@@ -1,7 +1,8 @@
 "use client";
 
+import Dropdown from "@/components/ui/Dropdown";
 import { useEffect, useRef, useState } from "react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { faChevronDown, faTrash } from "@fortawesome/free-solid-svg-icons";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
@@ -397,7 +398,7 @@ export default function WeeklyScheduleClick({
                                 Das
                             </label>
                             <div className="relative">
-                                <select
+                                <Dropdown
                                     value={editModal.startTime}
                                     onChange={(e) =>
                                         setEditModal((p) => ({
@@ -410,11 +411,7 @@ export default function WeeklyScheduleClick({
                                     {TIME_OPTIONS.map((t) => (
                                         <option key={t}>{t}</option>
                                     ))}
-                                </select>
-                                <FontAwesomeIcon
-                                    icon={faChevronDown}
-                                    className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-xs text-gray-500"
-                                />
+                                </Dropdown>
                             </div>
                         </div>
                         <div className="flex-1">
@@ -422,7 +419,7 @@ export default function WeeklyScheduleClick({
                                 Até
                             </label>
                             <div className="relative">
-                                <select
+                                <Dropdown
                                     value={editModal.endTime}
                                     onChange={(e) =>
                                         setEditModal((p) => ({
@@ -435,11 +432,7 @@ export default function WeeklyScheduleClick({
                                     {TIME_OPTIONS.map((t) => (
                                         <option key={t}>{t}</option>
                                     ))}
-                                </select>
-                                <FontAwesomeIcon
-                                    icon={faChevronDown}
-                                    className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-xs text-gray-500"
-                                />
+                                </Dropdown>
                             </div>
                         </div>
                         {editModal.slotIndex !== null && (

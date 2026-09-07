@@ -7,7 +7,7 @@ import Dropdown from "@/components/ui/Dropdown";
 import ToggleInput from "@/components/ui/ToggleInput";
 import { supabase } from "@/lib/database/supabaseClient";
 import Card from "@/components/ui/Card";
-import {FontAwesomeIcon} from "@fortawesome/react-fontawesome";
+import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { icons } from "@/lib/utils/fontawesome";
 import Tooltip from "@/components/ui/Tooltip";
 

@@ -5,14 +5,13 @@ import Link from "next/link";
 import Image from "next/image";
 import Script from "next/script";
 import { useParams, usePathname, useRouter } from "next/navigation";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
+import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import {
     faBars,
     faBox,
     faChair,
     faChartLine,
-    faChevronLeft,
-    faChevronRight,
     faCircleQuestion,
     faClock,
     faDoorOpen,
@@ -402,7 +401,7 @@ export default function PainelLayout({
                     : setShowCloseModal(true)
             }
             disabled={isTogglingStore}
-            className={`flex cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+            className={`panel-store-status flex cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
                 fullWidth ? "w-full" : ""
             } ${
                 isStoreClosed
@@ -441,7 +440,7 @@ export default function PainelLayout({
             <div className="min-h-screen bg-gray-50 md:flex">
                 <SupportButton ref={supportButtonRef} />
 
-                <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-gray-200 bg-white px-4 md:hidden">
+                <header className="panel-mobile-header sticky top-0 z-30 flex h-16 items-center justify-between border-b border-gray-200 bg-white px-4 md:hidden">
                     <button
                         type="button"
                         onClick={() => setMobileMenuOpen(true)}
@@ -538,7 +537,8 @@ export default function PainelLayout({
                                 <Link
                                     key={`mobile-${item.href}`}
                                     href={item.href}
-                                    className={`flex items-center gap-3 rounded-lg px-4 py-3 text-sm transition-colors ${
+                                    aria-current={active ? "page" : undefined}
+                                    className={`panel-nav-link flex items-center gap-3 rounded-lg px-4 py-3 text-sm transition-colors ${
                                         active
                                             ? "bg-brand/10 font-medium text-brand"
                                             : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
@@ -579,65 +579,27 @@ export default function PainelLayout({
                 </aside>
 
                 <aside
-                    className={`fixed z-20 hidden h-full flex-col border-r border-gray-200 bg-white transition-all duration-300 md:flex ${
+                    data-expanded={expanded}
+                    className={`panel-sidebar fixed z-20 hidden h-full flex-col border-r border-gray-200 bg-white transition-all duration-300 md:flex ${
                         expanded ? "w-60 2xl:w-70" : "w-[4.5rem] 2xl:w-20"
                     }`}
                 >
-                    <button
-                        type="button"
-                        onClick={toggleSidebar}
-                        aria-label={
-                            expanded
-                                ? "Recolher menu lateral"
-                                : "Expandir menu lateral"
-                        }
-                        aria-expanded={expanded}
-                        className="text-brand hover:text-brand/66 absolute -right-4 top-20 z-10 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border border-gray-200 bg-white text-sm shadow transition-colors hover:bg-gray-50 2xl:-right-5 2xl:h-10 2xl:w-10 2xl:text-base"
-                    >
-                        <FontAwesomeIcon
-                            icon={expanded ? faChevronLeft : faChevronRight}
-                        />
-                    </button>
-
-                    <Link
-                        href="/painel"
-                        aria-label="Ir para o painel"
-                        className="relative mt-4 flex h-[70px] items-center justify-center 2xl:mb-2 2xl:h-[90px]"
-                    >
-                        <div
-                            className={`flex items-center justify-center transition-all duration-300 ${
-                                expanded
-                                    ? "scale-100 opacity-100"
-                                    : "absolute scale-0 opacity-0"
-                            }`}
-                        >
-                            <Image
-                                src="/logos/CombinationMarkLogo_Brand.png"
-                                alt="Logo"
-                                width={120}
-                                height={40}
-                                className="2xl:w-35"
-                            />
-                        </div>
-                        <div
-                            className={`absolute left-0 flex w-[4.5rem] items-center justify-center transition-all duration-300 2xl:w-20 ${
-                                expanded
-                                    ? "scale-0 opacity-0"
-                                    : "scale-100 opacity-100"
-                            }`}
-                        >
-                            <Image
-                                src="/logos/LogoMark_Brand.png"
-                                alt="Logo"
-                                width={32}
-                                height={32}
-                                className="2xl:w-10"
-                            />
-                        </div>
-                    </Link>
+                    <div className="panel-sidebar-header">
+                        {expanded && (
+                            <Link href="/painel" aria-label="Ir para o painel" className="panel-sidebar-logo">
+                                <Image src="/logos/CombinationMarkLogo_Brand.png" alt="iMenu" width={104} height={40} />
+                            </Link>
+                        )}
+                        <button type="button" onClick={toggleSidebar}
+                            aria-label={expanded ? "Recolher menu lateral" : "Expandir menu lateral"}
+                            aria-expanded={expanded} className="panel-sidebar-toggle cursor-pointer">
+                            {!expanded && <Image className="panel-sidebar-mark" src="/logos/LogoMark_Brand.png" alt="" width={32} height={32} />}
+                            {expanded ? <PanelLeftClose aria-hidden="true" strokeWidth={1.75} /> : <PanelLeftOpen aria-hidden="true" strokeWidth={1.75} />}
+                        </button>
+                    </div>
 
                     <div
-                        className={`mt-1 pb-2 transition-all duration-300 2xl:mt-6 ${
+                        className={`panel-sidebar-status mt-1 pb-2 transition-all duration-300 2xl:mt-6 ${
                             expanded
                                 ? "w-full px-4"
                                 : "w-[4.5rem] self-start 2xl:w-20"
@@ -665,7 +627,7 @@ export default function PainelLayout({
                         )}
                     </div>
 
-                    <nav className="thin-scrollbar flex flex-1 flex-col space-y-1 overflow-y-auto py-4">
+                    <nav className="panel-sidebar-nav thin-scrollbar flex flex-1 flex-col overflow-y-auto">
                         {menuItems.map((item, index) => {
                             if (item.type === "divider") {
                                 return (
@@ -682,19 +644,8 @@ export default function PainelLayout({
                                     key={item.href}
                                     href={item.href}
                                     title={!expanded ? item.label : ""}
-                                    className={`group relative flex cursor-pointer items-center py-3 transition-colors duration-200 ${
-                                        expanded
-                                            ? `w-full justify-start gap-2 pr-5 2xl:gap-4 ${
-                                                  active
-                                                      ? "pl-[22px] 2xl:pl-[14px]"
-                                                      : "pl-6 2xl:pl-4"
-                                              }`
-                                            : "w-[4.5rem] self-start justify-center px-0 2xl:w-20"
-                                    } ${
-                                        active
-                                            ? "border-r-4 border-brand bg-brand/10 font-medium text-brand md:border-l-4 md:border-r-0"
-                                            : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                                    }`}
+                                    aria-current={active ? "page" : undefined}
+                                    className="panel-nav-link group relative flex cursor-pointer items-center transition-colors duration-200"
                                 >
                                     <div className="flex h-6 w-6 shrink-0 items-center justify-center 2xl:h-10 2xl:w-12">
                                         <FontAwesomeIcon
@@ -723,11 +674,7 @@ export default function PainelLayout({
                             type="button"
                             onClick={() => supportButtonRef.current?.open()}
                             title={!expanded ? "Ajuda" : ""}
-                            className={`group relative flex cursor-pointer items-center py-3 text-gray-600 transition-colors duration-200 hover:bg-gray-50 hover:text-gray-900 ${
-                                expanded
-                                    ? "w-full justify-start gap-2 pl-6 pr-5 2xl:gap-4 2xl:pl-4"
-                                    : "w-[4.5rem] self-start justify-center px-0 2xl:w-20"
-                            }`}
+                            className="panel-nav-link group relative flex cursor-pointer items-center transition-colors duration-200"
                         >
                             <div className="flex h-6 w-6 shrink-0 items-center justify-center 2xl:h-10 2xl:w-12">
                                 <FontAwesomeIcon
@@ -750,6 +697,7 @@ export default function PainelLayout({
 
                 <main
                     data-panel-path={pathname || base}
+                    data-sidebar-expanded={expanded}
                     className={`panel-mobile-content min-h-screen min-w-0 bg-gray-50 transition-all duration-300 md:flex-1 md:p-8 ${
                         expanded
                             ? "md:ml-60 2xl:ml-70"

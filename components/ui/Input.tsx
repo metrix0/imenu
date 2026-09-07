@@ -12,6 +12,7 @@ type InputProps = Omit<
     numeric?: boolean;
     float?: boolean;
     locked?: boolean;
+    inline?: boolean;
 };
 
 const Input = React.forwardRef<HTMLInputElement, InputProps>(
@@ -24,6 +25,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
             float = false,
             className = "",
             locked = false,
+            inline = false,
             defaultValue: providedDefaultValue,
             value,
             onInput,
@@ -34,6 +36,8 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
         },
         ref
     ) => {
+        const generatedId = React.useId();
+        const inputId = inputProps.id ?? generatedId;
         const withIcon = Boolean(icon);
         const isLeft = iconPosition === "left";
 
@@ -101,10 +105,18 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
         const isControlled =
             value !== undefined && value !== null;
 
+        if (inline) {
+            return <input {...inputProps} data-ui="input" ref={ref} type={type}
+                inputMode={numeric || float ? "numeric" : inputMode}
+                onKeyDown={handleKeyDown} onInput={handleInput}
+                {...(isControlled ? { value } : { defaultValue })}
+                className={className} />;
+        }
+
         return (
             <div className="flex flex-col gap-1 2xl:gap-2">
                 {label && (
-                    <label className="text-sm font-medium md:text-xs 2xl:text-base">
+                    <label htmlFor={inputId} className="text-sm font-medium md:text-xs 2xl:text-base">
                         {label}
                     </label>
                 )}
@@ -121,7 +133,9 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
                     )}
 
                     <input
+                        data-ui="input"
                         {...inputProps}
+                        id={inputId}
                         ref={ref}
                         type={type}
                         inputMode={

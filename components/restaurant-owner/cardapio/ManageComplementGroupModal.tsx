@@ -1,7 +1,8 @@
 "use client";
 
+import Input from "@/components/ui/Input";
 import { useEffect, useRef, useState, type DragEvent } from "react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import {
     faGripVertical,
     faPlus,
@@ -115,7 +116,7 @@ function ComplementPriceInput({
     };
 
     return (
-        <input
+        <Input inline
             type="text"
             inputMode="decimal"
             disabled={disabled}
@@ -513,7 +514,7 @@ export default function ManageComplementGroupModal({
 
                     <div className="flex-1 space-y-5 overflow-y-auto p-6">
                         <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-                            <input
+                            <Input inline
                                 value={draft.name}
                                 disabled={isSaving}
                                 onChange={(event) =>
@@ -558,7 +559,7 @@ export default function ManageComplementGroupModal({
 
                                 <div className="flex items-center gap-2">
                                     <span>Até:</span>
-                                    <input
+                                    <Input inline
                                         type="number"
                                         min={1}
                                         value={draft.max_select}
@@ -683,7 +684,7 @@ export default function ManageComplementGroupModal({
 
                                         <div className="min-w-0 flex-1">
                                             <div className="flex min-w-0 items-center gap-2">
-                                                <input
+                                                <Input inline
                                                     value={option.name}
                                                     disabled={isSaving}
                                                     onChange={(event) =>

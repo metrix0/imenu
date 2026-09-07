@@ -7,7 +7,8 @@ import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore"; 
 import { hasQrTableAccess } from "@/lib/qr-table/types";
 import Loader from "@/components/ui/Loader";
 import Button from "@/components/ui/Button";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
+import { Inbox } from "lucide-react";
 import {
     faShareAlt,
     faBell,
@@ -220,7 +221,7 @@ export default function PainelPedidosAtivosPage() {
     return (
         <div className="max-w-7xl 2xl:max-w-[90rem] mx-auto pb-20 px-4 sm:px-6 pt-8">
             {/* Header */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 mb-8">
+            <div className="panel-page-heading flex flex-col xl:flex-row justify-between items-start xl:items-end gap-4 mb-8">
                 <div>
                     <h1 className="text-3xl font-bold text-gray-900 2xl:text-4xl">
                         Pedidos de Hoje
@@ -230,7 +231,7 @@ export default function PainelPedidosAtivosPage() {
                     </p>
                 </div>
 
-                <div className="flex flex-row gap-2 sm:gap-3">
+                <div className="panel-page-actions flex flex-row gap-2 sm:gap-3">
                     <Button
                         onClick={() => setIsCreateOrderOpen(true)}
                         className=""
@@ -253,6 +254,7 @@ export default function PainelPedidosAtivosPage() {
 
                     <Button
                         onClick={() => setIsShareModalOpen(true)}
+                        aria-label="Compartilhar cardápio"
                         variant="secondary"
                     >
                         <FontAwesomeIcon icon={faShareAlt} className="" />
@@ -329,14 +331,8 @@ export default function PainelPedidosAtivosPage() {
             </div>
             {/* Grid de Pedidos */}
             {orders.length === 0 ? (
-                <div className="truncate text-center flex flex-col items-center py-20 2xl:py-30 bg-white rounded-xl border border-dashed border-gray-300">
-                    <div className="h-25 w-25 2xl:h-30 2xl:w-30 mb-4 ">
-                        <img
-                            src={"images/sleeping_emoji.png"}
-                            alt="Sem pedidos"
-                            className="h-full w-full object-contain"
-                        />
-                    </div>
+                <div className="panel-empty text-center flex flex-col items-center bg-white">
+                    <Inbox className="panel-empty-icon" strokeWidth={1.75} aria-hidden="true" />
                     <h3 className="text-xl font-bold text-gray-900 2xl:text-3xl">
                         Sem pedidos ativos
                     </h3>
@@ -346,7 +342,7 @@ export default function PainelPedidosAtivosPage() {
                     </p>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 2xl:gap-10">
+                <div className="panel-orders">
                     {orders.map((order) => (
                         <OrderCard
                             key={order.id}

@@ -1,10 +1,13 @@
 "use client";
 
+import Textarea from "@/components/ui/Textarea";
+import Input from "@/components/ui/Input";
+import Dropdown from "@/components/ui/Dropdown";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/database/supabaseClient";
 import Button from "@/components/ui/Button";
 import HybridModal from "@/components/ui/HybridModal";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { icons } from "@/lib/utils/fontawesome";
 import { formatPrice } from "@/lib/utils/formatPrice";
 import PromotionSummary from "@/components/costumer/PromotionSummary";
@@ -582,7 +585,7 @@ export default function CreatePanelOrderModal({
             contentClassName="!overflow-hidden !pb-0"
             className="md:!h-[88dvh] md:!max-h-[900px] md:!max-w-7xl md:!overflow-hidden"
         >
-            <div className="flex h-full min-h-0 flex-col bg-white">
+            <div className="panel-create-order flex h-full min-h-0 flex-col bg-white">
                 <div className="shrink-0 border-b border-gray-100 bg-white px-4 pb-4 pt-4 md:px-6 md:py-5">
                     <div className="flex items-center justify-between gap-4">
                         <div>
@@ -590,7 +593,7 @@ export default function CreatePanelOrderModal({
                                 Adicionar Pedido
                             </h2>
                             <p className="mt-1 text-sm text-gray-500">
-                                Selecione os itens e finalize os dados do pedido.
+                                Escolha os produtos, confira os dados e crie o pedido.
                             </p>
                         </div>
                         <button
@@ -613,7 +616,7 @@ export default function CreatePanelOrderModal({
                                     : "text-gray-500"
                             }`}
                         >
-                            Cardápio
+                            1. Produtos
                         </button>
                         <button
                             type="button"
@@ -624,7 +627,7 @@ export default function CreatePanelOrderModal({
                                     : "text-gray-500"
                             }`}
                         >
-                            Pedido{selectedItemCount > 0 ? ` (${selectedItemCount})` : ""}
+                            2. Revisar{selectedItemCount > 0 ? ` (${selectedItemCount})` : ""}
                         </button>
                     </div>
                 </div>
@@ -637,7 +640,7 @@ export default function CreatePanelOrderModal({
                     >
                         <div className="shrink-0 px-4 pb-3 pt-4 md:px-6">
                             <div className="mb-3 flex items-center justify-between gap-3">
-                                <h3 className="font-semibold text-gray-900">Cardápio</h3>
+                                <h3 className="font-semibold text-gray-900">1. Escolha os produtos</h3>
                                 {selectedItemCount > 0 && (
                                     <span className="rounded-full bg-brand/10 px-2.5 py-1 text-xs font-semibold text-brand">
                                         {selectedItemCount} {selectedItemCount === 1 ? "item" : "itens"}
@@ -649,7 +652,7 @@ export default function CreatePanelOrderModal({
                                     icon={icons.faMagnifyingGlass}
                                     className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-gray-400"
                                 />
-                                <input
+                                <Input inline
                                     value={menuSearch}
                                     onChange={(event) => setMenuSearch(event.target.value)}
                                     placeholder="Buscar item..."
@@ -742,7 +745,7 @@ export default function CreatePanelOrderModal({
                                     className="w-full"
                                     onClick={() => setMobileView("order")}
                                 >
-                                    Ver pedido ({selectedItemCount}) · {formatPrice(totalCents)}
+                                    Revisar pedido ({selectedItemCount}) · {formatPrice(totalCents)}
                                 </Button>
                             </div>
                         )}
@@ -762,10 +765,10 @@ export default function CreatePanelOrderModal({
                                 >
                                     <div>
                                         <h3 className="font-semibold text-gray-900">
-                                            Informações do pedido
+                                            2. Dados do pedido
                                         </h3>
                                         <p className="mt-0.5 text-xs text-gray-500">
-                                            Cliente, mesa e pagamento
+                                            Identifique o cliente e escolha como receber o pedido.
                                         </p>
                                     </div>
                                     <FontAwesomeIcon
@@ -786,25 +789,25 @@ export default function CreatePanelOrderModal({
                                     <div className="overflow-hidden">
                                         <div className="space-y-3 pt-1">
                                             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                                                <input
+                                                <Input
                                                     value={customerName}
                                                     onChange={(e) => setCustomerName(e.target.value)}
-                                                    placeholder="Nome do cliente *"
+                                                    label="Nome do cliente *" placeholder="Nome do cliente *"
                                                     className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/10"
                                                 />
 
-                                                <input
+                                                <Input
                                                     value={customerPhone}
                                                     onChange={(e) => setCustomerPhone(e.target.value)}
-                                                    placeholder="Telefone (opcional)"
+                                                    label="Telefone (opcional)" placeholder="Telefone (opcional)"
                                                     className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/10"
                                                 />
                                             </div>
 
                                             {tables.length > 0 && (
                                                 <div className="relative w-full">
-                                                    <select
-                                                        value={selectedTableId}
+                                                    <Dropdown
+                                                        label="Destino do pedido" value={selectedTableId}
                                                         onChange={(e) => setSelectedTableId(e.target.value)}
                                                         className="w-full appearance-none rounded-xl border border-gray-200 bg-white px-4 py-3 pr-10 text-gray-700 outline-none transition hover:border-gray-300 focus:border-brand focus:ring-2 focus:ring-brand/10"
                                                     >
@@ -814,11 +817,7 @@ export default function CreatePanelOrderModal({
                                                                 {table.name}
                                                             </option>
                                                         ))}
-                                                    </select>
-                                                    <FontAwesomeIcon
-                                                        icon={icons.faChevronDown}
-                                                        className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-xs text-gray-500"
-                                                    />
+                                                    </Dropdown>
                                                 </div>
                                             )}
 
@@ -833,36 +832,32 @@ export default function CreatePanelOrderModal({
                                                 </div>
                                             ) : (
                                                 <>
-                                                    <input
+                                                    <Input
                                                         value={customerAddress}
                                                         onChange={(e) => setCustomerAddress(e.target.value)}
-                                                        placeholder="Endereço (opcional)"
+                                                        label="Endereço (opcional)" placeholder="Endereço (opcional)"
                                                         className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/10"
                                                     />
 
                                                     <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                                                         <div className="relative w-full">
-                                                            <select
-                                                                value={paymentMethod}
+                                                            <Dropdown
+                                                                label="Pagamento (opcional)" value={paymentMethod}
                                                                 onChange={(e) =>
                                                                     setPaymentMethod(e.target.value as "" | "dinheiro" | "trazer-maquininha")
                                                                 }
                                                                 className="w-full appearance-none rounded-xl border border-gray-200 bg-white px-4 py-3 pr-10 text-gray-700 outline-none transition hover:border-gray-300 focus:border-brand focus:ring-2 focus:ring-brand/10"
                                                             >
-                                                                <option value="">Forma de pagamento (opcional)</option>
+                                                                <option value="">Não informado</option>
                                                                 <option value="dinheiro">Dinheiro</option>
                                                                 <option value="trazer-maquininha">Trazer maquininha</option>
-                                                            </select>
-                                                            <FontAwesomeIcon
-                                                                icon={icons.faChevronDown}
-                                                                className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-xs text-gray-500"
-                                                            />
+                                                            </Dropdown>
                                                         </div>
 
-                                                        <input
+                                                        <Input
                                                             value={deliveryFeeInput}
                                                             onChange={(e) => setDeliveryFeeInput(e.target.value)}
-                                                            placeholder="Taxa de entrega (opcional)"
+                                                            label="Taxa de entrega (opcional)" placeholder="Taxa de entrega (opcional)"
                                                             inputMode="decimal"
                                                             className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/10"
                                                         />
@@ -1076,7 +1071,7 @@ export default function CreatePanelOrderModal({
                                                                     );
                                                                 })}
 
-                                                                <textarea
+                                                                <Textarea
                                                                     value={item.observation || ""}
                                                                     onChange={(e) =>
                                                                         changeSelectedItemObservation(item.id, e.target.value.slice(0, 140))

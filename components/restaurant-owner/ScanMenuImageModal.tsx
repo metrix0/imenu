@@ -15,7 +15,7 @@ import Toast from "@/components/ui/Toast";
 import LoadingBar from "@/components/ui/LoadingBar";
 import { uploadFullMenuImageAI } from "@/lib/database/uploadFullMenuImageAI";
 import Loader from "@/components/ui/Loader";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { icons } from "@/lib/utils/fontawesome";
 
 type ScannedItem = {

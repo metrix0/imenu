@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, ReactNode, useEffect, useRef, useCallback } from "react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { icons } from "@/lib/utils/fontawesome";
 import { faGripVertical, faStar } from "@fortawesome/free-solid-svg-icons";
 import { supabase } from "@/lib/database/supabaseClient";

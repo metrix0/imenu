@@ -166,6 +166,7 @@ export default function DraggableModal({
         >
             <div
                 {...props}
+                data-ui="sheet"
                 onClick={(e) => e.stopPropagation()}
                 onTouchStart={onPanelTouchStart}
                 className={`fixed left-0 right-0 mx-auto bg-white rounded-t-xl overflow-hidden ${props.className ?? ""}`}

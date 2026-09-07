@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { faMobileScreenButton } from "@fortawesome/free-solid-svg-icons";
 
 import ApplicationPanelContent from "@/components/restaurant-owner/aplicativo/ApplicationPanelContent";

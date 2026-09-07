@@ -9,7 +9,7 @@ import {
     useState,
     type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import {
     faChevronDown,
     faCircleCheck,

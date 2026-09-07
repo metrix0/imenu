@@ -7,7 +7,7 @@ import Button from "@/components/ui/Button";
 import ToggleInput from "@/components/ui/ToggleInput";
 import Card from "@/components/ui/Card";
 import Dropdown from "@/components/ui/Dropdown";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { faStar, faGift, faMoneyBillWave, faCheckSquare, faSquare, faChevronDown, faChevronUp } from "@fortawesome/free-solid-svg-icons";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 import { supabase } from "@/lib/database/supabaseClient";

@@ -4,7 +4,7 @@ import { forwardRef, useImperativeHandle, useState } from "react";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
 import { icons } from "@/lib/utils/fontawesome";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { faCopy, faCheck, faXmark } from "@fortawesome/free-solid-svg-icons";
 
 const PHONE = "5519988760900";

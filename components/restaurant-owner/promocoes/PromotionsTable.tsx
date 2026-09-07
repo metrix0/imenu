@@ -1,5 +1,7 @@
 "use client";
 
+import Input from "@/components/ui/Input";
+import Dropdown from "@/components/ui/Dropdown";
 import { useState } from "react";
 import { Item, PromotionType } from "@/lib/types/types";
 import { supabase } from "@/lib/database/supabaseClient";
@@ -82,7 +84,7 @@ export default function PromotionsTable({ items, restaurantId }: Props) {
                                     )}
                                 </div>
 
-                                <select
+                                <Dropdown
                                     defaultValue={item.promotion?.type || "percent"}
                                     className="h-9 rounded-md border px-2 text-sm"
                                     onChange={e =>
@@ -94,9 +96,9 @@ export default function PromotionsTable({ items, restaurantId }: Props) {
                                 >
                                     <option value="percent">%</option>
                                     <option value="fixed">R$</option>
-                                </select>
+                                </Dropdown>
 
-                                <input
+                                <Input inline
                                     type="number"
                                     placeholder="0"
                                     defaultValue={item.promotion?.value || ""}

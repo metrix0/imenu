@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { faSearch, faBoxOpen, faPlus } from "@fortawesome/free-solid-svg-icons";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";

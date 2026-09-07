@@ -6,7 +6,7 @@ import { Item, Promotion } from "@/lib/types/types";
 import Dropdown from "@/components/ui/Dropdown";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
-import {FontAwesomeIcon} from "@fortawesome/react-fontawesome";
+import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import {icons} from "@/lib/utils/fontawesome";
 import { supabase } from "@/lib/database/supabaseClient";
 
@@ -215,7 +215,7 @@ export default function PromotionRow({
                             }
 
                             <label className="text-xs text-gray-500">Início</label>
-                            <input
+                            <Input inline
                                 type="date"
                                 value={startsAt?.slice(0, 10) ?? ""}
                                 onChange={(e) => setStartsAt(e.target.value)}
@@ -224,7 +224,7 @@ export default function PromotionRow({
                             />
 
                             <label className="text-xs text-gray-500">Fim</label>
-                            <input
+                            <Input inline
                                 type="date"
                                 value={endsAt?.slice(0, 10) ?? ""}
                                 onChange={(e) => setEndsAt(e.target.value)}

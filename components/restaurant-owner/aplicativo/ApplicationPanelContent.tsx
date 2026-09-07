@@ -1,6 +1,6 @@
 "use client";
 
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { faBell } from "@fortawesome/free-solid-svg-icons";
 
 import ApplicationSetup from "./ApplicationSetup";

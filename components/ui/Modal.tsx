@@ -2,8 +2,9 @@
 
 import { ReactNode, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { icons } from "@/lib/utils/fontawesome";
+import { usePanelAppearance } from "./PanelAppearance";
 
 let activeScrollLocks = 0;
 let originalBodyOverflow = "";
@@ -24,6 +25,7 @@ export default function Modal({
     className = "",
     showCloseButton = false,
 }: ModalProps) {
+    const panel = usePanelAppearance();
     const [mounted, setMounted] = useState(open);
     const [active, setActive] = useState(false);
     const scrollLocked = useRef(false);
@@ -102,7 +104,7 @@ export default function Modal({
     if (!mounted) return null;
 
     return createPortal(
-        <div className="fixed inset-0 z-50 isolate flex min-h-[100dvh] w-full items-center justify-center overflow-y-auto p-3 sm:p-6 2xl:p-8">
+        <div className={`${panel ? "panel-essencial panel-modal" : ""} fixed inset-0 z-50 isolate flex min-h-[100dvh] w-full items-center justify-center overflow-y-auto p-3 sm:p-6 2xl:p-8`}>
             <button
                 type="button"
                 aria-label="Fechar modal"

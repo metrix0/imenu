@@ -1,5 +1,6 @@
 "use client";
 
+import Input from "@/components/ui/Input";
 import { supabase } from "@/lib/database/supabaseClient";
 import Loader from "@/components/ui/Loader";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -331,7 +332,7 @@ export default function EstoqueTab({
 
                                                     {enabled && (
                                                         <div className="mr-4">
-                                                            <input
+                                                            <Input inline
                                                                 type="number"
                                                                 min={0}
                                                                 step={1}

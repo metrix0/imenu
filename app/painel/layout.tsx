@@ -4,6 +4,8 @@ import { useEffect } from "react";
 
 import ApplicationInstallPrompt from "@/components/restaurant-owner/aplicativo/ApplicationInstallPrompt";
 import PanelLayoutBase from "./PanelLayoutBase";
+import PanelAppearance from "@/components/ui/PanelAppearance";
+import "./essencial.css";
 
 function isInsideHorizontalScroller(target: EventTarget | null, boundary: HTMLElement) {
     let element = target instanceof Element ? target : null;
@@ -57,9 +59,9 @@ export default function PainelLayout({
     }, []);
 
     return (
-        <>
+        <PanelAppearance>
             <PanelLayoutBase>{children}</PanelLayoutBase>
             <ApplicationInstallPrompt />
-        </>
+        </PanelAppearance>
     );
 }

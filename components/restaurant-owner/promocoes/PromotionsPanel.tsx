@@ -5,7 +5,7 @@ import { supabase } from "@/lib/database/supabaseClient";
 import { Item, Category, Promotion } from "@/lib/types/types";
 import PromotionRow from "./PromotionRow";
 import Card from "@/components/ui/Card";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { icons } from "@/lib/utils/fontawesome";
 import Dropdown from "@/components/ui/Dropdown";
 import Input from "@/components/ui/Input";
@@ -76,13 +76,13 @@ function BulkEditBar({
                     onChange={e => setValue(Number(e.target.value || 0))}
                 />
 
-                <input
+                <Input inline
                     type="date"
                     value={startsAt ?? ""}
                     onChange={e => setStartsAt(e.target.value || null)}
                     className="border border-gray-300 cursor-pointer px-2 py-2 bg-white rounded text-sm"
                 />
-                <input
+                <Input inline
                     type="date"
                     value={endsAt ?? ""}
                     onChange={e => setEndsAt(e.target.value || null)}

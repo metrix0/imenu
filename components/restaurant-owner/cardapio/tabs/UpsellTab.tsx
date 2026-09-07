@@ -5,7 +5,7 @@ import { supabase } from "@/lib/database/supabaseClient";
 import { MenuItemType } from "@/components/restaurant-owner/cardapio/MenuItemRow";
 import Modal from "@/components/ui/Modal";
 import Input from "@/components/ui/Input";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { icons } from "@/lib/utils/fontawesome";
 import ListLoader from "@/components/ui/ListLoader";
 

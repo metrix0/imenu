@@ -6,7 +6,7 @@ import Modal from "@/components/ui/Modal";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 import Tooltip from "@/components/ui/Tooltip";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { icons } from "@/lib/utils/fontawesome";
 import { faTrash, faPlus, faGripLines, faGripVertical, faDownload, faSearch } from "@fortawesome/free-solid-svg-icons";
 import ConfirmModal from "@/components/ui/ConfirmModal";
@@ -185,7 +185,7 @@ const SubitemPriceInput = ({ priceCents, onChange }: { priceCents: number; onCha
     };
 
     return (
-        <input 
+        <Input inline
             className="w-full pl-2 pr-1 py-1 text-sm 2xl:text-base text-right border rounded border-gray-200 focus:border-brand focus:outline-none"
             type="text"
             inputMode="decimal"
@@ -593,7 +593,7 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, 
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <div className="flex min-w-0 items-center gap-2">
-                                            <input 
+                                            <Input inline
                                                 className="min-w-0 flex-1 bg-transparent font-bold text-gray-800 text-lg 2xl:text-xl focus:outline-none focus:border-b focus:border-brand"
                                                 value={group.name}
                                                 onChange={(e) => updateGroupLocally(group.id, { name: e.target.value })}
@@ -616,7 +616,7 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, 
                                             </label>
                                             <div className="flex shrink-0 items-center gap-2 2xl:text-base">
                                                 <span>Até:</span>
-                                                <input 
+                                                <Input inline
                                                     type="number" 
                                                     className="w-12 p-1 text-center rounded border border-gray-300 text-sm 2xl:text-base"
                                                     value={group.max_select}
@@ -664,7 +664,7 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, 
                                         onMouseLeave={() => setAllowDragId(null)}
                                         // Suporte mobile simples (opcional, mas recomendado)
                                         onTouchStart={() => setAllowDragId(sub.id)}><FontAwesomeIcon icon={faGripVertical} className="text-xs 2xl:text-base" /></div>
-                                        <input 
+                                        <Input inline
                                             className="min-w-0 flex-1 truncate text-sm 2xl:text-base text-gray-700 focus:outline-none bg-transparent"
                                             value={sub.name}
                                             onChange={(e) => updateSubitemLocally(sub.id, { name: e.target.value })}

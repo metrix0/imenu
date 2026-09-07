@@ -3,7 +3,7 @@
 
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { faExclamationTriangle } from "@fortawesome/free-solid-svg-icons";
 
 interface ConfirmModalProps {

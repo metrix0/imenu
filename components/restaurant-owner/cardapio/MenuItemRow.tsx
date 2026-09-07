@@ -1,7 +1,8 @@
 "use client";
 
+import Input from "@/components/ui/Input";
 import { useState, useRef, useEffect, ReactNode } from "react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import {
     faBox,
     faImage,
@@ -419,7 +420,7 @@ export default function MenuItemRow({
                 <span className="text-xs font-medium text-gray-500 2xl:text-sm">
                     Estoque
                 </span>
-                <input
+                <Input inline
                     type="number"
                     min={0}
                     step={1}
@@ -673,7 +674,7 @@ export default function MenuItemRow({
             <div className="flex w-full min-w-0 flex-1 items-start gap-4 2xl:items-center">
                 {renderImageArea()}
                 <div className="w-full min-w-0 flex-1 space-y-2 2xl:space-y-0">
-                    <input
+                    <Input inline
                         ref={nameInputRef}
                         value={name ?? ""}
                         onChange={(e) => setName(e.target.value)}
@@ -683,7 +684,7 @@ export default function MenuItemRow({
                         className="w-full text-base 2xl:text-lg font-medium text-gray-900 placeholder-gray-400 border-none p-0 focus:ring-0 bg-transparent outline-none"
                         disabled={isLoading}
                     />
-                    <input
+                    <Input inline
                         value={description ?? ""}
                         onChange={(e) => setDescription(e.target.value)}
                         onBlur={() => autoSave()}
@@ -702,7 +703,7 @@ export default function MenuItemRow({
                     <span className="text-sm text-gray-500 2xl:mr-2 2xl:text-lg">
                         R$
                     </span>
-                    <input
+                    <Input inline
                         type="text"
                         inputMode="decimal"
                         value={priceInput}
