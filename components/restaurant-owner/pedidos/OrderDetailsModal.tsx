@@ -1,5 +1,6 @@
 "use client";
 
+import { LegacyModalClose } from "@/components/ui/ModalCloseButton";
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/database/supabaseClient";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
@@ -316,9 +317,9 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
                                 <FontAwesomeIcon icon={faClock} /> Realizado em {order && fmtDate(order.created_at)}
                             </p>
                         </div>
-                        <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1 cursor-pointer">
+                        <LegacyModalClose><button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1 cursor-pointer">
                             <FontAwesomeIcon icon={icons.faTimes} className="text-xl" />
-                        </button>
+                        </button></LegacyModalClose>
                     </div>
 
                     {/* Body */}

@@ -1,5 +1,7 @@
 "use client";
 
+import { LegacyModalClose } from "@/components/ui/ModalCloseButton";
+import Switch from "@/components/ui/Switch";
 import Input from "@/components/ui/Input";
 import { useEffect, useRef, useState, type DragEvent } from "react";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
@@ -485,7 +487,7 @@ export default function ManageComplementGroupModal({
     return (
         <>
             <Modal open={open} onClose={handleClose}>
-                <div className="flex max-h-[85vh] w-full flex-col rounded-lg bg-white">
+                <div className="panel-complements flex max-h-[85vh] w-full flex-col rounded-lg bg-white">
                     <div className="flex shrink-0 items-center justify-between border-b border-gray-100 p-6">
                         <div className="min-w-0 pr-4">
                             <h2 className="text-xl font-bold text-gray-900 2xl:text-2xl">
@@ -498,7 +500,7 @@ export default function ManageComplementGroupModal({
                                 {productLabel}
                             </p>
                         </div>
-                        <button
+                        <LegacyModalClose><button
                             type="button"
                             onClick={handleClose}
                             disabled={isSaving}
@@ -509,7 +511,7 @@ export default function ManageComplementGroupModal({
                                 icon={icons.faTimes}
                                 className="text-xl"
                             />
-                        </button>
+                        </button></LegacyModalClose>
                     </div>
 
                     <div className="flex-1 space-y-5 overflow-y-auto p-6">
@@ -621,7 +623,7 @@ export default function ManageComplementGroupModal({
                                         parentClassName="min-w-0 max-w-full overflow-hidden sm:max-w-none sm:overflow-visible"
                                     >
                                         <span className="block max-w-full cursor-help truncate">
-                                            Mais de uma unidade por complemento
+                                            Permitir repetir opções
                                         </span>
                                     </Tooltip>
                                 </div>
@@ -769,42 +771,10 @@ export default function ManageComplementGroupModal({
                                                 />
                                             </div>
 
-                                            <button
-                                                type="button"
-                                                role="switch"
-                                                disabled={isSaving}
-                                                onClick={() =>
-                                                    void toggleOptionAvailability(
-                                                        option.id
-                                                    )
-                                                }
-                                                title={
-                                                    isAvailable
-                                                        ? "Pausar opção"
-                                                        : "Ativar opção em todos os produtos"
-                                                }
-                                                aria-label={
-                                                    isAvailable
-                                                        ? `Pausar ${option.name}`
-                                                        : `Ativar ${option.name}`
-                                                }
-                                                aria-checked={
-                                                    option.availability ===
-                                                    "mixed"
-                                                        ? "mixed"
-                                                        : isAvailable
-                                                }
-                                                className={`flex h-6 w-10 cursor-pointer items-center rounded-full p-1 transition-colors disabled:cursor-not-allowed disabled:opacity-60 2xl:h-8 2xl:w-15 ${
-                                                    isAvailable
-                                                        ? "justify-end bg-green-500"
-                                                        : option.availability ===
-                                                            "mixed"
-                                                          ? "justify-center bg-amber-400"
-                                                          : "justify-start bg-gray-300"
-                                                }`}
-                                            >
-                                                <span className="h-4 w-4 rounded-full bg-white shadow-md 2xl:h-6 2xl:w-6" />
-                                            </button>
+                                            <Switch checked={option.availability === "mixed" ? "mixed" : isAvailable} disabled={isSaving}
+                                                onClick={() => void toggleOptionAvailability(option.id)}
+                                                title={isAvailable ? "Pausar opção" : "Ativar opção em todos os produtos"}
+                                                aria-label={isAvailable ? `Pausar ${option.name}` : `Ativar ${option.name}`} />
 
                                             <button
                                                 type="button"

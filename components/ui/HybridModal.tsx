@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import Modal from "./Modal";
+import ModalCloseButton from "./ModalCloseButton";
+import { usePanelAppearance } from "./PanelAppearance";
 
 type DraggableModalProps =  React.HTMLAttributes<HTMLDivElement> & {
     height?: number;
@@ -21,6 +23,7 @@ export default function DraggableModal({
                                            children,
                                             ...props
                                        }: DraggableModalProps) {
+    const panel = usePanelAppearance();
     const startY = useRef(0);
     const currentY = useRef(0);
     const closingRef = useRef(false); // 🔥 prevents double-close
@@ -153,7 +156,7 @@ export default function DraggableModal({
 
     return (
         <>{isDesktop ?
-                    <Modal open={open} onClose={onClose} className={props.className}>
+                    <Modal open={open} onClose={onClose} size={height <= 0.3 ? "compact" : height >= 0.9 ? "large" : "standard"} className={props.className}>
                         {children}
                     </Modal>
             :
@@ -179,6 +182,7 @@ export default function DraggableModal({
                     ...(props.style ?? {}),
                 }}
             >
+                {panel && <ModalCloseButton onClose={onClose} />}
                 {/* Invisible drag zone */}
                 <div
                     onMouseDown={onMouseStart}

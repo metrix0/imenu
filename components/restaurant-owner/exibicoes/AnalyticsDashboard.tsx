@@ -15,6 +15,7 @@ import {
 } from "chart.js";
 import { Bar, Doughnut, Line } from "react-chartjs-2";
 
+import Pagination from "@/components/ui/Pagination";
 import Card from "@/components/ui/Card";
 import ListLoader from "@/components/ui/ListLoader";
 import CategoryCombinationSelector from "@/components/restaurant-owner/exibicoes/CategoryCombinationSelector";
@@ -469,8 +470,8 @@ export default function AnalyticsDashboard({
                 backgroundColor: CHART_BRAND,
                 tension: 0.3,
                 borderWidth: 2,
-                pointRadius: 2,
-                pointHoverRadius: 5,
+                pointRadius: 0,
+                pointHoverRadius: 4,
                 pointHitRadius: 12,
             },
         ],
@@ -490,8 +491,8 @@ export default function AnalyticsDashboard({
                 backgroundColor: DARK,
                 tension: 0.3,
                 borderWidth: 2,
-                pointRadius: 2,
-                pointHoverRadius: 5,
+                pointRadius: 0,
+                pointHoverRadius: 4,
                 pointHitRadius: 12,
             },
         ],
@@ -507,8 +508,8 @@ export default function AnalyticsDashboard({
                 backgroundColor: CHART_BRAND,
                 tension: 0.3,
                 borderWidth: 2,
-                pointRadius: 2,
-                pointHoverRadius: 5,
+                pointRadius: 0,
+                pointHoverRadius: 4,
                 pointHitRadius: 12,
             },
         ],
@@ -553,7 +554,7 @@ export default function AnalyticsDashboard({
                 label: "Pedidos",
                 data: hourlyOrders.map((item) => item.orders),
                 backgroundColor: CHART_BRAND,
-                borderRadius: 5,
+                borderRadius: 6,
             },
         ],
     };
@@ -566,7 +567,7 @@ export default function AnalyticsDashboard({
                 label: "Pedidos",
                 data: visibleCategories.map((item) => item.orders),
                 backgroundColor: CHART_BRAND,
-                borderRadius: 5,
+                borderRadius: 6,
             },
         ],
     };
@@ -580,7 +581,7 @@ export default function AnalyticsDashboard({
                 label: "% dos pedidos",
                 data: data.categoryPairs.map((item) => item.rate),
                 backgroundColor: DARK,
-                borderRadius: 5,
+                borderRadius: 6,
             },
         ],
     };
@@ -622,7 +623,7 @@ export default function AnalyticsDashboard({
                 grid: { display: false },
                 border: { display: false },
                 ticks: {
-                    color: "#9ca3af",
+                    color: "#626973",
                     maxRotation: 0,
                     autoSkip: true,
                     maxTicksLimit: 12,
@@ -630,10 +631,10 @@ export default function AnalyticsDashboard({
             },
             y: {
                 beginAtZero: true,
-                grid: { color: "rgba(229, 231, 235, 0.65)" },
+                grid: { color: "rgba(226, 229, 233, 0.65)" },
                 border: { display: false },
                 ticks: {
-                    color: "#9ca3af",
+                    color: "#626973",
                     callback: (value: string | number) =>
                         formatCurrency(Number(value) * 100),
                 },
@@ -1004,35 +1005,7 @@ export default function AnalyticsDashboard({
                         </p>
                     </div>
                     {data.items.length > ITEMS_PER_PAGE && (
-                        <div className="flex items-center gap-2 text-sm text-gray-500">
-                            <button
-                                type="button"
-                                aria-label="Página anterior"
-                                disabled={itemPage === 0}
-                                onClick={() =>
-                                    setItemPage((page) => Math.max(0, page - 1))
-                                }
-                                className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-gray-200 bg-white text-lg disabled:cursor-not-allowed disabled:opacity-40"
-                            >
-                                ‹
-                            </button>
-                            <span>
-                                {itemPage + 1}/{itemPages}
-                            </span>
-                            <button
-                                type="button"
-                                aria-label="Próxima página"
-                                disabled={itemPage >= itemPages - 1}
-                                onClick={() =>
-                                    setItemPage((page) =>
-                                        Math.min(itemPages - 1, page + 1)
-                                    )
-                                }
-                                className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-gray-200 bg-white text-lg disabled:cursor-not-allowed disabled:opacity-40"
-                            >
-                                ›
-                            </button>
-                        </div>
+                        <Pagination page={itemPage} pageCount={itemPages} onChange={setItemPage} />
                     )}
                 </div>
 

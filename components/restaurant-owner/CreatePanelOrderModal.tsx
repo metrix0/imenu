@@ -1,5 +1,6 @@
 "use client";
 
+import { LegacyModalClose } from "@/components/ui/ModalCloseButton";
 import Textarea from "@/components/ui/Textarea";
 import Input from "@/components/ui/Input";
 import Dropdown from "@/components/ui/Dropdown";
@@ -596,14 +597,14 @@ export default function CreatePanelOrderModal({
                                 Escolha os produtos, confira os dados e crie o pedido.
                             </p>
                         </div>
-                        <button
+                        <LegacyModalClose><button
                             type="button"
                             onClick={onClose}
                             aria-label="Fechar"
                             className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
                         >
                             <FontAwesomeIcon icon={icons.faTimes} />
-                        </button>
+                        </button></LegacyModalClose>
                     </div>
 
                     <div className="mt-4 grid grid-cols-2 rounded-xl bg-gray-100 p-1 lg:hidden">
@@ -689,10 +690,10 @@ export default function CreatePanelOrderModal({
                                                     const selectedQty = selectedQuantityByItemId[item.id] || 0;
 
                                                     return (
-                                                        <button
+                                                        <div
                                                             key={item.id}
-                                                            type="button"
-                                                            onClick={() => void handleAddItem(item)}
+                                                            role="button" tabIndex={0}
+                                                            onClick={() => void handleAddItem(item)} onKeyDown={(event) => { if (event.target === event.currentTarget && ["Enter", " "].includes(event.key)) { event.preventDefault(); void handleAddItem(item); } }}
                                                             className={`flex w-full cursor-pointer items-center justify-between gap-4 px-4 py-4 text-left transition hover:bg-gray-50 active:bg-gray-100 ${
                                                                 index > 0 ? "border-t border-gray-100" : ""
                                                             }`}
@@ -702,11 +703,6 @@ export default function CreatePanelOrderModal({
                                                                     <p className="truncate text-sm font-semibold text-gray-900 md:text-base">
                                                                         {item.name}
                                                                     </p>
-                                                                    {selectedQty > 0 && (
-                                                                        <span className="flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full bg-brand px-1.5 text-xs font-bold text-white">
-                                                                            {selectedQty}
-                                                                        </span>
-                                                                    )}
                                                                 </div>
                                                                 {item.description && (
                                                                     <p className="mt-1 line-clamp-1 text-xs text-gray-500">
@@ -724,11 +720,18 @@ export default function CreatePanelOrderModal({
                                                                         Estoque: {item.stock_quantity}
                                                                     </span>
                                                                 )}
-                                                                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand/10 text-brand">
-                                                                    <FontAwesomeIcon icon={icons.faPlus} className="text-sm" />
-                                                                </span>
+                                                                <div className="panel-quantity" onClick={event => event.stopPropagation()}>
+                                                                    {selectedQty > 0 && <>
+                                                                        <button type="button" aria-label={`Remover uma unidade de ${item.name}`} onClick={() => {
+                                                                            const selected = selectedItems.find(value => value.base_item_id === item.id);
+                                                                            if (selected) changeSelectedItemQty(selected.id, selected.qty - 1);
+                                                                        }}><FontAwesomeIcon icon={selectedQty === 1 ? icons.faTrash : icons.faMinus} /></button>
+                                                                        <span aria-live="polite">{selectedQty}</span>
+                                                                    </>}
+                                                                    <button type="button" aria-label={`Adicionar uma unidade de ${item.name}`} onClick={() => void handleAddItem(item)}><FontAwesomeIcon icon={icons.faPlus} /></button>
+                                                                </div>
                                                             </div>
-                                                        </button>
+                                                        </div>
                                                     );
                                                 })}
                                             </div>

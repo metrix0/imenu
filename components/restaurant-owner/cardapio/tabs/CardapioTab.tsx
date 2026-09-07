@@ -354,10 +354,14 @@ export default function CardapioTab({
         }
     };
 
+    const normalizeSearch = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    const normalizedSearch = normalizeSearch(searchTerm.trim());
+    const matchingItems = (category: Category) => items.filter(item => item.category_id === category.id && (
+        normalizeSearch(category.name).includes(normalizedSearch) ||
+        normalizeSearch(`${item.name} ${item.description || ""}`).includes(normalizedSearch)
+    ));
     const displayCategories = localCategories.filter((category) => {
-        const matchesSearch = category.name
-            .toLowerCase()
-            .includes(searchTerm.toLowerCase());
+        const matchesSearch = normalizeSearch(category.name).includes(normalizedSearch) || matchingItems(category).length > 0;
         const matchesSelect = selectedCategoryId
             ? category.id === selectedCategoryId
             : true;
@@ -434,7 +438,7 @@ export default function CardapioTab({
                 <div className="grid min-w-0 max-w-full grid-cols-2 gap-4 pb-4 md:hidden">
                     <div className="col-span-2 min-w-0 flex-1">
                         <Input
-                            placeholder="Buscar uma categoria"
+                            placeholder="Buscar item ou categoria"
                             icon={<FontAwesomeIcon icon={faSearch} />}
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
@@ -466,7 +470,7 @@ export default function CardapioTab({
                 <div className="hidden min-w-0 max-w-full gap-4 md:flex md:flex-row">
                     <div className="min-w-0 flex-1">
                         <Input
-                            placeholder="Buscar uma categoria"
+                            placeholder="Buscar item ou categoria"
                             icon={<FontAwesomeIcon icon={faSearch} />}
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
@@ -518,9 +522,7 @@ export default function CardapioTab({
                     >
                         <CategorySection
                             category={category}
-                            items={items.filter(
-                                (item) => item.category_id === category.id
-                            )}
+                            items={matchingItems(category)}
                             restaurantId={restaurantId}
                             onRefresh={onRefresh}
                             onItemUpdated={onItemUpdated}
@@ -558,7 +560,7 @@ export default function CardapioTab({
 
                 {displayCategories.length === 0 && (
                     <p className="py-10 text-center text-gray-500">
-                        Nenhuma categoria encontrada.
+                        Nenhum item ou categoria encontrado.
                     </p>
                 )}
             </div>

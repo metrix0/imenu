@@ -1,86 +1,33 @@
 "use client";
 
-import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
-import { faSearch } from "@fortawesome/free-solid-svg-icons";
+import { Search } from "lucide-react";
 import Input from "@/components/ui/Input";
-import Button from "@/components/ui/Button";
-import Dropdown from "@/components/ui/Dropdown"; // Importando o componente
+import Dropdown from "@/components/ui/Dropdown";
+import DateRangePicker from "@/components/ui/DateRangePicker";
+import type { DateRange } from "@/lib/utils/dateRange";
 
 interface OrdersFilterProps {
-    searchId: string;
-    setSearchId: (val: string) => void;
-    searchDate: string;
-    setSearchDate: (val: string) => void;
+    search: string;
+    onSearchChange: (value: string) => void;
+    range: DateRange;
+    onRangeChange: (range: DateRange) => void;
     selectedStatus: string;
-    setSelectedStatus: (val: string) => void;
-    onSearch: () => void;
+    onStatusChange: (value: string) => void;
 }
 
-export default function OrdersFilter({
-    searchId,
-    setSearchId,
-    searchDate,
-    setSearchDate,
-    selectedStatus,
-    setSelectedStatus,
-    onSearch
-}: OrdersFilterProps) {
-
-    // Opções para o Dropdown
-    const statusOptions = [
-        { value: "todas", label: "Todas as situações" },
-        { value: "pending_online_payment", label: "À Pagar" },
-        { value: "pending_physical_payment", label: "Pendente (Pgt. Entrega)" },
-        { value: "paid", label: "Pendente (Pago)" },
-        { value: "preparing", label: "Preparando" },
-        { value: "delivering", label: "Em Rota" },
-        { value: "done", label: "Concluído" },
-        { value: "canceled", label: "Cancelado" },
-    ];
-
-    return (
-        <div className="grid grid-cols-12 gap-4 items-end">
-            {/* Campo Número */}
-            <div className="col-span-12 md:col-span-4">
-                <Input 
-                    label="Número do pedido" 
-                    placeholder="Digite o número..." 
-                    icon={<FontAwesomeIcon icon={faSearch} />}
-                    value={searchId}
-                    onChange={(e) => setSearchId(e.target.value)}
-                />
-            </div>
-
-            {/* Dropdown Situação (Refatorado) */}
-            <div className="col-span-12 md:col-span-3">
-                <Dropdown
-                    label="Situação"
-                    options={statusOptions}
-                    value={selectedStatus}
-                    onChange={(e) => setSelectedStatus(e.target.value)}
-                />
-            </div>
-
-            {/* Campo Data */}
-            <div className="col-span-10 min-w-0 md:col-span-3">
-                <Input 
-                    label="Período" 
-                    type="date" 
-                    value={searchDate}
-                    onChange={(e) => setSearchDate(e.target.value)}
-                />
-            </div>
-
-            {/* Botão Buscar */}
-            <div className="col-span-2 min-w-0 md:col-span-2">
-                <Button
-                    variant="secondary" 
-                    onClick={onSearch} 
-                    className="w-full h-[3rem] top-1/2 flex items-center justify-center "
-                >
-                    <FontAwesomeIcon icon={faSearch} />
-                </Button>
-            </div>
-        </div>
-    );
+export default function OrdersFilter({ search, onSearchChange, range, onRangeChange, selectedStatus, onStatusChange }: OrdersFilterProps) {
+    return <div className="panel-history-filters">
+        <Input label="Buscar pedido" placeholder="Número, cliente ou endereço" icon={<Search size={16} />} value={search} onChange={event => onSearchChange(event.target.value)} />
+        <Dropdown label="Situação" value={selectedStatus} onChange={event => onStatusChange(event.target.value)} options={[
+            { value: "todas", label: "Todas as situações" },
+            { value: "pending_online_payment", label: "À Pagar" },
+            { value: "pending_physical_payment", label: "Pendente (Pgt. Entrega)" },
+            { value: "paid", label: "Pendente (Pago)" },
+            { value: "preparing", label: "Preparando" },
+            { value: "delivering", label: "Em Rota" },
+            { value: "done", label: "Concluído" },
+            { value: "canceled", label: "Cancelado" },
+        ]} />
+        <DateRangePicker value={range} onChange={onRangeChange} allowClear />
+    </div>;
 }

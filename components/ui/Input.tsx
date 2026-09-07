@@ -114,9 +114,9 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
         }
 
         return (
-            <div className="flex flex-col gap-1 2xl:gap-2">
+            <div data-ui="field" className="flex flex-col gap-1 2xl:gap-2">
                 {label && (
-                    <label htmlFor={inputId} className="text-sm font-medium md:text-xs 2xl:text-base">
+                    <label data-ui="field-label" htmlFor={inputId} className="text-sm font-medium md:text-xs 2xl:text-base">
                         {label}
                     </label>
                 )}

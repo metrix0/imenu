@@ -1,5 +1,6 @@
 "use client";
 
+import Switch from "@/components/ui/Switch";
 import Input from "@/components/ui/Input";
 import { useState, useRef, useEffect, ReactNode } from "react";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
@@ -490,7 +491,7 @@ export default function MenuItemRow({
         return (
             <>
                 <div
-                    className={`group flex items-center justify-between p-4 2xl:p-5 bg-white border-b border-gray-100 hover:bg-gray-50 transition-all cursor-pointer ${
+                    className={`panel-menu-row group flex items-center justify-between p-4 2xl:p-5 bg-white border-b border-gray-100 hover:bg-gray-50 transition-all cursor-pointer ${
                         !isAvailable ? "opacity-60 bg-gray-50" : ""
                     }`}
                     onClick={() => {
@@ -619,19 +620,7 @@ export default function MenuItemRow({
                             </>
                         )}
 
-                        <div
-                            onClick={handleToggleAvailability}
-                            className={`w-10 2xl:w-15 h-6 2xl:h-8 rounded-full p-1 cursor-pointer transition-colors flex items-center ${
-                                isAvailable
-                                    ? "bg-green-500 justify-end"
-                                    : "bg-gray-300 justify-start"
-                            }`}
-                            title={
-                                isAvailable ? "Pausar item" : "Ativar item"
-                            }
-                        >
-                            <div className="w-4 h-4 2xl:h-6 2xl:w-6 bg-white rounded-full shadow-md" />
-                        </div>
+                        <Switch checked={isAvailable} onClick={handleToggleAvailability} aria-label={isAvailable ? "Pausar item" : "Ativar item"} title={isAvailable ? "Pausar item" : "Ativar item"} />
 
                         <button
                             onClick={(e) => {

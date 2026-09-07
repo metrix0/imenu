@@ -322,7 +322,7 @@ export default function PainelLayout({
 
     const menuItems: MenuItem[] = [
         { label: "Pedidos", icon: faHome, href: `${base}/` },
-        { label: "Histórico", icon: faBox, href: `${base}/pedidos` },
+        { label: "Histórico", icon: faBox, href: `${base}/historico` },
         { label: "Cardápio", icon: faUtensils, href: cardapioHref },
         { label: "Mesas", icon: faChair, href: `${base}/mesas` },
         {
@@ -336,36 +336,16 @@ export default function PainelLayout({
             href: `${base}/analytics`,
         },
         { type: "divider" },
-        { label: "Promoções", icon: faPercent, href: `${base}/promocoes` },
-        { label: "Fidelidade", icon: faGift, href: `${base}/fidelidade` },
-        {
-            label: "Taxa e Tempo",
-            icon: faTruck,
-            href: `${base}/tempo-e-taxa`,
-        },
-        {
-            label: "Horários",
-            icon: faClock,
-            href: `${base}/disponibilidade`,
-        },
         { label: "Loja", icon: faStore, href: `${base}/loja` },
+        { label: "Promoções", icon: faPercent, href: `${base}/promocoes` },
+        { label: "Horários", icon: faClock, href: `${base}/disponibilidade` },
+        { label: "Taxa e Tempo", icon: faTruck, href: `${base}/tempo-e-taxa` },
+        { label: "Fidelidade", icon: faGift, href: `${base}/fidelidade` },
         { type: "divider" },
+        { label: "Aplicativo", icon: faMobileScreenButton, href: `${base}/aplicativo` },
+        { label: "Robô WhatsApp", icon: faRobot, href: `${base}/robo-whatsapp` },
         { label: "Impressora", icon: faPrint, href: `${base}/impressora` },
-        {
-            label: "Robô WhatsApp",
-            icon: faRobot,
-            href: `${base}/robo-whatsapp`,
-        },
-        {
-            label: "Integrações",
-            icon: faPuzzlePiece,
-            href: `${base}/integracoes`,
-        },
-        {
-            label: "Aplicativo",
-            icon: faMobileScreenButton,
-            href: `${base}/aplicativo`,
-        },
+        { label: "Integrações", icon: faPuzzlePiece, href: `${base}/integracoes` },
         {
             label: "Configurações",
             icon: faGear,

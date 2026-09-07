@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { icons } from "@/lib/utils/fontawesome";
 import { usePanelAppearance } from "./PanelAppearance";
+import ModalCloseButton from "./ModalCloseButton";
 
 let activeScrollLocks = 0;
 let originalBodyOverflow = "";
@@ -16,6 +17,7 @@ interface ModalProps {
     children: ReactNode;
     className?: string;
     showCloseButton?: boolean;
+    size?: "compact" | "standard" | "large";
 }
 
 export default function Modal({
@@ -24,6 +26,7 @@ export default function Modal({
     children,
     className = "",
     showCloseButton = false,
+    size = "standard",
 }: ModalProps) {
     const panel = usePanelAppearance();
     const [mounted, setMounted] = useState(open);
@@ -107,7 +110,7 @@ export default function Modal({
         <div className={`${panel ? "panel-essencial panel-modal" : ""} fixed inset-0 z-50 isolate flex min-h-[100dvh] w-full items-center justify-center overflow-y-auto p-3 sm:p-6 2xl:p-8`}>
             <button
                 type="button"
-                aria-label="Fechar modal"
+                aria-label="Fechar modal pelo fundo"
                 onClick={onClose}
                 className={`fixed inset-0 min-h-[100dvh] bg-black/40 backdrop-blur-sm transition-opacity duration-200 ${
                     active ? "opacity-100" : "opacity-0"
@@ -116,6 +119,7 @@ export default function Modal({
 
             <div
                 role="dialog"
+                data-modal-size={panel ? size : undefined}
                 aria-modal="true"
                 onClick={(event: { stopPropagation(): void }) =>
                     event.stopPropagation()
@@ -126,7 +130,8 @@ export default function Modal({
                         : "translate-y-3 scale-95 opacity-0"
                 } ${className}`}
             >
-                {showCloseButton && (
+                {panel && <ModalCloseButton onClose={onClose} />}
+                {!panel && showCloseButton && (
                     <button
                         type="button"
                         onClick={onClose}
@@ -139,7 +144,7 @@ export default function Modal({
                         />
                     </button>
                 )}
-                {children}
+                {panel ? <div className="panel-modal-body">{children}</div> : children}
             </div>
         </div>,
         document.body

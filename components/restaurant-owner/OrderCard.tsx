@@ -78,6 +78,7 @@ function CashChangeInfo({ text }: { text: string }) {
     return (
         <Tooltip
             text={text}
+            parentClassName="inline-flex items-center align-middle"
             position="bottom"
             size="medium"
             portal

@@ -2,6 +2,7 @@
 
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { faChair, faEye } from "@fortawesome/free-solid-svg-icons";
+import DataTable from "@/components/ui/DataTable";
 import Card from "@/components/ui/Card";
 import ListLoader from "@/components/ui/ListLoader";
 
@@ -11,6 +12,7 @@ export type Order = {
     display_id: number;
     created_at: string;
     customer_name: string;
+    customer_address?: string | null;
     status: "pending_online_payment" | "pending_physical_payment" | "paid" | "preparing" | "delivering" | "done" | "canceled";
     total_cents: number;
     is_delivery?: string | null;
@@ -55,7 +57,7 @@ export default function OrdersTable({ orders, isLoading, onViewOrder }: OrdersTa
     };
 
     return (
-        <Card className="p-0 overflow-hidden border border-gray-200 shadow-sm">
+        <Card className="panel-history-table p-0 overflow-hidden border border-gray-200 shadow-sm">
             <div className="md:hidden">
                 {isLoading ? (
                     <div className="p-6">
@@ -134,80 +136,15 @@ export default function OrdersTable({ orders, isLoading, onViewOrder }: OrdersTa
             </div>
 
             <div className="hidden md:block">
-                {/* Header da Tabela */}
-                <div className="bg-gray-50 border-b border-gray-200 grid grid-cols-12 px-6 2xl:px-8 2xl:py-4 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider 2xl:text-sm">
-                    <div className="col-span-2">Número</div>
-                    <div className="col-span-3">Cliente</div>
-                    <div className="col-span-2">Data</div>
-                    <div className="col-span-2">Valor</div>
-                    <div className="col-span-2">Situação</div>
-                    <div className="col-span-1 text-right">Ações</div>
-                </div>
-
-                {/* Conteúdo */}
-                {isLoading ? (
-                    <div className="p-6">
-                        <ListLoader lines={6} />
-                    </div>
-                ) : (
-                    <div className="divide-y divide-gray-100">
-                        {orders.length === 0 ? (
-                            <div className="p-10 text-center text-gray-500 2xl:text-lg 2xl:p-18">
-                                Nenhum pedido encontrado com estes filtros.
-                            </div>
-                        ) : (
-                            orders.map((order) => (
-                                <div
-                                    key={order.id}
-                                    role={onViewOrder ? "button" : undefined}
-                                    tabIndex={onViewOrder ? 0 : undefined}
-                                    onClick={() => onViewOrder?.(order)}
-                                    onKeyDown={(event) => {
-                                        if (onViewOrder && (event.key === "Enter" || event.key === " ")) {
-                                            event.preventDefault();
-                                            onViewOrder(order);
-                                        }
-                                    }}
-                                    className={`grid grid-cols-12 px-6 py-4 2xl:py-5 items-center hover:bg-gray-50 transition-colors text-sm 2xl:text-[1.1rem] text-gray-700 ${onViewOrder ? "cursor-pointer" : ""}`}
-                                >
-                                    <div className="col-span-2 font-bold text-gray-900">
-                                        #{order.display_id || order.id.slice(0, 4)}
-                                    </div>
-                                    <div className="col-span-3 flex min-w-0 items-center gap-2 pr-4 font-medium">
-                                        <span className="min-w-0 truncate">{order.customer_name}</span>
-                                        {order.is_delivery === "mesa" && (
-                                            <span className="flex shrink-0 items-center gap-1.5 text-xs font-medium text-brand 2xl:text-sm">
-                                                <FontAwesomeIcon icon={faChair} />
-                                                {order.table_name_snapshot || "Mesa"}
-                                            </span>
-                                        )}
-                                    </div>
-                                    <div className="col-span-2 text-gray-500">
-                                        {fmtDate(order.created_at)}
-                                    </div>
-                                    <div className="col-span-2 font-medium">
-                                        {fmtMoney(order.total_cents)}
-                                    </div>
-                                    <div className="col-span-2 ">
-                                        <span className={"truncate"}>{getStatusBadge(order.status, order.is_delivery === "mesa" || order.is_delivery === "retirada")}</span>
-                                    </div>
-                                    <div className="col-span-1 text-right">
-                                        <button
-                                            onClick={(event) => {
-                                                event.stopPropagation();
-                                                onViewOrder?.(order);
-                                            }}
-                                            className="text-gray-400 hover:text-brand p-2 transition-colors cursor-pointer"
-                                            title="Ver Detalhes"
-                                        >
-                                            <FontAwesomeIcon icon={faEye} />
-                                        </button>
-                                    </div>
-                                </div>
-                            ))
-                        )}
-                    </div>
-                )}
+                <DataTable rows={orders} rowKey={order => order.id} loading={isLoading} onRowClick={onViewOrder}
+                    emptyMessage="Nenhum pedido encontrado com estes filtros." columns={[
+                        { key: "number", label: "Pedido", render: order => <span className="font-semibold">#{order.display_id || order.id.slice(0, 4)}</span> },
+                        { key: "customer", label: "Cliente", render: order => <div className="max-w-xs"><div className="font-medium">{order.customer_name}</div>{order.customer_address && <div className="mt-1 truncate text-xs text-gray-500" title={order.customer_address}>{order.customer_address}</div>}{order.is_delivery === "mesa" && <span className="inline-flex items-center gap-1 text-xs text-brand"><FontAwesomeIcon icon={faChair} />{order.table_name_snapshot || "Mesa"}</span>}</div> },
+                        { key: "date", label: "Data", render: order => <span className="whitespace-nowrap text-gray-500">{fmtDate(order.created_at)}</span> },
+                        { key: "total", label: "Valor", render: order => <span className="whitespace-nowrap font-medium">{fmtMoney(order.total_cents)}</span> },
+                        { key: "status", label: "Situação", render: order => getStatusBadge(order.status, order.is_delivery === "mesa" || order.is_delivery === "retirada") },
+                        { key: "action", label: "", render: order => <button type="button" aria-label={"Ver detalhes do pedido #" + (order.display_id || order.id.slice(0, 4))} onClick={event => { event.stopPropagation(); onViewOrder?.(order); }} className="rounded-md p-2 text-gray-500 hover:bg-gray-100 hover:text-brand"><FontAwesomeIcon icon={faEye} /></button> },
+                    ]} />
             </div>
         </Card>
     );

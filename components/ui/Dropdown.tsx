@@ -262,6 +262,19 @@ const PanelDropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(functio
     const menuRef = React.useRef<HTMLDivElement>(null);
     const [open, setOpen] = React.useState(false);
     const [uncontrolledValue, setUncontrolledValue] = React.useState(props.defaultValue ?? options[0]?.value ?? "");
+    const [mounted, setMounted] = React.useState(false);
+    const [active, setActive] = React.useState(false);
+    React.useEffect(() => {
+        if (open) {
+            setMounted(true);
+            let secondFrame = 0;
+            const frame = requestAnimationFrame(() => { secondFrame = requestAnimationFrame(() => setActive(true)); });
+            return () => { cancelAnimationFrame(frame); cancelAnimationFrame(secondFrame); };
+        }
+        setActive(false);
+        const timer = window.setTimeout(() => setMounted(false), 160);
+        return () => window.clearTimeout(timer);
+    }, [open]);
     const [position, setPosition] = React.useState<React.CSSProperties>({});
     const value = props.value ?? uncontrolledValue;
     const selected = options.find(option => String(option.value) === String(value));
@@ -310,8 +323,8 @@ const PanelDropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(functio
         triggerRef.current?.focus();
     };
 
-    return <div className="panel-dropdown-field min-w-0">
-        {label && <label htmlFor={`${id}-trigger`} className="mb-1 block text-sm font-medium">{label}</label>}
+    return <div data-ui="field" className="panel-dropdown-field min-w-0">
+        {label && <label data-ui="field-label" htmlFor={`${id}-trigger`} className="mb-1 block text-sm font-medium">{label}</label>}
         <select {...props} ref={selectRef} className="sr-only" tabIndex={-1} aria-hidden="true"
             onChange={event => { setUncontrolledValue(event.target.value); props.onChange?.(event); }}
             onInvalid={event => { props.onInvalid?.(event); triggerRef.current?.focus(); }}>
@@ -332,7 +345,8 @@ const PanelDropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(functio
             <span className="min-w-0 truncate">{selected?.label ?? "Selecione"}</span>
             <FontAwesomeIcon icon={faChevronDown} className={`shrink-0 text-gray-500 ${open ? "rotate-180" : ""} ${chevronClassName || ""}`} />
         </button>
-        {open && createPortal(<div className="panel-essencial panel-dropdown-portal" style={position}
+        {mounted && createPortal(<div className="panel-essencial panel-dropdown-portal" style={position}
+            data-state={active ? "open" : "closed"} aria-hidden={!open} inert={!open}
             ref={menuRef} id={`${id}-list`} role="listbox" aria-label={props["aria-label"] || label}
             data-ui="dropdown-menu" onBlur={closeOnBlur}>
             {options.map(option => <button key={option.value} type="button" role="option"

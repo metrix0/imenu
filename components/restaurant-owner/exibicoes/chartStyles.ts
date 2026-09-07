@@ -3,10 +3,10 @@ import type { ScriptableContext } from "chart.js";
 export const CHART_BRAND = "#f14400";
 
 export const STANDARD_CHART_TOOLTIP = {
-    backgroundColor: "#111827",
+    backgroundColor: "#1d1d1d",
     titleColor: "#ffffff",
-    bodyColor: "#e5e7eb",
-    footerColor: "#d1d5db",
+    bodyColor: "#f7f8fa",
+    footerColor: "#e2e5e9",
     padding: 12,
     cornerRadius: 10,
     displayColors: false,
@@ -29,8 +29,8 @@ export function createBrandAreaGradient(
         0,
         chartArea.bottom
     );
-    gradient.addColorStop(0, "rgba(241, 68, 0, 0.28)");
-    gradient.addColorStop(0.55, "rgba(241, 68, 0, 0.10)");
+    gradient.addColorStop(0, "rgba(241, 68, 0, 0.18)");
+    gradient.addColorStop(0.55, "rgba(241, 68, 0, 0.06)");
     gradient.addColorStop(1, "rgba(241, 68, 0, 0)");
     return gradient;
 }

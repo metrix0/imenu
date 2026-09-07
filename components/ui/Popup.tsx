@@ -1,6 +1,8 @@
 
 "use client";
 import { useState, ReactNode } from "react";
+import Modal from "./Modal";
+import { usePanelAppearance } from "./PanelAppearance";
 
 interface PopupProps {
     trigger?: ReactNode;          // Optional custom trigger button
@@ -10,6 +12,7 @@ interface PopupProps {
 }
 
 export default function Popup({ trigger, open, onClose, children }: PopupProps) {
+    const panel = usePanelAppearance();
     const [isOpen, setIsOpen] = useState(false);
     const visible = open ?? isOpen; // if open prop passed, override local state
 
@@ -17,6 +20,8 @@ export default function Popup({ trigger, open, onClose, children }: PopupProps) 
         if (onClose) onClose();
         setIsOpen(false);
     };
+
+    if (panel) return <Modal open={visible} onClose={handleClose} size="compact" className="max-w-sm"><div className="p-6 text-center">{children}</div></Modal>;
 
     return (
         <>

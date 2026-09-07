@@ -8,7 +8,6 @@ import Tabs from "@/components/ui/Tabs";
 import Toast from "@/components/ui/Toast";
 
 import CardapioTab from "@/components/restaurant-owner/cardapio/tabs/CardapioTab";
-import ProdutosTab from "@/components/restaurant-owner/cardapio/tabs/ProdutosTab";
 import ComplementosTab from "@/components/restaurant-owner/cardapio/tabs/ComplementosTab";
 import UpsellTab from "@/components/restaurant-owner/cardapio/tabs/UpsellTab";
 import EstoqueTab from "@/components/restaurant-owner/cardapio/tabs/EstoqueTabs";
@@ -22,7 +21,6 @@ type Category = { id: string; name: string; position: number };
 
 const TABS = [
     "Cardápio",
-    "Produtos",
     "Complementos",
     "Upsells",
     "Estoque",
@@ -223,15 +221,6 @@ export default function MenuManagerPage() {
                         onOpenItemDetails={handleOpenItemDetails}
                         onNewCategory={handleNewCategory}
                         onAIScanMenu={setAiModalOpen}
-                    />
-                )}
-
-                {activeTab === "Produtos" && (
-                    <ProdutosTab
-                        items={items}
-                        onRefresh={() => loadMenuData(restaurantId)}
-                        onOpenItemDetails={handleOpenItemDetails}
-                        onAddNewProduct={handleAddNewProduct}
                     />
                 )}
 
