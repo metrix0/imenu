@@ -41,6 +41,7 @@
   "scripts": {
     "dev": "next dev",
     "test": "jest --passWithNoTests",
-    "commit": "node scripts/commit-and-push.mjs"
+    "commit": "node scripts/commit-and-push.mjs",
+    "env:preview": "npx vercel env pull .env.preview.local --environment=preview --git-branch=preview"
   }
 }
