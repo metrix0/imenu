@@ -5,12 +5,12 @@ import { supabase } from "@/lib/database/supabaseClient";
 import { Item, Category, Promotion } from "@/lib/types/types";
 import PromotionRow from "./PromotionRow";
 import Card from "@/components/ui/Card";
-import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
-import { icons } from "@/lib/utils/fontawesome";
 import Dropdown from "@/components/ui/Dropdown";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 import ListLoader from "@/components/ui/ListLoader";
+import DateRangePicker from "@/components/ui/DateRangePicker";
+import SaveStatus, { type SaveState } from "@/components/ui/SaveStatus";
 
 /* -------------------------------- BULK BAR -------------------------------- */
 
@@ -56,41 +56,36 @@ function BulkEditBar({
     };
 
     return (
-        <div className="px-4 pr-6 shadow-xs py-3 bg-gray-100 border rounded-3xl mb-4 mt-2 flex items-center gap-4 border-gray-200 justify-between">
-            <div className={"flex items-center gap-4 border-gray-200"}>
+        <div className="space-y-3 border-b border-gray-200 bg-gray-50 p-4">
+            <p className="text-sm font-medium">{items.length} {items.length === 1 ? "produto selecionado" : "produtos selecionados"}</p>
+            <div className="grid grid-cols-[repeat(2,minmax(0,1fr))] items-end gap-3 lg:grid-cols-[minmax(0,1fr)_100px_minmax(0,1.5fr)_auto]">
                 <Dropdown
+                    label="Desconto em lote"
                     value={type}
                     options={[
-                        { label: "%", value: "percent" },
-                        { label: "R$", value: "fixed" },
+                        { label: "Percentual", value: "percent" },
+                        { label: "Valor fixo", value: "fixed" },
                     ]}
                     onChange={e => setType(e.target.value as any)}
-                    className={"border-none !bg-transparent !pr-7"}
-                    chevronClassName="!text-xs"
                 />
 
                 <Input
+                    label={type === "percent" ? "Valor (%)" : "Valor (R$)"}
                     type="number"
+                    inputMode="decimal"
+                    min={0}
+                    max={type === "percent" ? 100 : undefined}
+                    step={type === "percent" ? 1 : 0.01}
                     value={value}
-                    className="max-w-24 -ml-3 !py-2"
                     onChange={e => setValue(Number(e.target.value || 0))}
                 />
 
-                <Input inline
-                    type="date"
-                    value={startsAt ?? ""}
-                    onChange={e => setStartsAt(e.target.value || null)}
-                    className="border border-gray-300 cursor-pointer px-2 py-2 bg-white rounded text-sm"
-                />
-                <Input inline
-                    type="date"
-                    value={endsAt ?? ""}
-                    onChange={e => setEndsAt(e.target.value || null)}
-                    className="border border-gray-300 cursor-pointer px-2 py-2 bg-white rounded text-sm"
-                />
-            </div>
-
-            <div className={"flex items-center gap-4 border-gray-200"}>
+                <div className="col-span-2 lg:col-span-1">
+                    <DateRangePicker label="Vigência" presets={[]} allowFuture allowOpenEnd allowClear emptyLabel="Sem data final"
+                        value={{ startDate: startsAt ?? "", endDate: endsAt ?? "" }}
+                        onChange={range => { setStartsAt(range.startDate || null); setEndsAt(range.endDate || null); }} />
+                </div>
+            <div className="col-span-2 flex flex-wrap items-center gap-2 lg:col-span-1">
                 <Button
                     onClick={() =>
                         items.forEach(item =>
@@ -98,17 +93,19 @@ function BulkEditBar({
                         )
                     }
                     variant={"secondary"}
-                    className={"text-sm bg-gray-200 hover:bg-gray-300 text-text"}
+                    className="text-red-600"
                 >
                     Remover promoções
                 </Button>
 
                 <Button
                     onClick={apply}
+                    disabled={value <= 0}
                     className="text-sm"
                 >
                     Aplicar
                 </Button>
+            </div>
             </div>
         </div>
     );
@@ -140,6 +137,7 @@ function CategoryCheckbox({
         <input
             ref={ref}
             type="checkbox"
+            aria-label="Selecionar todos os produtos da categoria"
             checked={allSelected}
             onChange={() => {
                 const next = { ...selected };
@@ -167,10 +165,13 @@ export default function PromotionsPanel({
 }) {
     const [data, setData] = useState<CategoryWithItems[]>([]);
     const [selected, setSelected] = useState<Record<string, boolean>>({});
-    const [isSaving, setIsSaving] = useState(false);
+    const [saveStates, setSaveStates] = useState<Record<string, SaveState>>({});
+    const statuses = Object.values(saveStates);
+    const saveStatus: SaveState = statuses.includes("error") ? "error" : statuses.includes("saving") ? "saving" : "saved";
     const [loading, setLoading] = useState(true);
 
     const debounceRef = useRef<Record<string, NodeJS.Timeout>>({});
+    const saveVersions = useRef<Record<string, number>>({});
 
     useEffect(() => {
         load();
@@ -207,6 +208,9 @@ export default function PromotionsPanel({
     };
 
     const savePromotionDebounced = (itemId: string, promo: Promotion) => {
+        const version = (saveVersions.current[itemId] ?? 0) + 1;
+        saveVersions.current[itemId] = version;
+        setSaveStates(prev => ({ ...prev, [itemId]: "saving" }));
         if (debounceRef.current[itemId])
             clearTimeout(debounceRef.current[itemId]);
 
@@ -220,7 +224,6 @@ export default function PromotionsPanel({
         );
 
         debounceRef.current[itemId] = setTimeout(async () => {
-            setIsSaving(true);
 
             const { error } = await supabase
                 .from("promotions")
@@ -237,13 +240,16 @@ export default function PromotionsPanel({
                 );
 
             if (error) onToast?.("Erro ao salvar", "error");
-            else onToast?.("Promoção salva", "success");
-
-            setTimeout(() => setIsSaving(false), 300);
+            if (saveVersions.current[itemId] === version) {
+                setSaveStates(prev => ({ ...prev, [itemId]: error ? "error" : "saved" }));
+            }
         }, 500);
     };
 
     const removePromotion = async (itemId: string) => {
+        saveVersions.current[itemId] = (saveVersions.current[itemId] ?? 0) + 1;
+        clearTimeout(debounceRef.current[itemId]);
+        setSaveStates(prev => ({ ...prev, [itemId]: "saving" }));
         setData(prev =>
             prev.map(group => ({
                 ...group,
@@ -262,6 +268,7 @@ export default function PromotionsPanel({
             .select(); // forces Supabase to return deleted rows
 
         if (error) {
+            setSaveStates(prev => ({ ...prev, [itemId]: "error" }));
             console.error("[removePromotion] Supabase error:", {
                 itemId,
                 status,
@@ -275,6 +282,7 @@ export default function PromotionsPanel({
             return;
         }
 
+        setSaveStates(prev => ({ ...prev, [itemId]: "saved" }));
         console.log("[removePromotion] Promotion removed successfully", {
             itemId,
             status,
@@ -297,35 +305,31 @@ export default function PromotionsPanel({
     }
 
     return (
-        <div className="mt-10">
-            <div className="text-sm text-right -mb-4">
-                {isSaving ? <span className={"text-red-600"}>Salvando...</span> : <span className={"text-green-600"}><FontAwesomeIcon icon={icons.faCheck}/> Tudo salvo</span>}
+        <div className="mt-6 space-y-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-sm text-gray-500">Ajuste o desconto de cada produto ou selecione vários para editar em lote.</p>
+                <SaveStatus status={saveStatus} />
             </div>
+            {data.length === 0 && <Card><p className="py-8 text-center text-sm text-gray-500">Nenhum produto disponível para criar promoções.</p></Card>}
 
             {data.map(({ category, items }) => {
                 const anySelected = items.some(i => selected[i.id]);
 
                 return (
-                    <div key={category.id}>
-                        <div className="px-4 py-3 bg-gray-50 flex items-center gap-4">
+                    <Card key={category.id} className="!p-0">
+                        <div className="flex items-center gap-3 border-b border-gray-200 px-4 py-4">
                             <CategoryCheckbox
                                 items={items}
                                 selected={selected}
                                 setSelected={setSelected}
                             />
-                            <span className="font-semibold text-xl">
+                            <h3 className="min-w-0 flex-1 break-words font-medium">
                                 {category.name}
-                            </span>
+                            </h3>
+                            <span className="text-xs text-gray-500">{items.length} {items.length === 1 ? "produto" : "produtos"}</span>
                         </div>
 
-                        <div
-                            className={`
-        overflow-hidden transition-all duration-300 ease-in
-        ${anySelected
-                                ? "max-h-40 opacity-100 translate-y-0"
-                                : "max-h-0 opacity-0 -translate-y-2 pointer-events-none"}
-    `}
-                        >
+                        {anySelected && <div>
                             <BulkEditBar
                                 items={items.filter(i => selected[i.id])}
                                 onBulkChange={(promo, itemId) =>
@@ -334,8 +338,8 @@ export default function PromotionsPanel({
                                         : savePromotionDebounced(itemId, promo)
                                 }
                             />
-                        </div>
-                        <Card className={"mt-2 border border-gray-200 px-0 py-0 mb-6 !shadow-md"}>
+                        </div>}
+                        <div>
                             {items.map(item => (
                                 <PromotionRow
                                     key={item.id}
@@ -357,8 +361,8 @@ export default function PromotionsPanel({
                                     }
                                 />
                             ))}
-                        </Card>
-                    </div>
+                        </div>
+                    </Card>
                 );
             })}
         </div>

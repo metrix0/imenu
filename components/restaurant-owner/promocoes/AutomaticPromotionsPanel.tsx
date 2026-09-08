@@ -8,6 +8,7 @@ import Dropdown from "@/components/ui/Dropdown";
 import Card from "@/components/ui/Card";
 import ListLoader from "@/components/ui/ListLoader";
 import ConfirmModal from "@/components/ui/ConfirmModal";
+import Switch from "@/components/ui/Switch";
 import PromotionBanner from "@/components/costumer/PromotionBanner";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import {
@@ -50,19 +51,10 @@ function Toggle({
   label: string;
 }) {
   return (
-    <label className="flex min-h-11 cursor-pointer items-center justify-between gap-4 text-sm">
+    <div className="flex min-h-11 items-center justify-between gap-4 text-sm">
       <span>{label}</span>
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-        className="peer sr-only"
-      />
-      <span
-        aria-hidden="true"
-        className="relative h-6 w-10 shrink-0 rounded-full bg-gray-300 transition peer-checked:bg-green-500 peer-focus-visible:ring-2 peer-focus-visible:ring-brand peer-focus-visible:ring-offset-2 after:absolute after:left-1 after:top-1 after:h-4 after:w-4 after:rounded-full after:bg-white after:shadow-sm after:transition-transform peer-checked:after:translate-x-4"
-      />
-    </label>
+      <Switch checked={checked} onClick={() => onChange(!checked)} aria-label={label} />
+    </div>
   );
 }
 
@@ -260,6 +252,13 @@ export default function AutomaticPromotionsPanel({
               Cancelar
             </Button>
           </div>
+          <Card className="flex items-center justify-between gap-4">
+            <div>
+              <h3>Status da promoção</h3>
+              <p className="mt-1 text-sm text-gray-500">{editing.active ? "Disponível quando as regras forem atendidas." : "Pausada para todos os clientes."}</p>
+            </div>
+            <Switch checked={editing.active} aria-label="Promoção ativa" onClick={() => setEditing({ ...editing, active: !editing.active })} />
+          </Card>
           <Input
             aria-label="Nome da promoção"
             label="Nome da promoção"
@@ -587,13 +586,6 @@ export default function AutomaticPromotionsPanel({
                 </div>
               </div>
             </div>
-            <div className="border-t border-gray-200 pt-2">
-              <Toggle
-                label="Promoção ativa"
-                checked={editing.active}
-                onChange={(value) => setEditing({ ...editing, active: value })}
-              />
-            </div>
           </Card>
           {error && (
             <p role="alert" className="text-sm text-red-600">
@@ -643,7 +635,10 @@ export default function AutomaticPromotionsPanel({
           >
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0 break-words">
-                <h3 className="font-semibold">{p.name}</h3>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="font-semibold">{p.name}</h3>
+                  <span className={`rounded-full px-2 py-1 text-xs font-medium ${p.active ? "bg-green-50 text-green-800" : "bg-gray-100 text-gray-500"}`}>{p.active ? "Ativa" : "Pausada"}</span>
+                </div>
                 <p className="mt-1 text-sm text-gray-600">
                   {description.benefits} · {description.conditions}
                 </p>
@@ -668,15 +663,8 @@ export default function AutomaticPromotionsPanel({
             </div>
             <fieldset
               disabled={saving}
-              className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 pt-3"
+              className="mt-4 flex justify-end gap-2 border-t border-gray-200 pt-3"
             >
-              <Toggle
-                label={p.active ? "Ativa" : "Pausada"}
-                checked={p.active}
-                onChange={(active) => {
-                  void save({ ...p, active });
-                }}
-              />
               <div className="flex gap-2">
                 <Button
                   variant="secondary"

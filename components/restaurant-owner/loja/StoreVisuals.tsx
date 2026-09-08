@@ -105,7 +105,7 @@ export default function StoreVisuals({
     };
 
     return (
-        <div className="relative mb-12 2xl:mb-16">
+        <div className="relative mb-8">
             
             {/* --- MODAL DE RECORTE --- */}
             <Modal open={!!cropImage} onClose={handleCloseCrop} className="max-w-2xl w-full">
@@ -140,7 +140,7 @@ export default function StoreVisuals({
                             min={1}
                             max={3}
                             step={0.1}
-                            aria-labelledby="Zoom"
+                            aria-label="Zoom da imagem"
                             onChange={(e) => setZoom(Number(e.target.value))}
                             className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-brand"
                         />
@@ -168,8 +168,7 @@ export default function StoreVisuals({
             {/* --- UI PRINCIPAL (BANNER) --- */}
             <div className="relative group">
                 <div 
-                    className="relative h-48 2xl:h-60 2xl:rounded-lg bg-gray-100 cursor-pointer overflow-hidden border-b border-gray-200"
-                    onClick={() => bannerInputRef.current?.click()}
+                    className="relative h-40 rounded-lg border border-gray-200 bg-gray-100 sm:h-48"
                 >
                     <input 
                         type="file" 
@@ -188,15 +187,13 @@ export default function StoreVisuals({
                     )}
 
                     {/* Overlay Banner */}
-                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/0 group-hover:bg-black/30 transition-colors">
-                        <span className="text-white font-medium opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2 drop-shadow-md">
-                            <FontAwesomeIcon icon={icons.faEdit} /> Alterar Capa
-                        </span>
-                    </div>
+                    <Button type="button" variant="secondary" className="absolute bottom-3 right-3 gap-2 !bg-white" onClick={() => bannerInputRef.current?.click()}>
+                        <FontAwesomeIcon icon={icons.faEdit} /> Alterar capa
+                    </Button>
                 </div>
                 
                 {/* Dica de Resolução Banner */}
-                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/60 text-white text-[10px] px-2 py-1 rounded backdrop-blur-sm pointer-events-none">
+                <div className="absolute top-3 right-3 rounded bg-black/60 px-2 py-1 text-xs text-white pointer-events-none">
                     Recomendado: 1920x480px
                 </div>
             </div>
@@ -204,9 +201,8 @@ export default function StoreVisuals({
 
             {/* --- UI PRINCIPAL (LOGO) --- */}
             <div className="relative">
-                <div 
-                    className="absolute -top-12 left-8 w-24 h-24 2xl:w-28 2xl:h-28 bg-white rounded-full border-4 border-white shadow-md flex items-center justify-center z-10 cursor-pointer overflow-hidden hover:brightness-95 transition-all group/logo"
-                    onClick={(e) => { e.stopPropagation(); logoInputRef.current?.click(); }}
+                <div
+                    className="absolute -top-10 left-4 flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border-4 border-white bg-white"
                 >
                     <input 
                         type="file" 
@@ -223,14 +219,12 @@ export default function StoreVisuals({
                     )}
 
                     {/* Overlay Logo */}
-                    <div className="absolute inset-0 bg-black/30 opacity-0 group-hover/logo:opacity-100 flex items-center justify-center transition-opacity">
-                        <FontAwesomeIcon icon={icons.faEdit} className="text-white text-xs" />
-                    </div>
                 </div>
 
                 {/* Dica de Resolução Logo (Aparece ao lado da logo quando hover nela) */}
-                <div className="absolute -top-4 left-36 opacity-0 group-hover/logo:opacity-100 transition-opacity bg-gray-800 text-white text-[10px] px-2 py-1 rounded shadow-sm pointer-events-none whitespace-nowrap z-20">
-                    Recomendado: 500x500px (1:1)
+                <div className="flex min-h-14 flex-wrap items-center gap-x-3 gap-y-1 pl-28 pt-3">
+                    <Button type="button" variant="secondary" onClick={() => logoInputRef.current?.click()}>Alterar logo</Button>
+                    <span className="text-xs text-gray-500">500 × 500 px</span>
                 </div>
             </div>
         </div>

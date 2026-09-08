@@ -8,6 +8,7 @@ import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Toast from "@/components/ui/Toast";
 import Input from "@/components/ui/Input";
+import type { SaveState } from "@/components/ui/SaveStatus";
 import PixPayoutFields, {
     inferPixKeyType,
 } from "@/components/restaurant-owner/PixPayoutFields";
@@ -29,6 +30,7 @@ interface StoreProfileProps {
         store_whatsapp: string | null;
     };
     compact?: boolean;
+    onSaveStatusChange: (status: SaveState) => void;
 }
 
 function sanitizeSlug(value: string): string {
@@ -53,11 +55,17 @@ function formatPhone(value: string): string {
 
 export default function StoreProfileManager({
     restaurant,
+    onSaveStatusChange,
 }: StoreProfileProps) {
     const [name, setName] = useState(restaurant.name);
     const [logoUrl, setLogoUrl] = useState<string | null>(null);
     const [bannerUrl, setBannerUrl] = useState<string | null>(null);
-    const [isSaving, setIsSaving] = useState(false);
+    const [fieldStatuses, setFieldStatuses] = useState<Record<string, SaveState>>({});
+    const isSaving = Object.values(fieldStatuses).includes("saving");
+    const hasSaveError = Object.values(fieldStatuses).includes("error");
+    useEffect(() => {
+        onSaveStatusChange(hasSaveError ? "error" : isSaving ? "saving" : "saved");
+    }, [hasSaveError, isSaving, onSaveStatusChange]);
     const [toast, setToast] = useState<{
         msg: string;
         type: "success" | "error";
@@ -136,7 +144,10 @@ export default function StoreProfileManager({
     }, [isSaving]);
 
     const saveFields = async (fields: Record<string, unknown>) => {
-        setIsSaving(true);
+        const updateStatus = (status: SaveState) => setFieldStatuses(previous => ({
+            ...previous, ...Object.fromEntries(Object.keys(fields).map(key => [key, status])),
+        }));
+        updateStatus("saving");
         try {
             const response = await fetch(`/api/restaurants/${restaurant.id}`, {
                 method: "PATCH",
@@ -148,14 +159,14 @@ export default function StoreProfileManager({
             if (typeof payload.url_slug === "string") {
                 setUrlSlug(payload.url_slug);
             }
+            updateStatus("saved");
             return payload;
         } catch (error) {
             const message =
                 error instanceof Error ? error.message : "Erro ao salvar.";
             setToast({ msg: message, type: "error" });
+            updateStatus("error");
             throw error;
-        } finally {
-            setIsSaving(false);
         }
     };
 
@@ -209,24 +220,6 @@ export default function StoreProfileManager({
 
     return (
         <div className="space-y-8">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold text-gray-900">
-                        Perfil da Loja
-                    </h1>
-                    <p className="mt-1 text-gray-500 2xl:text-lg">
-                        Como seu restaurante aparece para os clientes.
-                    </p>
-                </div>
-                <div className="shrink-0 text-sm font-medium">
-                    {isSaving ? (
-                        <span className="animate-pulse text-brand">Salvando...</span>
-                    ) : (
-                        <span className="text-green-600">Tudo salvo</span>
-                    )}
-                </div>
-            </div>
-
             <Card className="overflow-visible">
                 <StoreVisuals
                     restaurantId={restaurant.id}
@@ -239,6 +232,10 @@ export default function StoreProfileManager({
                 />
 
                 <div className="space-y-6">
+                    <div>
+                        <h2>Identidade e contato</h2>
+                        <p className="mt-1 text-sm text-gray-500">Personalize a apresentação e o endereço do seu cardápio.</p>
+                    </div>
                     <Input
                         label="Nome do Restaurante"
                         value={name}

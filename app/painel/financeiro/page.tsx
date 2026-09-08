@@ -81,9 +81,12 @@ export default function FinanceiroPage() {
 
     return (
         <div className="mx-auto max-w-7xl space-y-8 px-4 pb-20 pt-8 2xl:max-w-[90rem]">
-            <h1 className="text-3xl font-bold text-gray-900">
+            <div>
+            <h1>
                 Dashboard Financeiro
             </h1>
+            <p className="mt-1 text-sm text-gray-500">Acompanhe as vendas, o faturamento e os repasses da sua loja.</p>
+            </div>
 
             <DateFilterBar
                 startDate={startDate}
@@ -110,7 +113,7 @@ export default function FinanceiroPage() {
                 />
             </section>
 
-            <Card className="border border-brand/10 bg-gradient-to-br from-white to-brand/[0.04]">
+            <Card>
                 <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
                     <div className="max-w-2xl">
                         <h2 className="text-lg font-bold text-gray-900 2xl:text-xl">

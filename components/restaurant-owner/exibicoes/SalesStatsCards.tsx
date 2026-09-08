@@ -17,17 +17,17 @@ const formatPrice = (priceInCents: number) => {
 
 export default function SalesStatsCards({ total_sales_cents, total_orders }: SalesStatsCardsProps) {
     return (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Card>
-                <h4 className="text-sm font-medium text-gray-500 uppercase tracking-wide">Total de Vendas</h4>
-                <p className="mt-2 text-3xl font-bold text-brand">
+                <h3 className="!text-sm font-medium text-gray-500">Total de vendas</h3>
+                <p className="mt-2 text-3xl font-medium tabular-nums tracking-tight text-gray-900">
                     {formatPrice(total_sales_cents)}
                 </p>
             </Card>
             <Card>
-                <h4 className="text-sm font-medium text-gray-500 uppercase tracking-wide">N° de Pedidos</h4>
-                <p className="mt-2 text-3xl font-bold text-gray-900">
-                    {total_orders}
+                <h3 className="!text-sm font-medium text-gray-500">Número de pedidos</h3>
+                <p className="mt-2 text-3xl font-medium tabular-nums tracking-tight text-gray-900">
+                    {total_orders.toLocaleString("pt-BR")}
                 </p>
             </Card>
         </div>

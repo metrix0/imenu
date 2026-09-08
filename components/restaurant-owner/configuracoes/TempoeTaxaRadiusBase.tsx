@@ -1,4 +1,5 @@
 "use client";
+import SaveStatus from "@/components/ui/SaveStatus";
 
 import {
     forwardRef,
@@ -442,19 +443,7 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                 <div className="flex justify-end mb-2 2xl:mb-3 h-6">
                     {!isNew && (
                         <div className="text-sm 2xl:text-lg font-medium h-6 flex items-center mb-4 transition-opacity duration-300">
-                            {status === "saving" ? (
-                                <span className="text-brand animate-pulse">
-                                    Salvando...
-                                </span>
-                            ) : status === "saved" ? (
-                                <span className="text-green-600 flex items-center gap-1">
-                                    <FontAwesomeIcon
-                                        icon={icons.faCheck}
-                                        className="text-xs"
-                                    />
-                                    Tudo salvo
-                                </span>
-                            ) : null}
+                            <SaveStatus status={status} />
                         </div>
                     )}
                 </div>

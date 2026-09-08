@@ -1,4 +1,5 @@
 "use client";
+import SaveStatus from "@/components/ui/SaveStatus";
 
 import {
     forwardRef,
@@ -302,11 +303,7 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
 
                 {mode === "neighborhood" && !isNew && (
                     <div className="mb-3 flex h-6 justify-end text-sm font-medium">
-                        {status === "saving" ? (
-                            <span className="animate-pulse text-brand">Salvando...</span>
-                        ) : status === "saved" ? (
-                            <span className="text-green-600">Tudo salvo</span>
-                        ) : null}
+                        <SaveStatus status={error ? "error" : status} />
                     </div>
                 )}
 

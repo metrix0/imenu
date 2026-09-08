@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Button from "@/components/ui/Button";
-import ToggleInput from "@/components/ui/ToggleInput";
+import Switch from "@/components/ui/Switch";
 import Modal from "@/components/ui/Modal";
 import { supabase } from "@/lib/database/supabaseClient";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
@@ -28,7 +28,7 @@ export default function CouponsList({
     const [coupons, setCoupons] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [deleteTarget, setDeleteTarget] = useState<any>(null);
-    const [copied, setCopied] = useState(false);
+    const [copied, setCopied] = useState<string | null>(null);
 
     const loadCoupons = async () => {
         setLoading(true);
@@ -71,8 +71,8 @@ export default function CouponsList({
     const handleCopy = (c: any) => {
         const couponLink = `imenuapp.com.br/${restaurant.url_slug}/?c=${c.code}`;
         navigator.clipboard.writeText(couponLink);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
+        setCopied(c.id);
+        setTimeout(() => setCopied(null), 2000);
     }
 
     const formatDateBR = (date?: string) => {
@@ -135,12 +135,12 @@ export default function CouponsList({
             {/* Table */}
             {!loading && coupons.length > 0 && (
                 <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
-                    <table className="w-full text-sm">
+                    <table className="w-full text-sm tabular-nums">
                         <thead className="bg-gray-50 text-gray-600">
                         <tr>
                             <th className="px-4 py-3 text-left font-medium">Cupom</th>
                             <th className="px-4 py-3 text-left font-medium">Valor</th>
-                            <th className="px-4 py-3 text-left font-medium">Usos</th>
+                            <th className="px-4 py-3 text-center font-medium">Usos</th>
                             <th className="px-4 py-3 text-left font-medium">Duração</th>
                             <th className="px-4 py-3 text-center font-medium"><Tooltip text={"Este link ativa o cupom automaticamente"} position={"right"}>Link <FontAwesomeIcon icon={icons.faCircleInfo} className={"text-xs"}/></Tooltip></th>
                             <th className="px-4 py-3 text-center font-medium">Ativo</th>
@@ -156,11 +156,7 @@ export default function CouponsList({
                                 </td>
 
                                 <td className={`px-4 py-3 text-gray-700 ${c.discount_type === "delivery" && "text-xs"}`}>
-                                    {c.discount_type === "percent"
-                                        ? `${Math.round(c.discount_value * 100)}%`
-                                        : `${c.discount_type === "fixed" ? `R$ ${c.discount_value}` : ""}`
-                                    }
-                                    {c.discount_type === "delivery" && <span>Entrega</span>}
+                                    {c.discount_type === "percent" ? `${Math.round(c.discount_value * 100)}%` : c.discount_type === "fixed" ? Number(c.discount_value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "Entrega grátis"}
                                 </td>
                                 <td className="px-4 py-3 text-center text-gray-700">
                                     {c.usage_count}{c.unlimited_quantity ? "" : ` de ${c.quantity ?? "-"}`}
@@ -168,36 +164,29 @@ export default function CouponsList({
 
 
 
-                                <td className="px-4 py-3 text-gray-700">
-                                    {formatDateBR(c.start_date)} à {formatDateBR(c.end_date)}
+                                <td className="whitespace-nowrap px-4 py-3 text-gray-700">
+                                    <p>{formatDateBR(c.start_date)}</p><p className="mt-1 text-xs text-gray-500">até {formatDateBR(c.end_date)}</p>
                                 </td>
 
                                 <td className="px-4 py-3 text-center" >
-                                    <div onClick={() => handleCopy(c)} className={"flex justify-center items-center gap-2 cursor-pointer"}>
-                                        <p className={"py-1 px-2 bg-gray-100 rounded-full text-xs text-gray-600 break-all max-w-60 whitespace-nowrap overflow-hidden text-ellipsis"}>
-                                            imenuapp.com.br/{restaurant.url_slug}/{c.code}
-                                        </p>
-                                        <FontAwesomeIcon icon={copied ? icons.faCheck : icons.faLink} className={"text-gray-400 duration-100 hover:text-gray-500 cursor-pointer"} />
-                                    </div>
+                                    <Button variant="secondary" onClick={() => handleCopy(c)} aria-label={`Copiar link de ${c.code}`} className="gap-2">
+                                        <FontAwesomeIcon icon={copied === c.id ? icons.faCheck : icons.faLink} />
+                                        {copied === c.id ? "Copiado" : "Copiar"}
+                                    </Button>
                                 </td>
 
                                 <td className="px-4 py-3 text-center">
-                                    <ToggleInput
-                                        label=""
+                                    <Switch
+                                        aria-label={`Ativar cupom ${c.code}`}
                                         checked={c.active}
-                                        onChange={(e) => toggleActive(c, e.target.checked)
-                                        }
-                                        className={"items-center justify-center"}
-                                        color={"bg-green-500"}
+                                        onClick={() => toggleActive(c, !c.active)}
                                     />
                                 </td>
 
                                 <td className="px-4 py-3">
-                                    <div className="flex justify-end gap-5 items-center text-md">
-                                        <Tooltip text={"Editar"}>
-                                        <FontAwesomeIcon onClick={() => onEdit(c)} icon={icons.faEdit} className={"text-gray-400 duration-100 hover:text-gray-500 cursor-pointer"} />
-                                        </Tooltip>
-                                        <FontAwesomeIcon onClick={() => setDeleteTarget(c)} icon={icons.faTrash} className={"text-gray-400 duration-100 hover:text-red-700 cursor-pointer mr-2"} />
+                                    <div className="flex items-center justify-end gap-2">
+                                        <Button variant="secondary" aria-label={`Editar cupom ${c.code}`} onClick={() => onEdit(c)} className="!w-10 !px-0"><FontAwesomeIcon icon={icons.faEdit} /></Button>
+                                        <Button variant="secondary" aria-label={`Excluir cupom ${c.code}`} onClick={() => setDeleteTarget(c)} className="!w-10 !px-0 text-red-600"><FontAwesomeIcon icon={icons.faTrash} /></Button>
                                     </div>
                                 </td>
                             </tr>

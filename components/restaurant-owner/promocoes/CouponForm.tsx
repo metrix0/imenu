@@ -10,6 +10,7 @@ import Card from "@/components/ui/Card";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { icons } from "@/lib/utils/fontawesome";
 import Tooltip from "@/components/ui/Tooltip";
+import DateRangePicker from "@/components/ui/DateRangePicker";
 
 
 interface Props {
@@ -134,9 +135,13 @@ export default function CouponForm({
     }, [initialData]);
 
     return (
-        <Card className={"mt-4"}>
-        <div className="mt-6 space-y-8">
-            <div className={"grid-cols-2 gap-6 grid"}>
+        <Card className="mt-6">
+        <div className="space-y-6">
+            <div>
+                <h2>{initialData ? "Editar cupom" : "Novo cupom"}</h2>
+                <p className="mt-1 text-sm text-gray-500">Defina o desconto, a vigência e as condições de uso.</p>
+            </div>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
 
                 <Input
                     label="Código do desconto"
@@ -152,22 +157,21 @@ export default function CouponForm({
                             <Input
                                 label="Link do Desconto (Aplicado Automaticamente)"
                                 value={`imenuapp.com.br/${restaurant.url_slug}/?c=${form.code}`}
-                                onChange={(e) =>
-                                    setForm({ ...form, code: e.target.value.toUpperCase() })
-                                }
+                                readOnly
                                 locked={true}
                             />
                         </div>
-                        <Button onClick={handleCopy} className="px-3 h-13" variant="secondary" title="Copiar Link">
+                        <Button onClick={handleCopy} className="!h-11 px-3" variant="secondary" title="Copiar link" aria-label="Copiar link do cupom">
                             <FontAwesomeIcon icon={copied ? icons.faCheck : icons.faCopy} />
                         </Button>
                     </div>
                 </div>
             </div>
-            <div className={"grid-cols-4 gap-6 grid"}>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_2fr]">
                 <Dropdown
                     ref={discountTypeRef}
                     label="Tipo do desconto"
+                    value={form.discount_type}
                     options={[
                         { value: "percent", label: "Porcentagem (%)" },
                         { value: "fixed", label: "Valor Fixo" },
@@ -181,7 +185,11 @@ export default function CouponForm({
                 />
                 <Input
                     label="Valor do desconto"
-                    numeric
+                    type="number"
+                    inputMode="decimal"
+                    min={0}
+                    max={form.discount_type === "percent" ? 100 : undefined}
+                    step={form.discount_type === "percent" ? 1 : 0.01}
                     icon={`${form.discount_type === "fixed" ? "R$" : "%"}`}
                     iconPosition="right"
                     value={
@@ -190,6 +198,7 @@ export default function CouponForm({
                             : `${form.discount_type === "fixed" ? form.discount_value : "100"}`
                     }
                     locked={form.discount_type === "delivery"}
+                    disabled={form.discount_type === "delivery"}
                     onChange={(e) => {
                         const raw = Number(e.target.value);
 
@@ -204,23 +213,11 @@ export default function CouponForm({
                 />
 
 
-                <Input
-                    label="Disponível entre"
-                    type="date"
-                    value={form.start_date}
-                    onChange={(e) =>
-                        setForm({ ...form, start_date: e.target.value })
-                    }
-                />
-
-                <Input
-                    label="Até"
-                    type="date"
-                    value={form.end_date}
-                    onChange={(e) =>
-                        setForm({ ...form, end_date: e.target.value })
-                    }
-                />
+                <div className="sm:col-span-2 lg:col-span-1">
+                    <DateRangePicker label="Vigência do cupom" presets={[]} allowFuture
+                        value={{ startDate: form.start_date?.slice(0, 10) ?? "", endDate: form.end_date?.slice(0, 10) ?? "" }}
+                        onChange={range => setForm({ ...form, start_date: range.startDate, end_date: range.endDate })} />
+                </div>
             </div>
 
             <div>
@@ -256,24 +253,21 @@ export default function CouponForm({
                 />
             </div>
 
-            <p className={"text-xs font-semibold -mt-2 cursor-pointer"} onClick={() => setAdvancedOptions(!advancedOptions)}>Opções Avançadas <FontAwesomeIcon className={`${advancedOptions ? "rotate-180" : ""} duration-300`} icon={icons.faChevronDown}/></p>
+            <button type="button" className="flex min-h-11 w-full items-center justify-between border-t border-gray-200 pt-3 text-sm font-medium" aria-expanded={advancedOptions} aria-controls="coupon-advanced-options" onClick={() => setAdvancedOptions(!advancedOptions)}>Opções avançadas <FontAwesomeIcon className={`${advancedOptions ? "rotate-180" : ""} duration-300`} icon={icons.faChevronDown}/></button>
 
             <div
-                className={`
-    transition-all duration-500 ease-out space-y-6
-    ${advancedOptions
-                    ? "opacity-100 max-h-96 translate-y-0"
-                    : "opacity-0 max-h-0 -translate-y-2 overflow-hidden -mt-8"}
-  `}
+                id="coupon-advanced-options"
+                hidden={!advancedOptions}
+                className="space-y-6"
             >
 
-                <div className={"grid-cols-2 gap-6 grid"}>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
 
                     <Input
                         label="Valor mínimo do pedido"
                         icon="R$"
                         iconPosition="left"
-                        numeric
+                        type="number" min={0} step="0.01" inputMode="decimal"
                         value={form.min_order_value}
                         onChange={(e) =>
                             setForm({ ...form, min_order_value: Number(e.target.value) })
@@ -284,7 +278,7 @@ export default function CouponForm({
                         label="Valor máximo do desconto"
                         icon="R$"
                         iconPosition="left"
-                        numeric
+                        type="number" min={0} step="0.01" inputMode="decimal"
                         value={form.max_discount_value ?? ""}
                         onChange={(e) =>
                             setForm({
@@ -296,8 +290,8 @@ export default function CouponForm({
                         }
                     />
                 </div>
-                <div className={"grid-cols-2 gap-6 grid"}>
-                    <div className={"flex gap-6 items-center"}>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3">
                         <Input
                             label="Quantidade de cupons disponíveis"
                             numeric
@@ -306,7 +300,7 @@ export default function CouponForm({
                                 setForm({ ...form, quantity: Number(e.target.value) })
                             }
                             locked={form.unlimited_quantity}
-                            className={"!w-85"}
+                            disabled={form.unlimited_quantity}
                         />
                         <ToggleInput
                             label="Ilimitado"
@@ -326,7 +320,7 @@ export default function CouponForm({
                         <p className="text-xs font-medium text-gray-700 mb-2">
                             Origem
                         </p>
-                        <div className={"flex gap-6 mt-4"}>
+                        <div className="mt-4 flex flex-wrap gap-4">
                             {["retirada", "delivery", "autoatendimento"].map((origin) => (
                                 <ToggleInput
                                     key={origin}
@@ -346,7 +340,7 @@ export default function CouponForm({
                         </div>
                     </div>
                 </div>
-                <div className={"grid-cols-2 gap-6 grid"}>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <div>
                         <p className="text-sm font-medium text-gray-700 mb-2">
                             Dias em que o cupom está disponível
@@ -356,6 +350,7 @@ export default function CouponForm({
                             {days.map((day, index) => (
                                 <Button
                                     key={day}
+                                    aria-pressed={form.available_days.includes(index)}
                                     variant={
                                         form.available_days.includes(index)
                                             ? "primary"
