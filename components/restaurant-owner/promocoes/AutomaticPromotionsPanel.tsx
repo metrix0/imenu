@@ -14,6 +14,7 @@ import PromotionBanner from "@/components/costumer/PromotionBanner";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import {
   faPlus,
+  faTag,
   faTrash,
   faPen,
   faChevronDown,
@@ -613,12 +614,8 @@ export default function AutomaticPromotionsPanel({
         </Button>
       </div>
       {!promotions.length && (
-        <div className="flex flex-col items-center justify-center px-4 py-8 text-center">
-          <img
-            src="/images/eyebrow_emoji.png"
-            alt="Nenhuma promoção"
-            className="mb-4 h-38 w-38"
-          />
+        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-gray-200 bg-white p-6 text-center">
+          <FontAwesomeIcon icon={faTag} className="mb-3 text-2xl text-gray-500" />
           <p className="font-medium text-gray-500">
             Nenhuma promoção criada ainda.
           </p>

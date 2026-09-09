@@ -117,7 +117,7 @@ export default function PayoutsDashboard({ menuId, startDate, endDate }: Payouts
                     payouts.map((payout, index) => (
                         <div
                             key={payout.id || index}
-                            className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-lg border border-gray-100 hover:border-gray-200 hover:bg-gray-50 transition-colors gap-4"
+                            className="flex flex-wrap items-center justify-between p-4 rounded-lg border border-gray-100 hover:border-gray-200 hover:bg-gray-50 transition-colors gap-4"
                         >
                             <div>
                                 <h5 className="font-semibold text-gray-600 flex items-center gap-2">
@@ -125,7 +125,7 @@ export default function PayoutsDashboard({ menuId, startDate, endDate }: Payouts
                                 </h5>
                             </div>
 
-                            <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto">
+                            <div className="flex items-center justify-between sm:justify-end gap-4">
                                 <span className="text-lg font-bold text-gray-900">
                                     {formatPrice(payout.amount_cents)}
                                 </span>
@@ -136,7 +136,7 @@ export default function PayoutsDashboard({ menuId, startDate, endDate }: Payouts
             </div>
 
             {/* Paginação */}
-            {(payouts.length > 0 || page > 0) && (
+            {(totalCount > PAGE_SIZE || page > 0) && (
                 <Pagination page={page} pageCount={Math.ceil(totalCount / PAGE_SIZE)} onChange={setPage} disabled={isLoading} />
             )}
         </Card>

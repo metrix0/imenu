@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 import Dropdown from "@/components/ui/Dropdown";
-import ToggleInput from "@/components/ui/ToggleInput";
+import Switch from "@/components/ui/Switch";
 import { supabase } from "@/lib/database/supabaseClient";
 import Card from "@/components/ui/Card";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
@@ -236,21 +236,13 @@ export default function CouponForm({
                 {/*    color={"bg-green-500"}*/}
                 {/*    className={"mt-4"}*/}
                 {/*/>*/}
-                <ToggleInput
-                    label={<Tooltip text={<>Rastreado através do dispositivo do usuário</>} position={"right"} >
-                        Um cupom por pessoa <FontAwesomeIcon icon={icons.faCircleInfo} className={"text-xs text-gray-500"} />
-                    </Tooltip>}
-
-                    checked={form.one_coupon_per_user}
-                    onChange={(e) =>
-                        setForm({
-                            ...form,
-                            one_coupon_per_user: e.target.checked,
-                        })
-                    }
-                    color={"bg-green-500"}
-                    className={"mt-4"}
-                />
+                <div className="mt-4 flex items-center gap-3">
+                    <Switch aria-label="Um cupom por pessoa" checked={form.one_coupon_per_user}
+                        onClick={() => setForm({ ...form, one_coupon_per_user: !form.one_coupon_per_user })} />
+                    <Tooltip text={<>Rastreado através do dispositivo do usuário</>} position="right">
+                        <span className="text-sm">Um cupom por pessoa <FontAwesomeIcon icon={icons.faCircleInfo} className="text-xs text-gray-500" /></span>
+                    </Tooltip>
+                </div>
             </div>
 
             <button type="button" className="flex min-h-11 w-full items-center justify-between border-t border-gray-200 pt-3 text-sm font-medium" aria-expanded={advancedOptions} aria-controls="coupon-advanced-options" onClick={() => setAdvancedOptions(!advancedOptions)}>Opções avançadas <FontAwesomeIcon className={`${advancedOptions ? "rotate-180" : ""} duration-300`} icon={icons.faChevronDown}/></button>
@@ -302,19 +294,12 @@ export default function CouponForm({
                             locked={form.unlimited_quantity}
                             disabled={form.unlimited_quantity}
                         />
-                        <ToggleInput
-                            label="Ilimitado"
-                            checked={form.unlimited_quantity}
-                            onChange={(e) =>
-                                setForm({
-                                    ...form,
-                                    unlimited_quantity: e.target.checked,
-                                    quantity: e.target.checked ? null : form.quantity,
-                                })
-                            }
-                            color={"bg-green-500"}
-                            className={"mt-4"}
-                        />
+                        <label className="flex min-h-11 cursor-pointer items-center gap-2">
+                            <Switch aria-label="Quantidade ilimitada" checked={form.unlimited_quantity}
+                                onClick={() => setForm({ ...form, unlimited_quantity: !form.unlimited_quantity,
+                                    quantity: !form.unlimited_quantity ? null : form.quantity })} />
+                            <span className="text-sm">Ilimitado</span>
+                        </label>
                     </div>
                     <div>
                         <p className="text-xs font-medium text-gray-700 mb-2">
@@ -322,20 +307,14 @@ export default function CouponForm({
                         </p>
                         <div className="mt-4 flex flex-wrap gap-4">
                             {["retirada", "delivery", "autoatendimento"].map((origin) => (
-                                <ToggleInput
-                                    key={origin}
-                                    label={origin.charAt(0).toUpperCase() + origin.slice(1)}
-                                    checked={form.origins.includes(origin)}
-                                    color={"bg-green-500"}
-                                    onChange={() =>
-                                        setForm({
-                                            ...form,
-                                            origins: form.origins.includes(origin)
-                                                ? form.origins.filter((o: any) => o !== origin)
-                                                : [...form.origins, origin],
-                                        })
-                                    }
-                                />
+                                <label key={origin} className="flex min-h-11 cursor-pointer items-center gap-2">
+                                    <Switch aria-label={origin.charAt(0).toUpperCase() + origin.slice(1)}
+                                        checked={form.origins.includes(origin)}
+                                        onClick={() => setForm({ ...form, origins: form.origins.includes(origin)
+                                            ? form.origins.filter((o: string) => o !== origin)
+                                            : [...form.origins, origin] })} />
+                                    <span className="text-sm">{origin.charAt(0).toUpperCase() + origin.slice(1)}</span>
+                                </label>
                             ))}
                         </div>
                     </div>

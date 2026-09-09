@@ -38,16 +38,20 @@ export default function AplicativoPage() {
     if (!isMobileViewport) {
         return (
             <div className="p-6 md:p-0">
-                <Card className="mx-auto mt-12 max-w-xl text-center">
+                <div className="mb-6">
+                    <h1>Aplicativo</h1>
+                    <p className="mt-2 text-sm text-gray-500">Acesse o painel e receba notificações pelo celular.</p>
+                </div>
+                <Card className="max-w-xl text-center">
                     <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-brand/10 text-brand">
                         <FontAwesomeIcon
                             icon={faMobileScreenButton}
                             className="text-3xl"
                         />
                     </div>
-                    <h1 className="mt-5 text-2xl font-bold text-gray-900 2xl:text-3xl">
+                    <h2 className="mt-5 text-xl font-medium text-gray-900">
                         Disponível apenas no celular
-                    </h1>
+                    </h2>
                     <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-gray-600 2xl:text-base">
                         Abra o painel do iMenu pelo celular para adicionar o
                         aplicativo à tela inicial e ativar as notificações de

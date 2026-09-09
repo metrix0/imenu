@@ -219,7 +219,7 @@ export default function FidelidadePage() {
                     />
                 </div>
 
-                <div className={`space-y-6 transition-opacity ${!safeProgram.active ? "opacity-50 pointer-events-none" : ""}`}>
+                <fieldset disabled={!safeProgram.active} className="min-w-0 space-y-6 disabled:opacity-50">
                     {/* REGRAS */}
                     <div className="grid md:grid-cols-2 gap-6">
                         <Input
@@ -256,7 +256,8 @@ export default function FidelidadePage() {
                                 <div className="h-10 bg-gray-100 rounded animate-pulse" />
                             ) : (
                                 <Dropdown 
-                                    label={safeProgram.reward_item_id ? undefined : "Selecione o item..."}
+                                    aria-label="Item principal gratuito"
+                                    disabled={!safeProgram.active}
                                     options={dropdownOptions}
                                     onChange={(e) => handleItemSelect(e.target.value)}
                                     value={safeProgram.reward_item_id || ""}
@@ -288,7 +289,9 @@ export default function FidelidadePage() {
                                                     {group.subitems.map(sub => {
                                                         const isSelected = safeProgram.reward_subitem_ids?.includes(sub.id);
                                                         return (
-                                                            <div 
+                                                            <button
+                                                                type="button"
+                                                                aria-pressed={!!isSelected}
                                                                 key={sub.id}
                                                                 onClick={() => toggleSubitem(sub.id)}
                                                                 className={`cursor-pointer flex items-center p-2 rounded border transition-all ${
@@ -305,7 +308,7 @@ export default function FidelidadePage() {
                                                                 <span className="text-xs text-gray-400">
                                                                     {sub.price_cents > 0 ? `+${formatPrice(sub.price_cents)}` : 'Grátis'}
                                                                 </span>
-                                                            </div>
+                                                            </button>
                                                         )
                                                     })}
                                                 </div>
@@ -328,7 +331,7 @@ export default function FidelidadePage() {
                             />
                         </div>
                     </div>
-                </div>
+                </fieldset>
 
                 <div className="pt-4 flex items-center justify-end gap-3">
                     <SaveStatus status={loading ? "saving" : saveError ? "error" : hasChanges || !program ? "idle" : "saved"} />

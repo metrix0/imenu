@@ -255,7 +255,7 @@ function createVariableBadge(variable: TemplateVariable): HTMLSpanElement {
 
     const tooltip = document.createElement("span");
     tooltip.className =
-        "pointer-events-none absolute bottom-full left-1/2 z-20 mb-1 -translate-x-1/2 whitespace-nowrap rounded bg-gray-900 px-2 py-1 text-[11px] font-medium text-white opacity-0 shadow-sm transition-opacity group-hover:opacity-100";
+        "pointer-events-none absolute bottom-full left-1/2 z-20 mb-1 -translate-x-1/2 whitespace-nowrap rounded bg-gray-900 px-2 py-1 text-xs font-medium text-white opacity-0 shadow-sm transition-opacity group-hover:opacity-100";
     tooltip.textContent = variable.token;
 
     badge.append(tooltip);
@@ -877,6 +877,7 @@ export default function RoboWhatsAppPage() {
                             : "pointer-events-none grid-rows-[0fr] -translate-y-2 opacity-0"
                     }`}
                     aria-hidden={!showQr}
+                    hidden={!showQr}
                 >
                     <div className="min-h-0 overflow-hidden">
                         <Card className="border border-blue-200 bg-blue-50/40 p-7">

@@ -48,7 +48,7 @@ export default function MenuProductCards({
     };
 
     return (
-        <div className="grid gap-5 md:grid-cols-2">
+        <div className="panel-product-cards grid gap-5 md:grid-cols-2">
             <div className="relative flex min-h-[320px] flex-col overflow-hidden rounded-2xl border border-brand bg-gradient-to-br from-white via-white to-brand/[0.08] p-6 shadow-sm ring-2 ring-brand/10">
                 <div className="absolute right-4 top-4 inline-flex items-center gap-1.5 rounded-full bg-brand px-2.5 py-1 text-xs font-semibold text-white">
                     <FontAwesomeIcon icon={faLock} />
@@ -112,6 +112,7 @@ export default function MenuProductCards({
 
             <div
                 onClick={handleQrAction}
+                data-selected={selected}
                 className={`relative flex min-h-[320px] flex-col overflow-hidden rounded-2xl border p-6 shadow-sm transition-all duration-200 ${
                     selected
                         ? "border-brand bg-gradient-to-br from-brand/[0.09] via-white to-orange-50 ring-2 ring-brand/10"

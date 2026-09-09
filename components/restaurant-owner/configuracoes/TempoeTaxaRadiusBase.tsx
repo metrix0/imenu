@@ -17,7 +17,7 @@ import { supabase } from "@/lib/database/supabaseClient";
 
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
-import ToggleInput from "@/components/ui/ToggleInput";
+import Switch from "@/components/ui/Switch";
 import Tooltip from "@/components/ui/Tooltip";
 
 type RadiusRule = {
@@ -640,9 +640,7 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                         Pedido Mínimo
                         <Tooltip text="O valor mínimo para alguém pedir no seu restaurante.">
                             <FontAwesomeIcon
-                                icon={
-                                    icons.faCircleInfo
-                                }
+                                icon={icons.faCircleInfo}
                                 className="text-gray-700 text-sm"
                             />
                         </Tooltip>
@@ -650,13 +648,8 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
 
                     <Input
                         numeric
-                        icon={
-                            <FontAwesomeIcon
-                                icon={
-                                    icons.faDollarSign
-                                }
-                            />
-                        }
+                        aria-label="Valor mínimo do pedido"
+                        icon="R$"
                         iconPosition="left"
                         defaultValue="20"
                         ref={minOrderRef}
@@ -682,13 +675,10 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                             </p>
                         </div>
 
-                        <ToggleInput
+                        <Switch
+                            aria-label="Permitir retirada no balcão"
                             checked={pickupEnabled}
-                            onChange={(event) =>
-                                setPickupEnabled(
-                                    event.target.checked
-                                )
-                            }
+                            onClick={() => setPickupEnabled(!pickupEnabled)}
                         />
                     </div>
                 </div>

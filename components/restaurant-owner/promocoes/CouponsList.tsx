@@ -7,6 +7,7 @@ import Modal from "@/components/ui/Modal";
 import { supabase } from "@/lib/database/supabaseClient";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { icons } from "@/lib/utils/fontawesome";
+import { faTicket } from "@fortawesome/free-solid-svg-icons";
 import ListLoader from "@/components/ui/ListLoader";
 
 interface Props {
@@ -122,8 +123,8 @@ export default function CouponsList({
 
             {/* Empty */}
             {!loading && coupons.length === 0 && (
-                <div className="flex flex-col items-center justify-center text-center mx-10 h-[70%]">
-                    <img src="/images/eyebrow_emoji.png" alt="Nada encontrado" className="w-38 h-38 mb-4" />
+                <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-gray-200 bg-white p-6 text-center">
+                    <FontAwesomeIcon icon={faTicket} className="mb-3 text-2xl text-gray-500" />
                     <p className="text-gray-500 text-md mb-4">Nenhum cupom criado.</p>
                     <Button variant="primary" onClick={onCreate}>
                         Criar cupom

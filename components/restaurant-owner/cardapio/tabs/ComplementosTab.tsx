@@ -350,11 +350,11 @@ export default function ComplementosTab({
 
     if (groups.length === 0) {
         return (
-            <div className="flex flex-col items-center justify-center rounded-lg border border-gray-100 bg-white py-20 shadow-sm">
-                <div className="mb-6 flex h-40 w-40 items-center justify-center rounded-full bg-gray-50">
+            <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-gray-200 bg-white p-6 shadow-sm">
+                <div className="mb-6 flex h-10 w-10 items-center justify-center rounded-full bg-gray-50">
                     <FontAwesomeIcon
                         icon={faLayerGroup}
-                        className="text-5xl text-gray-300"
+                        className="text-2xl text-gray-500"
                     />
                 </div>
                 <h3 className="mb-2 text-center text-lg font-bold text-gray-900">

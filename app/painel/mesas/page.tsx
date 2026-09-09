@@ -496,7 +496,7 @@ export default function MesasPage() {
                 variant="danger"
             />
 
-            <main className="min-h-screen bg-gray-50 px-4 pb-20 pt-8 sm:px-6">
+            <main className="min-w-0">
                 <div className="mx-auto max-w-7xl">
                     <div className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
                         <div>
@@ -508,7 +508,7 @@ export default function MesasPage() {
                             </p>
                         </div>
                         {active && (
-                            <div className="grid w-full grid-cols-2 gap-3 sm:w-auto sm:flex sm:flex-nowrap">
+                            <div className="grid w-full gap-3 sm:w-auto sm:flex sm:flex-wrap">
                                 <Button
                                     type="button"
                                     variant="secondary"
@@ -538,7 +538,7 @@ export default function MesasPage() {
                                 </Button>
                                 <Button
                                     type="button"
-                                    className="col-span-2 w-full sm:w-auto"
+                                    className="w-full sm:w-auto"
                                     onClick={openNewTable}
                                 >
                                     <FontAwesomeIcon icon={faPlus} className="mr-2" />
@@ -598,20 +598,7 @@ export default function MesasPage() {
                                                     }
                                                 />
                                                 <div className="mt-3 flex flex-wrap gap-3">
-                                                    <Button
-                                                        variant="secondary"
-                                                        onClick={() =>
-                                                            void copyUrl(
-                                                                universalUrl
-                                                            )
-                                                        }
-                                                    >
-                                                        <FontAwesomeIcon
-                                                            icon={faCopy}
-                                                            className="mr-2"
-                                                        />
-                                                        Copiar link
-                                                    </Button>
+
                                                     <Button
                                                         variant="secondary"
                                                         onClick={() =>

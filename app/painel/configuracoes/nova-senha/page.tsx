@@ -163,10 +163,10 @@ export default function NovaSenhaPage() {
     }
 
     return (
-        <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
-            <Card className="w-full max-w-md">
-                <div className="mb-8 text-center">
-                    <h1 className="text-2xl font-bold text-brand">
+        <div className="w-full max-w-2xl">
+            <Card className="w-full max-w-2xl">
+                <div className="mb-6">
+                    <h1 className="text-2xl font-medium text-gray-900">
                         Alterar Senha
                     </h1>
                     <p className="mt-2 text-sm text-gray-500">

@@ -349,7 +349,7 @@ export default function WeeklyScheduleClick({
                                             className="absolute inset-x-0 top-0 hidden h-2 cursor-ns-resize bg-white/0 transition-colors hover:bg-white/25 sm:block"
                                         />
                                         {height >= 60 && (
-                                            <span className="mb-1 text-[10px] font-bold uppercase tracking-wide opacity-80">
+                                            <span className="mb-1 text-xs font-medium opacity-90">
                                                 {day.blockLabel}
                                             </span>
                                         )}
@@ -439,7 +439,7 @@ export default function WeeklyScheduleClick({
                             <button
                                 type="button"
                                 onClick={openDeleteModal}
-                                className="flex h-[50px] w-[50px] shrink-0 cursor-pointer items-center justify-center rounded-full text-brand transition-colors hover:bg-red-50 hover:text-red-700"
+                                className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-lg text-brand transition-colors hover:bg-red-50 hover:text-red-700"
                             >
                                 <FontAwesomeIcon icon={faTrash} />
                             </button>

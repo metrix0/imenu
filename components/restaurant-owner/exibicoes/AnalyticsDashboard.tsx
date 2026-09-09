@@ -184,9 +184,9 @@ function MetricCard({
     helper?: string;
 }) {
     return (
-        <Card className="p-5">
+        <Card className="min-w-0 p-4 sm:p-5">
             <p className="text-sm font-medium text-gray-500">{label}</p>
-            <p className="mt-2 text-2xl font-medium tabular-nums tracking-tight text-gray-900">{value}</p>
+            <p className="mt-2 text-xl sm:text-2xl font-medium tabular-nums tracking-tight text-gray-900">{value}</p>
             {helper && <p className="mt-1 text-xs text-gray-400">{helper}</p>}
         </Card>
     );
@@ -416,7 +416,7 @@ export default function AnalyticsDashboard({
 
     if (loading && !data) {
         return (
-            <Card>
+            <Card className="min-w-0">
                 <ListLoader lines={7} />
                 <p className="mt-4 text-center text-gray-500">
                     Carregando Analytics...
@@ -869,7 +869,7 @@ export default function AnalyticsDashboard({
                 loading ? "opacity-60" : "opacity-100"
             }`}
         >
-            <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <section className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
                 <MetricCard
                     label="Faturamento"
                     value={formatCurrency(data.summary.revenueCents)}
@@ -954,7 +954,7 @@ export default function AnalyticsDashboard({
                     )}
                 </div>
                 <div className="grid gap-4 lg:grid-cols-3">
-                    <Card>
+                    <Card className="min-w-0">
                         <h3 className="mb-4 font-semibold text-gray-900">
                             Acessos ao cardápio
                         </h3>
@@ -965,7 +965,7 @@ export default function AnalyticsDashboard({
                             />
                         </div>
                     </Card>
-                    <Card>
+                    <Card className="min-w-0">
                         <h3 className="mb-4 font-semibold text-gray-900">
                             Carrinho médio
                         </h3>
@@ -976,7 +976,7 @@ export default function AnalyticsDashboard({
                             />
                         </div>
                     </Card>
-                    <Card>
+                    <Card className="min-w-0">
                         <h3 className="mb-4 font-semibold text-gray-900">
                             Pedidos criados
                         </h3>
@@ -994,7 +994,7 @@ export default function AnalyticsDashboard({
                 </div>
             </section>
 
-            <Card>
+            <Card className="min-w-0">
                 <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
                     <div>
                         <h2 className="text-xl font-bold text-gray-900">
@@ -1043,7 +1043,7 @@ export default function AnalyticsDashboard({
             </Card>
 
             <section className="grid gap-4 lg:grid-cols-3">
-                <Card>
+                <Card className="min-w-0">
                     <h2 className="mb-4 text-lg font-bold text-gray-900">
                         Formas de pagamento
                     </h2>
@@ -1058,7 +1058,7 @@ export default function AnalyticsDashboard({
                         )}
                     </div>
                 </Card>
-                <Card>
+                <Card className="min-w-0">
                     <h2 className="mb-4 text-lg font-bold text-gray-900">
                         Entrega x retirada
                     </h2>
@@ -1073,7 +1073,7 @@ export default function AnalyticsDashboard({
                         )}
                     </div>
                 </Card>
-                <Card>
+                <Card className="min-w-0">
                     <h2 className="mb-4 text-lg font-bold text-gray-900">
                         Horários dos pedidos
                     </h2>
@@ -1093,7 +1093,7 @@ export default function AnalyticsDashboard({
                     </p>
                 </div>
                 <div className="grid gap-4 lg:grid-cols-2">
-                    <Card>
+                    <Card className="min-w-0">
                         <h3 className="mb-4 font-semibold text-gray-900">
                             Pedidos por categoria
                         </h3>
@@ -1108,7 +1108,7 @@ export default function AnalyticsDashboard({
                             )}
                         </div>
                     </Card>
-                    <Card>
+                    <Card className="min-w-0">
                         <h3 className="mb-1 font-semibold text-gray-900">
                             Categorias mais combinadas
                         </h3>

@@ -370,11 +370,11 @@ export default function CardapioTab({
 
     if (categories.length === 0) {
         return (
-            <div className="flex flex-col items-center justify-center py-20 bg-white rounded-lg border border-gray-100 shadow-sm">
-                <div className="w-40 h-40 bg-red-50 rounded-full flex items-center justify-center mb-6">
+            <div className="flex flex-col items-center justify-center p-6 bg-white rounded-lg border border-dashed border-gray-200 shadow-sm">
+                <div className="w-10 h-10 bg-red-50 rounded-full flex items-center justify-center mb-6">
                     <FontAwesomeIcon
                         icon={faLayerGroup}
-                        className="text-5xl text-brand/50"
+                        className="text-2xl text-gray-500"
                     />
                 </div>
                 <h3 className="text-lg font-bold text-gray-900 mb-2 2xl:text-xl">

@@ -121,10 +121,10 @@ export default function UpdateEmailPage() {
     // 1. Tela de Input
     if (stage === "INPUT_EMAIL") {
         return (
-            <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
-                <Card className="w-full max-w-md">
-                    <div className="text-center mb-6">
-                        <h1 className="text-2xl font-bold text-brand">Atualizar E-mail</h1>
+            <div className="w-full max-w-2xl">
+                <Card className="w-full max-w-2xl">
+                    <div className="mb-6">
+                        <h1 className="text-2xl font-medium text-gray-900">Atualizar E-mail</h1>
                         <p className="text-sm text-gray-500 mt-2">
                             Seu e-mail atual é <span className="font-medium text-gray-900">{currentEmail}</span>
                         </p>
@@ -174,8 +174,8 @@ export default function UpdateEmailPage() {
     // 2. Tela de Aguardando Confirmação
     if (stage === "AWAITING_CONFIRMATION") {
         return (
-            <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
-                <Card className="w-full max-w-md text-center py-10">
+            <div className="w-full max-w-2xl">
+                <Card className="w-full max-w-2xl text-center py-10">
                     <div className="mb-6 flex justify-center">
                         <div className="h-16 w-16 bg-indigo-50 rounded-full flex items-center justify-center">
                             <FontAwesomeIcon icon={faEnvelope} className="text-brand text-3xl" />
@@ -206,8 +206,8 @@ export default function UpdateEmailPage() {
     // 3. Tela de Sucesso (Opcional, caso o redirecionamento falhe ou seja rápido)
     if (stage === "SUCCESS") {
         return (
-            <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
-                <Card className="w-full max-w-md text-center py-10">
+            <div className="w-full max-w-2xl">
+                <Card className="w-full max-w-2xl text-center py-10">
                     <div className="mb-6 flex justify-center">
                         <FontAwesomeIcon icon={faCheckCircle} className="text-green-500 text-5xl" />
                     </div>
