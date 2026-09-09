@@ -521,12 +521,6 @@ export default function MenuItemRow({
                                             Sem estoque
                                         </span>
                                     )}
-                                <span className="ml-auto shrink-0 pl-2 font-medium text-gray-900 whitespace-nowrap md:hidden">
-                                    {(priceCents / 100).toLocaleString("pt-BR", {
-                                        style: "currency",
-                                        currency: "BRL",
-                                    })}
-                                </span>
                             </div>
 
                             {description ? (
@@ -538,11 +532,14 @@ export default function MenuItemRow({
                                     Sem descrição...
                                 </span>
                             )}
+                            <span className="mt-1 font-medium text-gray-900 tabular-nums md:hidden">
+                                {(priceCents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                            </span>
                         </div>
+                        {renderStockInput()}
                     </div>
 
                     <div className="flex items-center gap-4 2xl:gap-6 pl-4 2xl:text-lg">
-                        {renderStockInput()}
 
                         <span className="hidden font-medium text-gray-900 whitespace-nowrap md:inline">
                             {(priceCents / 100).toLocaleString("pt-BR", {
@@ -572,7 +569,8 @@ export default function MenuItemRow({
                                     text="Copiar link que leva direto para o Item"
                                     position="top"
                                 >
-                                <button
+                                    <button
+                                        aria-label={`Copiar link de ${name}`}
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         handleCopy();
