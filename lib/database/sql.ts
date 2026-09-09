@@ -1,6 +1,8 @@
 import type { PoolClient } from "pg";
 import { pool } from "./db";
 
+const advisoryLockQueues = new Map<string, Promise<void>>();
+
 export async function query<T = any>(
     text: string,
     params?: any[]
@@ -46,21 +48,22 @@ export async function withAdvisoryLock<T>(
     key: string,
     callback: () => Promise<T>
 ): Promise<T> {
-    const client = await pool.connect();
+    const previous = advisoryLockQueues.get(key) ?? Promise.resolve();
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+        release = resolve;
+    });
+    const tail = previous.catch(() => undefined).then(() => gate);
+
+    advisoryLockQueues.set(key, tail);
+    await previous.catch(() => undefined);
 
     try {
-        await client.query("SELECT pg_advisory_lock(hashtextextended($1, 0))", [
-            key,
-        ]);
         return await callback();
     } finally {
-        try {
-            await client.query(
-                "SELECT pg_advisory_unlock(hashtextextended($1, 0))",
-                [key]
-            );
-        } finally {
-            client.release();
+        release();
+        if (advisoryLockQueues.get(key) === tail) {
+            advisoryLockQueues.delete(key);
         }
     }
 }
