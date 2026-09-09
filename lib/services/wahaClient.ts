@@ -28,6 +28,11 @@ type WahaQrResponse = {
     data?: string;
 };
 
+type WahaLidResponse = {
+    lid?: string | null;
+    pn?: string | null;
+};
+
 class WahaHttpError extends Error {
     status: number;
     responseBody: string;
@@ -272,7 +277,7 @@ export async function sendWahaText(
     });
 }
 
-export async function sendWahaList(
+function sendWahaListRequest(
     sessionName: string,
     chatId: string,
     rows: WahaListRow[]
@@ -294,15 +299,54 @@ export async function sendWahaList(
                         rows: rows.map((row) => ({
                             title: row.title,
                             rowId: row.rowId,
-                            ...(row.description
-                                ? { description: row.description }
-                                : {}),
+                            description: row.description ?? null,
                         })),
                     },
                 ],
             },
         }),
     });
+}
+
+async function getPhoneChatIdForLid(
+    sessionName: string,
+    chatId: string
+): Promise<string | null> {
+    if (!chatId.endsWith("@lid")) return null;
+
+    try {
+        const result = await wahaRequest<WahaLidResponse>(
+            `/api/${encodeURIComponent(sessionName)}/lids/${encodeURIComponent(chatId)}`
+        );
+        return typeof result?.pn === "string" && result.pn.trim()
+            ? result.pn.trim()
+            : null;
+    } catch {
+        return null;
+    }
+}
+
+export async function sendWahaList(
+    sessionName: string,
+    chatId: string,
+    rows: WahaListRow[]
+): Promise<unknown> {
+    try {
+        return await sendWahaListRequest(sessionName, chatId, rows);
+    } catch (error) {
+        if (
+            !(error instanceof WahaHttpError) ||
+            error.status !== 500 ||
+            !chatId.endsWith("@lid")
+        ) {
+            throw error;
+        }
+
+        const phoneChatId = await getPhoneChatIdForLid(sessionName, chatId);
+        if (!phoneChatId || phoneChatId === chatId) throw error;
+
+        return sendWahaListRequest(sessionName, phoneChatId, rows);
+    }
 }
 
 export function extractWahaPhone(meId: unknown): string | null {
