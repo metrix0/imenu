@@ -272,37 +272,54 @@ export async function sendWahaText(
     });
 }
 
+function getListFallbackText(rows: WahaListRow[]): string {
+    return [
+        "Escolha uma opção para continuar:",
+        ...rows.map((row, index) => `${index + 1} - ${row.title}`),
+        "Responda com o número da opção.",
+    ].join("\n");
+}
+
 export async function sendWahaList(
     sessionName: string,
     chatId: string,
     rows: WahaListRow[]
 ): Promise<unknown> {
-    return wahaRequest<unknown>("/api/sendList", {
-        method: "POST",
-        body: JSON.stringify({
-            session: sessionName,
-            chatId,
-            reply_to: null,
-            message: {
-                title: "Atendimento iMenu",
-                description: "Escolha uma opção para continuar:",
-                footer: "Toque em uma opção abaixo",
-                button: "Ver opções",
-                sections: [
-                    {
-                        title: "Como posso ajudar?",
-                        rows: rows.map((row) => ({
-                            title: row.title,
-                            rowId: row.rowId,
-                            ...(row.description
-                                ? { description: row.description }
-                                : {}),
-                        })),
-                    },
-                ],
-            },
-        }),
-    });
+    try {
+        return await wahaRequest<unknown>("/api/sendList", {
+            method: "POST",
+            body: JSON.stringify({
+                session: sessionName,
+                chatId,
+                reply_to: null,
+                message: {
+                    title: "Atendimento iMenu",
+                    description: "Escolha uma opção para continuar:",
+                    footer: "Toque em uma opção abaixo",
+                    button: "Ver opções",
+                    sections: [
+                        {
+                            title: "Como posso ajudar?",
+                            rows: rows.map((row) => ({
+                                title: row.title,
+                                rowId: row.rowId,
+                                ...(row.description
+                                    ? { description: row.description }
+                                    : {}),
+                            })),
+                        },
+                    ],
+                },
+            }),
+        });
+    } catch (error) {
+        if (!(error instanceof WahaHttpError)) throw error;
+
+        console.warn("[WAHA] sendList failed; using text fallback", {
+            status: error.status,
+        });
+        return sendWahaText(sessionName, chatId, getListFallbackText(rows));
+    }
 }
 
 export function extractWahaPhone(meId: unknown): string | null {
