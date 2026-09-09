@@ -28,6 +28,11 @@ type WahaQrResponse = {
     data?: string;
 };
 
+type WahaLidResponse = {
+    lid?: string | null;
+    pn?: string | null;
+};
+
 class WahaHttpError extends Error {
     status: number;
     responseBody: string;
@@ -272,12 +277,53 @@ export async function sendWahaText(
     });
 }
 
-function getListFallbackText(rows: WahaListRow[]): string {
-    return [
-        "Escolha uma opção para continuar:",
-        ...rows.map((row, index) => `${index + 1} - ${row.title}`),
-        "Responda com o número da opção.",
-    ].join("\n");
+function sendWahaListRequest(
+    sessionName: string,
+    chatId: string,
+    rows: WahaListRow[]
+): Promise<unknown> {
+    return wahaRequest<unknown>("/api/sendList", {
+        method: "POST",
+        body: JSON.stringify({
+            session: sessionName,
+            chatId,
+            reply_to: null,
+            message: {
+                title: "Atendimento iMenu",
+                description: "Escolha uma opção para continuar:",
+                footer: "Toque em uma opção abaixo",
+                button: "Ver opções",
+                sections: [
+                    {
+                        title: "Como posso ajudar?",
+                        rows: rows.map((row) => ({
+                            title: row.title,
+                            rowId: row.rowId,
+                            description: row.description ?? null,
+                        })),
+                    },
+                ],
+            },
+        }),
+    });
+}
+
+async function getPhoneChatIdForLid(
+    sessionName: string,
+    chatId: string
+): Promise<string | null> {
+    if (!chatId.endsWith("@lid")) return null;
+
+    try {
+        const result = await wahaRequest<WahaLidResponse>(
+            `/api/${encodeURIComponent(sessionName)}/lids/${encodeURIComponent(chatId)}`
+        );
+        return typeof result?.pn === "string" && result.pn.trim()
+            ? result.pn.trim()
+            : null;
+    } catch {
+        return null;
+    }
 }
 
 export async function sendWahaList(
@@ -286,39 +332,20 @@ export async function sendWahaList(
     rows: WahaListRow[]
 ): Promise<unknown> {
     try {
-        return await wahaRequest<unknown>("/api/sendList", {
-            method: "POST",
-            body: JSON.stringify({
-                session: sessionName,
-                chatId,
-                reply_to: null,
-                message: {
-                    title: "Atendimento iMenu",
-                    description: "Escolha uma opção para continuar:",
-                    footer: "Toque em uma opção abaixo",
-                    button: "Ver opções",
-                    sections: [
-                        {
-                            title: "Como posso ajudar?",
-                            rows: rows.map((row) => ({
-                                title: row.title,
-                                rowId: row.rowId,
-                                ...(row.description
-                                    ? { description: row.description }
-                                    : {}),
-                            })),
-                        },
-                    ],
-                },
-            }),
-        });
+        return await sendWahaListRequest(sessionName, chatId, rows);
     } catch (error) {
-        if (!(error instanceof WahaHttpError)) throw error;
+        if (
+            !(error instanceof WahaHttpError) ||
+            error.status !== 500 ||
+            !chatId.endsWith("@lid")
+        ) {
+            throw error;
+        }
 
-        console.warn("[WAHA] sendList failed; using text fallback", {
-            status: error.status,
-        });
-        return sendWahaText(sessionName, chatId, getListFallbackText(rows));
+        const phoneChatId = await getPhoneChatIdForLid(sessionName, chatId);
+        if (!phoneChatId || phoneChatId === chatId) throw error;
+
+        return sendWahaListRequest(sessionName, phoneChatId, rows);
     }
 }
 
