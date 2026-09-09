@@ -170,7 +170,7 @@ export default function OrganizeCategoriesModal({
     };
 
     return (
-        <Modal
+        <Modal height={580}
             open={open}
             onClose={() => {
                 if (!saving) onClose();

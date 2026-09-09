@@ -316,11 +316,9 @@ export default function CategorySection({
 
                 {!isCreating && (
                     <button onClick={() => setIsCreating(true)} className="cursor-pointer 2xl:text-base w-full py-4 px-4 2xl:px-6 2xl:py-6 text-left text-brand text-sm font-semibold hover:bg-orange-50/50 transition-colors flex items-center gap-3 group">
-                        <div className="w-5 h-5 2xl:w-6 2xl:h-6 rounded-full border-2 border-brand flex items-center justify-center">
-                            <FontAwesomeIcon icon={icons.faPlus} className="text-[10px]" />
-                        </div>
+                        <FontAwesomeIcon icon={icons.faPlus} className="text-base" />
                         <div>
-                            Adicionar item em <span className="underline decoration-brand/30 group-hover:decoration-brand ml-1">{category.name}</span>
+                            Adicionar item em <span className="ml-1">{category.name}</span>
                         </div>
                     </button>
                 )}

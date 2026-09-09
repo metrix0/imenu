@@ -108,7 +108,7 @@ export default function StoreVisuals({
         <div className="relative mb-8">
             
             {/* --- MODAL DE RECORTE --- */}
-            <Modal open={!!cropImage} onClose={handleCloseCrop} className="max-w-2xl w-full">
+            <Modal height={640} open={!!cropImage} onClose={handleCloseCrop} className="max-w-2xl w-full">
                 <div className="p-6">
                     <h3 className="text-xl font-bold text-gray-900 mb-4">
                         Ajustar {cropType === "logo" ? "Logotipo" : "Capa"}
@@ -202,7 +202,7 @@ export default function StoreVisuals({
             {/* --- UI PRINCIPAL (LOGO) --- */}
             <div className="relative">
                 <div
-                    className="absolute -top-10 left-4 flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border-4 border-white bg-white"
+                    className="absolute -top-10 left-4 flex h-20 w-20 items-center justify-center rounded-full border-4 border-white bg-white"
                 >
                     <input 
                         type="file" 
@@ -213,17 +213,17 @@ export default function StoreVisuals({
                     />
                     
                     {logoUrl ? (
-                        <img src={logoUrl} alt="Logo" className="w-full h-full object-cover" />
+                        <img src={logoUrl} alt="Logo" className="w-full h-full rounded-full object-cover" />
                     ) : (
                         <FontAwesomeIcon icon={icons.faStore} className="text-2xl text-gray-300" />
                     )}
 
                     {/* Overlay Logo */}
+                    <button type="button" aria-label="Alterar logo" title="Alterar logo" onClick={() => logoInputRef.current?.click()} className="absolute -bottom-1 -right-1 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 shadow-sm hover:bg-gray-50"><FontAwesomeIcon icon={icons.faEdit} className="text-sm" /></button>
                 </div>
 
                 {/* Dica de Resolução Logo (Aparece ao lado da logo quando hover nela) */}
                 <div className="flex min-h-14 flex-wrap items-center gap-x-3 gap-y-1 pl-28 pt-3">
-                    <Button type="button" variant="secondary" onClick={() => logoInputRef.current?.click()}>Alterar logo</Button>
                     <span className="text-xs text-gray-500">500 × 500 px</span>
                 </div>
             </div>

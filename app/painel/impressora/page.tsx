@@ -5,7 +5,6 @@ import Image from "next/image";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import {
     faDownload,
-    faPrint,
     faCircleCheck,
 } from "@fortawesome/free-solid-svg-icons";
 
@@ -50,17 +49,13 @@ export default function ImpressoraPage() {
     }, []);
 
     return (
-        <div className="min-h-screen bg-gray-50">
-            <div className="max-w-6xl mx-auto px-4 py-6 sm:px-8 sm:py-10">
+        <div className="mx-auto max-w-6xl px-4 pb-20 pt-8 sm:px-6">
+            <div>
                 {/* Header */}
                 <div className="mb-8">
-                    <div className="flex items-start sm:items-center gap-3 mb-3">
-                        <div className="w-11 h-11 shrink-0 rounded-xl bg-brand/10 text-brand flex items-center justify-center">
-                            <FontAwesomeIcon icon={faPrint} className="text-xl" />
-                        </div>
-
+                    <div>
                         <div>
-                            <h1 className="text-2xl sm:text-3xl font-extrabold text-brand leading-tight">
+                            <h1 className="text-3xl font-medium text-gray-900">
                                 iMenu Impressora
                             </h1>
                             <p className="text-gray-500 mt-1">
@@ -103,6 +98,7 @@ export default function ImpressoraPage() {
                             </div>
 
                             <a
+                                data-ui="button" data-variant="primary"
                                 href={release?.downloadUrl}
                                 download
                                 className={`inline-flex w-full sm:w-fit items-center justify-center gap-2 bg-brand text-white px-6 py-3 rounded-xl font-semibold hover:bg-brand/90 transition ${

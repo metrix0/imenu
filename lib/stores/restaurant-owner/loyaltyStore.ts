@@ -12,7 +12,7 @@ type LoyaltyStore = {
   
   // Async Actions (Calls API)
   fetchProgram: (restaurantId: string) => Promise<void>;
-  saveProgram: () => Promise<void>;
+  saveProgram: () => Promise<boolean>;
 };
 
 export const useLoyaltyStore = create<LoyaltyStore>((set, get) => ({
@@ -48,7 +48,7 @@ export const useLoyaltyStore = create<LoyaltyStore>((set, get) => ({
 
   saveProgram: async () => {
     const { program } = get();
-    if (!program) return;
+    if (!program) return false;
 
     set({ loading: true });
     try {
@@ -61,9 +61,12 @@ export const useLoyaltyStore = create<LoyaltyStore>((set, get) => ({
       if (res.ok) {
         const updated = await res.json();
         set({ program: updated });
+        return true;
       }
+      return false;
     } catch (error) {
       console.error("Failed to save loyalty program", error);
+      return false;
     } finally {
       set({ loading: false });
     }

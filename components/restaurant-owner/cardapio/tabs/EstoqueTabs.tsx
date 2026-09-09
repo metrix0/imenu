@@ -1,6 +1,7 @@
 "use client";
 
 import Input from "@/components/ui/Input";
+import Switch from "@/components/ui/Switch";
 import { supabase } from "@/lib/database/supabaseClient";
 import Loader from "@/components/ui/Loader";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -296,7 +297,7 @@ export default function EstoqueTab({
                     Estoque
                 </h2>
                 <p className="mt-1 text-gray-500">
-                    Ative o controle de estoque por produto e defina a quantidade disponível.
+                    Ative o controle de estoque por produto e defina a quantidade disponível. O produto ficará indisponível automaticamente assim que o estoque acabar. Novos pedidos consomem o estoque automaticamente.
                 </p>
             </div>
 
@@ -323,16 +324,16 @@ export default function EstoqueTab({
                                                 key={item.id}
                                                 className="rounded-xl border border-gray-200 bg-white px-4 py-3"
                                             >
-                                                <div className="flex items-center gap-3">
-                                                    <div className="min-w-0 flex-1">
+                                                <div className="flex flex-wrap items-center gap-3">
+                                                    <div className="min-w-0 flex-1 basis-32">
                                                         <div className="truncate font-medium text-gray-900">
                                                             {item.name}
                                                         </div>
                                                     </div>
 
                                                     {enabled && (
-                                                        <div className="mr-4">
-                                                            <Input inline
+                                                        <div className="w-28">
+                                                            <Input label="Disponível" aria-label={`Estoque de ${item.name}`}
                                                                 type="number"
                                                                 min={0}
                                                                 step={1}
@@ -358,43 +359,17 @@ export default function EstoqueTab({
                                                                     }
                                                                 }}
                                                                 disabled={isSaving}
-                                                                className="w-24 rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none disabled:opacity-60"
+                                                                className="text-right tabular-nums"
                                                             />
                                                         </div>
                                                     )}
 
-                                                    <label className="flex cursor-pointer select-none items-center gap-2 whitespace-nowrap">
-                                                        <span className="text-sm text-gray-700">
-                                                            Estoque
-                                                        </span>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() =>
-                                                                updateStockEnabled(
-                                                                    item,
-                                                                    !enabled
-                                                                )
-                                                            }
-                                                            disabled={isSaving}
-                                                            className={`relative h-7 w-12 cursor-pointer rounded-full transition ${
-                                                                enabled
-                                                                    ? "bg-green-500"
-                                                                    : "bg-gray-300"
-                                                            } ${
-                                                                isSaving
-                                                                    ? "opacity-60"
-                                                                    : ""
-                                                            }`}
-                                                        >
-                                                            <span
-                                                                className={`absolute top-1 h-5 w-5 rounded-full bg-white transition-all ${
-                                                                    enabled
-                                                                        ? "left-6"
-                                                                        : "left-1"
-                                                                }`}
-                                                            />
-                                                        </button>
-                                                    </label>
+                                                    <Switch
+                                                        checked={enabled}
+                                                        disabled={isSaving}
+                                                        aria-label={`Controlar estoque de ${item.name}`}
+                                                        onClick={() => updateStockEnabled(item, !enabled)}
+                                                    />
                                                 </div>
                                             </div>
                                         );

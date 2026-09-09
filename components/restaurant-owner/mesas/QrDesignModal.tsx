@@ -315,7 +315,7 @@ export default function QrDesignModal({
     };
 
     return (
-        <Modal
+        <Modal height={820}
             open={open}
             onClose={onClose}
             className="max-w-7xl"

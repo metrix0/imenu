@@ -448,7 +448,7 @@ export default function MesasPage() {
                 onSave={(template, color) => void saveDesign(template, color)}
             />
 
-            <Modal open={editorOpen} onClose={() => setEditorOpen(false)}>
+            <Modal height={290} open={editorOpen} onClose={() => setEditorOpen(false)}>
                 <div className="border-b border-gray-100 px-6 py-5">
                     <h2 className="text-xl font-bold text-gray-900">
                         {editingTable ? "Editar mesa" : "Adicionar mesa"}

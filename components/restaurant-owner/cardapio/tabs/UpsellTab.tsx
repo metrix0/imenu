@@ -213,7 +213,7 @@ export default function UpsellTab({ restaurantId, items }: Props) {
             }
 
             {/* Modal */}
-            <Modal open={open} onClose={() => setOpen(false)}>
+            <Modal height={660} open={open} onClose={() => setOpen(false)}>
                 <div className="p-6 space-y-4 h-[70vh]">
                     <h3 className="text-lg font-semibold">Adicionar Upsell</h3>
 

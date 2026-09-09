@@ -5,7 +5,6 @@ import Input from "@/components/ui/Input";
 import { useState, useRef, useEffect, ReactNode } from "react";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import {
-    faBox,
     faImage,
     faLayerGroup,
     faSpinner,
@@ -413,15 +412,10 @@ export default function MenuItemRow({
 
         return (
             <div
-                className={`${
-                    isEditing ? "flex" : "hidden md:flex"
-                } items-center gap-2 whitespace-nowrap`}
+                className="panel-menu-stock w-24 shrink-0"
                 onClick={(e) => e.stopPropagation()}
             >
-                <span className="text-xs font-medium text-gray-500 2xl:text-sm">
-                    Estoque
-                </span>
-                <Input inline
+                <Input label="Estoque" aria-label={`Estoque de ${name}`}
                     type="number"
                     min={0}
                     step={1}
@@ -432,7 +426,7 @@ export default function MenuItemRow({
                     onKeyDown={(e) => {
                         if (e.key === "Enter") e.currentTarget.blur();
                     }}
-                    className="w-16 border-b border-gray-300 bg-transparent p-1 text-right text-sm font-medium text-gray-900 outline-none focus:border-brand 2xl:text-lg"
+                    className="text-right tabular-nums"
                     disabled={isLoading}
                 />
             </div>
@@ -516,18 +510,6 @@ export default function MenuItemRow({
                                 <span className="truncate font-medium text-gray-900">
                                     {name}
                                 </span>
-                                {item.stock_enabled &&
-                                    Number(stockInput || 0) > 0 && (
-                                        <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-gray-600 md:hidden">
-                                            <FontAwesomeIcon
-                                                icon={faBox}
-                                                className="text-[9px]"
-                                            />
-                                            {Number(
-                                                stockInput || 0
-                                            ).toLocaleString("pt-BR")}
-                                        </span>
-                                    )}
                                 {!isAvailable && (
                                     <span className="shrink-0 text-[10px] font-bold text-red-500 uppercase">
                                         Pausado
@@ -590,11 +572,11 @@ export default function MenuItemRow({
                                     text="Copiar link que leva direto para o Item"
                                     position="top"
                                 >
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleCopy();
-                                        }}
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleCopy();
+                                    }}
                                         className="cursor-pointer w-8 h-8 2xl:text-2xl flex items-center justify-center text-gray-400 hover:text-brand hover:bg-gray-50 rounded-full transition-colors"
                                     >
                                         <FontAwesomeIcon
@@ -659,40 +641,37 @@ export default function MenuItemRow({
     }
 
     return (
-        <div className="relative z-10 flex min-w-0 max-w-full flex-col gap-4 overflow-hidden border-b border-gray-100 bg-white p-4 shadow-md animate-fadeUp sm:flex-row sm:items-center">
+        <div className="panel-menu-editor relative z-10 flex min-w-0 max-w-full flex-col gap-4 border-b border-gray-200 bg-white p-4">
             <div className="flex w-full min-w-0 flex-1 items-start gap-4 2xl:items-center">
                 {renderImageArea()}
-                <div className="w-full min-w-0 flex-1 space-y-2 2xl:space-y-0">
-                    <Input inline
+                <div className="w-full min-w-0 flex-1 space-y-3">
+                    <Input label="Nome do item"
                         ref={nameInputRef}
                         value={name ?? ""}
                         onChange={(e) => setName(e.target.value)}
                         onBlur={() => autoSave()}
                         onKeyDown={handleKeyDown}
                         placeholder="Nome do item"
-                        className="w-full text-base 2xl:text-lg font-medium text-gray-900 placeholder-gray-400 border-none p-0 focus:ring-0 bg-transparent outline-none"
+                        className="min-w-0"
                         disabled={isLoading}
                     />
-                    <Input inline
+                    <Input label="Descrição"
                         value={description ?? ""}
                         onChange={(e) => setDescription(e.target.value)}
                         onBlur={() => autoSave()}
                         onKeyDown={handleKeyDown}
                         placeholder="Adicione uma descrição..."
-                        className="w-full text-sm 2xl:text-base text-gray-600 placeholder-gray-300 border-none p-0 focus:ring-0 bg-transparent outline-none"
+                        className="min-w-0"
                         disabled={isLoading}
                     />
                 </div>
             </div>
 
-            <div className="flex w-full min-w-0 flex-wrap items-center justify-end gap-3 border-t border-gray-50 pt-2 2xl:gap-5 sm:w-auto sm:flex-nowrap sm:border-t-0 sm:pt-0">
+            <div className="flex w-full min-w-0 flex-wrap items-end justify-end gap-3">
                 {renderStockInput()}
 
-                <div className="relative w-24 2xl:w-26 flex items-center">
-                    <span className="text-sm text-gray-500 2xl:mr-2 2xl:text-lg">
-                        R$
-                    </span>
-                    <Input inline
+                <div className="w-32">
+                    <Input label="Preço" icon="R$"
                         type="text"
                         inputMode="decimal"
                         value={priceInput}
@@ -706,7 +685,7 @@ export default function MenuItemRow({
                         }}
                         onBlur={handlePriceBlur}
                         onKeyDown={handleKeyDown}
-                        className="w-full 2xl:text-lg text-right font-medium text-gray-900 border-b border-gray-300 focus:border-brand p-1 outline-none text-sm bg-transparent"
+                        className="text-right tabular-nums"
                         placeholder="0,00"
                         disabled={isLoading}
                     />
@@ -721,10 +700,11 @@ export default function MenuItemRow({
                             <FontAwesomeIcon icon={icons.faTimes} />
                         </button>
                     )}
-                    <button
+                    <Button
                         onMouseDown={(e) => e.preventDefault()}
                         onClick={handleSave}
-                        className="cursor-pointer h-8 px-4 2xl:px-6 2xl:text-lg 2xl:h-10 bg-brand text-white text-sm font-medium rounded-md hover:bg-orange-600 transition-colors disabled:opacity-70 flex items-center gap-2"
+                        loading={isLoading}
+                        className="gap-2"
                     >
                         {isLoading ? (
                             "..."
@@ -733,7 +713,7 @@ export default function MenuItemRow({
                                 <FontAwesomeIcon icon={icons.faCheck} /> Salvar
                             </>
                         )}
-                    </button>
+                    </Button>
                 </div>
             </div>
         </div>

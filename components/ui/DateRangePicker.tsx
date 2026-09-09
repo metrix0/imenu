@@ -4,7 +4,6 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import Button from "./Button";
-import Input from "./Input";
 import { DATE_FILTER_PRESETS, formatDate, formatRangeDate, parseDate, type DateRange, type DateFilterPreset } from "@/lib/utils/dateRange";
 
 export default function DateRangePicker({ value, onChange, presets = DATE_FILTER_PRESETS, allowClear = false, allowFuture = false, allowOpenEnd = false, label = "Período", emptyLabel = "Todo o período" }: {
@@ -47,7 +46,7 @@ export default function DateRangePicker({ value, onChange, presets = DATE_FILTER
     return <div data-ui="field" className="min-w-0">
         <span data-ui="field-label">{label}</span>
         <button ref={trigger} type="button" data-ui="dropdown-trigger" aria-label={`Selecionar ${label.toLowerCase()}`} aria-haspopup="dialog" aria-expanded={open}
-            className="flex w-full items-center gap-3 rounded-lg border bg-white px-3 text-left" onClick={toggle}>
+            className="flex w-full cursor-pointer items-center gap-3 rounded-lg border bg-white px-3 text-left" onClick={toggle}>
             <CalendarDays size={16} className="shrink-0 text-gray-500" />
             <span className="min-w-0 flex-1 truncate">{value.startDate && value.endDate ? `${formatRangeDate(value.startDate)} — ${formatRangeDate(value.endDate)}` : allowOpenEnd && value.startDate ? `A partir de ${formatRangeDate(value.startDate)}` : emptyLabel}</span>
             <ChevronDown size={14} className={open ? "rotate-180" : ""} />
@@ -75,11 +74,7 @@ export default function DateRangePicker({ value, onChange, presets = DATE_FILTER
                         </button>;
                     })}
                 </div>
-                <p className="my-3 text-xs text-gray-500">{selectingEnd ? "Agora selecione a data final." : "Selecione o início e o fim do período."}</p>
-                <div className="grid grid-cols-2 gap-3">
-                    <Input label="Início" type="date" max={allowFuture ? undefined : today} value={draft.startDate} onChange={event => { setDraft({ ...draft, startDate: event.target.value }); setSelectingEnd(false); }} />
-                    <Input label={allowOpenEnd ? "Fim (opcional)" : "Fim"} type="date" min={draft.startDate} max={allowFuture ? undefined : today} value={draft.endDate} onChange={event => { setDraft({ ...draft, endDate: event.target.value }); setSelectingEnd(false); }} />
-                </div>
+                {allowOpenEnd && <button type="button" className="calendar-preset mt-3 w-full rounded-lg border border-gray-200 px-3 py-2 text-left" disabled={!draft.startDate} aria-pressed={Boolean(draft.startDate && !draft.endDate)} onClick={() => { setDraft({ ...draft, endDate: "" }); setSelectingEnd(false); setHoverDate(""); }}>Sem data final</button>}
                 <div className="mt-4 flex justify-end gap-2"><Button variant="secondary" onClick={() => { setOpen(false); trigger.current?.focus(); }}>Cancelar</Button><Button disabled={!draft.startDate || (!allowOpenEnd && !draft.endDate) || Boolean(draft.endDate && draft.endDate < draft.startDate) || (!allowFuture && (draft.endDate > today || draft.startDate > today))} onClick={() => apply(draft)}>Aplicar</Button></div>
             </div>
         </div>, document.body)}

@@ -6,6 +6,7 @@ import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Dropdown from "@/components/ui/Dropdown";
 import Card from "@/components/ui/Card";
+import PromotionCard from "./PromotionCard";
 import ListLoader from "@/components/ui/ListLoader";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import Switch from "@/components/ui/Switch";
@@ -629,66 +630,24 @@ export default function AutomaticPromotionsPanel({
       {promotions.map((p) => {
         const description = promotionDescription(p, products);
         return (
-          <Card
+          <PromotionCard
             key={p.id}
-            className="border border-gray-200 !shadow-sm !p-4 sm:!p-5"
+            title={p.name}
+            description={<>{description.benefits} · {description.conditions}</>}
+            active={p.active}
+            disabled={saving}
+            onToggle={() => void save({ ...p, active: !p.active })}
+            actions={<>
+              <Button variant="secondary" aria-label={`Editar ${p.name}`} onClick={() => {
+                setError(""); setAdvancedOptions(false); setEditing(structuredClone(p));
+              }} className="gap-2"><FontAwesomeIcon icon={faPen} />Editar</Button>
+              <Button variant="secondary" aria-label={`Excluir ${p.name}`} onClick={() => setDeleting(p)} className="!w-10 !px-0"><FontAwesomeIcon icon={faTrash} /></Button>
+            </>}
           >
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0 break-words">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="font-semibold">{p.name}</h3>
-                  <span className={`rounded-full px-2 py-1 text-xs font-medium ${p.active ? "bg-green-50 text-green-800" : "bg-gray-100 text-gray-500"}`}>{p.active ? "Ativa" : "Pausada"}</span>
-                </div>
-                <p className="mt-1 text-sm text-gray-600">
-                  {description.benefits} · {description.conditions}
-                </p>
-                <div className="mt-3 flex flex-wrap gap-2 text-xs text-gray-500">
-                  {p.delivery && (
-                    <span className="rounded-full bg-gray-100 px-2 py-1">
-                      Delivery e Retirada
-                    </span>
-                  )}
-                  {p.mesa && (
-                    <span className="rounded-full bg-gray-100 px-2 py-1">
-                      Mesa
-                    </span>
-                  )}
-                  {p.show_on_menu && (
-                    <span className="rounded-full bg-brand/5 px-2 py-1 text-brand">
-                      Banner no cardápio
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-            <fieldset
-              disabled={saving}
-              className="mt-4 flex justify-end gap-2 border-t border-gray-200 pt-3"
-            >
-              <div className="flex gap-2">
-                <Button
-                  variant="secondary"
-                  aria-label={`Editar ${p.name}`}
-                  onClick={() => {
-                    setError("");
-                    setAdvancedOptions(false);
-                    setEditing(structuredClone(p));
-                  }}
-                  className="min-h-11 gap-2"
-                >
-                  <FontAwesomeIcon icon={faPen} />
-                  Editar
-                </Button>
-                <button
-                  aria-label={`Excluir ${p.name}`}
-                  onClick={() => setDeleting(p)}
-                  className="min-h-11 min-w-11 cursor-pointer rounded-lg text-gray-500 hover:bg-red-50 hover:text-red-600"
-                >
-                  <FontAwesomeIcon icon={faTrash} />
-                </button>
-              </div>
-            </fieldset>
-          </Card>
+            {p.delivery && <span className="rounded-full bg-gray-100 px-2 py-1">Delivery e Retirada</span>}
+            {p.mesa && <span className="rounded-full bg-gray-100 px-2 py-1">Mesa</span>}
+            {p.show_on_menu && <span className="rounded-full bg-brand/5 px-2 py-1 text-brand">Banner no cardápio</span>}
+          </PromotionCard>
         );
       })}
       <ConfirmModal

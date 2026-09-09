@@ -55,7 +55,7 @@ export default function QrCodeMesaSalesModal({
     active = false,
 }: QrCodeMesaSalesModalProps) {
     return (
-        <Modal
+        <Modal height={700}
             open={open}
             onClose={onClose}
             className="max-w-4xl"

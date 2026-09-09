@@ -558,7 +558,7 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, 
 
     return (
         <>
-        <Modal open={isOpen} onClose={onClose}>
+        <Modal height={760} open={isOpen} onClose={onClose}>
             <div className="panel-complements w-full max-w-2xl bg-white rounded-lg flex flex-col max-h-[85vh]">
                 <div className="p-6 border-b border-gray-100 flex justify-between items-center shrink-0">
                     <div>

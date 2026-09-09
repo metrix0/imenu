@@ -296,7 +296,7 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
 
     return (
         <>
-            <Modal open={isOpen} onClose={onClose}>
+            <Modal height={760} open={isOpen} onClose={onClose}>
                 <div className="w-full max-w-2xl bg-white rounded-lg flex flex-col max-h-[92dvh] sm:max-h-[85vh]">
                     {/* Header */}
                     <div className="p-4 sm:p-5 border-b border-gray-100 flex justify-between items-start gap-3">

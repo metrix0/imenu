@@ -404,7 +404,7 @@ export default function ApplicationSetup() {
                 />
             )}
 
-            <Modal
+            <Modal height={560}
                 open={installInstructionsOpen}
                 onClose={() => setInstallInstructionsOpen(false)}
                 className="max-w-lg"

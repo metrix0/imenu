@@ -1121,7 +1121,7 @@ export default function DevPayoutPage() {
                 )}
             </Card>
 
-            <Modal open={confirmOpen} onClose={() => !sending && setConfirmOpen(false)}>
+            <Modal height={580} open={confirmOpen} onClose={() => !sending && setConfirmOpen(false)}>
                 <div className="p-6 sm:p-7">
                     <h2 className="text-xl font-bold text-gray-900">Confirmar envio</h2>
                     <p className="mt-2 text-sm text-gray-500">

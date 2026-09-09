@@ -150,7 +150,7 @@ export default function DisponibilidadePage() {
                 </div>
             </div>
 
-            <div className="bg-white border border-gray-200 min-[1800px]:min-w-[1400px] min-[1800px]:-ml-20 rounded-xl p-6 shadow-sm overflow-x-auto">
+            <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6 overflow-x-auto">
                 <div className="min-w-[700px]">
                     <WeeklyScheduleClick 
                         value={availability} 

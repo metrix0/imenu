@@ -210,7 +210,7 @@ export default function QrCheckoutReturnRefresh() {
     };
 
     return (
-        <Modal
+        <Modal height={560}
             open={open}
             onClose={closeCelebration}
             className="max-w-xl"

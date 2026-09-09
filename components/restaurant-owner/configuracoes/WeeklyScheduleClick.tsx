@@ -382,7 +382,7 @@ export default function WeeklyScheduleClick({
                     ))}
                 </div>
             </div>
-            <Modal
+            <Modal height={290}
                 open={editModal.isOpen}
                 onClose={() =>
                     setEditModal((prev) => ({ ...prev, isOpen: false }))

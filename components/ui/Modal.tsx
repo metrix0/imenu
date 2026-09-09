@@ -17,7 +17,8 @@ interface ModalProps {
     children: ReactNode;
     className?: string;
     showCloseButton?: boolean;
-    size?: "compact" | "standard" | "large";
+    /** Required panel height per usage; storefront dialogs keep their content sizing. */
+    height: number | `${number}dvh`;
 }
 
 export default function Modal({
@@ -26,7 +27,7 @@ export default function Modal({
     children,
     className = "",
     showCloseButton = false,
-    size = "standard",
+    height,
 }: ModalProps) {
     const panel = usePanelAppearance();
     const [mounted, setMounted] = useState(open);
@@ -119,7 +120,7 @@ export default function Modal({
 
             <div
                 role="dialog"
-                data-modal-size={panel ? size : undefined}
+                style={panel ? { height } : undefined}
                 aria-modal="true"
                 onClick={(event: { stopPropagation(): void }) =>
                     event.stopPropagation()

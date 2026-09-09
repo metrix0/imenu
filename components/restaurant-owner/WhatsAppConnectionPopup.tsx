@@ -174,7 +174,7 @@ export default function WhatsAppConnectionPopup() {
         connection?.status === "PASSKEY_CONFIRMATION_REQUIRED";
 
     return (
-        <Modal open={open} onClose={close} className="max-w-lg">
+        <Modal height={400} open={open} onClose={close} className="max-w-lg">
             <div className="p-6 sm:p-8">
                 <div className="flex items-start gap-4">
                     <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-amber-50 text-xl text-amber-700">

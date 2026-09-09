@@ -80,7 +80,7 @@ export default function PainelLayout({
     const supportButtonRef = useRef<SupportButtonRef>(null);
     const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
 
-    const [expanded, setExpanded] = useState(false);
+    const [expanded, setExpanded] = useState(true);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [isStoreClosed, setIsStoreClosed] = useState(false);
     const [showCloseModal, setShowCloseModal] = useState(false);

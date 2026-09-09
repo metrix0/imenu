@@ -108,7 +108,7 @@ export default function ApplicationInstallPrompt() {
     };
 
     return (
-        <Modal
+        <Modal height={660}
             open={open}
             onClose={close}
             showCloseButton

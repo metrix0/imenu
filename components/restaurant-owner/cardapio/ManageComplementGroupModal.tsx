@@ -486,7 +486,7 @@ export default function ManageComplementGroupModal({
 
     return (
         <>
-            <Modal open={open} onClose={handleClose}>
+            <Modal height={760} open={open} onClose={handleClose}>
                 <div className="panel-complements flex max-h-[85vh] w-full flex-col rounded-lg bg-white">
                     <div className="flex shrink-0 items-center justify-between border-b border-gray-100 p-6">
                         <div className="min-w-0 pr-4">

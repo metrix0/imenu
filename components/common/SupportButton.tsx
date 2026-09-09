@@ -45,7 +45,7 @@ const SupportButton = forwardRef<SupportButtonRef, SupportButtonProps>(
                     <FontAwesomeIcon icon={icons.faWhatsapp} size="2x" />
                 </button>
 
-                <Modal open={open} onClose={() => setOpen(false)} className="max-w-sm">
+                <Modal height={420} open={open} onClose={() => setOpen(false)} className="max-w-sm">
                     <div className="relative p-6 text-center">
                         <button type="button" onClick={() => setOpen(false)} className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700" aria-label="Fechar">
                             <FontAwesomeIcon icon={faXmark} />

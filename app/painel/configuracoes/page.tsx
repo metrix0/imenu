@@ -17,6 +17,8 @@ import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
+import Switch from "@/components/ui/Switch";
+import SaveStatus from "@/components/ui/SaveStatus";
 import Loader from "@/components/ui/Loader";
 import Toast from "@/components/ui/Toast";
 import ConfirmModal from "@/components/ui/ConfirmModal";
@@ -601,9 +603,7 @@ export default function ConfiguracoesPage() {
                                     maxLength={15}
                                 />
                                 {savingField === "phone" && (
-                                    <p className="mt-1 text-xs text-brand">
-                                        Salvando...
-                                    </p>
+                                    <SaveStatus status="saving" className="mt-2" />
                                 )}
                             </div>
 
@@ -672,6 +672,8 @@ export default function ConfiguracoesPage() {
                         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                             <button
                                 type="button"
+                                data-ui="choice"
+                                aria-pressed={!allowFutureOrderScheduling}
                                 disabled={isSavingOrderScheduling}
                                 onClick={() => void saveOrderSchedulingMode(false)}
                                 className={`cursor-pointer rounded-xl border p-4 text-left transition disabled:cursor-not-allowed disabled:opacity-60 ${
@@ -690,6 +692,8 @@ export default function ConfiguracoesPage() {
 
                             <button
                                 type="button"
+                                data-ui="choice"
+                                aria-pressed={allowFutureOrderScheduling}
                                 disabled={isSavingOrderScheduling}
                                 onClick={() => void saveOrderSchedulingMode(true)}
                                 className={`cursor-pointer rounded-xl border p-4 text-left transition disabled:cursor-not-allowed disabled:opacity-60 ${
@@ -708,7 +712,7 @@ export default function ConfiguracoesPage() {
                         </div>
 
                         {isSavingOrderScheduling && (
-                            <p className="mt-3 text-xs text-gray-400">Salvando...</p>
+                            <SaveStatus status="saving" className="mt-3" />
                         )}
                     </Card>
 
@@ -748,6 +752,8 @@ export default function ConfiguracoesPage() {
                                     <button
                                         key={option.value}
                                         type="button"
+                                        data-ui="choice"
+                                        aria-pressed={selected}
                                         onClick={() =>
                                             saveOrderDingleDuration(option.value)
                                         }
@@ -782,9 +788,8 @@ export default function ConfiguracoesPage() {
                                     <h2 className="text-xl font-medium text-gray-900">
                                         Forçar envio de Notificação no WhatsApp
                                     </h2>
-                                    <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700">
+                                    <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-700">
                                         Não recomendado
-                                    </span>
                                     <Tooltip
                                         text="Isso adiciona uma etapa extra à finalização e pode criar atrito no pedido. O pedido é criado antes do WhatsApp: o cliente pode simplesmente não enviar a mensagem e o pedido continuará válido."
                                         position="top"
@@ -793,9 +798,10 @@ export default function ConfiguracoesPage() {
                                     >
                                         <FontAwesomeIcon
                                             icon={faCircleInfo}
-                                            className="cursor-help text-base text-gray-400 transition-colors hover:text-brand"
+                                            className="cursor-help text-sm text-amber-700"
                                         />
                                     </Tooltip>
+                                    </span>
                                 </div>
                                 <p className="mt-2 text-sm text-gray-500">
                                     Após confirmar o pedido, o cliente será direcionado ao
@@ -806,29 +812,14 @@ export default function ConfiguracoesPage() {
 
                             <div className="flex shrink-0 items-center gap-3">
                                 {isSavingWhatsappConfirmation && (
-                                    <span className="text-xs text-gray-400">
-                                        Salvando...
-                                    </span>
+                                    <SaveStatus status="saving" />
                                 )}
-                                <button
-                                    type="button"
-                                    role="switch"
-                                    aria-checked={forceWhatsappOrderConfirmation}
+                                <Switch
+                                    checked={forceWhatsappOrderConfirmation}
                                     aria-label="Obrigar envio de notificação no WhatsApp"
                                     disabled={isSavingWhatsappConfirmation}
-                                    onClick={() =>
-                                        void saveWhatsappOrderConfirmation(
-                                            !forceWhatsappOrderConfirmation,
-                                        )
-                                    }
-                                    className={`flex h-7 w-12 cursor-pointer items-center rounded-full p-1 transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
-                                        forceWhatsappOrderConfirmation
-                                            ? "justify-end bg-green-500"
-                                            : "justify-start bg-gray-300"
-                                    }`}
-                                >
-                                    <span className="h-5 w-5 rounded-full bg-white shadow-md" />
-                                </button>
+                                    onClick={() => void saveWhatsappOrderConfirmation(!forceWhatsappOrderConfirmation)}
+                                />
                             </div>
                         </div>
                     </Card>

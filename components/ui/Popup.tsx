@@ -21,7 +21,7 @@ export default function Popup({ trigger, open, onClose, children }: PopupProps) 
         setIsOpen(false);
     };
 
-    if (panel) return <Modal open={visible} onClose={handleClose} size="compact" className="max-w-sm"><div className="p-6 text-center">{children}</div></Modal>;
+    if (panel) return <Modal height={240} open={visible} onClose={handleClose} className="max-w-sm"><div className="p-6 text-center">{children}</div></Modal>;
 
     return (
         <>

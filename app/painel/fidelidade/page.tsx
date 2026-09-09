@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { useLoyaltyStore } from "@/lib/stores/restaurant-owner/loyaltyStore";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
-import ToggleInput from "@/components/ui/ToggleInput";
+import Switch from "@/components/ui/Switch";
+import SaveStatus from "@/components/ui/SaveStatus";
 import Card from "@/components/ui/Card";
 import Dropdown from "@/components/ui/Dropdown";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
@@ -44,6 +45,7 @@ export default function FidelidadePage() {
     } = useLoyaltyStore();
 
     const [hasChanges, setHasChanges] = useState(false);
+    const [saveError, setSaveError] = useState(false);
     
     // Estados UI
     const [minOrderDisplay, setMinOrderDisplay] = useState("");
@@ -178,8 +180,10 @@ export default function FidelidadePage() {
     };
 
     const handleSave = async () => {
-        await saveProgram();
-        setHasChanges(false);
+        setSaveError(false);
+        const saved = await saveProgram();
+        setSaveError(!saved);
+        if (saved) setHasChanges(false);
     };
 
     if (loading && !program) return <div className="p-8">Carregando...</div>;
@@ -208,10 +212,10 @@ export default function FidelidadePage() {
                         <h3 className="font-semibold text-lg">Status do Programa</h3>
                         <p className="text-sm text-gray-500">Se desativado, a pontuação é pausada.</p>
                     </div>
-                    <ToggleInput 
-                        label={safeProgram.active ? "Ativado" : "Desativado"} 
+                    <Switch
+                        aria-label="Ativar programa de fidelidade"
                         checked={safeProgram.active} 
-                        onChange={(e) => handleChange("active", e.target.checked)} 
+                        onClick={() => handleChange("active", !safeProgram.active)}
                     />
                 </div>
 
@@ -326,15 +330,16 @@ export default function FidelidadePage() {
                     </div>
                 </div>
 
-                <div className="pt-4 flex justify-end">
-                    <Button 
+                <div className="pt-4 flex items-center justify-end gap-3">
+                    <SaveStatus status={loading ? "saving" : saveError ? "error" : hasChanges || !program ? "idle" : "saved"} />
+                    {hasChanges && <Button
                         onClick={handleSave} 
                         loading={loading}
                         disabled={!hasChanges && !loading}
                         variant={hasChanges ? "primary" : "secondary"}
                     >
-                        {hasChanges ? "Salvar Alterações" : "Salvo"}
-                    </Button>
+                        Salvar Alterações
+                    </Button>}
                 </div>
             </Card>
         </div>

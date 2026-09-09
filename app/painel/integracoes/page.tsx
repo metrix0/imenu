@@ -147,14 +147,14 @@ export default function IntegracoesPage() {
                 Configure o rastreamento dos seus anúncios.
             </p>
 
-            <Card className="space-y-6 border border-gray-200 p-7 pr-10">
+            <Card className="space-y-8 !p-5 sm:!p-7">
                 <h2 className="mb-2 text-xl font-semibold text-gray-900">
                     Rastreamento de anúncios
                 </h2>
 
-                <div className="flex items-center gap-4">
+                <div className="flex items-start gap-3 sm:gap-4 [&>img]:mt-6 [&>img]:shrink-0">
                     <Image src="/logos/google-analytics.svg" alt="Google Analytics" width={36} height={36} />
-                    <div className="flex-1">
+                    <div className="min-w-0 flex-1">
                         <Input
                             label="Google Analytics (GA4)"
                             placeholder="G-XXXXXXXXXX"
@@ -169,9 +169,9 @@ export default function IntegracoesPage() {
                     </div>
                 </div>
 
-                <div className="flex items-center gap-4">
+                <div className="flex items-start gap-3 sm:gap-4 [&>img]:mt-6 [&>img]:shrink-0">
                     <Image src="/logos/google-tag-manager.svg" alt="Google Tag Manager" width={36} height={36} />
-                    <div className="flex-1">
+                    <div className="min-w-0 flex-1">
                         <Input
                             label="Google Tag Manager / Google Ads"
                             placeholder="GTM-XXXXXXX ou AW-XXXXXXXXXX"
@@ -186,9 +186,9 @@ export default function IntegracoesPage() {
                     </div>
                 </div>
 
-                <div className="flex items-center gap-4">
+                <div className="flex items-start gap-3 sm:gap-4 [&>img]:mt-6 [&>img]:shrink-0">
                     <Image src="/logos/meta.svg" alt="Meta / Facebook" width={36} height={36} />
-                    <div className="flex-1">
+                    <div className="min-w-0 flex-1">
                         <Input
                             label="Meta (Facebook/Instagram) Pixel"
                             placeholder="123456789012345"

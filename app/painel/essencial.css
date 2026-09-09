@@ -180,7 +180,8 @@
 .panel-essencial .panel-sidebar-logo { display: flex; align-items: center; padding-left: 4px; }
 .panel-essencial .panel-sidebar-logo img { object-fit: contain; }
 .panel-essencial .panel-sidebar-mark { width: 32px; height: auto; max-height: 24px; object-fit: contain; position: absolute; transition: opacity 150ms; }
-.panel-essencial .panel-sidebar-status { padding: 4px 10px 8px; width: 100%; margin-top: 0; }
+.panel-essencial .panel-sidebar-status { padding: 4px 10px 8px; width: 100%; height: 52px; flex-shrink: 0; margin-top: 0; overflow: hidden; }
+.panel-essencial .panel-sidebar-status .panel-store-status { white-space: nowrap; }
 .panel-essencial .panel-sidebar-status > div { margin-top: 0; }
 .panel-essencial .panel-sidebar-toggle {
     position: relative;
@@ -220,7 +221,7 @@
 .panel-essencial .panel-nav-link span { font-size: 13px; }
 .panel-essencial .panel-nav-link:hover { background: var(--panel-background); color: var(--panel-text); }
 .panel-essencial .panel-nav-link[aria-current="page"] { background: var(--panel-tint); color: var(--panel-accent-text); }
-.panel-essencial .panel-sidebar:not([data-expanded="true"]) .panel-nav-link { gap: 0; justify-content: center; }
+.panel-essencial .panel-sidebar .panel-nav-link { justify-content: flex-start; overflow: hidden; }
 .panel-essencial .panel-mobile-header { border-color: var(--panel-border); background: var(--panel-surface); }
 .panel-essencial .panel-store-status { border-radius: 8px; font-size: 12px; padding: 7px 10px; }
 
@@ -290,7 +291,7 @@
     .panel-essencial.panel-modal :is(.max-w-2xl, .max-w-3xl, .max-w-4xl, .max-w-5xl) { max-width: 100%; }
     .panel-essencial.panel-modal .flex.justify-end { flex-wrap: wrap; gap: 8px; }
     .panel-essencial .panel-order-customer > span { min-width: 0; }
-    .panel-essencial .panel-order-customer > span:first-child { flex-basis: 100%; }
+    .panel-essencial .panel-order-customer > span:first-child { flex: 1; }
     .panel-essencial [data-ui="card"] { padding: 18px; }
 }
 @media (hover: none), (pointer: coarse) {
@@ -314,9 +315,7 @@
 .panel-essencial .panel-sidebar-toggle { border-radius: 8px; }
 .panel-essencial :is(.shadow-sm,.shadow-md,.shadow-lg):not([role="tooltip"]) { box-shadow: none; }
 .panel-essencial [data-ui="card"] { box-shadow: none; border: 1px solid var(--panel-border); }
-.panel-essencial.panel-modal > [role="dialog"] { height: min(82dvh, 760px); overflow: hidden; }
-.panel-essencial.panel-modal > [role="dialog"][data-modal-size="compact"] { height: min(440px, 82dvh); }
-.panel-essencial.panel-modal > [role="dialog"][data-modal-size="large"] { height: min(88dvh, 900px); }
+.panel-essencial.panel-modal > [role="dialog"] { overflow: hidden; }
 .panel-modal-body { min-height: 0; height: 100%; overflow: auto; overscroll-behavior: contain; }
 .panel-modal-body > :is(.p-4,.p-6) { padding: 24px; }
 .panel-essencial [data-ui="modal-close"] { position: absolute; right: 16px; top: 16px; z-index: 40; display: flex; width: 36px; height: 36px; align-items: center; justify-content: center; border-radius: 8px; color: var(--panel-muted); background: var(--panel-surface); cursor: pointer; flex-shrink: 0; }
@@ -358,9 +357,31 @@
 .panel-date-picker .calendar-grid button[data-range="true"] { background:#fff1ea; color:#a9360a; border-radius:0; }
 .panel-date-picker .calendar-grid button:hover:not(:disabled) { background:#fff1ea; }
 .panel-date-picker .calendar-grid button[aria-pressed="true"] { background:#c93f0b; color:white; }
+.panel-date-picker .calendar-grid button[aria-pressed="true"]:hover:not(:disabled) { background:#ac3509; color:white; }
+.panel-date-picker button:not(:disabled) { cursor:pointer; }
+.panel-date-picker .calendar-preset:hover:not(:disabled), .panel-date-picker > .grid button:hover { background:#fff1ea; color:#b7360c; }
 .panel-date-picker button:focus-visible { outline:2px solid #c93f0b; outline-offset:2px; }
 .panel-essencial .panel-menu-row { gap:16px; padding:18px 20px; font-size:14px; transition:background-color 150ms; }
 .panel-essencial .panel-menu-row > div:last-child { gap:12px; padding-left:0; }
+.panel-essencial .panel-menu-row > div:last-child { align-items:center; flex-wrap:wrap; }
+.panel-essencial .panel-menu-row .panel-icon, .panel-essencial .panel-menu-editor .panel-icon { width:16px; height:16px; }
+.panel-essencial .panel-menu-row button:not([data-ui]), .panel-essencial .panel-menu-editor button:not([data-ui]) { min-width:36px; min-height:36px; border-radius:8px; }
+.panel-essencial .panel-menu-stock { width:88px; }
+.panel-essencial .panel-menu-stock [data-ui="input"] { padding-inline:10px; }
+.panel-essencial .panel-menu-editor [data-ui="field"] { min-width:0; }
+.panel-essencial .panel-neighborhood-fields { grid-template-columns:minmax(0,1fr) minmax(0,1fr) 48px; }
+.panel-essencial .panel-neighborhood-fields > [data-ui="field"] { min-width:0; }
+.panel-essencial .panel-neighborhood-fields > :first-child { grid-column:1 / -1; }
+.panel-essencial .panel-neighborhood-fields > :nth-child(2) { grid-column:1 / 3; }
+.panel-essencial [data-ui="choice"] { border-radius:8px; box-shadow:none; }
+.panel-essencial [data-ui="choice"][aria-pressed="true"] { background:var(--panel-tint); color:var(--panel-accent-text); border-color:var(--panel-action); }
+.panel-essencial [data-ui="choice"][aria-pressed="true"] .text-brand { color:var(--panel-accent-text); }
+.panel-essencial [data-ui="choice"]:hover:not(:disabled) { background:var(--panel-soft); }
+.panel-essencial [data-ui="choice"][aria-pressed="true"]:hover:not(:disabled) { background:var(--panel-tint); }
+@media (min-width:1024px) {
+  .panel-essencial .panel-neighborhood-fields { grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) 56px 100px minmax(100px,1fr) 36px; }
+  .panel-essencial .panel-neighborhood-fields > :first-child, .panel-essencial .panel-neighborhood-fields > :nth-child(2) { grid-column:auto; }
+}
 .panel-essencial .panel-menu-row [data-ui="button"] { min-height:36px; }
 .panel-essencial .panel-complements { height:100%; max-height:100%; }
 .panel-essencial .panel-complements > div:first-child { padding-right:60px; }

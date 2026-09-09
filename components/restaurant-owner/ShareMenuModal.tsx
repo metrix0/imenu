@@ -40,7 +40,7 @@ export default function ShareMenuModal({ isOpen, onClose, restaurantId, restaura
     };
 
     return (
-        <Modal open={isOpen} onClose={handleClose} className="max-w-sm">
+        <Modal height={600} open={isOpen} onClose={handleClose} className="max-w-sm">
             <div className="p-6 text-center flex flex-col items-center">
                 <div className="w-12 h-12 bg-brand/10 text-brand rounded-full flex items-center justify-center mb-4">
                     <FontAwesomeIcon icon={icons.faLink} className="text-xl" />

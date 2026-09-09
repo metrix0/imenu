@@ -109,7 +109,7 @@ const executeDelete = async () => {
 
     return (
         <>
-        <Modal open={isOpen} onClose={onClose}>
+        <Modal height={250} open={isOpen} onClose={onClose}>
             <div className="p-6 w-full max-w-mdjustify">
                 <h2 className="text-xl font-bold mb-4 text-gray-900">
                     {categoryToEdit ? "Editar Categoria" : "Nova Categoria"}

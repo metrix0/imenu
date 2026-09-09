@@ -4,7 +4,7 @@ import ModalCloseButton from "./ModalCloseButton";
 import { usePanelAppearance } from "./PanelAppearance";
 
 type DraggableModalProps =  React.HTMLAttributes<HTMLDivElement> & {
-    height?: number;
+    height: number;
     handle?: boolean;
     open: boolean;
     onClose: () => void;
@@ -14,7 +14,7 @@ type DraggableModalProps =  React.HTMLAttributes<HTMLDivElement> & {
 };
 
 export default function DraggableModal({
-                                           height = 0.9,
+    height,
                                            handle = true,
                                            open,
                                            onClose,
@@ -156,7 +156,7 @@ export default function DraggableModal({
 
     return (
         <>{isDesktop ?
-                    <Modal open={open} onClose={onClose} size={height <= 0.3 ? "compact" : height >= 0.9 ? "large" : "standard"} className={props.className}>
+                    <Modal open={open} onClose={onClose} height={`${height * 100}dvh`} className={props.className}>
                         {children}
                     </Modal>
             :

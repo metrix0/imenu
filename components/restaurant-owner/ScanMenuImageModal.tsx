@@ -528,7 +528,7 @@ function ScanModal({
 
     return (
         <>
-            <Modal open={open} onClose={onClose}>
+            <Modal height={700} open={open} onClose={onClose}>
                 <div className="p-6 w-full max-w-3xl 2xl:max-w-4xl overflow-y-auto">
                     {!scanResult && (
                         <div className="space-y-6">

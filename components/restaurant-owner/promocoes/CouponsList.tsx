@@ -2,12 +2,11 @@
 
 import { useEffect, useState } from "react";
 import Button from "@/components/ui/Button";
-import Switch from "@/components/ui/Switch";
+import PromotionCard from "./PromotionCard";
 import Modal from "@/components/ui/Modal";
 import { supabase } from "@/lib/database/supabaseClient";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { icons } from "@/lib/utils/fontawesome";
-import Tooltip from "@/components/ui/Tooltip";
 import ListLoader from "@/components/ui/ListLoader";
 
 interface Props {
@@ -132,72 +131,25 @@ export default function CouponsList({
                 </div>
             )}
 
-            {/* Table */}
-            {!loading && coupons.length > 0 && (
-                <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
-                    <table className="w-full text-sm tabular-nums">
-                        <thead className="bg-gray-50 text-gray-600">
-                        <tr>
-                            <th className="px-4 py-3 text-left font-medium">Cupom</th>
-                            <th className="px-4 py-3 text-left font-medium">Valor</th>
-                            <th className="px-4 py-3 text-center font-medium">Usos</th>
-                            <th className="px-4 py-3 text-left font-medium">Duração</th>
-                            <th className="px-4 py-3 text-center font-medium"><Tooltip text={"Este link ativa o cupom automaticamente"} position={"right"}>Link <FontAwesomeIcon icon={icons.faCircleInfo} className={"text-xs"}/></Tooltip></th>
-                            <th className="px-4 py-3 text-center font-medium">Ativo</th>
-                            <th className="px-4 py-3 text-right font-medium">Ações</th>
-                        </tr>
-                        </thead>
-
-                        <tbody className="divide-y">
-                        {coupons.map((c) => (
-                            <tr key={c.id} className="border-gray-50 hover:bg-gray-50 duration-200">
-                                <td className="px-4 py-3 font-medium text-gray-900">
-                                    {c.code}
-                                </td>
-
-                                <td className={`px-4 py-3 text-gray-700 ${c.discount_type === "delivery" && "text-xs"}`}>
-                                    {c.discount_type === "percent" ? `${Math.round(c.discount_value * 100)}%` : c.discount_type === "fixed" ? Number(c.discount_value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "Entrega grátis"}
-                                </td>
-                                <td className="px-4 py-3 text-center text-gray-700">
-                                    {c.usage_count}{c.unlimited_quantity ? "" : ` de ${c.quantity ?? "-"}`}
-                                </td>
-
-
-
-                                <td className="whitespace-nowrap px-4 py-3 text-gray-700">
-                                    <p>{formatDateBR(c.start_date)}</p><p className="mt-1 text-xs text-gray-500">até {formatDateBR(c.end_date)}</p>
-                                </td>
-
-                                <td className="px-4 py-3 text-center" >
-                                    <Button variant="secondary" onClick={() => handleCopy(c)} aria-label={`Copiar link de ${c.code}`} className="gap-2">
-                                        <FontAwesomeIcon icon={copied === c.id ? icons.faCheck : icons.faLink} />
-                                        {copied === c.id ? "Copiado" : "Copiar"}
-                                    </Button>
-                                </td>
-
-                                <td className="px-4 py-3 text-center">
-                                    <Switch
-                                        aria-label={`Ativar cupom ${c.code}`}
-                                        checked={c.active}
-                                        onClick={() => toggleActive(c, !c.active)}
-                                    />
-                                </td>
-
-                                <td className="px-4 py-3">
-                                    <div className="flex items-center justify-end gap-2">
-                                        <Button variant="secondary" aria-label={`Editar cupom ${c.code}`} onClick={() => onEdit(c)} className="!w-10 !px-0"><FontAwesomeIcon icon={icons.faEdit} /></Button>
-                                        <Button variant="secondary" aria-label={`Excluir cupom ${c.code}`} onClick={() => setDeleteTarget(c)} className="!w-10 !px-0 text-red-600"><FontAwesomeIcon icon={icons.faTrash} /></Button>
-                                    </div>
-                                </td>
-                            </tr>
-                        ))}
-                        </tbody>
-                    </table>
-                </div>
-            )}
+            {!loading && coupons.map(c => (
+                <PromotionCard key={c.id} title={c.code} active={c.active}
+                    onToggle={() => void toggleActive(c, !c.active)}
+                    description={c.discount_type === "percent" ? `${Math.round(c.discount_value * 100)}% de desconto` : c.discount_type === "fixed" ? `${Number(c.discount_value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} de desconto` : "Entrega grátis"}
+                    actions={<>
+                        <Button variant="secondary" onClick={() => handleCopy(c)} aria-label={`Copiar link de ${c.code}`} className="mr-auto gap-2">
+                            <FontAwesomeIcon icon={copied === c.id ? icons.faCheck : icons.faLink} />{copied === c.id ? "Copiado" : "Copiar link"}
+                        </Button>
+                        <Button variant="secondary" aria-label={`Editar cupom ${c.code}`} onClick={() => onEdit(c)} className="gap-2"><FontAwesomeIcon icon={icons.faEdit} />Editar</Button>
+                        <Button variant="secondary" aria-label={`Excluir cupom ${c.code}`} onClick={() => setDeleteTarget(c)} className="!w-10 !px-0"><FontAwesomeIcon icon={icons.faTrash} /></Button>
+                    </>}
+                >
+                    <span><strong className="font-medium text-gray-700">Usos:</strong> {c.usage_count ?? 0}{c.unlimited_quantity ? " · sem limite" : ` de ${c.quantity ?? "-"}`}</span>
+                    <span><strong className="font-medium text-gray-700">Validade:</strong> {c.start_date ? formatDateBR(c.start_date) : "Imediata"} · {c.end_date ? `até ${formatDateBR(c.end_date)}` : "Sem data final"}</span>
+                </PromotionCard>
+            ))}
 
             {/* Delete modal */}
-            <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)}>
+            <Modal height={240} open={!!deleteTarget} onClose={() => setDeleteTarget(null)}>
                 <div className="p-6">
                     <h2 className="text-lg font-semibold mb-3">
                         Excluir cupom

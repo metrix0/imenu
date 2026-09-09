@@ -135,7 +135,7 @@ export default function TablesOrdersModal({
     }, [orders]);
 
     return (
-        <Modal
+        <Modal height={740}
             open={open}
             onClose={onClose}
             className="max-w-5xl"

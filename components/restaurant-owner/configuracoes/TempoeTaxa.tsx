@@ -273,9 +273,10 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
         return (
             <div className="mx-auto max-w-2xl 2xl:max-w-3xl">
                 <div className="mb-5 rounded-xl border border-gray-200 bg-white p-1 shadow-sm">
-                    <div className="grid grid-cols-2 gap-1">
+                    <div className="grid grid-cols-2 gap-1" role="group" aria-label="Tipo de entrega">
                         <button
                             type="button"
+                            data-ui="choice" aria-pressed={mode === "radius"}
                             onClick={() => changeMode("radius")}
                             className={`flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition-all duration-200 2xl:text-base ${
                                 mode === "radius"
@@ -288,6 +289,7 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                         </button>
                         <button
                             type="button"
+                            data-ui="choice" aria-pressed={mode === "neighborhood"}
                             onClick={() => changeMode("neighborhood")}
                             className={`flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition-all duration-200 2xl:text-base ${
                                 mode === "neighborhood"
@@ -328,7 +330,7 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                                         key={rule.id}
                                         className="rounded-xl border border-gray-200 bg-gray-50/60 p-4"
                                     >
-                                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_72px_96px_minmax(0,1fr)_36px] sm:items-end">
+                                        <div className="panel-neighborhood-fields grid items-end gap-3">
                                             <Input
                                                 label="Bairro"
                                                 placeholder="Ex: Jardim Paulista"

@@ -371,6 +371,10 @@ export default function ComplementosTab({
 
     return (
         <div className="space-y-6">
+            <div>
+                <h2>Complementos</h2>
+                <p className="mt-1 text-sm text-gray-500">Edite os grupos compartilhados por vários produtos de uma só vez. Dentro de cada grupo, selecione opções para alterar preços, ativar ou desativar em lote.</p>
+            </div>
             <div className="flex flex-col items-center gap-4 md:flex-row">
                 <div className="w-full flex-1">
                     <Input
