@@ -413,12 +413,12 @@
 @media (prefers-reduced-motion:reduce) { .panel-essencial.panel-date-picker { animation:none; } }
 
 /* Panel product options use the same flat surfaces as settings cards. */
-.panel-essencial .panel-product-cards > div { min-width:0; border:1px solid var(--panel-border); background:var(--panel-surface); box-shadow:none; transform:none; }
+.panel-essencial .panel-product-cards > div.shadow-sm { min-width:0; border:1px solid var(--panel-border); background:var(--panel-surface); box-shadow:none; transform:none; }
 .panel-essencial .panel-product-cards > div[data-selected="true"] { border-color:var(--panel-action); background:var(--panel-tint); }
 .panel-essencial .panel-product-cards > div > div:first-child:not(.relative) { position:static; width:fit-content; align-self:flex-start; margin-bottom:16px; background:var(--panel-soft); color:var(--panel-muted); }
 .panel-essencial .panel-product-cards [class*="text-[11px]"] { font-size:12px; }
 @media (max-width:767px) {
   .panel-essencial .panel-menu-row > div:last-child { gap:8px; }
-  .panel-essencial .panel-menu-row > div:last-child > button:not([data-ui="switch"]),
+  .panel-essencial .panel-menu-row > div:last-child button:not([data-ui="switch"]),
   .panel-essencial .panel-menu-editor button:not([data-ui]) { min-width:44px; min-height:44px; }
 }
