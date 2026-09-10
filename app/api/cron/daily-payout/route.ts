@@ -202,6 +202,52 @@ export async function GET(request: Request) {
     try {
         await reconcileProcessingPayouts();
 
+        const plan = await createPayoutPlan({
+            cutoffAt: startedAt,
+            discountPercent: 1,
+            adjustToOnePercent: true,
+        });
+        const skippedRestaurantCount = plan.payables.length - plan.sendable.length;
+
+        if (plan.sendable.length === 0 || skippedRestaurantCount > 0) {
+            const sendableIds = new Set(
+                plan.sendable.map((item) => item.row.restaurant_id)
+            );
+            const unsendableRestaurants = plan.payables
+                .filter((row) => !sendableIds.has(row.restaurant_id))
+                .map((row) => row.restaurant_name);
+            const message =
+                plan.sendable.length === 0
+                    ? "Nenhum restaurante com valor e chave PIX válidos para pagar. Nenhuma movimentação financeira foi feita."
+                    : `Repasse bloqueado: restaurante(s) sem chave PIX válida: ${unsendableRestaurants.join(", ")}. Nenhuma movimentação financeira foi feita.`;
+
+            await query(
+                `
+                UPDATE public.payout_automation_runs
+                SET
+                    status = 'blocked',
+                    payzu_step_status = 'skipped',
+                    adjustment_step_status = 'blocked',
+                    comparison_step_status = 'skipped',
+                    payout_step_status = 'skipped',
+                    restaurant_count = $2,
+                    error_message = $3,
+                    finished_at = NOW(),
+                    updated_at = NOW()
+                WHERE id = $1
+                `,
+                [runId, plan.payables.length, message]
+            );
+            await notifyPayoutAlarm({
+                runId,
+                runDate,
+                status: "blocked",
+                step: "adjustment",
+                message,
+            });
+            return NextResponse.json({ success: false, blocked: true, error: message });
+        }
+
         const payzuTransfer = await transferPayzuToAsaas(clientReference);
         await query(
             `
@@ -228,40 +274,6 @@ export async function GET(request: Request) {
         );
 
         currentStep = "adjustment";
-        const plan = await createPayoutPlan({
-            cutoffAt: startedAt,
-            discountPercent: 1,
-            adjustToOnePercent: true,
-        });
-        const skippedRestaurantCount = plan.payables.length - plan.sendable.length;
-
-        if (plan.sendable.length === 0) {
-            const message = "Nenhum restaurante com valor e chave PIX válidos para pagar.";
-            await query(
-                `
-                UPDATE public.payout_automation_runs
-                SET
-                    status = 'blocked',
-                    adjustment_step_status = 'blocked',
-                    comparison_step_status = 'skipped',
-                    payout_step_status = 'skipped',
-                    error_message = $2,
-                    finished_at = NOW(),
-                    updated_at = NOW()
-                WHERE id = $1
-                `,
-                [runId, message]
-            );
-            await notifyPayoutAlarm({
-                runId,
-                runDate,
-                status: "blocked",
-                step: currentStep,
-                message,
-            });
-            return NextResponse.json({ success: false, blocked: true, error: message });
-        }
-
         await query(
             `
             UPDATE public.payout_automation_runs
