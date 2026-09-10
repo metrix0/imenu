@@ -58,7 +58,7 @@ export default function BestSellers() {
     if (restaurants.length === 0) return null;
 
     return (
-        <section className="px-6 py-16 sm:px-8 md:px-20 2xl:px-32 2xl:py-24">
+        <section className="landing-ranking landing-container">
             <div className="mx-auto max-w-6xl">
                 <div className="mb-8 text-center">
                     <p className="text-xs font-bold uppercase tracking-[0.2em] text-brand 2xl:text-base">
@@ -70,7 +70,7 @@ export default function BestSellers() {
                 </div>
 
                 {stats && (
-                    <div className="mb-8 grid grid-cols-1 overflow-hidden rounded-2xl border border-gray-200 bg-gray-50 sm:grid-cols-3 sm:divide-x sm:divide-gray-200">
+                    <div className="landing-stats mb-8 grid grid-cols-1 overflow-hidden rounded-2xl border border-gray-200 bg-gray-50 sm:grid-cols-3 sm:divide-x sm:divide-gray-200">
                         <div className="flex items-center gap-4 px-5 py-5 2xl:px-7 2xl:py-6">
                             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand/10 text-base text-brand 2xl:h-12 2xl:w-12 2xl:text-lg">
                                 <FontAwesomeIcon icon={icons.faStore} />
