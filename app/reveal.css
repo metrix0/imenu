@@ -37,24 +37,17 @@
     white-space: nowrap;
 }
 
-/* Keep comparison column proportions stable regardless of cell content. */
-body:has(#logos) #recursos table {
-    table-layout: fixed;
+/* Let the original header render untouched; only body cells influence column proportions. */
+body:has(#logos) #recursos tbody td:nth-child(1) {
+    width: 30%;
 }
 
-body:has(#logos) #recursos th:nth-child(1),
-body:has(#logos) #recursos td:nth-child(1) {
-    width: 32%;
-}
-
-body:has(#logos) #recursos th:nth-child(2),
-body:has(#logos) #recursos td:nth-child(2) {
+body:has(#logos) #recursos tbody td:nth-child(2) {
     width: 33%;
 }
 
-body:has(#logos) #recursos th:nth-child(3),
-body:has(#logos) #recursos td:nth-child(3) {
-    width: 35%;
+body:has(#logos) #recursos tbody td:nth-child(3) {
+    width: 37%;
 }
 
 @media (min-width: 768px) {
