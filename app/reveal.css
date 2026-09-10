@@ -37,15 +37,24 @@
     white-space: nowrap;
 }
 
-/* Keep the comparison header compact at every viewport. */
-body:has(#logos) #recursos thead th {
-    padding: 0.375rem 0.75rem !important;
-    font-size: 0.8125rem;
-    line-height: 1.2;
+/* Keep comparison column proportions stable regardless of cell content. */
+body:has(#logos) #recursos table {
+    table-layout: fixed;
 }
 
-body:has(#logos) #recursos thead th:nth-child(2) img {
-    width: 4rem !important;
+body:has(#logos) #recursos th:nth-child(1),
+body:has(#logos) #recursos td:nth-child(1) {
+    width: 32%;
+}
+
+body:has(#logos) #recursos th:nth-child(2),
+body:has(#logos) #recursos td:nth-child(2) {
+    width: 33%;
+}
+
+body:has(#logos) #recursos th:nth-child(3),
+body:has(#logos) #recursos td:nth-child(3) {
+    width: 35%;
 }
 
 @media (min-width: 768px) {
@@ -120,7 +129,6 @@ body:has(#logos) #recursos thead th:nth-child(2) img {
 
     /* The comparison table should read like supporting content, not headline copy. */
     body:has(#logos) #recursos table {
-        table-layout: fixed;
         font-size: 1rem !important;
         line-height: 1.45;
     }
@@ -128,21 +136,6 @@ body:has(#logos) #recursos thead th:nth-child(2) img {
     body:has(#logos) #recursos tbody td {
         padding: 0.875rem 1rem !important;
         overflow-wrap: break-word;
-    }
-
-    body:has(#logos) #recursos th:nth-child(1),
-    body:has(#logos) #recursos td:nth-child(1) {
-        width: 43%;
-    }
-
-    body:has(#logos) #recursos th:nth-child(2),
-    body:has(#logos) #recursos td:nth-child(2) {
-        width: 22%;
-    }
-
-    body:has(#logos) #recursos th:nth-child(3),
-    body:has(#logos) #recursos td:nth-child(3) {
-        width: 35%;
     }
 
     body:has(#logos) #recursos + section h2 {
