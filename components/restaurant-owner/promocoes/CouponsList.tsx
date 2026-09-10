@@ -137,7 +137,7 @@ export default function CouponsList({
                     onToggle={() => void toggleActive(c, !c.active)}
                     description={c.discount_type === "percent" ? `${Math.round(c.discount_value * 100)}% de desconto` : c.discount_type === "fixed" ? `${Number(c.discount_value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} de desconto` : "Entrega grátis"}
                     actions={<>
-                        <Button variant="secondary" onClick={() => handleCopy(c)} aria-label={`Copiar link de ${c.code}`} className="mr-auto gap-2">
+                        <Button variant="secondary" onClick={() => handleCopy(c)} aria-label={`Copiar link de ${c.code}`} className="gap-2">
                             <FontAwesomeIcon icon={copied === c.id ? icons.faCheck : icons.faLink} />{copied === c.id ? "Copiado" : "Copiar link"}
                         </Button>
                         <Button variant="secondary" aria-label={`Editar cupom ${c.code}`} onClick={() => onEdit(c)} className="gap-2"><FontAwesomeIcon icon={icons.faEdit} />Editar</Button>

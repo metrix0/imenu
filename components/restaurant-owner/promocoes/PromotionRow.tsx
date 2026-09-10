@@ -45,9 +45,9 @@ export default function PromotionRow({ item, checked, onToggle, onChange }: {
     };
 
     return (
-        <div className={`panel-promotion-row grid gap-4 border-b border-gray-200 p-4 last:border-b-0 lg:grid-cols-[minmax(220px,1fr)_minmax(0,1.3fr)] lg:items-center ${checked ? "bg-brand/5" : "hover:bg-gray-50"}`}>
+        <div className={`panel-promotion-row grid gap-4 border-b border-gray-200 px-5 py-4 last:border-b-0 lg:grid-cols-[minmax(220px,1fr)_minmax(0,1.3fr)] lg:items-center ${checked ? "bg-brand/5" : "hover:bg-gray-50"}`}>
             <div className="flex min-w-0 items-center gap-3">
-                <input type="checkbox" checked={checked} onChange={onToggle} aria-label={`Selecionar ${item.name}`} className="h-4 w-4 shrink-0 cursor-pointer accent-brand" />
+                <input type="checkbox" checked={checked} onChange={onToggle} aria-label={`Selecionar ${item.name}`} className="h-5 w-5 shrink-0 cursor-pointer rounded border border-gray-300 accent-brand" />
                 <img src={imageUrl} alt="" width={48} height={48} className="h-12 w-12 shrink-0 rounded-lg border border-gray-200 object-cover" />
                 <div className="min-w-0">
                     <p className="break-words font-medium text-gray-900">{item.name}</p>
@@ -66,7 +66,7 @@ export default function PromotionRow({ item, checked, onToggle, onChange }: {
                     type="number" inputMode="decimal" min={0} max={type === "percent" ? 100 : item.price_cents / 100} step={type === "percent" ? 1 : 0.01}
                     value={value} onChange={event => setValue(Number(event.target.value || 0))} onBlur={() => commit()} />
                 <div className="col-span-2 row-start-2 sm:col-span-1 sm:row-start-auto">
-                    <DateRangePicker label="Vigência" presets={[]} allowFuture allowOpenEnd allowClear emptyLabel="Sem data final"
+                    <DateRangePicker label="Validade" presets={[]} allowFuture allowOpenEnd allowClear emptyLabel="Sem data final"
                         value={{ startDate: startsAt?.slice(0, 10) ?? "", endDate: endsAt?.startsWith("3000-") ? "" : endsAt?.slice(0, 10) ?? "" }}
                         onChange={range => { const start = range.startDate || null; const end = range.endDate || null; setStartsAt(start); setEndsAt(end); commit(type, start, end); }} />
                 </div>

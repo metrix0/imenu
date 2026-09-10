@@ -332,35 +332,38 @@ export default function EstoqueTab({
                                                     </div>
 
                                                     {enabled && (
-                                                        <div className="w-28">
-                                                            <Input label="Disponível" aria-label={`Estoque de ${item.name}`}
-                                                                type="number"
-                                                                min={0}
-                                                                step={1}
-                                                                inputMode="numeric"
-                                                                value={getDraftValue(item)}
-                                                                onChange={(e) => {
-                                                                    const value = e.target.value;
-                                                                    setDraftStock((prev) => ({
-                                                                        ...prev,
-                                                                        [item.id]: value,
-                                                                    }));
-                                                                    scheduleStockQuantitySave(
-                                                                        item,
-                                                                        value
-                                                                    );
-                                                                }}
-                                                                onBlur={() =>
-                                                                    flushStockQuantitySave(item)
-                                                                }
-                                                                onKeyDown={(e) => {
-                                                                    if (e.key === "Enter") {
-                                                                        e.currentTarget.blur();
+                                                        <div className="flex w-32 items-center gap-2">
+                                                            <div className="min-w-0 flex-1">
+                                                                <Input aria-label={`Estoque de ${item.name}`}
+                                                                    type="number"
+                                                                    min={0}
+                                                                    step={1}
+                                                                    inputMode="numeric"
+                                                                    value={getDraftValue(item)}
+                                                                    onChange={(e) => {
+                                                                        const value = e.target.value;
+                                                                        setDraftStock((prev) => ({
+                                                                            ...prev,
+                                                                            [item.id]: value,
+                                                                        }));
+                                                                        scheduleStockQuantitySave(
+                                                                            item,
+                                                                            value
+                                                                        );
+                                                                    }}
+                                                                    onBlur={() =>
+                                                                        flushStockQuantitySave(item)
                                                                     }
-                                                                }}
-                                                                disabled={isSaving}
-                                                                className="text-right tabular-nums"
-                                                            />
+                                                                    onKeyDown={(e) => {
+                                                                        if (e.key === "Enter") {
+                                                                            e.currentTarget.blur();
+                                                                        }
+                                                                    }}
+                                                                    disabled={isSaving}
+                                                                    className="text-right tabular-nums"
+                                                                />
+                                                            </div>
+                                                            <span className="shrink-0 text-sm text-gray-500">un.</span>
                                                         </div>
                                                     )}
 

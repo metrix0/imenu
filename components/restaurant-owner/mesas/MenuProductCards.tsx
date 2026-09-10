@@ -187,6 +187,20 @@ export default function MenuProductCards({
                     </span>
                 </div>
 
+                <ul className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-sm text-gray-700">
+                    {["Sem limites de mesas", "Painel do Garçom", "A mesa acompanha o pedido"].map(
+                        (feature) => (
+                            <li key={feature} className="flex items-center gap-2">
+                                <FontAwesomeIcon
+                                    icon={faCheck}
+                                    className="text-xs text-brand"
+                                />
+                                {feature}
+                            </li>
+                        ),
+                    )}
+                </ul>
+
                 <div className="mt-auto flex flex-col gap-4 pt-7">
                     {qrActive && (
                         <div className="flex items-center gap-2 text-sm font-semibold text-green-700">

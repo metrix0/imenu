@@ -42,7 +42,7 @@ export default function AplicativoPage() {
                     <h1>Aplicativo</h1>
                     <p className="mt-2 text-sm text-gray-500">Acesse o painel e receba notificações pelo celular.</p>
                 </div>
-                <Card className="max-w-xl text-center">
+                <Card className="mx-auto max-w-xl text-center">
                     <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-brand/10 text-brand">
                         <FontAwesomeIcon
                             icon={faMobileScreenButton}

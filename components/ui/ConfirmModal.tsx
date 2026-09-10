@@ -1,4 +1,3 @@
-
 "use client";
 
 import Modal from "@/components/ui/Modal";
@@ -15,7 +14,7 @@ interface ConfirmModalProps {
     confirmLabel?: string;
     cancelLabel?: string;
     isLoading?: boolean;
-    variant?: "danger" | "primary"; // Para mudar a cor do botão se for algo destrutivo
+    variant?: "danger" | "primary";
 }
 
 export default function ConfirmModal({
@@ -29,9 +28,8 @@ export default function ConfirmModal({
     isLoading = false,
     variant = "danger"
 }: ConfirmModalProps) {
-
     return (
-        <Modal height={310} open={open} onClose={onClose} className="max-w-md 2xl:max-w-lg">
+        <Modal height="auto" open={open} onClose={onClose} className="max-w-md 2xl:max-w-lg">
             <div className="p-4 sm:p-6 2xl:p-7 text-center">
                 <div className={`mx-auto mb-4 flex h-12 w-12 2xl:h-16 2xl:w-16 items-center justify-center rounded-full ${variant === 'danger' ? 'bg-red-100' : 'bg-blue-100'}`}>
                     <FontAwesomeIcon 
@@ -57,8 +55,6 @@ export default function ConfirmModal({
                     </Button>
 
                     <Button 
-                        // Assumindo que seu componente Button aceita estilos customizados ou variants
-                        // Se seu Button não tiver variant="danger", usamos className
                         variant={variant === 'danger' ? "secondary" : "primary"} 
                         onClick={onConfirm}
                         loading={isLoading}

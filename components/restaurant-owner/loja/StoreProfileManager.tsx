@@ -232,10 +232,6 @@ export default function StoreProfileManager({
                 />
 
                 <div className="space-y-6">
-                    <div>
-                        <h2>Identidade e contato</h2>
-                        <p className="mt-1 text-sm text-gray-500">Personalize a apresentação e o endereço do seu cardápio.</p>
-                    </div>
                     <Input
                         label="Nome do Restaurante"
                         value={name}

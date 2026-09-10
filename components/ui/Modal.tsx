@@ -17,8 +17,8 @@ interface ModalProps {
     children: ReactNode;
     className?: string;
     showCloseButton?: boolean;
-    /** Required panel height per usage; storefront dialogs keep their content sizing. */
-    height: number | `${number}dvh`;
+    /** Required panel height per usage; use auto only for content-sized shared dialogs. */
+    height: number | `${number}dvh` | "auto";
 }
 
 export default function Modal({

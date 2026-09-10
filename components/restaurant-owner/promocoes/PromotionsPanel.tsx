@@ -56,11 +56,11 @@ function BulkEditBar({
     };
 
     return (
-        <div className="space-y-3 border-b border-gray-200 bg-gray-50 p-4">
+        <div className="space-y-3 border-b border-gray-200 bg-gray-50 px-5 py-4">
             <p className="text-sm font-medium">{items.length} {items.length === 1 ? "produto selecionado" : "produtos selecionados"}</p>
             <div className="grid grid-cols-[repeat(2,minmax(0,1fr))] items-end gap-3 lg:grid-cols-[minmax(0,1fr)_100px_minmax(0,1.5fr)_auto]">
                 <Dropdown
-                    label="Desconto em lote"
+                    label="Desconto"
                     value={type}
                     options={[
                         { label: "Percentual", value: "percent" },
@@ -81,7 +81,7 @@ function BulkEditBar({
                 />
 
                 <div className="col-span-2 lg:col-span-1">
-                    <DateRangePicker label="Vigência" presets={[]} allowFuture allowOpenEnd allowClear emptyLabel="Sem data final"
+                    <DateRangePicker label="Validade" presets={[]} allowFuture allowOpenEnd allowClear emptyLabel="Sem data final"
                         value={{ startDate: startsAt ?? "", endDate: endsAt ?? "" }}
                         onChange={range => { setStartsAt(range.startDate || null); setEndsAt(range.endDate || null); }} />
                 </div>
@@ -144,7 +144,7 @@ function CategoryCheckbox({
                 items.forEach(i => (next[i.id] = !allSelected));
                 setSelected(next);
             }}
-            className="w-4 h-4 rounded accent-brand"
+            className="h-5 w-5 shrink-0 cursor-pointer rounded border border-gray-300 accent-brand"
         />
     );
 }
@@ -317,7 +317,7 @@ export default function PromotionsPanel({
 
                 return (
                     <Card key={category.id} className="!p-0">
-                        <div className="flex items-center gap-3 border-b border-gray-200 px-4 py-4">
+                        <div className="flex items-center gap-3 border-b border-gray-200 px-5 py-4">
                             <CategoryCheckbox
                                 items={items}
                                 selected={selected}

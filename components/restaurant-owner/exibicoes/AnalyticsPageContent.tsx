@@ -18,16 +18,16 @@ export default function AnalyticsPageContent() {
     }
 
     return (
-        <div className="mx-auto max-w-6xl space-y-8 px-4 pb-20 pt-8 2xl:max-w-8xl">
-            <div>
-                <h1 className="text-3xl font-bold text-gray-900">Analytics</h1>
+        <div className="mx-auto max-w-7xl space-y-6 pb-20">
+            <div className="panel-page-heading">
+                <h1>Analytics</h1>
                 <p className="mt-1 text-sm text-gray-500">Entenda vendas, pedidos e comportamento dos seus clientes.</p>
             </div>
             <DateFilterBar startDate={startDate} endDate={endDate} onStartDateChange={setStartDate} onEndDateChange={setEndDate} showPresets />
             <AnalyticsDashboard restaurantId={restaurantId} startDate={startDate} endDate={endDate} />
-            <section>
+            <section className="pt-2">
                 <div className="mb-4">
-                    <h2 className="text-xl font-bold text-gray-900">Consumidor</h2>
+                    <h2>Consumidor</h2>
                     <p className="mt-1 text-sm text-gray-500">Funil do cardápio até a criação do pedido no período selecionado.</p>
                 </div>
                 <ConsumerPipelineDashboard restaurantId={restaurantId} startDate={startDate} endDate={endDate} />

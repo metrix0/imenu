@@ -388,6 +388,24 @@ export default function MenuItemRow({
         }
     };
 
+    const handleCancelEditing = () => {
+        if (isNew) {
+            onCancel?.();
+            return;
+        }
+
+        setName(item.name ?? "");
+        setDescription(item.description ?? "");
+        setPriceCents(item.price_cents ?? 0);
+        setPriceInput(formatPriceInput(item.price_cents ?? 0));
+        setStockInput(String(item.stock_quantity ?? 0));
+        setImageUrl(item.image_url ?? null);
+        setImagePath(item.image_path ?? null);
+        setIsAvailable(item.is_available ?? false);
+        setIsEditing(false);
+        onEditingChange?.(false);
+    };
+
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key === "Enter") {
             e.currentTarget.blur();
@@ -395,15 +413,7 @@ export default function MenuItemRow({
         }
 
         if (e.key === "Escape") {
-            if (isNew && onCancel) {
-                onCancel();
-            } else {
-                setName(item.name);
-                setPriceCents(item.price_cents);
-                setPriceInput(formatPriceInput(item.price_cents));
-                setIsEditing(false);
-                onEditingChange?.(false);
-            }
+            handleCancelEditing();
         }
     };
 
@@ -430,6 +440,16 @@ export default function MenuItemRow({
                     disabled={isLoading}
                 />
             </div>
+        );
+    };
+
+    const renderStockQuantity = () => {
+        if (!item.stock_enabled || isNew) return null;
+
+        return (
+            <span className="panel-menu-stock-value shrink-0 whitespace-nowrap text-sm font-medium text-gray-600 tabular-nums">
+                {Number(stockInput || 0).toLocaleString("pt-BR")} un.
+            </span>
         );
     };
 
@@ -536,7 +556,7 @@ export default function MenuItemRow({
                                 {(priceCents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                             </span>
                         </div>
-                        {renderStockInput()}
+                        {renderStockQuantity()}
                     </div>
 
                     <div className="flex items-center gap-4 2xl:gap-6 pl-4 2xl:text-lg">
@@ -571,10 +591,10 @@ export default function MenuItemRow({
                                 >
                                     <button
                                         aria-label={`Copiar link de ${name}`}
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleCopy();
-                                    }}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleCopy();
+                                        }}
                                         className="cursor-pointer w-8 h-8 2xl:text-2xl flex items-center justify-center text-gray-400 hover:text-brand hover:bg-gray-50 rounded-full transition-colors"
                                     >
                                         <FontAwesomeIcon
@@ -642,26 +662,32 @@ export default function MenuItemRow({
         <div className="panel-menu-editor relative z-10 flex min-w-0 max-w-full flex-col gap-4 border-b border-gray-200 bg-white p-4">
             <div className="flex w-full min-w-0 flex-1 items-start gap-4 2xl:items-center">
                 {renderImageArea()}
-                <div className="w-full min-w-0 flex-1 space-y-3">
-                    <Input label="Nome do item"
-                        ref={nameInputRef}
-                        value={name ?? ""}
-                        onChange={(e) => setName(e.target.value)}
-                        onBlur={() => autoSave()}
-                        onKeyDown={handleKeyDown}
-                        placeholder="Nome do item"
-                        className="min-w-0"
-                        disabled={isLoading}
-                    />
-                    <Input label="Descrição"
-                        value={description ?? ""}
-                        onChange={(e) => setDescription(e.target.value)}
-                        onBlur={() => autoSave()}
-                        onKeyDown={handleKeyDown}
-                        placeholder="Adicione uma descrição..."
-                        className="min-w-0"
-                        disabled={isLoading}
-                    />
+                <div className="w-full min-w-0 flex-1 space-y-2 2xl:space-y-0">
+                    <div className="flex min-w-0 items-center gap-2">
+                        <Input inline
+                            ref={nameInputRef}
+                            value={name ?? ""}
+                            onChange={(e) => setName(e.target.value)}
+                            onBlur={() => autoSave()}
+                            onKeyDown={handleKeyDown}
+                            placeholder="Nome do item"
+                            className="w-full text-base 2xl:text-lg font-medium text-gray-900 placeholder-gray-400 border-none p-0 focus:ring-0 bg-transparent outline-none"
+                            disabled={isLoading}
+                        />
+                        <FontAwesomeIcon icon={icons.faEdit} className="shrink-0 text-xs text-gray-400" aria-hidden="true" />
+                    </div>
+                    <div className="flex min-w-0 items-center gap-2">
+                        <Input inline
+                            value={description ?? ""}
+                            onChange={(e) => setDescription(e.target.value)}
+                            onBlur={() => autoSave()}
+                            onKeyDown={handleKeyDown}
+                            placeholder="Adicione uma descrição..."
+                            className="w-full text-sm 2xl:text-base text-gray-600 placeholder-gray-300 border-none p-0 focus:ring-0 bg-transparent outline-none"
+                            disabled={isLoading}
+                        />
+                        <FontAwesomeIcon icon={icons.faEdit} className="shrink-0 text-xs text-gray-400" aria-hidden="true" />
+                    </div>
                 </div>
             </div>
 
@@ -689,20 +715,21 @@ export default function MenuItemRow({
                     />
                 </div>
 
-                <div className="flex items-center gap-1">
-                    {onCancel && (
-                        <button
-                            onClick={onCancel}
-                            className="2xl:text-xl cursor-pointer w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
-                        >
-                            <FontAwesomeIcon icon={icons.faTimes} />
-                        </button>
-                    )}
+                <div className="flex items-end gap-2">
+                    <Button
+                        variant="secondary"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={handleCancelEditing}
+                        disabled={isLoading}
+                        className="!h-11"
+                    >
+                        Cancelar
+                    </Button>
                     <Button
                         onMouseDown={(e) => e.preventDefault()}
                         onClick={handleSave}
                         loading={isLoading}
-                        className="gap-2"
+                        className="!h-11 gap-2"
                     >
                         {isLoading ? (
                             "..."
