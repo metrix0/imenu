@@ -657,7 +657,6 @@ export async function sendPayouts(input: {
 }
 
 export async function getPayoutDashboardData() {
-    await reconcileProcessingPayouts();
     const now = new Date();
     const [payables, historyResult, automationResult] = await Promise.all([
         getPayables(now),
