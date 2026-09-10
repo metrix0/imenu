@@ -37,30 +37,26 @@
     white-space: nowrap;
 }
 
-@media (min-width: 1536px) {
-    #logos + div > div:last-child > button {
-        padding: 0.75rem 1.5rem !important;
-        font-size: 1.125rem !important;
-    }
-}
-
-/* Laptop viewport only: keep the original layout/centering and only tame oversized 2xl typography/spacing. */
-@media (min-width: 1500px) and (max-width: 1560px) {
+@media (min-width: 1400px) {
+    /* Keep large-screen typography within conventional landing-page proportions. */
     body:has(#logos) section:first-of-type h1 {
-        font-size: 3.6rem !important;
+        font-size: clamp(3rem, 3.5vw, 3.5rem) !important;
     }
 
     body:has(#logos) section:first-of-type h2,
     body:has(#logos) section:first-of-type > div:first-child > div[class*="text-gray-500"] {
-        font-size: 1.25rem !important;
+        font-size: 1.125rem !important;
+        line-height: 1.6 !important;
     }
 
     body:has(#logos) section:first-of-type [class~="2xl:text-[1.6rem]"] {
-        font-size: 1.45rem !important;
+        font-size: 1.125rem !important;
     }
 
-    body:has(#logos) section:has(#logos) > h2 {
-        font-size: 2.9rem !important;
+    body:has(#logos) section:has(#logos) > h2,
+    body:has(#logos) #recursos > h2:first-of-type,
+    body:has(#logos) section:has(+ #recursos) h2 {
+        font-size: clamp(2.25rem, 2.6vw, 2.5rem) !important;
     }
 
     #logos + div > div:last-child {
@@ -68,11 +64,17 @@
     }
 
     #logos + div > div:last-child h3 {
-        font-size: 1.35rem !important;
+        font-size: 1.25rem !important;
     }
 
     #logos + div > div:last-child p,
     #logos + div > div:last-child > div > div {
+        font-size: 1rem !important;
+        line-height: 1.6 !important;
+    }
+
+    #logos + div > div:last-child > button {
+        padding: 0.75rem 1.5rem !important;
         font-size: 1.125rem !important;
     }
 
@@ -80,23 +82,49 @@
         margin-top: -0.5rem;
     }
 
-    body:has(#logos) #recursos > h2:first-of-type {
-        font-size: 2.9rem !important;
-    }
-
     body:has(#logos) #recursos > h2:nth-of-type(2) {
         font-size: 1.125rem !important;
+        line-height: 1.6 !important;
     }
 
+    /* The comparison table should read like supporting content, not headline copy. */
     body:has(#logos) #recursos table {
-        font-size: 1.25rem !important;
+        table-layout: fixed;
+        font-size: 1rem !important;
+        line-height: 1.45;
+    }
+
+    body:has(#logos) #recursos th,
+    body:has(#logos) #recursos td {
+        padding: 0.875rem 1rem !important;
+        overflow-wrap: break-word;
+    }
+
+    body:has(#logos) #recursos th:nth-child(1),
+    body:has(#logos) #recursos td:nth-child(1) {
+        width: 43%;
+    }
+
+    body:has(#logos) #recursos th:nth-child(2),
+    body:has(#logos) #recursos td:nth-child(2) {
+        width: 22%;
+    }
+
+    body:has(#logos) #recursos th:nth-child(3),
+    body:has(#logos) #recursos td:nth-child(3) {
+        width: 35%;
     }
 
     body:has(#logos) #recursos + section h2 {
-        font-size: 3.6rem !important;
+        font-size: clamp(3rem, 3.5vw, 3.5rem) !important;
     }
 
     body:has(#logos) #recursos + section p {
-        font-size: 1.35rem !important;
+        font-size: 1.125rem !important;
+        line-height: 1.7 !important;
+    }
+
+    body:has(#logos) #recursos + section button {
+        font-size: 1.125rem !important;
     }
 }
