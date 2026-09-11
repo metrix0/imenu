@@ -50,7 +50,7 @@ export default function MenuProductCards({
     return (
         <div className="panel-product-cards grid gap-5 md:grid-cols-2">
             <div className="relative flex min-h-[320px] flex-col overflow-hidden rounded-2xl border border-brand bg-gradient-to-br from-white via-white to-brand/[0.08] p-6 shadow-sm ring-2 ring-brand/10">
-                <span className="absolute right-4 top-4 inline-flex items-center gap-1.5 rounded-full bg-brand px-2.5 py-1 text-xs font-semibold text-white">
+                <span className="absolute right-4 top-4 inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-600">
                     <FontAwesomeIcon icon={faLock} />
                     Obrigatório Grátis
                 </span>
@@ -187,7 +187,7 @@ export default function MenuProductCards({
                 </div>
 
                 <ul className="mt-4 grid min-w-0 grid-cols-3 gap-2 overflow-hidden text-sm text-gray-700">
-                    {["Sem limites de mesas", "Painel do Garçom", "A mesa acompanha o pedido"].map(
+                    {["Sem limites", "Painel do Garçom", "Acompanhamento do pedido"].map(
                         (feature) => (
                             <li key={feature} className="flex min-w-0 items-center gap-1.5 overflow-hidden whitespace-nowrap">
                                 <FontAwesomeIcon
