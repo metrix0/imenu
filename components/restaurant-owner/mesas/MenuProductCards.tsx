@@ -194,7 +194,7 @@ export default function MenuProductCards({
                                     icon={faCheck}
                                     className="shrink-0 text-xs text-brand"
                                 />
-                                <span className="truncate">{feature}</span>
+                                <span className="truncate" title={feature}>{feature}</span>
                             </li>
                         ),
                     )}
