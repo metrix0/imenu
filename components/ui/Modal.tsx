@@ -11,14 +11,16 @@ let activeScrollLocks = 0;
 let originalBodyOverflow = "";
 let originalHtmlOverflow = "";
 
+export type ModalHeight = number | `${number}dvh`;
+
 interface ModalProps {
     open: boolean;
     onClose: () => void;
     children: ReactNode;
     className?: string;
     showCloseButton?: boolean;
-    /** Required panel height per usage; use auto only for content-sized shared dialogs. */
-    height: number | `${number}dvh` | "auto";
+    /** Required per usage. Do not add a shared/default modal height. */
+    height: ModalHeight;
 }
 
 export default function Modal({
@@ -120,7 +122,7 @@ export default function Modal({
 
             <div
                 role="dialog"
-                style={panel ? { height } : undefined}
+                style={{ height }}
                 aria-modal="true"
                 onClick={(event: { stopPropagation(): void }) =>
                     event.stopPropagation()
