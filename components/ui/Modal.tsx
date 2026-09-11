@@ -41,6 +41,7 @@ export default function Modal({
     const [mounted, setMounted] = useState(open);
     const [active, setActive] = useState(false);
     const [panelHeight, setPanelHeight] = useState<number | null>(null);
+    const [hasInnerScroll, setHasInnerScroll] = useState(false);
     const scrollLocked = useRef(false);
     const panelBodyRef = useRef<HTMLDivElement>(null);
 
@@ -111,11 +112,22 @@ export default function Modal({
     useLayoutEffect(() => {
         if (!panel || !open || !mounted) {
             setPanelHeight(null);
+            setHasInnerScroll(false);
             return;
         }
 
         const body = panelBodyRef.current;
         if (!body) return;
+
+        const root = body.firstElementChild;
+        const rootHasOwnScroll =
+            root instanceof HTMLElement &&
+            Array.from(root.children).some((child) => {
+                if (!(child instanceof HTMLElement)) return false;
+                const overflowY = window.getComputedStyle(child).overflowY;
+                return overflowY === "auto" || overflowY === "scroll";
+            });
+        setHasInnerScroll(rootHasOwnScroll);
 
         const getCapPixels = () => {
             const viewportCap = window.innerHeight * 0.92;
@@ -191,7 +203,9 @@ export default function Modal({
                 onClick={(event: { stopPropagation(): void }) =>
                     event.stopPropagation()
                 }
-                className={`relative flex w-full max-w-2xl flex-col overflow-y-auto rounded-xl bg-white shadow-2xl transition-all duration-200 sm:rounded-2xl ${
+                className={`relative flex w-full max-w-2xl flex-col rounded-xl bg-white shadow-2xl transition-all duration-200 sm:rounded-2xl ${
+                    hasInnerScroll ? "overflow-hidden" : "overflow-y-auto"
+                } ${
                     active
                         ? "translate-y-0 scale-100 opacity-100"
                         : "translate-y-3 scale-95 opacity-0"
@@ -212,7 +226,14 @@ export default function Modal({
                     </button>
                 )}
                 {panel ? (
-                    <div ref={panelBodyRef} className="panel-modal-body">
+                    <div
+                        ref={panelBodyRef}
+                        className={`panel-modal-body ${
+                            hasInnerScroll
+                                ? "flex h-full min-h-0 flex-col overflow-hidden [&>*]:min-h-0 [&>*]:max-h-full [&>*]:flex-1"
+                                : ""
+                        }`}
+                    >
                         {children}
                     </div>
                 ) : (
