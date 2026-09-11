@@ -30,6 +30,8 @@ interface StoreProfileProps {
         store_whatsapp: string | null;
     };
     compact?: boolean;
+    hideCustomDomainButton?: boolean;
+    onNameChange?: (name: string) => void;
     onSaveStatusChange: (status: SaveState) => void;
 }
 
@@ -55,6 +57,8 @@ function formatPhone(value: string): string {
 
 export default function StoreProfileManager({
     restaurant,
+    hideCustomDomainButton = false,
+    onNameChange,
     onSaveStatusChange,
 }: StoreProfileProps) {
     const [name, setName] = useState(restaurant.name);
@@ -235,7 +239,10 @@ export default function StoreProfileManager({
                     <Input
                         label="Nome do Restaurante"
                         value={name}
-                        onChange={(event) => setName(event.target.value)}
+                        onChange={(event) => {
+                            setName(event.target.value);
+                            onNameChange?.(event.target.value);
+                        }}
                         onBlur={() => void saveFields({ name: name.trim() })}
                         placeholder="Ex: Burger King"
                         className="font-medium"
@@ -326,21 +333,23 @@ export default function StoreProfileManager({
                             </div>
                         )}
 
-                        <Button
-                            type="button"
-                            variant={
-                                customDomain && customDomainVerified
-                                    ? "secondary"
-                                    : "primary"
-                            }
-                            onClick={() => setCustomDomainOpen(true)}
-                            className="h-11 w-full shrink-0 md:w-auto"
-                        >
-                            <FontAwesomeIcon icon={faGlobe} className="mr-2" />
-                            {customDomain && customDomainVerified
-                                ? "Domínio conectado"
-                                : "Usar meu domínio"}
-                        </Button>
+                        {!hideCustomDomainButton && (
+                            <Button
+                                type="button"
+                                variant={
+                                    customDomain && customDomainVerified
+                                        ? "secondary"
+                                        : "primary"
+                                }
+                                onClick={() => setCustomDomainOpen(true)}
+                                className="h-11 w-full shrink-0 md:w-auto"
+                            >
+                                <FontAwesomeIcon icon={faGlobe} className="mr-2" />
+                                {customDomain && customDomainVerified
+                                    ? "Domínio conectado"
+                                    : "Usar meu domínio"}
+                            </Button>
+                        )}
                     </div>
                 </div>
             </Card>
@@ -353,14 +362,16 @@ export default function StoreProfileManager({
                 />
             )}
 
-            <CustomDomainModal
-                open={customDomainOpen}
-                onClose={() => setCustomDomainOpen(false)}
-                restaurantId={restaurant.id}
-                initialDomain={customDomain}
-                onDomainChange={setCustomDomain}
-                onVerificationChange={setCustomDomainVerified}
-            />
+            {!hideCustomDomainButton && (
+                <CustomDomainModal
+                    open={customDomainOpen}
+                    onClose={() => setCustomDomainOpen(false)}
+                    restaurantId={restaurant.id}
+                    initialDomain={customDomain}
+                    onDomainChange={setCustomDomain}
+                    onVerificationChange={setCustomDomainVerified}
+                />
+            )}
         </div>
     );
 }
