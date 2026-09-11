@@ -486,6 +486,20 @@ export default function MenuItemRow({
                                     variant="secondary"
                                     onClick={(e) => {
                                         e.stopPropagation();
+                                        setIsEditing(true);
+                                        onEditingChange?.(true);
+                                    }}
+                                    className="px-3 py-1.5 h-auto text-sm font-medium text-gray-500 hover:border-brand gap-2"
+                                    title="Editar item"
+                                >
+                                    <FontAwesomeIcon icon={icons.faEdit} />
+                                    <span className="hidden sm:inline">Editar</span>
+                                </Button>
+
+                                <Button
+                                    variant="secondary"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
                                         if (onOpenDetails) onOpenDetails();
                                     }}
                                     className="px-3 py-1.5 h-auto text-sm font-medium text-gray-500 hover:border-brand gap-2"
@@ -648,7 +662,7 @@ export default function MenuItemRow({
                             value={stockInput}
                             onChange={(e) => setStockInput(e.target.value)}
                             onKeyDown={handleKeyDown}
-                            className="w-12 bg-transparent p-0 text-right outline-none ring-0 focus:outline-none focus:ring-0"
+                            className="w-12 bg-transparent p-0 text-right outline-none ring-0 focus:outline-none focus:ring-0 md:w-16 md:rounded-md md:border md:border-gray-300 md:bg-white md:px-2 md:py-1.5 md:focus:border-brand"
                             disabled={isLoading}
                         />
                         <span>un.</span>
@@ -669,7 +683,7 @@ export default function MenuItemRow({
                             setPriceCents(priceInputToCents(nextValue));
                         }}
                         onKeyDown={handleKeyDown}
-                        className="w-16 bg-transparent p-0 outline-none ring-0 focus:outline-none focus:ring-0"
+                        className="w-20 rounded-md border border-gray-300 bg-white px-2 py-1.5 text-right outline-none ring-0 focus:border-brand focus:outline-none focus:ring-0"
                         disabled={isLoading}
                     />
                 </div>
