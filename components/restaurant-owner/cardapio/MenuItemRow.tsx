@@ -422,10 +422,14 @@ export default function MenuItemRow({
 
         return (
             <div
-                className="panel-menu-stock w-24 shrink-0"
+                className="flex items-center gap-2 whitespace-nowrap"
                 onClick={(e) => e.stopPropagation()}
             >
-                <Input label="Estoque" aria-label={`Estoque de ${name}`}
+                <span className="text-xs font-medium text-gray-500 2xl:text-sm">
+                    Estoque
+                </span>
+                <Input inline
+                    aria-label={`Estoque de ${name}`}
                     type="number"
                     min={0}
                     step={1}
@@ -436,7 +440,7 @@ export default function MenuItemRow({
                     onKeyDown={(e) => {
                         if (e.key === "Enter") e.currentTarget.blur();
                     }}
-                    className="text-right tabular-nums"
+                    className="w-16 border-b border-gray-300 bg-transparent p-1 text-right text-sm font-medium text-gray-900 outline-none focus:border-brand 2xl:text-lg"
                     disabled={isLoading}
                 />
             </div>
@@ -453,11 +457,19 @@ export default function MenuItemRow({
         );
     };
 
+    const renderDragHandle = () =>
+        dragHandle ? (
+            <div
+                className="shrink-0 cursor-grab p-1 -ml-2 text-gray-300 transition-colors hover:text-gray-500 active:cursor-grabbing"
+                onClick={(e) => e.stopPropagation()}
+            >
+                {dragHandle}
+            </div>
+        ) : null;
+
     const renderImageArea = () => (
         <div
-            key={`menu-item-image-${item.id || "new"}-${
-                isEditing ? "editing" : "viewing"
-            }`}
+            key={`menu-item-image-${item.id || "new"}`}
             onClick={(e) => {
                 e.stopPropagation();
                 fileInputRef.current?.click();
@@ -465,9 +477,7 @@ export default function MenuItemRow({
             className="w-12 h-12 2xl:h-18 2xl:w-18 shrink-0 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 overflow-hidden border border-gray-200 cursor-pointer hover:bg-gray-200 transition-all relative group/img"
         >
             <input
-                key={`menu-item-file-input-${item.id || "new"}-${
-                    isEditing ? "editing" : "viewing"
-                }`}
+                key={`menu-item-file-input-${item.id || "new"}`}
                 type="file"
                 ref={fileInputRef}
                 className="hidden"
@@ -514,14 +524,7 @@ export default function MenuItemRow({
                     }}
                 >
                     <div className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden 2xl:gap-4">
-                        {dragHandle && (
-                            <div
-                                className="text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing p-1 -ml-2"
-                                onClick={(e) => e.stopPropagation()}
-                            >
-                                {dragHandle}
-                            </div>
-                        )}
+                        {renderDragHandle()}
 
                         {renderImageArea()}
 
@@ -659,11 +662,12 @@ export default function MenuItemRow({
     }
 
     return (
-        <div className="panel-menu-editor relative z-10 flex min-w-0 max-w-full flex-col gap-4 border-b border-gray-200 bg-white p-4">
-            <div className="flex w-full min-w-0 flex-1 items-start gap-4 2xl:items-center">
+        <div className="panel-menu-editor relative z-10 flex min-w-0 max-w-full flex-col gap-4 overflow-hidden border-b border-gray-100 bg-white p-4 shadow-md animate-fadeUp transition-all duration-300 ease-out sm:flex-row sm:items-center">
+            <div className="flex w-full min-w-0 flex-1 items-start gap-3 2xl:items-center 2xl:gap-4">
+                {renderDragHandle()}
                 {renderImageArea()}
                 <div className="w-full min-w-0 flex-1 space-y-2 2xl:space-y-0">
-                    <div className="flex min-w-0 items-center gap-2">
+                    <div className="flex min-w-0 items-center gap-1.5">
                         <Input inline
                             ref={nameInputRef}
                             value={name ?? ""}
@@ -671,19 +675,19 @@ export default function MenuItemRow({
                             onBlur={() => autoSave()}
                             onKeyDown={handleKeyDown}
                             placeholder="Nome do item"
-                            className="w-full text-base 2xl:text-lg font-medium text-gray-900 placeholder-gray-400 border-none p-0 focus:ring-0 bg-transparent outline-none"
+                            className="min-w-[8ch] max-w-full [field-sizing:content] text-base 2xl:text-lg font-medium text-gray-900 placeholder-gray-400 border-none p-0 focus:ring-0 bg-transparent outline-none"
                             disabled={isLoading}
                         />
                         <FontAwesomeIcon icon={icons.faEdit} className="shrink-0 text-xs text-gray-400" aria-hidden="true" />
                     </div>
-                    <div className="flex min-w-0 items-center gap-2">
+                    <div className="flex min-w-0 items-center gap-1.5">
                         <Input inline
                             value={description ?? ""}
                             onChange={(e) => setDescription(e.target.value)}
                             onBlur={() => autoSave()}
                             onKeyDown={handleKeyDown}
                             placeholder="Adicione uma descrição..."
-                            className="w-full text-sm 2xl:text-base text-gray-600 placeholder-gray-300 border-none p-0 focus:ring-0 bg-transparent outline-none"
+                            className="min-w-[12ch] max-w-full [field-sizing:content] text-sm 2xl:text-base text-gray-600 placeholder-gray-300 border-none p-0 focus:ring-0 bg-transparent outline-none"
                             disabled={isLoading}
                         />
                         <FontAwesomeIcon icon={icons.faEdit} className="shrink-0 text-xs text-gray-400" aria-hidden="true" />
@@ -691,11 +695,14 @@ export default function MenuItemRow({
                 </div>
             </div>
 
-            <div className="flex w-full min-w-0 flex-wrap items-end justify-end gap-3">
+            <div className="flex w-full min-w-0 flex-wrap items-center justify-end gap-3 border-t border-gray-50 pt-2 2xl:gap-5 sm:w-auto sm:flex-nowrap sm:border-t-0 sm:pt-0">
                 {renderStockInput()}
 
-                <div className="w-32">
-                    <Input label="Preço" icon="R$"
+                <div className="relative flex w-24 items-center 2xl:w-26">
+                    <span className="text-sm text-gray-500 2xl:mr-2 2xl:text-lg">
+                        R$
+                    </span>
+                    <Input inline
                         type="text"
                         inputMode="decimal"
                         value={priceInput}
@@ -709,19 +716,19 @@ export default function MenuItemRow({
                         }}
                         onBlur={handlePriceBlur}
                         onKeyDown={handleKeyDown}
-                        className="text-right tabular-nums"
+                        className="w-full border-b border-gray-300 bg-transparent p-1 text-right text-sm font-medium text-gray-900 outline-none focus:border-brand 2xl:text-lg"
                         placeholder="0,00"
                         disabled={isLoading}
                     />
                 </div>
 
-                <div className="flex items-end gap-2">
+                <div className="flex items-center gap-2">
                     <Button
                         variant="secondary"
                         onMouseDown={(e) => e.preventDefault()}
                         onClick={handleCancelEditing}
                         disabled={isLoading}
-                        className="!h-11"
+                        className="!h-10"
                     >
                         Cancelar
                     </Button>
@@ -729,7 +736,7 @@ export default function MenuItemRow({
                         onMouseDown={(e) => e.preventDefault()}
                         onClick={handleSave}
                         loading={isLoading}
-                        className="!h-11 gap-2"
+                        className="!h-10 gap-2"
                     >
                         {isLoading ? (
                             "..."
