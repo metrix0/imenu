@@ -127,7 +127,6 @@ export default function Modal({
                 const overflowY = window.getComputedStyle(child).overflowY;
                 return overflowY === "auto" || overflowY === "scroll";
             });
-        setHasInnerScroll(rootHasOwnScroll);
 
         const getCapPixels = () => {
             const viewportCap = window.innerHeight * 0.92;
@@ -140,7 +139,11 @@ export default function Modal({
         };
 
         const measure = () => {
-            const nextHeight = Math.min(body.getBoundingClientRect().height, getCapPixels());
+            const capPixels = getCapPixels();
+            const naturalHeight = body.getBoundingClientRect().height;
+            const nextHeight = Math.min(naturalHeight, capPixels);
+
+            setHasInnerScroll(rootHasOwnScroll && naturalHeight >= capPixels - 1);
             setPanelHeight((currentHeight) =>
                 currentHeight !== null && Math.abs(currentHeight - nextHeight) < 1
                     ? currentHeight
