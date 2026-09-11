@@ -1,12 +1,6 @@
 "use client";
 
-import {
-    ReactNode,
-    useEffect,
-    useLayoutEffect,
-    useRef,
-    useState,
-} from "react";
+import { ReactNode, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { icons } from "@/lib/utils/fontawesome";
@@ -40,10 +34,7 @@ export default function Modal({
     const panel = usePanelAppearance();
     const [mounted, setMounted] = useState(open);
     const [active, setActive] = useState(false);
-    const [panelHeight, setPanelHeight] = useState<number | null>(null);
-    const [hasInnerScroll, setHasInnerScroll] = useState(false);
     const scrollLocked = useRef(false);
-    const panelBodyRef = useRef<HTMLDivElement>(null);
 
     function lockPageScroll() {
         if (scrollLocked.current) return;
@@ -109,60 +100,6 @@ export default function Modal({
         return () => window.removeEventListener("keydown", handleEsc);
     }, [open, onClose]);
 
-    useLayoutEffect(() => {
-        if (!panel || !open || !mounted) {
-            setPanelHeight(null);
-            setHasInnerScroll(false);
-            return;
-        }
-
-        const body = panelBodyRef.current;
-        if (!body) return;
-
-        const root = body.firstElementChild;
-        const rootHasOwnScroll =
-            root instanceof HTMLElement &&
-            Array.from(root.children).some((child) => {
-                if (!(child instanceof HTMLElement)) return false;
-                const overflowY = window.getComputedStyle(child).overflowY;
-                return overflowY === "auto" || overflowY === "scroll";
-            });
-
-        const getCapPixels = () => {
-            const viewportCap = window.innerHeight * 0.92;
-            if (typeof height === "number") {
-                return Math.min(height, viewportCap);
-            }
-
-            const dvh = Number.parseFloat(height);
-            return Math.min((window.innerHeight * dvh) / 100, viewportCap);
-        };
-
-        const measure = () => {
-            const capPixels = getCapPixels();
-            const naturalHeight = body.getBoundingClientRect().height;
-            const nextHeight = Math.min(naturalHeight, capPixels);
-
-            setHasInnerScroll(rootHasOwnScroll && naturalHeight >= capPixels - 1);
-            setPanelHeight((currentHeight) =>
-                currentHeight !== null && Math.abs(currentHeight - nextHeight) < 1
-                    ? currentHeight
-                    : nextHeight
-            );
-        };
-
-        measure();
-
-        const resizeObserver = new ResizeObserver(measure);
-        resizeObserver.observe(body);
-        window.addEventListener("resize", measure);
-
-        return () => {
-            resizeObserver.disconnect();
-            window.removeEventListener("resize", measure);
-        };
-    }, [height, mounted, open, panel]);
-
     useEffect(
         () => () => {
             restorePageScroll();
@@ -190,25 +127,12 @@ export default function Modal({
 
             <div
                 role="dialog"
-                style={{
-                    maxHeight: resolvedMaxHeight,
-                    ...(panel && panelHeight !== null
-                        ? { height: `${panelHeight}px` }
-                        : {}),
-                    ...(panel
-                        ? {
-                              transition:
-                                  "height 300ms ease-in-out, transform 200ms ease, opacity 200ms ease",
-                          }
-                        : {}),
-                }}
+                style={{ maxHeight: resolvedMaxHeight }}
                 aria-modal="true"
                 onClick={(event: { stopPropagation(): void }) =>
                     event.stopPropagation()
                 }
-                className={`relative flex w-full max-w-2xl flex-col rounded-xl bg-white shadow-2xl transition-all duration-200 sm:rounded-2xl ${
-                    hasInnerScroll ? "overflow-hidden" : "overflow-y-auto"
-                } ${
+                className={`relative flex w-full max-w-2xl flex-col overflow-y-auto rounded-xl bg-white shadow-2xl transition-all duration-300 sm:rounded-2xl ${
                     active
                         ? "translate-y-0 scale-100 opacity-100"
                         : "translate-y-3 scale-95 opacity-0"
@@ -228,20 +152,7 @@ export default function Modal({
                         />
                     </button>
                 )}
-                {panel ? (
-                    <div
-                        ref={panelBodyRef}
-                        className={`panel-modal-body ${
-                            hasInnerScroll
-                                ? "flex h-full min-h-0 flex-col overflow-hidden [&>*]:min-h-0 [&>*]:max-h-full [&>*]:flex-1"
-                                : ""
-                        }`}
-                    >
-                        {children}
-                    </div>
-                ) : (
-                    children
-                )}
+                {panel ? <div className="panel-modal-body">{children}</div> : children}
             </div>
         </div>,
         document.body
