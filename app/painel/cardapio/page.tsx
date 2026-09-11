@@ -217,6 +217,14 @@ export default function MenuManagerPage() {
                     .panel-essencial [data-panel-path="/painel/cardapio"] .panel-menu-editor > div:first-child {
                         width: 100%;
                     }
+                    .panel-essencial [data-panel-path="/painel/cardapio"] .panel-menu-editor input:not([type="file"]) {
+                        font-size: 14px !important;
+                        line-height: 20px !important;
+                    }
+                    .panel-essencial [data-panel-path="/painel/cardapio"] .panel-menu-editor input[placeholder="Adicionar uma descrição..."] {
+                        font-size: 12px !important;
+                        line-height: 16px !important;
+                    }
                     .panel-essencial [data-panel-path="/painel/cardapio"] .panel-menu-editor input[placeholder="Nome do item"],
                     .panel-essencial [data-panel-path="/painel/cardapio"] .panel-menu-editor input[placeholder="Adicionar uma descrição..."] {
                         min-width: 0 !important;
