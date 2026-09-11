@@ -163,76 +163,16 @@ export default function MenuItemRow({
     }, [item.stock_quantity]);
 
     const autoSave = async (overrideData?: Partial<MenuItemType>) => {
-        if (isNew || !name.trim()) return;
+        if (isNew) return;
 
         setIsLoading(true);
         try {
             await onSave({
                 ...item,
-                name,
-                description,
-                price_cents: priceCents,
-                image_path: imagePath,
-                image_url: imageUrl,
-                is_available: isAvailable,
                 ...overrideData,
             });
         } catch (error) {
             console.error("Erro no auto-save:", error);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const handlePriceBlur = async () => {
-        const nextPriceCents = priceInputToCents(priceInput);
-        setPriceCents(nextPriceCents);
-        setPriceInput(formatPriceInput(nextPriceCents));
-        await autoSave({ price_cents: nextPriceCents });
-    };
-
-    const handleStockBlur = async () => {
-        if (!item.stock_enabled || isNew) return;
-
-        const raw = stockInput.trim();
-        const parsed = Number(raw);
-
-        if (
-            raw === "" ||
-            Number.isNaN(parsed) ||
-            parsed < 0 ||
-            !Number.isInteger(parsed)
-        ) {
-            setStockInput(String(item.stock_quantity ?? 0));
-            setToast({
-                message: "Informe uma quantidade válida.",
-                type: "error",
-            });
-            return;
-        }
-
-        setStockInput(String(parsed));
-        setIsLoading(true);
-
-        try {
-            const { error } = await supabase
-                .from("items")
-                .update({
-                    stock_quantity: parsed,
-                    is_available: parsed > 0,
-                })
-                .eq("id", item.id)
-                .eq("restaurant_id", restaurantId);
-
-            if (error) throw error;
-            setIsAvailable(parsed > 0);
-        } catch (error) {
-            console.error("Erro ao salvar estoque:", error);
-            setStockInput(String(item.stock_quantity ?? 0));
-            setToast({
-                message: "Erro ao salvar quantidade.",
-                type: "error",
-            });
         } finally {
             setIsLoading(false);
         }
@@ -417,32 +357,6 @@ export default function MenuItemRow({
         }
     };
 
-    const renderStockInput = () => {
-        if (!item.stock_enabled || isNew) return null;
-
-        return (
-            <div
-                className="panel-menu-stock w-24 shrink-0"
-                onClick={(e) => e.stopPropagation()}
-            >
-                <Input label="Estoque" aria-label={`Estoque de ${name}`}
-                    type="number"
-                    min={0}
-                    step={1}
-                    inputMode="numeric"
-                    value={stockInput}
-                    onChange={(e) => setStockInput(e.target.value)}
-                    onBlur={handleStockBlur}
-                    onKeyDown={(e) => {
-                        if (e.key === "Enter") e.currentTarget.blur();
-                    }}
-                    className="text-right tabular-nums"
-                    disabled={isLoading}
-                />
-            </div>
-        );
-    };
-
     const renderStockQuantity = () => {
         if (!item.stock_enabled || isNew) return null;
 
@@ -453,11 +367,19 @@ export default function MenuItemRow({
         );
     };
 
+    const renderDragHandle = () =>
+        dragHandle ? (
+            <div
+                className="text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing p-1 -ml-2 shrink-0"
+                onClick={(e) => e.stopPropagation()}
+            >
+                {dragHandle}
+            </div>
+        ) : null;
+
     const renderImageArea = () => (
         <div
-            key={`menu-item-image-${item.id || "new"}-${
-                isEditing ? "editing" : "viewing"
-            }`}
+            key={`menu-item-image-${item.id || "new"}`}
             onClick={(e) => {
                 e.stopPropagation();
                 fileInputRef.current?.click();
@@ -465,9 +387,7 @@ export default function MenuItemRow({
             className="w-12 h-12 2xl:h-18 2xl:w-18 shrink-0 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 overflow-hidden border border-gray-200 cursor-pointer hover:bg-gray-200 transition-all relative group/img"
         >
             <input
-                key={`menu-item-file-input-${item.id || "new"}-${
-                    isEditing ? "editing" : "viewing"
-                }`}
+                key={`menu-item-file-input-${item.id || "new"}`}
                 type="file"
                 ref={fileInputRef}
                 className="hidden"
@@ -514,14 +434,7 @@ export default function MenuItemRow({
                     }}
                 >
                     <div className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden 2xl:gap-4">
-                        {dragHandle && (
-                            <div
-                                className="text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing p-1 -ml-2"
-                                onClick={(e) => e.stopPropagation()}
-                            >
-                                {dragHandle}
-                            </div>
-                        )}
+                        {renderDragHandle()}
 
                         {renderImageArea()}
 
@@ -560,7 +473,6 @@ export default function MenuItemRow({
                     </div>
 
                     <div className="flex items-center gap-4 2xl:gap-6 pl-4 2xl:text-lg">
-
                         <span className="hidden font-medium text-gray-900 whitespace-nowrap md:inline">
                             {(priceCents / 100).toLocaleString("pt-BR", {
                                 style: "currency",
@@ -659,87 +571,132 @@ export default function MenuItemRow({
     }
 
     return (
-        <div className="panel-menu-editor relative z-10 flex min-w-0 max-w-full flex-col gap-4 border-b border-gray-200 bg-white p-4">
-            <div className="flex w-full min-w-0 flex-1 items-start gap-4 2xl:items-center">
+        <div
+            className={`panel-menu-editor panel-menu-row group flex items-center justify-between p-4 2xl:p-5 bg-white border-b border-gray-100 transition-all ${
+                !isAvailable ? "opacity-60 bg-gray-50" : ""
+            }`}
+            onClick={(e) => e.stopPropagation()}
+        >
+            <div className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden 2xl:gap-4">
+                {renderDragHandle()}
+
                 {renderImageArea()}
-                <div className="w-full min-w-0 flex-1 space-y-2 2xl:space-y-0">
-                    <div className="flex min-w-0 items-center gap-2">
-                        <Input inline
+
+                <div className="flex min-w-0 flex-1 flex-col 2xl:text-lg">
+                    <div className="flex min-w-0 items-center gap-1.5">
+                        <input
                             ref={nameInputRef}
-                            value={name ?? ""}
+                            value={name}
                             onChange={(e) => setName(e.target.value)}
-                            onBlur={() => autoSave()}
                             onKeyDown={handleKeyDown}
                             placeholder="Nome do item"
-                            className="w-full text-base 2xl:text-lg font-medium text-gray-900 placeholder-gray-400 border-none p-0 focus:ring-0 bg-transparent outline-none"
+                            className="min-w-[8ch] max-w-full [field-sizing:content] bg-transparent p-0 font-medium text-gray-900 placeholder-gray-400 outline-none ring-0 focus:outline-none focus:ring-0"
                             disabled={isLoading}
                         />
-                        <FontAwesomeIcon icon={icons.faEdit} className="shrink-0 text-xs text-gray-400" aria-hidden="true" />
+                        <FontAwesomeIcon
+                            icon={icons.faEdit}
+                            className="shrink-0 text-xs text-gray-400"
+                            aria-hidden="true"
+                        />
                     </div>
-                    <div className="flex min-w-0 items-center gap-2">
-                        <Input inline
-                            value={description ?? ""}
+
+                    <div className="flex min-w-0 items-center gap-1.5">
+                        <input
+                            value={description}
                             onChange={(e) => setDescription(e.target.value)}
-                            onBlur={() => autoSave()}
                             onKeyDown={handleKeyDown}
-                            placeholder="Adicione uma descrição..."
-                            className="w-full text-sm 2xl:text-base text-gray-600 placeholder-gray-300 border-none p-0 focus:ring-0 bg-transparent outline-none"
+                            placeholder="Adicionar uma descrição..."
+                            className="min-w-[12ch] max-w-full [field-sizing:content] bg-transparent p-0 text-xs text-gray-500 placeholder-gray-300 outline-none ring-0 focus:outline-none focus:ring-0 2xl:text-base"
                             disabled={isLoading}
                         />
-                        <FontAwesomeIcon icon={icons.faEdit} className="shrink-0 text-xs text-gray-400" aria-hidden="true" />
+                        <FontAwesomeIcon
+                            icon={icons.faEdit}
+                            className="shrink-0 text-xs text-gray-400"
+                            aria-hidden="true"
+                        />
+                    </div>
+
+                    <div className="mt-1 flex items-center gap-1 font-medium text-gray-900 tabular-nums md:hidden">
+                        <span>R$</span>
+                        <input
+                            value={priceInput}
+                            inputMode="decimal"
+                            onFocus={(e) => e.currentTarget.select()}
+                            onChange={(e) => {
+                                const nextValue = sanitizePriceInput(e.target.value);
+                                setPriceInput(nextValue);
+                                setPriceCents(priceInputToCents(nextValue));
+                            }}
+                            onKeyDown={handleKeyDown}
+                            className="w-16 bg-transparent p-0 outline-none ring-0 focus:outline-none focus:ring-0"
+                            disabled={isLoading}
+                        />
                     </div>
                 </div>
+
+                {item.stock_enabled && !isNew && (
+                    <div
+                        className="flex shrink-0 items-center gap-1 whitespace-nowrap text-sm font-medium text-gray-600 tabular-nums"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <input
+                            aria-label={`Estoque de ${name}`}
+                            type="number"
+                            min={0}
+                            step={1}
+                            inputMode="numeric"
+                            value={stockInput}
+                            onChange={(e) => setStockInput(e.target.value)}
+                            onKeyDown={handleKeyDown}
+                            className="w-12 bg-transparent p-0 text-right outline-none ring-0 focus:outline-none focus:ring-0"
+                            disabled={isLoading}
+                        />
+                        <span>un.</span>
+                    </div>
+                )}
             </div>
 
-            <div className="flex w-full min-w-0 flex-wrap items-end justify-end gap-3">
-                {renderStockInput()}
-
-                <div className="w-32">
-                    <Input label="Preço" icon="R$"
-                        type="text"
-                        inputMode="decimal"
+            <div className="flex shrink-0 items-center gap-3 pl-4 2xl:gap-4 2xl:text-lg">
+                <div className="hidden items-center gap-1 font-medium text-gray-900 whitespace-nowrap tabular-nums md:flex">
+                    <span>R$</span>
+                    <input
                         value={priceInput}
+                        inputMode="decimal"
                         onFocus={(e) => e.currentTarget.select()}
                         onChange={(e) => {
-                            const nextValue = sanitizePriceInput(
-                                e.target.value
-                            );
+                            const nextValue = sanitizePriceInput(e.target.value);
                             setPriceInput(nextValue);
                             setPriceCents(priceInputToCents(nextValue));
                         }}
-                        onBlur={handlePriceBlur}
                         onKeyDown={handleKeyDown}
-                        className="text-right tabular-nums"
-                        placeholder="0,00"
+                        className="w-16 bg-transparent p-0 outline-none ring-0 focus:outline-none focus:ring-0"
                         disabled={isLoading}
                     />
                 </div>
 
-                <div className="flex items-end gap-2">
-                    <Button
-                        variant="secondary"
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={handleCancelEditing}
-                        disabled={isLoading}
-                        className="!h-11"
-                    >
-                        Cancelar
-                    </Button>
-                    <Button
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={handleSave}
-                        loading={isLoading}
-                        className="!h-11 gap-2"
-                    >
-                        {isLoading ? (
-                            "..."
-                        ) : (
-                            <>
-                                <FontAwesomeIcon icon={icons.faCheck} /> Salvar
-                            </>
-                        )}
-                    </Button>
-                </div>
+                <Button
+                    variant="secondary"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={handleCancelEditing}
+                    disabled={isLoading}
+                    className="h-auto px-3 py-1.5 text-sm"
+                >
+                    Cancelar
+                </Button>
+                <Button
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={handleSave}
+                    loading={isLoading}
+                    className="h-auto px-3 py-1.5 text-sm gap-2"
+                >
+                    {isLoading ? (
+                        "..."
+                    ) : (
+                        <>
+                            <FontAwesomeIcon icon={icons.faCheck} /> Salvar
+                        </>
+                    )}
+                </Button>
             </div>
         </div>
     );
