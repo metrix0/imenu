@@ -120,7 +120,7 @@ export default function PixPayoutFields({
             <div data-ui="field" className="min-w-0">
                 <div
                     data-ui="field-label"
-                    className={`flex items-start gap-1.5 text-xs font-medium leading-[18px] ${
+                    className={`flex items-center gap-1.5 text-xs font-medium leading-[18px] ${
                         needsPixType ? "text-red-600" : ""
                     }`}
                 >
@@ -129,7 +129,7 @@ export default function PixPayoutFields({
                         text="Esta chave é usada somente para os repasses de pagamentos feitos via Pix Online. Os repasses são processados diariamente às 12:00."
                         size="medium"
                         showOnClick
-                        parentClassName="mt-px shrink-0 leading-none"
+                        parentClassName="shrink-0 leading-none"
                     >
                         <button
                             type="button"
