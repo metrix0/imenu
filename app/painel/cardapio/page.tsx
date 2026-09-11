@@ -195,8 +195,7 @@ export default function MenuManagerPage() {
     return (
         <div className="mx-auto w-full min-w-0 max-w-full overflow-x-clip px-4 pb-32 pt-8 space-y-8 md:max-w-6xl 2xl:max-w-8xl">
             <style>{`
-                .panel-essencial [data-panel-path="/painel/cardapio"] .panel-menu-editor input[placeholder="Nome do item"]:focus-visible,
-                .panel-essencial [data-panel-path="/painel/cardapio"] .panel-menu-editor input[placeholder="Adicionar uma descrição..."]:focus-visible {
+                .panel-essencial [data-panel-path="/painel/cardapio"] .panel-menu-editor input:focus-visible {
                     outline: none !important;
                     outline-offset: 0 !important;
                     box-shadow: none !important;
@@ -213,6 +212,26 @@ export default function MenuManagerPage() {
                 }
                 .panel-essencial [data-panel-path="/painel/cardapio"] .panel-menu-row {
                     min-height: 80px;
+                }
+                @media (max-width: 767px) {
+                    .panel-essencial [data-panel-path="/painel/cardapio"] .panel-menu-editor > div:first-child {
+                        width: 100%;
+                    }
+                    .panel-essencial [data-panel-path="/painel/cardapio"] .panel-menu-editor input[placeholder="Nome do item"],
+                    .panel-essencial [data-panel-path="/painel/cardapio"] .panel-menu-editor input[placeholder="Adicionar uma descrição..."] {
+                        min-width: 0 !important;
+                        max-width: calc(100% - 20px) !important;
+                    }
+                    .panel-essencial [data-panel-path="/painel/cardapio"] .panel-menu-editor div:has(> input[type="number"]) {
+                        min-width: 72px;
+                        justify-content: flex-end;
+                    }
+                    .panel-essencial [data-panel-path="/painel/cardapio"] .panel-menu-editor > div:last-child {
+                        width: 100%;
+                        justify-content: flex-end;
+                        gap: 8px;
+                        padding-left: 0;
+                    }
                 }
             `}</style>
 
