@@ -28,8 +28,17 @@ export default function ConfirmModal({
     isLoading = false,
     variant = "danger"
 }: ConfirmModalProps) {
+    const descriptionLength = description?.trim().length ?? 0;
+    const height = !description
+        ? 260
+        : descriptionLength > 120
+          ? 350
+          : descriptionLength > 70
+            ? 330
+            : 310;
+
     return (
-        <Modal height="auto" open={open} onClose={onClose} className="max-w-md 2xl:max-w-lg">
+        <Modal height={height} open={open} onClose={onClose} className="max-w-md 2xl:max-w-lg">
             <div className="p-4 sm:p-6 2xl:p-7 text-center">
                 <div className={`mx-auto mb-4 flex h-12 w-12 2xl:h-16 2xl:w-16 items-center justify-center rounded-full ${variant === 'danger' ? 'bg-red-100' : 'bg-blue-100'}`}>
                     <FontAwesomeIcon 
