@@ -195,7 +195,8 @@ export default function MenuManagerPage() {
     return (
         <div className="mx-auto w-full min-w-0 max-w-full overflow-x-clip px-4 pb-32 pt-8 space-y-8 md:max-w-6xl 2xl:max-w-8xl">
             <style>{`
-                .panel-essencial [data-panel-path="/painel/cardapio"] .panel-menu-editor input.border-none:focus-visible {
+                .panel-essencial [data-panel-path="/painel/cardapio"] .panel-menu-editor input[placeholder="Nome do item"]:focus-visible,
+                .panel-essencial [data-panel-path="/painel/cardapio"] .panel-menu-editor input[placeholder="Adicionar uma descrição..."]:focus-visible {
                     outline: none !important;
                     outline-offset: 0 !important;
                     box-shadow: none !important;
