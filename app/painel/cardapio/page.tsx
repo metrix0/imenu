@@ -194,6 +194,27 @@ export default function MenuManagerPage() {
 
     return (
         <div className="mx-auto w-full min-w-0 max-w-full overflow-x-clip px-4 pb-32 pt-8 space-y-8 md:max-w-6xl 2xl:max-w-8xl">
+            <style>{`
+                .panel-essencial [data-panel-path="/painel/cardapio"] .panel-menu-editor input.border-none:focus-visible {
+                    outline: none !important;
+                    outline-offset: 0 !important;
+                    box-shadow: none !important;
+                }
+                .panel-essencial [data-panel-path="/painel/cardapio"] .panel-menu-editor.animate-fadeUp {
+                    animation: none !important;
+                }
+                .panel-essencial [data-panel-path="/painel/cardapio"] .panel-menu-editor {
+                    min-height: 80px;
+                    opacity: 1 !important;
+                    transform: none !important;
+                    box-shadow: none !important;
+                    transition: background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease !important;
+                }
+                .panel-essencial [data-panel-path="/painel/cardapio"] .panel-menu-row {
+                    min-height: 80px;
+                }
+            `}</style>
+
             <div className="min-w-0 max-w-full">
                 <h1 className="text-3xl font-bold text-gray-900">Cardápio</h1>
                 <p className="text-gray-500 mt-1 2xl:text-lg">
