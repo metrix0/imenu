@@ -47,7 +47,7 @@ export default function PromotionRow({ item, checked, onToggle, onChange }: {
     return (
         <div className={`panel-promotion-row grid gap-4 border-b border-gray-200 px-5 py-4 last:border-b-0 lg:grid-cols-[minmax(220px,1fr)_minmax(0,1.3fr)] lg:items-center ${checked ? "bg-brand/5" : "hover:bg-gray-50"}`}>
             <div className="flex min-w-0 items-center gap-3">
-                <input type="checkbox" checked={checked} onChange={onToggle} aria-label={`Selecionar ${item.name}`} className="h-5 w-5 shrink-0 cursor-pointer rounded border border-gray-200/70 accent-brand" />
+                <input type="checkbox" checked={checked} onChange={onToggle} aria-label={`Selecionar ${item.name}`} className="h-5 w-5 shrink-0 cursor-pointer rounded border border-gray-200/70 accent-brand opacity-[0.35] checked:opacity-100" />
                 <img src={imageUrl} alt="" width={48} height={48} className="h-12 w-12 shrink-0 rounded-lg border border-gray-200 object-cover" />
                 <div className="min-w-0">
                     <p className="break-words font-medium text-gray-900">{item.name}</p>
