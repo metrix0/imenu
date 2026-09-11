@@ -1,6 +1,6 @@
 export default function ListLoader({ lines = 3 }: { lines?: number }) {
     return (
-        <div className="space-y-3 2xl:space-y-4">
+        <div data-ui="list-loader" className="space-y-3 2xl:space-y-4">
             {Array.from({ length: lines }).map((_, i) => (
                 <div
                     key={i}
