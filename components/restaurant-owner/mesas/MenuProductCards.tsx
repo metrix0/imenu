@@ -50,10 +50,10 @@ export default function MenuProductCards({
     return (
         <div className="panel-product-cards grid gap-5 md:grid-cols-2">
             <div className="relative flex min-h-[320px] flex-col overflow-hidden rounded-2xl border border-brand bg-gradient-to-br from-white via-white to-brand/[0.08] p-6 shadow-sm ring-2 ring-brand/10">
-                <div className="!absolute !right-4 !top-4 !mb-0 !w-auto !self-auto inline-flex items-center gap-1.5 rounded-full !bg-brand px-2.5 py-1 text-xs font-semibold !text-white">
+                <span className="absolute right-4 top-4 inline-flex items-center gap-1.5 rounded-full bg-brand px-2.5 py-1 text-xs font-semibold text-white">
                     <FontAwesomeIcon icon={faLock} />
                     Obrigatório Grátis
-                </div>
+                </span>
 
                 <div className="relative h-12 w-40">
                     <Image
@@ -155,10 +155,12 @@ export default function MenuProductCards({
                 <h3 className="mt-6 text-xl font-bold text-gray-900">
                     iMenu QR Code Mesa
                 </h3>
-                <div className="mt-2 text-sm leading-relaxed text-gray-600">
-                    <span>Cardápio digital na mesa através de QR Code</span>
+                <div className="mt-2 flex min-w-0 items-center gap-2 text-sm leading-relaxed text-gray-600">
+                    <span className="min-w-0 truncate whitespace-nowrap">
+                        Cardápio digital na mesa através de QR Code
+                    </span>
                     <div
-                        className="ml-2 inline-block align-middle"
+                        className="shrink-0"
                         onClick={(event) => event.stopPropagation()}
                     >
                         <Tooltip
@@ -166,8 +168,8 @@ export default function MenuProductCards({
                             size="medium"
                             showOnClick
                         >
-                            <span className="inline-flex cursor-help items-center gap-1.5 rounded-full bg-brand/10 px-2.5 py-1 text-[11px] font-bold leading-none text-brand">
-                                BÔNUS: Atendimento Exclusivo
+                            <span className="inline-flex cursor-help items-center gap-1.5 whitespace-nowrap rounded-full bg-brand/10 px-2.5 py-1 text-[11px] font-bold leading-none text-brand">
+                                Atendimento Exclusivo
                                 <FontAwesomeIcon
                                     icon={faCircleInfo}
                                     className="text-[10px]"
@@ -184,10 +186,10 @@ export default function MenuProductCards({
                     </span>
                 </div>
 
-                <ul className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-sm text-gray-700">
+                <ul className="mt-4 grid min-w-0 grid-cols-3 gap-2 overflow-hidden text-sm text-gray-700">
                     {["Sem limites de mesas", "Painel do Garçom", "A mesa acompanha o pedido"].map(
                         (feature) => (
-                            <li key={feature} className="flex min-w-0 max-w-full items-center gap-2 whitespace-nowrap">
+                            <li key={feature} className="flex min-w-0 items-center gap-1.5 overflow-hidden whitespace-nowrap">
                                 <FontAwesomeIcon
                                     icon={faCheck}
                                     className="shrink-0 text-xs text-brand"
