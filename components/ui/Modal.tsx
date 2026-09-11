@@ -132,7 +132,7 @@ export default function Modal({
                 onClick={(event: { stopPropagation(): void }) =>
                     event.stopPropagation()
                 }
-                className={`relative flex w-full max-w-2xl flex-col overflow-y-auto rounded-xl bg-white shadow-2xl transition-all duration-300 sm:rounded-2xl ${
+                className={`relative flex w-full max-w-2xl flex-col overflow-y-auto rounded-xl bg-white shadow-2xl [interpolate-size:allow-keywords] transition-[max-height] duration-300 ease-in-out has-[[data-ui=list-loader]]:!max-h-max sm:rounded-2xl ${
                     active
                         ? "translate-y-0 scale-100 opacity-100"
                         : "translate-y-3 scale-95 opacity-0"
