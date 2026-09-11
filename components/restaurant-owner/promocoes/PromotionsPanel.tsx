@@ -144,7 +144,7 @@ function CategoryCheckbox({
                 items.forEach(i => (next[i.id] = !allSelected));
                 setSelected(next);
             }}
-            className="h-5 w-5 shrink-0 cursor-pointer rounded border border-gray-300 accent-brand"
+            className="h-5 w-5 shrink-0 cursor-pointer rounded border border-gray-200/70 accent-brand"
         />
     );
 }
