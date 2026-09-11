@@ -40,10 +40,9 @@ export default function Modal({
     const panel = usePanelAppearance();
     const [mounted, setMounted] = useState(open);
     const [active, setActive] = useState(false);
+    const [panelHeight, setPanelHeight] = useState<number | null>(null);
     const scrollLocked = useRef(false);
-    const dialogRef = useRef<HTMLDivElement>(null);
-    const previousHeightRef = useRef<number | null>(null);
-    const heightAnimationRef = useRef<Animation | null>(null);
+    const panelBodyRef = useRef<HTMLDivElement>(null);
 
     function lockPageScroll() {
         if (scrollLocked.current) return;
@@ -110,60 +109,47 @@ export default function Modal({
     }, [open, onClose]);
 
     useLayoutEffect(() => {
-        const dialog = dialogRef.current;
-
-        if (!open || !mounted || !dialog) {
-            heightAnimationRef.current?.cancel();
-            heightAnimationRef.current = null;
-            previousHeightRef.current = null;
+        if (!panel || !open || !mounted) {
+            setPanelHeight(null);
             return;
         }
 
-        const runningAnimation = heightAnimationRef.current;
-        const startHeight = runningAnimation
-            ? dialog.getBoundingClientRect().height
-            : previousHeightRef.current;
+        const body = panelBodyRef.current;
+        if (!body) return;
 
-        runningAnimation?.cancel();
-        heightAnimationRef.current = null;
-
-        const targetHeight = dialog.getBoundingClientRect().height;
-        previousHeightRef.current = targetHeight;
-
-        if (
-            startHeight === null ||
-            Math.abs(targetHeight - startHeight) < 1 ||
-            window.matchMedia("(prefers-reduced-motion: reduce)").matches
-        ) {
-            return;
-        }
-
-        const animation = dialog.animate(
-            [
-                { height: `${startHeight}px` },
-                { height: `${targetHeight}px` },
-            ],
-            {
-                duration: 300,
-                easing: "ease-in-out",
+        const getCapPixels = () => {
+            const viewportCap = window.innerHeight * 0.92;
+            if (typeof height === "number") {
+                return Math.min(height, viewportCap);
             }
-        );
 
-        heightAnimationRef.current = animation;
-
-        const clearAnimation = () => {
-            if (heightAnimationRef.current === animation) {
-                heightAnimationRef.current = null;
-            }
+            const dvh = Number.parseFloat(height);
+            return Math.min((window.innerHeight * dvh) / 100, viewportCap);
         };
 
-        animation.addEventListener("finish", clearAnimation, { once: true });
-        animation.addEventListener("cancel", clearAnimation, { once: true });
-    }, [children, mounted, open]);
+        const measure = () => {
+            const nextHeight = Math.min(body.getBoundingClientRect().height, getCapPixels());
+            setPanelHeight((currentHeight) =>
+                currentHeight !== null && Math.abs(currentHeight - nextHeight) < 1
+                    ? currentHeight
+                    : nextHeight
+            );
+        };
+
+        measure();
+
+        const resizeObserver = new ResizeObserver(measure);
+        resizeObserver.observe(body);
+        window.addEventListener("resize", measure);
+
+        return () => {
+            resizeObserver.disconnect();
+            window.removeEventListener("resize", measure);
+        };
+    }, [height, mounted, open, panel]);
 
     useEffect(
         () => () => {
-            heightAnimationRef.current?.cancel();
             restorePageScroll();
         },
         []
@@ -188,9 +174,19 @@ export default function Modal({
             />
 
             <div
-                ref={dialogRef}
                 role="dialog"
-                style={{ maxHeight: resolvedMaxHeight }}
+                style={{
+                    maxHeight: resolvedMaxHeight,
+                    ...(panel && panelHeight !== null
+                        ? { height: `${panelHeight}px` }
+                        : {}),
+                    ...(panel
+                        ? {
+                              transition:
+                                  "height 300ms ease-in-out, transform 200ms ease, opacity 200ms ease",
+                          }
+                        : {}),
+                }}
                 aria-modal="true"
                 onClick={(event: { stopPropagation(): void }) =>
                     event.stopPropagation()
@@ -215,7 +211,13 @@ export default function Modal({
                         />
                     </button>
                 )}
-                {panel ? <div className="panel-modal-body">{children}</div> : children}
+                {panel ? (
+                    <div ref={panelBodyRef} className="panel-modal-body">
+                        {children}
+                    </div>
+                ) : (
+                    children
+                )}
             </div>
         </div>,
         document.body
