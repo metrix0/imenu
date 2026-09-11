@@ -50,7 +50,7 @@ export default function MenuProductCards({
     return (
         <div className="panel-product-cards grid gap-5 md:grid-cols-2">
             <div className="relative flex min-h-[320px] flex-col overflow-hidden rounded-2xl border border-brand bg-gradient-to-br from-white via-white to-brand/[0.08] p-6 shadow-sm ring-2 ring-brand/10">
-                <div className="absolute right-4 top-4 inline-flex items-center gap-1.5 rounded-full bg-brand px-2.5 py-1 text-xs font-semibold text-white">
+                <div className="!absolute !right-4 !top-4 !mb-0 !w-auto !self-auto inline-flex items-center gap-1.5 rounded-full !bg-brand px-2.5 py-1 text-xs font-semibold !text-white">
                     <FontAwesomeIcon icon={faLock} />
                     Obrigatório Grátis
                 </div>
@@ -156,10 +156,7 @@ export default function MenuProductCards({
                     iMenu QR Code Mesa
                 </h3>
                 <div className="mt-2 text-sm leading-relaxed text-gray-600">
-                    <span>
-                        Cardápio digital na mesa através de QR Code e link para seus
-                        clientes, receba pedidos e imprima automaticamente.
-                    </span>
+                    <span>Cardápio digital na mesa através de QR Code</span>
                     <div
                         className="ml-2 inline-block align-middle"
                         onClick={(event) => event.stopPropagation()}
@@ -190,12 +187,12 @@ export default function MenuProductCards({
                 <ul className="mt-4 flex flex-wrap gap-x-4 gap-y-2 text-sm text-gray-700">
                     {["Sem limites de mesas", "Painel do Garçom", "A mesa acompanha o pedido"].map(
                         (feature) => (
-                            <li key={feature} className="flex items-center gap-2">
+                            <li key={feature} className="flex min-w-0 max-w-full items-center gap-2 whitespace-nowrap">
                                 <FontAwesomeIcon
                                     icon={faCheck}
-                                    className="text-xs text-brand"
+                                    className="shrink-0 text-xs text-brand"
                                 />
-                                {feature}
+                                <span className="truncate">{feature}</span>
                             </li>
                         ),
                     )}
