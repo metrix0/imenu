@@ -8,6 +8,7 @@ import Button from "@/components/ui/Button";
 import Toast from "@/components/ui/Toast";
 import Loader from "@/components/ui/Loader";
 import type { SaveState } from "@/components/ui/SaveStatus";
+import PanelAppearance from "@/components/ui/PanelAppearance";
 import StoreProfileManager from "@/components/restaurant-owner/loja/StoreProfileManager";
 import CardapioTab from "@/components/restaurant-owner/cardapio/tabs/CardapioTab";
 import ManageCategoryModal from "@/components/restaurant-owner/cardapio/ManageCategoryModal";
@@ -19,6 +20,7 @@ import { faWandMagicSparkles } from "@fortawesome/free-solid-svg-icons";
 import Input from "@/components/ui/Input";
 import Tooltip from "@/components/ui/Tooltip";
 import AllowedPaymentMethods, { DEFAULT_ALLOWED_PAYMENT_METHODS } from "@/components/restaurant-owner/configuracoes/AllowedPaymentMethods";
+import "../../../painel/essencial.css";
 
 
 type Category = { id: string; name: string; position: number };
@@ -51,8 +53,7 @@ export default function CriarCardapioPage() {
     if(!restaurantId||!profileRestaurant)return null;
 
     return <main className="flex min-h-screen flex-col items-center bg-white px-4 pb-32 pt-4 sm:px-6"><div className="mt-4 w-full max-w-4xl"><div className="mb-8"><p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-brand">Etapa 4/4</p><h1 className="text-3xl font-bold">Defina sua Loja</h1><p className="mt-1 text-gray-500">Adicione sua marca e seus primeiros produtos.</p></div>
-        <div className="mb-8"><StoreProfileManager restaurant={profileRestaurant} hideCustomDomainButton onNameChange={setName} onSaveStatusChange={setProfileStatus}/></div>
-        <AllowedPaymentMethods value={methods} onChange={(next)=>{setMethods(next);void autoSave({allowed_payment_methods:next});}} className="mb-8"/>
+        <PanelAppearance><div className="mb-8 space-y-8"><StoreProfileManager restaurant={profileRestaurant} hideCustomDomainButton onNameChange={setName} onSaveStatusChange={setProfileStatus}/><AllowedPaymentMethods value={methods} onChange={(next)=>{setMethods(next);void autoSave({allowed_payment_methods:next});}}/></div></PanelAppearance>
         <div className="mb-4 flex flex-col justify-between gap-3 px-2 sm:flex-row sm:items-center"><h2 className="text-xl font-bold">Cardápio</h2><button onClick={()=>setAiOpen(true)} className="flex items-center justify-center gap-2 rounded-full bg-gradient-to-br from-[#905CFF] to-[#6A3AFF] px-6 py-3 font-medium text-white"><FontAwesomeIcon icon={faWandMagicSparkles}/>Scanear Cardápio com IA</button></div><div className="rounded-xl border border-gray-100 bg-gray-50/50 p-4"><CardapioTab categories={categories} items={items} restaurantId={restaurantId} onRefresh={load} onItemUpdated={(updatedItem)=>setItems((current)=>current.map((item)=>item.id===updatedItem.id?{...item,...updatedItem}:item))} onEditCategory={(c)=>{setCatEdit(c);setCatOpen(true);}} onOpenItemDetails={(item)=>{setItemEdit(item);setItemOpen(true);}} onNewCategory={()=>{setCatEdit(null);setCatOpen(true);}} onAIScanMenu={setAiOpen}/></div>{needsResponsiblePhone&&<div className="mt-8"><Input label="Celular do Responsável*" type="tel" autoComplete="tel" value={responsiblePhone} maxLength={15} onChange={(e)=>setResponsiblePhone(formatPhone(e.target.value))}/><p className="mt-1 text-xs text-gray-500">Usado para suporte e casos de emergência.</p></div>}</div>
         <div className="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white p-4"><div className="mx-auto flex max-w-4xl items-center justify-between"><button onClick={()=>router.back()} className="cursor-pointer font-medium text-brand">Voltar</button><Tooltip text={!name.trim() ? "Você precisa completar os dados primeiro" : profileStatus==="saving" ? "Aguarde os dados terminarem de salvar" : ""}><Button onClick={finish} loading={saving} disabled={profileStatus==="saving"} className={`px-8 ${!name.trim()?"!bg-brand/55 hover:!bg-brand/55":""}`}>Salvar e Continuar</Button></Tooltip></div></div>
         <ManageCategoryModal isOpen={catOpen} onClose={()=>setCatOpen(false)} onSuccess={load} restaurantId={restaurantId} categoryToEdit={catEdit}/><ItemDetailsModal isOpen={itemOpen} onClose={()=>setItemOpen(false)} item={itemEdit} restaurantId={restaurantId}/><ScanMenuModal open={aiOpen} onClose={()=>setAiOpen(false)} restaurantId={restaurantId} existingCategories={categories} onRefresh={load}/>{toast&&<Toast message={toast.message} type={toast.type} onClose={()=>setToast(null)}/>}</main>;
