@@ -13,6 +13,7 @@ import {
     faLocationDot,
     faRoute,
     faTrash,
+    faTriangleExclamation,
 } from "@fortawesome/free-solid-svg-icons";
 
 import RadiusDeliveryRules, {
@@ -20,6 +21,7 @@ import RadiusDeliveryRules, {
 } from "./TempoeTaxaRadiusBase";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
+import WarningBox from "@/components/ui/WarningBox";
 import { supabase } from "@/lib/database/supabaseClient";
 import {
     parseNeighborhoodDeliveryRules,
@@ -285,7 +287,18 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                             }`}
                         >
                             <FontAwesomeIcon icon={faRoute} />
-                            Entrega por KM
+                            <span className="flex flex-col items-center gap-0.5 sm:flex-row sm:gap-2">
+                                <span>Entrega por KM</span>
+                                <span
+                                    className={`rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${
+                                        mode === "radius"
+                                            ? "bg-white/15 text-white"
+                                            : "bg-brand/10 text-brand"
+                                    }`}
+                                >
+                                    ★ Recomendado
+                                </span>
+                            </span>
                         </button>
                         <button
                             type="button"
@@ -316,13 +329,25 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                 )}
 
                 <div
-                    className={`grid transition-[grid-template-rows,opacity] duration-300 ease-out ${
+                    className={`grid transition-[grid-template-rows,opacity,transform] duration-300 ease-out ${
                         mode === "neighborhood"
-                            ? "grid-rows-[1fr] opacity-100"
-                            : "grid-rows-[0fr] opacity-0"
+                            ? "grid-rows-[1fr] translate-y-0 opacity-100"
+                            : "grid-rows-[0fr] -translate-y-1 opacity-0"
                     }`}
                 >
                     <div className="overflow-hidden">
+                        <WarningBox
+                            icon={faTriangleExclamation}
+                            className={`mb-4 transition-[opacity,transform] duration-300 ease-out ${
+                                mode === "neighborhood"
+                                    ? "translate-y-0 opacity-100"
+                                    : "-translate-y-2 opacity-0"
+                            }`}
+                        >
+                            <strong>Cadastre os bairros com a grafia correta.</strong>{" "}
+                            Nomes com erros de digitação podem não ser reconhecidos no checkout.
+                        </WarningBox>
+
                         <div className="mb-8 rounded-lg border border-gray-200 bg-white p-4 shadow-sm sm:p-6 2xl:p-8">
                             <div className="space-y-4">
                                 {rules.map((rule) => (
@@ -416,11 +441,11 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                 </div>
 
                 <div
-                    className={
+                    className={`[interpolate-size:allow-keywords] [&>div>div:first-child]:overflow-hidden [&>div>div:first-child]:transition-all [&>div>div:first-child]:duration-300 [&>div>div:first-child]:ease-out [&>div>div:nth-child(2)]:origin-top [&>div>div:nth-child(2)]:overflow-hidden [&>div>div:nth-child(2)]:transition-all [&>div>div:nth-child(2)]:duration-300 [&>div>div:nth-child(2)]:ease-out ${
                         mode === "neighborhood"
-                            ? "[&>div>div:first-child]:hidden [&>div>div:nth-child(2)]:hidden"
-                            : ""
-                    }
+                            ? "[&>div>div:first-child]:!h-0 [&>div>div:first-child]:!mb-0 [&>div>div:first-child]:opacity-0 [&>div>div:nth-child(2)]:!h-0 [&>div>div:nth-child(2)]:!mb-0 [&>div>div:nth-child(2)]:!p-0 [&>div>div:nth-child(2)]:scale-[0.99] [&>div>div:nth-child(2)]:border-transparent [&>div>div:nth-child(2)]:opacity-0 [&>div>div:nth-child(2)]:pointer-events-none"
+                            : "[&>div>div:first-child]:opacity-100 [&>div>div:nth-child(2)]:scale-100 [&>div>div:nth-child(2)]:opacity-100"
+                    }`}
                 >
                     <RadiusDeliveryRules
                         ref={radiusRef}
