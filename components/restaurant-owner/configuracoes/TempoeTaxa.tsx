@@ -289,7 +289,7 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                             <FontAwesomeIcon icon={faRoute} />
                             <span className="flex flex-col items-center gap-0.5 sm:flex-row sm:gap-2">
                                 <span>Entrega por KM</span>
-                                <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-brand ring-1 ring-brand/20">
+                                <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide !text-brand ring-1 ring-brand/20">
                                     ★ Recomendado
                                 </span>
                             </span>
