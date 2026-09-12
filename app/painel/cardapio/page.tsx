@@ -221,6 +221,9 @@ export default function MenuManagerPage() {
                         font-size: 14px !important;
                         line-height: 20px !important;
                     }
+                    .panel-essencial [data-panel-path="/painel/cardapio"] .panel-menu-editor input[aria-label^="Estoque de "] {
+                        font-size: 16px !important;
+                    }
                     .panel-essencial [data-panel-path="/painel/cardapio"] .panel-menu-editor input[placeholder="Adicionar uma descrição..."] {
                         font-size: 12px !important;
                         line-height: 16px !important;
