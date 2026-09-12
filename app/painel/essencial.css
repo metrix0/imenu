@@ -1,8 +1,8 @@
 /* Essencial / Clara. Scoped to the owner panel and its portaled overlays. */
 .panel-essencial {
     --panel-brand: #f14400;
-    --panel-action: #c93f0b;
-    --panel-action-hover: #ac3509;
+    --panel-action: #d93d00;
+    --panel-action-hover: #c43700;
     --panel-background: #f7f8fa;
     --panel-surface: #fff;
     --panel-soft: #f1f3f5;
@@ -10,7 +10,7 @@
     --panel-text: #1d1d1d;
     --panel-muted: #626973;
     --panel-tint: #fff1ea;
-    --panel-accent-text: #b7360c;
+    --panel-accent-text: #c43700;
     --panel-radius: 10px;
     --panel-control-radius: 8px;
     color-scheme: light;
@@ -22,10 +22,11 @@
 
 .panel-essencial :where(h1, h2, h3, p, section, article, form, fieldset) { min-width: 0; }
 .panel-essencial :where(button, input, select, textarea) { font-family: inherit; }
-.panel-essencial :is(.font-bold, .font-semibold, .font-extrabold) { font-weight: 500; }
-.panel-essencial :where(h1) { font-size: 28px; line-height: 34px; font-weight: 500; letter-spacing: -.7px; }
-.panel-essencial :where(h2) { font-size: 21px; line-height: 28px; font-weight: 500; letter-spacing: -.4px; }
-.panel-essencial :where(h3) { font-size: 16px; line-height: 24px; font-weight: 500; }
+.panel-essencial :is(.font-bold, .font-semibold, .font-extrabold):not(h1, h2, h3) { font-weight: 500; }
+.panel-essencial .panel-order .font-bold.text-lg { font-weight: 700; }
+.panel-essencial :where(h1) { font-size: 28px; line-height: 34px; font-weight: 700; letter-spacing: normal; }
+.panel-essencial :where(h2) { font-size: 21px; line-height: 28px; font-weight: 700; letter-spacing: normal; }
+.panel-essencial :where(h3) { font-size: 16px; line-height: 24px; font-weight: 700; }
 .panel-essencial :is(.text-gray-900, .text-gray-800, .text-black) { color: var(--panel-text); }
 .panel-essencial :is(.text-gray-500, .text-gray-600) { color: var(--panel-muted); }
 .panel-essencial :is(.bg-gray-50, .bg-slate-50) { background-color: var(--panel-background); }
@@ -244,7 +245,7 @@
 .panel-essencial .panel-order-heading .rounded-full { font-size: 11px; line-height: 16px; padding: 3px 8px; }
 .panel-essencial .panel-order-body { padding: 18px; margin-top: 0; }
 .panel-essencial .panel-order-body .text-sm { font-size: 13px; }
-.panel-essencial .panel-order-body .text-lg { font-size: 18px; line-height: 26px; font-variant-numeric: tabular-nums; }
+.panel-essencial .panel-order-body .text-lg { font-size: 18px; line-height: 26px; font-variant-numeric: normal; }
 .panel-essencial .panel-order-actions { gap: 6px; margin-top: 8px; }
 .panel-essencial .panel-order-actions > button:not(.flex-1) { padding-inline: 10px; flex-shrink: 0; }
 .panel-essencial .panel-empty { border: 1px dashed var(--panel-border); border-radius: 10px; padding: 56px 24px; white-space: normal; }
@@ -358,11 +359,11 @@
 .panel-date-picker .calendar-grid button[data-outside="true"] { color:#a1a6ad; }
 .panel-date-picker .calendar-grid button[data-range="true"] { background:#fff1ea; color:#a9360a; border-radius:0; }
 .panel-date-picker .calendar-grid button:hover:not(:disabled) { background:#fff1ea; }
-.panel-date-picker .calendar-grid button[aria-pressed="true"] { background:#c93f0b; color:white; }
-.panel-date-picker .calendar-grid button[aria-pressed="true"]:hover:not(:disabled) { background:#ac3509; color:white; }
+.panel-date-picker .calendar-grid button[aria-pressed="true"] { background:#d93d00; color:white; }
+.panel-date-picker .calendar-grid button[aria-pressed="true"]:hover:not(:disabled) { background:#c43700; color:white; }
 .panel-date-picker button:not(:disabled) { cursor:pointer; }
-.panel-date-picker .calendar-preset:hover:not(:disabled), .panel-date-picker > .grid button:hover { background:#fff1ea; color:#b7360c; }
-.panel-date-picker button:focus-visible { outline:2px solid #c93f0b; outline-offset:2px; }
+.panel-date-picker .calendar-preset:hover:not(:disabled), .panel-date-picker > .grid button:hover { background:#fff1ea; color:#c43700; }
+.panel-date-picker button:focus-visible { outline:2px solid #d93d00; outline-offset:2px; }
 .panel-essencial .panel-menu-row { gap:16px; padding:18px 20px; font-size:14px; transition:background-color 150ms; }
 .panel-essencial .panel-menu-row > div:last-child { gap:12px; padding-left:0; }
 .panel-essencial .panel-menu-row > div:last-child { align-items:center; flex-wrap:wrap; }
@@ -388,7 +389,7 @@
 .panel-essencial .panel-menu-row [data-ui="button"] { min-height:36px; }
 .panel-essencial .panel-complements { height:100%; max-height:100%; }
 .panel-essencial .panel-complements > div:first-child { padding-right:60px; }
-.panel-essencial .panel-complements input[type="checkbox"] { width:16px; height:16px; flex-shrink:0; accent-color:#c93f0b; }
+.panel-essencial .panel-complements input[type="checkbox"] { width:16px; height:16px; flex-shrink:0; accent-color:#d93d00; }
 .panel-essencial .panel-complements .shadow-sm { box-shadow:none; }
 .panel-essencial [data-ui="card"].panel-history-table { padding:0; }
 .panel-essencial .panel-history-table [data-ui="table"] { border:0; border-radius:0; }
@@ -429,11 +430,11 @@
 .panel-essencial [data-panel-path="/painel/mesas"] [data-ui="card"]:has(img[alt="QR Code universal das mesas"]) div:has(> svg[data-icon="qrcode"]) { background:var(--panel-soft); }
 .panel-essencial [data-panel-path="/painel/mesas"] img[alt="QR Code universal das mesas"] { width:224px; height:224px; }
 .panel-essencial [data-panel-path="/painel/configuracoes"] h1,
-.panel-essencial [data-panel-path="/painel/analytics"] h1 { font-size:28px; line-height:34px; font-weight:500; letter-spacing:-.7px; }
+.panel-essencial [data-panel-path="/painel/analytics"] h1 { font-size:28px; line-height:34px; font-weight: 700; letter-spacing:normal; }
 .panel-essencial [data-panel-path="/painel/configuracoes"] h2,
-.panel-essencial [data-panel-path="/painel/analytics"] h2 { font-size:21px; line-height:28px; font-weight:500; letter-spacing:-.4px; }
+.panel-essencial [data-panel-path="/painel/analytics"] h2 { font-size:21px; line-height:28px; font-weight: 700; letter-spacing:normal; }
 .panel-essencial [data-panel-path="/painel/configuracoes"] h3,
-.panel-essencial [data-panel-path="/painel/analytics"] h3 { font-size:16px; line-height:24px; font-weight:500; }
+.panel-essencial [data-panel-path="/painel/analytics"] h3 { font-size:16px; line-height:24px; font-weight: 700; }
 @media (max-width:767px) {
   .panel-essencial [data-panel-path="/painel/configuracoes"] h1,
   .panel-essencial [data-panel-path="/painel/analytics"] h1 { font-size:25px; line-height:32px; }
