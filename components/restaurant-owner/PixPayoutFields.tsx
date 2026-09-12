@@ -120,7 +120,7 @@ export default function PixPayoutFields({
             <div data-ui="field" className="min-w-0">
                 <div
                     data-ui="field-label"
-                    className={`flex items-center gap-2 text-xs font-medium leading-[18px] ${
+                    className={`flex items-center gap-1.5 text-xs font-medium leading-[18px] ${
                         needsPixType ? "text-red-600" : ""
                     }`}
                     style={{ display: "flex" }}
