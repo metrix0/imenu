@@ -1,0 +1,99 @@
+/* Essencial / Clara from design-system.html; preserve the landing's layout scale. */
+.landing-essencial {
+    --landing-action: #d93d00;
+    --landing-action-hover: #c43700;
+    --landing-background: #f7f8fa;
+    --landing-surface: #fff;
+    --landing-soft: #f1f3f5;
+    --landing-border: #e2e5e9;
+    --landing-text: #1d1d1d;
+    --landing-muted: #626973;
+    color-scheme: light;
+    color: var(--landing-text);
+    background: var(--landing-surface);
+    font-family: 'iFoodRCTextos', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+}
+
+.landing-essencial :where(button, input, select, textarea) { font-family: inherit; }
+.landing-essencial :is(h1, h2, h3) { letter-spacing: normal; }
+.landing-essencial :is(h1, h2, h3):is(.font-bold, .font-semibold, .font-extrabold) { font-weight: 700; }
+.landing-essencial :is(.font-bold, .font-semibold, .font-extrabold):not(h1, h2, h3) { font-weight: 500; }
+.landing-essencial :is(.text-gray-900, .text-gray-800, .text-black) { color: var(--landing-text); }
+.landing-essencial :is(.text-gray-500, .text-gray-600) { color: var(--landing-muted); }
+.landing-essencial :is(a, button).text-brand { color: var(--landing-action-hover); }
+.landing-essencial .hover\:text-gray-500:hover { color: var(--landing-text); }
+.landing-essencial .bg-gray-50 { background-color: var(--landing-background); }
+.landing-essencial .bg-gray-100 { background-color: var(--landing-soft); }
+.landing-essencial :is(.bg-gray-200, .bg-gray-300) { background-color: var(--landing-border); }
+.landing-essencial :is(.border-gray-100, .border-gray-200, .border-gray-300) { border-color: var(--landing-border); }
+.landing-essencial .divide-gray-200 > :not(:last-child) { border-color: var(--landing-border); }
+.landing-essencial tbody tr:nth-child(even) { background-color: var(--landing-background); }
+.landing-essencial :is(.rounded-lg, .rounded-xl, .rounded-2xl, .rounded-3xl) { border-radius: 10px; }
+.landing-essencial article { box-shadow: none; }
+
+.landing-essencial :where(button, a, input, select, textarea, [tabindex]):focus-visible {
+    outline: 2px solid var(--landing-action);
+    outline-offset: 3px;
+}
+
+.landing-essencial .lucide {
+    display: inline-block;
+    flex-shrink: 0;
+    vertical-align: -.125em;
+    stroke-width: 1.75;
+}
+
+/* Reuse Button's variants, keeping existing responsive sizing and animation. */
+.landing-essencial [data-ui="button"] {
+    min-height: 40px;
+    border: 1px solid var(--landing-border);
+    border-radius: 8px;
+    font-weight: 500;
+    box-shadow: none;
+}
+
+.landing-essencial [data-ui="button"][data-variant="primary"] {
+    background: var(--landing-action);
+    border-color: var(--landing-action);
+    color: #fff;
+}
+
+.landing-essencial [data-ui="button"][data-variant="primary"]:hover:not(:disabled) {
+    background: var(--landing-action-hover);
+    border-color: var(--landing-action-hover);
+}
+
+.landing-essencial [data-ui="button"][data-variant="secondary"] {
+    background: var(--landing-surface);
+    color: var(--landing-text);
+}
+
+.landing-essencial [data-ui="button"][data-variant="secondary"]:hover:not(:disabled) {
+    background: var(--landing-soft);
+}
+
+.landing-essencial [data-ui="button"]:disabled { opacity: .48; cursor: not-allowed; }
+
+.landing-essencial .landing-cta {
+    border-color: var(--landing-action);
+    border-radius: 10px;
+    background-image: linear-gradient(to bottom right, #f14400, var(--landing-action), var(--landing-action-hover));
+    box-shadow: none;
+}
+
+.landing-essencial .landing-cta-button[data-ui="button"] {
+    background: var(--landing-surface);
+    border-color: var(--landing-border);
+    color: var(--landing-action-hover);
+}
+
+.landing-essencial .landing-cta-button[data-ui="button"]:hover:not(:disabled) {
+    background: var(--landing-soft);
+    border-color: var(--landing-border);
+}
+
+.landing-essencial .landing-cta-button:focus-visible { outline-color: #fff; }
+
+@media (max-width: 767px) {
+    .landing-essencial [data-ui="button"] { min-height: 44px; }
+}
