@@ -258,7 +258,7 @@ function normalizeWhatsappNumber(value: string | null): string | null {
     let digits = original.replace(/\D/g, "");
     if (!digits) return null;
 
-    if (!digits.startsWith("55") && (digits.length === 10 || digits.length === 11)) {
+    if (digits.length === 10 || digits.length === 11) {
         digits = `55${digits}`;
     }
 
@@ -868,7 +868,7 @@ export default function DevDashboardPage() {
                                                                         disabled={!whatsappNumber}
                                                                         onClick={() => {
                                                                             if (!whatsappNumber) return;
-                                                                            const message = `Olá, ${user.restaurantName}, percebemos que estava usando o iMenu, porém nos últimos 7 dias não houveram compras recentes no seu restaurante. Nossa equipe corrige erros em 1-2 dias úteis e adiciona novas funcionalidades em 1-2 semanas. Podemos auxiliar de alguma forma?`;
+                                                                            const message = `Olá, sou o João do iMenu, entrando em contato por causa do ${user.restaurantName}.\n\nNotamos que não estão tendo pedidos recentemente. Podemos auxiliar com algo?`;
                                                                             window.open(
                                                                                 `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`,
                                                                                 "_blank",
