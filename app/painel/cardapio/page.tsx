@@ -223,6 +223,10 @@ export default function MenuManagerPage() {
                     }
                     .panel-essencial [data-panel-path="/painel/cardapio"] .panel-menu-editor input[aria-label^="Estoque de "] {
                         font-size: 16px !important;
+                        transform: scale(0.875);
+                        transform-origin: right center;
+                        width: calc(3rem / 0.875);
+                        margin-left: calc(3rem - (3rem / 0.875));
                     }
                     .panel-essencial [data-panel-path="/painel/cardapio"] .panel-menu-editor input[placeholder="Adicionar uma descrição..."] {
                         font-size: 12px !important;
