@@ -270,7 +270,7 @@ export default function PainelPedidosAtivosPage() {
                                             icon={faBellSlash}
                                             className="mr-2"
                                         />
-                                        Clique para Ativar o <b>som dos pedidos</b>.
+                                        <span>Clique para Ativar o <b>som dos pedidos</b>.</span>
                                     </>
                                 )}
                             </div>
