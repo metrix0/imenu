@@ -174,13 +174,13 @@ export default function LandingPage() {
                     <button
                         type="button"
                         onClick={() => router.push("/restaurante/login")}
-                        className="hidden cursor-pointer items-center gap-1 text-gray-600 transition hover:text-gray-500 md:flex"
+                        className="hidden cursor-pointer items-center text-gray-500 transition hover:text-text md:flex"
                     >
-                        <FontAwesomeIcon icon={icons.faUser} /> Login
+                        Entrar no Painel
                     </button>
 
                     <Button
-                        className="!hidden md:!block min-[1400px]:px-5 min-[1400px]:py-2.5 min-[1400px]:text-base"
+                        className="!hidden !bg-[#d93d00] hover:!bg-dark-brand focus:!ring-[#d93d00] md:!block min-[1400px]:px-5 min-[1400px]:py-2.5 min-[1400px]:text-base"
                         onClick={() => router.push("/restaurante/registrar")}
                     >
                         Registrar Grátis
@@ -203,14 +203,14 @@ export default function LandingPage() {
                         </div>
                     </div>
 
-                    <h1 className="mt-6 mb-2 text-2xl leading-tight font-extrabold text-brand md:-mt-4 md:text-5xl min-[1400px]:text-[3.5rem] 2xl:text-[4rem]">
+                    <h1 className="mt-6 mb-2 text-2xl leading-tight font-bold text-brand md:-mt-4 md:text-5xl min-[1400px]:text-[3.5rem] 2xl:text-[4rem]">
                         O novo Cardápio Digital
                         <br />
                         <span className="text-text">100% Gratuito</span>
                     </h1>
                     <h2 className="mt-4 leading-normal text-gray-500 md:mt-0 md:leading-15 min-[1400px]:text-lg min-[1400px]:leading-8 2xl:text-[1.4rem]">
-                        Cardápio digital para Restaurantes e Delivery. Pronto em 5
-                        minutos.
+                        Cardápio digital para Restaurantes e Delivery. Pronto em 3
+                        minutos com <u>Inteligência Artificial</u>.
                     </h2>
                     <div className="mt-5 hidden text-gray-500 md:block min-[1400px]:text-lg 2xl:text-[1.4rem]">
                         Sem taxas, sem pegadinhas.{" "}
@@ -227,7 +227,7 @@ export default function LandingPage() {
                     <div className="mt-6 flex items-center justify-center gap-4 md:justify-start min-[1400px]:mt-8 min-[1400px]:gap-5 2xl:mt-9 2xl:gap-6">
                         <Button
                             onClick={() => router.push("/restaurante/registrar")}
-                            className="px-6 py-3 text-lg min-[1400px]:px-8 min-[1400px]:py-3.5 min-[1400px]:text-xl 2xl:px-10 2xl:py-4 2xl:text-[1.6rem]"
+                            className="!bg-[#d93d00] px-6 py-3 text-lg hover:!bg-dark-brand focus:!ring-[#d93d00] min-[1400px]:px-8 min-[1400px]:py-3.5 min-[1400px]:text-xl 2xl:px-10 2xl:py-4 2xl:text-[1.6rem]"
                         >
                             Registrar Grátis
                         </Button>
@@ -235,9 +235,9 @@ export default function LandingPage() {
                         <button
                             type="button"
                             onClick={() => router.push("/restaurante/login")}
-                            className="flex cursor-pointer items-center gap-1 text-gray-600 transition hover:text-gray-500 min-[1400px]:text-lg 2xl:text-xl"
+                            className="flex cursor-pointer items-center text-gray-500 transition hover:text-text min-[1400px]:text-lg 2xl:text-xl"
                         >
-                            <FontAwesomeIcon icon={icons.faUser} /> Login
+                            Entrar no Painel
                         </button>
                     </div>
                 </div>
@@ -257,7 +257,7 @@ export default function LandingPage() {
             </section>
 
             <section className="mx-auto h-auto max-w-[1920px] px-8 py-16 md:min-h-[100vh] min-[1400px]:py-20 2xl:py-26">
-                <h2 className="reveal fade-up mb-4 text-center text-3xl font-extrabold text-brand md:mb-13 md:text-4xl min-[1400px]:mb-16 min-[1400px]:text-[2.75rem] 2xl:mb-20 2xl:text-[3.2rem]">
+                <h2 className="reveal fade-up mb-4 text-center text-3xl font-bold text-brand md:mb-13 md:text-4xl min-[1400px]:mb-16 min-[1400px]:text-[2.75rem] 2xl:mb-20 2xl:text-[3.2rem]">
                     Totalmente Grátis
                     <br />
                     <span className="text-2xl text-text md:text-[100%]">
@@ -369,7 +369,7 @@ export default function LandingPage() {
                                     onClick={() =>
                                         router.push("/restaurante/registrar")
                                     }
-                                    className="mb-3 px-6 py-3 text-lg min-[1400px]:px-8 min-[1400px]:py-3.5 min-[1400px]:text-xl 2xl:px-10 2xl:py-4 2xl:text-[1.6rem]"
+                                    className="mb-3 !bg-[#d93d00] px-6 py-3 text-lg hover:!bg-dark-brand focus:!ring-[#d93d00] min-[1400px]:px-8 min-[1400px]:py-3.5 min-[1400px]:text-xl 2xl:px-10 2xl:py-4 2xl:text-[1.6rem]"
                                 >
                                     Registrar Grátis
                                 </Button>
@@ -397,7 +397,7 @@ export default function LandingPage() {
                 id="recursos"
                 className="mx-0 px-4 pt-30 md:mx-24 md:px-8 md:py-20 min-[1400px]:mx-28 min-[1400px]:py-24 2xl:mx-38"
             >
-                <h2 className="reveal fade-left mb-3 text-center text-4xl font-extrabold text-brand md:text-left min-[1400px]:text-[2.75rem] 2xl:text-[3.2rem]">
+                <h2 className="reveal fade-left mb-3 text-center text-4xl font-bold text-brand md:text-left min-[1400px]:text-[2.75rem] 2xl:text-[3.2rem]">
                     Venda mais <span className="hidden md:inline-block">com iMenu</span>
                     <br />
                     <span className="text-text">e lucre mais</span>
@@ -555,7 +555,7 @@ export default function LandingPage() {
                             </span>
                             100% gratuito
                         </span>
-                        <h2 className="mx-auto mt-6 max-w-4xl text-3xl font-extrabold leading-tight tracking-tight md:text-5xl min-[1400px]:text-[3.5rem] 2xl:text-[4rem]">
+                        <h2 className="mx-auto mt-6 max-w-4xl text-3xl font-bold leading-tight tracking-tight md:text-5xl min-[1400px]:text-[3.5rem] 2xl:text-[4rem]">
                             Seu cardápio pronto em 5 minutos{" "}
                             <span className="relative inline-block whitespace-nowrap">
                                 <span className="relative z-10">com IA.</span>
