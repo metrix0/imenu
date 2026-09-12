@@ -266,7 +266,10 @@ function normalizeWhatsappNumber(value: string | null): string | null {
 }
 
 function formatRestaurantNameForMessage(value: string): string {
-    const trimmed = value.trim();
+    const trimmed = value
+        .replace(/[\u{1F1E6}-\u{1F1FF}\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\uFE0F\u200D\u20E3]/gu, "")
+        .replace(/\s+/g, " ")
+        .trim();
     const lowercase = trimmed.toLocaleLowerCase("pt-BR");
     const uppercase = trimmed.toLocaleUpperCase("pt-BR");
 
