@@ -289,13 +289,7 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                             <FontAwesomeIcon icon={faRoute} />
                             <span className="flex flex-col items-center gap-0.5 sm:flex-row sm:gap-2">
                                 <span>Entrega por KM</span>
-                                <span
-                                    className={`rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${
-                                        mode === "radius"
-                                            ? "bg-white/15 text-white"
-                                            : "bg-brand/10 text-brand"
-                                    }`}
-                                >
+                                <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-brand ring-1 ring-brand/20">
                                     ★ Recomendado
                                 </span>
                             </span>
@@ -316,11 +310,21 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                     </div>
                 </div>
 
-                {mode === "neighborhood" && !isNew && (
-                    <div className="mb-3 flex h-6 justify-end text-sm font-medium">
-                        <SaveStatus status={error ? "error" : status} />
+                <div
+                    className={`grid transition-[grid-template-rows,opacity] duration-300 ease-in-out ${
+                        mode === "neighborhood" && !isNew
+                            ? "grid-rows-[1fr] opacity-100"
+                            : "grid-rows-[0fr] opacity-0"
+                    }`}
+                >
+                    <div className="overflow-hidden">
+                        <div className="mb-3 flex h-6 justify-end text-sm font-medium">
+                            {!isNew && (
+                                <SaveStatus status={error ? "error" : status} />
+                            )}
+                        </div>
                     </div>
-                )}
+                </div>
 
                 {error && (
                     <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
@@ -329,20 +333,16 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                 )}
 
                 <div
-                    className={`grid transition-[grid-template-rows,opacity,transform] duration-300 ease-out ${
+                    className={`grid transition-[grid-template-rows,opacity] duration-300 ease-in-out ${
                         mode === "neighborhood"
-                            ? "grid-rows-[1fr] translate-y-0 opacity-100"
-                            : "grid-rows-[0fr] -translate-y-1 opacity-0"
+                            ? "grid-rows-[1fr] opacity-100"
+                            : "grid-rows-[0fr] opacity-0 pointer-events-none"
                     }`}
                 >
-                    <div className="overflow-hidden">
+                    <div className="min-h-0 overflow-hidden">
                         <WarningBox
                             icon={faTriangleExclamation}
-                            className={`mb-4 transition-[opacity,transform] duration-300 ease-out ${
-                                mode === "neighborhood"
-                                    ? "translate-y-0 opacity-100"
-                                    : "-translate-y-2 opacity-0"
-                            }`}
+                            className="mb-4"
                         >
                             <strong>Cadastre os bairros com a grafia correta.</strong>{" "}
                             Nomes com erros de digitação podem não ser reconhecidos no checkout.
@@ -441,10 +441,10 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                 </div>
 
                 <div
-                    className={`[interpolate-size:allow-keywords] [&>div>div:first-child]:overflow-hidden [&>div>div:first-child]:transition-all [&>div>div:first-child]:duration-300 [&>div>div:first-child]:ease-out [&>div>div:nth-child(2)]:origin-top [&>div>div:nth-child(2)]:overflow-hidden [&>div>div:nth-child(2)]:transition-all [&>div>div:nth-child(2)]:duration-300 [&>div>div:nth-child(2)]:ease-out ${
+                    className={`[interpolate-size:allow-keywords] [&>div>div:first-child]:overflow-hidden [&>div>div:first-child]:transition-[height,opacity,margin] [&>div>div:first-child]:duration-300 [&>div>div:first-child]:ease-in-out [&>div>div:nth-child(2)]:overflow-hidden [&>div>div:nth-child(2)]:transition-[height,opacity,margin,padding,border-color] [&>div>div:nth-child(2)]:duration-300 [&>div>div:nth-child(2)]:ease-in-out ${
                         mode === "neighborhood"
-                            ? "[&>div>div:first-child]:!h-0 [&>div>div:first-child]:!mb-0 [&>div>div:first-child]:opacity-0 [&>div>div:nth-child(2)]:!h-0 [&>div>div:nth-child(2)]:!mb-0 [&>div>div:nth-child(2)]:!p-0 [&>div>div:nth-child(2)]:scale-[0.99] [&>div>div:nth-child(2)]:border-transparent [&>div>div:nth-child(2)]:opacity-0 [&>div>div:nth-child(2)]:pointer-events-none"
-                            : "[&>div>div:first-child]:opacity-100 [&>div>div:nth-child(2)]:scale-100 [&>div>div:nth-child(2)]:opacity-100"
+                            ? "[&>div>div:first-child]:!h-0 [&>div>div:first-child]:!mb-0 [&>div>div:first-child]:opacity-0 [&>div>div:first-child]:pointer-events-none [&>div>div:nth-child(2)]:!h-0 [&>div>div:nth-child(2)]:!mb-0 [&>div>div:nth-child(2)]:!p-0 [&>div>div:nth-child(2)]:border-transparent [&>div>div:nth-child(2)]:opacity-0 [&>div>div:nth-child(2)]:pointer-events-none"
+                            : "[&>div>div:first-child]:!h-auto [&>div>div:first-child]:opacity-100 [&>div>div:nth-child(2)]:!h-auto [&>div>div:nth-child(2)]:opacity-100"
                     }`}
                 >
                     <RadiusDeliveryRules
