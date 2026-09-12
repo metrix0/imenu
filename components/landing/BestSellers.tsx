@@ -149,7 +149,7 @@ export default function BestSellers() {
                             <Button
                                 variant="primary"
                                 onClick={() => router.push(`/${restaurant.url_slug}`)}
-                                className="col-span-3 w-full whitespace-nowrap px-4 py-2 md:mt-auto md:w-auto min-[1400px]:px-5 min-[1400px]:py-2.5 min-[1400px]:text-base"
+                                className="col-span-3 w-full whitespace-nowrap !min-h-10 !rounded-lg !border !border-[#d93d00] !bg-[#d93d00] !px-[14px] !py-[9px] !text-[13px] !leading-5 !font-medium !text-white !shadow-none hover:!border-[#c43700] hover:!bg-[#c43700] focus:!ring-[#d93d00] md:mt-auto md:w-auto"
                             >
                                 Ver cardápio
                             </Button>
