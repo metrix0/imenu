@@ -52,7 +52,8 @@ export default function MenuProductCards({
             <div className="relative flex min-h-[320px] flex-col overflow-hidden rounded-2xl border border-brand bg-gradient-to-br from-white via-white to-brand/[0.08] p-6 shadow-sm ring-2 ring-brand/10">
                 <span className="absolute right-4 top-4 inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-600">
                     <FontAwesomeIcon icon={faLock} />
-                    Obrigatório Grátis
+                    <span className="sm:hidden">Grátis</span>
+                    <span className="hidden sm:inline">Obrigatório Grátis</span>
                 </span>
 
                 <div className="relative h-12 w-40">
@@ -156,7 +157,7 @@ export default function MenuProductCards({
                     iMenu QR Code Mesa
                 </h3>
                 <div className="mt-2 flex min-w-0 items-center gap-2 text-sm leading-relaxed text-gray-600">
-                    <span className="min-w-0 truncate whitespace-nowrap">
+                    <span className="min-w-0">
                         Cardápio digital na mesa através de QR Code
                     </span>
                     <div
@@ -186,15 +187,15 @@ export default function MenuProductCards({
                     </span>
                 </div>
 
-                <ul className="mt-4 grid min-w-0 grid-cols-3 gap-2 overflow-hidden text-sm text-gray-700">
+                <ul className="mt-4 grid min-w-0 grid-cols-3 gap-2 text-sm text-gray-700">
                     {["Sem limites", "Painel do Garçom", "Acompanhamento do pedido"].map(
                         (feature) => (
-                            <li key={feature} className="flex min-w-0 items-center gap-1.5 overflow-hidden whitespace-nowrap">
+                            <li key={feature} className="flex min-w-0 items-center gap-1.5">
                                 <FontAwesomeIcon
                                     icon={faCheck}
                                     className="shrink-0 text-xs text-brand"
                                 />
-                                <span className="truncate" title={feature}>{feature}</span>
+                                <span title={feature}>{feature}</span>
                             </li>
                         ),
                     )}
