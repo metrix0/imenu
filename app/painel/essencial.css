@@ -23,7 +23,7 @@
 .panel-essencial :where(h1, h2, h3, p, section, article, form, fieldset) { min-width: 0; }
 .panel-essencial :where(button, input, select, textarea) { font-family: inherit; }
 .panel-essencial :is(.font-bold, .font-semibold, .font-extrabold):not(h1, h2, h3) { font-weight: 500; }
-.panel-essencial .panel-order .font-bold.text-lg { font-weight: 700; }
+.panel-essencial .panel-order .font-bold.text-lg { font-weight: 600; }
 .panel-essencial :where(h1) { font-size: 28px; line-height: 34px; font-weight: 700; letter-spacing: normal; }
 .panel-essencial :where(h2) { font-size: 21px; line-height: 28px; font-weight: 700; letter-spacing: normal; }
 .panel-essencial :where(h3) { font-size: 16px; line-height: 24px; font-weight: 700; }
