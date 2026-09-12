@@ -42,6 +42,11 @@ const LOGOS = [
     },
 ];
 
+const LANDING_BUTTON_BASE =
+    "!min-h-10 !rounded-lg !border !border-[#e2e5e9] !px-[14px] !py-[9px] !text-[13px] !leading-5 !font-medium !shadow-none";
+const LANDING_PRIMARY_BUTTON = `${LANDING_BUTTON_BASE} !border-[#d93d00] !bg-[#d93d00] !text-white hover:!border-[#c43700] hover:!bg-[#c43700] focus:!ring-[#d93d00]`;
+const LANDING_SECONDARY_BUTTON = `${LANDING_BUTTON_BASE} !bg-white !text-[#1d1d1d] hover:!bg-[#f1f3f5] focus:!ring-[#d93d00]`;
+
 export default function LandingPage() {
     const router = useRouter();
     const supportBtnRef = useRef<SupportButtonRef>(null);
@@ -171,16 +176,16 @@ export default function LandingPage() {
 
                     <div className="hidden h-6 w-px bg-gray-300 md:block min-[1400px]:h-7 2xl:h-8" />
 
-                    <button
-                        type="button"
+                    <Button
+                        variant="secondary"
                         onClick={() => router.push("/restaurante/login")}
-                        className="hidden cursor-pointer items-center text-gray-500 transition hover:text-text md:flex"
+                        className={`${LANDING_SECONDARY_BUTTON} !hidden md:!inline-flex`}
                     >
                         Entrar no Painel
-                    </button>
+                    </Button>
 
                     <Button
-                        className="!hidden !bg-[#d93d00] hover:!bg-dark-brand focus:!ring-[#d93d00] md:!block min-[1400px]:px-5 min-[1400px]:py-2.5 min-[1400px]:text-base"
+                        className={`${LANDING_PRIMARY_BUTTON} !hidden md:!inline-flex`}
                         onClick={() => router.push("/restaurante/registrar")}
                     >
                         Registrar Grátis
@@ -203,12 +208,12 @@ export default function LandingPage() {
                         </div>
                     </div>
 
-                    <h1 className="mt-6 mb-2 text-2xl leading-tight font-bold text-brand md:-mt-4 md:text-5xl min-[1400px]:text-[3.5rem] 2xl:text-[4rem]">
+                    <h1 className="mt-6 mb-2 text-2xl leading-tight font-bold text-text md:-mt-4 md:text-5xl min-[1400px]:text-[3.5rem] 2xl:text-[4rem]">
                         O novo Cardápio Digital
                         <br />
-                        <span className="text-text">100% Gratuito</span>
+                        <span className="text-brand">100% Gratuito</span>
                     </h1>
-                    <h2 className="mt-4 leading-normal text-gray-500 md:mt-0 md:leading-15 min-[1400px]:text-lg min-[1400px]:leading-8 2xl:text-[1.4rem]">
+                    <h2 className="mt-4 leading-normal text-gray-500 md:mt-0 md:leading-7 min-[1400px]:text-lg min-[1400px]:leading-8 2xl:text-[1.4rem]">
                         Cardápio digital para Restaurantes e Delivery. Pronto em 3
                         minutos com <u>Inteligência Artificial</u>.
                     </h2>
@@ -227,18 +232,18 @@ export default function LandingPage() {
                     <div className="mt-6 flex items-center justify-center gap-4 md:justify-start min-[1400px]:mt-8 min-[1400px]:gap-5 2xl:mt-9 2xl:gap-6">
                         <Button
                             onClick={() => router.push("/restaurante/registrar")}
-                            className="!bg-[#d93d00] px-6 py-3 text-lg hover:!bg-dark-brand focus:!ring-[#d93d00] min-[1400px]:px-8 min-[1400px]:py-3.5 min-[1400px]:text-xl 2xl:px-10 2xl:py-4 2xl:text-[1.6rem]"
+                            className={LANDING_PRIMARY_BUTTON}
                         >
                             Registrar Grátis
                         </Button>
                         <div className="h-6 w-px bg-gray-300 min-[1400px]:h-7" />
-                        <button
-                            type="button"
+                        <Button
+                            variant="secondary"
                             onClick={() => router.push("/restaurante/login")}
-                            className="flex cursor-pointer items-center text-gray-500 transition hover:text-text min-[1400px]:text-lg 2xl:text-xl"
+                            className={LANDING_SECONDARY_BUTTON}
                         >
                             Entrar no Painel
-                        </button>
+                        </Button>
                     </div>
                 </div>
 
@@ -360,7 +365,7 @@ export default function LandingPage() {
                                             "https://www.imenuapp.com.br/pizzaria-la-grucia"
                                         )
                                     }
-                                    className="gap-2 px-6 py-3 text-lg min-[1400px]:px-8 min-[1400px]:py-3.5 min-[1400px]:text-xl 2xl:px-10 2xl:py-4 2xl:text-[1.6rem]"
+                                    className={`${LANDING_SECONDARY_BUTTON} gap-2`}
                                 >
                                     <FontAwesomeIcon icon={faBurger} />
                                     Ver Exemplo
@@ -369,7 +374,7 @@ export default function LandingPage() {
                                     onClick={() =>
                                         router.push("/restaurante/registrar")
                                     }
-                                    className="mb-3 !bg-[#d93d00] px-6 py-3 text-lg hover:!bg-dark-brand focus:!ring-[#d93d00] min-[1400px]:px-8 min-[1400px]:py-3.5 min-[1400px]:text-xl 2xl:px-10 2xl:py-4 2xl:text-[1.6rem]"
+                                    className={`mb-3 ${LANDING_PRIMARY_BUTTON}`}
                                 >
                                     Registrar Grátis
                                 </Button>
