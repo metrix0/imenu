@@ -4,12 +4,11 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { ChevronDown } from "lucide-react";
 import { faChevronDown } from "@fortawesome/free-solid-svg-icons";
 import { useRestaurantDirectory } from "@/components/common/RestaurantDirectoryProvider";
 
 
-export default function Footer({ outlineIcons = false }: { outlineIcons?: boolean }) {
+export default function Footer() {
 
     const router = useRouter();
     const restaurantCities = useRestaurantDirectory();
@@ -64,21 +63,12 @@ export default function Footer({ outlineIcons = false }: { outlineIcons?: boolea
                             >
                                 <span>Cardápios por cidade</span>
                                 <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand/10 2xl:h-7 2xl:w-7">
-                                    {outlineIcons ? (
-                                        <ChevronDown
-                                            aria-hidden="true"
-                                            className={`h-2.5 w-2.5 transition-transform duration-300 ${
-                                                cityMenuOpen ? "rotate-180" : ""
-                                            }`}
-                                        />
-                                    ) : (
-                                        <FontAwesomeIcon
-                                            icon={faChevronDown}
-                                            className={`h-2.5 w-2.5 transition-transform duration-300 ${
-                                                cityMenuOpen ? "rotate-180" : ""
-                                            }`}
-                                        />
-                                    )}
+                                    <FontAwesomeIcon
+                                        icon={faChevronDown}
+                                        className={`h-2.5 w-2.5 transition-transform duration-300 ${
+                                            cityMenuOpen ? "rotate-180" : ""
+                                        }`}
+                                    />
                                 </span>
                             </button>
 

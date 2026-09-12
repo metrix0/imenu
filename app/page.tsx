@@ -3,7 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { ArrowRight, Check, Clock, Utensils, Sparkles } from "lucide-react";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+    faArrowRight,
+    faBurger,
+    faWandMagicSparkles,
+} from "@fortawesome/free-solid-svg-icons";
+import { icons } from "@/lib/utils/fontawesome";
 import BonusButton from "@/components/ui/BonusButton";
 import Button from "@/components/ui/Button";
 import Tooltip from "@/components/ui/Tooltip";
@@ -14,7 +20,6 @@ import SupportButton, {
 import BestSellers from "@/components/landing/BestSellers";
 import SignupConfirmationHandler from "@/components/auth/SignupConfirmationHandler";
 import "@/app/reveal.css";
-import "@/app/landing.css";
 
 const LOGOS = [
     {
@@ -105,7 +110,7 @@ export default function LandingPage() {
     }, [autoRotate]);
 
     return (
-        <div className="landing-essencial w-full max-w-screen overflow-x-clip">
+        <div className="w-full max-w-screen overflow-x-clip">
             <SignupConfirmationHandler />
             <header className="flex w-full flex-col items-center justify-between gap-4 border-gray-200 bg-white px-8 py-7 md:flex-row md:gap-0 md:py-5 min-[1400px]:px-12 min-[1400px]:py-6 2xl:px-16 2xl:py-8">
                 <div className="flex items-center gap-2 text-xl font-bold text-brand">
@@ -171,7 +176,7 @@ export default function LandingPage() {
                         onClick={() => router.push("/restaurante/login")}
                         className="hidden cursor-pointer items-center gap-1 text-gray-600 transition hover:text-gray-500 md:flex"
                     >
-                        Entrar no Painel
+                        <FontAwesomeIcon icon={icons.faUser} /> Login
                     </button>
 
                     <Button
@@ -204,8 +209,8 @@ export default function LandingPage() {
                         <span className="text-text">100% Gratuito</span>
                     </h1>
                     <h2 className="mt-4 leading-normal text-gray-500 md:mt-0 md:leading-15 min-[1400px]:text-lg min-[1400px]:leading-8 2xl:text-[1.4rem]">
-                        Cardápio digital para Restaurantes e Delivery. Pronto em 3
-                        minutos com <u>Inteligência Artificial</u>
+                        Cardápio digital para Restaurantes e Delivery. Pronto em 5
+                        minutos.
                     </h2>
                     <div className="mt-5 hidden text-gray-500 md:block min-[1400px]:text-lg 2xl:text-[1.4rem]">
                         Sem taxas, sem pegadinhas.{" "}
@@ -232,7 +237,7 @@ export default function LandingPage() {
                             onClick={() => router.push("/restaurante/login")}
                             className="flex cursor-pointer items-center gap-1 text-gray-600 transition hover:text-gray-500 min-[1400px]:text-lg 2xl:text-xl"
                         >
-                            Entrar no Painel
+                            <FontAwesomeIcon icon={icons.faUser} /> Login
                         </button>
                     </div>
                 </div>
@@ -357,7 +362,7 @@ export default function LandingPage() {
                                     }
                                     className="gap-2 px-6 py-3 text-lg min-[1400px]:px-8 min-[1400px]:py-3.5 min-[1400px]:text-xl 2xl:px-10 2xl:py-4 2xl:text-[1.6rem]"
                                 >
-                                    <Utensils aria-hidden="true" size="1em" />
+                                    <FontAwesomeIcon icon={faBurger} />
                                     Ver Exemplo
                                 </Button>
                                 <Button
@@ -478,9 +483,8 @@ export default function LandingPage() {
                                     <td className="border-r border-gray-200">{feature}</td>
                                     <td className="border-r border-gray-200 text-center">
                                         {imenu === "check" ? (
-                                            <Check
-                                                aria-hidden="true"
-                                                size="1em"
+                                            <FontAwesomeIcon
+                                                icon={icons.faCheck}
                                                 className="text-green"
                                             />
                                         ) : (
@@ -501,9 +505,8 @@ export default function LandingPage() {
                                             text="Funcionalidade em desenvolvimento."
                                             color="bg-orange"
                                         >
-                                            <Clock
-                                                aria-hidden="true"
-                                                size="1em"
+                                            <FontAwesomeIcon
+                                                icon={icons.faClock}
                                                 className="text-orange"
                                             />
                                         </Tooltip>
@@ -522,9 +525,8 @@ export default function LandingPage() {
                                             text="Não é uma prioridade no momento."
                                             color="bg-red"
                                         >
-                                            <Clock
-                                                aria-hidden="true"
-                                                size="1em"
+                                            <FontAwesomeIcon
+                                                icon={icons.faClock}
                                                 className="text-red"
                                             />
                                         </Tooltip>
@@ -539,7 +541,7 @@ export default function LandingPage() {
 
             <section className="relative mx-6 mt-20 md:mx-24 min-[1400px]:mx-28 min-[1400px]:mt-24 2xl:mx-38">
                 <div aria-hidden="true" className="absolute inset-x-10 -bottom-5 h-16 rounded-full bg-brand/30 blur-2xl" />
-                <div className="landing-cta relative isolate overflow-hidden rounded-[2rem] border border-orange-300/60 bg-gradient-to-br from-[#ff7424] via-brand to-dark-brand px-6 py-14 text-center text-white shadow-[0_34px_90px_-34px_rgba(201,63,11,0.9)] md:px-12 md:py-18 min-[1400px]:px-16 min-[1400px]:py-20 2xl:py-24">
+                <div className="relative isolate overflow-hidden rounded-[2rem] border border-orange-300/60 bg-gradient-to-br from-[#ff7424] via-brand to-dark-brand px-6 py-14 text-center text-white shadow-[0_34px_90px_-34px_rgba(201,63,11,0.9)] md:px-12 md:py-18 min-[1400px]:px-16 min-[1400px]:py-20 2xl:py-24">
                     <div aria-hidden="true" className="absolute -left-24 -top-32 h-80 w-80 rounded-full bg-white/20 blur-3xl" />
                     <div aria-hidden="true" className="absolute -bottom-36 -right-20 h-96 w-96 rounded-full bg-orange-200/25 blur-3xl" />
                     <div aria-hidden="true" className="absolute left-1/2 top-1/2 h-[32rem] w-[32rem] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/10" />
@@ -549,7 +551,7 @@ export default function LandingPage() {
                     <div className="relative mx-auto max-w-4xl">
                         <span className="inline-flex items-center gap-2.5 rounded-full border border-white/25 bg-white/15 py-1.5 pl-1.5 pr-4 text-sm font-semibold shadow-lg shadow-orange-950/10 backdrop-blur-md min-[1400px]:text-base 2xl:text-lg">
                             <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-brand shadow-sm min-[1400px]:h-8 min-[1400px]:w-8 2xl:h-9 2xl:w-9">
-                                <Sparkles aria-hidden="true" className="h-3.5 w-3.5 min-[1400px]:h-4 min-[1400px]:w-4 2xl:h-4 2xl:w-4" />
+                                <FontAwesomeIcon icon={faWandMagicSparkles} className="h-3.5 w-3.5 min-[1400px]:h-4 min-[1400px]:w-4 2xl:h-4 2xl:w-4" />
                             </span>
                             100% gratuito
                         </span>
@@ -569,7 +571,7 @@ export default function LandingPage() {
                             {["Pedidos ilimitados", "Cardápio Digital Completo", "Grátis para sempre"].map((benefit) => (
                                 <span key={benefit} className="inline-flex items-center justify-center gap-2.5 rounded-2xl border border-white/15 bg-white/10 px-4 py-3 shadow-lg shadow-orange-950/10 backdrop-blur-sm min-[1400px]:px-5 min-[1400px]:py-3.5">
                                     <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white text-brand min-[1400px]:h-6 min-[1400px]:w-6 2xl:h-7 2xl:w-7">
-                                        <Check aria-hidden="true" className="h-2.5 w-2.5 min-[1400px]:h-3 min-[1400px]:w-3 2xl:h-3.5 2xl:w-3.5" />
+                                        <FontAwesomeIcon icon={icons.faCheck} className="h-2.5 w-2.5 min-[1400px]:h-3 min-[1400px]:w-3 2xl:h-3.5 2xl:w-3.5" />
                                     </span>
                                     {benefit}
                                 </span>
@@ -578,18 +580,18 @@ export default function LandingPage() {
 
                         <Button
                             onClick={() => router.push("/restaurante/registrar")}
-                            className="landing-cta-button group mt-9 gap-3 !px-6 !py-3 !text-base hover:!-translate-y-1 min-[1400px]:!px-8 min-[1400px]:!py-3.5 min-[1400px]:!text-lg 2xl:!px-9 2xl:!py-4 2xl:!text-2xl"
+                            className="group mt-9 gap-3 !rounded-2xl !bg-white !px-6 !py-3 !text-base !font-bold !text-brand shadow-2xl shadow-orange-950/20 hover:!-translate-y-1 hover:!bg-orange-50 hover:!shadow-[0_24px_50px_-18px_rgba(92,28,5,0.65)] min-[1400px]:!px-8 min-[1400px]:!py-3.5 min-[1400px]:!text-lg 2xl:!px-9 2xl:!py-4 2xl:!text-2xl"
                         >
                             Criar meu cardápio grátis
                             <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand text-white transition-transform group-hover:translate-x-0.5 min-[1400px]:h-9 min-[1400px]:w-9 2xl:h-10 2xl:w-10">
-                                <ArrowRight aria-hidden="true" className="h-3.5 w-3.5 min-[1400px]:h-4 min-[1400px]:w-4 2xl:h-4 2xl:w-4" />
+                                <FontAwesomeIcon icon={faArrowRight} className="h-3.5 w-3.5 min-[1400px]:h-4 min-[1400px]:w-4 2xl:h-4 2xl:w-4" />
                             </span>
                         </Button>
                     </div>
                 </div>
             </section>
 
-            <Footer outlineIcons />
+            <Footer />
             <SupportButton
                 ref={supportBtnRef}
                 bottomClassName={`!transition-normal duration-300 ${

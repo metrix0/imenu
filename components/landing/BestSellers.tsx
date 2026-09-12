@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Store, DollarSign, Receipt } from "lucide-react";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import Button from "@/components/ui/Button";
+import { icons } from "@/lib/utils/fontawesome";
 
 interface BestSeller {
     id: string;
@@ -72,7 +73,7 @@ export default function BestSellers() {
                     <div className="mb-8 grid grid-cols-1 overflow-hidden rounded-2xl border border-gray-200 bg-gray-50 sm:grid-cols-3 sm:divide-x sm:divide-gray-200 min-[1400px]:mb-10">
                         <div className="flex items-center gap-4 px-5 py-5 min-[1400px]:px-6 min-[1400px]:py-6 2xl:px-7">
                             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand/10 text-base text-brand min-[1400px]:h-12 min-[1400px]:w-12 min-[1400px]:text-lg 2xl:text-lg">
-                                <Store aria-hidden="true" size="1em" />
+                                <FontAwesomeIcon icon={icons.faStore} />
                             </span>
                             <div className="min-w-0 text-left">
                                 <p className="text-2xl font-extrabold tracking-tight text-gray-900 min-[1400px]:text-[1.75rem] 2xl:text-[2rem]">
@@ -86,7 +87,7 @@ export default function BestSellers() {
 
                         <div className="flex items-center gap-4 border-t border-gray-200 px-5 py-5 sm:border-t-0 min-[1400px]:px-6 min-[1400px]:py-6 2xl:px-7">
                             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand/10 text-base text-brand min-[1400px]:h-12 min-[1400px]:w-12 min-[1400px]:text-lg 2xl:text-lg">
-                                <DollarSign aria-hidden="true" size="1em" />
+                                <FontAwesomeIcon icon={icons.faDollarSign} />
                             </span>
                             <div className="min-w-0 text-left">
                                 <p className="text-2xl font-extrabold tracking-tight text-gray-900 min-[1400px]:text-[1.75rem] 2xl:text-[2rem]">
@@ -100,7 +101,7 @@ export default function BestSellers() {
 
                         <div className="flex items-center gap-4 border-t border-gray-200 px-5 py-5 sm:border-t-0 min-[1400px]:px-6 min-[1400px]:py-6 2xl:px-7">
                             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand/10 text-base text-brand min-[1400px]:h-12 min-[1400px]:w-12 min-[1400px]:text-lg 2xl:text-lg">
-                                <Receipt aria-hidden="true" size="1em" />
+                                <FontAwesomeIcon icon={icons.faTicket} />
                             </span>
                             <div className="min-w-0 text-left">
                                 <p className="text-2xl font-extrabold tracking-tight text-gray-900 min-[1400px]:text-[1.75rem] 2xl:text-[2rem]">
