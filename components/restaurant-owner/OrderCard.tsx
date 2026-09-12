@@ -74,23 +74,17 @@ interface OrderCardProps {
 }
 
 
-function CashChangeInfo({ text }: { text: string }) {
+function CashChangeInfo({ text, children }: { text: string; children: React.ReactNode }) {
     return (
         <Tooltip
             text={text}
-            parentClassName="inline-flex items-center align-middle"
+            parentClassName="shrink-0"
             position="bottom"
             size="medium"
             portal
             tooltipClassName="max-w-[280px] text-center"
         >
-            <button
-                type="button"
-                className="inline-flex items-center justify-center text-gray-500 hover:text-gray-700 focus:text-gray-700 focus:outline-none"
-                aria-label="Informações sobre troco"
-            >
-                <FontAwesomeIcon icon={faCircleInfo} />
-            </button>
+            {children}
         </Tooltip>
     );
 }
@@ -387,6 +381,24 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
         ? formatScheduledRelativeTime((scheduledDate.getTime() - currentTime) / 60000)
         : "";
     const deliveryEtaTooltip = !isScheduled ? formatEtaRange(order.delivery_eta) : "";
+    const paymentBadge = (
+        <div
+            tabIndex={paymentMethod === "dinheiro" ? 0 : undefined}
+            aria-label={paymentMethod === "dinheiro" ? "Informações sobre troco" : undefined}
+            className={`flex shrink-0 items-center text-xs -ml-1 px-2 py-0.5 rounded-full font-medium min-[1800px]:text-base min-[1800px]:px-3 min-[1800px]:py-1 ${
+                paymentMethod === "pix"
+                    ? "bg-green-100 text-green-800"
+                    : "bg-gray-200 text-gray-700"
+            } ${paymentMethod === "dinheiro" ? "cursor-help" : ""}`}
+        >
+            <span>{paymentLabel}</span>
+            {paymentMethod === "dinheiro" && (
+                <span className="ml-1.5 inline-flex leading-none text-gray-500">
+                    <FontAwesomeIcon icon={faCircleInfo} />
+                </span>
+            )}
+        </div>
+    );
 
     // LÓGICA DE VISUALIZAÇÃO LIMITADA
     const VISIBLE_ITEMS = isScheduled || isTableOrder ? 2 : 3;
@@ -407,20 +419,11 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
                 </div>
                 <div className="panel-order-meta flex items-center gap-2">
                     {!isTableOrder && (
-                        <div
-                            className={`flex shrink-0 items-center text-xs -ml-1 px-2 py-0.5 rounded-full font-medium min-[1800px]:text-base min-[1800px]:px-3 min-[1800px]:py-1 ${
-                                paymentMethod === "pix"
-                                    ? "bg-green-100 text-green-800"
-                                    : "bg-gray-200 text-gray-700"
-                            }`}
-                        >
-                            <span>{paymentLabel}</span>
-                            {paymentMethod === "dinheiro" && (
-                                <span className="ml-1.5 inline-flex leading-none">
-                                    <CashChangeInfo text={cashChangeObservation} />
-                                </span>
-                            )}
-                        </div>
+                        paymentMethod === "dinheiro" ? (
+                            <CashChangeInfo text={cashChangeObservation}>
+                                {paymentBadge}
+                            </CashChangeInfo>
+                        ) : paymentBadge
                     )}
                     {isScheduled ? (
                         <TimeInfo
