@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { isValidElement, type ReactNode } from "react";
 import Switch from "@/components/ui/Switch";
 
 type ToggleOptionCardProps = {
@@ -47,11 +47,14 @@ export default function ToggleOptionCard({
                 <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                         <span className="font-medium text-gray-800">{label}</span>
-                        {badge && (
-                            <span className="rounded-full bg-brand/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-brand">
-                                {badge}
-                            </span>
-                        )}
+                        {badge &&
+                            (isValidElement(badge) ? (
+                                badge
+                            ) : (
+                                <span className="rounded-full bg-brand/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-brand">
+                                    {badge}
+                                </span>
+                            ))}
                     </div>
                     {description && (
                         <div className="mt-0.5 text-xs text-gray-500">
