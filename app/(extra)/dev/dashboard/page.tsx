@@ -265,6 +265,37 @@ function normalizeWhatsappNumber(value: string | null): string | null {
     return digits.length >= 12 ? digits : null;
 }
 
+function formatRestaurantNameForMessage(value: string): string {
+    const trimmed = value.trim();
+    const lowercase = trimmed.toLocaleLowerCase("pt-BR");
+    const uppercase = trimmed.toLocaleUpperCase("pt-BR");
+
+    if (trimmed !== lowercase && trimmed !== uppercase) return trimmed;
+
+    const lowercaseWords = new Set([
+        "da",
+        "das",
+        "de",
+        "do",
+        "dos",
+        "e",
+        "em",
+        "na",
+        "nas",
+        "no",
+        "nos",
+    ]);
+
+    return lowercase
+        .split(/\s+/)
+        .map((word, index) =>
+            index > 0 && lowercaseWords.has(word)
+                ? word
+                : `${word.charAt(0).toLocaleUpperCase("pt-BR")}${word.slice(1)}`
+        )
+        .join(" ");
+}
+
 function lineOptions(currency = false, percentage = false) {
     return {
         responsive: true,
@@ -868,7 +899,7 @@ export default function DevDashboardPage() {
                                                                         disabled={!whatsappNumber}
                                                                         onClick={() => {
                                                                             if (!whatsappNumber) return;
-                                                                            const message = `Olá, sou o João do iMenu, entrando em contato por causa do ${user.restaurantName}.\n\nNotamos que não estão tendo pedidos recentemente. Podemos auxiliar com algo?`;
+                                                                            const message = `Olá, sou o João do iMenu, entrando em contato por causa do ${formatRestaurantNameForMessage(user.restaurantName)}.\n\nNotamos que não estão tendo pedidos recentemente. Podemos auxiliar com algo?`;
                                                                             window.open(
                                                                                 `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`,
                                                                                 "_blank",
