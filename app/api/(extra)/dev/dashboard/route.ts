@@ -14,6 +14,7 @@ export const dynamic = "force-dynamic";
 const ALLOWED_DEV_EMAIL = "joaovralmeida@hotmail.com";
 const TIME_ZONE = "America/Sao_Paulo";
 const DAY_MS = 24 * 60 * 60 * 1000;
+const BEFORE_START_TRACKING_STARTED_AT = Date.parse("2026-08-25T15:56:21Z");
 
 const RANGE_KEYS = ["7d", "this_week", "last_week", "30d", "90d"] as const;
 type RangeKey = (typeof RANGE_KEYS)[number];
@@ -58,6 +59,7 @@ type OnboardingFunnelRow = {
     step_2: number | string;
     step_3: number | string;
     step_4: number | string;
+    activated_users: number | string;
 };
 
 type OrderCountRow = {
@@ -831,27 +833,45 @@ export async function GET(request: Request) {
                           AND u.created_at < $2
                           AND u.deleted_at IS NULL
                           AND COALESCE(u.is_anonymous, false) = false
+                    ),
+                    cohort_first_orders AS (
+                        SELECT
+                            restaurant.user_id,
+                            MIN(order_item.created_at) AS first_order_at
+                        FROM restaurants AS restaurant
+                        INNER JOIN registration_cohort AS cohort
+                            ON cohort.id = restaurant.user_id
+                        INNER JOIN orders AS order_item
+                            ON order_item.restaurant_id = restaurant.id
+                        WHERE order_item.table_id IS NULL
+                        GROUP BY restaurant.user_id
                     )
                     SELECT
                         COUNT(DISTINCT cohort.id)::int AS registration_complete,
                         COUNT(DISTINCT cohort.id) FILTER (
-                            WHERE restaurant.id IS NOT NULL
-                        )::int AS step_1,
-                        COUNT(DISTINCT cohort.id) FILTER (
                             WHERE restaurant.creation_step >= 2
                                OR restaurant.first_time = false
-                        )::int AS step_2,
+                        )::int AS step_1,
                         COUNT(DISTINCT cohort.id) FILTER (
                             WHERE restaurant.creation_step >= 3
                                OR restaurant.first_time = false
-                        )::int AS step_3,
+                        )::int AS step_2,
                         COUNT(DISTINCT cohort.id) FILTER (
                             WHERE restaurant.creation_step >= 4
                                OR restaurant.first_time = false
-                        )::int AS step_4
+                        )::int AS step_3,
+                        COUNT(DISTINCT cohort.id) FILTER (
+                            WHERE restaurant.first_time = false
+                        )::int AS step_4,
+                        COUNT(DISTINCT cohort.id) FILTER (
+                            WHERE first_order.first_order_at >= $1
+                              AND first_order.first_order_at < $2
+                        )::int AS activated_users
                     FROM registration_cohort AS cohort
                     LEFT JOIN restaurants AS restaurant
                         ON restaurant.user_id = cohort.id
+                    LEFT JOIN cohort_first_orders AS first_order
+                        ON first_order.user_id = cohort.id
                 `,
                     [startIso, endIso]
                 ),
@@ -879,7 +899,13 @@ export async function GET(request: Request) {
             step2: Number(onboardingRow?.step_2) || 0,
             step3: Number(onboardingRow?.step_3) || 0,
             step4: Number(onboardingRow?.step_4) || 0,
+            activatedUsers: Number(onboardingRow?.activated_users) || 0,
         };
+        const beforeStartComparable =
+            postHog.available && startAt >= BEFORE_START_TRACKING_STARTED_AT;
+        const beforeStartViews = beforeStartComparable
+            ? postHog.beforeStartViews
+            : null;
 
         const historyResult = await query<OrderRow>(
             `
@@ -1132,52 +1158,45 @@ export async function GET(request: Request) {
             },
             {
                 key: "register_clicks",
-                label: "Cliques em Registrar",
+                label: "Acessos ao cadastro",
                 value: postHog.registerClicks,
                 conversion: conversion(postHog.registerClicks, postHog.landingViews),
                 available: postHog.available,
                 note: postHog.available
-                    ? "Acessos à página /restaurante/registrar"
+                    ? "PostHog · acessos à página /restaurante/registrar"
                     : "PostHog ainda não conectado",
             },
             {
-                key: "registration_complete",
+                key: "registration_supabase",
                 label: "Registro completo",
                 value: onboarding.registrationComplete,
-                conversion: conversion(
-                    onboarding.registrationComplete,
-                    postHog.registerClicks
-                ),
+                conversion: null,
                 available: true,
-                note: postHog.available
-                    ? "Contas criadas no Supabase Auth no período"
-                    : "Supabase Auth; conversão anterior aguarda PostHog",
+                note: "Supabase Auth · sem evento PostHog confiável equivalente",
             },
             {
                 key: "before_start",
                 label: "Antes de começar",
-                value: postHog.beforeStartViews,
-                conversion: conversion(
-                    postHog.beforeStartViews,
-                    onboarding.registrationComplete
-                ),
-                available: postHog.available,
-                note: postHog.available
-                    ? "Acessaram a seleção de sistemas antes do passo 1"
-                    : "PostHog ainda não conectado",
+                value: beforeStartViews,
+                conversion: beforeStartComparable
+                    ? conversion(beforeStartViews, onboarding.registrationComplete)
+                    : null,
+                available: beforeStartComparable,
+                note: !postHog.available
+                    ? "PostHog ainda não conectado"
+                    : beforeStartComparable
+                      ? "PostHog · acessaram a seleção antes do Passo 1"
+                      : "PostHog desde 25/08/2026; o período inclui dias sem rastreamento",
             },
             {
                 key: "step_1",
                 label: "Passo 1",
                 value: onboarding.step1,
-                conversion: conversion(
-                    onboarding.step1,
-                    postHog.beforeStartViews
-                ),
+                conversion: beforeStartComparable
+                    ? conversion(onboarding.step1, beforeStartViews)
+                    : null,
                 available: true,
-                note: postHog.available
-                    ? "Usuários que avançaram da seleção para a etapa 1"
-                    : "Usuários da coorte que chegaram à etapa 1; conversão anterior aguarda PostHog",
+                note: "Supabase · concluíram o Passo 1",
             },
             {
                 key: "step_2",
@@ -1185,7 +1204,7 @@ export async function GET(request: Request) {
                 value: onboarding.step2,
                 conversion: conversion(onboarding.step2, onboarding.step1),
                 available: true,
-                note: null,
+                note: "Supabase · concluíram o Passo 2",
             },
             {
                 key: "step_3",
@@ -1193,7 +1212,7 @@ export async function GET(request: Request) {
                 value: onboarding.step3,
                 conversion: conversion(onboarding.step3, onboarding.step2),
                 available: true,
-                note: null,
+                note: "Supabase · concluíram o Passo 3",
             },
             {
                 key: "step_4",
@@ -1201,15 +1220,15 @@ export async function GET(request: Request) {
                 value: onboarding.step4,
                 conversion: conversion(onboarding.step4, onboarding.step3),
                 available: true,
-                note: null,
+                note: "Supabase · concluíram o Passo 4 e finalizaram o onboarding",
             },
             {
                 key: "activated_users",
                 label: "Usuários ativados",
-                value: cards.activatedUsers,
-                conversion: null,
+                value: onboarding.activatedUsers,
+                conversion: conversion(onboarding.activatedUsers, onboarding.step4),
                 available: true,
-                note: "Mesmo valor do KPI: primeiro pedido da conta no período",
+                note: "Mesma coorte de registros do período · primeiro pedido",
             },
         ];
 
