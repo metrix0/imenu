@@ -4,6 +4,7 @@ import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { faPix } from "@fortawesome/free-brands-svg-icons";
 import { icons } from "@/lib/utils/fontawesome";
 import Card from "@/components/ui/Card";
+import RecommendedBadge from "@/components/ui/RecommendedBadge";
 import ToggleOptionCard from "@/components/ui/ToggleOptionCard";
 
 export const DEFAULT_ALLOWED_PAYMENT_METHODS = [
@@ -66,7 +67,7 @@ export default function AllowedPaymentMethods({
                             checked={active}
                             onChange={() => toggle(option.value)}
                             icon={<FontAwesomeIcon icon={option.icon} />}
-                            badge={option.recommended ? "★ Recomendado" : undefined}
+                            badge={option.recommended ? <RecommendedBadge /> : undefined}
                         />
                     );
                 })}
