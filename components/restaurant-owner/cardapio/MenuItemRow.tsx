@@ -177,7 +177,6 @@ export default function MenuItemRow({
             setIsLoading(false);
         }
     };
-
     const handleImageUpload = async (
         e: React.ChangeEvent<HTMLInputElement>
     ) => {
@@ -662,7 +661,7 @@ export default function MenuItemRow({
                             value={stockInput}
                             onChange={(e) => setStockInput(e.target.value)}
                             onKeyDown={handleKeyDown}
-                            className="w-12 bg-transparent p-0 text-right outline-none ring-0 focus:outline-none focus:ring-0 md:w-16 md:rounded-md md:border md:border-gray-300 md:bg-white md:px-2 md:py-1.5 md:focus:border-brand"
+                            className="w-12 bg-transparent p-0 text-base text-right outline-none ring-0 focus:outline-none focus:ring-0 md:w-16 md:rounded-md md:border md:border-gray-300 md:bg-white md:px-2 md:py-1.5 md:text-sm md:focus:border-brand"
                             disabled={isLoading}
                         />
                         <span>un.</span>
