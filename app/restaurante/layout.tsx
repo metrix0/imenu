@@ -1,7 +1,6 @@
 // app/restaurante/layout.tsx
 "use client";
 
-import Script from "next/script";
 import SupportButton, {
     SupportButtonRef,
 } from "@/components/common/SupportButton";
@@ -19,16 +18,6 @@ export default function RestauranteLayout({
 
     return (
         <>
-            <Script id="ms-clarity" strategy="afterInteractive">
-                {`
-                (function(c,l,a,r,i,t,y){
-                    c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
-                    t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
-                    y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
-                })(window, document, "clarity", "script", "uk4ichh2nj");
-              `}
-            </Script>
-
             <div className="restaurant-responsive min-h-screen w-full min-w-0 max-w-full overflow-x-hidden">
                 <div className="fixed z-[9999]">
                     <SupportButton

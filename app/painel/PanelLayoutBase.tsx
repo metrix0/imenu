@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import Script from "next/script";
 import { useParams, usePathname, useRouter } from "next/navigation";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
@@ -396,16 +395,6 @@ export default function PainelLayout({
 
     return (
         <OrderSoundProvider>
-            <Script id="ms-clarity-panel" strategy="afterInteractive">
-                {`
-                (function(c,l,a,r,i,t,y){
-                    c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
-                    t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
-                    y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
-                })(window, document, "clarity", "script", "uk4ichh2nj");
-              `}
-            </Script>
-
             <ConfirmModal
                 open={showCloseModal}
                 onClose={() => setShowCloseModal(false)}

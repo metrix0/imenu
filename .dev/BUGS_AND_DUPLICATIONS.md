@@ -64,8 +64,6 @@ acompanhar pedido nao mostra taxa de entrega e cupons
 
 **- Mobile responsiveness NOS BROWSERS do mobile. (teclado subindo, autofill, varias resolucoes, etc)**
 
-- sem clarity no (seo)
-
 - "obrigatório" nos subitems ta feio
 
 - as vezes quando reseta a página o botçao continuar ainda fica como "confirmar" do anterior
