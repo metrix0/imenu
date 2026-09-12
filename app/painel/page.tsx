@@ -231,7 +231,52 @@ export default function PainelPedidosAtivosPage() {
                     </p>
                 </div>
 
-                <div className="panel-page-actions flex flex-row gap-2 sm:gap-3">
+                <div className="panel-page-actions flex flex-row items-center gap-2 sm:gap-3">
+                    <div
+                        className={`hidden sm:block shrink-0 ${
+                            soundEnabled ? "pointer-events-none" : ""
+                        }`}
+                    >
+                        <div
+                            className={`delay-600 duration-300 ${
+                                soundEnabled
+                                    ? "opacity-0 -translate-y-2"
+                                    : "opacity-100 translate-y-0"
+                            }`}
+                        >
+                            <div
+                                className={`
+                                    p-4 cursor-pointer w-fit px-8 rounded-2xl
+                                    duration-300 ease-in-out
+                                    ${
+                                        soundEnabled
+                                            ? "bg-green/10 text-green-800"
+                                            : "bg-warning-bg text-warning"
+                                    }
+                                `}
+                                onClick={() => void enableSound()}
+                            >
+                                {soundEnabled ? (
+                                    <>
+                                        <FontAwesomeIcon
+                                            icon={faBell}
+                                            className="mr-2"
+                                        />{" "}
+                                        Som ativado!
+                                    </>
+                                ) : (
+                                    <>
+                                        <FontAwesomeIcon
+                                            icon={faBellSlash}
+                                            className="mr-2"
+                                        />
+                                        Clique para Ativar o <b>som dos pedidos</b>.
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
                     <Button
                         onClick={() => setIsCreateOrderOpen(true)}
                         className=""
@@ -280,52 +325,6 @@ export default function PainelPedidosAtivosPage() {
                                 icon={soundEnabled ? faBell : faBellSlash}
                             />
                         </button>
-                    </div>
-                </div>
-            </div>
-            <div
-                className={`hidden sm:block overflow-hidden delay-600 duration-300
-                ${soundEnabled ? "pointer-events-none max-h-0" : "max-h-40"}
-                `}
-            >
-                <div
-                    className={` delay-600 duration-300
-                    ${
-                        soundEnabled
-                            ? "opacity-0 -translate-y-2"
-                            : "opacity-100 translate-y-0"
-                    }
-                    `}
-                >
-                    <div
-                        className={`
-        p-4 cursor-pointer w-fit px-8 rounded-2xl mb-6
-        duration-300 ease-in-out 
-        ${
-            soundEnabled
-                ? "bg-green/10 text-green-800"
-                : "bg-warning-bg text-warning"
-        }
-      `}
-                        onClick={() => void enableSound()}
-                    >
-                        {soundEnabled ? (
-                            <>
-                                <FontAwesomeIcon
-                                    icon={faBell}
-                                    className="mr-2"
-                                />{" "}
-                                Som ativado!
-                            </>
-                        ) : (
-                            <>
-                                <FontAwesomeIcon
-                                    icon={faBellSlash}
-                                    className="mr-2"
-                                />
-                                Clique para Ativar o <b>som dos pedidos</b>.
-                            </>
-                        )}
                     </div>
                 </div>
             </div>
