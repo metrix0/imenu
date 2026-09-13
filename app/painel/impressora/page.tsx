@@ -137,20 +137,22 @@ export default function ImpressoraPage() {
                                 </div>
                             </div>
 
-                            <p className="text-xs text-gray-400 mt-4">
-                                {useLegacyRelease
-                                    ? "Compatível com Windows 7, 8 e 8.1."
-                                    : "Compatível com Windows 10 e 11."}
-                            </p>
-                            {!useLegacyRelease && (
-                                <a
-                                    href={LEGACY_PRINTER_RELEASE.downloadUrl}
-                                    download
-                                    className="mt-2 w-fit text-xs font-medium text-brand hover:underline"
-                                >
-                                    Windows 7, 8 ou 8.1? Baixar versão compatível
-                                </a>
-                            )}
+                            <div className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+                                <p className="text-gray-400">
+                                    {useLegacyRelease
+                                        ? "Compatível com Windows 7, 8 e 8.1."
+                                        : "Compatível com Windows 10 e 11."}
+                                </p>
+                                {!useLegacyRelease && (
+                                    <a
+                                        href={LEGACY_PRINTER_RELEASE.downloadUrl}
+                                        download
+                                        className="w-fit font-medium text-brand hover:underline"
+                                    >
+                                        Windows 7, 8 ou 8.1? Baixar versão compatível
+                                    </a>
+                                )}
+                            </div>
                         </div>
 
                         {/* Right */}
