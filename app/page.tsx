@@ -490,7 +490,7 @@ export default function LandingPage() {
                                 ["QR Code na mesa", "(Opcional) R$ 4,90 por mês", "R$ 99,90 por mês (muito mais caro)"],
                                 ["App para garçom", "check", "Pago"],
                                 ["Agendamento de pedido", "check", "Não"],
-                                ["Dividir Pizza em vários sabores", "check", "Não tem ou limitado"],
+                                ["Dividir Pizza em vários sabores", "check", "Não tem ou máximo 2"],
                                 ["Sem bugs", "Correção garantida em 2 dias úteis", "Correção leva meses"],
                             ].map(([feature, imenu, competitor]) => (
                                 <tr key={feature}>
