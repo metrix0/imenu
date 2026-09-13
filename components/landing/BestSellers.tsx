@@ -64,7 +64,7 @@ export default function BestSellers() {
                     <p className="text-xs font-bold uppercase tracking-[0.2em] text-brand min-[1400px]:text-sm 2xl:text-base">
                         RESTAURANTES
                     </p>
-                    <h2 className="mt-2 text-3xl font-extrabold text-gray-900 md:text-4xl min-[1400px]:text-[2.75rem] 2xl:text-5xl">
+                    <h2 className="mt-2 text-3xl font-bold text-gray-900 md:text-4xl min-[1400px]:text-[2.75rem] 2xl:text-5xl">
                         Mais Vendas na Semana
                     </h2>
                 </div>
@@ -76,7 +76,7 @@ export default function BestSellers() {
                                 <FontAwesomeIcon icon={icons.faStore} />
                             </span>
                             <div className="min-w-0 text-left">
-                                <p className="text-2xl font-extrabold tracking-tight text-gray-900 min-[1400px]:text-[1.75rem] 2xl:text-[2rem]">
+                                <p className="text-2xl font-bold tracking-tight text-gray-900 min-[1400px]:text-[1.75rem] 2xl:text-[2rem]">
                                     +{numberFormatter.format(stats.total_restaurants)}
                                 </p>
                                 <p className="mt-0.5 text-sm font-medium text-gray-500 min-[1400px]:text-[0.95rem] 2xl:text-base">
@@ -90,7 +90,7 @@ export default function BestSellers() {
                                 <FontAwesomeIcon icon={icons.faDollarSign} />
                             </span>
                             <div className="min-w-0 text-left">
-                                <p className="text-2xl font-extrabold tracking-tight text-gray-900 min-[1400px]:text-[1.75rem] 2xl:text-[2rem]">
+                                <p className="text-2xl font-bold tracking-tight text-gray-900 min-[1400px]:text-[1.75rem] 2xl:text-[2rem]">
                                     +{currencyFormatter.format(stats.total_gmv_cents / 100)}
                                 </p>
                                 <p className="mt-0.5 text-sm font-medium text-gray-500 min-[1400px]:text-[0.95rem] 2xl:text-base">
@@ -104,7 +104,7 @@ export default function BestSellers() {
                                 <FontAwesomeIcon icon={icons.faTicket} />
                             </span>
                             <div className="min-w-0 text-left">
-                                <p className="text-2xl font-extrabold tracking-tight text-gray-900 min-[1400px]:text-[1.75rem] 2xl:text-[2rem]">
+                                <p className="text-2xl font-bold tracking-tight text-gray-900 min-[1400px]:text-[1.75rem] 2xl:text-[2rem]">
                                     +{numberFormatter.format(stats.total_orders)}
                                 </p>
                                 <p className="mt-0.5 text-sm font-medium text-gray-500 min-[1400px]:text-[0.95rem] 2xl:text-base">
@@ -121,7 +121,7 @@ export default function BestSellers() {
                             key={restaurant.id}
                             className="grid min-w-0 grid-cols-[auto_auto_minmax(0,1fr)] items-center gap-4 rounded-3xl border border-gray-100 bg-white p-5 shadow-[0_8px_24px_-16px_rgba(0,0,0,0.25)] md:flex md:flex-col md:text-center min-[1400px]:p-6 2xl:p-7"
                         >
-                            <span className="text-xl font-extrabold tracking-tight text-brand min-[1400px]:text-[1.375rem] 2xl:text-2xl">
+                            <span className="text-xl font-bold tracking-tight text-brand min-[1400px]:text-[1.375rem] 2xl:text-2xl">
                                 {index + 1}º
                             </span>
 
