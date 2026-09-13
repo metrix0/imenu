@@ -148,7 +148,7 @@ function sessionConfig(restaurantId: string) {
                 retries: {
                     policy: "exponential",
                     delaySeconds: 2,
-                    attempts: 8,
+                    attempts: 2,
                 },
             },
         ],
