@@ -436,7 +436,7 @@ export default function LandingPage() {
                                 <th className="p-4 font-medium min-[1400px]:p-5 2xl:p-6">Concorrentes</th>
                             </tr>
                         </thead>
-                        <tbody className="[&>tr>td]:p-4 min-[1400px]:[&>tr>td]:p-5 [&>tr]:2xl:p-6 [&>tr:nth-child(even)]:bg-gray-50">
+                        <tbody className="[&>tr>td]:p-4 min-[1400px]:[&>tr>td]:p-5 [&>tr>td]:2xl:p-6 [&>tr:nth-child(even)]:bg-gray-50">
                             {restCount > 0 && (
                                 <tr>
                                     <td className="border-r border-gray-200 text-sm md:text-[100%] md:font-light">
