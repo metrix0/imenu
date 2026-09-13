@@ -795,10 +795,11 @@ export default function ConfiguracoesPage() {
                                         position="top"
                                         size="medium"
                                         showOnClick
+                                        parentClassName="inline-flex items-center self-center leading-none"
                                     >
                                         <FontAwesomeIcon
                                             icon={faCircleInfo}
-                                            className="cursor-help text-[8px] text-amber-700"
+                                            className="cursor-help text-[11px] leading-none text-amber-700"
                                         />
                                     </Tooltip>
                                     </span>
