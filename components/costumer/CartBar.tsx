@@ -295,9 +295,47 @@ export default function CartBar({
             restaurant.force_whatsapp_order_confirmation === true &&
             typeof window !== "undefined" &&
             window.matchMedia("(max-width: 767px)").matches;
-        const whatsappWindow = shouldOpenWhatsapp
-            ? window.open("", "_blank")
+        const shouldOpenWhatsappHandoff =
+            shouldOpenWhatsapp && checkout.pagamento !== "pix";
+        const whatsappRedirectKey = shouldOpenWhatsappHandoff
+            ? crypto.randomUUID()
             : null;
+        const whatsappRedirectStorageKey = whatsappRedirectKey
+            ? `imenu-whatsapp-redirect:${whatsappRedirectKey}`
+            : null;
+        const whatsappWindow = whatsappRedirectKey
+            ? window.open(
+                `/whatsapp-redirect?key=${encodeURIComponent(whatsappRedirectKey)}`,
+                "_blank"
+            )
+            : null;
+
+        const notifyWhatsappWindow = (value: string) => {
+            if (whatsappRedirectStorageKey) {
+                try {
+                    localStorage.setItem(whatsappRedirectStorageKey, value);
+                } catch {}
+            }
+
+            if (whatsappWindow && whatsappRedirectKey) {
+                try {
+                    whatsappWindow.postMessage(
+                        {
+                            type: "IMENU_WHATSAPP_REDIRECT",
+                            key: whatsappRedirectKey,
+                            value,
+                        },
+                        window.location.origin
+                    );
+                } catch {}
+            }
+        };
+
+        const closeWhatsappWindow = () => {
+            if (!whatsappWindow) return;
+            notifyWhatsappWindow("__close__");
+            whatsappWindow.close();
+        };
 
         const subtotal_cents = cart.items.reduce(
             (sum, i) => sum + (promotionPrice(i) || i.total_cents),
@@ -381,7 +419,7 @@ export default function CartBar({
         const data = await res.json();
 
         if (!res.ok) {
-            whatsappWindow?.close();
+            closeWhatsappWindow();
             if (res.status === 409) router.refresh();
             window.alert(data?.error || "Não foi possível criar o pedido. Tente novamente.");
             return;
@@ -419,7 +457,7 @@ export default function CartBar({
         useCheckoutStore.setState({ is_pickup: false, scheduled_for: null } as any);
 
         const createdOrderId = data.order_id || data.id;
-        if (shouldOpenWhatsapp && createdOrderId) {
+        if (shouldOpenWhatsappHandoff && createdOrderId) {
             try {
                 const confirmationResponse = await fetch(
                     `/api/orders/${createdOrderId}/whatsapp-confirmation`,
@@ -430,18 +468,17 @@ export default function CartBar({
                     const confirmation = await confirmationResponse.json();
                     if (confirmation?.url) {
                         if (whatsappWindow) {
-                            whatsappWindow.opener = null;
-                            whatsappWindow.location.href = confirmation.url;
+                            notifyWhatsappWindow(confirmation.url);
                         } else {
                             window.open(confirmation.url, "_blank", "noopener,noreferrer");
                         }
-                    } else whatsappWindow?.close();
-                } else whatsappWindow?.close();
+                    } else closeWhatsappWindow();
+                } else closeWhatsappWindow();
             } catch (error) {
-                whatsappWindow?.close();
+                closeWhatsappWindow();
                 console.error("[WHATSAPP_ORDER_CONFIRMATION] Failed to open WhatsApp:", error);
             }
-        } else whatsappWindow?.close();
+        } else closeWhatsappWindow();
 
         if (shouldReturnToGarcom) {
             window.location.href = "/garcom";
