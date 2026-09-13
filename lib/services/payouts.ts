@@ -308,9 +308,51 @@ async function syncAutomationRuns(): Promise<void> {
     );
 }
 
+async function notifyReconciledPartialRun(run: {
+    id: string;
+    run_date: string;
+    restaurant_count: number;
+    paid_count: number;
+    failed_count: number;
+}): Promise<void> {
+    const topic = process.env.NTFY_TOPIC?.trim();
+    if (!topic) return;
+
+    try {
+        const response = await fetch(`https://ntfy.sh/${encodeURIComponent(topic)}`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "text/plain; charset=utf-8",
+                Title: "ALARM TRIGGER - iMenu payout automático",
+            },
+            body: [
+                "Pagamento automático não foi concluído.",
+                `Data: ${run.run_date}`,
+                "Status: partial",
+                "Etapa: payout",
+                `Motivo: Execução reconciliada como parcial. Pagos: ${run.paid_count}/${run.restaurant_count}; falhas: ${run.failed_count}.`,
+                `Run: ${run.id}`,
+            ].join("\n"),
+            cache: "no-store",
+        });
+
+        if (!response.ok) {
+            throw new Error(`ntfy HTTP ${response.status}`);
+        }
+    } catch (error) {
+        console.error("[DAILY_PAYOUT] Falha ao enviar alerta ntfy de repasse parcial", {
+            runId: run.id,
+            error: error instanceof Error ? error.message : String(error),
+        });
+    }
+}
+
 export async function reconcileProcessingPayouts(): Promise<void> {
     if (!getAsaasApiKey()) return;
 
+    const processingRuns = await query<{ id: string }>(
+        `SELECT id FROM public.payout_automation_runs WHERE status = 'processing'`
+    );
     const { rows } = await query<{ id: string; created_at: string | Date }>(
         `
         SELECT id, created_at
@@ -351,6 +393,29 @@ export async function reconcileProcessingPayouts(): Promise<void> {
     }
 
     await syncAutomationRuns();
+
+    if (processingRuns.rows.length > 0) {
+        const runIds = processingRuns.rows.map((row) => row.id);
+        const partialRuns = await query<{
+            id: string;
+            run_date: string;
+            restaurant_count: number;
+            paid_count: number;
+            failed_count: number;
+        }>(
+            `
+            SELECT id, run_date, restaurant_count, paid_count, failed_count
+            FROM public.payout_automation_runs
+            WHERE id = ANY($1::uuid[])
+              AND status = 'partial'
+            `,
+            [runIds]
+        );
+
+        for (const run of partialRuns.rows) {
+            await notifyReconciledPartialRun(run);
+        }
+    }
 }
 
 export async function createPayoutPlan(input: {

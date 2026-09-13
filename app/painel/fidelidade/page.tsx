@@ -4,10 +4,11 @@ import { useEffect, useState } from "react";
 import { useLoyaltyStore } from "@/lib/stores/restaurant-owner/loyaltyStore";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
-import ToggleInput from "@/components/ui/ToggleInput";
+import Switch from "@/components/ui/Switch";
+import SaveStatus from "@/components/ui/SaveStatus";
 import Card from "@/components/ui/Card";
 import Dropdown from "@/components/ui/Dropdown";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { faStar, faGift, faMoneyBillWave, faCheckSquare, faSquare, faChevronDown, faChevronUp } from "@fortawesome/free-solid-svg-icons";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 import { supabase } from "@/lib/database/supabaseClient";
@@ -44,6 +45,7 @@ export default function FidelidadePage() {
     } = useLoyaltyStore();
 
     const [hasChanges, setHasChanges] = useState(false);
+    const [saveError, setSaveError] = useState(false);
     
     // Estados UI
     const [minOrderDisplay, setMinOrderDisplay] = useState("");
@@ -178,8 +180,10 @@ export default function FidelidadePage() {
     };
 
     const handleSave = async () => {
-        await saveProgram();
-        setHasChanges(false);
+        setSaveError(false);
+        const saved = await saveProgram();
+        setSaveError(!saved);
+        if (saved) setHasChanges(false);
     };
 
     if (loading && !program) return <div className="p-8">Carregando...</div>;
@@ -208,14 +212,14 @@ export default function FidelidadePage() {
                         <h3 className="font-semibold text-lg">Status do Programa</h3>
                         <p className="text-sm text-gray-500">Se desativado, a pontuação é pausada.</p>
                     </div>
-                    <ToggleInput 
-                        label={safeProgram.active ? "Ativado" : "Desativado"} 
+                    <Switch
+                        aria-label="Ativar programa de fidelidade"
                         checked={safeProgram.active} 
-                        onChange={(e) => handleChange("active", e.target.checked)} 
+                        onClick={() => handleChange("active", !safeProgram.active)}
                     />
                 </div>
 
-                <div className={`space-y-6 transition-opacity ${!safeProgram.active ? "opacity-50 pointer-events-none" : ""}`}>
+                <fieldset disabled={!safeProgram.active} className="min-w-0 space-y-6 disabled:opacity-50">
                     {/* REGRAS */}
                     <div className="grid md:grid-cols-2 gap-6">
                         <Input
@@ -252,7 +256,8 @@ export default function FidelidadePage() {
                                 <div className="h-10 bg-gray-100 rounded animate-pulse" />
                             ) : (
                                 <Dropdown 
-                                    label={safeProgram.reward_item_id ? undefined : "Selecione o item..."}
+                                    aria-label="Item principal gratuito"
+                                    disabled={!safeProgram.active}
                                     options={dropdownOptions}
                                     onChange={(e) => handleItemSelect(e.target.value)}
                                     value={safeProgram.reward_item_id || ""}
@@ -284,7 +289,9 @@ export default function FidelidadePage() {
                                                     {group.subitems.map(sub => {
                                                         const isSelected = safeProgram.reward_subitem_ids?.includes(sub.id);
                                                         return (
-                                                            <div 
+                                                            <button
+                                                                type="button"
+                                                                aria-pressed={!!isSelected}
                                                                 key={sub.id}
                                                                 onClick={() => toggleSubitem(sub.id)}
                                                                 className={`cursor-pointer flex items-center p-2 rounded border transition-all ${
@@ -301,7 +308,7 @@ export default function FidelidadePage() {
                                                                 <span className="text-xs text-gray-400">
                                                                     {sub.price_cents > 0 ? `+${formatPrice(sub.price_cents)}` : 'Grátis'}
                                                                 </span>
-                                                            </div>
+                                                            </button>
                                                         )
                                                     })}
                                                 </div>
@@ -324,17 +331,18 @@ export default function FidelidadePage() {
                             />
                         </div>
                     </div>
-                </div>
+                </fieldset>
 
-                <div className="pt-4 flex justify-end">
-                    <Button 
+                <div className="pt-4 flex items-center justify-end gap-3">
+                    <SaveStatus status={loading ? "saving" : saveError ? "error" : hasChanges || !program ? "idle" : "saved"} />
+                    {hasChanges && <Button
                         onClick={handleSave} 
                         loading={loading}
                         disabled={!hasChanges && !loading}
                         variant={hasChanges ? "primary" : "secondary"}
                     >
-                        {hasChanges ? "Salvar Alterações" : "Salvo"}
-                    </Button>
+                        Salvar Alterações
+                    </Button>}
                 </div>
             </Card>
         </div>

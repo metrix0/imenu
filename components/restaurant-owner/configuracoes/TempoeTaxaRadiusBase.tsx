@@ -1,4 +1,5 @@
 "use client";
+import SaveStatus from "@/components/ui/SaveStatus";
 
 import {
     forwardRef,
@@ -9,14 +10,14 @@ import {
 } from "react";
 
 import { useRestauranteConfig } from "@/lib/stores/restaurant-owner/RestauranteConfiguracoesZustand";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { faBullseye, faClock } from "@fortawesome/free-solid-svg-icons";
 import { icons } from "@/lib/utils/fontawesome";
 import { supabase } from "@/lib/database/supabaseClient";
 
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
-import ToggleInput from "@/components/ui/ToggleInput";
+import Switch from "@/components/ui/Switch";
 import Tooltip from "@/components/ui/Tooltip";
 
 type RadiusRule = {
@@ -442,19 +443,7 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                 <div className="flex justify-end mb-2 2xl:mb-3 h-6">
                     {!isNew && (
                         <div className="text-sm 2xl:text-lg font-medium h-6 flex items-center mb-4 transition-opacity duration-300">
-                            {status === "saving" ? (
-                                <span className="text-brand animate-pulse">
-                                    Salvando...
-                                </span>
-                            ) : status === "saved" ? (
-                                <span className="text-green-600 flex items-center gap-1">
-                                    <FontAwesomeIcon
-                                        icon={icons.faCheck}
-                                        className="text-xs"
-                                    />
-                                    Tudo salvo
-                                </span>
-                            ) : null}
+                            <SaveStatus status={status} />
                         </div>
                     )}
                 </div>
@@ -651,9 +640,7 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                         Pedido Mínimo
                         <Tooltip text="O valor mínimo para alguém pedir no seu restaurante.">
                             <FontAwesomeIcon
-                                icon={
-                                    icons.faCircleInfo
-                                }
+                                icon={icons.faCircleInfo}
                                 className="text-gray-700 text-sm"
                             />
                         </Tooltip>
@@ -661,13 +648,8 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
 
                     <Input
                         numeric
-                        icon={
-                            <FontAwesomeIcon
-                                icon={
-                                    icons.faDollarSign
-                                }
-                            />
-                        }
+                        aria-label="Valor mínimo do pedido"
+                        icon="R$"
                         iconPosition="left"
                         defaultValue="20"
                         ref={minOrderRef}
@@ -693,13 +675,10 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                             </p>
                         </div>
 
-                        <ToggleInput
+                        <Switch
+                            aria-label="Permitir retirada no balcão"
                             checked={pickupEnabled}
-                            onChange={(event) =>
-                                setPickupEnabled(
-                                    event.target.checked
-                                )
-                            }
+                            onClick={() => setPickupEnabled(!pickupEnabled)}
                         />
                     </div>
                 </div>

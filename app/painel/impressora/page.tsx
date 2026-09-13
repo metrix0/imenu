@@ -2,10 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import {
     faDownload,
-    faPrint,
     faCircleCheck,
 } from "@fortawesome/free-solid-svg-icons";
 
@@ -14,6 +13,16 @@ type PrinterRelease = {
     updatedAt: string;
     downloadUrl: string;
 };
+
+const LEGACY_PRINTER_RELEASE: PrinterRelease = {
+    version: "1.1.5 Legacy",
+    updatedAt: "2026-09-13T15:39:13Z",
+    downloadUrl: "/downloads/iMenu%20Impressora%20Legacy%20Setup%201.1.5.exe",
+};
+
+function isLegacyWindows() {
+    return /Windows NT (6\.1|6\.2|6\.3)/.test(navigator.userAgent);
+}
 
 function formatUpdatedAt(value: string) {
     const date = new Date(value);
@@ -31,8 +40,11 @@ function formatUpdatedAt(value: string) {
 
 export default function ImpressoraPage() {
     const [release, setRelease] = useState<PrinterRelease | null>(null);
+    const [useLegacyRelease, setUseLegacyRelease] = useState(false);
 
     useEffect(() => {
+        setUseLegacyRelease(isLegacyWindows());
+
         fetch("/downloads/imenu-printer.json", { cache: "no-store" })
             .then((response) => {
                 if (!response.ok) {
@@ -49,18 +61,16 @@ export default function ImpressoraPage() {
             .catch(() => {});
     }, []);
 
+    const selectedRelease = useLegacyRelease ? LEGACY_PRINTER_RELEASE : release;
+
     return (
-        <div className="min-h-screen bg-gray-50">
-            <div className="max-w-6xl mx-auto px-4 py-6 sm:px-8 sm:py-10">
+        <div className="mx-auto max-w-6xl px-4 pb-20 pt-8 sm:px-6">
+            <div>
                 {/* Header */}
                 <div className="mb-8">
-                    <div className="flex items-start sm:items-center gap-3 mb-3">
-                        <div className="w-11 h-11 shrink-0 rounded-xl bg-brand/10 text-brand flex items-center justify-center">
-                            <FontAwesomeIcon icon={faPrint} className="text-xl" />
-                        </div>
-
+                    <div>
                         <div>
-                            <h1 className="text-2xl sm:text-3xl font-extrabold text-brand leading-tight">
+                            <h1 className="text-3xl font-medium text-gray-900">
                                 iMenu Impressora
                             </h1>
                             <p className="text-gray-500 mt-1">
@@ -103,10 +113,11 @@ export default function ImpressoraPage() {
                             </div>
 
                             <a
-                                href={release?.downloadUrl}
+                                data-ui="button" data-variant="primary"
+                                href={selectedRelease?.downloadUrl}
                                 download
                                 className={`inline-flex w-full sm:w-fit items-center justify-center gap-2 bg-brand text-white px-6 py-3 rounded-xl font-semibold hover:bg-brand/90 transition ${
-                                    release ? "" : "pointer-events-none"
+                                    selectedRelease ? "" : "pointer-events-none"
                                 }`}
                             >
                                 <FontAwesomeIcon icon={faDownload} />
@@ -117,18 +128,31 @@ export default function ImpressoraPage() {
                                 <div className="flex flex-wrap gap-x-5 gap-y-1">
                                     <span>
                                         <span className="font-semibold text-gray-800">Versão:</span>{" "}
-                                        {release?.version || ""}
+                                        {selectedRelease?.version || ""}
                                     </span>
                                     <span>
                                         <span className="font-semibold text-gray-800">Atualizado em:</span>{" "}
-                                        {release ? formatUpdatedAt(release.updatedAt) : ""}
+                                        {selectedRelease ? formatUpdatedAt(selectedRelease.updatedAt) : ""}
                                     </span>
                                 </div>
                             </div>
 
-                            <p className="text-xs text-gray-400 mt-4">
-                                Compatível com Windows.
-                            </p>
+                            <div className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+                                <p className="text-gray-400">
+                                    {useLegacyRelease
+                                        ? "Compatível com Windows 7, 8 e 8.1."
+                                        : "Compatível com Windows 10 e 11."}
+                                </p>
+                                {!useLegacyRelease && (
+                                    <a
+                                        href={LEGACY_PRINTER_RELEASE.downloadUrl}
+                                        download
+                                        className="w-fit font-medium text-brand hover:underline"
+                                    >
+                                        Windows 7, 8 ou 8.1? Baixar versão compatível
+                                    </a>
+                                )}
+                            </div>
                         </div>
 
                         {/* Right */}

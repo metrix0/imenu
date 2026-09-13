@@ -5,7 +5,7 @@ import { supabase } from "@/lib/database/supabaseClient";
 import { MenuItemType } from "@/components/restaurant-owner/cardapio/MenuItemRow";
 import Modal from "@/components/ui/Modal";
 import Input from "@/components/ui/Input";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { icons } from "@/lib/utils/fontawesome";
 import ListLoader from "@/components/ui/ListLoader";
 
@@ -213,7 +213,7 @@ export default function UpsellTab({ restaurantId, items }: Props) {
             }
 
             {/* Modal */}
-            <Modal open={open} onClose={() => setOpen(false)}>
+            <Modal height={660} open={open} onClose={() => setOpen(false)}>
                 <div className="p-6 space-y-4 h-[70vh]">
                     <h3 className="text-lg font-semibold">Adicionar Upsell</h3>
 

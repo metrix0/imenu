@@ -100,6 +100,13 @@ export default function PromocoesPage() {
 
     return (
         <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-8 pb-24">
+            <style>{`
+                .panel-essencial [data-panel-path="/painel/promocoes"] .promotions-products input[type="checkbox"] {
+                    border-color: #eef0f2 !important;
+                    box-shadow: none !important;
+                }
+            `}</style>
+
             <h1 className="text-3xl font-bold text-gray-900">Promoções</h1>
             <p className="text-gray-500 mt-1 2xl:text-lg mb-6">Descontos em produtos, promoções automáticas e cupons.</p>
 
@@ -131,13 +138,16 @@ export default function PromocoesPage() {
             )}
 
             {tab === "Produtos" && (
-                <PromotionsPanel
-                    restaurantId={restaurantId!}
-                    onToast={(message, type) => {
-                        setToastConfig({ message, type });
-                        setShowToast(true);
-                    }}
-                />            )}
+                <div className="promotions-products">
+                    <PromotionsPanel
+                        restaurantId={restaurantId!}
+                        onToast={(message, type) => {
+                            setToastConfig({ message, type });
+                            setShowToast(true);
+                        }}
+                    />
+                </div>
+            )}
 
             {tab === "Promoções" && restaurantId && (
                 <AutomaticPromotionsPanel restaurantId={restaurantId} onToast={(message, type) => {

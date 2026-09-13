@@ -129,6 +129,10 @@ type DashboardDetailsPayload = {
     };
     funnelSummary: {
         registrationComplete: number | null;
+        step1Views: number | null;
+        step2Views: number | null;
+        step3Views: number | null;
+        step4Views: number | null;
         orderedConsumers: number | null;
     };
     qrTable: {
@@ -258,11 +262,45 @@ function normalizeWhatsappNumber(value: string | null): string | null {
     let digits = original.replace(/\D/g, "");
     if (!digits) return null;
 
-    if (!digits.startsWith("55") && (digits.length === 10 || digits.length === 11)) {
+    if (digits.length === 10 || digits.length === 11) {
         digits = `55${digits}`;
     }
 
     return digits.length >= 12 ? digits : null;
+}
+
+function formatRestaurantNameForMessage(value: string): string {
+    const trimmed = value
+        .replace(/[\u{1F1E6}-\u{1F1FF}\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\uFE0F\u200D\u20E3]/gu, "")
+        .replace(/\s+/g, " ")
+        .trim();
+    const lowercase = trimmed.toLocaleLowerCase("pt-BR");
+    const uppercase = trimmed.toLocaleUpperCase("pt-BR");
+
+    if (trimmed !== lowercase && trimmed !== uppercase) return trimmed;
+
+    const lowercaseWords = new Set([
+        "da",
+        "das",
+        "de",
+        "do",
+        "dos",
+        "e",
+        "em",
+        "na",
+        "nas",
+        "no",
+        "nos",
+    ]);
+
+    return lowercase
+        .split(/\s+/)
+        .map((word, index) =>
+            index > 0 && lowercaseWords.has(word)
+                ? word
+                : `${word.charAt(0).toLocaleUpperCase("pt-BR")}${word.slice(1)}`
+        )
+        .join(" ");
 }
 
 function lineOptions(currency = false, percentage = false) {
@@ -680,25 +718,57 @@ export default function DevDashboardPage() {
                                     {data.pipeline.map((step, index) => {
                                         const isRegistrationComplete =
                                             step.key === "registration_complete";
+                                        const isCreationStep = [
+                                            "step_1",
+                                            "step_2",
+                                            "step_3",
+                                            "step_4",
+                                        ].includes(step.key);
+                                        const creationStepPostHogValue =
+                                            step.key === "step_1"
+                                                ? details?.funnelSummary.step1Views ?? null
+                                                : step.key === "step_2"
+                                                  ? details?.funnelSummary.step2Views ?? null
+                                                  : step.key === "step_3"
+                                                    ? details?.funnelSummary.step3Views ?? null
+                                                    : step.key === "step_4"
+                                                      ? details?.funnelSummary.step4Views ?? null
+                                                      : null;
+                                        const previousStep = data.pipeline[index - 1];
+                                        const previousDisplayValue =
+                                            previousStep?.key === "registration_complete"
+                                                ? details?.funnelSummary.registrationComplete ?? null
+                                                : previousStep?.key === "step_1"
+                                                  ? details?.funnelSummary.step1Views ?? null
+                                                  : previousStep?.key === "step_2"
+                                                    ? details?.funnelSummary.step2Views ?? null
+                                                    : previousStep?.key === "step_3"
+                                                      ? details?.funnelSummary.step3Views ?? null
+                                                      : previousStep?.key === "step_4"
+                                                        ? details?.funnelSummary.step4Views ?? null
+                                                        : previousStep?.value ?? null;
                                         const displayValue = isRegistrationComplete
                                             ? details?.funnelSummary.registrationComplete ?? null
-                                            : step.value;
-                                        const secondaryValue = isRegistrationComplete
-                                            ? step.value
-                                            : null;
-                                        const displayConversion = isRegistrationComplete
-                                            ? conversion(
-                                                  displayValue,
-                                                  data.pipeline[index - 1]?.value ?? null
-                                              )
-                                            : step.key === "activated_users"
-                                              ? conversion(
-                                                    step.value,
-                                                    data.pipeline.find(
-                                                        (item) => item.key === "step_4"
-                                                    )?.value ?? null
-                                                )
-                                              : step.conversion;
+                                            : isCreationStep
+                                              ? creationStepPostHogValue
+                                              : step.value;
+                                        const secondaryValue =
+                                            isRegistrationComplete || isCreationStep
+                                                ? step.value
+                                                : null;
+                                        const displayConversion =
+                                            isRegistrationComplete || isCreationStep
+                                                ? conversion(displayValue, previousDisplayValue)
+                                                : step.key === "activated_users"
+                                                  ? conversion(
+                                                        step.value,
+                                                        details?.funnelSummary.step4Views ??
+                                                            data.pipeline.find(
+                                                                (item) => item.key === "step_4"
+                                                            )?.value ??
+                                                            null
+                                                    )
+                                                  : step.conversion;
 
                                         return (
                                             <div
@@ -868,7 +938,7 @@ export default function DevDashboardPage() {
                                                                         disabled={!whatsappNumber}
                                                                         onClick={() => {
                                                                             if (!whatsappNumber) return;
-                                                                            const message = `Olá, ${user.restaurantName}, percebemos que estava usando o iMenu, porém nos últimos 7 dias não houveram compras recentes no seu restaurante. Nossa equipe corrige erros em 1-2 dias úteis e adiciona novas funcionalidades em 1-2 semanas. Podemos auxiliar de alguma forma?`;
+                                                                            const message = `Olá, sou o João do iMenu, entrando em contato por causa do ${formatRestaurantNameForMessage(user.restaurantName)}.\n\nNotamos que não estão tendo pedidos recentemente. Podemos auxiliar com algo?`;
                                                                             window.open(
                                                                                 `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`,
                                                                                 "_blank",

@@ -8,7 +8,7 @@
   "crons": [
     {
       "path": "/api/cron/daily-payout",
-      "schedule": "0 15 * * *"
+      "schedule": "0 14 * * *"
     }
   ]
 }

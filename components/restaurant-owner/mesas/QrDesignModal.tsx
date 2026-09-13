@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { faCheck, faPlus } from "@fortawesome/free-solid-svg-icons";
 
 import Button from "@/components/ui/Button";
@@ -315,7 +315,7 @@ export default function QrDesignModal({
     };
 
     return (
-        <Modal
+        <Modal height={820}
             open={open}
             onClose={onClose}
             className="max-w-7xl"

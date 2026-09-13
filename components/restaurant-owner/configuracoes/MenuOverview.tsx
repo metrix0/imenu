@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { icons } from "@/lib/utils/fontawesome";
 
 // UI Components

@@ -1,6 +1,6 @@
 "use client";
 
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import {
     faArrowRight,
     faCheck,
@@ -48,12 +48,13 @@ export default function MenuProductCards({
     };
 
     return (
-        <div className="grid gap-5 md:grid-cols-2">
+        <div className="panel-product-cards grid gap-5 md:grid-cols-2">
             <div className="relative flex min-h-[320px] flex-col overflow-hidden rounded-2xl border border-brand bg-gradient-to-br from-white via-white to-brand/[0.08] p-6 shadow-sm ring-2 ring-brand/10">
-                <div className="absolute right-4 top-4 inline-flex items-center gap-1.5 rounded-full bg-brand px-2.5 py-1 text-xs font-semibold text-white">
+                <span className="absolute right-4 top-4 inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-600">
                     <FontAwesomeIcon icon={faLock} />
-                    Obrigatório Grátis
-                </div>
+                    <span className="sm:hidden">Grátis</span>
+                    <span className="hidden sm:inline">Obrigatório Grátis</span>
+                </span>
 
                 <div className="relative h-12 w-40">
                     <Image
@@ -112,6 +113,7 @@ export default function MenuProductCards({
 
             <div
                 onClick={handleQrAction}
+                data-selected={selected}
                 className={`relative flex min-h-[320px] flex-col overflow-hidden rounded-2xl border p-6 shadow-sm transition-all duration-200 ${
                     selected
                         ? "border-brand bg-gradient-to-br from-brand/[0.09] via-white to-orange-50 ring-2 ring-brand/10"
@@ -154,13 +156,12 @@ export default function MenuProductCards({
                 <h3 className="mt-6 text-xl font-bold text-gray-900">
                     iMenu QR Code Mesa
                 </h3>
-                <div className="mt-2 text-sm leading-relaxed text-gray-600">
-                    <span>
-                        Cardápio digital na mesa através de QR Code e link para seus
-                        clientes, receba pedidos e imprima automaticamente.
+                <div className="mt-2 flex min-w-0 items-center gap-2 text-sm leading-relaxed text-gray-600">
+                    <span className="min-w-0">
+                        Cardápio digital na mesa através de QR Code
                     </span>
                     <div
-                        className="ml-2 inline-block align-middle"
+                        className="shrink-0"
                         onClick={(event) => event.stopPropagation()}
                     >
                         <Tooltip
@@ -168,8 +169,8 @@ export default function MenuProductCards({
                             size="medium"
                             showOnClick
                         >
-                            <span className="inline-flex cursor-help items-center gap-1.5 rounded-full bg-brand/10 px-2.5 py-1 text-[11px] font-bold leading-none text-brand">
-                                BÔNUS: Atendimento Exclusivo
+                            <span className="inline-flex cursor-help items-center gap-1.5 whitespace-nowrap rounded-full bg-brand/10 px-2.5 py-1 text-[11px] font-bold leading-none text-brand">
+                                Atendimento Exclusivo
                                 <FontAwesomeIcon
                                     icon={faCircleInfo}
                                     className="text-[10px]"
@@ -185,6 +186,20 @@ export default function MenuProductCards({
                         /mês
                     </span>
                 </div>
+
+                <ul className="mt-4 grid min-w-0 grid-cols-3 gap-2 text-sm text-gray-700">
+                    {["Sem limites", "Painel do Garçom", "Acompanhamento do pedido"].map(
+                        (feature) => (
+                            <li key={feature} className="flex min-w-0 items-center gap-1.5">
+                                <FontAwesomeIcon
+                                    icon={faCheck}
+                                    className="shrink-0 text-xs text-brand"
+                                />
+                                <span title={feature}>{feature}</span>
+                            </li>
+                        ),
+                    )}
+                </ul>
 
                 <div className="mt-auto flex flex-col gap-4 pt-7">
                     {qrActive && (

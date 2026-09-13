@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import {
     faGripVertical,
     faLayerGroup,
@@ -354,10 +354,14 @@ export default function CardapioTab({
         }
     };
 
+    const normalizeSearch = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    const normalizedSearch = normalizeSearch(searchTerm.trim());
+    const matchingItems = (category: Category) => items.filter(item => item.category_id === category.id && (
+        normalizeSearch(category.name).includes(normalizedSearch) ||
+        normalizeSearch(`${item.name} ${item.description || ""}`).includes(normalizedSearch)
+    ));
     const displayCategories = localCategories.filter((category) => {
-        const matchesSearch = category.name
-            .toLowerCase()
-            .includes(searchTerm.toLowerCase());
+        const matchesSearch = normalizeSearch(category.name).includes(normalizedSearch) || matchingItems(category).length > 0;
         const matchesSelect = selectedCategoryId
             ? category.id === selectedCategoryId
             : true;
@@ -366,11 +370,11 @@ export default function CardapioTab({
 
     if (categories.length === 0) {
         return (
-            <div className="flex flex-col items-center justify-center py-20 bg-white rounded-lg border border-gray-100 shadow-sm">
-                <div className="w-40 h-40 bg-red-50 rounded-full flex items-center justify-center mb-6">
+            <div className="flex flex-col items-center justify-center p-6 bg-white rounded-lg border border-dashed border-gray-200 shadow-sm">
+                <div className="w-10 h-10 bg-red-50 rounded-full flex items-center justify-center mb-6">
                     <FontAwesomeIcon
                         icon={faLayerGroup}
-                        className="text-5xl text-brand/50"
+                        className="text-2xl text-gray-500"
                     />
                 </div>
                 <h3 className="text-lg font-bold text-gray-900 mb-2 2xl:text-xl">
@@ -434,7 +438,7 @@ export default function CardapioTab({
                 <div className="grid min-w-0 max-w-full grid-cols-2 gap-4 pb-4 md:hidden">
                     <div className="col-span-2 min-w-0 flex-1">
                         <Input
-                            placeholder="Buscar uma categoria"
+                            placeholder="Buscar item ou categoria"
                             icon={<FontAwesomeIcon icon={faSearch} />}
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
@@ -466,7 +470,7 @@ export default function CardapioTab({
                 <div className="hidden min-w-0 max-w-full gap-4 md:flex md:flex-row">
                     <div className="min-w-0 flex-1">
                         <Input
-                            placeholder="Buscar uma categoria"
+                            placeholder="Buscar item ou categoria"
                             icon={<FontAwesomeIcon icon={faSearch} />}
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
@@ -518,9 +522,7 @@ export default function CardapioTab({
                     >
                         <CategorySection
                             category={category}
-                            items={items.filter(
-                                (item) => item.category_id === category.id
-                            )}
+                            items={matchingItems(category)}
                             restaurantId={restaurantId}
                             onRefresh={onRefresh}
                             onItemUpdated={onItemUpdated}
@@ -558,7 +560,7 @@ export default function CardapioTab({
 
                 {displayCategories.length === 0 && (
                     <p className="py-10 text-center text-gray-500">
-                        Nenhuma categoria encontrada.
+                        Nenhum item ou categoria encontrado.
                     </p>
                 )}
             </div>

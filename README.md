@@ -40,7 +40,7 @@
 | UX Prototyping  | **Figma**                        |
 | UI Prototyping  | **Photoshop**                    |
 | Tests           | **Jest + Github Actions**        |
-| Metrics         | **Posthog + Clarity**            |
+| Metrics         | **Posthog**                      |
 | Error Handling  | **Sentry**                       |
 
 ## Future Additions: (Ignore)

@@ -2,12 +2,12 @@
 
 import { useEffect, useState } from "react";
 import Button from "@/components/ui/Button";
-import ToggleInput from "@/components/ui/ToggleInput";
+import PromotionCard from "./PromotionCard";
 import Modal from "@/components/ui/Modal";
 import { supabase } from "@/lib/database/supabaseClient";
-import {FontAwesomeIcon} from "@fortawesome/react-fontawesome";
+import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { icons } from "@/lib/utils/fontawesome";
-import Tooltip from "@/components/ui/Tooltip";
+import { faTicket } from "@fortawesome/free-solid-svg-icons";
 import ListLoader from "@/components/ui/ListLoader";
 
 interface Props {
@@ -28,7 +28,7 @@ export default function CouponsList({
     const [coupons, setCoupons] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [deleteTarget, setDeleteTarget] = useState<any>(null);
-    const [copied, setCopied] = useState(false);
+    const [copied, setCopied] = useState<string | null>(null);
 
     const loadCoupons = async () => {
         setLoading(true);
@@ -71,8 +71,8 @@ export default function CouponsList({
     const handleCopy = (c: any) => {
         const couponLink = `imenuapp.com.br/${restaurant.url_slug}/?c=${c.code}`;
         navigator.clipboard.writeText(couponLink);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
+        setCopied(c.id);
+        setTimeout(() => setCopied(null), 2000);
     }
 
     const formatDateBR = (date?: string) => {
@@ -123,8 +123,8 @@ export default function CouponsList({
 
             {/* Empty */}
             {!loading && coupons.length === 0 && (
-                <div className="flex flex-col items-center justify-center text-center mx-10 h-[70%]">
-                    <img src="/images/eyebrow_emoji.png" alt="Nada encontrado" className="w-38 h-38 mb-4" />
+                <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-gray-200 bg-white p-6 text-center">
+                    <FontAwesomeIcon icon={faTicket} className="mb-3 text-2xl text-gray-500" />
                     <p className="text-gray-500 text-md mb-4">Nenhum cupom criado.</p>
                     <Button variant="primary" onClick={onCreate}>
                         Criar cupom
@@ -132,83 +132,25 @@ export default function CouponsList({
                 </div>
             )}
 
-            {/* Table */}
-            {!loading && coupons.length > 0 && (
-                <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
-                    <table className="w-full text-sm">
-                        <thead className="bg-gray-50 text-gray-600">
-                        <tr>
-                            <th className="px-4 py-3 text-left font-medium">Cupom</th>
-                            <th className="px-4 py-3 text-left font-medium">Valor</th>
-                            <th className="px-4 py-3 text-left font-medium">Usos</th>
-                            <th className="px-4 py-3 text-left font-medium">Duração</th>
-                            <th className="px-4 py-3 text-center font-medium"><Tooltip text={"Este link ativa o cupom automaticamente"} position={"right"}>Link <FontAwesomeIcon icon={icons.faCircleInfo} className={"text-xs"}/></Tooltip></th>
-                            <th className="px-4 py-3 text-center font-medium">Ativo</th>
-                            <th className="px-4 py-3 text-right font-medium">Ações</th>
-                        </tr>
-                        </thead>
-
-                        <tbody className="divide-y">
-                        {coupons.map((c) => (
-                            <tr key={c.id} className="border-gray-50 hover:bg-gray-50 duration-200">
-                                <td className="px-4 py-3 font-medium text-gray-900">
-                                    {c.code}
-                                </td>
-
-                                <td className={`px-4 py-3 text-gray-700 ${c.discount_type === "delivery" && "text-xs"}`}>
-                                    {c.discount_type === "percent"
-                                        ? `${Math.round(c.discount_value * 100)}%`
-                                        : `${c.discount_type === "fixed" ? `R$ ${c.discount_value}` : ""}`
-                                    }
-                                    {c.discount_type === "delivery" && <span>Entrega</span>}
-                                </td>
-                                <td className="px-4 py-3 text-center text-gray-700">
-                                    {c.usage_count}{c.unlimited_quantity ? "" : ` de ${c.quantity ?? "-"}`}
-                                </td>
-
-
-
-                                <td className="px-4 py-3 text-gray-700">
-                                    {formatDateBR(c.start_date)} à {formatDateBR(c.end_date)}
-                                </td>
-
-                                <td className="px-4 py-3 text-center" >
-                                    <div onClick={() => handleCopy(c)} className={"flex justify-center items-center gap-2 cursor-pointer"}>
-                                        <p className={"py-1 px-2 bg-gray-100 rounded-full text-xs text-gray-600 break-all max-w-60 whitespace-nowrap overflow-hidden text-ellipsis"}>
-                                            imenuapp.com.br/{restaurant.url_slug}/{c.code}
-                                        </p>
-                                        <FontAwesomeIcon icon={copied ? icons.faCheck : icons.faLink} className={"text-gray-400 duration-100 hover:text-gray-500 cursor-pointer"} />
-                                    </div>
-                                </td>
-
-                                <td className="px-4 py-3 text-center">
-                                    <ToggleInput
-                                        label=""
-                                        checked={c.active}
-                                        onChange={(e) => toggleActive(c, e.target.checked)
-                                        }
-                                        className={"items-center justify-center"}
-                                        color={"bg-green-500"}
-                                    />
-                                </td>
-
-                                <td className="px-4 py-3">
-                                    <div className="flex justify-end gap-5 items-center text-md">
-                                        <Tooltip text={"Editar"}>
-                                        <FontAwesomeIcon onClick={() => onEdit(c)} icon={icons.faEdit} className={"text-gray-400 duration-100 hover:text-gray-500 cursor-pointer"} />
-                                        </Tooltip>
-                                        <FontAwesomeIcon onClick={() => setDeleteTarget(c)} icon={icons.faTrash} className={"text-gray-400 duration-100 hover:text-red-700 cursor-pointer mr-2"} />
-                                    </div>
-                                </td>
-                            </tr>
-                        ))}
-                        </tbody>
-                    </table>
-                </div>
-            )}
+            {!loading && coupons.map(c => (
+                <PromotionCard key={c.id} title={c.code} active={c.active}
+                    onToggle={() => void toggleActive(c, !c.active)}
+                    description={c.discount_type === "percent" ? `${Math.round(c.discount_value * 100)}% de desconto` : c.discount_type === "fixed" ? `${Number(c.discount_value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} de desconto` : "Entrega grátis"}
+                    actions={<>
+                        <Button variant="secondary" onClick={() => handleCopy(c)} aria-label={`Copiar link de ${c.code}`} className="gap-2">
+                            <FontAwesomeIcon icon={copied === c.id ? icons.faCheck : icons.faLink} />{copied === c.id ? "Copiado" : "Copiar link"}
+                        </Button>
+                        <Button variant="secondary" aria-label={`Editar cupom ${c.code}`} onClick={() => onEdit(c)} className="gap-2"><FontAwesomeIcon icon={icons.faEdit} />Editar</Button>
+                        <Button variant="secondary" aria-label={`Excluir cupom ${c.code}`} onClick={() => setDeleteTarget(c)} className="!w-10 !px-0"><FontAwesomeIcon icon={icons.faTrash} /></Button>
+                    </>}
+                >
+                    <span><strong className="font-medium text-gray-700">Usos:</strong> {c.usage_count ?? 0}{c.unlimited_quantity ? " · sem limite" : ` de ${c.quantity ?? "-"}`}</span>
+                    <span><strong className="font-medium text-gray-700">Validade:</strong> {c.start_date ? formatDateBR(c.start_date) : "Imediata"} · {c.end_date ? `até ${formatDateBR(c.end_date)}` : "Sem data final"}</span>
+                </PromotionCard>
+            ))}
 
             {/* Delete modal */}
-            <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)}>
+            <Modal height={240} open={!!deleteTarget} onClose={() => setDeleteTarget(null)}>
                 <div className="p-6">
                     <h2 className="text-lg font-semibold mb-3">
                         Excluir cupom

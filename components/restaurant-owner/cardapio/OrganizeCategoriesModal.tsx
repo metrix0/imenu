@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import {
     faArrowDown,
     faArrowUp,
@@ -170,7 +170,7 @@ export default function OrganizeCategoriesModal({
     };
 
     return (
-        <Modal
+        <Modal height={580}
             open={open}
             onClose={() => {
                 if (!saving) onClose();

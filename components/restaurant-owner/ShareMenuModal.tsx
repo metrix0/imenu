@@ -4,7 +4,7 @@ import { useState } from "react";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { icons } from "@/lib/utils/fontawesome";
 import { faQrcode } from "@fortawesome/free-solid-svg-icons"; // Importando ícone de QR Code
 
@@ -40,7 +40,7 @@ export default function ShareMenuModal({ isOpen, onClose, restaurantId, restaura
     };
 
     return (
-        <Modal open={isOpen} onClose={handleClose} className="max-w-sm">
+        <Modal height={showQr ? 600 : 390} open={isOpen} onClose={handleClose} className="max-w-sm">
             <div className="p-6 text-center flex flex-col items-center">
                 <div className="w-12 h-12 bg-brand/10 text-brand rounded-full flex items-center justify-center mb-4">
                     <FontAwesomeIcon icon={icons.faLink} className="text-xl" />

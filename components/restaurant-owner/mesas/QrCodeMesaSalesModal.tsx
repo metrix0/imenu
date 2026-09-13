@@ -1,6 +1,6 @@
 "use client";
 
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import {
     faArrowRotateLeft,
     faBellConcierge,
@@ -55,13 +55,13 @@ export default function QrCodeMesaSalesModal({
     active = false,
 }: QrCodeMesaSalesModalProps) {
     return (
-        <Modal
+        <Modal height={700}
             open={open}
             onClose={onClose}
             className="max-w-4xl"
             showCloseButton
         >
-            <div className="grid shrink-0 overflow-hidden border-b border-gray-100 md:grid-cols-[minmax(0,1fr)_300px]">
+            <div className="grid shrink-0 overflow-hidden md:grid-cols-[minmax(0,1fr)_300px]">
                 <div className="px-6 pb-1 pt-5 sm:px-8 sm:py-8">
                     <div className="relative h-12 w-56 max-w-full">
                         <Image

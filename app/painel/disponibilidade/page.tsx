@@ -4,9 +4,10 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/database/supabaseClient";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore"; // Store Global
 import Loader from "@/components/ui/Loader";
+import SaveStatus from "@/components/ui/SaveStatus";
 import WeeklyScheduleClick, { Availability } from "@/components/restaurant-owner/configuracoes/WeeklyScheduleClick";
 import Tooltip from "@/components/ui/Tooltip";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { icons } from "@/lib/utils/fontawesome";
 
 export default function DisponibilidadePage() {
@@ -14,6 +15,7 @@ export default function DisponibilidadePage() {
     const [availability, setAvailability] = useState<Availability>({});
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
+    const [saveError, setSaveError] = useState(false);
 
     useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -85,6 +87,7 @@ export default function DisponibilidadePage() {
         if (!restaurantId) return;
 
         setIsSaving(true);
+        setSaveError(false);
         try {
             // CORREÇÃO: Usando API Unificada
             const response = await fetch(`/api/restaurants/${restaurantId}`, {
@@ -97,6 +100,7 @@ export default function DisponibilidadePage() {
                 throw new Error("Erro na API");
             }
         } catch (error) {
+            setSaveError(true);
             console.error("Erro ao salvar horários:", error);
             alert("Falha ao salvar alterações. Verifique sua conexão.");
         } finally {
@@ -142,17 +146,12 @@ export default function DisponibilidadePage() {
                 </div>
                 
                 <div className="text-sm font-medium h-6 flex items-center">
-                    {isSaving ? (
-                        <span className="text-brand animate-pulse">Salvando...</span>
-                    ) : (
-                        <span className="text-green-600 flex items-center gap-1">
-                            <FontAwesomeIcon icon={icons.faCheck} className="text-xs" /> Tudo salvo
-                        </span>
-                    )}
+                    <SaveStatus status={saveError ? "error" : isSaving ? "saving" : "saved"} />
                 </div>
             </div>
 
-            <div className="bg-white border border-gray-200 min-[1800px]:min-w-[1400px] min-[1800px]:-ml-20 rounded-xl p-6 shadow-sm overflow-x-auto">
+            <p className="mb-3 text-xs text-gray-500 md:hidden">Deslize a grade para os lados para ver todos os dias.</p>
+            <div tabIndex={0} role="region" aria-label="Grade de horários da semana" className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6 overflow-x-auto">
                 <div className="min-w-[700px]">
                     <WeeklyScheduleClick 
                         value={availability} 

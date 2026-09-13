@@ -225,7 +225,7 @@ export default function PayoutTestActions() {
                 </div>
             </Card>
 
-            <Modal
+            <Modal height={560}
                 open={restaurantModalOpen}
                 onClose={() => !restaurantLoading && setRestaurantModalOpen(false)}
             >

@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { cache, Suspense } from "react";
-import Script from "next/script";
 import { notFound } from "next/navigation";
 import MenuSkeleton from "./MenuSkeleton";
 import { createSupabaseServerClient } from "@/lib/database/supabaseServerClient";
@@ -452,15 +451,6 @@ export default async function Layout({
             )}
 
             <Suspense fallback={<MenuSkeleton />}>
-                <Script id="ms-clarity" strategy="afterInteractive">
-                    {`
-                (function(c,l,a,r,i,t,y){
-                    c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
-                    t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
-                    y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
-                })(window, document, "clarity", "script", "uk4ichh2nj");
-              `}
-                </Script>
                 {children}
             </Suspense>
         </>

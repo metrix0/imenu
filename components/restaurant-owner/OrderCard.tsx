@@ -1,7 +1,7 @@
 "use client";
 
 import {useEffect, useState} from "react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { 
     faClock,
     faCalendarDays,
@@ -74,22 +74,17 @@ interface OrderCardProps {
 }
 
 
-function CashChangeInfo({ text }: { text: string }) {
+function CashChangeInfo({ text, children }: { text: string; children: React.ReactNode }) {
     return (
         <Tooltip
             text={text}
+            parentClassName="shrink-0"
             position="bottom"
             size="medium"
             portal
             tooltipClassName="max-w-[280px] text-center"
         >
-            <button
-                type="button"
-                className="inline-flex items-center justify-center text-gray-500 hover:text-gray-700 focus:text-gray-700 focus:outline-none"
-                aria-label="Informações sobre troco"
-            >
-                <FontAwesomeIcon icon={faCircleInfo} />
-            </button>
+            {children}
         </Tooltip>
     );
 }
@@ -386,6 +381,24 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
         ? formatScheduledRelativeTime((scheduledDate.getTime() - currentTime) / 60000)
         : "";
     const deliveryEtaTooltip = !isScheduled ? formatEtaRange(order.delivery_eta) : "";
+    const paymentBadge = (
+        <div
+            tabIndex={paymentMethod === "dinheiro" ? 0 : undefined}
+            aria-label={paymentMethod === "dinheiro" ? "Informações sobre troco" : undefined}
+            className={`flex shrink-0 items-center text-xs -ml-1 px-2 py-0.5 rounded-full font-medium min-[1800px]:text-base min-[1800px]:px-3 min-[1800px]:py-1 ${
+                paymentMethod === "pix"
+                    ? "bg-green-100 text-green-800"
+                    : "bg-gray-200 text-gray-700"
+            } ${paymentMethod === "dinheiro" ? "cursor-help" : ""}`}
+        >
+            <span>{paymentLabel}</span>
+            {paymentMethod === "dinheiro" && (
+                <span className="ml-1.5 inline-flex leading-none text-gray-500">
+                    <FontAwesomeIcon icon={faCircleInfo} />
+                </span>
+            )}
+        </div>
+    );
 
     // LÓGICA DE VISUALIZAÇÃO LIMITADA
     const VISIBLE_ITEMS = isScheduled || isTableOrder ? 2 : 3;
@@ -393,31 +406,24 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
     const itemsToShow = order.order_items.slice(0, VISIBLE_ITEMS);
 
     return (
-        <Card className={`!p-0 overflow-hidden border-l-4 ${config.borderColor} flex flex-col h-full`}>
+        <Card className={`panel-order !p-0 overflow-hidden border-l-4 ${config.borderColor} flex flex-col h-full`}>
             {/* Header do Card */}
-            <div className="rounded-t-xl bg-gray-50 border-b border-gray-100 px-5 py-4 min-[1800px]:px-6 min-[1800px]:py-5">
-                <div className="flex items-center gap-2 whitespace-nowrap min-[1800px]:gap-4">
+            <div className="panel-order-head rounded-t-xl bg-gray-50 border-b border-gray-100 px-5 py-4 min-[1800px]:px-6 min-[1800px]:py-5">
+                <div className="panel-order-heading flex items-center gap-2 min-[1800px]:gap-4">
                     <span className="shrink-0 font-bold text-gray-900 text-lg">
                         #{order.display_id || order.id.slice(0, 4)}
                     </span>
                     <span className={`shrink-0 text-xs px-2 py-0.5 rounded-full font-medium min-[1800px]:text-base min-[1800px]:px-3 min-[1800px]:py-1 ${config.color}`}>
                         {config.label}
                     </span>
+                </div>
+                <div className="panel-order-meta flex items-center gap-2">
                     {!isTableOrder && (
-                        <div
-                            className={`flex shrink-0 items-center text-xs -ml-1 px-2 py-0.5 rounded-full font-medium min-[1800px]:text-base min-[1800px]:px-3 min-[1800px]:py-1 ${
-                                paymentMethod === "pix"
-                                    ? "bg-green-100 text-green-800"
-                                    : "bg-gray-200 text-gray-700"
-                            }`}
-                        >
-                            <span>{paymentLabel}</span>
-                            {paymentMethod === "dinheiro" && (
-                                <span className="ml-1.5 inline-flex leading-none">
-                                    <CashChangeInfo text={cashChangeObservation} />
-                                </span>
-                            )}
-                        </div>
+                        paymentMethod === "dinheiro" ? (
+                            <CashChangeInfo text={cashChangeObservation}>
+                                {paymentBadge}
+                            </CashChangeInfo>
+                        ) : paymentBadge
                     )}
                     {isScheduled ? (
                         <TimeInfo
@@ -434,7 +440,7 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
                     )}
                 </div>
 
-                <div className="mt-2 flex w-full min-w-0 items-center gap-3 text-sm font-medium text-gray-700 min-[1800px]:text-base">
+                <div className="panel-order-customer mt-2 flex w-full min-w-0 items-center gap-3 text-sm font-medium text-gray-700 min-[1800px]:text-base">
                     <span className="flex min-w-0 flex-1 items-center gap-1.5" title={order.customer_name}>
                         <FontAwesomeIcon icon={faUser} className="shrink-0 text-gray-400" />
                         <span className="min-w-0 truncate">{order.customer_name}</span>
@@ -457,7 +463,7 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
             </div>
 
             {/* Conteúdo */}
-            <div className="flex flex-1 flex-col px-5 py-4 min-[1800px]:px-6 min-[1800px]:mt-2">
+            <div className="panel-order-body flex flex-1 flex-col px-5 py-4 min-[1800px]:px-6 min-[1800px]:mt-2">
                 {/* Itens */}
                 <div className="space-y-2 min-[1800px]:space-y-3">
                     {isScheduled ? (
@@ -518,7 +524,7 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
 
                     {/* Botões de Ação */}
                     {config.btn && (
-                        <div className="flex gap-2 mt-2 min-[1800px]:mt-5">
+                        <div className="panel-order-actions flex gap-2 mt-2 min-[1800px]:mt-5">
                             {showBackButton && (
                                 <Button 
                                     variant="secondary"
@@ -527,6 +533,7 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
                                     loading={loading}
                                     disabled={loading}
                                     title="Voltar status anterior"
+                                    aria-label="Voltar status anterior"
                                 >
                                     <FontAwesomeIcon icon={faArrowLeft} />
                                 </Button>
@@ -549,6 +556,7 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
                                 className="px-4"
                                 onClick={() => onViewOrder && onViewOrder(order)}
                                 title="Ver detalhes do pedido"
+                                aria-label="Ver detalhes do pedido"
                                 disabled={loading}
                             >
                                 <FontAwesomeIcon icon={faEye} />

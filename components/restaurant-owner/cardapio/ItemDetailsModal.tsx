@@ -1,12 +1,13 @@
 "use client";
 
+import { LegacyModalClose } from "@/components/ui/ModalCloseButton";
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/database/supabaseClient";
 import Modal from "@/components/ui/Modal";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
 import Tooltip from "@/components/ui/Tooltip";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { icons } from "@/lib/utils/fontawesome";
 import { faTrash, faPlus, faGripLines, faGripVertical, faDownload, faSearch } from "@fortawesome/free-solid-svg-icons";
 import ConfirmModal from "@/components/ui/ConfirmModal";
@@ -185,7 +186,7 @@ const SubitemPriceInput = ({ priceCents, onChange }: { priceCents: number; onCha
     };
 
     return (
-        <input 
+        <Input inline
             className="w-full pl-2 pr-1 py-1 text-sm 2xl:text-base text-right border rounded border-gray-200 focus:border-brand focus:outline-none"
             type="text"
             inputMode="decimal"
@@ -557,18 +558,18 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, 
 
     return (
         <>
-        <Modal open={isOpen} onClose={onClose}>
-            <div className="w-full max-w-2xl bg-white rounded-lg flex flex-col max-h-[85vh]">
+        <Modal height={760} open={isOpen} onClose={onClose}>
+            <div className="panel-complements w-full max-w-2xl bg-white rounded-lg flex flex-col max-h-[85vh]">
                 <div className="p-6 border-b border-gray-100 flex justify-between items-center shrink-0">
                     <div>
-                        <h2 className="flex items-baseline gap-2 text-xl font-bold text-gray-900 2xl:text-2xl">
+                        <h2 className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-xl font-bold text-gray-900 2xl:text-2xl">
                             <span>Complementos</span>
                             <span className="text-sm font-normal text-gray-400 2xl:text-base">{item?.name}</span>
                         </h2>
                     </div>
-                    <button onClick={onClose} className="cursor-pointer text-gray-400 hover:text-gray-600">
+                    <LegacyModalClose><button onClick={onClose} className="cursor-pointer text-gray-400 hover:text-gray-600">
                         <FontAwesomeIcon icon={icons.faTimes} className="text-xl" />
-                    </button>
+                    </button></LegacyModalClose>
                 </div>
 
                 <div className="p-6 overflow-y-auto flex-1 space-y-6 2xl:text-base">
@@ -593,7 +594,7 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, 
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <div className="flex min-w-0 items-center gap-2">
-                                            <input 
+                                            <Input inline
                                                 className="min-w-0 flex-1 bg-transparent font-bold text-gray-800 text-lg 2xl:text-xl focus:outline-none focus:border-b focus:border-brand"
                                                 value={group.name}
                                                 onChange={(e) => updateGroupLocally(group.id, { name: e.target.value })}
@@ -616,7 +617,7 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, 
                                             </label>
                                             <div className="flex shrink-0 items-center gap-2 2xl:text-base">
                                                 <span>Até:</span>
-                                                <input 
+                                                <Input inline
                                                     type="number" 
                                                     className="w-12 p-1 text-center rounded border border-gray-300 text-sm 2xl:text-base"
                                                     value={group.max_select}
@@ -640,7 +641,7 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, 
                                                     parentClassName="min-w-0 max-w-full overflow-hidden sm:max-w-none sm:overflow-visible"
                                                 >
                                                     <span className="block max-w-full cursor-help truncate">
-                                                        Mais de uma unidade por complemento
+                                                        Permitir repetir opções
                                                     </span>
                                                 </Tooltip>
                                             </div>
@@ -654,7 +655,7 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, 
                                 {group.subitems.map(sub => (
                                     <div 
                                         key={sub.id} 
-                                        className={`flex items-center gap-3 bg-white p-2 rounded border border-gray-100 shadow-sm ${draggedSubitem?.subitemId === sub.id ? 'opacity-50' : ''}`}
+                                        className={`panel-complement-option flex items-center gap-3 bg-white p-2 rounded border border-gray-100 shadow-sm ${draggedSubitem?.subitemId === sub.id ? 'opacity-50' : ''}`}
                                         draggable={allowDragId === sub.id}
                                         onDragStart={(e) => handleSubitemDragStart(e, group.id, sub.id)}
                                         onDragEnd={handleSubitemDragEnd}
@@ -664,7 +665,7 @@ export default function ItemDetailsModal({ isOpen, onClose, item, restaurantId, 
                                         onMouseLeave={() => setAllowDragId(null)}
                                         // Suporte mobile simples (opcional, mas recomendado)
                                         onTouchStart={() => setAllowDragId(sub.id)}><FontAwesomeIcon icon={faGripVertical} className="text-xs 2xl:text-base" /></div>
-                                        <input 
+                                        <Input inline
                                             className="min-w-0 flex-1 truncate text-sm 2xl:text-base text-gray-700 focus:outline-none bg-transparent"
                                             value={sub.name}
                                             onChange={(e) => updateSubitemLocally(sub.id, { name: e.target.value })}

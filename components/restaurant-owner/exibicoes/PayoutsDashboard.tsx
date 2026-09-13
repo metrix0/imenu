@@ -2,13 +2,13 @@
 
 import { useState, useEffect } from "react";
 import { icons } from "@/lib/utils/fontawesome";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { faClock } from "@fortawesome/free-solid-svg-icons";
 import { supabase } from "@/lib/database/supabaseClient";
 
 import Card from "@/components/ui/Card";
 import ListLoader from "@/components/ui/ListLoader";
-import Button from "@/components/ui/Button";
+import Pagination from "@/components/ui/Pagination";
 
 const PAGE_SIZE = 5;
 
@@ -54,7 +54,7 @@ export default function PayoutsDashboard({ menuId, startDate, endDate }: Payouts
     const [error, setError] = useState<string | null>(null);
     
     const [page, setPage] = useState(0);
-    const [hasMore, setHasMore] = useState(false);
+    const [totalCount, setTotalCount] = useState(0);
 
     // Resetar página quando mudar filtros
     useEffect(() => {
@@ -84,11 +84,7 @@ export default function PayoutsDashboard({ menuId, startDate, endDate }: Payouts
 
                 setPayouts(data as Payout[]);
                 
-                if (count !== null) {
-                    setHasMore((page + 1) * PAGE_SIZE < count);
-                } else {
-                    setHasMore((data?.length || 0) === PAGE_SIZE);
-                }
+                setTotalCount(count ?? data?.length ?? 0);
 
             } catch (err) {
                 console.error(err);
@@ -121,7 +117,7 @@ export default function PayoutsDashboard({ menuId, startDate, endDate }: Payouts
                     payouts.map((payout, index) => (
                         <div
                             key={payout.id || index}
-                            className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-lg border border-gray-100 hover:border-gray-200 hover:bg-gray-50 transition-colors gap-4"
+                            className="flex flex-wrap items-center justify-between p-4 rounded-lg border border-gray-100 hover:border-gray-200 hover:bg-gray-50 transition-colors gap-4"
                         >
                             <div>
                                 <h5 className="font-semibold text-gray-600 flex items-center gap-2">
@@ -129,7 +125,7 @@ export default function PayoutsDashboard({ menuId, startDate, endDate }: Payouts
                                 </h5>
                             </div>
 
-                            <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto">
+                            <div className="flex items-center justify-between sm:justify-end gap-4">
                                 <span className="text-lg font-bold text-gray-900">
                                     {formatPrice(payout.amount_cents)}
                                 </span>
@@ -140,25 +136,8 @@ export default function PayoutsDashboard({ menuId, startDate, endDate }: Payouts
             </div>
 
             {/* Paginação */}
-            {(payouts.length > 0 || page > 0) && (
-                <div className="flex justify-center gap-2 mt-6 pt-4 border-gray-100">
-                    <Button 
-                        variant="secondary" 
-                        disabled={page === 0 || isLoading}
-                        onClick={() => setPage(p => Math.max(0, p - 1))}
-                        className="px-4 py-2 text-xs"
-                    >
-                        Anterior
-                    </Button>
-                    <Button 
-                        variant="secondary" 
-                        disabled={!hasMore || isLoading}
-                        onClick={() => setPage(p => p + 1)}
-                        className="px-4 py-2 text-xs"
-                    >
-                        Próxima
-                    </Button>
-                </div>
+            {(totalCount > PAGE_SIZE || page > 0) && (
+                <Pagination page={page} pageCount={Math.ceil(totalCount / PAGE_SIZE)} onChange={setPage} disabled={isLoading} />
             )}
         </Card>
     );

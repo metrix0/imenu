@@ -1,5 +1,7 @@
 "use client";
 
+import Input from "@/components/ui/Input";
+import Dropdown from "@/components/ui/Dropdown";
 import { useTransition, useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 
@@ -193,7 +195,7 @@ export default function PanelClient({
                                 </div>
 
                                 <div className="mt-3 md:mt-0 md:ml-4 flex md:items-start">
-                                    <select
+                                    <Dropdown
                                         className="border p-2 rounded"
                                         defaultValue={order.status}
                                         onChange={(e) =>
@@ -207,7 +209,7 @@ export default function PanelClient({
                                         <option value="preparing">Preparando</option>
                                         <option value="delivering">Em entrega</option>
                                         <option value="done">Pronto</option>
-                                    </select>
+                                    </Dropdown>
                                 </div>
                             </div>
                         );
@@ -231,7 +233,7 @@ export default function PanelClient({
                 <div className="flex flex-col md:flex-row md:items-end gap-2 flex-wrap">
                     <div className="flex flex-col">
                         <label className="text-sm font-medium mb-1">Data inicial</label>
-                        <input
+                        <Input inline
                             type="date"
                             value={startDate}
                             onChange={(e) => setStartDate(e.target.value)}
@@ -241,7 +243,7 @@ export default function PanelClient({
 
                     <div className="flex flex-col">
                         <label className="text-sm font-medium mb-1">Data final</label>
-                        <input
+                        <Input inline
                             type="date"
                             value={endDate}
                             onChange={(e) => setEndDate(e.target.value)}

@@ -1,4 +1,4 @@
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { IconDefinition } from "@fortawesome/fontawesome-svg-core";
 
 type WarningBoxProps = React.HTMLAttributes<HTMLDivElement> & {
@@ -9,6 +9,7 @@ type WarningBoxProps = React.HTMLAttributes<HTMLDivElement> & {
 export default function WarningBox({ icon, children, className = "", ...props }: WarningBoxProps) {
     return (
         <div
+            data-ui="warning"
             className={`p-4 bg-warning-bg text-warning flex gap-4 rounded-2xl  items-center ${className}`}
             {...props}
         >

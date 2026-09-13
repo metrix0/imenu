@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import Modal from "./Modal";
+import ModalCloseButton from "./ModalCloseButton";
+import { usePanelAppearance } from "./PanelAppearance";
 
 type DraggableModalProps =  React.HTMLAttributes<HTMLDivElement> & {
-    height?: number;
+    height: number;
     handle?: boolean;
     open: boolean;
     onClose: () => void;
@@ -12,7 +14,7 @@ type DraggableModalProps =  React.HTMLAttributes<HTMLDivElement> & {
 };
 
 export default function DraggableModal({
-                                           height = 0.9,
+    height,
                                            handle = true,
                                            open,
                                            onClose,
@@ -21,6 +23,7 @@ export default function DraggableModal({
                                            children,
                                             ...props
                                        }: DraggableModalProps) {
+    const panel = usePanelAppearance();
     const startY = useRef(0);
     const currentY = useRef(0);
     const closingRef = useRef(false); // 🔥 prevents double-close
@@ -153,7 +156,7 @@ export default function DraggableModal({
 
     return (
         <>{isDesktop ?
-                    <Modal open={open} onClose={onClose} className={props.className}>
+                    <Modal open={open} onClose={onClose} height={`${height * 100}dvh`} className={props.className}>
                         {children}
                     </Modal>
             :
@@ -166,6 +169,7 @@ export default function DraggableModal({
         >
             <div
                 {...props}
+                data-ui="sheet"
                 onClick={(e) => e.stopPropagation()}
                 onTouchStart={onPanelTouchStart}
                 className={`fixed left-0 right-0 mx-auto bg-white rounded-t-xl overflow-hidden ${props.className ?? ""}`}
@@ -178,6 +182,7 @@ export default function DraggableModal({
                     ...(props.style ?? {}),
                 }}
             >
+                {panel && <ModalCloseButton onClose={onClose} />}
                 {/* Invisible drag zone */}
                 <div
                     onMouseDown={onMouseStart}

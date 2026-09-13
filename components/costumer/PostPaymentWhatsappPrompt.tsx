@@ -94,7 +94,7 @@ export default function PostPaymentWhatsappPrompt({
     };
 
     return (
-        <Modal open={open} onClose={() => {}} className="max-w-md">
+        <Modal height={440} open={open} onClose={() => {}} className="max-w-md">
             <div className="px-6 pb-6 pt-7 text-center sm:px-8 sm:pb-8 sm:pt-8">
                 <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-green-50 text-green-600">
                     <FontAwesomeIcon icon={faWhatsapp} className="text-2xl" />

@@ -7,6 +7,7 @@ import {
     Legend,
     LinearScale,
     LineElement,
+    Filler,
     PointElement,
     Title,
     Tooltip,
@@ -19,6 +20,8 @@ import ListLoader from "@/components/ui/ListLoader";
 import SalesStatsCards from "./SalesStatsCards";
 import {
     CHART_BRAND,
+    CHART_CATEGORY_AXIS,
+    CHART_VALUE_AXIS,
     STANDARD_CHART_TOOLTIP,
     createBrandAreaGradient,
 } from "./chartStyles";
@@ -28,6 +31,7 @@ ChartJS.register(
     LinearScale,
     PointElement,
     LineElement,
+    Filler,
     Title,
     Tooltip,
     Legend
@@ -116,7 +120,7 @@ export default function SalesDashboard({
                 backgroundColor: createBrandAreaGradient,
                 borderWidth: 2.5,
                 tension: 0.35,
-                pointRadius: 0,
+                pointRadius: graphData.length === 1 ? 3 : 0,
                 pointHoverRadius: 5,
                 pointHitRadius: 14,
                 pointHoverBackgroundColor: CHART_BRAND,
@@ -141,22 +145,11 @@ export default function SalesDashboard({
             },
         },
         scales: {
-            x: {
-                grid: { display: false },
-                ticks: {
-                    color: "#9ca3af",
-                    maxRotation: 0,
-                    autoSkip: true,
-                    maxTicksLimit: 10,
-                },
-                border: { display: false },
-            },
+            x: CHART_CATEGORY_AXIS,
             y: {
-                beginAtZero: true,
-                grid: { color: "rgba(229, 231, 235, 0.65)" },
-                border: { display: false },
+                ...CHART_VALUE_AXIS,
                 ticks: {
-                    color: "#9ca3af",
+                    ...CHART_VALUE_AXIS.ticks,
                     callback: (value: string | number) =>
                         formatCurrency(Number(value)),
                 },
@@ -193,17 +186,17 @@ export default function SalesDashboard({
                     />
 
                     <Card className="w-full overflow-hidden">
-                        <div className="mb-6">
-                            <h4 className="text-lg font-bold text-gray-900 2xl:text-xl">
+                        <div className="mb-6 border-b border-gray-200 pb-4">
+                            <h3>
                                 Faturamento no período
-                            </h4>
+                            </h3>
                             <p className="text-sm text-gray-500 2xl:text-base">
                                 Evolução da receita ao longo do intervalo selecionado.
                             </p>
                         </div>
-                        <div className="h-[340px] w-full 2xl:h-[390px]">
+                        <div className="h-[260px] w-full sm:h-[320px]">
                             {graphData.length > 0 ? (
-                                <Line data={chartData} options={chartOptions} />
+                                <Line data={chartData} options={chartOptions} role="img" aria-label="Evolução do faturamento no período selecionado" />
                             ) : (
                                 <div className="flex h-full items-center justify-center text-gray-400">
                                     Nenhum dado encontrado para este período.

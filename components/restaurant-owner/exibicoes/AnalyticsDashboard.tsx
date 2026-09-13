@@ -9,17 +9,22 @@ import {
     Legend,
     LinearScale,
     LineElement,
+    Filler,
     PointElement,
     Tooltip,
     type TooltipItem,
 } from "chart.js";
 import { Bar, Doughnut, Line } from "react-chartjs-2";
 
+import Pagination from "@/components/ui/Pagination";
 import Card from "@/components/ui/Card";
 import ListLoader from "@/components/ui/ListLoader";
 import CategoryCombinationSelector from "@/components/restaurant-owner/exibicoes/CategoryCombinationSelector";
 import {
     CHART_BRAND,
+    CHART_CATEGORY_AXIS,
+    CHART_VALUE_AXIS,
+    CHART_LEGEND,
     STANDARD_CHART_TOOLTIP,
     createBrandAreaGradient,
 } from "@/components/restaurant-owner/exibicoes/chartStyles";
@@ -31,6 +36,7 @@ ChartJS.register(
     CategoryScale,
     LinearScale,
     LineElement,
+    Filler,
     PointElement,
     Tooltip,
     Legend
@@ -104,14 +110,7 @@ type Payload = {
 
 const ITEMS_PER_PAGE = 6;
 const DARK = "#1d1d1d";
-const CHART_COLORS = [
-    CHART_BRAND,
-    DARK,
-    "#6b7280",
-    "#9ca3af",
-    "#d1d5db",
-    "#fb923c",
-];
+const CHART_COLORS = [CHART_BRAND, DARK, "#626973", "#3b82f6", "#236639", "#a855f7"];
 
 function formatCurrency(cents: number): string {
     return (cents / 100).toLocaleString("pt-BR", {
@@ -185,9 +184,9 @@ function MetricCard({
     helper?: string;
 }) {
     return (
-        <Card className="p-5">
+        <Card className="min-w-0 p-4 sm:p-5">
             <p className="text-sm font-medium text-gray-500">{label}</p>
-            <p className="mt-2 text-2xl font-bold text-gray-900">{value}</p>
+            <p className="mt-2 text-xl sm:text-2xl font-medium tabular-nums tracking-tight text-gray-900">{value}</p>
             {helper && <p className="mt-1 text-xs text-gray-400">{helper}</p>}
         </Card>
     );
@@ -417,7 +416,7 @@ export default function AnalyticsDashboard({
 
     if (loading && !data) {
         return (
-            <Card>
+            <Card className="min-w-0">
                 <ListLoader lines={7} />
                 <p className="mt-4 text-center text-gray-500">
                     Carregando Analytics...
@@ -449,7 +448,7 @@ export default function AnalyticsDashboard({
                 backgroundColor: createBrandAreaGradient,
                 tension: 0.35,
                 borderWidth: 2.5,
-                pointRadius: 0,
+                pointRadius: normalizedOrderSeries.length === 1 ? 3 : 0,
                 pointHoverRadius: 5,
                 pointHitRadius: 14,
                 pointHoverBackgroundColor: CHART_BRAND,
@@ -469,8 +468,8 @@ export default function AnalyticsDashboard({
                 backgroundColor: CHART_BRAND,
                 tension: 0.3,
                 borderWidth: 2,
-                pointRadius: 2,
-                pointHoverRadius: 5,
+                pointRadius: normalizedOrderSeries.length === 1 ? 3 : 0,
+                pointHoverRadius: 4,
                 pointHitRadius: 12,
             },
         ],
@@ -490,8 +489,8 @@ export default function AnalyticsDashboard({
                 backgroundColor: DARK,
                 tension: 0.3,
                 borderWidth: 2,
-                pointRadius: 2,
-                pointHoverRadius: 5,
+                pointRadius: normalizedOrderSeries.length === 1 ? 3 : 0,
+                pointHoverRadius: 4,
                 pointHitRadius: 12,
             },
         ],
@@ -507,8 +506,8 @@ export default function AnalyticsDashboard({
                 backgroundColor: CHART_BRAND,
                 tension: 0.3,
                 borderWidth: 2,
-                pointRadius: 2,
-                pointHoverRadius: 5,
+                pointRadius: normalizedOrderSeries.length === 1 ? 3 : 0,
+                pointHoverRadius: 4,
                 pointHitRadius: 12,
             },
         ],
@@ -553,7 +552,8 @@ export default function AnalyticsDashboard({
                 label: "Pedidos",
                 data: hourlyOrders.map((item) => item.orders),
                 backgroundColor: CHART_BRAND,
-                borderRadius: 5,
+                borderRadius: 4,
+                maxBarThickness: 28,
             },
         ],
     };
@@ -566,7 +566,8 @@ export default function AnalyticsDashboard({
                 label: "Pedidos",
                 data: visibleCategories.map((item) => item.orders),
                 backgroundColor: CHART_BRAND,
-                borderRadius: 5,
+                borderRadius: 4,
+                maxBarThickness: 28,
             },
         ],
     };
@@ -580,7 +581,8 @@ export default function AnalyticsDashboard({
                 label: "% dos pedidos",
                 data: data.categoryPairs.map((item) => item.rate),
                 backgroundColor: DARK,
-                borderRadius: 5,
+                borderRadius: 4,
+                maxBarThickness: 28,
             },
         ],
     };
@@ -618,22 +620,11 @@ export default function AnalyticsDashboard({
             },
         },
         scales: {
-            x: {
-                grid: { display: false },
-                border: { display: false },
-                ticks: {
-                    color: "#9ca3af",
-                    maxRotation: 0,
-                    autoSkip: true,
-                    maxTicksLimit: 12,
-                },
-            },
+            x: CHART_CATEGORY_AXIS,
             y: {
-                beginAtZero: true,
-                grid: { color: "rgba(229, 231, 235, 0.65)" },
-                border: { display: false },
+                ...CHART_VALUE_AXIS,
                 ticks: {
-                    color: "#9ca3af",
+                    ...CHART_VALUE_AXIS.ticks,
                     callback: (value: string | number) =>
                         formatCurrency(Number(value) * 100),
                 },
@@ -656,9 +647,10 @@ export default function AnalyticsDashboard({
             },
         },
         scales: {
+            x: CHART_CATEGORY_AXIS,
             y: {
-                beginAtZero: true,
-                ticks: { precision: 0, callback: integerTick },
+                ...CHART_VALUE_AXIS,
+                ticks: { ...CHART_VALUE_AXIS.ticks, precision: 0, callback: integerTick },
             },
         },
     };
@@ -680,9 +672,11 @@ export default function AnalyticsDashboard({
             },
         },
         scales: {
+            x: CHART_CATEGORY_AXIS,
             y: {
-                beginAtZero: true,
+                ...CHART_VALUE_AXIS,
                 ticks: {
+                    ...CHART_VALUE_AXIS.ticks,
                     callback: (value: string | number) =>
                         formatCurrency(Number(value) * 100),
                 },
@@ -705,9 +699,10 @@ export default function AnalyticsDashboard({
             },
         },
         scales: {
+            x: CHART_CATEGORY_AXIS,
             y: {
-                beginAtZero: true,
-                ticks: { precision: 0, callback: integerTick },
+                ...CHART_VALUE_AXIS,
+                ticks: { ...CHART_VALUE_AXIS.ticks, precision: 0, callback: integerTick },
             },
         },
     };
@@ -728,9 +723,10 @@ export default function AnalyticsDashboard({
             },
         },
         scales: {
+            x: CHART_CATEGORY_AXIS,
             y: {
-                beginAtZero: true,
-                ticks: { precision: 0, callback: integerTick },
+                ...CHART_VALUE_AXIS,
+                ticks: { ...CHART_VALUE_AXIS.ticks, precision: 0, callback: integerTick },
             },
         },
     };
@@ -771,9 +767,10 @@ export default function AnalyticsDashboard({
             },
         },
         scales: {
+            y: { ...CHART_CATEGORY_AXIS, ticks: { ...CHART_CATEGORY_AXIS.ticks, autoSkip: false } },
             x: {
-                beginAtZero: true,
-                ticks: { precision: 0, callback: integerTick },
+                ...CHART_VALUE_AXIS,
+                ticks: { ...CHART_VALUE_AXIS.ticks, precision: 0, callback: integerTick },
             },
         },
     };
@@ -810,10 +807,12 @@ export default function AnalyticsDashboard({
             },
         },
         scales: {
+            y: { ...CHART_CATEGORY_AXIS, ticks: { ...CHART_CATEGORY_AXIS.ticks, autoSkip: false } },
             x: {
-                beginAtZero: true,
+                ...CHART_VALUE_AXIS,
                 max: 100,
                 ticks: {
+                    ...CHART_VALUE_AXIS.ticks,
                     callback: (value: string | number) => `${Number(value)}%`,
                 },
             },
@@ -822,9 +821,10 @@ export default function AnalyticsDashboard({
 
     const paymentOptions = {
         responsive: true,
+        cutout: "72%",
         maintainAspectRatio: false,
         plugins: {
-            legend: { position: "bottom" as const },
+            legend: CHART_LEGEND,
             tooltip: {
                 ...STANDARD_CHART_TOOLTIP,
                 callbacks: {
@@ -843,9 +843,10 @@ export default function AnalyticsDashboard({
 
     const fulfillmentOptions = {
         responsive: true,
+        cutout: "72%",
         maintainAspectRatio: false,
         plugins: {
-            legend: { position: "bottom" as const },
+            legend: CHART_LEGEND,
             tooltip: {
                 ...STANDARD_CHART_TOOLTIP,
                 callbacks: {
@@ -868,7 +869,7 @@ export default function AnalyticsDashboard({
                 loading ? "opacity-60" : "opacity-100"
             }`}
         >
-            <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <section className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
                 <MetricCard
                     label="Faturamento"
                     value={formatCurrency(data.summary.revenueCents)}
@@ -953,7 +954,7 @@ export default function AnalyticsDashboard({
                     )}
                 </div>
                 <div className="grid gap-4 lg:grid-cols-3">
-                    <Card>
+                    <Card className="min-w-0">
                         <h3 className="mb-4 font-semibold text-gray-900">
                             Acessos ao cardápio
                         </h3>
@@ -964,7 +965,7 @@ export default function AnalyticsDashboard({
                             />
                         </div>
                     </Card>
-                    <Card>
+                    <Card className="min-w-0">
                         <h3 className="mb-4 font-semibold text-gray-900">
                             Carrinho médio
                         </h3>
@@ -975,7 +976,7 @@ export default function AnalyticsDashboard({
                             />
                         </div>
                     </Card>
-                    <Card>
+                    <Card className="min-w-0">
                         <h3 className="mb-4 font-semibold text-gray-900">
                             Pedidos criados
                         </h3>
@@ -993,7 +994,7 @@ export default function AnalyticsDashboard({
                 </div>
             </section>
 
-            <Card>
+            <Card className="min-w-0">
                 <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
                     <div>
                         <h2 className="text-xl font-bold text-gray-900">
@@ -1004,35 +1005,7 @@ export default function AnalyticsDashboard({
                         </p>
                     </div>
                     {data.items.length > ITEMS_PER_PAGE && (
-                        <div className="flex items-center gap-2 text-sm text-gray-500">
-                            <button
-                                type="button"
-                                aria-label="Página anterior"
-                                disabled={itemPage === 0}
-                                onClick={() =>
-                                    setItemPage((page) => Math.max(0, page - 1))
-                                }
-                                className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-gray-200 bg-white text-lg disabled:cursor-not-allowed disabled:opacity-40"
-                            >
-                                ‹
-                            </button>
-                            <span>
-                                {itemPage + 1}/{itemPages}
-                            </span>
-                            <button
-                                type="button"
-                                aria-label="Próxima página"
-                                disabled={itemPage >= itemPages - 1}
-                                onClick={() =>
-                                    setItemPage((page) =>
-                                        Math.min(itemPages - 1, page + 1)
-                                    )
-                                }
-                                className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-gray-200 bg-white text-lg disabled:cursor-not-allowed disabled:opacity-40"
-                            >
-                                ›
-                            </button>
-                        </div>
+                        <Pagination page={itemPage} pageCount={itemPages} onChange={setItemPage} />
                     )}
                 </div>
 
@@ -1070,7 +1043,7 @@ export default function AnalyticsDashboard({
             </Card>
 
             <section className="grid gap-4 lg:grid-cols-3">
-                <Card>
+                <Card className="min-w-0">
                     <h2 className="mb-4 text-lg font-bold text-gray-900">
                         Formas de pagamento
                     </h2>
@@ -1085,7 +1058,7 @@ export default function AnalyticsDashboard({
                         )}
                     </div>
                 </Card>
-                <Card>
+                <Card className="min-w-0">
                     <h2 className="mb-4 text-lg font-bold text-gray-900">
                         Entrega x retirada
                     </h2>
@@ -1100,7 +1073,7 @@ export default function AnalyticsDashboard({
                         )}
                     </div>
                 </Card>
-                <Card>
+                <Card className="min-w-0">
                     <h2 className="mb-4 text-lg font-bold text-gray-900">
                         Horários dos pedidos
                     </h2>
@@ -1120,7 +1093,7 @@ export default function AnalyticsDashboard({
                     </p>
                 </div>
                 <div className="grid gap-4 lg:grid-cols-2">
-                    <Card>
+                    <Card className="min-w-0">
                         <h3 className="mb-4 font-semibold text-gray-900">
                             Pedidos por categoria
                         </h3>
@@ -1135,7 +1108,7 @@ export default function AnalyticsDashboard({
                             )}
                         </div>
                     </Card>
-                    <Card>
+                    <Card className="min-w-0">
                         <h3 className="mb-1 font-semibold text-gray-900">
                             Categorias mais combinadas
                         </h3>

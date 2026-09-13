@@ -1,4 +1,5 @@
 "use client";
+import SaveStatus from "@/components/ui/SaveStatus";
 
 import {
     forwardRef,
@@ -7,18 +8,21 @@ import {
     useRef,
     useState,
 } from "react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import {
     faLocationDot,
     faRoute,
     faTrash,
+    faTriangleExclamation,
 } from "@fortawesome/free-solid-svg-icons";
 
 import RadiusDeliveryRules, {
     type DeliveryRulesRef as RadiusDeliveryRulesRef,
 } from "./TempoeTaxaRadiusBase";
 import Button from "@/components/ui/Button";
+import RecommendedBadge from "@/components/ui/RecommendedBadge";
 import Input from "@/components/ui/Input";
+import WarningBox from "@/components/ui/WarningBox";
 import { supabase } from "@/lib/database/supabaseClient";
 import {
     parseNeighborhoodDeliveryRules,
@@ -272,9 +276,10 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
         return (
             <div className="mx-auto max-w-2xl 2xl:max-w-3xl">
                 <div className="mb-5 rounded-xl border border-gray-200 bg-white p-1 shadow-sm">
-                    <div className="grid grid-cols-2 gap-1">
+                    <div className="grid grid-cols-2 gap-1" role="group" aria-label="Tipo de entrega">
                         <button
                             type="button"
+                            data-ui="choice" aria-pressed={mode === "radius"}
                             onClick={() => changeMode("radius")}
                             className={`flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition-all duration-200 2xl:text-base ${
                                 mode === "radius"
@@ -283,10 +288,14 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                             }`}
                         >
                             <FontAwesomeIcon icon={faRoute} />
-                            Entrega por KM
+                            <span className="flex flex-col items-center gap-0.5 sm:flex-row sm:gap-2">
+                                <span>Entrega por KM</span>
+                                <RecommendedBadge />
+                            </span>
                         </button>
                         <button
                             type="button"
+                            data-ui="choice" aria-pressed={mode === "neighborhood"}
                             onClick={() => changeMode("neighborhood")}
                             className={`flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition-all duration-200 2xl:text-base ${
                                 mode === "neighborhood"
@@ -300,15 +309,21 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                     </div>
                 </div>
 
-                {mode === "neighborhood" && !isNew && (
-                    <div className="mb-3 flex h-6 justify-end text-sm font-medium">
-                        {status === "saving" ? (
-                            <span className="animate-pulse text-brand">Salvando...</span>
-                        ) : status === "saved" ? (
-                            <span className="text-green-600">Tudo salvo</span>
-                        ) : null}
+                <div
+                    className={`grid transition-[grid-template-rows,opacity] duration-300 ease-in-out ${
+                        mode === "neighborhood" && !isNew
+                            ? "grid-rows-[1fr] opacity-100"
+                            : "grid-rows-[0fr] opacity-0"
+                    }`}
+                >
+                    <div className="overflow-hidden">
+                        <div className="mb-3 flex h-6 justify-end text-sm font-medium">
+                            {!isNew && (
+                                <SaveStatus status={error ? "error" : status} />
+                            )}
+                        </div>
                     </div>
-                )}
+                </div>
 
                 {error && (
                     <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
@@ -317,13 +332,21 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                 )}
 
                 <div
-                    className={`grid transition-[grid-template-rows,opacity] duration-300 ease-out ${
+                    className={`grid transition-[grid-template-rows,opacity] duration-300 ease-in-out ${
                         mode === "neighborhood"
                             ? "grid-rows-[1fr] opacity-100"
-                            : "grid-rows-[0fr] opacity-0"
+                            : "grid-rows-[0fr] opacity-0 pointer-events-none"
                     }`}
                 >
-                    <div className="overflow-hidden">
+                    <div className="min-h-0 overflow-hidden">
+                        <WarningBox
+                            icon={faTriangleExclamation}
+                            className="mb-4"
+                        >
+                            <strong>Cadastre os bairros com a grafia correta.</strong>{" "}
+                            Nomes com erros de digitação podem não ser reconhecidos no checkout.
+                        </WarningBox>
+
                         <div className="mb-8 rounded-lg border border-gray-200 bg-white p-4 shadow-sm sm:p-6 2xl:p-8">
                             <div className="space-y-4">
                                 {rules.map((rule) => (
@@ -331,7 +354,7 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                                         key={rule.id}
                                         className="rounded-xl border border-gray-200 bg-gray-50/60 p-4"
                                     >
-                                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_72px_96px_minmax(0,1fr)_36px] sm:items-end">
+                                        <div className="panel-neighborhood-fields grid items-end gap-3">
                                             <Input
                                                 label="Bairro"
                                                 placeholder="Ex: Jardim Paulista"
@@ -417,11 +440,11 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                 </div>
 
                 <div
-                    className={
+                    className={`[interpolate-size:allow-keywords] [&>div>div:first-child]:overflow-hidden [&>div>div:first-child]:transition-[height,opacity,margin] [&>div>div:first-child]:duration-300 [&>div>div:first-child]:ease-in-out [&>div>div:nth-child(2)]:overflow-hidden [&>div>div:nth-child(2)]:transition-[height,opacity,margin,padding,border-color] [&>div>div:nth-child(2)]:duration-300 [&>div>div:nth-child(2)]:ease-in-out ${
                         mode === "neighborhood"
-                            ? "[&>div>div:first-child]:hidden [&>div>div:nth-child(2)]:hidden"
-                            : ""
-                    }
+                            ? "[&>div>div:first-child]:!h-0 [&>div>div:first-child]:!mb-0 [&>div>div:first-child]:opacity-0 [&>div>div:first-child]:pointer-events-none [&>div>div:nth-child(2)]:!h-0 [&>div>div:nth-child(2)]:!mb-0 [&>div>div:nth-child(2)]:!p-0 [&>div>div:nth-child(2)]:border-transparent [&>div>div:nth-child(2)]:opacity-0 [&>div>div:nth-child(2)]:pointer-events-none"
+                            : "[&>div>div:first-child]:!h-auto [&>div>div:first-child]:opacity-100 [&>div>div:nth-child(2)]:!h-auto [&>div>div:nth-child(2)]:opacity-100"
+                    }`}
                 >
                     <RadiusDeliveryRules
                         ref={radiusRef}

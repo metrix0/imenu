@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import {
     faCheck,
     faGift,
@@ -210,7 +210,7 @@ export default function QrCheckoutReturnRefresh() {
     };
 
     return (
-        <Modal
+        <Modal height={560}
             open={open}
             onClose={closeCelebration}
             className="max-w-xl"

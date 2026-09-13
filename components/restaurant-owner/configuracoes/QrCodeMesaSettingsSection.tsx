@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import {
     faCalendarDays,
     faCreditCard,
@@ -277,7 +277,7 @@ export default function QrCodeMesaSettingsSection({
                             </p>
                         </div>
                         <span
-                            className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                            className={`w-fit self-start rounded-full px-3 py-1 text-xs font-semibold ${
                                 active
                                     ? "bg-green-100 text-green-800"
                                     : "bg-gray-100 text-gray-700"

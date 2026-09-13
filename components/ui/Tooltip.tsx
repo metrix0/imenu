@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef, HTMLAttributes } from "react";
 import { createPortal } from "react-dom";
+import { usePanelAppearance } from "./PanelAppearance";
 
 type TooltipPosition = "top" | "bottom" | "left" | "right";
 type TooltipSize = "line" | "medium";
@@ -45,6 +46,7 @@ export default function Tooltip({
 
                                     ...rest
                                 }: TooltipProps) {
+    const panel = usePanelAppearance();
     if(text === "") disabled = true
     const [show, setShow] = useState(false);
     const [visible, setVisible] = useState(false);
@@ -182,6 +184,7 @@ export default function Tooltip({
         <div
                 ref={tooltipRef}
                 className={`
+                    ${panel ? "panel-essencial panel-tooltip" : ""}
                     ${portal ? "fixed" : "absolute"} z-50 rounded text-xs font-normal text-white
                     pointer-events-auto select-none
                     transition-[opacity,transform] duration-150

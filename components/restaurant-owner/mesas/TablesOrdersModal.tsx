@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { faChair, faEye } from "@fortawesome/free-solid-svg-icons";
 
 import type {
@@ -135,7 +135,7 @@ export default function TablesOrdersModal({
     }, [orders]);
 
     return (
-        <Modal
+        <Modal height={740}
             open={open}
             onClose={onClose}
             className="max-w-5xl"

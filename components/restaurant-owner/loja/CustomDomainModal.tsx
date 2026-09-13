@@ -205,7 +205,7 @@ export default function CustomDomainModal({
     };
 
     return (
-        <Modal open={open} onClose={onClose} className="max-w-lg">
+        <Modal height={660} open={open} onClose={onClose} className="max-w-lg">
             <div className="border-b border-gray-200 px-6 py-5">
                 <h2 className="text-xl font-bold text-gray-900">
                     Usar meu domínio

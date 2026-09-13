@@ -4,11 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import Card from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
 import Toast from "@/components/ui/Toast";
+import type { SaveState } from "@/components/ui/SaveStatus";
 
 interface PreparationTimeCardProps {
     restaurantId: string;
     initialMin?: number | null;
     initialMax?: number | null;
+    onSaveStatusChange: (status: SaveState) => void;
 }
 
 function getValidationMessage(minimum: string, maximum: string): string {
@@ -30,12 +32,14 @@ export default function PreparationTimeCard({
     restaurantId,
     initialMin,
     initialMax,
+    onSaveStatusChange,
 }: PreparationTimeCardProps) {
     const initialMinimum = String(initialMin ?? 40);
     const initialMaximum = String(initialMax ?? 50);
     const [minimum, setMinimum] = useState(initialMinimum);
     const [maximum, setMaximum] = useState(initialMaximum);
     const [saving, setSaving] = useState(false);
+    const [saveError, setSaveError] = useState(false);
     const [validationMessage, setValidationMessage] = useState(() =>
         getValidationMessage(initialMinimum, initialMaximum)
     );
@@ -47,6 +51,10 @@ export default function PreparationTimeCard({
         `${Number(initialMinimum)}:${Number(initialMaximum)}`
     );
     const saveVersionRef = useRef(0);
+
+    useEffect(() => {
+        onSaveStatusChange(validationMessage || saveError ? "error" : saving ? "saving" : "saved");
+    }, [validationMessage, saveError, saving, onSaveStatusChange]);
 
     useEffect(() => {
         const validation = getValidationMessage(minimum, maximum);
@@ -69,6 +77,7 @@ export default function PreparationTimeCard({
         const version = saveVersionRef.current + 1;
         saveVersionRef.current = version;
         setSaving(true);
+        setSaveError(false);
 
         const timeoutId = window.setTimeout(async () => {
             try {
@@ -88,6 +97,7 @@ export default function PreparationTimeCard({
 
                 lastSavedRef.current = valueKey;
             } catch (error) {
+                setSaveError(true);
                 setToast({
                     message:
                         error instanceof Error
@@ -112,26 +122,11 @@ export default function PreparationTimeCard({
                     <h2 className="text-xl font-semibold">
                         Tempo médio de preparo
                     </h2>
-                    <span
-                        className={`shrink-0 text-sm font-medium ${
-                            validationMessage
-                                ? "text-red-600"
-                                : saving
-                                  ? "animate-pulse text-brand"
-                                  : "text-green-600"
-                        }`}
-                    >
-                        {validationMessage
-                            ? "Não salvo"
-                            : saving
-                              ? "Salvando..."
-                              : "Tudo salvo"}
-                    </span>
                 </div>
 
                 <p className="mb-5 text-sm text-gray-500">
-                    Defina a estimativa exibida aos clientes. As alterações são
-                    salvas automaticamente.
+                    Defina a estimativa exibida aos clientes. A diferença deve
+                    ser de pelo menos 20 minutos.
                 </p>
 
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -149,14 +144,11 @@ export default function PreparationTimeCard({
                     />
                 </div>
 
-                <p
-                    className={`mt-2 text-xs ${
-                        validationMessage ? "text-red-600" : "text-gray-500"
-                    }`}
-                >
-                    {validationMessage ||
-                        "A diferença deve ser de pelo menos 20 minutos."}
-                </p>
+                {validationMessage && (
+                    <p className="mt-2 text-xs text-red-600">
+                        {validationMessage}
+                    </p>
+                )}
             </Card>
 
             {toast && (

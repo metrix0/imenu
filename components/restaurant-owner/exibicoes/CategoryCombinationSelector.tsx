@@ -15,6 +15,7 @@ import ListLoader from "@/components/ui/ListLoader";
 import { supabase } from "@/lib/database/supabaseClient";
 import {
     CHART_BRAND,
+    CHART_LEGEND,
     STANDARD_CHART_TOOLTIP,
 } from "@/components/restaurant-owner/exibicoes/chartStyles";
 
@@ -219,7 +220,7 @@ export default function CategoryCombinationSelector({
         datasets: [
             {
                 data: [result.matchedOrders, remainingOrders],
-                backgroundColor: [CHART_BRAND, "#e5e7eb"],
+                backgroundColor: [CHART_BRAND, "#e2e5e9"],
                 borderColor: "#ffffff",
                 borderWidth: 2,
                 hoverOffset: 6,
@@ -230,9 +231,9 @@ export default function CategoryCombinationSelector({
     const chartOptions = {
         responsive: true,
         maintainAspectRatio: false,
-        cutout: "68%",
+        cutout: "72%",
         plugins: {
-            legend: { position: "bottom" as const },
+            legend: CHART_LEGEND,
             tooltip: {
                 ...STANDARD_CHART_TOOLTIP,
                 callbacks: {

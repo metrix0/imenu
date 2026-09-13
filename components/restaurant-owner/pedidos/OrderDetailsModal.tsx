@@ -1,8 +1,9 @@
 "use client";
 
+import { LegacyModalClose } from "@/components/ui/ModalCloseButton";
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/database/supabaseClient";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { faTimes, faUser, faMapMarkerAlt, faClock, faReceipt, faCheck, faMotorcycle, faCalendarDays, faChair } from "@fortawesome/free-solid-svg-icons";
 import { icons } from "@/lib/utils/fontawesome";
 import Modal from "@/components/ui/Modal";
@@ -295,7 +296,7 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
 
     return (
         <>
-            <Modal open={isOpen} onClose={onClose}>
+            <Modal height={760} open={isOpen} onClose={onClose}>
                 <div className="w-full max-w-2xl bg-white rounded-lg flex flex-col max-h-[92dvh] sm:max-h-[85vh]">
                     {/* Header */}
                     <div className="p-4 sm:p-5 border-b border-gray-100 flex justify-between items-start gap-3">
@@ -316,9 +317,9 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
                                 <FontAwesomeIcon icon={faClock} /> Realizado em {order && fmtDate(order.created_at)}
                             </p>
                         </div>
-                        <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1 cursor-pointer">
+                        <LegacyModalClose><button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1 cursor-pointer">
                             <FontAwesomeIcon icon={icons.faTimes} className="text-xl" />
-                        </button>
+                        </button></LegacyModalClose>
                     </div>
 
                     {/* Body */}

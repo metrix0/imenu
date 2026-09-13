@@ -6,12 +6,15 @@ import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 import Dropdown from "@/components/ui/Dropdown";
 import Card from "@/components/ui/Card";
+import PromotionCard from "./PromotionCard";
 import ListLoader from "@/components/ui/ListLoader";
 import ConfirmModal from "@/components/ui/ConfirmModal";
+import Switch from "@/components/ui/Switch";
 import PromotionBanner from "@/components/costumer/PromotionBanner";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import {
   faPlus,
+  faTag,
   faTrash,
   faPen,
   faChevronDown,
@@ -50,19 +53,10 @@ function Toggle({
   label: string;
 }) {
   return (
-    <label className="flex min-h-11 cursor-pointer items-center justify-between gap-4 text-sm">
+    <div className="flex min-h-11 items-center justify-between gap-4 text-sm">
       <span>{label}</span>
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-        className="peer sr-only"
-      />
-      <span
-        aria-hidden="true"
-        className="relative h-6 w-10 shrink-0 rounded-full bg-gray-300 transition peer-checked:bg-green-500 peer-focus-visible:ring-2 peer-focus-visible:ring-brand peer-focus-visible:ring-offset-2 after:absolute after:left-1 after:top-1 after:h-4 after:w-4 after:rounded-full after:bg-white after:shadow-sm after:transition-transform peer-checked:after:translate-x-4"
-      />
-    </label>
+      <Switch checked={checked} onClick={() => onChange(!checked)} aria-label={label} />
+    </div>
   );
 }
 
@@ -260,6 +254,13 @@ export default function AutomaticPromotionsPanel({
               Cancelar
             </Button>
           </div>
+          <Card className="flex items-center justify-between gap-4">
+            <div>
+              <h3>Status da promoção</h3>
+              <p className="mt-1 text-sm text-gray-500">{editing.active ? "Disponível quando as regras forem atendidas." : "Pausada para todos os clientes."}</p>
+            </div>
+            <Switch checked={editing.active} aria-label="Promoção ativa" onClick={() => setEditing({ ...editing, active: !editing.active })} />
+          </Card>
           <Input
             aria-label="Nome da promoção"
             label="Nome da promoção"
@@ -587,13 +588,6 @@ export default function AutomaticPromotionsPanel({
                 </div>
               </div>
             </div>
-            <div className="border-t border-gray-200 pt-2">
-              <Toggle
-                label="Promoção ativa"
-                checked={editing.active}
-                onChange={(value) => setEditing({ ...editing, active: value })}
-              />
-            </div>
           </Card>
           {error && (
             <p role="alert" className="text-sm text-red-600">
@@ -620,12 +614,8 @@ export default function AutomaticPromotionsPanel({
         </Button>
       </div>
       {!promotions.length && (
-        <div className="flex flex-col items-center justify-center px-4 py-8 text-center">
-          <img
-            src="/images/eyebrow_emoji.png"
-            alt="Nenhuma promoção"
-            className="mb-4 h-38 w-38"
-          />
+        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-gray-200 bg-white p-6 text-center">
+          <FontAwesomeIcon icon={faTag} className="mb-3 text-2xl text-gray-500" />
           <p className="font-medium text-gray-500">
             Nenhuma promoção criada ainda.
           </p>
@@ -637,70 +627,24 @@ export default function AutomaticPromotionsPanel({
       {promotions.map((p) => {
         const description = promotionDescription(p, products);
         return (
-          <Card
+          <PromotionCard
             key={p.id}
-            className="border border-gray-200 !shadow-sm !p-4 sm:!p-5"
+            title={p.name}
+            description={<>{description.benefits} · {description.conditions}</>}
+            active={p.active}
+            disabled={saving}
+            onToggle={() => void save({ ...p, active: !p.active })}
+            actions={<>
+              <Button variant="secondary" aria-label={`Editar ${p.name}`} onClick={() => {
+                setError(""); setAdvancedOptions(false); setEditing(structuredClone(p));
+              }} className="gap-2"><FontAwesomeIcon icon={faPen} />Editar</Button>
+              <Button variant="secondary" aria-label={`Excluir ${p.name}`} onClick={() => setDeleting(p)} className="!w-10 !px-0"><FontAwesomeIcon icon={faTrash} /></Button>
+            </>}
           >
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0 break-words">
-                <h3 className="font-semibold">{p.name}</h3>
-                <p className="mt-1 text-sm text-gray-600">
-                  {description.benefits} · {description.conditions}
-                </p>
-                <div className="mt-3 flex flex-wrap gap-2 text-xs text-gray-500">
-                  {p.delivery && (
-                    <span className="rounded-full bg-gray-100 px-2 py-1">
-                      Delivery e Retirada
-                    </span>
-                  )}
-                  {p.mesa && (
-                    <span className="rounded-full bg-gray-100 px-2 py-1">
-                      Mesa
-                    </span>
-                  )}
-                  {p.show_on_menu && (
-                    <span className="rounded-full bg-brand/5 px-2 py-1 text-brand">
-                      Banner no cardápio
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-            <fieldset
-              disabled={saving}
-              className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 pt-3"
-            >
-              <Toggle
-                label={p.active ? "Ativa" : "Pausada"}
-                checked={p.active}
-                onChange={(active) => {
-                  void save({ ...p, active });
-                }}
-              />
-              <div className="flex gap-2">
-                <Button
-                  variant="secondary"
-                  aria-label={`Editar ${p.name}`}
-                  onClick={() => {
-                    setError("");
-                    setAdvancedOptions(false);
-                    setEditing(structuredClone(p));
-                  }}
-                  className="min-h-11 gap-2"
-                >
-                  <FontAwesomeIcon icon={faPen} />
-                  Editar
-                </Button>
-                <button
-                  aria-label={`Excluir ${p.name}`}
-                  onClick={() => setDeleting(p)}
-                  className="min-h-11 min-w-11 cursor-pointer rounded-lg text-gray-500 hover:bg-red-50 hover:text-red-600"
-                >
-                  <FontAwesomeIcon icon={faTrash} />
-                </button>
-              </div>
-            </fieldset>
-          </Card>
+            {p.delivery && <span className="rounded-full bg-gray-100 px-2 py-1">Delivery e Retirada</span>}
+            {p.mesa && <span className="rounded-full bg-gray-100 px-2 py-1">Mesa</span>}
+            {p.show_on_menu && <span className="rounded-full bg-brand/5 px-2 py-1 text-brand">Banner no cardápio</span>}
+          </PromotionCard>
         );
       })}
       <ConfirmModal
