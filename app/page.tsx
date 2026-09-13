@@ -136,13 +136,13 @@ export default function LandingPage() {
                 <nav className="z-30 flex items-center gap-8 text-[13px] font-medium md:z-auto min-[1400px]:gap-10 2xl:gap-11">
                     <a
                         href="#"
-                        className="hidden text-[#626973] transition-colors hover:text-[#1d1d1d] md:block"
+                        className="hidden !text-[13px] !font-medium text-[#626973] transition-colors hover:text-[#1d1d1d] md:block"
                     >
                         Home
                     </a>
                     <a
                         href="#recursos"
-                        className="hidden text-[#626973] transition-colors hover:text-[#1d1d1d] md:block"
+                        className="hidden !text-[13px] !font-medium text-[#626973] transition-colors hover:text-[#1d1d1d] md:block"
                     >
                         Recursos
                     </a>
@@ -490,6 +490,7 @@ export default function LandingPage() {
                                 ["QR Code na mesa", "(Opcional) R$ 4,90 por mês", "R$ 99,90 por mês (muito mais caro)"],
                                 ["App para garçom", "check", "Pago"],
                                 ["Agendamento de pedido", "check", "Não"],
+                                ["Dividir Pizza em vários sabores", "check", "Não tem ou limitado"],
                                 ["Sem bugs", "Correção garantida em 2 dias úteis", "Correção leva meses"],
                             ].map(([feature, imenu, competitor]) => (
                                 <tr key={feature}>
