@@ -46,6 +46,8 @@ const LANDING_BUTTON_BASE =
     "!min-h-10 !rounded-lg !border !border-[#e2e5e9] !px-[14px] !py-[9px] !text-[13px] !leading-5 !font-medium !shadow-none";
 const LANDING_PRIMARY_BUTTON = `${LANDING_BUTTON_BASE} !border-[#d93d00] !bg-[#d93d00] !text-white hover:!border-[#c43700] hover:!bg-[#c43700] focus:!ring-[#d93d00]`;
 const LANDING_SECONDARY_BUTTON = `${LANDING_BUTTON_BASE} !bg-white !text-[#1d1d1d] hover:!bg-[#f1f3f5] focus:!ring-[#d93d00]`;
+const LANDING_HERO_PRIMARY_BUTTON =
+    "!min-h-12 !rounded-lg !border !border-[#d93d00] !bg-[#d93d00] !px-6 !py-[13px] !text-base !leading-5 !font-medium !text-white !shadow-none hover:!border-[#c43700] hover:!bg-[#c43700] focus:!ring-[#d93d00]";
 
 export default function LandingPage() {
     const router = useRouter();
@@ -129,13 +131,16 @@ export default function LandingPage() {
                     />
                 </div>
 
-                <nav className="z-30 flex items-center gap-8 text-sm font-medium md:z-auto min-[1400px]:gap-10 min-[1400px]:text-base 2xl:gap-11 2xl:text-[1.2rem]">
-                    <a href="#" className="hidden transition hover:text-gray-500 md:block">
+                <nav className="z-30 flex items-center gap-8 text-[13px] font-medium md:z-auto min-[1400px]:gap-10 2xl:gap-11">
+                    <a
+                        href="#"
+                        className="hidden text-[#626973] transition-colors hover:text-[#1d1d1d] md:block"
+                    >
                         Home
                     </a>
                     <a
                         href="#recursos"
-                        className="hidden transition hover:text-gray-500 md:block"
+                        className="hidden text-[#626973] transition-colors hover:text-[#1d1d1d] md:block"
                     >
                         Recursos
                     </a>
@@ -232,11 +237,10 @@ export default function LandingPage() {
                     <div className="mt-6 flex items-center justify-center gap-4 md:justify-start min-[1400px]:mt-8 min-[1400px]:gap-5 2xl:mt-9 2xl:gap-6">
                         <Button
                             onClick={() => router.push("/restaurante/registrar")}
-                            className={LANDING_PRIMARY_BUTTON}
+                            className={LANDING_HERO_PRIMARY_BUTTON}
                         >
                             Registrar Grátis
                         </Button>
-                        <div className="h-6 w-px bg-gray-300 min-[1400px]:h-7" />
                         <Button
                             variant="secondary"
                             onClick={() => router.push("/restaurante/login")}
@@ -554,7 +558,7 @@ export default function LandingPage() {
                     <div aria-hidden="true" className="absolute inset-x-16 top-0 h-px bg-gradient-to-r from-transparent via-white/80 to-transparent" />
 
                     <div className="relative mx-auto max-w-4xl">
-                        <span className="inline-flex items-center gap-2.5 rounded-full border border-white/25 bg-white/15 py-1.5 pl-1.5 pr-4 text-sm font-semibold shadow-lg shadow-orange-950/10 backdrop-blur-md min-[1400px]:text-base 2xl:text-lg">
+                        <span className="inline-flex items-center gap-2.5 rounded-full border border-white/25 bg-white/15 py-1.5 pl-1.5 pr-4 text-sm font-medium shadow-lg shadow-orange-950/10 backdrop-blur-md min-[1400px]:text-base 2xl:text-lg">
                             <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-brand shadow-sm min-[1400px]:h-8 min-[1400px]:w-8 2xl:h-9 2xl:w-9">
                                 <FontAwesomeIcon icon={faWandMagicSparkles} className="h-3.5 w-3.5 min-[1400px]:h-4 min-[1400px]:w-4 2xl:h-4 2xl:w-4" />
                             </span>
@@ -572,7 +576,7 @@ export default function LandingPage() {
                             tudo em um só lugar — sem mensalidade e sem pegadinhas.
                         </p>
 
-                        <div className="mx-auto mt-8 grid max-w-3xl gap-3 text-sm font-semibold text-white/95 sm:grid-cols-3 min-[1400px]:max-w-4xl min-[1400px]:gap-4 min-[1400px]:text-base 2xl:text-xl">
+                        <div className="mx-auto mt-8 grid max-w-3xl gap-3 text-sm font-medium text-white/95 sm:grid-cols-3 min-[1400px]:max-w-4xl min-[1400px]:gap-4 min-[1400px]:text-base 2xl:text-xl">
                             {["Pedidos ilimitados", "Cardápio Digital Completo", "Grátis para sempre"].map((benefit) => (
                                 <span key={benefit} className="inline-flex items-center justify-center gap-2.5 rounded-2xl border border-white/15 bg-white/10 px-4 py-3 shadow-lg shadow-orange-950/10 backdrop-blur-sm min-[1400px]:px-5 min-[1400px]:py-3.5">
                                     <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white text-brand min-[1400px]:h-6 min-[1400px]:w-6 2xl:h-7 2xl:w-7">
@@ -585,7 +589,7 @@ export default function LandingPage() {
 
                         <Button
                             onClick={() => router.push("/restaurante/registrar")}
-                            className="group mt-9 gap-3 !rounded-2xl !bg-white !px-6 !py-3 !text-base !font-bold !text-brand shadow-2xl shadow-orange-950/20 hover:!-translate-y-1 hover:!bg-orange-50 hover:!shadow-[0_24px_50px_-18px_rgba(92,28,5,0.65)] min-[1400px]:!px-8 min-[1400px]:!py-3.5 min-[1400px]:!text-lg 2xl:!px-9 2xl:!py-4 2xl:!text-2xl"
+                            className="group mt-9 gap-3 !rounded-2xl !bg-white !px-6 !py-3 !text-base !font-medium !text-brand shadow-2xl shadow-orange-950/20 hover:!-translate-y-1 hover:!bg-orange-50 hover:!shadow-[0_24px_50px_-18px_rgba(92,28,5,0.65)] min-[1400px]:!px-8 min-[1400px]:!py-3.5 min-[1400px]:!text-lg 2xl:!px-9 2xl:!py-4 2xl:!text-2xl"
                         >
                             Criar meu cardápio grátis
                             <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand text-white transition-transform group-hover:translate-x-0.5 min-[1400px]:h-9 min-[1400px]:w-9 2xl:h-10 2xl:w-10">
