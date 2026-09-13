@@ -40,6 +40,7 @@ function formatUpdatedAt(value: string) {
 
 export default function ImpressoraPage() {
     const [release, setRelease] = useState<PrinterRelease | null>(null);
+    const [legacyRelease, setLegacyRelease] = useState<PrinterRelease>(LEGACY_PRINTER_RELEASE);
     const [useLegacyRelease, setUseLegacyRelease] = useState(false);
 
     useEffect(() => {
@@ -59,9 +60,24 @@ export default function ImpressoraPage() {
                 }
             })
             .catch(() => {});
+
+        fetch("/downloads/imenu-printer-legacy.json", { cache: "no-store" })
+            .then((response) => {
+                if (!response.ok) {
+                    throw new Error("Falha ao carregar versão legacy da impressora");
+                }
+
+                return response.json();
+            })
+            .then((data: PrinterRelease) => {
+                if (data.version && data.updatedAt && data.downloadUrl) {
+                    setLegacyRelease(data);
+                }
+            })
+            .catch(() => {});
     }, []);
 
-    const selectedRelease = useLegacyRelease ? LEGACY_PRINTER_RELEASE : release;
+    const selectedRelease = useLegacyRelease ? legacyRelease : release;
 
     return (
         <div className="mx-auto max-w-6xl px-4 pb-20 pt-8 sm:px-6">
@@ -145,7 +161,7 @@ export default function ImpressoraPage() {
                                 </p>
                                 {!useLegacyRelease && (
                                     <a
-                                        href={LEGACY_PRINTER_RELEASE.downloadUrl}
+                                        href={legacyRelease.downloadUrl}
                                         download
                                         className="w-fit font-medium text-brand hover:underline"
                                     >
