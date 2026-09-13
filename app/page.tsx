@@ -48,6 +48,8 @@ const LANDING_PRIMARY_BUTTON = `${LANDING_BUTTON_BASE} !border-[#d93d00] !bg-[#d
 const LANDING_SECONDARY_BUTTON = `${LANDING_BUTTON_BASE} !bg-white !text-[#1d1d1d] hover:!bg-[#f1f3f5] focus:!ring-[#d93d00]`;
 const LANDING_HERO_PRIMARY_BUTTON =
     "!min-h-12 !rounded-lg !border !border-[#d93d00] !bg-[#d93d00] !px-6 !py-[13px] !text-base !leading-5 !font-medium !text-white !shadow-none hover:!border-[#c43700] hover:!bg-[#c43700] focus:!ring-[#d93d00]";
+const LANDING_HERO_SECONDARY_BUTTON =
+    "!min-h-12 !rounded-lg !border !border-[#e2e5e9] !bg-white !px-6 !py-[13px] !text-base !leading-5 !font-medium !text-[#1d1d1d] !shadow-none hover:!bg-[#f1f3f5] focus:!ring-[#d93d00]";
 
 export default function LandingPage() {
     const router = useRouter();
@@ -181,20 +183,22 @@ export default function LandingPage() {
 
                     <div className="hidden h-6 w-px bg-gray-300 md:block min-[1400px]:h-7 2xl:h-8" />
 
-                    <Button
-                        variant="secondary"
-                        onClick={() => router.push("/restaurante/login")}
-                        className={`${LANDING_SECONDARY_BUTTON} !hidden md:!inline-flex`}
-                    >
-                        Entrar no Painel
-                    </Button>
+                    <div className="hidden items-center gap-2 md:flex">
+                        <Button
+                            variant="secondary"
+                            onClick={() => router.push("/restaurante/login")}
+                            className={LANDING_SECONDARY_BUTTON}
+                        >
+                            Entrar no Painel
+                        </Button>
 
-                    <Button
-                        className={`${LANDING_PRIMARY_BUTTON} !hidden md:!inline-flex`}
-                        onClick={() => router.push("/restaurante/registrar")}
-                    >
-                        Registrar Grátis
-                    </Button>
+                        <Button
+                            className={LANDING_PRIMARY_BUTTON}
+                            onClick={() => router.push("/restaurante/registrar")}
+                        >
+                            Registrar Grátis
+                        </Button>
+                    </div>
                 </nav>
             </header>
 
@@ -213,7 +217,7 @@ export default function LandingPage() {
                         </div>
                     </div>
 
-                    <h1 className="mt-6 mb-2 text-2xl leading-tight font-bold text-text md:-mt-4 md:text-5xl min-[1400px]:text-[3.5rem] 2xl:text-[4rem]">
+                    <h1 className="mt-6 mb-2 text-2xl leading-tight font-extrabold text-text md:-mt-4 md:text-5xl min-[1400px]:text-[3.5rem] 2xl:text-[4rem]">
                         O novo Cardápio Digital
                         <br />
                         <span className="text-brand">100% Gratuito</span>
@@ -244,7 +248,7 @@ export default function LandingPage() {
                         <Button
                             variant="secondary"
                             onClick={() => router.push("/restaurante/login")}
-                            className={LANDING_SECONDARY_BUTTON}
+                            className={LANDING_HERO_SECONDARY_BUTTON}
                         >
                             Entrar no Painel
                         </Button>
