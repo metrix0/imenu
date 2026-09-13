@@ -136,13 +136,13 @@ export default function LandingPage() {
                 <nav className="z-30 flex items-center gap-8 text-[13px] font-medium md:z-auto min-[1400px]:gap-10 2xl:gap-11">
                     <a
                         href="#"
-                        className="hidden !text-[13px] !font-medium text-[#626973] transition-colors hover:text-[#1d1d1d] md:block"
+                        className="hidden !text-[13px] !font-medium text-[#51565e] transition-colors hover:text-[#1d1d1d] md:block"
                     >
                         Home
                     </a>
                     <a
                         href="#recursos"
-                        className="hidden !text-[13px] !font-medium text-[#626973] transition-colors hover:text-[#1d1d1d] md:block"
+                        className="hidden !text-[13px] !font-medium text-[#51565e] transition-colors hover:text-[#1d1d1d] md:block"
                     >
                         Recursos
                     </a>
@@ -238,7 +238,7 @@ export default function LandingPage() {
                         </Tooltip>
                     </div>
 
-                    <div className="mt-6 flex items-center justify-center gap-4 md:justify-start min-[1400px]:mt-8 min-[1400px]:gap-5 2xl:mt-9 2xl:gap-6">
+                    <div className="mt-6 flex flex-col items-center justify-center gap-4 md:flex-row md:justify-start min-[1400px]:mt-8 min-[1400px]:gap-5 2xl:mt-9 2xl:gap-6">
                         <Button
                             onClick={() => router.push("/restaurante/registrar")}
                             className={LANDING_HERO_PRIMARY_BUTTON}
@@ -436,7 +436,7 @@ export default function LandingPage() {
                                 <th className="p-4 font-medium min-[1400px]:p-5 2xl:p-6">Concorrentes</th>
                             </tr>
                         </thead>
-                        <tbody className="[&>tr>td]:p-4 min-[1400px]:[&>tr>td]:p-5 [&>tr>td]:2xl:p-6 [&>tr:nth-child(even)]:bg-gray-50">
+                        <tbody className="[&>tr>td]:p-4 min-[1400px]:[&>tr>td]:p-5 [&>tr]:2xl:p-6 [&>tr:nth-child(even)]:bg-gray-50">
                             {restCount > 0 && (
                                 <tr>
                                     <td className="border-r border-gray-200 text-sm md:text-[100%] md:font-light">
