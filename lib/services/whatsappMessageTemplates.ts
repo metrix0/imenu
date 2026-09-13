@@ -64,7 +64,7 @@ export const DEFAULT_WHATSAPP_MESSAGE_TEMPLATES: WhatsAppMessageTemplates = {
         "Não encontrei um pedido recente vinculado a este número de WhatsApp.",
         "Caso tenha usado outro número ou precise de ajuda, escolha *Falar com atendente*.",
     ].join("\n"),
-    handoff: "Certo — a conversa ficará com a equipe do restaurante. O robô só voltará a responder quando a equipe reativá-lo no painel.",
+    handoff: "Certo! A conversa ficará com a equipe do restaurante. 😊",
     unsupported_media: "Não consigo analisar arquivos automaticamente. Escolha *Falar com atendente* para enviar isso à equipe.",
     fallback: "Não entendi essa mensagem. Digite *menu* para ver as opções ou *atendente* para falar com a equipe.",
     order_tracking: "Ótimo! Você pode acompanhar seu pedido por: {{LINK_DE_ACOMPANHAMENTO}}",
