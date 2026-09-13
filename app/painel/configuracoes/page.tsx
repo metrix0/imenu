@@ -788,17 +788,18 @@ export default function ConfiguracoesPage() {
                                     <h2 className="text-xl font-medium text-gray-900">
                                         Forçar envio de Notificação no WhatsApp
                                     </h2>
-                                    <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-700">
+                                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide !text-amber-700 ring-1 ring-inset ring-amber-600/25">
                                         Não recomendado
                                     <Tooltip
                                         text="Isso adiciona uma etapa extra à finalização e pode criar atrito no pedido. O pedido é criado antes do WhatsApp: o cliente pode simplesmente não enviar a mensagem e o pedido continuará válido."
                                         position="top"
                                         size="medium"
                                         showOnClick
+                                        parentClassName="inline-flex items-center self-center leading-none"
                                     >
                                         <FontAwesomeIcon
                                             icon={faCircleInfo}
-                                            className="cursor-help text-sm text-amber-700"
+                                            className="cursor-help text-[11px] leading-none text-amber-700"
                                         />
                                     </Tooltip>
                                     </span>

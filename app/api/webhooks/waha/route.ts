@@ -199,6 +199,7 @@ async function claimEvent(eventId: string): Promise<boolean> {
                 last_error = NULL,
                 updated_at = NOW()
             WHERE whatsapp_webhook_events.status = 'failed'
+              AND whatsapp_webhook_events.attempt_count < 3
             RETURNING event_id
         `,
         [eventId]
@@ -391,6 +392,10 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ ok: true, ignored: "unknown_session" });
         }
 
+        if (connection.desired_state !== "connected") {
+            return NextResponse.json({ ok: true, ignored: "disconnected_session" });
+        }
+
         if (eventName === "session.status") {
             await updateSessionStatus({ event, connection, supabase });
             return NextResponse.json({ ok: true });
@@ -461,6 +466,8 @@ export async function POST(request: NextRequest) {
                     finishError
                 );
             }
+
+            return NextResponse.json({ ok: true, processing_error: true });
         }
 
         return NextResponse.json(

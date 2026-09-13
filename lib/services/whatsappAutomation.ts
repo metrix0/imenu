@@ -44,6 +44,12 @@ type PreparedConversation = {
 };
 
 const BOT_SESSION_MINUTES = 30;
+const CHAT_SEND_LIMIT_PER_MINUTE = 10;
+const RESTAURANT_SEND_LIMIT_PER_5_MINUTES = 100;
+const FALLBACK_COOLDOWN_SECONDS = 30;
+const FALLBACK_SUSPEND_COUNT_5_MINUTES = 3;
+const LIST_FAILURE_LIMIT_5_MINUTES = 3;
+const STORM_SUSPEND_MINUTES = 10;
 
 const MENU_ROWS: WahaListRow[] = [
     { title: "Ver o cardápio", rowId: "menu_link" },
@@ -274,6 +280,52 @@ async function claimOutboundMessage({
 }): Promise<boolean> {
     const result = await query(
         `
+            WITH recent AS (
+                SELECT
+                    COUNT(*) FILTER (
+                        WHERE chat_id = $3
+                          AND created_at >= NOW() - INTERVAL '60 seconds'
+                    )::int AS chat_count,
+                    COUNT(*) FILTER (
+                        WHERE created_at >= NOW() - INTERVAL '5 minutes'
+                    )::int AS restaurant_count,
+                    COUNT(*) FILTER (
+                        WHERE chat_id = $3
+                          AND created_at >= NOW() - INTERVAL '${FALLBACK_COOLDOWN_SECONDS} seconds'
+                          AND RIGHT(dedupe_key, 9) = ':fallback'
+                    )::int AS recent_fallback_count,
+                    COUNT(*) FILTER (
+                        WHERE chat_id = $3
+                          AND created_at >= NOW() - INTERVAL '5 minutes'
+                          AND RIGHT(dedupe_key, 9) = ':fallback'
+                    )::int AS fallback_count,
+                    COUNT(*) FILTER (
+                        WHERE chat_id = $3
+                          AND created_at >= NOW() - INTERVAL '5 minutes'
+                          AND message_type = 'list'
+                          AND status = 'failed'
+                    )::int AS failed_list_count
+                FROM whatsapp_outbound_messages
+                WHERE restaurant_id = $2
+                  AND created_at >= NOW() - INTERVAL '5 minutes'
+            ),
+            suspend_chat AS (
+                UPDATE whatsapp_conversations
+                SET mode = 'human',
+                    human_until = NOW() + INTERVAL '${STORM_SUSPEND_MINUTES} minutes',
+                    updated_at = NOW()
+                WHERE restaurant_id = $2
+                  AND chat_id = $3
+                  AND NOT (mode = 'human' AND human_until IS NULL)
+                  AND (
+                      (SELECT chat_count FROM recent) >= ${CHAT_SEND_LIMIT_PER_MINUTE}
+                      OR (
+                          RIGHT($1, 9) = ':fallback'
+                          AND (SELECT fallback_count FROM recent) >= ${FALLBACK_SUSPEND_COUNT_5_MINUTES}
+                      )
+                  )
+                RETURNING 1
+            )
             INSERT INTO whatsapp_outbound_messages (
                 dedupe_key,
                 restaurant_id,
@@ -283,15 +335,28 @@ async function claimOutboundMessage({
                 updated_at
             )
             SELECT $1, $2, $3, $4, 'sending', NOW()
-            WHERE $5::boolean
-               OR NOT EXISTS (
-                    SELECT 1
-                    FROM whatsapp_conversations
-                    WHERE restaurant_id = $2
-                      AND chat_id = $3
-                      AND mode = 'human'
-                      AND (human_until IS NULL OR human_until > NOW())
-               )
+            FROM recent
+            WHERE chat_count < ${CHAT_SEND_LIMIT_PER_MINUTE}
+              AND restaurant_count < ${RESTAURANT_SEND_LIMIT_PER_5_MINUTES}
+              AND (
+                  RIGHT($1, 9) <> ':fallback'
+                  OR recent_fallback_count = 0
+              )
+              AND (
+                  $4::text <> 'list'
+                  OR failed_list_count < ${LIST_FAILURE_LIMIT_5_MINUTES}
+              )
+              AND (
+                  $5::boolean
+                  OR NOT EXISTS (
+                      SELECT 1
+                      FROM whatsapp_conversations
+                      WHERE restaurant_id = $2
+                        AND chat_id = $3
+                        AND mode = 'human'
+                        AND (human_until IS NULL OR human_until > NOW())
+                  )
+              )
             ON CONFLICT (dedupe_key) DO NOTHING
             RETURNING dedupe_key
         `,
@@ -336,6 +401,22 @@ async function finishOutboundMessage(
     );
 }
 
+async function finishOutboundSafely(
+    dedupeKey: string,
+    status: "sent" | "failed",
+    resultOrError: unknown
+): Promise<void> {
+    try {
+        await finishOutboundMessage(dedupeKey, status, resultOrError);
+    } catch (error) {
+        console.error("[WHATSAPP_AUTOMATION] outbound_tracking_failed", {
+            dedupeKey,
+            status,
+            error,
+        });
+    }
+}
+
 async function sendTrackedText({
     dedupeKey,
     restaurantId,
@@ -350,7 +431,7 @@ async function sendTrackedText({
     chatId: string;
     text: string;
     allowHuman?: boolean;
-}): Promise<void> {
+}): Promise<boolean> {
     const claimed = await claimOutboundMessage({
         dedupeKey,
         restaurantId,
@@ -358,18 +439,24 @@ async function sendTrackedText({
         messageType: "text",
         allowHuman,
     });
-    if (!claimed) return;
+    if (!claimed) return false;
 
     try {
         const response = await sendWahaText(sessionName, chatId, text);
-        await finishOutboundMessage(dedupeKey, "sent", response);
+        await finishOutboundSafely(dedupeKey, "sent", response);
         console.info("[WHATSAPP_AUTOMATION] outbound_sent", {
             restaurantId,
             messageType: "text",
         });
+        return true;
     } catch (error) {
-        await finishOutboundMessage(dedupeKey, "failed", error);
-        throw error;
+        await finishOutboundSafely(dedupeKey, "failed", error);
+        console.warn("[WHATSAPP_AUTOMATION] outbound_send_failed", {
+            restaurantId,
+            messageType: "text",
+            error,
+        });
+        return false;
     }
 }
 
@@ -383,25 +470,31 @@ async function sendTrackedMenu({
     restaurantId: string;
     sessionName: string;
     chatId: string;
-}): Promise<void> {
+}): Promise<boolean> {
     const claimed = await claimOutboundMessage({
         dedupeKey,
         restaurantId,
         chatId,
         messageType: "list",
     });
-    if (!claimed) return;
+    if (!claimed) return false;
 
     try {
         const response = await sendWahaList(sessionName, chatId, MENU_ROWS);
-        await finishOutboundMessage(dedupeKey, "sent", response);
+        await finishOutboundSafely(dedupeKey, "sent", response);
         console.info("[WHATSAPP_AUTOMATION] outbound_sent", {
             restaurantId,
             messageType: "list",
         });
+        return true;
     } catch (error) {
-        await finishOutboundMessage(dedupeKey, "failed", error);
-        throw error;
+        await finishOutboundSafely(dedupeKey, "failed", error);
+        console.warn("[WHATSAPP_AUTOMATION] outbound_send_failed", {
+            restaurantId,
+            messageType: "list",
+            error,
+        });
+        return false;
     }
 }
 
@@ -590,115 +683,114 @@ export async function processIncomingWhatsAppMessage({
     messageId: string;
     customerName?: string | null;
 }): Promise<void> {
-    await withAdvisoryLock(`${restaurantId}:${chatId}`, async () => {
-        const prepared = await prepareConversation(
+    const prepared = await withAdvisoryLock(`${restaurantId}:${chatId}`, () =>
+        prepareConversation(restaurantId, chatId, customerName)
+    );
+
+    if (prepared.state === "human") {
+        console.info("[WHATSAPP_AUTOMATION] inbound_suppressed_human", {
             restaurantId,
-            chatId,
-            customerName
-        );
-        if (prepared.state === "human") {
-            console.info("[WHATSAPP_AUTOMATION] inbound_suppressed_human", {
-                restaurantId,
-            });
-            return;
-        }
-
-        const [restaurant, templates] = await Promise.all([
-            getRestaurantTemplateData(restaurantId),
-            getWhatsAppTemplates(restaurantId),
-        ]);
-        if (!restaurant) return;
-
-        const variables = buildRestaurantTemplateVariables(restaurant, {
-            NOME_DO_CLIENTE: prepared.customerName || customerName || "Cliente",
         });
+        return;
+    }
 
-        if (isComandaMessage(body)) {
-            const orderId = getComandaOrderId(body);
-            if (!orderId || !(await orderBelongsToRestaurant(restaurantId, orderId))) {
-                return;
-            }
-            await sendTrackedText({
-                dedupeKey: `${messageId}:order_tracking`,
-                restaurantId,
-                sessionName,
-                chatId,
-                text: renderWhatsAppTemplate(templates.order_tracking, {
-                    ...variables,
-                    LINK_DE_ACOMPANHAMENTO: `${variables.LINK_DO_CARDAPIO}/${encodeURIComponent(orderId)}`,
-                }),
-            });
+    const [restaurant, templates] = await Promise.all([
+        getRestaurantTemplateData(restaurantId),
+        getWhatsAppTemplates(restaurantId),
+    ]);
+    if (!restaurant) return;
+
+    const variables = buildRestaurantTemplateVariables(restaurant, {
+        NOME_DO_CLIENTE: prepared.customerName || customerName || "Cliente",
+    });
+
+    if (isComandaMessage(body)) {
+        const orderId = getComandaOrderId(body);
+        if (!orderId || !(await orderBelongsToRestaurant(restaurantId, orderId))) {
             return;
         }
-
-        if (hasMedia && !normalize(body)) {
-            await sendTrackedText({
-                dedupeKey: `${messageId}:unsupported_media`,
-                restaurantId,
-                sessionName,
-                chatId,
-                text: renderWhatsAppTemplate(templates.unsupported_media, variables),
-            });
-            return;
-        }
-
-        if (isExplicitMainMenuRequest(body)) {
-            await sendTrackedMenu({
-                dedupeKey: `${messageId}:main_menu`,
-                restaurantId,
-                sessionName,
-                chatId,
-            });
-            return;
-        }
-
-        const flow = detectFlow(body);
-        if (flow) {
-            await answerFlow({
-                flow,
-                templates,
-                variables,
-                restaurantId,
-                sessionName,
-                chatId,
-                inboundMessageId: messageId,
-            });
-            return;
-        }
-
-        if (prepared.state === "welcome") {
-            await sendTrackedText({
-                dedupeKey: `${messageId}:welcome`,
-                restaurantId,
-                sessionName,
-                chatId,
-                text: renderWhatsAppTemplate(templates.welcome, variables),
-            });
-            if (await canBotRespond(restaurantId, chatId)) {
-                await sendTrackedMenu({
-                    dedupeKey: `${messageId}:main_menu`,
-                    restaurantId,
-                    sessionName,
-                    chatId,
-                });
-            }
-            return;
-        }
-
         await sendTrackedText({
-            dedupeKey: `${messageId}:fallback`,
+            dedupeKey: `${messageId}:order_tracking`,
             restaurantId,
             sessionName,
             chatId,
-            text: "Não entendi essa mensagem.",
+            text: renderWhatsAppTemplate(templates.order_tracking, {
+                ...variables,
+                LINK_DE_ACOMPANHAMENTO: `${variables.LINK_DO_CARDAPIO}/${encodeURIComponent(orderId)}`,
+            }),
         });
+        return;
+    }
+
+    if (hasMedia && !normalize(body)) {
+        await sendTrackedText({
+            dedupeKey: `${messageId}:unsupported_media`,
+            restaurantId,
+            sessionName,
+            chatId,
+            text: renderWhatsAppTemplate(templates.unsupported_media, variables),
+        });
+        return;
+    }
+
+    if (isExplicitMainMenuRequest(body)) {
         await sendTrackedMenu({
             dedupeKey: `${messageId}:main_menu`,
             restaurantId,
             sessionName,
             chatId,
         });
+        return;
+    }
+
+    const flow = detectFlow(body);
+    if (flow) {
+        await answerFlow({
+            flow,
+            templates,
+            variables,
+            restaurantId,
+            sessionName,
+            chatId,
+            inboundMessageId: messageId,
+        });
+        return;
+    }
+
+    if (prepared.state === "welcome") {
+        const welcomeSent = await sendTrackedText({
+            dedupeKey: `${messageId}:welcome`,
+            restaurantId,
+            sessionName,
+            chatId,
+            text: renderWhatsAppTemplate(templates.welcome, variables),
+        });
+        if (welcomeSent && (await canBotRespond(restaurantId, chatId))) {
+            await sendTrackedMenu({
+                dedupeKey: `${messageId}:main_menu`,
+                restaurantId,
+                sessionName,
+                chatId,
+            });
+        }
+        return;
+    }
+
+    const fallbackSent = await sendTrackedText({
+        dedupeKey: `${messageId}:fallback`,
+        restaurantId,
+        sessionName,
+        chatId,
+        text: "Não entendi essa mensagem.",
     });
+    if (fallbackSent) {
+        await sendTrackedMenu({
+            dedupeKey: `${messageId}:main_menu`,
+            restaurantId,
+            sessionName,
+            chatId,
+        });
+    }
 }
 
 export async function processWhatsAppMenuSelection({

@@ -33,6 +33,8 @@ type WahaLidResponse = {
     pn?: string | null;
 };
 
+const WAHA_SEND_TIMEOUT_MS = 5_000;
+
 class WahaHttpError extends Error {
     status: number;
     responseBody: string;
@@ -100,7 +102,8 @@ async function parseResponse<T>(response: Response): Promise<T> {
 
 async function wahaRequest<T>(
     path: string,
-    init: RequestInit = {}
+    init: RequestInit = {},
+    timeoutMs = 20_000
 ): Promise<T> {
     const headers = new Headers(init.headers);
     headers.set("X-Api-Key", getWahaApiKey());
@@ -114,7 +117,7 @@ async function wahaRequest<T>(
         ...init,
         headers,
         cache: "no-store",
-        signal: AbortSignal.timeout(20_000),
+        signal: AbortSignal.timeout(timeoutMs),
     });
 
     return parseResponse<T>(response);
@@ -266,15 +269,19 @@ export async function sendWahaText(
     chatId: string,
     text: string
 ): Promise<unknown> {
-    return wahaRequest<unknown>("/api/sendText", {
-        method: "POST",
-        body: JSON.stringify({
-            session: sessionName,
-            chatId,
-            text,
-            linkPreview: true,
-        }),
-    });
+    return wahaRequest<unknown>(
+        "/api/sendText",
+        {
+            method: "POST",
+            body: JSON.stringify({
+                session: sessionName,
+                chatId,
+                text,
+                linkPreview: true,
+            }),
+        },
+        WAHA_SEND_TIMEOUT_MS
+    );
 }
 
 function sendWahaListRequest(
@@ -282,30 +289,34 @@ function sendWahaListRequest(
     chatId: string,
     rows: WahaListRow[]
 ): Promise<unknown> {
-    return wahaRequest<unknown>("/api/sendList", {
-        method: "POST",
-        body: JSON.stringify({
-            session: sessionName,
-            chatId,
-            reply_to: null,
-            message: {
-                title: "Atendimento iMenu",
-                description: "Escolha uma opção para continuar:",
-                footer: "Toque em uma opção abaixo",
-                button: "Ver opções",
-                sections: [
-                    {
-                        title: "Como posso ajudar?",
-                        rows: rows.map((row) => ({
-                            title: row.title,
-                            rowId: row.rowId,
-                            description: row.description ?? null,
-                        })),
-                    },
-                ],
-            },
-        }),
-    });
+    return wahaRequest<unknown>(
+        "/api/sendList",
+        {
+            method: "POST",
+            body: JSON.stringify({
+                session: sessionName,
+                chatId,
+                reply_to: null,
+                message: {
+                    title: "Atendimento iMenu",
+                    description: "Escolha uma opção para continuar:",
+                    footer: "Toque em uma opção abaixo",
+                    button: "Ver opções",
+                    sections: [
+                        {
+                            title: "Como posso ajudar?",
+                            rows: rows.map((row) => ({
+                                title: row.title,
+                                rowId: row.rowId,
+                                description: row.description ?? null,
+                            })),
+                        },
+                    ],
+                },
+            }),
+        },
+        WAHA_SEND_TIMEOUT_MS
+    );
 }
 
 async function getPhoneChatIdForLid(
@@ -316,7 +327,9 @@ async function getPhoneChatIdForLid(
 
     try {
         const result = await wahaRequest<WahaLidResponse>(
-            `/api/${encodeURIComponent(sessionName)}/lids/${encodeURIComponent(chatId)}`
+            `/api/${encodeURIComponent(sessionName)}/lids/${encodeURIComponent(chatId)}`,
+            {},
+            WAHA_SEND_TIMEOUT_MS
         );
         return typeof result?.pn === "string" && result.pn.trim()
             ? result.pn.trim()
