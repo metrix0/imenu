@@ -47,9 +47,9 @@ const LANDING_BUTTON_BASE =
 const LANDING_PRIMARY_BUTTON = `${LANDING_BUTTON_BASE} !border-[#d93d00] !bg-[#d93d00] !text-white hover:!border-[#c43700] hover:!bg-[#c43700] focus:!ring-[#d93d00]`;
 const LANDING_SECONDARY_BUTTON = `${LANDING_BUTTON_BASE} !bg-white !text-[#1d1d1d] hover:!bg-[#f1f3f5] focus:!ring-[#d93d00]`;
 const LANDING_HERO_PRIMARY_BUTTON =
-    "!min-h-12 !rounded-lg !border !border-[#d93d00] !bg-[#d93d00] !px-6 !py-[13px] !text-base !leading-5 !font-medium !text-white !shadow-none hover:!border-[#c43700] hover:!bg-[#c43700] focus:!ring-[#d93d00]";
+    "!min-h-12 !rounded-lg !border !border-[#d93d00] !bg-[#d93d00] !px-6 !py-[13px] !text-base !leading-5 !font-medium !whitespace-nowrap !text-white !shadow-none hover:!border-[#c43700] hover:!bg-[#c43700] focus:!ring-[#d93d00]";
 const LANDING_HERO_SECONDARY_BUTTON =
-    "!min-h-12 !rounded-lg !border !border-[#e2e5e9] !bg-white !px-6 !py-[13px] !text-base !leading-5 !font-medium !text-[#1d1d1d] !shadow-none hover:!bg-[#f1f3f5] focus:!ring-[#d93d00]";
+    "!min-h-12 !rounded-lg !border !border-[#e2e5e9] !bg-white !px-6 !py-[13px] !text-base !leading-5 !font-medium !whitespace-nowrap !text-[#1d1d1d] !shadow-none hover:!bg-[#f1f3f5] focus:!ring-[#d93d00]";
 
 export default function LandingPage() {
     const router = useRouter();
@@ -224,7 +224,11 @@ export default function LandingPage() {
                     </h1>
                     <h2 className="mt-4 leading-normal text-gray-500 md:mt-0 md:leading-7 min-[1400px]:text-lg min-[1400px]:leading-8 2xl:text-[1.4rem]">
                         Cardápio digital para Restaurantes e Delivery. Pronto em 3
-                        minutos com <u>Inteligência Artificial</u>.
+                        minutos com{" "}
+                        <u>
+                            <span className="md:hidden">IA</span>
+                            <span className="hidden md:inline">Inteligência Artificial</span>
+                        </u>.
                     </h2>
                     <div className="mt-5 hidden text-gray-500 md:block min-[1400px]:text-lg 2xl:text-[1.4rem]">
                         Sem taxas, sem pegadinhas.{" "}
@@ -238,7 +242,7 @@ export default function LandingPage() {
                         </Tooltip>
                     </div>
 
-                    <div className="mt-6 flex flex-col items-center justify-center gap-4 md:flex-row md:justify-start min-[1400px]:mt-8 min-[1400px]:gap-5 2xl:mt-9 2xl:gap-6">
+                    <div className="mt-6 flex flex-row flex-nowrap items-center justify-center gap-4 md:justify-start min-[1400px]:mt-8 min-[1400px]:gap-5 2xl:mt-9 2xl:gap-6">
                         <Button
                             onClick={() => router.push("/restaurante/registrar")}
                             className={LANDING_HERO_PRIMARY_BUTTON}
@@ -461,6 +465,7 @@ export default function LandingPage() {
                             )}
                             {[
                                 ["Totalmente grátis, para sempre", "check", "Mensalidade e taxas"],
+                                ["Inteligência Artificial", "check", "Não"],
                                 ["Pedidos ilimitados", "check", "Cada vez mais caro"],
                                 ["Robô WhatsApp", "check", "Taxas adicionais"],
                                 ["Aplicativo para celular", "check", "Não"],
