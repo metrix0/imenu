@@ -316,6 +316,7 @@ async function claimOutboundMessage({
                     updated_at = NOW()
                 WHERE restaurant_id = $2
                   AND chat_id = $3
+                  AND NOT (mode = 'human' AND human_until IS NULL)
                   AND (
                       (SELECT chat_count FROM recent) >= ${CHAT_SEND_LIMIT_PER_MINUTE}
                       OR (
