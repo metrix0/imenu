@@ -913,9 +913,7 @@ export default function DevDashboardPage() {
                                                                         disabled={!whatsappNumber}
                                                                         onClick={() => {
                                                                             if (!whatsappNumber) return;
-                                                                            const message = `Olá, sou o João do iMenu, entrando em contato por causa do ${formatRestaurantNameForMessage(user.restaurantName)}.\
-\
-Notamos que não estão tendo pedidos recentemente. Podemos auxiliar com algo?`;
+                                                                            const message = `Olá, sou o João do iMenu, entrando em contato por causa do ${formatRestaurantNameForMessage(user.restaurantName)}.\n\nNotamos que não estão tendo pedidos recentemente. Podemos auxiliar com algo?`;
                                                                             window.open(
                                                                                 `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`,
                                                                                 "_blank",
