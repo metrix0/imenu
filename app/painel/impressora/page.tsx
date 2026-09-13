@@ -16,7 +16,7 @@ type PrinterRelease = {
 
 const LEGACY_PRINTER_RELEASE: PrinterRelease = {
     version: "1.1.5 Legacy",
-    updatedAt: "2026-09-11T21:49:25Z",
+    updatedAt: "2026-09-13T15:39:13Z",
     downloadUrl: "/downloads/iMenu%20Impressora%20Legacy%20Setup%201.1.5.exe",
 };
 
