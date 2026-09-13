@@ -155,9 +155,9 @@ export default function WhatsappRedirectPage() {
                 {showTrackingButton && (
                     <Button
                         type="button"
-                        variant="secondary"
+                        variant="primary"
                         onClick={returnToOrder}
-                        className="mt-6 w-full py-3"
+                        className="mt-6 w-full !min-h-10 !rounded-lg !border !border-[#d93d00] !bg-[#d93d00] !px-[14px] !py-[9px] !text-[13px] !leading-5 !font-medium !text-white !shadow-none hover:!border-[#c43700] hover:!bg-[#c43700] focus:!ring-[#d93d00]"
                     >
                         Clique aqui para acompanhar seu pedido
                     </Button>
