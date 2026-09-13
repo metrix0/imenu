@@ -129,6 +129,10 @@ type DashboardDetailsPayload = {
     };
     funnelSummary: {
         registrationComplete: number | null;
+        step1Views: number | null;
+        step2Views: number | null;
+        step3Views: number | null;
+        step4Views: number | null;
         orderedConsumers: number | null;
     };
     qrTable: {
@@ -720,30 +724,51 @@ export default function DevDashboardPage() {
                                             "step_3",
                                             "step_4",
                                         ].includes(step.key);
+                                        const creationStepPostHogValue =
+                                            step.key === "step_1"
+                                                ? details?.funnelSummary.step1Views ?? null
+                                                : step.key === "step_2"
+                                                  ? details?.funnelSummary.step2Views ?? null
+                                                  : step.key === "step_3"
+                                                    ? details?.funnelSummary.step3Views ?? null
+                                                    : step.key === "step_4"
+                                                      ? details?.funnelSummary.step4Views ?? null
+                                                      : null;
+                                        const previousStep = data.pipeline[index - 1];
+                                        const previousDisplayValue =
+                                            previousStep?.key === "registration_complete"
+                                                ? details?.funnelSummary.registrationComplete ?? null
+                                                : previousStep?.key === "step_1"
+                                                  ? details?.funnelSummary.step1Views ?? null
+                                                  : previousStep?.key === "step_2"
+                                                    ? details?.funnelSummary.step2Views ?? null
+                                                    : previousStep?.key === "step_3"
+                                                      ? details?.funnelSummary.step3Views ?? null
+                                                      : previousStep?.key === "step_4"
+                                                        ? details?.funnelSummary.step4Views ?? null
+                                                        : previousStep?.value ?? null;
                                         const displayValue = isRegistrationComplete
                                             ? details?.funnelSummary.registrationComplete ?? null
                                             : isCreationStep
-                                              ? null
+                                              ? creationStepPostHogValue
                                               : step.value;
                                         const secondaryValue =
                                             isRegistrationComplete || isCreationStep
                                                 ? step.value
                                                 : null;
-                                        const displayConversion = isRegistrationComplete
-                                            ? conversion(
-                                                  displayValue,
-                                                  data.pipeline[index - 1]?.value ?? null
-                                              )
-                                            : isCreationStep
-                                              ? null
-                                              : step.key === "activated_users"
-                                                ? conversion(
-                                                      step.value,
-                                                      data.pipeline.find(
-                                                          (item) => item.key === "step_4"
-                                                      )?.value ?? null
-                                                  )
-                                                : step.conversion;
+                                        const displayConversion =
+                                            isRegistrationComplete || isCreationStep
+                                                ? conversion(displayValue, previousDisplayValue)
+                                                : step.key === "activated_users"
+                                                  ? conversion(
+                                                        step.value,
+                                                        details?.funnelSummary.step4Views ??
+                                                            data.pipeline.find(
+                                                                (item) => item.key === "step_4"
+                                                            )?.value ??
+                                                            null
+                                                    )
+                                                  : step.conversion;
 
                                         return (
                                             <div

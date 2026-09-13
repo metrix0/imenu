@@ -297,10 +297,21 @@ async function loadFunnelSummary(
     endAt: number
 ): Promise<{
     registrationComplete: number | null;
+    step1Views: number | null;
+    step2Views: number | null;
+    step3Views: number | null;
+    step4Views: number | null;
     orderedConsumers: number | null;
 }> {
     if (!getPostHogConfig()) {
-        return { registrationComplete: null, orderedConsumers: null };
+        return {
+            registrationComplete: null,
+            step1Views: null,
+            step2Views: null,
+            step3Views: null,
+            step4Views: null,
+            orderedConsumers: null,
+        };
     }
 
     const start = new Date(startAt).toISOString();
@@ -309,11 +320,24 @@ async function loadFunnelSummary(
         '^/[^/]+/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$';
     const legacyOrderPathRegex =
         '^/pedido/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$';
-    const registrationHogql = `
-        SELECT countIf(
-            event = '$pageview'
-            AND properties.$pathname = '/restaurante/criar/localizacao'
-        )
+    const onboardingHogql = `
+        SELECT
+            countIf(
+                event = '$pageview'
+                AND properties.$pathname = '/restaurante/criar/localizacao'
+            ),
+            countIf(
+                event = '$pageview'
+                AND properties.$pathname = '/restaurante/criar/tempo-e-taxa'
+            ),
+            countIf(
+                event = '$pageview'
+                AND properties.$pathname = '/restaurante/criar/disponibilidade'
+            ),
+            countIf(
+                event = '$pageview'
+                AND properties.$pathname = '/restaurante/criar/cardapio'
+            )
         FROM events
         WHERE timestamp >= parseDateTimeBestEffort('${start}')
           AND timestamp < parseDateTimeBestEffort('${end}')
@@ -344,18 +368,32 @@ async function loadFunnelSummary(
     `;
 
     try {
-        const [registrationRows, orderedRows] = await Promise.all([
-            runPostHogQuery(registrationHogql),
+        const [onboardingRows, orderedRows] = await Promise.all([
+            runPostHogQuery(onboardingHogql),
             runPostHogQuery(orderedHogql),
         ]);
+        const onboardingRow = onboardingRows[0];
+        if (!onboardingRow) throw new Error("PostHog returned no onboarding result row.");
 
+        const step1Views = Number(onboardingRow[0]) || 0;
         return {
-            registrationComplete: Number(registrationRows[0]?.[0]) || 0,
+            registrationComplete: step1Views,
+            step1Views,
+            step2Views: Number(onboardingRow[1]) || 0,
+            step3Views: Number(onboardingRow[2]) || 0,
+            step4Views: Number(onboardingRow[3]) || 0,
             orderedConsumers: Number(orderedRows[0]?.[0]) || 0,
         };
     } catch (error) {
         console.warn("[DEV_DASHBOARD_DETAILS] Funnel metrics unavailable:", error);
-        return { registrationComplete: null, orderedConsumers: null };
+        return {
+            registrationComplete: null,
+            step1Views: null,
+            step2Views: null,
+            step3Views: null,
+            step4Views: null,
+            orderedConsumers: null,
+        };
     }
 }
 
