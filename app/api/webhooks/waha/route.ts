@@ -391,6 +391,10 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ ok: true, ignored: "unknown_session" });
         }
 
+        if (connection.desired_state !== "connected") {
+            return NextResponse.json({ ok: true, ignored: "disconnected_session" });
+        }
+
         if (eventName === "session.status") {
             await updateSessionStatus({ event, connection, supabase });
             return NextResponse.json({ ok: true });
