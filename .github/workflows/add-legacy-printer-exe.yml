@@ -63,4 +63,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -- "public/downloads/iMenu Impressora Legacy Setup 1.1.5.exe"
           git commit -m "Add Windows legacy printer installer"
+          git pull --rebase origin preview
           git push origin HEAD:preview
