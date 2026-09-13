@@ -714,25 +714,36 @@ export default function DevDashboardPage() {
                                     {data.pipeline.map((step, index) => {
                                         const isRegistrationComplete =
                                             step.key === "registration_complete";
+                                        const isCreationStep = [
+                                            "step_1",
+                                            "step_2",
+                                            "step_3",
+                                            "step_4",
+                                        ].includes(step.key);
                                         const displayValue = isRegistrationComplete
                                             ? details?.funnelSummary.registrationComplete ?? null
-                                            : step.value;
-                                        const secondaryValue = isRegistrationComplete
-                                            ? step.value
-                                            : null;
+                                            : isCreationStep
+                                              ? null
+                                              : step.value;
+                                        const secondaryValue =
+                                            isRegistrationComplete || isCreationStep
+                                                ? step.value
+                                                : null;
                                         const displayConversion = isRegistrationComplete
                                             ? conversion(
                                                   displayValue,
                                                   data.pipeline[index - 1]?.value ?? null
                                               )
-                                            : step.key === "activated_users"
-                                              ? conversion(
-                                                    step.value,
-                                                    data.pipeline.find(
-                                                        (item) => item.key === "step_4"
-                                                    )?.value ?? null
-                                                )
-                                              : step.conversion;
+                                            : isCreationStep
+                                              ? null
+                                              : step.key === "activated_users"
+                                                ? conversion(
+                                                      step.value,
+                                                      data.pipeline.find(
+                                                          (item) => item.key === "step_4"
+                                                      )?.value ?? null
+                                                  )
+                                                : step.conversion;
 
                                         return (
                                             <div
@@ -902,7 +913,9 @@ export default function DevDashboardPage() {
                                                                         disabled={!whatsappNumber}
                                                                         onClick={() => {
                                                                             if (!whatsappNumber) return;
-                                                                            const message = `Olá, sou o João do iMenu, entrando em contato por causa do ${formatRestaurantNameForMessage(user.restaurantName)}.\n\nNotamos que não estão tendo pedidos recentemente. Podemos auxiliar com algo?`;
+                                                                            const message = `Olá, sou o João do iMenu, entrando em contato por causa do ${formatRestaurantNameForMessage(user.restaurantName)}.\
+\
+Notamos que não estão tendo pedidos recentemente. Podemos auxiliar com algo?`;
                                                                             window.open(
                                                                                 `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`,
                                                                                 "_blank",
