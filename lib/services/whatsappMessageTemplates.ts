@@ -32,11 +32,8 @@ export type WhatsAppTemplateVariables = Record<string, string>;
 export const DEFAULT_WHATSAPP_MESSAGE_TEMPLATES: WhatsAppMessageTemplates = {
     welcome: [
         "Olá! 👋 Sou o atendimento automático do *{{NOME_DO_RESTAURANTE}}*.",
-        "Posso enviar o cardápio, consultar o status do seu pedido e explicar entrega, retirada e pagamentos.",
         "",
-        "Pedido online: {{LINK_DO_CARDAPIO}}",
-        "",
-        "Para atendimento humano, escolha *Falar com atendente* ou escreva *atendente*.",
+        "Peça online, clique aqui: {{LINK_DO_CARDAPIO}}",
     ].join("\n"),
     menu_link: [
         "🍽️ *Cardápio — {{NOME_DO_RESTAURANTE}}*",
