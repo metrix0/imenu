@@ -10,7 +10,6 @@ import Tooltip from "@/components/ui/Tooltip";
 export type PixKeyType = "CPF" | "CNPJ" | "EMAIL" | "PHONE" | "EVP";
 
 const PIX_KEY_TYPE_OPTIONS = [
-    { value: "", label: "Definir tipo de chave" },
     { value: "AUTO", label: "Detectar automaticamente" },
     { value: "CPF", label: "CPF" },
     { value: "CNPJ", label: "CNPJ" },
