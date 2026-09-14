@@ -87,7 +87,7 @@ export default function NeighborhoodInput({
                         : "pointer-events-none max-h-0 -translate-y-1 scale-y-95 border-transparent opacity-0"
                 }`}
             >
-                <div className="max-h-64 overflow-y-auto p-1.5">
+                <div className="thin-scrollbar max-h-64 overflow-y-auto p-1.5">
                     {options.map((rule) => {
                         const selected = [rule.neighborhood, ...(rule.aliases || [])]
                             .map(normalizeNeighborhoodName)
