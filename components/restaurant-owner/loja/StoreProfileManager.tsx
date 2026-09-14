@@ -32,6 +32,7 @@ interface StoreProfileProps {
     compact?: boolean;
     hideCustomDomainButton?: boolean;
     onNameChange?: (name: string) => void;
+    onPaymentInfoChange?: (paymentInfo: string) => void;
     onSaveStatusChange: (status: SaveState) => void;
 }
 
@@ -59,6 +60,7 @@ export default function StoreProfileManager({
     restaurant,
     hideCustomDomainButton = false,
     onNameChange,
+    onPaymentInfoChange,
     onSaveStatusChange,
 }: StoreProfileProps) {
     const [name, setName] = useState(restaurant.name);
@@ -251,7 +253,10 @@ export default function StoreProfileManager({
                     <PixPayoutFields
                         paymentInfo={paymentInfo}
                         paymentInfoType={paymentInfoType}
-                        onPaymentInfoChange={setPaymentInfo}
+                        onPaymentInfoChange={(value) => {
+                            setPaymentInfo(value);
+                            onPaymentInfoChange?.(value);
+                        }}
                         onPaymentInfoTypeChange={setPaymentInfoType}
                         onSave={saveFields}
                     />
