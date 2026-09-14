@@ -6,6 +6,7 @@ import {
     BLOG_ARTICLES,
     getBlogArticlePath,
 } from "@/lib/seo/blogArticles";
+import { COMPARISON_PAGES } from "@/lib/seo/comparisonPages";
 
 export type PublicContentPage = {
     path: string;
@@ -32,6 +33,11 @@ const EXISTING_SEO_PAGES: PublicContentPage[] = [
     { path: "/anota-ai", label: "iMenu vs Anota Ai", kind: "Comparativo" },
     { path: "/goomer", label: "iMenu vs Goomer", kind: "Comparativo" },
     { path: "/saipos", label: "iMenu vs Saipos", kind: "Comparativo" },
+    ...COMPARISON_PAGES.map((page) => ({
+        path: `/${page.slug}`,
+        label: `iMenu vs ${page.competitor}`,
+        kind: "Comparativo" as const,
+    })),
 ];
 
 export const PUBLIC_CONTENT_PAGES: PublicContentPage[] = [
