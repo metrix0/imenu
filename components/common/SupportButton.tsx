@@ -2,16 +2,19 @@
 
 import { forwardRef, useImperativeHandle, useState } from "react";
 import Modal from "@/components/ui/Modal";
-import { LegacyModalClose } from "@/components/ui/ModalCloseButton";
 import Button from "@/components/ui/Button";
 import Loader from "@/components/ui/Loader";
 import { icons } from "@/lib/utils/fontawesome";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
-import { faCopy, faCheck, faXmark } from "@fortawesome/free-solid-svg-icons";
+import { faCopy, faCheck } from "@fortawesome/free-solid-svg-icons";
 
 const PHONE = "5519988760900";
 const DISPLAY_PHONE = "+55 19 98876-0900";
 const MESSAGE = "Olá, preciso de ajuda com o iMenu!";
+const SUPPORT_BUTTON_BASE =
+    "!min-h-10 !rounded-lg !border !border-[#e2e5e9] !px-[14px] !py-[9px] !text-[13px] !leading-5 !font-medium !shadow-none 2xl:!rounded-lg 2xl:!px-[14px] 2xl:!py-[9px] 2xl:!text-[13px]";
+const SUPPORT_PRIMARY_BUTTON = `${SUPPORT_BUTTON_BASE} !border-[#d93d00] !bg-[#d93d00] !text-white hover:!border-[#c43700] hover:!bg-[#c43700] focus:!ring-[#d93d00]`;
+const SUPPORT_SECONDARY_BUTTON = `${SUPPORT_BUTTON_BASE} !bg-white !text-[#1d1d1d] hover:!bg-[#f1f3f5] focus:!ring-[#d93d00]`;
 
 export interface SupportButtonRef { open: () => void; }
 type SupportButtonProps = { bottomClassName?: string; showFloating?: boolean };
@@ -51,11 +54,8 @@ const SupportButton = forwardRef<SupportButtonRef, SupportButtonProps>(
                     <FontAwesomeIcon icon={icons.faWhatsapp} size="2x" />
                 </button>}
 
-                <Modal height={470} open={open} onClose={() => setOpen(false)} className="max-w-sm">
+                <Modal height={470} open={open} onClose={() => setOpen(false)} className="max-w-sm" showCloseButton>
                     <div className="relative p-6 text-center">
-                        <LegacyModalClose><button type="button" onClick={() => setOpen(false)} className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700" aria-label="Fechar">
-                            <FontAwesomeIcon icon={faXmark} />
-                        </button></LegacyModalClose>
                         <h3 className="mb-4 text-lg font-semibold text-gray-900">Escaneie o QR Code</h3>
                         <div className="relative mx-auto flex h-[214px] w-[214px] items-center justify-center rounded-lg border border-gray-200 bg-white p-4" aria-busy={!qrLoaded}>
                             {!qrLoaded && <Loader className="absolute" />}
@@ -70,11 +70,11 @@ const SupportButton = forwardRef<SupportButtonRef, SupportButtonProps>(
                             />
                         </div>
                         <p className="mt-4 text-sm text-gray-600">Ou adicione no WhatsApp:</p>
-                        <Button variant="secondary" type="button" onClick={copyPhone} className="mx-auto mt-2">
+                        <Button variant="secondary" type="button" onClick={copyPhone} className={`mx-auto mt-2 ${SUPPORT_SECONDARY_BUTTON}`}>
                             {DISPLAY_PHONE}
                             <FontAwesomeIcon icon={copied ? faCheck : faCopy} className={`ml-2 ${copied ? "text-green-600" : "text-gray-500"}`} />
                         </Button>
-                        <Button variant="primary" onClick={() => window.open(whatsappUrl, "_blank", "noopener,noreferrer")} className="mt-4 w-full">
+                        <Button variant="primary" onClick={() => window.open(whatsappUrl, "_blank", "noopener,noreferrer")} className={`mt-4 w-full ${SUPPORT_PRIMARY_BUTTON}`}>
                             <FontAwesomeIcon icon={icons.faWhatsapp} className="mr-2" /> Abrir WhatsApp
                         </Button>
                     </div>
