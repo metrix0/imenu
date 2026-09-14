@@ -12,6 +12,7 @@ import {
 import { icons } from "@/lib/utils/fontawesome";
 import BonusButton from "@/components/ui/BonusButton";
 import Button from "@/components/ui/Button";
+import PanelShortcutPrompt from "@/components/ui/PanelShortcutPrompt";
 import Tooltip from "@/components/ui/Tooltip";
 import Footer from "@/components/common/Footer";
 import SupportButton, {
@@ -50,6 +51,10 @@ const LANDING_HERO_PRIMARY_BUTTON =
     "!min-h-12 !rounded-lg !border !border-[#d93d00] !bg-[#d93d00] !px-6 !py-[13px] !text-base !leading-5 !font-medium !whitespace-nowrap !text-white !shadow-none hover:!border-[#c43700] hover:!bg-[#c43700] focus:!ring-[#d93d00]";
 const LANDING_HERO_SECONDARY_BUTTON =
     "!min-h-12 !rounded-lg !border !border-[#e2e5e9] !bg-white !px-6 !py-[13px] !text-base !leading-5 !font-medium !whitespace-nowrap !text-[#1d1d1d] !shadow-none hover:!bg-[#f1f3f5] focus:!ring-[#d93d00]";
+const PANEL_LOGIN_CLICK_COUNT_KEY = "imenu:landing-panel-login-clicks";
+const PANEL_AUTO_REDIRECT_KEY = "imenu:landing-panel-auto-redirect";
+const PANEL_PROMPT_DISMISSED_KEY = "imenu:landing-panel-prompt-dismissed";
+const PANEL_PROMPT_CLICK_THRESHOLD = 2;
 
 export default function LandingPage() {
     const router = useRouter();
@@ -58,6 +63,67 @@ export default function LandingPage() {
     const [autoRotate, setAutoRotate] = useState(true);
     const [restCount, setRestCount] = useState(0);
     const [loading, setLoading] = useState(true);
+    const [showPanelShortcutPrompt, setShowPanelShortcutPrompt] = useState(false);
+
+    useEffect(() => {
+        try {
+            if (window.localStorage.getItem(PANEL_AUTO_REDIRECT_KEY) === "true") {
+                router.replace("/restaurante/login");
+                return;
+            }
+
+            const clickCount = Number.parseInt(
+                window.localStorage.getItem(PANEL_LOGIN_CLICK_COUNT_KEY) || "0",
+                10
+            );
+            const dismissed =
+                window.localStorage.getItem(PANEL_PROMPT_DISMISSED_KEY) === "true";
+
+            if (clickCount >= PANEL_PROMPT_CLICK_THRESHOLD && !dismissed) {
+                setShowPanelShortcutPrompt(true);
+            }
+        } catch {
+            // Browser storage can be unavailable; normal landing behavior still works.
+        }
+    }, [router]);
+
+    const handlePanelLogin = () => {
+        try {
+            const currentCount = Number.parseInt(
+                window.localStorage.getItem(PANEL_LOGIN_CLICK_COUNT_KEY) || "0",
+                10
+            );
+            window.localStorage.setItem(
+                PANEL_LOGIN_CLICK_COUNT_KEY,
+                String(Number.isFinite(currentCount) ? currentCount + 1 : 1)
+            );
+        } catch {
+            // Browser storage can be unavailable; navigation should still work.
+        }
+
+        router.push("/restaurante/login");
+    };
+
+    const handleEnablePanelShortcut = () => {
+        try {
+            window.localStorage.setItem(PANEL_AUTO_REDIRECT_KEY, "true");
+        } catch {
+            // Browser storage can be unavailable; continue to the login page anyway.
+        }
+
+        setShowPanelShortcutPrompt(false);
+        router.push("/restaurante/login");
+    };
+
+    const handleDismissPanelShortcut = () => {
+        try {
+            window.localStorage.setItem(PANEL_PROMPT_DISMISSED_KEY, "true");
+        } catch {
+            // Browser storage can be unavailable; closing the prompt still works.
+        }
+
+        setShowPanelShortcutPrompt(false);
+    };
 
     useEffect(() => {
         const timer = window.setTimeout(() => setLoading(false), 1000);
@@ -184,13 +250,21 @@ export default function LandingPage() {
                     <div className="hidden h-6 w-px bg-gray-300 md:block min-[1400px]:h-7 2xl:h-8" />
 
                     <div className="hidden items-center gap-2 md:flex">
-                        <Button
-                            variant="secondary"
-                            onClick={() => router.push("/restaurante/login")}
-                            className={LANDING_SECONDARY_BUTTON}
-                        >
-                            Entrar no Painel
-                        </Button>
+                        <div className="relative z-50">
+                            <Button
+                                variant="secondary"
+                                onClick={handlePanelLogin}
+                                className={LANDING_SECONDARY_BUTTON}
+                            >
+                                Entrar no Painel
+                            </Button>
+                            <PanelShortcutPrompt
+                                open={showPanelShortcutPrompt}
+                                onAccept={handleEnablePanelShortcut}
+                                onDismiss={handleDismissPanelShortcut}
+                                className="right-0 hidden md:block"
+                            />
+                        </div>
 
                         <Button
                             className={LANDING_PRIMARY_BUTTON}
@@ -249,13 +323,21 @@ export default function LandingPage() {
                         >
                             Registrar Grátis
                         </Button>
-                        <Button
-                            variant="secondary"
-                            onClick={() => router.push("/restaurante/login")}
-                            className={LANDING_HERO_SECONDARY_BUTTON}
-                        >
-                            Entrar no Painel
-                        </Button>
+                        <div className="relative">
+                            <Button
+                                variant="secondary"
+                                onClick={handlePanelLogin}
+                                className={LANDING_HERO_SECONDARY_BUTTON}
+                            >
+                                Entrar no Painel
+                            </Button>
+                            <PanelShortcutPrompt
+                                open={showPanelShortcutPrompt}
+                                onAccept={handleEnablePanelShortcut}
+                                onDismiss={handleDismissPanelShortcut}
+                                className="left-1/2 -translate-x-1/2 md:hidden"
+                            />
+                        </div>
                     </div>
                 </div>
 
