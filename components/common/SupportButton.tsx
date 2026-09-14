@@ -4,6 +4,7 @@ import { forwardRef, useImperativeHandle, useState } from "react";
 import Modal from "@/components/ui/Modal";
 import { LegacyModalClose } from "@/components/ui/ModalCloseButton";
 import Button from "@/components/ui/Button";
+import Loader from "@/components/ui/Loader";
 import { icons } from "@/lib/utils/fontawesome";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { faCopy, faCheck, faXmark } from "@fortawesome/free-solid-svg-icons";
@@ -19,12 +20,16 @@ const SupportButton = forwardRef<SupportButtonRef, SupportButtonProps>(
     ({ bottomClassName = "bottom-6", showFloating = true }, ref) => {
         const [open, setOpen] = useState(false);
         const [copied, setCopied] = useState(false);
+        const [qrLoaded, setQrLoaded] = useState(false);
         const whatsappUrl = `https://wa.me/${PHONE}?text=${encodeURIComponent(MESSAGE)}`;
 
         const openSupport = () => {
             const mobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
             if (mobile) window.open(whatsappUrl, "_blank", "noopener,noreferrer");
-            else setOpen(true);
+            else {
+                setQrLoaded(false);
+                setOpen(true);
+            }
         };
 
         const copyPhone = async () => {
@@ -46,21 +51,30 @@ const SupportButton = forwardRef<SupportButtonRef, SupportButtonProps>(
                     <FontAwesomeIcon icon={icons.faWhatsapp} size="2x" />
                 </button>}
 
-                <Modal height={500} open={open} onClose={() => setOpen(false)} className="max-w-sm">
+                <Modal height={470} open={open} onClose={() => setOpen(false)} className="max-w-sm">
                     <div className="relative p-6 text-center">
                         <LegacyModalClose><button type="button" onClick={() => setOpen(false)} className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700" aria-label="Fechar">
                             <FontAwesomeIcon icon={faXmark} />
                         </button></LegacyModalClose>
-                        <h3 className="mb-5 text-lg font-semibold text-gray-800">Escaneie o QR Code</h3>
-                        <div className="inline-block rounded-lg border border-gray-200 p-4">
-                            <img src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(whatsappUrl)}&format=svg`} alt="QR Code para WhatsApp" width={180} height={180} />
+                        <h3 className="mb-4 text-lg font-semibold text-gray-900">Escaneie o QR Code</h3>
+                        <div className="relative mx-auto flex h-[214px] w-[214px] items-center justify-center rounded-lg border border-gray-200 bg-white p-4" aria-busy={!qrLoaded}>
+                            {!qrLoaded && <Loader className="absolute" />}
+                            <img
+                                src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(whatsappUrl)}&format=svg`}
+                                alt="QR Code para WhatsApp"
+                                width={180}
+                                height={180}
+                                onLoad={() => setQrLoaded(true)}
+                                onError={() => setQrLoaded(true)}
+                                className={`h-[180px] w-[180px] transition-opacity duration-150 ${qrLoaded ? "opacity-100" : "opacity-0"}`}
+                            />
                         </div>
-                        <p className="mt-5 text-sm text-gray-600">Ou adicione no WhatsApp:</p>
-                        <button type="button" onClick={copyPhone} className="mx-auto mt-2 flex cursor-pointer items-center gap-2 rounded-md px-3 py-2 font-medium text-gray-900 transition-colors hover:bg-gray-100">
+                        <p className="mt-4 text-sm text-gray-600">Ou adicione no WhatsApp:</p>
+                        <Button variant="secondary" type="button" onClick={copyPhone} className="mx-auto mt-2">
                             {DISPLAY_PHONE}
-                            <FontAwesomeIcon icon={copied ? faCheck : faCopy} className={copied ? "text-green-600" : "text-gray-500"} />
-                        </button>
-                        <Button onClick={() => window.open(whatsappUrl, "_blank", "noopener,noreferrer")} className="mt-5 w-full">
+                            <FontAwesomeIcon icon={copied ? faCheck : faCopy} className={`ml-2 ${copied ? "text-green-600" : "text-gray-500"}`} />
+                        </Button>
+                        <Button variant="primary" onClick={() => window.open(whatsappUrl, "_blank", "noopener,noreferrer")} className="mt-4 w-full">
                             <FontAwesomeIcon icon={icons.faWhatsapp} className="mr-2" /> Abrir WhatsApp
                         </Button>
                     </div>
