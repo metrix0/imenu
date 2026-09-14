@@ -460,6 +460,11 @@ export default function ConfiguracoesPage() {
 
     const handleLogout = async () => {
         setIsLoggingOut(true);
+        try {
+            window.localStorage.removeItem("imenu:landing-panel-auto-redirect");
+        } catch {
+            // Browser storage can be unavailable; logout should still proceed.
+        }
         await supabase.auth.signOut();
         clear();
         router.push("/restaurante/login");
