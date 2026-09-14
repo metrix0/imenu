@@ -33,6 +33,7 @@ interface StoreProfileProps {
     hideCustomDomainButton?: boolean;
     onNameChange?: (name: string) => void;
     onPaymentInfoChange?: (paymentInfo: string) => void;
+    onPixPayoutValidationChange?: (invalid: boolean) => void;
     onSaveStatusChange: (status: SaveState) => void;
 }
 
@@ -61,6 +62,7 @@ export default function StoreProfileManager({
     hideCustomDomainButton = false,
     onNameChange,
     onPaymentInfoChange,
+    onPixPayoutValidationChange,
     onSaveStatusChange,
 }: StoreProfileProps) {
     const [name, setName] = useState(restaurant.name);
@@ -85,6 +87,10 @@ export default function StoreProfileManager({
                 ? ""
                 : "AUTO")
     );
+    const needsPixType = Boolean(paymentInfo.trim() && !paymentInfoType);
+    useEffect(() => {
+        onPixPayoutValidationChange?.(needsPixType);
+    }, [needsPixType, onPixPayoutValidationChange]);
     const [storeWhatsapp, setStoreWhatsapp] = useState(
         formatPhone(restaurant.store_whatsapp || "")
     );

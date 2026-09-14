@@ -100,7 +100,7 @@ export default function PixPayoutFields({
 
     return (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div data-ui="field" className="min-w-0">
+            <div data-ui="field" className="relative min-w-0">
                 <div
                     data-ui="field-label"
                     className="text-xs font-medium leading-[18px]"
@@ -109,20 +109,29 @@ export default function PixPayoutFields({
                 </div>
                 <Dropdown
                     aria-label="Tipo da chave PIX"
+                    aria-invalid={needsPixType || undefined}
                     options={PIX_KEY_TYPE_OPTIONS}
                     value={paymentInfoType}
+                    className={
+                        needsPixType
+                            ? "!border-red-400 focus:!border-red-500"
+                            : ""
+                    }
                     onChange={(event) =>
                         handlePaymentInfoTypeChange(event.target.value)
                     }
                 />
+                {needsPixType && (
+                    <p className="absolute left-0 top-full text-xs font-medium leading-4 text-red-600">
+                        Defina o tipo da chave PIX acima.
+                    </p>
+                )}
             </div>
 
             <div data-ui="field" className="min-w-0">
                 <div
                     data-ui="field-label"
-                    className={`flex items-center gap-1.5 text-xs font-medium leading-[18px] ${
-                        needsPixType ? "text-red-600" : ""
-                    }`}
+                    className="flex items-center gap-1.5 text-xs font-medium leading-[18px]"
                     style={{ display: "flex" }}
                 >
                     <span>Chave Pix para Repasses diários às 12:00</span>
@@ -151,17 +160,7 @@ export default function PixPayoutFields({
                         onPaymentInfoChange(event.target.value)
                     }
                     onBlur={() => void handlePaymentInfoBlur()}
-                    className={
-                        needsPixType
-                            ? "border-red-400 focus:border-red-500 focus:ring-red-100"
-                            : ""
-                    }
                 />
-                {needsPixType && (
-                    <p className="text-xs font-medium text-red-600">
-                        Defina o tipo da chave PIX acima.
-                    </p>
-                )}
             </div>
         </div>
     );
