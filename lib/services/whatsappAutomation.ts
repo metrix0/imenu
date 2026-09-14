@@ -424,6 +424,7 @@ async function sendTrackedText({
     chatId,
     text,
     allowHuman = false,
+    continueOnTimeout = false,
 }: {
     dedupeKey: string;
     restaurantId: string;
@@ -431,6 +432,7 @@ async function sendTrackedText({
     chatId: string;
     text: string;
     allowHuman?: boolean;
+    continueOnTimeout?: boolean;
 }): Promise<boolean> {
     const claimed = await claimOutboundMessage({
         dedupeKey,
@@ -456,7 +458,12 @@ async function sendTrackedText({
             messageType: "text",
             error,
         });
-        return false;
+        return (
+            continueOnTimeout &&
+            error instanceof Error &&
+            (error.name === "TimeoutError" ||
+                error.message === "The operation was aborted due to timeout")
+        );
     }
 }
 
@@ -764,6 +771,7 @@ export async function processIncomingWhatsAppMessage({
             sessionName,
             chatId,
             text: renderWhatsAppTemplate(templates.welcome, variables),
+            continueOnTimeout: true,
         });
         if (welcomeSent && (await canBotRespond(restaurantId, chatId))) {
             await sendTrackedMenu({
