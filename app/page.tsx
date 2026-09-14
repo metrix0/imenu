@@ -68,7 +68,7 @@ export default function LandingPage() {
     useEffect(() => {
         try {
             if (window.localStorage.getItem(PANEL_AUTO_REDIRECT_KEY) === "true") {
-                router.replace("/restaurante/login");
+                router.replace("/painel");
                 return;
             }
 
@@ -101,18 +101,18 @@ export default function LandingPage() {
             // Browser storage can be unavailable; navigation should still work.
         }
 
-        router.push("/restaurante/login");
+        router.push("/painel");
     };
 
     const handleEnablePanelShortcut = () => {
         try {
             window.localStorage.setItem(PANEL_AUTO_REDIRECT_KEY, "true");
         } catch {
-            // Browser storage can be unavailable; continue to the login page anyway.
+            // Browser storage can be unavailable; continue to the panel anyway.
         }
 
         setShowPanelShortcutPrompt(false);
-        router.push("/restaurante/login");
+        router.push("/painel");
     };
 
     const handleDismissPanelShortcut = () => {
