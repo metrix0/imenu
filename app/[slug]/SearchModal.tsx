@@ -32,6 +32,10 @@ export default function SearchModal({ categories, itemsByCategory, onClose, onSe
     }, [searchText]);
     useEffect(() => { const frame = requestAnimationFrame(() => setOpenModal(true)); return () => cancelAnimationFrame(frame); }, []);
     const closeWithAnimation = () => { setOpenModal(false); setTimeout(onClose, 250); };
+    const selectWithAnimation = (item: Item) => {
+        setOpenModal(false);
+        setTimeout(() => onSelect(item), 250);
+    };
 
     const allItems = useMemo(() => {
         const orderedCategories = [...categories, ...Object.keys(itemsByCategory).filter(id => !categories.some(c => c.id === id)).map(id => ({ id, name: "Outros", position: 0 }))];
@@ -72,7 +76,7 @@ export default function SearchModal({ categories, itemsByCategory, onClose, onSe
                 const quote = getFinalPrice?.(item);
                 return <div key={item.id}>
                     {(index === 0 || visible[index - 1].category.id !== category.id) && <h3 className="mb-2 mt-5 text-lg font-semibold">{category.name}</h3>}
-                    <button disabled={Boolean(quote?.error)} className="flex w-full cursor-pointer items-center gap-3 border-b border-gray-200 py-3 text-left transition-colors hover:bg-gray-50 active:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent" onClick={() => onSelect(item)}>
+                    <button disabled={Boolean(quote?.error)} className={`flex w-full cursor-pointer items-center gap-3 py-3 text-left transition-colors hover:bg-gray-50 active:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent ${flavorStep ? "mb-1 rounded-xl px-3" : "border-b border-gray-200"}`} onClick={() => selectWithAnimation(item)}>
                         <img src={item.image_public_url || "/placeholders/item.png"} alt="" className="h-16 w-16 shrink-0 rounded object-cover" loading="lazy" />
                         <div className="min-w-0 flex-1"><p className="font-semibold">{item.name}</p>{item.description && <p className="line-clamp-2 text-sm text-gray-600">{item.description}</p>}{quote?.error && <p className="mt-1 text-xs text-gray-600">{quote.error}</p>}</div>
                         <div className="shrink-0 text-right">{getFinalPrice && <p className="text-xs text-gray-500">Preço Final</p>}<p className="font-semibold">{quote?.error ? "Indisponível" : formatPrice(quote?.price ?? promotionPrice(item) ?? item.price_cents)}</p></div>
