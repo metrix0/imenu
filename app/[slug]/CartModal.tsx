@@ -11,7 +11,10 @@ import {
     type NeighborhoodDeliveryRule,
 } from "@/lib/delivery/neighborhood";
 
-type LegacyProps = ComponentProps<typeof LegacyCartModal>;
+type LegacyProps = Omit<
+    ComponentProps<typeof LegacyCartModal>,
+    "neighborhoodDeliveryRules"
+>;
 
 type DeliveryConfig = {
     mode: "radius" | "neighborhood";
@@ -111,5 +114,13 @@ export default function CartModal(props: LegacyProps) {
         });
     }, [deliveryConfig.rules, neighborhoodMode, props.restaurant]);
 
-    return <LegacyCartModal {...props} restaurant={restaurant} />;
+    return (
+        <LegacyCartModal
+            {...props}
+            restaurant={restaurant}
+            neighborhoodDeliveryRules={
+                neighborhoodMode ? deliveryConfig.rules : undefined
+            }
+        />
+    );
 }
