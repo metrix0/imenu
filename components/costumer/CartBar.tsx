@@ -226,6 +226,17 @@ export default function CartBar({
 
         if (step === "info" && !allRequiredFilled) return;
 
+        if (
+            restaurant?.delivery_fee_mode === "neighborhood" &&
+            !isTableOrder &&
+            !isPickup &&
+            cartOpen &&
+            step === "info" &&
+            isContinueBlocked
+        ) {
+            return;
+        }
+
         const fee = useCheckoutStore.getState().delivery_fee_cents;
 
         if (!isTableOrder && !isPickup && cartOpen && step === "info" && fee === false) {
