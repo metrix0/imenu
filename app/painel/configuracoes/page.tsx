@@ -654,8 +654,6 @@ export default function ConfiguracoesPage() {
                         </div>
                     </Card>
 
-                    {restaurant && <PizzaSettingsSection restaurantId={restaurant.id} />}
-
                     {restaurant && (
                         <QrCodeMesaSettingsSection
                             restaurantId={restaurant.id}
@@ -827,6 +825,8 @@ export default function ConfiguracoesPage() {
                             </div>
                         </div>
                     </Card>
+
+                    {restaurant && <PizzaSettingsSection restaurantId={restaurant.id} />}
 
                     {restaurant && shareableUrl && (
                         <Card className="border border-gray-200 shadow-sm">
