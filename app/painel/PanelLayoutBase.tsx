@@ -407,7 +407,7 @@ export default function PainelLayout({
             />
 
             <div className="min-h-screen bg-gray-50 md:flex">
-                <SupportButton ref={supportButtonRef} showFloating={false} />
+                <SupportButton ref={supportButtonRef} bottomClassName="bottom-6 !h-12 !w-12 !bg-[#00A240] !shadow-md hover:!scale-100 hover:!brightness-90 focus:!ring-[#00A240] [&>svg]:!h-6 [&>svg]:!w-6" />
 
                 <header className="panel-mobile-header sticky top-0 z-30 flex h-16 items-center justify-between border-b border-gray-200 bg-white px-4 md:hidden">
                     <button
