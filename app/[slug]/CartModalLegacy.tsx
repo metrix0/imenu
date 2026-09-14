@@ -24,7 +24,7 @@ import { supabase } from "@/lib/database/supabaseClient";
 import { MenuItemType } from "@/components/restaurant-owner/cardapio/MenuItemRow";
 import { Item } from "@/lib/types/types";
 import type { QrTableMenuContext } from "@/lib/qr-table/types";
-import type { NeighborhoodDeliveryRule } from "@/lib/delivery/neighborhood";
+import { normalizeNeighborhoodName, type NeighborhoodDeliveryRule } from "@/lib/delivery/neighborhood";
 const DEFAULT_ALLOWED_PAYMENT_METHODS = [
     "pix",
     "dinheiro",
@@ -104,6 +104,13 @@ export default function CartModal({
     const isPickup = useCheckoutStore((state: any) => Boolean(state.is_pickup));
     const isTableOrder = Boolean(tableOrder);
     const neighborhoodMode = Array.isArray(neighborhoodDeliveryRules);
+    const normalizedNeighborhood = normalizeNeighborhoodName(bairro);
+    const unknownNeighborhood = neighborhoodMode && Boolean(normalizedNeighborhood) &&
+        !neighborhoodDeliveryRules.some((rule) =>
+            [rule.neighborhood, ...(rule.aliases || [])]
+                .map(normalizeNeighborhoodName)
+                .includes(normalizedNeighborhood)
+        );
     const neighborhoodAddressHint = neighborhoodMode
         ? " (Verifique se o bairro está escrito corretamente)"
         : "";
@@ -1157,9 +1164,9 @@ export default function CartModal({
                                 icon={icons.faTriangleExclamation}
                                 className="mt-2 mb-8 p-4 2xl:text-lg"
                             >
-                                {neighborhoodMode && !cepLocationError
+                                {unknownNeighborhood && !cepLocationError
                                     ? "Bairro não encontrado, verifique a grafia."
-                                    : !cepLocationError
+                                    : !neighborhoodMode && !cepLocationError
                                         ? "O restaurante está muito longe deste endereço para entrega!"
                                         : "Verifique se o endereço está correto ou tente usar sua localização."}
                             </WarningBox>
