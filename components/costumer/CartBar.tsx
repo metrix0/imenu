@@ -391,6 +391,7 @@ export default function CartBar({
                 return {
                     cart_row_id: i.id,
                     base_item_id: i.base_item_id,
+                    pizza: i.pizza,
                     name: i.name,
                     qty: i.qty,
                     unit_price_cents: i.unit_price_cents,

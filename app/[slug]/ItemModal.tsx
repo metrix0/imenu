@@ -1,8 +1,8 @@
 // app/[slug]/ItemModal.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { Restaurant, Item, Subitem, Subcategory } from "@/lib/types/types";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Restaurant, Item, Subitem, Subcategory, CartItem, PizzaCatalogItem, Category, ItemsByCategory } from "@/lib/types/types";
 import { useCartStore } from "@/lib/stores/costumer/cartStore";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { icons } from "@/lib/utils/fontawesome";
@@ -13,11 +13,16 @@ import Tooltip from "@/components/ui/Tooltip";
 import { captureConsumerEvent } from "@/lib/analytics/captureConsumerEvent";
 import { CONSUMER_EVENTS } from "@/lib/analytics/consumerEvents";
 
+import SearchModal from "./SearchModal";
+import { isPizzaItem, parsePizzaSettings, pricePizza } from "@/lib/pizza/pricing";
+
 type Props = {
     restaurant: Restaurant;
     item: Item;
     subcategories: Subcategory[];
     loading: boolean;
+    error?: string;
+    onRetry?: () => void;
     onClose: () => void;
     deliveryTax: { lowest: number; highest: number  };
     deliveryTime: { lowest: number; highest: number  };
@@ -34,7 +39,7 @@ export default function ItemModal({
                                       onClose,
                                         deliveryTax,
                                       deliveryTime,
-    onAdd, trackMeta, slug
+    onAdd, trackMeta, slug, error, onRetry
                                   }: Props) {
     const [qty, setQty] = useState(1);
     const [observation, setObservation] = useState("");
@@ -44,6 +49,26 @@ export default function ItemModal({
     const addToCart = useCartStore((s) => s.addItem);
     const [isRestaurantOpen, setIsRestaurantOpen] = useState(false);
     const [canScheduleToday, setCanScheduleToday] = useState(false);
+    const pizzaSettings = parsePizzaSettings(restaurant.pizza_settings);
+    const eligibleForPizza = isPizzaItem(item, pizzaSettings);
+    const [flavorCount, setFlavorCount] = useState(1);
+    const [extraFlavors, setExtraFlavors] = useState<PizzaCatalogItem[]>([]);
+    const [flavorSearch, setFlavorSearch] = useState(false);
+    const [catalog, setCatalog] = useState<PizzaCatalogItem[]>([]);
+    const [loadingFlavors, setLoadingFlavors] = useState(false);
+    const [pizzaError, setPizzaError] = useState("");
+    const shownItem = extraFlavors.at(-1) || item;
+    const isSubsequentFlavor = extraFlavors.length > 0;
+    const needsNextFlavor = flavorCount > extraFlavors.length + 1;
+    const firstFlavor: PizzaCatalogItem = { ...item, subcategories };
+    const flavors = [firstFlavor, ...extraFlavors];
+    const modalStart = useRef<HTMLDivElement>(null);
+    const detailsScroll = useRef<HTMLDivElement>(null);
+    useEffect(() => {
+        if (detailsScroll.current) detailsScroll.current.scrollTop = 0;
+        modalStart.current?.scrollIntoView?.({ block: "start" });
+    }, [extraFlavors.length]);
+
 
     useEffect(() => {
         setTimeout(() => setOpen(true), 10);
@@ -185,41 +210,8 @@ export default function ItemModal({
         return sum;
     }, [selected, selectedQuantities, subcategories]);
 
-    const unitTotal = item.price_cents + extrasTotal;
-    const total = unitTotal * qty;
-    const displayedTotal =
-        promotionPrice({
-            ...item,
-            unit_price_cents: unitTotal,
-            qty,
-        }) ?? total;
-
-    const missingRequired = useMemo(() => {
-        return subcategories.some((sc) => {
-            if (sc.min_select <= 0) return false;
-            if (sc.allow_multiple_units) {
-                return getQuantityGroupCount(selectedQuantities[sc.id]) < sc.min_select;
-            }
-            const ids = selected[sc.id];
-            return !ids || ids.size < sc.min_select;
-        });
-    }, [selected, selectedQuantities, subcategories]);
-
-    const canAdd = !missingRequired;
-    const canOrderNow =
-        isRestaurantOpen ||
-        canScheduleToday ||
-        restaurant.allow_future_order_scheduling === true;
-    const disabledReason = !canOrderNow
-        ? "O restaurante está fechado no momento."
-        : missingRequired
-            ? "Selecione os adicionais obrigatórios antes de adicionar."
-            : "";
-
-    const handleAdd = () => {
-        if (!canAdd || !canOrderNow) return;
-
-        const selectedSubitems: any[] = [];
+    const selectedSubitems = useMemo(() => {
+        const selectedSubitems: CartItem["selectedSubitems"] = [];
 
         for (const sc of subcategories) {
             if (sc.allow_multiple_units) {
@@ -258,17 +250,77 @@ export default function ItemModal({
             }
         }
 
+        return selectedSubitems;
+    }, [subcategories, selected, selectedQuantities]);
+
+    let pizzaQuote: ReturnType<typeof pricePizza> | undefined;
+    let quoteError = "";
+    if (isSubsequentFlavor) {
+        try { pizzaQuote = pricePizza(flavors, selectedSubitems, pizzaSettings.pricing_rule); }
+        catch (e) { quoteError = e instanceof Error ? e.message : "Combinação indisponível."; }
+    }
+    const unitTotal = pizzaQuote?.unit_price_cents ?? item.price_cents + extrasTotal;
+    const total = unitTotal * qty;
+    const displayedTotal = pizzaQuote ? total :
+        promotionPrice({
+            ...item,
+            unit_price_cents: unitTotal,
+            qty,
+        }) ?? total;
+
+    const missingRequired = useMemo(() => {
+        return subcategories.some((sc) => {
+            if (sc.min_select <= 0) return false;
+            if (sc.allow_multiple_units) {
+                return getQuantityGroupCount(selectedQuantities[sc.id]) < sc.min_select;
+            }
+            const ids = selected[sc.id];
+            return !ids || ids.size < sc.min_select;
+        });
+    }, [selected, selectedQuantities, subcategories]);
+
+    const canAdd = !loading && !error && !loadingFlavors && !missingRequired && !quoteError;
+    const canOrderNow =
+        isRestaurantOpen ||
+        canScheduleToday ||
+        restaurant.allow_future_order_scheduling === true;
+    const disabledReason = !canOrderNow
+        ? "O restaurante está fechado no momento."
+        : missingRequired
+            ? "Selecione os adicionais obrigatórios antes de adicionar."
+            : error || quoteError || (loading || loadingFlavors ? "Carregando opções..." : "");
+
+    const showFlavorSearch = async () => {
+        setPizzaError("");
+        if (catalog.length) { setFlavorSearch(true); return; }
+        setLoadingFlavors(true);
+        try {
+            const response = await fetch(`/api/restaurants/${restaurant.id}/pizza/catalog`);
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error);
+            setCatalog(data.items);
+            setFlavorSearch(true);
+        } catch (e) { setPizzaError(e instanceof Error ? e.message : "Não foi possível carregar os sabores."); }
+        finally { setLoadingFlavors(false); }
+    };
+
+    const handleAdd = () => {
+        if (!canAdd || !canOrderNow) return;
+        if (needsNextFlavor) { void showFlavorSearch(); return; }
+
+
         addToCart({
             id: crypto.randomUUID(),
             base_item_id: item.id,
-            name: item.name,
+            name: pizzaQuote?.name ?? item.name,
+            pizza: pizzaQuote?.pizza,
             image: item.image_public_url || "",
             qty,
             unit_price_cents: unitTotal,
             total_cents: total,
             observation,
-            selectedSubitems,
-            promotion: item.promotion ?? undefined
+            selectedSubitems: pizzaQuote?.selectedSubitems ?? selectedSubitems,
+            promotion: pizzaQuote ? undefined : item.promotion ?? undefined
         });
 
         const cart = useCartStore.getState();
@@ -323,6 +375,7 @@ export default function ItemModal({
     }
 
     const renderContent = () => {
+        if (error) return <div className="px-4 py-8"><p role="alert" className="text-sm text-red-700">{error}</p><button type="button" className="mt-3 text-brand" onClick={onRetry}>Tentar novamente</button></div>;
         if (loading)
             return (
                 <div className="flex items-center justify-center h-[55vh]">
@@ -334,23 +387,40 @@ export default function ItemModal({
             <>
                 <div className="mt-3 px-4">
 
-                    <h1 className="text-[22px] 2xl:text-3xl font-semibold mb-2">{item.name}</h1>
+                    <h1 className="text-[22px] 2xl:text-3xl font-semibold mb-2">{shownItem.name}</h1>
 
-                    {item.description && (
+                    {shownItem.description && (
                         <p className="text-[15px] 2xl:text-lg text-gray-700 mb-3">
-                            {item.description}
+                            {shownItem.description}
                         </p>
                     )}
 
                     <p className="text-[18px] font-semibold 2xl:text-lg">
-                        {(item.promotion && item.promotion.value > 0) ? <><span className={"text-green"}>{formatPrice(promotionPrice(item) || item.price_cents)}</span> <span className={"font-normal text-gray-400 line-through text-xs"}>{formatPrice(item.price_cents)}</span></>
+                        {pizzaQuote ? <><span className="block text-xs font-normal text-gray-500">Preço Final</span>{formatPrice(unitTotal)}</> : (item.promotion && item.promotion.value > 0) ? <><span className={"text-green"}>{formatPrice(promotionPrice(item) || item.price_cents)}</span> <span className={"font-normal text-gray-400 line-through text-xs"}>{formatPrice(item.price_cents)}</span></>
                             : formatPrice(item.price_cents)
                         }
                     </p>
                 </div>
 
                 <div className="mt-6">
-                    {subcategories.map((sc) => {
+                    {eligibleForPizza && !isSubsequentFlavor && <section aria-labelledby="pizza-flavors-title">
+                        <div className="bg-gray-100 px-4 py-3">
+                            <p id="pizza-flavors-title" className="font-semibold text-gray-600">Sabores</p>
+                            <p className="text-[13px] text-gray-600">Em quantos sabores você quer dividir?</p>
+                        </div>
+                        <div className="flex flex-wrap gap-2 px-4 py-3" role="group" aria-label="Quantidade de sabores">
+                            {Array.from({ length: pizzaSettings.max_flavors }, (_, index) => index + 1).map(n => <button type="button" key={n} aria-pressed={flavorCount === n} onClick={() => { setFlavorCount(n); setPizzaError(""); }} className={`rounded-xl border px-4 py-3 text-sm ${flavorCount === n ? "border-brand bg-brand text-white" : "border-gray-200"}`}>{n} {n === 1 ? "sabor" : "sabores"}</button>)}
+                        </div>
+                        {flavorCount > 1 && <p className="px-4 text-sm text-gray-500">{pizzaSettings.pricing_rule === "highest" ? "Vale o preço do sabor mais caro." : "Vale a média dos preços dos sabores."} Os complementos abaixo valem para a pizza inteira.</p>}
+                    </section>}
+                    {isSubsequentFlavor && <div className="space-y-3 px-4">
+                        <p className="font-semibold">Sabor {flavors.length} de {flavorCount}</p>
+                        <ul className="text-sm text-gray-600">{flavors.map((flavor, index) => <li key={index}>1/{flavorCount} {flavor.name}</li>)}</ul>
+                        <p className="text-sm text-gray-500">Complementos e observação do primeiro sabor mantidos para a pizza inteira.</p>
+                        <button type="button" className="text-sm text-brand" onClick={() => { setExtraFlavors(previous => previous.slice(0, -1)); setPizzaError(""); }}>Voltar ao sabor anterior</button>
+                    </div>}
+                    {(pizzaError || quoteError) && <p role="alert" className="px-4 py-3 text-sm text-red-700">{pizzaError || quoteError}</p>}
+                    {(!isSubsequentFlavor ? subcategories : []).map((sc) => {
                         const set = selected[sc.id];
                         const quantities = selectedQuantities[sc.id] || {};
                         const quantityGroupCount = getQuantityGroupCount(quantities);
@@ -491,7 +561,7 @@ export default function ItemModal({
                     })}
                 </div>
 
-                <div className="px-4 mt-8">
+                {!isSubsequentFlavor && <div className="px-4 mt-8">
                     <p className="text-[15px] 2xl:text-lg font-semibold text-gray-500">
                         <FontAwesomeIcon icon={icons.faComment} /> Alguma observação?
                     </p>
@@ -505,12 +575,20 @@ export default function ItemModal({
                         rows={3}
                         placeholder="Ex: tirar cebola..."
                     />
-                </div>
+                </div>}
             </>
         );
     };
 
+    const catalogCategories = Array.from(new Map(catalog.filter(p => p.category).map(p => [p.category!.id, p.category!])).values()) as Category[];
+    const catalogByCategory = catalog.reduce<ItemsByCategory>((result, product) => {
+        const id = product.category_id || product.category?.id || "";
+        (result[id] ||= []).push(product);
+        return result;
+    }, {});
+
     return (
+        <>
         <ModalMobile
             open={open}
             onClose={closeWithAnimation}
@@ -520,11 +598,11 @@ export default function ItemModal({
             className={"!max-h-[80vh] md:!mb-[11vh] 2xl:max-w-4xl"}
         >
 
-            <div className={"md:grid md:grid-cols-2"}>
+            <div ref={modalStart} className={"md:grid md:grid-cols-2"}>
 
             <div className="relative w-full h-[260px] md:h-auto md:aspect-square ">
                 <img
-                    src={item.image_public_url || "/placeholders/item.png"}
+                    src={shownItem.image_public_url || "/placeholders/item.png"}
                     className="w-full h-full object-cover md:rounded-br-4xl "
                 />
 
@@ -558,7 +636,7 @@ export default function ItemModal({
                 </div>
             </div>
 
-            <div className="pb-32 md:h-[80vh] md:overflow-y-auto md:p-4 md:pb-0">
+            <div ref={detailsScroll} className="pb-32 md:h-[80vh] md:overflow-y-auto md:p-4 md:pb-0">
                 <div className={" md:pb-62"}>
                 {renderContent()}
                 </div>
@@ -604,11 +682,30 @@ export default function ItemModal({
                                     : "bg-gray-200 text-gray-400"
                         }`}
                     >
-                        <span>Adicionar</span>
+                        <span>{loadingFlavors ? "Carregando..." : needsNextFlavor ? "Próximo Sabor" : "Adicionar"}</span>
                         <span>{formatPrice(displayedTotal)}</span>
                     </button>
                 </Tooltip>
             </div>
         </ModalMobile>
+        {flavorSearch && <SearchModal
+            categories={catalogCategories}
+            itemsByCategory={catalogByCategory}
+            flavorStep={{ current: flavors.length + 1, total: flavorCount }}
+            onClose={() => setFlavorSearch(false)}
+            getFinalPrice={candidate => {
+                try {
+                    const next = catalog.find(p => p.id === candidate.id)!;
+                    return { price: pricePizza([...flavors, next], selectedSubitems, pizzaSettings.pricing_rule).unit_price_cents };
+                } catch (e) { return { error: e instanceof Error ? e.message : "Combinação indisponível." }; }
+            }}
+            onSelect={candidate => {
+                const next = catalog.find(p => p.id === candidate.id);
+                if (!next) return;
+                setExtraFlavors(previous => [...previous, next]);
+                setFlavorSearch(false);
+            }}
+        />}
+        </>
     );
 }

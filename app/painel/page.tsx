@@ -59,6 +59,7 @@ export default function PainelPedidosAtivosPage() {
       order_items (
         id,
         item_id,
+        pizza,
         quantity,
         price_cents,
         name,

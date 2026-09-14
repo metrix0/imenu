@@ -25,6 +25,7 @@ import ConfirmModal from "@/components/ui/ConfirmModal";
 import Tooltip from "@/components/ui/Tooltip";
 import QrCodeMesaSettingsSection from "@/components/restaurant-owner/configuracoes/QrCodeMesaSettingsSection";
 import ResetOrderCountSection from "@/components/restaurant-owner/configuracoes/ResetOrderCountSection";
+import PizzaSettingsSection from "@/components/restaurant-owner/configuracoes/PizzaSettingsSection";
 
 type Restaurant = {
     id: string;
@@ -652,6 +653,8 @@ export default function ConfiguracoesPage() {
                             </div>
                         </div>
                     </Card>
+
+                    {restaurant && <PizzaSettingsSection restaurantId={restaurant.id} />}
 
                     {restaurant && (
                         <QrCodeMesaSettingsSection

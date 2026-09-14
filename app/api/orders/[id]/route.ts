@@ -60,6 +60,7 @@ export async function GET(
                 oi.item_id,
                 oi.name,
                 oi.price_cents,
+                oi.pizza,
                 oi.quantity,
                 oi.observation,
                 oi.total_cents

@@ -927,7 +927,7 @@ export default function CartModal({
                                     className="w-14 h-14 2xl:w-20 2xl:h-20 rounded-xl object-cover"
                                 />
                                 <div>
-                                    <p className="font-semibold 2xl:text-lg line-clamp-2 leading-normal">{it.name}</p>
+                                    <p className={`font-semibold 2xl:text-lg leading-normal ${it.pizza ? "break-words" : "line-clamp-2"}`}>{it.name}</p>
 
                                     <p className="font-semibold 2xl:text-base sm:text-sm mt-0.5">
                                         {freeItem ? <><span className="font-semibold text-green-700">{discountedTotal === 0 ? "GRÁTIS" : formatPrice(discountedTotal)}</span> <span className="font-normal text-gray-400 line-through text-xs">{formatPrice(it.unit_price_cents * it.qty)}</span></> : (it.promotion && it.promotion.value > 0) ? <><span className={"text-green"}>{formatPrice(promotionPrice(it) || it.unit_price_cents*it.qty)}</span> <span className={"font-normal text-gray-400 line-through text-xs"}>{formatPrice(it.unit_price_cents*it.qty)}</span></>

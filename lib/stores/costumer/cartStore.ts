@@ -65,6 +65,8 @@ export const useCartStore = create<CartState>()(
                 set((state) => {
                     const existing = state.items.find((i) =>
                         i.base_item_id === item.base_item_id &&
+                        JSON.stringify(i.pizza) === JSON.stringify(item.pizza) &&
+                        i.unit_price_cents === item.unit_price_cents &&
                         i.observation === item.observation &&
                         JSON.stringify(i.selectedSubitems) === JSON.stringify(item.selectedSubitems) &&
                         i.is_reward === item.is_reward &&
