@@ -411,7 +411,14 @@ export default function ItemModal({
                         <div className="flex flex-wrap gap-2 px-4 py-3" role="group" aria-label="Quantidade de sabores">
                             {Array.from({ length: pizzaSettings.max_flavors }, (_, index) => index + 1).map(n => <button type="button" key={n} aria-pressed={flavorCount === n} onClick={() => { setFlavorCount(n); setPizzaError(""); }} className={`rounded-xl border px-4 py-3 text-sm ${flavorCount === n ? "border-brand bg-brand text-white" : "border-gray-200"}`}>{n} {n === 1 ? "sabor" : "sabores"}</button>)}
                         </div>
-                        {flavorCount > 1 && <p className="px-4 text-sm text-gray-500">{pizzaSettings.pricing_rule === "highest" ? "Vale o preço do sabor mais caro." : "Vale a média dos preços dos sabores."} Os complementos abaixo valem para a pizza inteira.</p>}
+                        <div
+                            aria-hidden={flavorCount <= 1}
+                            className={`grid transition-all duration-200 ease-out ${flavorCount > 1 ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}
+                        >
+                            <div className="overflow-hidden">
+                                <p className="px-4 text-sm text-gray-500">{pizzaSettings.pricing_rule === "highest" ? "Vale o preço do sabor mais caro." : "Vale a média dos preços dos sabores."} Os complementos abaixo valem para a pizza inteira.</p>
+                            </div>
+                        </div>
                     </section>}
                     {isSubsequentFlavor && <div className="space-y-3 px-4">
                         <p className="font-semibold">Sabor {flavors.length} de {flavorCount}</p>

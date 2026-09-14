@@ -57,8 +57,8 @@ export default function SearchModal({ categories, itemsByCategory, onClose, onSe
         return () => { document.body.style.overflow = original; };
     }, [openModal]);
 
-    return <DraggableModal open={openModal} onClose={closeWithAnimation} height={1} handle>
-        <div className="sticky top-0 z-10 w-full bg-white pb-3 pt-5">
+    return <DraggableModal open={openModal} onClose={closeWithAnimation} height={1} handle className={flavorStep ? "md:!max-w-3xl" : undefined}>
+        <div className="sticky top-0 z-10 w-full bg-white pb-3 pt-5 md:px-4">
             {flavorStep && <h2 className="mb-3 font-semibold">Escolha o sabor {flavorStep.current} de {flavorStep.total}</h2>}
             <div className="flex items-center gap-3">
                 <div className="min-w-0 flex-1"><Input icon={<FontAwesomeIcon icon={icons.faMagnifyingGlass} />} placeholder={flavorStep ? "Buscar sabores..." : "Buscar no cardápio..."} value={searchText} onChange={e => setSearchText(e.target.value)} /></div>
@@ -67,7 +67,7 @@ export default function SearchModal({ categories, itemsByCategory, onClose, onSe
             {flavorStep && <p className="mt-2 text-sm text-gray-500">Preço final com os sabores escolhidos e os complementos do primeiro sabor.</p>}
         </div>
         {!allItems.length && <p className="px-4 py-16 text-center text-gray-500">{debouncedSearch ? `Nenhum item encontrado para “${debouncedSearch}”.` : "Nenhum item disponível."}</p>}
-        <div className="mt-3 pb-8">
+        <div className="mt-3 pb-8 md:px-4">
             {allItems.slice(0, visibleCount).map(({ item, category }, index, visible) => {
                 const quote = getFinalPrice?.(item);
                 return <div key={item.id}>
