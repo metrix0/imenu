@@ -51,7 +51,7 @@ const SupportButton = forwardRef<SupportButtonRef, SupportButtonProps>(
                     className={`fixed right-6 z-[60] flex h-12 w-12 cursor-pointer items-center justify-center rounded-full bg-[#00A240] text-white shadow-md transition-[filter,box-shadow] duration-200 hover:brightness-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00A240] focus-visible:ring-offset-2 ${bottomClassName}`}
                     aria-label="Suporte via WhatsApp"
                 >
-                    <FontAwesomeIcon icon={icons.faWhatsapp} className="h-6 w-6" />
+                    <FontAwesomeIcon icon={icons.faWhatsapp} className="!h-6 !w-6" />
                 </button>}
 
                 <Modal height={470} open={open} onClose={() => setOpen(false)} className="max-w-sm" showCloseButton>
