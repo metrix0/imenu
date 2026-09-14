@@ -6,7 +6,6 @@ import LegacyCartModal from "./CartModalLegacy";
 import { useCheckoutStore } from "@/lib/stores/costumer/checkoutStore";
 import { setNeighborhoodDeliveryGeocodingBypass } from "@/lib/api/geocoding";
 import {
-    findNeighborhoodDeliveryRule,
     normalizeNeighborhoodName,
     parseNeighborhoodDeliveryRules,
     type NeighborhoodDeliveryRule,
@@ -60,6 +59,71 @@ export default function CartModal(props: LegacyProps) {
     }, [restaurantId]);
 
     const neighborhoodMode = deliveryConfig.mode === "neighborhood";
+    const checkoutNeighborhood = useCheckoutStore((state) => state.bairro);
+    const storedDeliveryFee = useCheckoutStore(
+        (state) => state.delivery_fee_cents
+    );
+    const showAddressWarning = useCheckoutStore(
+        (state) => state.showAddressWarning
+    );
+
+    const neighborhoodMatch = useMemo(() => {
+        if (!neighborhoodMode) return null;
+
+        const targetNeighborhood = normalizeNeighborhoodName(
+            checkoutNeighborhood
+        );
+        if (!targetNeighborhood) return null;
+
+        return (
+            deliveryConfig.rules.find((rule) =>
+                [rule.neighborhood, ...(rule.aliases || [])]
+                    .map(normalizeNeighborhoodName)
+                    .filter(Boolean)
+                    .includes(targetNeighborhood)
+            ) || null
+        );
+    }, [checkoutNeighborhood, deliveryConfig.rules, neighborhoodMode]);
+
+    useEffect(() => {
+        if (!neighborhoodMode) return;
+
+        const targetNeighborhood = normalizeNeighborhoodName(
+            checkoutNeighborhood
+        );
+        if (!targetNeighborhood) return;
+
+        const checkout = useCheckoutStore.getState();
+
+        if (!neighborhoodMatch) {
+            if (checkout.delivery_fee_cents !== null) {
+                checkout.setField("delivery_fee_cents", null);
+            }
+            if (checkout.delivery_time_minutes !== null) {
+                checkout.setField("delivery_time_minutes", null);
+            }
+            return;
+        }
+
+        const fee = String(neighborhoodMatch.fee_cents);
+        const time = String(neighborhoodMatch.time_minutes);
+
+        if (String(checkout.delivery_fee_cents) !== fee) {
+            checkout.setField("delivery_fee_cents", fee);
+        }
+        if (String(checkout.delivery_time_minutes) !== time) {
+            checkout.setField("delivery_time_minutes", time);
+        }
+        if (checkout.showAddressWarning) {
+            checkout.setShowAddressWarning(false);
+        }
+    }, [
+        checkoutNeighborhood,
+        neighborhoodMatch,
+        neighborhoodMode,
+        showAddressWarning,
+        storedDeliveryFee,
+    ]);
 
     // CartModalLegacy keeps the original radius implementation byte-for-byte.
     // In neighborhood mode only, its existing fee pipeline receives a synthetic
@@ -87,28 +151,17 @@ export default function CartModal(props: LegacyProps) {
                     const targetNeighborhood = normalizeNeighborhoodName(
                         checkout.bairro
                     );
-                    const neighborhoodNameMatches =
-                        Boolean(targetNeighborhood) &&
-                        deliveryConfig.rules.some((rule) =>
-                            [rule.neighborhood, ...(rule.aliases || [])]
-                                .map(normalizeNeighborhoodName)
-                                .filter(Boolean)
-                                .includes(targetNeighborhood)
-                        );
-                    const match = findNeighborhoodDeliveryRule(
-                        deliveryConfig.rules,
-                        checkout.bairro,
-                        checkout.cidade,
-                        checkout.estado
-                    );
+                    const match = targetNeighborhood
+                        ? deliveryConfig.rules.find((rule) =>
+                              [rule.neighborhood, ...(rule.aliases || [])]
+                                  .map(normalizeNeighborhoodName)
+                                  .filter(Boolean)
+                                  .includes(targetNeighborhood)
+                          ) || null
+                        : null;
 
                     if (property === "latitude" || property === "longitude") {
-                        // Keep "Bairro não encontrado" exclusive to an invalid
-                        // neighborhood name. A matching neighborhood with invalid
-                        // city/UF is treated as a generic address error instead.
-                        return neighborhoodNameMatches && !match
-                            ? Number.NaN
-                            : 0;
+                        return 0;
                     }
 
                     if (!match) {
