@@ -7,6 +7,7 @@ import { useCheckoutStore } from "@/lib/stores/costumer/checkoutStore";
 import { setNeighborhoodDeliveryGeocodingBypass } from "@/lib/api/geocoding";
 import {
     findNeighborhoodDeliveryRule,
+    normalizeNeighborhoodName,
     parseNeighborhoodDeliveryRules,
     type NeighborhoodDeliveryRule,
 } from "@/lib/delivery/neighborhood";
@@ -77,18 +78,38 @@ export default function CartModal(props: LegacyProps) {
 
         return new Proxy(props.restaurant, {
             get(target, property, receiver) {
-                if (property === "latitude" || property === "longitude") {
-                    return 0;
-                }
-
-                if (property === "delivery_fee_json") {
+                if (
+                    property === "latitude" ||
+                    property === "longitude" ||
+                    property === "delivery_fee_json"
+                ) {
                     const checkout = useCheckoutStore.getState() as any;
+                    const targetNeighborhood = normalizeNeighborhoodName(
+                        checkout.bairro
+                    );
+                    const neighborhoodNameMatches =
+                        Boolean(targetNeighborhood) &&
+                        deliveryConfig.rules.some((rule) =>
+                            [rule.neighborhood, ...(rule.aliases || [])]
+                                .map(normalizeNeighborhoodName)
+                                .filter(Boolean)
+                                .includes(targetNeighborhood)
+                        );
                     const match = findNeighborhoodDeliveryRule(
                         deliveryConfig.rules,
                         checkout.bairro,
                         checkout.cidade,
                         checkout.estado
                     );
+
+                    if (property === "latitude" || property === "longitude") {
+                        // Keep "Bairro não encontrado" exclusive to an invalid
+                        // neighborhood name. A matching neighborhood with invalid
+                        // city/UF is treated as a generic address error instead.
+                        return neighborhoodNameMatches && !match
+                            ? Number.NaN
+                            : 0;
+                    }
 
                     if (!match) {
                         return [
