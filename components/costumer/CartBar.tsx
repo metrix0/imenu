@@ -226,6 +226,17 @@ export default function CartBar({
 
         if (step === "info" && !allRequiredFilled) return;
 
+        if (
+            restaurant?.delivery_fee_mode === "neighborhood" &&
+            !isTableOrder &&
+            !isPickup &&
+            cartOpen &&
+            step === "info" &&
+            isContinueBlocked
+        ) {
+            return;
+        }
+
         const fee = useCheckoutStore.getState().delivery_fee_cents;
 
         if (!isTableOrder && !isPickup && cartOpen && step === "info" && fee === false) {
@@ -391,6 +402,7 @@ export default function CartBar({
                 return {
                     cart_row_id: i.id,
                     base_item_id: i.base_item_id,
+                    pizza: i.pizza,
                     name: i.name,
                     qty: i.qty,
                     unit_price_cents: i.unit_price_cents,

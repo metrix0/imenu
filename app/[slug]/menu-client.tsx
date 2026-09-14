@@ -66,6 +66,7 @@ export default function MenuClientPage({
         item: Item;
         subcategories: Subcategory[];
         loading: boolean;
+        error?: string;
     } | null>(null);
     const [restaurantCartWarningVisible, setRestaurantCartWarningVisible] = useState(false);
     const [orderId, setOrderId] = useState<string | null>(null);
@@ -391,19 +392,19 @@ export default function MenuClientPage({
         try {
             const res = await fetch(`/api/items/${item.id}/subcategories`);
             if (!res.ok) {
-                console.error("Erro ao carregar complementos:", await res.text());
-                return;
+                throw new Error("Não foi possível carregar os complementos. Tente novamente.");
             }
 
 
             const normalized = await res.json();
 
-            setOpenedItem({
-                item,
-                subcategories: normalized,
-                loading: false,
-            });
-
+            setOpenedItem(current => current?.item.id === item.id ? {
+                item, subcategories: normalized, loading: false,
+            } : current);
+        } catch {
+            setOpenedItem(current => current?.item.id === item.id ? {
+                item, subcategories: [], loading: false, error: "Não foi possível carregar os complementos. Tente novamente.",
+            } : current);
         } finally {
             setLoadingItemId(null);
         }
@@ -1085,10 +1086,13 @@ export default function MenuClientPage({
 
             {openedItem && (
                 <ItemModal
+                    key={openedItem.item.id}
                     restaurant={restaurant}
                     item={openedItem.item}
                     subcategories={openedItem.subcategories}
                     loading={openedItem.loading}
+                    error={openedItem.error}
+                    onRetry={() => void handleItemClick(openedItem.item)}
                     onClose={() => setOpenedItem(null)}
                     deliveryTax={deliveryTax}
                     deliveryTime={deliveryTime}
@@ -1099,10 +1103,10 @@ export default function MenuClientPage({
 
             {searchOpen && (
                 <SearchModal
-                    restaurant={restaurant}
                     categories={categories}
                     itemsByCategory={itemsByCategory}
                     onClose={() => setSearchOpen(false)}
+                    onSelect={(item) => { setSearchOpen(false); void handleItemClick(item); }}
                 />
             )}
 

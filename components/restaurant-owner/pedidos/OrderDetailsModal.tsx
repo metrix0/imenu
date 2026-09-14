@@ -37,6 +37,7 @@ type OrderDetail = Omit<Order, "status"> & {
     table_id?: string | null;
     table_name_snapshot?: string | null;
     order_items: Array<{
+        pizza?: import("@/lib/types/types").PizzaSelection | null;
         id: string;
         quantity: number;
         price_cents: number;
@@ -152,6 +153,7 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
                 .select(`
     *,
     order_items (
+      pizza,
       id,
       quantity,
       price_cents,
@@ -404,7 +406,7 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
                                                                 {item.order_item_subitems.map((sub) => (
                                                                     <div key={sub.id} className="flex items-start justify-between gap-3">
                                                                         <span className="text-xs 2xl:text-sm text-gray-600">• {sub.quantity}x {sub.name}</span>
-                                                                        <span className="text-xs 2xl:text-sm text-gray-600 whitespace-nowrap">{fmtMoney(sub.price_cents * sub.quantity)}</span>
+                                                                        <span className="text-xs 2xl:text-sm text-gray-600 whitespace-nowrap">{item.pizza ? "Incluído" : fmtMoney(sub.price_cents * sub.quantity)}</span>
                                                                     </div>
                                                                 ))}
                                                             </div>

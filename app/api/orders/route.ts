@@ -7,6 +7,8 @@ import {
 } from "@/lib/database/sql";
 import { createPayZuPixCharge } from "@/lib/payzu";
 import { automaticOrderPricing, PromotionPricingError } from "@/lib/promotions/orderPricing";
+import { pricePizzaOrderItems } from "@/lib/pizza/orderPricing";
+import { PizzaPricingError, pizzaStockItemIds } from "@/lib/pizza/pricing";
 import type { AppliedPromotion } from "@/lib/promotions/automatic";
 import { promotionPrice } from "@/lib/utils/formatPrice";
 
@@ -105,7 +107,7 @@ async function cancelUnpaidOnlineOrder(
         const orderItemsResult =
             await client.query(
                 `
-                    SELECT item_id, quantity
+                    SELECT item_id, quantity, pizza
                     FROM order_items
                     WHERE order_id = $1
                 `,
@@ -113,6 +115,7 @@ async function cancelUnpaidOnlineOrder(
             );
 
         for (const orderItem of orderItemsResult.rows) {
+            for (const stockItemId of pizzaStockItemIds(orderItem)) {
             await client.query(
                 `
                     UPDATE items
@@ -125,9 +128,10 @@ async function cancelUnpaidOnlineOrder(
                 `,
                 [
                     Number(orderItem.quantity) || 0,
-                    orderItem.item_id,
+                    stockItemId,
                 ]
             );
+            }
         }
 
         const pointsUsed =
@@ -546,10 +550,18 @@ export async function POST(request: Request) {
                     }
 
                     const restaurantResult = await client.query(
-                        "SELECT url_slug, automatic_promotions FROM restaurants WHERE id = $1",
+                        "SELECT url_slug, automatic_promotions, pizza_settings FROM restaurants WHERE id = $1",
                         [restaurantId]
                     );
                     if (!restaurantResult.rows[0]) throw new OrderRequestError("Restaurante não encontrado.");
+                    if (items.some((item: any) => item.pizza != null)) {
+                        items = await pricePizzaOrderItems(client, restaurantId, restaurantResult.rows[0].pizza_settings, items);
+                        subtotal = items.reduce((sum: number, item: any) => sum + (promotionPrice(item) || Number(item.total_cents) || 0), 0);
+                        safeCouponDiscount = Math.min(safeCouponDiscount, subtotal);
+                        total = Math.max(0, subtotal + safeDeliveryFeeCents - safeCouponDiscount);
+                        isOnlinePix = !isTableOrder && paymentMethod === "pix" && total > 0;
+                        orderStatus = isOnlinePix ? "pending_online_payment" : "pending_physical_payment";
+                    }
                     const pricing = await automaticOrderPricing(client, {
                         restaurantId, promotions: restaurantResult.rows[0].automatic_promotions,
                         items: items.map((item: any) => item === rewardItem ? Object.assign(item, { is_reward: true }) : item),
@@ -606,19 +618,15 @@ export async function POST(request: Request) {
                             );
                         }
 
-                        requestedQuantities.set(
-                            itemId,
-                            (requestedQuantities.get(
-                                itemId
-                            ) || 0) +
-                                requestedQuantity
-                        );
+                        for (const stockItemId of pizzaStockItemIds(cartItem)) {
+                            requestedQuantities.set(stockItemId, (requestedQuantities.get(stockItemId) || 0) + requestedQuantity);
+                        }
                     }
 
                     for (const [
                         itemId,
                         requestedQuantity,
-                    ] of requestedQuantities) {
+                    ] of [...requestedQuantities].sort(([a], [b]) => a.localeCompare(b))) {
                         const itemResult =
                             await client.query(
                                 `
@@ -858,7 +866,8 @@ export async function POST(request: Request) {
                                         quantity,
                                         observation,
                                         total_cents,
-                                        original_value
+                                        original_value,
+                                        pizza
                                     )
                                     VALUES (
                                         $1,
@@ -868,7 +877,8 @@ export async function POST(request: Request) {
                                         $5,
                                         $6,
                                         $7,
-                                        $8
+                                        $8,
+                                        $9::jsonb
                                     )
                                     RETURNING id
                                 `,
@@ -906,6 +916,7 @@ export async function POST(request: Request) {
                                               cartItem.unit_price_cents
                                           ) ||
                                           0,
+                                    cartItem.pizza ? JSON.stringify(cartItem.pizza) : null,
                                 ]
                             );
 
@@ -957,7 +968,7 @@ export async function POST(request: Request) {
                                     orderItemId,
                                     subitemId,
                                     subitem.subitemName,
-                                    isRewardItem
+                                    isRewardItem || cartItem.pizza
                                         ? 0
                                         : Number(
                                               subitem.price_cents
@@ -968,8 +979,9 @@ export async function POST(request: Request) {
                             );
                         }
 
+                        for (const stockItemId of pizzaStockItemIds(cartItem)) {
                         const lockedItem =
-                            lockedItems.get(itemId);
+                            lockedItems.get(stockItemId);
 
                         if (
                             lockedItem?.stock_enabled ===
@@ -1001,9 +1013,10 @@ export async function POST(request: Request) {
                                     Number(
                                         cartItem.qty
                                     ),
-                                    itemId,
+                                    stockItemId,
                                 ]
                             );
+                        }
                         }
                     }
 
@@ -1087,6 +1100,9 @@ export async function POST(request: Request) {
             error
         );
 
+        if (error instanceof PizzaPricingError) {
+            return NextResponse.json({ error: error.message }, { status: 409 });
+        }
         if (error instanceof PromotionPricingError) {
             return NextResponse.json({ error: error.message }, { status: 400 });
         }

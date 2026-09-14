@@ -22,6 +22,36 @@ const WORD_ALIASES: Record<string, string> = {
     st: "setor",
 };
 
+const BRAZILIAN_STATE_NAMES: Record<string, string> = {
+    ACRE: "AC",
+    ALAGOAS: "AL",
+    AMAPA: "AP",
+    AMAZONAS: "AM",
+    BAHIA: "BA",
+    CEARA: "CE",
+    DISTRITOFEDERAL: "DF",
+    ESPIRITOSANTO: "ES",
+    GOIAS: "GO",
+    MARANHAO: "MA",
+    MATOGROSSO: "MT",
+    MATOGROSSODOSUL: "MS",
+    MINASGERAIS: "MG",
+    PARA: "PA",
+    PARAIBA: "PB",
+    PARANA: "PR",
+    PERNAMBUCO: "PE",
+    PIAUI: "PI",
+    RIODEJANEIRO: "RJ",
+    RIOGRANDEDONORTE: "RN",
+    RIOGRANDEDOSUL: "RS",
+    RONDONIA: "RO",
+    RORAIMA: "RR",
+    SANTACATARINA: "SC",
+    SAOPAULO: "SP",
+    SERGIPE: "SE",
+    TOCANTINS: "TO",
+};
+
 export function normalizeNeighborhoodName(value: unknown): string {
     const normalized = String(value ?? "")
         .trim()
@@ -46,12 +76,14 @@ function normalizeCity(value: unknown): string {
 }
 
 function normalizeState(value: unknown): string {
-    return String(value ?? "")
+    const normalized = String(value ?? "")
         .trim()
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "")
         .replace(/[^a-zA-Z]/g, "")
         .toUpperCase();
+
+    return BRAZILIAN_STATE_NAMES[normalized] || normalized;
 }
 
 export function parseNeighborhoodDeliveryRules(

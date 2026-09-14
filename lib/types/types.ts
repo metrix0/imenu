@@ -11,6 +11,7 @@ export interface Promotion {
 }
 
 export type Restaurant = {
+    pizza_settings?: PizzaSettings;
     automatic_promotions?: import("@/lib/promotions/automatic").AutomaticPromotion[];
     id: string;
     name: string;
@@ -53,6 +54,7 @@ export type Category = {
 };
 
 export type Item = {
+    category_id?: string | null;
     id: string;
     name: string;
     description: string | null;
@@ -92,6 +94,7 @@ export type ItemsByCategory = {
 };
 
 export type CartItem = {
+    pizza?: PizzaSelection;
     id: string;
     base_item_id: string;
     name: string;
@@ -121,6 +124,20 @@ export type CartStore = {
     total_cents: () => number;
     clearCart: () => void;
 };
+
+export type PizzaSettings = {
+    enabled: boolean;
+    pricing_rule: "highest" | "average";
+    max_flavors: number;
+    category_ids: string[];
+};
+
+export type PizzaSelection = {
+    pricing_rule: PizzaSettings["pricing_rule"];
+    flavors: { item_id: string; name: string; price_cents: number }[];
+};
+
+export type PizzaCatalogItem = Item & { subcategories: Subcategory[] };
 
 export type AddressData = {
     cep: string;

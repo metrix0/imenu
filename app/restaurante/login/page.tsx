@@ -54,7 +54,13 @@ function isRateLimitError(error: AuthFailure | null): boolean {
 }
 
 function formatAuthError(message: string): string {
-    if (message.toLowerCase().includes("email address not authorized")) {
+    const normalizedMessage = message.toLowerCase();
+
+    if (normalizedMessage.includes("invalid login credentials")) {
+        return "E-mail ou senha incorretos. Se sua conta foi criada com Google, use “Continuar com Google”.";
+    }
+
+    if (normalizedMessage.includes("email address not authorized")) {
         return "Não foi possível enviar o e-mail de confirmação para este endereço.";
     }
 
@@ -198,7 +204,7 @@ export default function AdminLogin() {
         }
 
         if (signInError || !data.user) {
-            setError(signInError?.message || "Login inválido.");
+            setError(formatAuthError(signInError?.message || "Login inválido."));
             setLoading(false);
             return;
         }

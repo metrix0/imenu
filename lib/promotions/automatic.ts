@@ -24,6 +24,7 @@ export type AutomaticPromotion = {
 };
 
 export type PromotionCartItem = {
+  pizza?: import("@/lib/types/types").PizzaSelection;
   base_item_id: string;
   qty: number;
   unit_price_cents: number;
@@ -293,6 +294,13 @@ export function evaluateAutomaticPromotions(
 
     const quantities = new Map<string, number>();
     for (const item of paidItems) {
+      if (item.pizza?.flavors.length) {
+        const portion = item.qty / item.pizza.flavors.length;
+        for (const flavor of item.pizza.flavors) {
+          quantities.set(flavor.item_id, (quantities.get(flavor.item_id) || 0) + portion);
+        }
+        continue;
+      }
       const itemId = item.base_item_id || (item as any).item_id || (item as any).id;
       quantities.set(itemId, (quantities.get(itemId) || 0) + item.qty);
     }
@@ -310,7 +318,7 @@ export function evaluateAutomaticPromotions(
     if (
       [...required].some(
         ([id, qty]) =>
-          (quantities.get(id) || 0) < qty ||
+          (quantities.get(id) || 0) + 1e-9 < qty ||
           !input.products.some((product) => product.id === id && product.is_available),
       )
     )

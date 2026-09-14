@@ -40,6 +40,7 @@ function getFutureSchedulingSetting(restaurantId: string) {
 export type OrderStatus = "pending_online_payment" | "pending_physical_payment" | "preparing" | "delivering" | "done" | "canceled" | "paid";
 
 export interface OrderItemData {
+    pizza?: import("@/lib/types/types").PizzaSelection | null;
     id: string;
     quantity: number;
     price_cents: number;
@@ -479,7 +480,7 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
                         <div key={`${order.id}-item-${idx}`} className="flex min-w-0 justify-between gap-3 text-sm min-[1800px]:text-base">
                             <div className="flex min-w-0 gap-2">
                                 <span className="font-bold text-gray-900">{item.quantity}x</span>
-                                <span className="min-w-0 text-gray-700 line-clamp-1">{item.name}</span>
+                                <span className={`min-w-0 text-gray-700 ${item.pizza ? "break-words" : "line-clamp-1"}`}>{item.name}</span>
                             </div>
                             <span className="text-gray-500 whitespace-nowrap">{fmtMoney(item.price_cents * item.quantity)}</span>
                         </div>

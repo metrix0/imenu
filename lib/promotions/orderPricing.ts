@@ -75,6 +75,8 @@ export async function automaticOrderPricing(
       )
     : { rows: [] };
   const pricedItems = input.items.map((item) => {
+    // Pizza lines have already been priced with every flavor by the order transaction.
+    if (item.pizza) return item;
     const product = products.find(
       (p) => p.id === String(item.item_id || item.base_item_id),
     );

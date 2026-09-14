@@ -4,19 +4,32 @@ import { useEffect, useMemo, useState, type ComponentProps } from "react";
 
 import LegacyCartModal from "./CartModalLegacy";
 import { useCheckoutStore } from "@/lib/stores/costumer/checkoutStore";
-import { setNeighborhoodDeliveryGeocodingBypass } from "@/lib/api/geocoding";
+import {
+    getNeighborhoodDeliveryReferenceCoordinates,
+    setNeighborhoodDeliveryGeocodingBypass,
+    type GeoAddress,
+} from "@/lib/api/geocoding";
 import {
     findNeighborhoodDeliveryRule,
+    normalizeNeighborhoodName,
     parseNeighborhoodDeliveryRules,
     type NeighborhoodDeliveryRule,
 } from "@/lib/delivery/neighborhood";
 
-type LegacyProps = ComponentProps<typeof LegacyCartModal>;
+type LegacyProps = Omit<
+    ComponentProps<typeof LegacyCartModal>,
+    "neighborhoodDeliveryRules"
+>;
 
 type DeliveryConfig = {
     mode: "radius" | "neighborhood";
     rules: NeighborhoodDeliveryRule[];
 };
+
+type NeighborhoodValidationResult =
+    | "valid"
+    | "invalid-neighborhood"
+    | "invalid-address";
 
 export default function CartModal(props: LegacyProps) {
     const restaurantId = String(props.restaurant?.id || "");
@@ -57,10 +70,61 @@ export default function CartModal(props: LegacyProps) {
 
     const neighborhoodMode = deliveryConfig.mode === "neighborhood";
 
-    // CartModalLegacy keeps the original radius implementation byte-for-byte.
-    // In neighborhood mode only, its existing fee pipeline receives a synthetic
-    // zero-distance tier whose fee/time comes from the matched neighborhood.
-    setNeighborhoodDeliveryGeocodingBypass(neighborhoodMode);
+    const validateNeighborhoodDelivery = (
+        address: GeoAddress | null
+    ): NeighborhoodValidationResult => {
+        const checkout = useCheckoutStore.getState() as any;
+        const targetNeighborhood = normalizeNeighborhoodName(checkout.bairro);
+
+        if (!targetNeighborhood) return "invalid-neighborhood";
+
+        const nameMatch = deliveryConfig.rules.find((rule) =>
+            [rule.neighborhood, ...(rule.aliases || [])]
+                .map(normalizeNeighborhoodName)
+                .filter(Boolean)
+                .includes(targetNeighborhood)
+        );
+
+        if (!nameMatch) return "invalid-neighborhood";
+
+        const match = findNeighborhoodDeliveryRule(
+            deliveryConfig.rules,
+            checkout.bairro,
+            address?.city ?? checkout.cidade,
+            address?.state ?? checkout.estado
+        );
+
+        if (!match) return "invalid-address";
+
+        if (address) {
+            const addressNeighborhood = normalizeNeighborhoodName(
+                address.neighborhood
+            );
+
+            if (addressNeighborhood) {
+                const acceptedNeighborhoods = [
+                    match.neighborhood,
+                    ...(match.aliases || []),
+                ]
+                    .map(normalizeNeighborhoodName)
+                    .filter(Boolean);
+
+                if (!acceptedNeighborhoods.includes(addressNeighborhood)) {
+                    return "invalid-address";
+                }
+            }
+        }
+
+        return "valid";
+    };
+
+    // Keep the original checkout/geocoding validation. In neighborhood mode,
+    // geocoding only swaps the final distance point after the address + CEP are
+    // validated so the existing radius pipeline can apply the matched bairro fee.
+    setNeighborhoodDeliveryGeocodingBypass(
+        neighborhoodMode,
+        validateNeighborhoodDelivery
+    );
 
     useEffect(
         () => () => {
@@ -75,7 +139,14 @@ export default function CartModal(props: LegacyProps) {
         return new Proxy(props.restaurant, {
             get(target, property, receiver) {
                 if (property === "latitude" || property === "longitude") {
-                    return 0;
+                    const reference =
+                        getNeighborhoodDeliveryReferenceCoordinates();
+
+                    if (property === "latitude") {
+                        return reference?.latitude ?? 0;
+                    }
+
+                    return reference?.longitude ?? 0;
                 }
 
                 if (property === "delivery_fee_json") {
@@ -111,5 +182,13 @@ export default function CartModal(props: LegacyProps) {
         });
     }, [deliveryConfig.rules, neighborhoodMode, props.restaurant]);
 
-    return <LegacyCartModal {...props} restaurant={restaurant} />;
+    return (
+        <LegacyCartModal
+            {...props}
+            restaurant={restaurant}
+            neighborhoodDeliveryRules={
+                neighborhoodMode ? deliveryConfig.rules : undefined
+            }
+        />
+    );
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { faCircleInfo } from "@fortawesome/free-solid-svg-icons";
 import Dropdown from "@/components/ui/Dropdown";
@@ -9,7 +10,6 @@ import Tooltip from "@/components/ui/Tooltip";
 export type PixKeyType = "CPF" | "CNPJ" | "EMAIL" | "PHONE" | "EVP";
 
 const PIX_KEY_TYPE_OPTIONS = [
-    { value: "", label: "Definir tipo de chave" },
     { value: "AUTO", label: "Detectar automaticamente" },
     { value: "CPF", label: "CPF" },
     { value: "CNPJ", label: "CNPJ" },
@@ -35,6 +35,7 @@ export function inferPixKeyType(value: string): PixKeyType | null {
     const digits = raw.replace(/\D/g, "");
     if (digits.length === 14) return "CNPJ";
     if (digits.length === 13 && digits.startsWith("55")) return "PHONE";
+    if (digits.length === 11 && /^[1-9]{2}9\d{8}$/.test(digits)) return "PHONE";
     return null;
 }
 
@@ -43,6 +44,7 @@ type PixPayoutFieldsProps = {
     paymentInfoType: string;
     onPaymentInfoChange: (value: string) => void;
     onPaymentInfoTypeChange: (value: string) => void;
+    onValidationChange?: (invalid: boolean) => void;
     onSave: (fields: Record<string, unknown>) => Promise<unknown> | unknown;
 };
 
@@ -51,14 +53,20 @@ export default function PixPayoutFields({
     paymentInfoType,
     onPaymentInfoChange,
     onPaymentInfoTypeChange,
+    onValidationChange,
     onSave,
 }: PixPayoutFieldsProps) {
-    const needsPixType = Boolean(paymentInfo.trim() && !paymentInfoType);
+    const [autoDetectionFailed, setAutoDetectionFailed] = useState(false);
+    const updateAutoDetectionFailed = (failed: boolean) => {
+        setAutoDetectionFailed(failed);
+        onValidationChange?.(failed);
+    };
 
     const handlePaymentInfoBlur = async () => {
         if (paymentInfoType === "AUTO" && paymentInfo.trim()) {
             const detectedType = inferPixKeyType(paymentInfo);
             if (detectedType) {
+                updateAutoDetectionFailed(false);
                 onPaymentInfoTypeChange(detectedType);
                 await onSave({
                     payment_info: paymentInfo,
@@ -67,7 +75,7 @@ export default function PixPayoutFields({
                 return;
             }
 
-            onPaymentInfoTypeChange("");
+            updateAutoDetectionFailed(true);
             await onSave({
                 payment_info: paymentInfo,
                 payment_info_type: null,
@@ -82,15 +90,18 @@ export default function PixPayoutFields({
         if (nextType === "AUTO" && paymentInfo.trim()) {
             const detectedType = inferPixKeyType(paymentInfo);
             if (detectedType) {
+                updateAutoDetectionFailed(false);
                 onPaymentInfoTypeChange(detectedType);
                 void onSave({ payment_info_type: detectedType });
             } else {
-                onPaymentInfoTypeChange("");
+                onPaymentInfoTypeChange("AUTO");
+                updateAutoDetectionFailed(true);
                 void onSave({ payment_info_type: null });
             }
             return;
         }
 
+        updateAutoDetectionFailed(false);
         onPaymentInfoTypeChange(nextType);
         void onSave({
             payment_info_type:
@@ -100,7 +111,7 @@ export default function PixPayoutFields({
 
     return (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div data-ui="field" className="min-w-0">
+            <div data-ui="field" className="relative min-w-0">
                 <div
                     data-ui="field-label"
                     className="text-xs font-medium leading-[18px]"
@@ -109,20 +120,29 @@ export default function PixPayoutFields({
                 </div>
                 <Dropdown
                     aria-label="Tipo da chave PIX"
+                    aria-invalid={autoDetectionFailed || undefined}
                     options={PIX_KEY_TYPE_OPTIONS}
                     value={paymentInfoType}
+                    className={
+                        autoDetectionFailed
+                            ? "!border-red-400 focus:!border-red-500"
+                            : ""
+                    }
                     onChange={(event) =>
                         handlePaymentInfoTypeChange(event.target.value)
                     }
                 />
+                {autoDetectionFailed && (
+                    <p className="absolute left-0 top-full mt-1 text-xs font-medium leading-4 text-red-600">
+                        Defina o tipo da chave PIX acima.
+                    </p>
+                )}
             </div>
 
             <div data-ui="field" className="min-w-0">
                 <div
                     data-ui="field-label"
-                    className={`flex items-center gap-1.5 text-xs font-medium leading-[18px] ${
-                        needsPixType ? "text-red-600" : ""
-                    }`}
+                    className="flex items-center gap-1.5 text-xs font-medium leading-[18px]"
                     style={{ display: "flex" }}
                 >
                     <span>Chave Pix para Repasses diários às 12:00</span>
@@ -147,21 +167,12 @@ export default function PixPayoutFields({
                 <Input
                     placeholder="Ex: 123456789"
                     value={paymentInfo}
-                    onChange={(event) =>
-                        onPaymentInfoChange(event.target.value)
-                    }
+                    onChange={(event) => {
+                        if (autoDetectionFailed) updateAutoDetectionFailed(false);
+                        onPaymentInfoChange(event.target.value);
+                    }}
                     onBlur={() => void handlePaymentInfoBlur()}
-                    className={
-                        needsPixType
-                            ? "border-red-400 focus:border-red-500 focus:ring-red-100"
-                            : ""
-                    }
                 />
-                {needsPixType && (
-                    <p className="text-xs font-medium text-red-600">
-                        Defina o tipo da chave PIX acima.
-                    </p>
-                )}
             </div>
         </div>
     );

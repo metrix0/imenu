@@ -10,6 +10,7 @@ import ModalCloseButton from "./ModalCloseButton";
 let activeScrollLocks = 0;
 let originalBodyOverflow = "";
 let originalHtmlOverflow = "";
+let originalBodyPaddingRight = "";
 
 export type ModalHeight = number | `${number}dvh`;
 
@@ -40,8 +41,17 @@ export default function Modal({
         if (scrollLocked.current) return;
 
         if (activeScrollLocks === 0) {
+            const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+            const bodyPaddingRight = Number.parseFloat(window.getComputedStyle(document.body).paddingRight) || 0;
+
             originalBodyOverflow = document.body.style.overflow;
             originalHtmlOverflow = document.documentElement.style.overflow;
+            originalBodyPaddingRight = document.body.style.paddingRight;
+
+            if (scrollbarWidth > 0) {
+                document.body.style.paddingRight = `${bodyPaddingRight + scrollbarWidth}px`;
+            }
+
             document.body.style.overflow = "hidden";
             document.documentElement.style.overflow = "hidden";
         }
@@ -59,6 +69,7 @@ export default function Modal({
         if (activeScrollLocks === 0) {
             document.body.style.overflow = originalBodyOverflow;
             document.documentElement.style.overflow = originalHtmlOverflow;
+            document.body.style.paddingRight = originalBodyPaddingRight;
         }
     }
 

@@ -12,6 +12,7 @@ import { icons } from "@/lib/utils/fontawesome";
 import { faPix } from "@fortawesome/free-brands-svg-icons"
 import { faCalendarDays } from "@fortawesome/free-solid-svg-icons";
 import Input from "@/components/ui/Input";
+import NeighborhoodInput from "@/components/costumer/NeighborhoodInput";
 import Dropdown from "@/components/ui/Dropdown";
 import ModalMobile from "@/components/ui/HybridModal";
 import WarningBox from "@/components/ui/WarningBox";
@@ -23,6 +24,7 @@ import { supabase } from "@/lib/database/supabaseClient";
 import { MenuItemType } from "@/components/restaurant-owner/cardapio/MenuItemRow";
 import { Item } from "@/lib/types/types";
 import type { QrTableMenuContext } from "@/lib/qr-table/types";
+import { normalizeNeighborhoodName, type NeighborhoodDeliveryRule } from "@/lib/delivery/neighborhood";
 const DEFAULT_ALLOWED_PAYMENT_METHODS = [
     "pix",
     "dinheiro",
@@ -68,7 +70,7 @@ export default function CartModal({
                                        onClose,
                                        restaurant,
     selectedCouponCode, onSelectItem, tableOrder, selectedTableId,
-    selectedTableName, onTableChange, promotionResult
+    selectedTableName, onTableChange, promotionResult, neighborhoodDeliveryRules
                                    }: {
     promotionResult?: PromotionResult;
     onClose: () => void;
@@ -81,6 +83,7 @@ export default function CartModal({
     selectedTableId?: string | null;
     selectedTableName?: string | null;
     onTableChange?: (tableId: string) => void;
+    neighborhoodDeliveryRules?: NeighborhoodDeliveryRule[];
 
 }) {
     const { items, changeQty, removeItem, clear } = useCartStore();
@@ -100,7 +103,15 @@ export default function CartModal({
     } = useCheckoutStore();
     const isPickup = useCheckoutStore((state: any) => Boolean(state.is_pickup));
     const isTableOrder = Boolean(tableOrder);
-    const neighborhoodAddressHint = restaurant.delivery_fee_mode === "neighborhood"
+    const neighborhoodMode = Array.isArray(neighborhoodDeliveryRules);
+    const normalizedNeighborhood = normalizeNeighborhoodName(bairro);
+    const unknownNeighborhood = neighborhoodMode && Boolean(normalizedNeighborhood) &&
+        !neighborhoodDeliveryRules.some((rule) =>
+            [rule.neighborhood, ...(rule.aliases || [])]
+                .map(normalizeNeighborhoodName)
+                .includes(normalizedNeighborhood)
+        );
+    const neighborhoodAddressHint = neighborhoodMode
         ? " (Verifique se o bairro está escrito corretamente)"
         : "";
 
@@ -927,7 +938,7 @@ export default function CartModal({
                                     className="w-14 h-14 2xl:w-20 2xl:h-20 rounded-xl object-cover"
                                 />
                                 <div>
-                                    <p className="font-semibold 2xl:text-lg line-clamp-2 leading-normal">{it.name}</p>
+                                    <p className={`font-semibold 2xl:text-lg leading-normal ${it.pizza ? "break-words" : "line-clamp-2"}`}>{it.name}</p>
 
                                     <p className="font-semibold 2xl:text-base sm:text-sm mt-0.5">
                                         {freeItem ? <><span className="font-semibold text-green-700">{discountedTotal === 0 ? "GRÁTIS" : formatPrice(discountedTotal)}</span> <span className="font-normal text-gray-400 line-through text-xs">{formatPrice(it.unit_price_cents * it.qty)}</span></> : (it.promotion && it.promotion.value > 0) ? <><span className={"text-green"}>{formatPrice(promotionPrice(it) || it.unit_price_cents*it.qty)}</span> <span className={"font-normal text-gray-400 line-through text-xs"}>{formatPrice(it.unit_price_cents*it.qty)}</span></>
@@ -1153,10 +1164,11 @@ export default function CartModal({
                                 icon={icons.faTriangleExclamation}
                                 className="mt-2 mb-8 p-4 2xl:text-lg"
                             >
-                                {!cepLocationError
-                                    ? "O restaurante está muito longe deste endereço para entrega!"
-                                    : "Verifique se o endereço está correto ou tente usar sua localização."}
-                                {neighborhoodAddressHint}
+                                {unknownNeighborhood && !cepLocationError
+                                    ? "Bairro não encontrado, verifique a grafia."
+                                    : !neighborhoodMode && !cepLocationError
+                                        ? "O restaurante está muito longe deste endereço para entrega!"
+                                        : "Verifique se o endereço está correto ou tente usar sua localização."}
                             </WarningBox>
                         }
 
@@ -1182,14 +1194,23 @@ export default function CartModal({
                                 className="min-w-0 mb-3 2xl:text-lg 2xl:mb-6"
                             />
 
-                            <Input
-                                autoComplete="address-level3"
-                                label="Bairro"
-                                placeholder="Centro"
-                                value={bairro}
-                                onChange={(e) => setField("bairro", e.target.value)}
-                                className="min-w-0 mb-3 2xl:text-lg 2xl:mb-6"
-                            />
+                            {neighborhoodMode ? (
+                                <NeighborhoodInput
+                                    value={bairro}
+                                    rules={neighborhoodDeliveryRules || []}
+                                    onChange={(value) => setField("bairro", value)}
+                                    className="min-w-0 mb-3 2xl:text-lg 2xl:mb-6"
+                                />
+                            ) : (
+                                <Input
+                                    autoComplete="address-level3"
+                                    label="Bairro"
+                                    placeholder="Centro"
+                                    value={bairro}
+                                    onChange={(e) => setField("bairro", e.target.value)}
+                                    className="min-w-0 mb-3 2xl:text-lg 2xl:mb-6"
+                                />
+                            )}
                         </div>
 
                         <div className="flex  gap-3 2xl:gap-6 md:text-sm ">
