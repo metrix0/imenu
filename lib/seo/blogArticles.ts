@@ -17,6 +17,20 @@ export type BlogArticleDefinition = {
 
 export const BLOG_ARTICLES: BlogArticleDefinition[] = [
     {
+        slug: "pedido-whatsapp-celular-confirmacao",
+        title: "Pedido pelo WhatsApp no celular: como tornar a confirmação mais confiável",
+        shortTitle: "Pedido pelo WhatsApp no celular",
+        metaTitle: "Pedido pelo WhatsApp no Celular: Confirmação | iMenu",
+        metaDescription:
+            "Entenda por que o WhatsApp pode não abrir após um pedido no celular e como o iMenu torna a confirmação mais confiável sem atrapalhar o checkout.",
+        excerpt:
+            "Veja por que navegadores móveis podem bloquear a abertura do WhatsApp após o checkout e como o iMenu mantém a confirmação ligada ao pedido realmente criado.",
+        category: "Vendas",
+        readingTime: "7 min de leitura",
+        publishedAt: "2026-09-14",
+        updatedAt: "2026-09-14",
+    },
+    {
         slug: "taxa-de-entrega-por-bairro",
         title: "Taxa de entrega por bairro: como calcular e configurar no delivery",
         shortTitle: "Taxa de entrega por bairro",
