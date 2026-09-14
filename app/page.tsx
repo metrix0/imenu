@@ -579,6 +579,7 @@ export default function LandingPage() {
                                 ["Agendamento de pedido", "check", "Não"],
                                 ["Dividir Pizza em vários sabores", "check", "Não tem ou máximo 2"],
                                 ["Sem bugs", "Correção garantida em 2 dias úteis", "Correção leva meses"],
+                                ["Notificar pedido", "Notificações no WhatsApp do restaurante e do cliente", "Não"],
                             ].map(([feature, imenu, competitor]) => (
                                 <tr key={feature}>
                                     <td className="border-r border-gray-200">{feature}</td>
