@@ -9,9 +9,7 @@ import Card from "@/components/ui/Card";
 import Toast from "@/components/ui/Toast";
 import Input from "@/components/ui/Input";
 import type { SaveState } from "@/components/ui/SaveStatus";
-import PixPayoutFields, {
-    inferPixKeyType,
-} from "@/components/restaurant-owner/PixPayoutFields";
+import PixPayoutFields from "@/components/restaurant-owner/PixPayoutFields";
 import StoreVisuals from "./StoreVisuals";
 import CustomDomainModal from "./CustomDomainModal";
 
@@ -82,15 +80,13 @@ export default function StoreProfileManager({
         restaurant.payment_info || ""
     );
     const [paymentInfoType, setPaymentInfoType] = useState(
-        restaurant.payment_info_type ||
-            (restaurant.payment_info && !inferPixKeyType(restaurant.payment_info)
-                ? ""
-                : "AUTO")
+        restaurant.payment_info_type || "AUTO"
     );
+    const [pixAutoDetectionFailed, setPixAutoDetectionFailed] = useState(false);
     const needsPixType = Boolean(paymentInfo.trim() && !paymentInfoType);
     useEffect(() => {
-        onPixPayoutValidationChange?.(needsPixType);
-    }, [needsPixType, onPixPayoutValidationChange]);
+        onPixPayoutValidationChange?.(needsPixType || pixAutoDetectionFailed);
+    }, [needsPixType, onPixPayoutValidationChange, pixAutoDetectionFailed]);
     const [storeWhatsapp, setStoreWhatsapp] = useState(
         formatPhone(restaurant.store_whatsapp || "")
     );
@@ -264,6 +260,7 @@ export default function StoreProfileManager({
                             onPaymentInfoChange?.(value);
                         }}
                         onPaymentInfoTypeChange={setPaymentInfoType}
+                        onValidationChange={setPixAutoDetectionFailed}
                         onSave={saveFields}
                     />
 
