@@ -823,7 +823,6 @@ export default function DevPayoutPage() {
                                 transferringPayzu ||
                                 !data?.asaasConfigured ||
                                 sendable.length === 0 ||
-                                ambiguousPix.length > 0 ||
                                 invalidManualAmounts ||
                                 (!onePercentNet &&
                                     (numericDiscount < 0 || numericDiscount > 100))
@@ -843,7 +842,7 @@ export default function DevPayoutPage() {
 
                 {ambiguousPix.length > 0 && (
                     <div className="mt-5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                        Defina abaixo o tipo da chave PIX para: {ambiguousPix.map((item) => item.restaurantName).join(", ")}.
+                        Será ignorado neste envio até definir o tipo da chave PIX: {ambiguousPix.map((item) => item.restaurantName).join(", ")}.
                     </div>
                 )}
 
