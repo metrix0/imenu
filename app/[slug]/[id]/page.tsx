@@ -400,7 +400,7 @@ export default function PedidoPage({
                                     {item.subitems.map((subitem: any) => (
                                         <li key={subitem.id} className="text-sm text-gray-600 flex justify-between">
                                             <span>- {subitem.subitem_name}</span>
-                                            <span>+R$ {(subitem.price_cents / 100).toFixed(2).replace(".", ",")}</span>
+                                            <span>{item.pizza ? "Incluído" : `+R$ ${(subitem.price_cents / 100).toFixed(2).replace(".", ",")}`}</span>
                                         </li>
                                     ))}
                                 </ul>
