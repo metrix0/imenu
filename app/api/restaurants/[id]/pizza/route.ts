@@ -13,7 +13,10 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
             query("SELECT pizza_settings FROM restaurants WHERE id = $1", [id]),
             query("SELECT id, name, position FROM categories WHERE restaurant_id = $1 ORDER BY position, id", [id]),
         ]);
-        return NextResponse.json({ settings: parsePizzaSettings(restaurant.rows[0]?.pizza_settings), categories: categories.rows });
+        const settings = parsePizzaSettings(restaurant.rows[0]?.pizza_settings);
+        const categoryIds = new Set(categories.rows.map((category: { id: string }) => category.id));
+        settings.category_ids = settings.category_ids.filter(categoryId => categoryIds.has(categoryId));
+        return NextResponse.json({ settings, categories: categories.rows });
     } catch (error) { return failure(error); }
 }
 
