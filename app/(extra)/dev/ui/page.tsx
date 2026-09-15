@@ -9,7 +9,6 @@ import Tabs from "@/components/ui/Tabs";
 import Loader from "@/components/ui/Loader";
 import ListLoader from "@/components/ui/ListLoader";
 import BonusButton from "@/components/ui/BonusButton";
-import Popup from "@/components/ui/Popup";
 import Toast from "@/components/ui/Toast";
 import Tooltip from "@/components/ui/Tooltip";
 
@@ -21,8 +20,7 @@ export default function UIShowcase() {
     const [checked, setChecked] = useState(false);
     const [tab, setTab] = useState("Hoje");
 
-    // Popup + Toast state
-    const [showPopup, setShowPopup] = useState(false);
+    // Toast state
     const [showToast, setShowToast] = useState(false);
 
     const dropdownOptions = [
@@ -207,38 +205,6 @@ import { faMagnifyingGlass } from "@fortawesome/free-solid-svg-icons";`}
     <Button variant="secondary">Hover</Button>
 </Tooltip>
 `}
-                />
-            </ComponentBlock>
-
-            {/* === POPUP === */}
-            <ComponentBlock
-                title="components/Popup.tsx — Popup"
-                imports={`import Popup from "@/components/ui/Popup";`}
-                setup={`const [showPopup, setShowPopup] = useState(false);`}
-            >
-                <Button variant="primary" onClick={() => setShowPopup(true)}>
-                    Abrir Popup
-                </Button>
-
-                <Popup open={showPopup} onClose={() => setShowPopup(false)}>
-                    <div className="p-6 text-center">
-                        <h2 className="text-xl font-bold mb-4">Exemplo de Popup</h2>
-                        <p className="text-gray-700 mb-6">Esse é um popup simples.</p>
-
-                        <Button variant="secondary" onClick={() => setShowPopup(false)}>
-                            Fechar
-                        </Button>
-                    </div>
-                </Popup>
-
-                <CodeBlock
-                    code={`<Popup open={showPopup} onClose={() => setShowPopup(false)}>
-  Conteúdo aqui
-</Popup>
-
-<button onClick={() => setShowPopup(true)}>
-  Abrir Popup
-</button>`}
                 />
             </ComponentBlock>
 
