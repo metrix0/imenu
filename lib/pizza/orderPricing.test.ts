@@ -1,7 +1,7 @@
 import { pricePizzaOrderItems } from "./orderPricing";
 import { loadPizzaCatalog } from "./catalog";
 jest.mock("./catalog", () => ({ loadPizzaCatalog: jest.fn() }));
-const settings = { enabled: true, pricing_rule: "average", max_flavors: 3, category_ids: ["pizza", "sweet"] };
+const settings = { enabled: true, pricing_rule: "average", max_flavors: 3, category_ids: ["pizza", "sweet"], same_category_only: false };
 const catalog = [
     { id: "a", name: "Portuguesa", price_cents: 5000, category_id: "pizza", subcategories: [], is_available: true },
     { id: "b", name: "Chocolate", price_cents: 6000, category_id: "sweet", subcategories: [], is_available: true },
@@ -15,6 +15,9 @@ it("rebuilds flavor prices and names from catalog before checkout", async () => 
     expect(priced.total_cents).toBe(11000);
     expect(priced.promotion).toBeUndefined();
     expect(priced.pizza.flavors.map((f: any) => f.price_cents)).toEqual([5000, 6000]);
+});
+it("rejects cross-category flavors when same-category mode is enabled", async () => {
+    await expect(pricePizzaOrderItems(client, "restaurant", { ...settings, same_category_only: true }, [item])).rejects.toThrow("mesma categoria");
 });
 it.each([
     { ...item, unit_price_cents: 1, total_cents: 2 },
