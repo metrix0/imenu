@@ -12,6 +12,7 @@ import { supabase } from "@/lib/database/supabaseClient";
 
 const ALLOWED_DEV_EMAIL = "joaovralmeida@hotmail.com";
 const HISTORY_PAGE_SIZE = 10;
+const AUTOMATION_HISTORY_PAGE_SIZE = 5;
 
 type AccessState = "checking" | "allowed" | "forbidden" | "signed-out";
 type PixKeyType = "CPF" | "CNPJ" | "EMAIL" | "PHONE" | "EVP";
@@ -241,6 +242,7 @@ export default function DevPayoutPage() {
     const [onePercentNet, setOnePercentNet] = useState(false);
     const [confirmOpen, setConfirmOpen] = useState(false);
     const [historyPage, setHistoryPage] = useState(1);
+    const [automationHistoryPage, setAutomationHistoryPage] = useState(1);
     const [lastResult, setLastResult] = useState<SendResult | null>(null);
     const [lastPayzuTransfer, setLastPayzuTransfer] =
         useState<PayzuTransferResult | null>(null);
@@ -343,6 +345,7 @@ export default function DevPayoutPage() {
             );
             setManualAmounts({});
             setHistoryPage(1);
+            setAutomationHistoryPage(1);
             setAccessState("allowed");
             setData(payload);
         } catch (caught) {
@@ -369,6 +372,18 @@ export default function DevPayoutPage() {
     const paginatedHistory = history.slice(
         (currentHistoryPage - 1) * HISTORY_PAGE_SIZE,
         currentHistoryPage * HISTORY_PAGE_SIZE
+    );
+    const automationHistoryPageCount = Math.max(
+        1,
+        Math.ceil(automationRuns.length / AUTOMATION_HISTORY_PAGE_SIZE)
+    );
+    const currentAutomationHistoryPage = Math.min(
+        automationHistoryPage,
+        automationHistoryPageCount
+    );
+    const paginatedAutomationRuns = automationRuns.slice(
+        (currentAutomationHistoryPage - 1) * AUTOMATION_HISTORY_PAGE_SIZE,
+        currentAutomationHistoryPage * AUTOMATION_HISTORY_PAGE_SIZE
     );
     const sendable = useMemo(
         () => data?.payables.filter((item) => item.canSend) || [],
@@ -653,7 +668,7 @@ export default function DevPayoutPage() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                            {automationRuns.map((run) => {
+                            {paginatedAutomationRuns.map((run) => {
                                 const comparisonSafe = run.comparison_step_status === "completed";
                                 const finalProfitCents =
                                     run.status === "completed"
@@ -739,6 +754,52 @@ export default function DevPayoutPage() {
                         </tbody>
                     </table>
                 </div>
+
+                {automationHistoryPageCount > 1 && (
+                    <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
+                        <button
+                            type="button"
+                            onClick={() =>
+                                setAutomationHistoryPage((page) => Math.max(1, page - 1))
+                            }
+                            disabled={currentAutomationHistoryPage === 1}
+                            className="h-9 cursor-pointer rounded-lg border border-gray-200 px-3 text-sm font-medium text-gray-600 transition hover:bg-gray-50 disabled:cursor-default disabled:opacity-40"
+                        >
+                            Anterior
+                        </button>
+                        {Array.from(
+                            { length: automationHistoryPageCount },
+                            (_, index) => index + 1
+                        ).map((page) => (
+                            <button
+                                key={page}
+                                type="button"
+                                onClick={() => setAutomationHistoryPage(page)}
+                                className={`h-9 min-w-9 cursor-pointer rounded-lg border px-3 text-sm font-semibold transition ${
+                                    page === currentAutomationHistoryPage
+                                        ? "border-brand bg-brand text-white"
+                                        : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                                }`}
+                            >
+                                {page}
+                            </button>
+                        ))}
+                        <button
+                            type="button"
+                            onClick={() =>
+                                setAutomationHistoryPage((page) =>
+                                    Math.min(automationHistoryPageCount, page + 1)
+                                )
+                            }
+                            disabled={
+                                currentAutomationHistoryPage === automationHistoryPageCount
+                            }
+                            className="h-9 cursor-pointer rounded-lg border border-gray-200 px-3 text-sm font-medium text-gray-600 transition hover:bg-gray-50 disabled:cursor-default disabled:opacity-40"
+                        >
+                            Próxima
+                        </button>
+                    </div>
+                )}
             </Card>
 
             <div className="grid gap-4 md:grid-cols-3">
