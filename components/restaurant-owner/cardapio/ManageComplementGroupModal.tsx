@@ -122,7 +122,10 @@ function ComplementPriceInput({
     const hasMixedPrices = priceCents === null;
 
     const handleBlur = () => {
-        if (priceCents === null) return;
+        if (priceCents === null) {
+            if (parsedPriceCents !== null) onApplyMixed(parsedPriceCents);
+            return;
+        }
 
         const nextCents = parsedPriceCents ?? priceCents;
         setLocalValue(formatPriceInput(nextCents));
