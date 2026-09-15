@@ -130,6 +130,7 @@ export type PizzaSettings = {
     pricing_rule: "highest" | "average";
     max_flavors: number;
     category_ids: string[];
+    same_category_only: boolean;
 };
 
 export type PizzaSelection = {
@@ -137,7 +138,10 @@ export type PizzaSelection = {
     flavors: { item_id: string; name: string; price_cents: number }[];
 };
 
-export type PizzaCatalogItem = Item & { subcategories: Subcategory[] };
+export type PizzaCatalogItem = Item & {
+    subcategories: Subcategory[];
+    pizza_same_category_only?: boolean;
+};
 
 export type AddressData = {
     cep: string;
