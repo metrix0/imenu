@@ -303,10 +303,11 @@ export default function StoreProfileManager({
                                 }
                             />
                         ) : (
-                            <div data-ui="field" className="min-w-0">
+                            <div data-ui="field" className="flex min-w-0 flex-col gap-1.5">
                                 <label
                                     data-ui="field-label"
                                     htmlFor={`menu-link-${restaurant.id}`}
+                                    className="block text-xs font-medium leading-[18px] text-[#1d1d1d]"
                                 >
                                     Link do cardápio
                                 </label>

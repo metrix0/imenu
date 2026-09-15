@@ -136,7 +136,11 @@ export default function Modal({
                 onClick={(event: { stopPropagation(): void }) =>
                     event.stopPropagation()
                 }
-                className={`relative flex max-h-[calc(100dvh-24px)] w-full max-w-2xl flex-col overflow-y-auto rounded-[10px] border border-[#e2e5e9] bg-white shadow-[0_20px_60px_#1d1d1d26] transition-all duration-200 sm:max-h-[calc(100dvh-48px)] ${
+                className={`relative flex w-full max-w-2xl flex-col overflow-y-auto rounded-[10px] border border-[#e2e5e9] bg-white shadow-[0_20px_60px_#1d1d1d26] transition-all duration-200 ${
+                    panel
+                        ? "max-h-[calc(100dvh-24px)] sm:max-h-[calc(100dvh-48px)]"
+                        : "max-h-[92dvh] sm:max-h-[90dvh] 2xl:max-h-[88dvh]"
+                } ${
                     active
                         ? "translate-y-0 scale-100 opacity-100"
                         : "translate-y-3 scale-95 opacity-0"

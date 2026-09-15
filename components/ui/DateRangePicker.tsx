@@ -43,10 +43,10 @@ export default function DateRangePicker({ value, onChange, presets = DATE_FILTER
     const previewEnd = selectingEnd && hoverDate ? hoverDate : draft.endDate;
     const rangeStart = draft.startDate < previewEnd ? draft.startDate : previewEnd;
     const rangeEnd = draft.startDate > previewEnd ? draft.startDate : previewEnd;
-    return <div data-ui="field" className="min-w-0">
-        <span data-ui="field-label">{label}</span>
+    return <div data-ui="field" className="flex min-w-0 flex-col gap-1.5">
+        <span data-ui="field-label" className="block text-xs font-medium leading-[18px] text-[#1d1d1d]">{label}</span>
         <button ref={trigger} type="button" data-ui="dropdown-trigger" aria-label={`Selecionar ${label.toLowerCase()}`} aria-haspopup="dialog" aria-expanded={open}
-            className="flex w-full cursor-pointer items-center gap-3 rounded-lg border bg-white px-3 text-left" onClick={toggle}>
+            className="flex h-11 w-full cursor-pointer items-center gap-3 rounded-lg border border-[#e2e5e9] bg-white px-3 text-left text-sm font-normal text-[#1d1d1d] outline-none transition-[border-color,background-color] duration-150 focus:border-[#d93d00]" onClick={toggle}>
             <CalendarDays size={16} className="shrink-0 text-gray-500" />
             <span className="min-w-0 flex-1 truncate">{value.startDate && value.endDate ? `${formatRangeDate(value.startDate)} — ${formatRangeDate(value.endDate)}` : allowOpenEnd && value.startDate ? `A partir de ${formatRangeDate(value.startDate)}` : emptyLabel}</span>
             <ChevronDown size={14} className={open ? "rotate-180" : ""} />

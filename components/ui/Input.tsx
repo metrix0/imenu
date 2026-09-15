@@ -110,7 +110,9 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
                 inputMode={numeric || float ? "numeric" : inputMode}
                 onKeyDown={handleKeyDown} onInput={handleInput}
                 {...(isControlled ? { value } : { defaultValue })}
-                className={className} />;
+                className={type === "date"
+                    ? `min-h-11 !rounded-lg border-[#e2e5e9] bg-white !py-[11px] text-sm leading-5 text-[#1d1d1d] outline-none shadow-none transition-colors focus:border-[#d93d00] ${className}`
+                    : className} />;
         }
 
         return (
@@ -148,7 +150,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
                         {...(isControlled
                             ? { value }
                             : { defaultValue })}
-                        className={`min-h-11 w-full rounded-lg border border-[#e2e5e9] px-3 py-[11px] text-sm leading-5 text-[#1d1d1d] outline-none shadow-none transition-colors placeholder:text-[#818994] focus:border-[#d93d00] focus:ring-1 focus:ring-[#d93d00] disabled:cursor-not-allowed disabled:bg-[#f1f3f5] disabled:text-[#626973] aria-[invalid=true]:border-[#be2626]
+                        className={`min-h-11 w-full rounded-lg border border-[#e2e5e9] px-3 py-[11px] text-sm leading-5 text-[#1d1d1d] outline-none shadow-none transition-colors placeholder:text-[#818994] focus:border-[#d93d00] disabled:cursor-not-allowed disabled:bg-[#f1f3f5] disabled:text-[#626973] aria-[invalid=true]:border-[#be2626]
                             ${
                                 withIcon
                                     ? isLeft

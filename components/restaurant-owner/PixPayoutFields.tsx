@@ -111,7 +111,7 @@ export default function PixPayoutFields({
 
     return (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div data-ui="field" className="relative min-w-0">
+            <div data-ui="field" className="relative flex min-w-0 flex-col gap-1.5">
                 <div
                     data-ui="field-label"
                     className="text-xs font-medium leading-[18px]"
@@ -139,7 +139,7 @@ export default function PixPayoutFields({
                 )}
             </div>
 
-            <div data-ui="field" className="min-w-0">
+            <div data-ui="field" className="flex min-w-0 flex-col gap-1.5">
                 <div
                     data-ui="field-label"
                     className="flex items-center gap-1.5 text-xs font-medium leading-[18px]"

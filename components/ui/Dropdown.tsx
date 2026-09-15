@@ -124,7 +124,7 @@ const LegacyDropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(functi
                             } else if (event.key === "Escape") setOpen(false);
                         } : undefined}
                         onClick={() => setOpen((prev) => !prev)}
-                        className={`flex min-h-11 w-full cursor-pointer items-center justify-between rounded-lg border border-[#e2e5e9] bg-white px-3 py-2.5 text-left text-sm font-normal text-[#1d1d1d] outline-none transition-colors hover:bg-[#f7f8fa] focus:border-[#d93d00] focus:ring-1 focus:ring-[#d93d00] disabled:cursor-not-allowed disabled:bg-[#f1f3f5] disabled:text-[#626973] ${custom ? className : ""}`}
+                        className={`flex min-h-11 w-full cursor-pointer items-center justify-between rounded-lg border border-[#e2e5e9] bg-white px-3 py-2.5 text-left text-sm font-normal text-[#1d1d1d] outline-none transition-colors hover:bg-[#f7f8fa] focus:border-[#d93d00] disabled:cursor-not-allowed disabled:bg-[#f1f3f5] disabled:text-[#626973] ${custom ? className : ""}`}
                     >
                         <span
                             className={`truncate ${
@@ -215,7 +215,7 @@ const LegacyDropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(functi
             >
                 <select
                     ref={selectRef}
-                    className={`min-h-11 w-full cursor-pointer appearance-none rounded-lg border border-[#e2e5e9] bg-white px-3 py-2.5 pr-9 text-sm text-[#1d1d1d] outline-none transition-colors duration-150 hover:bg-[#f7f8fa] focus:border-[#d93d00] focus:ring-1 focus:ring-[#d93d00] disabled:cursor-not-allowed disabled:bg-[#f1f3f5] disabled:text-[#626973] ${className}`}
+                    className={`min-h-11 w-full cursor-pointer appearance-none rounded-lg border border-[#e2e5e9] bg-white px-3 py-2.5 pr-9 text-sm text-[#1d1d1d] outline-none transition-colors duration-150 hover:bg-[#f7f8fa] focus:border-[#d93d00] disabled:cursor-not-allowed disabled:bg-[#f1f3f5] disabled:text-[#626973] ${className}`}
                     onBlur={() => setOpen(false)}
                     {...props}
                 >
@@ -241,7 +241,7 @@ const Dropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(function Dro
     const panel = usePanelAppearance();
     if (!panel && !props.options) {
         const { label, custom, chevronClassName, options, className = "", ...nativeProps } = props;
-        return <select {...nativeProps} ref={ref} className={`min-h-11 w-full cursor-pointer rounded-lg border border-[#e2e5e9] bg-white px-3 py-2.5 text-sm text-[#1d1d1d] outline-none transition-colors hover:bg-[#f7f8fa] focus:border-[#d93d00] focus:ring-1 focus:ring-[#d93d00] disabled:cursor-not-allowed disabled:bg-[#f1f3f5] disabled:text-[#626973] ${className}`} />;
+        return <select {...nativeProps} ref={ref} className={`min-h-11 w-full cursor-pointer rounded-lg border border-[#e2e5e9] bg-white px-3 py-2.5 text-sm text-[#1d1d1d] outline-none transition-colors hover:bg-[#f7f8fa] focus:border-[#d93d00] disabled:cursor-not-allowed disabled:bg-[#f1f3f5] disabled:text-[#626973] ${className}`} />;
     }
     const options = props.options ?? React.Children.toArray(props.children).flatMap(child => {
         if (!React.isValidElement<React.ComponentProps<"option">>(child) || child.type !== "option") return [];
@@ -272,7 +272,7 @@ const PanelDropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(functio
             return () => { cancelAnimationFrame(frame); cancelAnimationFrame(secondFrame); };
         }
         setActive(false);
-        const timer = window.setTimeout(() => setMounted(false), 160);
+        const timer = window.setTimeout(() => setMounted(false), 200);
         return () => window.clearTimeout(timer);
     }, [open]);
     const [position, setPosition] = React.useState<React.CSSProperties>({});
@@ -320,10 +320,10 @@ const PanelDropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(functio
             selectRef.current.dispatchEvent(new Event("change", { bubbles: true }));
         }
         setOpen(false);
-        triggerRef.current?.focus();
+        window.setTimeout(() => triggerRef.current?.focus(), 160);
     };
 
-    return <div data-ui="field" className="panel-dropdown-field min-w-0">
+    return <div data-ui="field" className="panel-dropdown-field flex min-w-0 flex-col gap-1.5">
         {label && <label data-ui="field-label" htmlFor={`${id}-trigger`} className="block text-xs font-medium leading-[18px] text-[#1d1d1d]">{label}</label>}
         <select {...props} ref={selectRef} className="sr-only" tabIndex={-1} aria-hidden="true"
             onChange={event => { setUncontrolledValue(event.target.value); props.onChange?.(event); }}
@@ -334,7 +334,7 @@ const PanelDropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(functio
             aria-haspopup="listbox" aria-expanded={open} aria-controls={open ? `${id}-list` : undefined}
             aria-label={props["aria-label"] || label} aria-labelledby={props["aria-labelledby"]}
             aria-invalid={props["aria-invalid"]} disabled={props.disabled}
-            className={`flex h-11 w-full cursor-pointer items-center justify-between gap-3 rounded-lg border border-[#e2e5e9] bg-white px-3 py-2.5 text-left text-sm font-normal text-[#1d1d1d] outline-none transition-colors hover:bg-[#f7f8fa] focus:border-[#d93d00] focus:ring-1 focus:ring-[#d93d00] disabled:cursor-not-allowed disabled:bg-[#f1f3f5] disabled:text-[#626973] ${className}`}
+            className={`flex h-11 w-full cursor-pointer items-center justify-between gap-3 rounded-lg border border-[#e2e5e9] bg-white px-3 py-2.5 text-left text-sm font-normal text-[#1d1d1d] outline-none transition-colors hover:bg-[#f7f8fa] focus:border-[#d93d00] disabled:cursor-not-allowed disabled:bg-[#f1f3f5] disabled:text-[#626973] ${className}`}
             onClick={() => setOpen(prev => !prev)} onBlur={closeOnBlur}
             onKeyDown={event => {
                 if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
@@ -345,7 +345,7 @@ const PanelDropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(functio
             <span className="min-w-0 truncate">{selected?.label ?? "Selecione"}</span>
             <FontAwesomeIcon icon={faChevronDown} className={`h-3.5 w-3.5 shrink-0 text-[#626973] transition-transform duration-150 ${open ? "rotate-180" : ""} ${chevronClassName || ""}`} />
         </button>
-        {mounted && createPortal(<div className={`panel-essencial panel-dropdown-portal z-[1000] overflow-y-auto overscroll-contain rounded-lg border border-[#e2e5e9] bg-white p-[5px] shadow-[0_6px_20px_#1d1d1d12] transition-[opacity,transform] duration-150 origin-top ${active ? "translate-y-0 scale-100 opacity-100" : "pointer-events-none -translate-y-1 scale-[0.98] opacity-0"}`} style={position}
+        {mounted && createPortal(<div className={`panel-essencial panel-dropdown-portal z-[1000] origin-top overflow-y-auto overscroll-contain rounded-lg border border-[#e2e5e9] bg-white p-[5px] shadow-[0_6px_20px_#1d1d1d12] transition-[opacity,transform] duration-[160ms] ease-out ${active ? "translate-y-0 scale-100 opacity-100" : "pointer-events-none -translate-y-1 scale-[0.98] opacity-0"}`} style={position}
             data-state={active ? "open" : "closed"} aria-hidden={!open} inert={!open}
             ref={menuRef} id={`${id}-list`} role="listbox" aria-label={props["aria-label"] || label}
             data-ui="dropdown-menu" onBlur={closeOnBlur}>
