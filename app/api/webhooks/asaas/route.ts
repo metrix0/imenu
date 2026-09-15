@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { query } from "@/lib/database/sql";
 import { resolveAsaasSubscriptionId } from "@/lib/qr-table/asaasSubscription";
 import type { QrTableAddon } from "@/lib/qr-table/types";
-import { asaasRequest } from "@/lib/services/asaas";
+import { asaasRequest } from "@/lib/qr-table/asaas";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
