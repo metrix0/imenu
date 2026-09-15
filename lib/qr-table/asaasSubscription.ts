@@ -1,5 +1,5 @@
 import type { QrTableAddon } from "@/lib/qr-table/types";
-import { asaasRequest } from "@/lib/services/asaas";
+import { asaasRequest } from "@/lib/qr-table/asaas";
 
 type AsaasSubscription = {
     id?: string;
