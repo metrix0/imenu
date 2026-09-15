@@ -466,9 +466,9 @@ export default function ComplementosTab({
                                     onClick={() => setGroupToDelete(group)}
                                     title="Excluir grupo"
                                     aria-label={`Excluir ${group.name}`}
-                                    className="flex h-11 w-11 cursor-pointer items-center justify-center text-gray-400 transition-all hover:text-red-600 md:h-9 md:w-9 2xl:text-2xl"
+                                    className="flex h-11 w-11 cursor-pointer items-center justify-center text-gray-400 transition-all hover:text-red-600 md:h-9 md:w-9"
                                 >
-                                    <FontAwesomeIcon icon={faTrash} />
+                                    <FontAwesomeIcon icon={faTrash} className="h-4 w-4" />
                                 </button>
                             </div>
                         </div>
