@@ -156,42 +156,32 @@ async function savePayment(
 }
 
 async function activateAddon(
-    addon: QrTableAddon,
+    addonId: string,
     payment?: AsaasPayment | null,
     subscriptionId?: string | null
 ): Promise<void> {
-    const paymentSubscriptionId = subscriptionId || payment?.subscription || "";
-    const isOneTime =
-        payment?.billingType === "PIX" ||
-        (!paymentSubscriptionId && !addon.asaas_subscription_id);
-    const effectiveSubscriptionId = isOneTime
-        ? ""
-        : paymentSubscriptionId || addon.asaas_subscription_id || "";
-    const status = effectiveSubscriptionId ? "active" : "canceled";
-
     await query(
         `
             UPDATE public.restaurant_addons
             SET
-                status = $1,
-                asaas_subscription_id = NULLIF($2, ''),
+                status = 'active',
+                asaas_subscription_id = COALESCE(
+                    NULLIF($1, ''),
+                    asaas_subscription_id
+                ),
                 current_period_ends_at = GREATEST(
                     COALESCE(current_period_ends_at, NOW()),
-                    COALESCE($3::date::timestamptz, NOW()) + INTERVAL '1 month 1 day'
+                    COALESCE($2::date::timestamptz, NOW()) + INTERVAL '1 month'
                 ),
                 activated_at = COALESCE(activated_at, NOW()),
-                canceled_at = CASE
-                    WHEN $1 = 'canceled' THEN COALESCE(canceled_at, NOW())
-                    ELSE NULL
-                END,
+                canceled_at = NULL,
                 updated_at = NOW()
-            WHERE id = $4
+            WHERE id = $3
         `,
         [
-            status,
-            effectiveSubscriptionId,
+            subscriptionId || payment?.subscription || "",
             payment?.dueDate || null,
-            addon.id,
+            addonId,
         ]
     );
 }
@@ -221,7 +211,7 @@ async function processEvent(payload: AsaasWebhook): Promise<void> {
         }
 
         let subscriptionId = payment?.subscription || null;
-        if (!subscriptionId && payment?.billingType !== "PIX") {
+        if (!subscriptionId) {
             try {
                 subscriptionId = await resolveAsaasSubscriptionId(addon, {
                     customerId: payload.checkout?.customer || null,
@@ -236,7 +226,7 @@ async function processEvent(payload: AsaasWebhook): Promise<void> {
             }
         }
 
-        await activateAddon(addon, payment, subscriptionId);
+        await activateAddon(addon.id, payment, subscriptionId);
         if (payment) await savePayment(addon.id, payment, event);
         return;
     }
@@ -265,7 +255,7 @@ async function processEvent(payload: AsaasWebhook): Promise<void> {
     await savePayment(addon.id, payment, event);
 
     if (event === "PAYMENT_CONFIRMED" || event === "PAYMENT_RECEIVED") {
-        await activateAddon(addon, payment);
+        await activateAddon(addon.id, payment);
         return;
     }
 
