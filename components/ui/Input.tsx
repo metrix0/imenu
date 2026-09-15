@@ -113,7 +113,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
                 onKeyDown={handleKeyDown} onInput={handleInput}
                 {...(isControlled ? { value } : { defaultValue })}
                 className={panel
-                    ? `min-h-11 !rounded-[8px] border-[#e2e5e9] bg-white !py-[11px] text-sm leading-5 text-[#1d1d1d] outline-none shadow-none transition-colors ${type === "date" ? "focus-visible:!outline-none" : ""} ${className}`
+                    ? `min-h-11 !rounded-[8px] border-[#e2e5e9] bg-white !py-[11px] text-sm leading-5 text-[#1d1d1d] outline-none shadow-none transition-[border-color,background-color,color] ${type === "date" ? "focus-visible:!outline-none" : ""} ${className}`
                     : className} />;
         }
 
@@ -124,7 +124,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
             ? "text-xs font-medium leading-[18px] text-[#1d1d1d]"
             : "text-sm font-medium md:text-xs 2xl:text-base";
         const inputClassName = panel
-            ? `min-h-11 w-full rounded-[8px] border border-[#e2e5e9] px-3 py-[11px] text-sm leading-5 text-[#1d1d1d] outline-none shadow-none transition-colors placeholder:text-[#818994] disabled:cursor-not-allowed disabled:bg-[#f1f3f5] disabled:text-[#626973] aria-[invalid=true]:border-[#be2626]
+            ? `min-h-11 w-full rounded-[8px] border border-[#e2e5e9] px-3 py-[11px] text-sm leading-5 text-[#1d1d1d] outline-none shadow-none transition-[border-color,background-color,color] placeholder:text-[#818994] disabled:cursor-not-allowed disabled:bg-[#f1f3f5] disabled:text-[#626973] aria-[invalid=true]:border-[#be2626]
                 ${withIcon ? isLeft ? "pl-10" : "pr-10" : ""}
                 ${className}
                 ${locked ? "cursor-not-allowed bg-[#f1f3f5] text-[#626973]" : "bg-white"}`

@@ -260,36 +260,21 @@ const PanelDropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(functio
     const selectRef = React.useRef<HTMLSelectElement>(null);
     const triggerRef = React.useRef<HTMLButtonElement>(null);
     const menuRef = React.useRef<HTMLDivElement>(null);
-    const restoreFocusRef = React.useRef(false);
     const [open, setOpen] = React.useState(false);
     const [uncontrolledValue, setUncontrolledValue] = React.useState(props.defaultValue ?? options[0]?.value ?? "");
     const [mounted, setMounted] = React.useState(false);
     const [active, setActive] = React.useState(false);
-
-    const closeMenu = React.useCallback((restoreFocus = false) => {
-        restoreFocusRef.current = restoreFocusRef.current || restoreFocus;
-        setActive(false);
-        setOpen(false);
-    }, []);
-
     React.useEffect(() => {
         if (open) {
-            restoreFocusRef.current = false;
             setMounted(true);
             let secondFrame = 0;
             const frame = requestAnimationFrame(() => { secondFrame = requestAnimationFrame(() => setActive(true)); });
             return () => { cancelAnimationFrame(frame); cancelAnimationFrame(secondFrame); };
         }
-
         setActive(false);
-        const timer = window.setTimeout(() => {
-            setMounted(false);
-            if (restoreFocusRef.current) triggerRef.current?.focus();
-            restoreFocusRef.current = false;
-        }, 170);
+        const timer = window.setTimeout(() => setMounted(false), 160);
         return () => window.clearTimeout(timer);
     }, [open]);
-
     const [position, setPosition] = React.useState<React.CSSProperties>({});
     const value = props.value ?? uncontrolledValue;
     const selected = options.find(option => String(option.value) === String(value));
@@ -313,7 +298,7 @@ const PanelDropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(functio
                 maxHeight: Math.max(44, Math.min(264, upwards ? above : below)) });
         };
         const closeOutside = (event: PointerEvent) => {
-            if (!triggerRef.current?.contains(event.target as Node) && !menuRef.current?.contains(event.target as Node)) closeMenu();
+            if (!triggerRef.current?.contains(event.target as Node) && !menuRef.current?.contains(event.target as Node)) setOpen(false);
         };
         updatePosition();
         window.addEventListener("resize", updatePosition);
@@ -324,17 +309,18 @@ const PanelDropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(functio
             window.removeEventListener("scroll", updatePosition, true);
             document.removeEventListener("pointerdown", closeOutside);
         };
-    }, [closeMenu, open, options.length]);
+    }, [open, options.length]);
 
     const closeOnBlur = (event: React.FocusEvent<HTMLElement>) => {
-        if (!triggerRef.current?.contains(event.relatedTarget as Node) && !menuRef.current?.contains(event.relatedTarget as Node)) closeMenu();
+        if (!triggerRef.current?.contains(event.relatedTarget as Node) && !menuRef.current?.contains(event.relatedTarget as Node)) setOpen(false);
     };
     const choose = (nextValue: string | number) => {
         if (selectRef.current) {
             selectRef.current.value = String(nextValue);
             selectRef.current.dispatchEvent(new Event("change", { bubbles: true }));
         }
-        closeMenu(true);
+        setOpen(false);
+        triggerRef.current?.focus();
     };
 
     return <div data-ui="field" className="panel-dropdown-field flex min-w-0 flex-col gap-1.5">
@@ -349,12 +335,12 @@ const PanelDropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(functio
             aria-label={props["aria-label"] || label} aria-labelledby={props["aria-labelledby"]}
             aria-invalid={props["aria-invalid"]} disabled={props.disabled}
             className={`flex h-11 w-full cursor-pointer items-center justify-between gap-3 rounded-[8px] border border-[#e2e5e9] bg-white px-3 py-2.5 text-left text-sm font-normal text-[#1d1d1d] outline-none transition-colors hover:bg-[#f7f8fa] disabled:cursor-not-allowed disabled:bg-[#f1f3f5] disabled:text-[#626973] ${className}`}
-            onClick={() => open ? closeMenu() : setOpen(true)} onBlur={closeOnBlur}
+            onClick={() => setOpen(prev => !prev)} onBlur={closeOnBlur}
             onKeyDown={event => {
                 if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
                     event.preventDefault(); setOpen(true);
                     requestAnimationFrame(() => focusOption(event.key === "End" || event.key === "ArrowUp" ? -1 : 0));
-                } else if (event.key === "Escape" && open) { event.stopPropagation(); closeMenu(true); }
+                } else if (event.key === "Escape" && open) { event.stopPropagation(); setOpen(false); }
             }}>
             <span className="min-w-0 truncate">{selected?.label ?? "Selecione"}</span>
             <FontAwesomeIcon icon={faChevronDown} className={`h-3.5 w-3.5 shrink-0 text-[#626973] transition-transform duration-150 ${open ? "rotate-180" : ""} ${chevronClassName || ""}`} />
@@ -375,7 +361,7 @@ const PanelDropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(functio
                     if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
                         event.preventDefault(); focusOption(event.key === "Home" ? 0 : event.key === "End" ? -1 : index + (event.key === "ArrowDown" ? 1 : -1));
                     } else if (event.key === "Escape") {
-                        event.preventDefault(); event.stopPropagation(); closeMenu(true);
+                        event.preventDefault(); event.stopPropagation(); setOpen(false); triggerRef.current?.focus();
                     }
                 }}>
                 <span>{option.label}</span>
