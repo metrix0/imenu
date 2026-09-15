@@ -14,6 +14,7 @@ type AsaasTransferValidationPayload = {
         value?: number;
         operationType?: string;
         externalReference?: string | null;
+        description?: string | null;
         bankAccount?: {
             pixAddressKey?: string | null;
         } | null;
@@ -26,6 +27,10 @@ type PayoutRow = {
     status: string;
     asaas_transfer_id: string | null;
     pix_address_key: string | null;
+};
+
+type PayoutCandidateRow = PayoutRow & {
+    restaurant_name: string;
 };
 
 function validWebhookToken(request: Request): boolean {
@@ -133,27 +138,53 @@ export async function POST(request: Request) {
     let payout = payoutResult.rows[0];
 
     if (!payout) {
-        const webhookPixKey = normalizePixKey(transfer.bankAccount?.pixAddressKey);
-        if (webhookPixKey) {
-            const candidates = await query<PayoutRow>(
-                `
-                    SELECT id, amount_cents, status, asaas_transfer_id, pix_address_key
-                    FROM public.payouts
-                    WHERE status = 'processing'
-                      AND asaas_transfer_id IS NULL
-                      AND amount_cents = $1
-                      AND created_at >= NOW() - INTERVAL '10 minutes'
-                    ORDER BY created_at DESC
-                    LIMIT 10
-                `,
-                [transferCents]
+        const candidates = await query<PayoutCandidateRow>(
+            `
+                SELECT
+                    p.id,
+                    p.amount_cents,
+                    p.status,
+                    p.asaas_transfer_id,
+                    p.pix_address_key,
+                    r.name AS restaurant_name
+                FROM public.payouts p
+                JOIN public.restaurants r ON r.id = p.restaurant_id
+                WHERE p.status = 'processing'
+                  AND p.asaas_transfer_id IS NULL
+                  AND p.amount_cents = $1
+                  AND p.created_at >= NOW() - INTERVAL '10 minutes'
+                ORDER BY p.created_at DESC
+                LIMIT 10
+            `,
+            [transferCents]
+        );
+
+        const description = String(transfer.description || "").trim();
+        let matching: PayoutCandidateRow[] = [];
+
+        if (description) {
+            matching = candidates.rows.filter(
+                (row) =>
+                    `Repasse iMenu - ${row.restaurant_name}`.slice(0, 140) ===
+                    description
             );
-            const matching = candidates.rows.filter(
-                (row) => normalizePixKey(row.pix_address_key) === webhookPixKey
-            );
-            if (matching.length === 1) {
-                payout = matching[0];
+        }
+
+        if (matching.length === 0) {
+            const webhookPixKey = normalizePixKey(transfer.bankAccount?.pixAddressKey);
+            if (webhookPixKey) {
+                matching = candidates.rows.filter(
+                    (row) => normalizePixKey(row.pix_address_key) === webhookPixKey
+                );
             }
+        }
+
+        if (matching.length === 0 && candidates.rows.length === 1) {
+            matching = candidates.rows;
+        }
+
+        if (matching.length === 1) {
+            payout = matching[0];
         }
     }
 
