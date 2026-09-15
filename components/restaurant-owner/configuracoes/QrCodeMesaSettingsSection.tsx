@@ -16,10 +16,7 @@ import ConfirmModal from "@/components/ui/ConfirmModal";
 import Loader from "@/components/ui/Loader";
 import Toast from "@/components/ui/Toast";
 import { captureQrTableEvent } from "@/lib/qr-table/analytics";
-import {
-    qrTableAuthenticatedFetch,
-    startQrTableCheckout,
-} from "@/lib/qr-table/clientApi";
+import { qrTableAuthenticatedFetch } from "@/lib/qr-table/clientApi";
 import type { QrTableAddon } from "@/lib/qr-table/types";
 
 type Payment = {
@@ -42,10 +39,15 @@ type BillingPayload = {
 
 const PAYMENT_STATUS: Record<string, string> = {
     CONFIRMED: "Confirmado",
+    COMPLETED: "Confirmado",
     RECEIVED: "Recebido",
     PENDING: "Pendente",
     OVERDUE: "Vencido",
     REFUNDED: "Reembolsado",
+    DENIED: "Negado",
+    FAILED: "Falhou",
+    ABORTED: "Cancelado",
+    VOIDED: "Cancelado",
 };
 
 function formatMoney(cents: number): string {
@@ -64,17 +66,36 @@ function formatDate(value: string | null): string {
     }).format(new Date(value));
 }
 
+function isPayZuPrepaid(addon: QrTableAddon | null): boolean {
+    return Boolean(
+        addon?.payment_provider === "payzu" && !addon.payzu_recurrence_id
+    );
+}
+
 function addonStatus(addon: QrTableAddon | null, active: boolean): string {
+    if (active && isPayZuPrepaid(addon)) {
+        return `Ativo — acesso até ${formatDate(addon?.current_period_ends_at || null)}`;
+    }
     if (addon?.status === "canceled" && active) {
         return `Cancelado — acesso até ${formatDate(
             addon.current_period_ends_at
         )}`;
     }
     if (active) return "Ativo";
+    if (isPayZuPrepaid(addon) && addon?.current_period_ends_at) return "Expirado";
     if (addon?.status === "pending") return "Aguardando pagamento";
     if (addon?.status === "past_due") return "Pagamento pendente";
     if (addon?.status === "canceled") return "Cancelado";
     return "Inativo";
+}
+
+function planLabel(addon: QrTableAddon | null): string {
+    if (addon?.payment_provider === "payzu" && !addon.payzu_recurrence_id) {
+        return addon.payzu_payment_method === "PIX"
+            ? "Pix • R$ 5,00 por período"
+            : "Cartão • R$ 5,00 por período";
+    }
+    return "R$ 5,00/mês no cartão";
 }
 
 export default function QrCodeMesaSettingsSection({
@@ -85,7 +106,6 @@ export default function QrCodeMesaSettingsSection({
     const [billing, setBilling] = useState<BillingPayload | null>(null);
     const [loading, setLoading] = useState(true);
     const [salesOpen, setSalesOpen] = useState(false);
-    const [buying, setBuying] = useState(false);
     const [cancelOpen, setCancelOpen] = useState(false);
     const [canceling, setCanceling] = useState(false);
     const [toast, setToast] = useState<{
@@ -149,26 +169,6 @@ export default function QrCodeMesaSettingsSection({
         });
     };
 
-    const buy = async () => {
-        setBuying(true);
-        void captureQrTableEvent("qr_code_mesa_purchase_started", {
-            restaurant_id: restaurantId,
-            source: "settings",
-        });
-        try {
-            await startQrTableCheckout(restaurantId, "settings");
-        } catch (error) {
-            setBuying(false);
-            setToast({
-                message:
-                    error instanceof Error
-                        ? error.message
-                        : "Não foi possível abrir o pagamento.",
-                type: "error",
-            });
-        }
-    };
-
     const cancelSubscription = async () => {
         setCanceling(true);
         try {
@@ -207,7 +207,10 @@ export default function QrCodeMesaSettingsSection({
 
     const addon = billing?.addon || null;
     const active = billing?.active === true;
-    const canCancel = active && addon?.status !== "canceled";
+    const canCancel =
+        active &&
+        addon?.status !== "canceled" &&
+        !(addon?.payment_provider === "payzu" && !addon.payzu_recurrence_id);
 
     return (
         <>
@@ -222,8 +225,16 @@ export default function QrCodeMesaSettingsSection({
             <QrCodeMesaSalesModal
                 open={salesOpen}
                 onClose={() => setSalesOpen(false)}
-                onBuy={() => void buy()}
-                buying={buying}
+                restaurantId={restaurantId}
+                source="settings"
+                onPaid={async () => {
+                    setSalesOpen(false);
+                    setToast({
+                        message: "Pagamento confirmado. QR Code Mesa ativado!",
+                        type: "success",
+                    });
+                    await loadBilling();
+                }}
                 active={active}
             />
 
@@ -296,7 +307,7 @@ export default function QrCodeMesaSettingsSection({
                             <div>
                                 <p className="text-xs text-gray-500">Plano</p>
                                 <p className="font-semibold text-gray-900">
-                                    R$ 5,00/mês no cartão
+                                    {planLabel(addon)}
                                 </p>
                             </div>
                         </div>

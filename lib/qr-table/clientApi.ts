@@ -30,26 +30,57 @@ export async function qrTableAuthenticatedFetch(
     });
 }
 
+export type QrTableCheckoutPayment =
+    | { method: "pix" }
+    | {
+          method: "credit_card";
+          card: {
+              number: string;
+              holder: string;
+              expiration: string;
+              cvv: string;
+          };
+      };
+
+export type QrTableCheckoutResult = {
+    active: boolean;
+    recurring?: boolean;
+    paymentMethod: "pix" | "credit_card";
+    paymentStatus: string | null;
+    transactionId?: string;
+    qrCodeText?: string | null;
+    qrCodeBase64?: string | null;
+    qrCodeUrl?: string | null;
+    warning?: string;
+};
+
 export async function startQrTableCheckout(
     restaurantId: string,
-    source: QrTableSource
-): Promise<void> {
+    source: QrTableSource,
+    payment?: QrTableCheckoutPayment
+): Promise<QrTableCheckoutResult> {
+    if (!payment) {
+        throw new Error("Escolha uma forma de pagamento.");
+    }
+
     const response = await qrTableAuthenticatedFetch("/api/qr-table/checkout", {
         method: "POST",
-        body: JSON.stringify({ restaurantId, source }),
+        body: JSON.stringify({
+            restaurantId,
+            source,
+            paymentMethod: payment.method,
+            card: payment.method === "credit_card" ? payment.card : undefined,
+        }),
     });
-    const payload = (await response.json()) as {
-        checkoutUrl?: string;
+    const payload = (await response.json()) as QrTableCheckoutResult & {
         error?: string;
     };
 
-    if (!response.ok || !payload.checkoutUrl) {
-        throw new Error(
-            payload.error || "Não foi possível abrir o pagamento."
-        );
+    if (!response.ok) {
+        throw new Error(payload.error || "Não foi possível processar o pagamento.");
     }
 
-    window.location.assign(payload.checkoutUrl);
+    return payload;
 }
 
 export async function updateQrTableDesign(

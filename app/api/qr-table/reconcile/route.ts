@@ -6,7 +6,23 @@ import {
     requireRestaurantOwner,
 } from "@/lib/auth/restaurantOwner";
 import { query } from "@/lib/database/sql";
+import {
+    getPayZuPixCharge,
+    PayZuApiError,
+    type PayZuTransaction,
+} from "@/lib/payzu";
+import {
+    getPayZuCardCharge,
+    PayZuCardApiError,
+} from "@/lib/payzuCard";
 import { AsaasApiError, asaasRequest } from "@/lib/qr-table/asaas";
+import {
+    activatePayZuQrTableCard,
+    activatePayZuQrTablePrepaid,
+    markPayZuQrTablePaymentFailure,
+    payZuCardPaymentStatus,
+    savePayZuQrTablePayment,
+} from "@/lib/qr-table/payzuBilling";
 import type { QrTableAddon } from "@/lib/qr-table/types";
 import { hasQrTableAccess } from "@/lib/qr-table/types";
 
@@ -30,9 +46,13 @@ type PaymentListResponse = {
     data?: AsaasPayment[];
 };
 
+type PayZuPixWithPaidAt = PayZuTransaction & {
+    paidAt?: string | null;
+};
+
 const CONFIRMED_PAYMENT_STATUSES = new Set(["CONFIRMED", "RECEIVED"]);
 
-async function savePayment(
+async function saveLegacyAsaasPayment(
     addonId: string,
     payment: AsaasPayment
 ): Promise<void> {
@@ -90,7 +110,7 @@ async function savePayment(
     );
 }
 
-async function activateAddon(
+async function activateLegacyAsaasAddon(
     addon: QrTableAddon,
     payment: AsaasPayment
 ): Promise<"active" | "canceled"> {
@@ -122,6 +142,142 @@ async function activateAddon(
     );
 
     return status;
+}
+
+async function reconcilePayZu(addon: QrTableAddon) {
+    if (!addon.payzu_payment_id) {
+        return {
+            active: false,
+            activatedNow: false,
+            status: addon.status,
+            paymentStatus: addon.payzu_payment_status,
+        };
+    }
+
+    if (addon.payzu_payment_method === "PIX") {
+        const payment = (await getPayZuPixCharge({
+            id: addon.payzu_payment_id,
+        })) as PayZuPixWithPaidAt | null;
+
+        if (!payment) {
+            return {
+                active: false,
+                activatedNow: false,
+                status: addon.status,
+                paymentStatus: addon.payzu_payment_status,
+            };
+        }
+
+        await savePayZuQrTablePayment({
+            addonId: addon.id,
+            paymentId: payment.id,
+            method: "PIX",
+            status: payment.status || "PENDING",
+            paidAt: payment.paidAt || null,
+        });
+
+        if (payment.status === "COMPLETED") {
+            await activatePayZuQrTablePrepaid({
+                addonId: addon.id,
+                paymentId: payment.id,
+                method: "PIX",
+                status: payment.status,
+                paidAt: payment.paidAt || null,
+            });
+            return {
+                active: true,
+                activatedNow: true,
+                status: "canceled",
+                paymentStatus: payment.status,
+            };
+        }
+
+        if (
+            ["REFUNDED", "CANCELED", "CANCELLED", "EXPIRED", "FAILED"].includes(
+                String(payment.status || "").toUpperCase()
+            )
+        ) {
+            await markPayZuQrTablePaymentFailure({
+                addonId: addon.id,
+                paymentId: payment.id,
+                status: payment.status || "FAILED",
+                expireAccess: ["REFUNDED", "CANCELED", "CANCELLED"].includes(
+                    String(payment.status || "").toUpperCase()
+                ),
+            });
+        }
+
+        return {
+            active: false,
+            activatedNow: false,
+            status: addon.status,
+            paymentStatus: payment.status || null,
+        };
+    }
+
+    const charge = await getPayZuCardCharge(addon.payzu_payment_id);
+    const cardStatus = charge.creditCardPayment?.status;
+    const paymentStatus = payZuCardPaymentStatus(cardStatus);
+    const recurrenceId = String(
+        charge.recurrence?.recurrentPaymentId || addon.payzu_recurrence_id || ""
+    );
+    const chargedAt = charge.updatedAt || charge.createdAt || null;
+
+    await savePayZuQrTablePayment({
+        addonId: addon.id,
+        paymentId: addon.payzu_payment_id,
+        method: "CREDIT_CARD",
+        status: paymentStatus,
+        paidAt: cardStatus === 2 ? chargedAt : null,
+    });
+
+    if (cardStatus === 2) {
+        if (recurrenceId) {
+            await activatePayZuQrTableCard({
+                addonId: addon.id,
+                paymentId: addon.payzu_payment_id,
+                recurrenceId,
+                status: paymentStatus,
+                chargedAt,
+            });
+            return {
+                active: true,
+                activatedNow: true,
+                status: "active",
+                paymentStatus,
+            };
+        }
+
+        await activatePayZuQrTablePrepaid({
+            addonId: addon.id,
+            paymentId: addon.payzu_payment_id,
+            method: "CREDIT_CARD",
+            status: paymentStatus,
+            paidAt: chargedAt,
+        });
+        return {
+            active: true,
+            activatedNow: true,
+            status: "canceled",
+            paymentStatus,
+        };
+    }
+
+    if ([3, 10, 11, 13].includes(Number(cardStatus))) {
+        await markPayZuQrTablePaymentFailure({
+            addonId: addon.id,
+            paymentId: addon.payzu_payment_id,
+            status: paymentStatus,
+            expireAccess: cardStatus === 10 || cardStatus === 11,
+        });
+    }
+
+    return {
+        active: false,
+        activatedNow: false,
+        status: addon.status,
+        paymentStatus,
+    };
 }
 
 export async function POST(request: Request) {
@@ -183,10 +339,17 @@ export async function POST(request: Request) {
                     active: true,
                     activatedNow: false,
                     status: addon.status,
-                    paymentStatus: null,
+                    paymentStatus:
+                        addon.payzu_payment_status || null,
                 },
                 { headers: { "Cache-Control": "no-store" } }
             );
+        }
+
+        if (addon.payment_provider === "payzu") {
+            return NextResponse.json(await reconcilePayZu(addon), {
+                headers: { "Cache-Control": "no-store" },
+            });
         }
 
         if (!addon.asaas_checkout_id) {
@@ -215,7 +378,7 @@ export async function POST(request: Request) {
         const observedPayment = confirmedPayment || payments[0] || null;
 
         if (observedPayment) {
-            await savePayment(addon.id, observedPayment);
+            await saveLegacyAsaasPayment(addon.id, observedPayment);
         }
 
         if (!confirmedPayment) {
@@ -230,7 +393,10 @@ export async function POST(request: Request) {
             );
         }
 
-        const activatedStatus = await activateAddon(addon, confirmedPayment);
+        const activatedStatus = await activateLegacyAsaasAddon(
+            addon,
+            confirmedPayment
+        );
 
         return NextResponse.json(
             {
@@ -242,11 +408,13 @@ export async function POST(request: Request) {
             { headers: { "Cache-Control": "no-store" } }
         );
     } catch (error) {
-        console.error("[QR_TABLE_RECONCILE] Falha ao reconciliar checkout:", error);
+        console.error("[QR_TABLE_RECONCILE] Falha ao reconciliar pagamento:", error);
 
         if (
             error instanceof RestaurantOwnerAuthError ||
-            error instanceof AsaasApiError
+            error instanceof AsaasApiError ||
+            error instanceof PayZuApiError ||
+            error instanceof PayZuCardApiError
         ) {
             return NextResponse.json(
                 { error: error.message },
