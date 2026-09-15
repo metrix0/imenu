@@ -412,15 +412,6 @@ export default function ComplementosTab({
                                     <h4 className="text-lg font-bold text-gray-900">
                                         {group.name}
                                     </h4>
-                                    <button
-                                        type="button"
-                                        onClick={() => setGroupToDelete(group)}
-                                        title="Excluir grupo"
-                                        aria-label={`Excluir ${group.name}`}
-                                        className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center text-gray-400 transition-all hover:text-red-600 2xl:text-xl"
-                                    >
-                                        <FontAwesomeIcon icon={faTrash} />
-                                    </button>
                                     {productsCount > 1 && (
                                         <span className="rounded-full bg-brand/10 px-2 py-0.5 text-xs font-semibold text-brand 2xl:text-sm">
                                             {productsCount} produtos
@@ -470,6 +461,15 @@ export default function ComplementosTab({
                                     />
                                     Editar
                                 </Button>
+                                <button
+                                    type="button"
+                                    onClick={() => setGroupToDelete(group)}
+                                    title="Excluir grupo"
+                                    aria-label={`Excluir ${group.name}`}
+                                    className="cursor-pointer w-8 h-8 2xl:text-2xl flex items-center justify-center text-gray-400 hover:text-red-600 transition-all"
+                                >
+                                    <FontAwesomeIcon icon={faTrash} />
+                                </button>
                             </div>
                         </div>
                     );
