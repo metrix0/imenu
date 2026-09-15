@@ -6,7 +6,7 @@ export default function Card({ className = "", ...props }: CardProps) {
     return (
         <div
             data-ui="card"
-            className={`bg-white rounded-lg shadow-md p-5 2xl:p-8 2xl:pt-6  ${className}`}
+            className={`rounded-[10px] border border-[#e2e5e9] bg-white p-5 shadow-none ${className}`}
             {...props}
         />
     );

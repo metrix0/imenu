@@ -2,8 +2,6 @@
 
 import { ReactNode, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
-import { icons } from "@/lib/utils/fontawesome";
 import { usePanelAppearance } from "./PanelAppearance";
 import ModalCloseButton from "./ModalCloseButton";
 
@@ -121,12 +119,12 @@ export default function Modal({
     if (!mounted) return null;
 
     return createPortal(
-        <div className={`${panel ? "panel-essencial panel-modal" : ""} fixed inset-0 z-50 isolate flex min-h-[100dvh] w-full items-center justify-center overflow-y-auto p-3 sm:p-6 2xl:p-8`}>
+        <div className={`${panel ? "panel-essencial panel-modal" : ""} fixed inset-0 z-50 isolate flex min-h-[100dvh] w-full items-center justify-center overflow-y-auto p-3 sm:p-6`}>
             <button
                 type="button"
                 aria-label="Fechar modal pelo fundo"
                 onClick={onClose}
-                className={`fixed inset-0 min-h-[100dvh] bg-black/40 backdrop-blur-sm transition-opacity duration-200 ${
+                className={`fixed inset-0 min-h-[100dvh] bg-[#1d1d1d]/40 backdrop-blur-[3px] transition-opacity duration-200 ${
                     active ? "opacity-100" : "opacity-0"
                 }`}
             />
@@ -138,26 +136,13 @@ export default function Modal({
                 onClick={(event: { stopPropagation(): void }) =>
                     event.stopPropagation()
                 }
-                className={`relative flex max-h-[92dvh] w-full max-w-2xl flex-col overflow-y-auto rounded-xl bg-white shadow-2xl transition-all duration-200 sm:max-h-[90dvh] sm:rounded-2xl 2xl:max-h-[88dvh] ${
+                className={`relative flex max-h-[calc(100dvh-24px)] w-full max-w-2xl flex-col overflow-y-auto rounded-[10px] border border-[#e2e5e9] bg-white shadow-[0_20px_60px_#1d1d1d26] transition-all duration-200 sm:max-h-[calc(100dvh-48px)] ${
                     active
                         ? "translate-y-0 scale-100 opacity-100"
                         : "translate-y-3 scale-95 opacity-0"
                 } ${className}`}
             >
-                {panel && <ModalCloseButton onClose={onClose} />}
-                {!panel && showCloseButton && (
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        aria-label="Fechar"
-                        className="sticky top-3 z-30 -mb-12 ml-auto mr-3 mt-3 flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center text-gray-400 hover:text-gray-600"
-                    >
-                        <FontAwesomeIcon
-                            icon={icons.faTimes}
-                            className="text-xl"
-                        />
-                    </button>
-                )}
+                {(panel || showCloseButton) && <ModalCloseButton onClose={onClose} />}
                 {panel ? <div className="panel-modal-body">{children}</div> : children}
             </div>
         </div>,

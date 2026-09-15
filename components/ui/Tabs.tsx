@@ -47,17 +47,17 @@ export default function Tabs<T extends string>({
             <div
                 ref={scrollRef}
                 data-ui="tabs"
-                className={`flex gap-2 border-b border-gray-200 overflow-x-auto whitespace-nowrap ${className}`}
+                className={`flex gap-5 overflow-x-auto whitespace-nowrap border-b border-[#e2e5e9] ${className}`}
             >
                 {tabs.map((tab) => (
                     <button
                         data-tab={tab}
                         key={tab}
                         onClick={() => onChange(tab)}
-                        className={`shrink-0 px-4 py-2 2xl:py-3 2xl:px-5 font-medium border-b-2 transition-all cursor-pointer 2xl:text-[1.18rem] ${childClassName} ${
+                        className={`shrink-0 cursor-pointer border-b-2 px-0 py-3 text-sm font-medium transition-colors ${childClassName} ${
                             active === tab
-                                ? "border-brand text-brand"
-                                : "border-transparent text-gray-600 hover:text-gray-800"
+                                ? "border-[#d93d00] text-[#c43700]"
+                                : "border-transparent text-[#626973] hover:text-[#1d1d1d]"
                         }`}
                     >
                         {tab}

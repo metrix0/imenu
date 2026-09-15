@@ -10,7 +10,7 @@ export default function WarningBox({ icon, children, className = "", ...props }:
     return (
         <div
             data-ui="warning"
-            className={`p-4 bg-warning-bg text-warning flex gap-4 rounded-2xl  items-center ${className}`}
+            className={`flex items-center gap-2.5 rounded-lg bg-warning-bg p-3.5 text-[13px] text-warning ${className}`}
             {...props}
         >
             <FontAwesomeIcon icon={icon} className="text-lg" />

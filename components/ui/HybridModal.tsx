@@ -161,10 +161,10 @@ export default function DraggableModal({
                     </Modal>
             :
         <div
-            className={`fixed inset-0 ${height <= 0.3 ? "z-[70]" : "z-[51]"} transition-opacity duration-300 ${
+            className={`fixed inset-0 ${height <= 0.3 ? "z-[70]" : "z-[51]"} bg-[#1d1d1d]/40 backdrop-blur-[3px] transition-opacity duration-300 ${
                 open ? "opacity-100" : "opacity-0 pointer-events-none"
             }`}
-            style={{ background: "rgba(0,0,0,0.35)", overscrollBehavior: "none" }}
+            style={{ overscrollBehavior: "none" }}
             onClick={backdropClose}
         >
             <div
@@ -172,7 +172,7 @@ export default function DraggableModal({
                 data-ui="sheet"
                 onClick={(e) => e.stopPropagation()}
                 onTouchStart={onPanelTouchStart}
-                className={`fixed left-0 right-0 mx-auto bg-white rounded-t-xl overflow-hidden ${props.className ?? ""}`}
+                className={`fixed left-0 right-0 mx-auto overflow-hidden rounded-t-[10px] border border-[#e2e5e9] bg-white ${props.className ?? ""}`}
                 style={{
                     height: `${height * 100}dvh`,
                     bottom: 0,

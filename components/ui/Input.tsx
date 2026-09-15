@@ -114,9 +114,9 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
         }
 
         return (
-            <div data-ui="field" className="flex flex-col gap-1 2xl:gap-2">
+            <div data-ui="field" className="flex min-w-0 flex-col gap-1.5">
                 {label && (
-                    <label data-ui="field-label" htmlFor={inputId} className="text-sm font-medium md:text-xs 2xl:text-base">
+                    <label data-ui="field-label" htmlFor={inputId} className="text-xs font-medium leading-[18px] text-[#1d1d1d]">
                         {label}
                     </label>
                 )}
@@ -148,8 +148,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
                         {...(isControlled
                             ? { value }
                             : { defaultValue })}
-                        className={`w-full border border-gray-300 rounded-md px-3 py-3
-                            focus:ring-brand focus:border-brand 2xl:text-lg
+                        className={`min-h-11 w-full rounded-lg border border-[#e2e5e9] px-3 py-[11px] text-sm leading-5 text-[#1d1d1d] outline-none shadow-none transition-colors placeholder:text-[#818994] focus:border-[#d93d00] focus:ring-1 focus:ring-[#d93d00] disabled:cursor-not-allowed disabled:bg-[#f1f3f5] disabled:text-[#626973] aria-[invalid=true]:border-[#be2626]
                             ${
                                 withIcon
                                     ? isLeft
@@ -160,7 +159,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
                             ${className}
                             ${
                                 locked
-                                    ? "bg-gray-100 cursor-not-allowed text-gray-500"
+                                    ? "cursor-not-allowed bg-[#f1f3f5] text-[#626973]"
                                     : "bg-white"
                             }
                         `}

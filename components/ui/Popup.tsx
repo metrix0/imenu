@@ -28,8 +28,8 @@ export default function Popup({ trigger, open, onClose, children }: PopupProps) 
 
             {/* Popup itself */}
             {visible && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div data-ui="popup" className="bg-white rounded-2xl shadow-lg p-4 sm:p-6 w-full max-w-[20rem] max-h-[90dvh] overflow-y-auto text-center">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#1d1d1d]/40 p-4 backdrop-blur-[3px]">
+                    <div data-ui="popup" className="max-h-[calc(100dvh-32px)] w-full max-w-[20rem] overflow-y-auto rounded-[10px] border border-[#e2e5e9] bg-white p-4 text-center shadow-[0_20px_60px_#1d1d1d26] sm:p-6">
                         {children || (
                             <>
                                 <h2 className="text-xl font-semibold mb-4">Popup</h2>

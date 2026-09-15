@@ -43,10 +43,6 @@ const LOGOS = [
     },
 ];
 
-const LANDING_BUTTON_BASE =
-    "!min-h-10 !rounded-lg !border !border-[#e2e5e9] !px-[14px] !py-[9px] !text-[13px] !leading-5 !font-medium !shadow-none";
-const LANDING_PRIMARY_BUTTON = `${LANDING_BUTTON_BASE} !border-[#d93d00] !bg-[#d93d00] !text-white hover:!border-[#c43700] hover:!bg-[#c43700] focus:!ring-[#d93d00]`;
-const LANDING_SECONDARY_BUTTON = `${LANDING_BUTTON_BASE} !bg-white !text-[#1d1d1d] hover:!bg-[#f1f3f5] focus:!ring-[#d93d00]`;
 const LANDING_HERO_PRIMARY_BUTTON =
     "!min-h-12 !rounded-lg !border !border-[#d93d00] !bg-[#d93d00] !px-6 !py-[13px] !text-base !leading-5 !font-medium !whitespace-nowrap !text-white !shadow-none hover:!border-[#c43700] hover:!bg-[#c43700] focus:!ring-[#d93d00]";
 const LANDING_HERO_SECONDARY_BUTTON =
@@ -254,7 +250,6 @@ export default function LandingPage() {
                             <Button
                                 variant="secondary"
                                 onClick={handlePanelLogin}
-                                className={LANDING_SECONDARY_BUTTON}
                             >
                                 Entrar no Painel
                             </Button>
@@ -267,7 +262,6 @@ export default function LandingPage() {
                         </div>
 
                         <Button
-                            className={LANDING_PRIMARY_BUTTON}
                             onClick={() => router.push("/restaurante/registrar")}
                         >
                             Registrar Grátis
@@ -459,7 +453,7 @@ export default function LandingPage() {
                                             "https://www.imenuapp.com.br/pizzaria-la-grucia"
                                         )
                                     }
-                                    className={`${LANDING_SECONDARY_BUTTON} gap-2`}
+                                    className="gap-2"
                                 >
                                     <FontAwesomeIcon icon={faBurger} />
                                     Ver Exemplo
@@ -468,7 +462,7 @@ export default function LandingPage() {
                                     onClick={() =>
                                         router.push("/restaurante/registrar")
                                     }
-                                    className={`mb-3 ${LANDING_PRIMARY_BUTTON}`}
+                                    className="mb-3"
                                 >
                                     Registrar Grátis
                                 </Button>

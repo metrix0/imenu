@@ -14,20 +14,22 @@ export default function Button({
                                    ...props
                                }: ButtonProps) {
     const base =
-        "cursor-pointer duration-200 inline-flex items-center justify-center rounded-md font-medium transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 px-4 py-2 2xl:px-6 2xl:py-3 2xl:rounded-lg";
+        "inline-flex min-h-10 cursor-pointer items-center justify-center rounded-lg border border-[#e2e5e9] px-[14px] py-[9px] text-[13px] font-medium leading-5 shadow-none transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#d93d00] focus-visible:ring-offset-2 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-[0.48]";
+    const hasContextualSecondaryBackground =
+        variant === "secondary" &&
+        className.split(/\s+/).some((token) => /^!?bg-(?!transparent$)/.test(token));
     const variants: Record<NonNullable<ButtonProps["variant"]>, string> = {
-        primary: "bg-brand hover:bg-brand/90 text-white focus:ring-brand",
-        secondary:
-            "bg-gray-100 hover:bg-gray-200 text-gray-800 focus:ring-gray-300",
+        primary: "border-[#d93d00] bg-[#d93d00] text-white hover:border-[#c43700] hover:bg-[#c43700]",
+        secondary: hasContextualSecondaryBackground
+            ? ""
+            : "bg-white text-[#1d1d1d] hover:bg-[#f1f3f5]",
     };
 
     return (
         <button
             data-ui="button"
             data-variant={variant}
-            className={`2xl:text-lg  ${base} ${variants[variant]} ${className}
-            ${loading ? "cursor-not-allowed pointer-events-none" : "pointer-events-auto"}
-            `}
+            className={`${base} ${variants[variant]} ${className} ${loading ? "pointer-events-none cursor-not-allowed" : "pointer-events-auto"}`}
             disabled={loading || props.disabled}
             {...props}
         >

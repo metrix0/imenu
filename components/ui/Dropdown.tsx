@@ -81,13 +81,13 @@ const LegacyDropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(functi
         };
 
         return (
-            <div ref={rootRef} className={`flex flex-col gap-1 2xl:gap-2 ${custom ? "min-w-0" : ""}`}
+            <div ref={rootRef} data-ui="field" className={`flex flex-col gap-1.5 ${custom ? "min-w-0" : ""}`}
                 onBlur={custom ? (event) => {
                     if (!event.currentTarget.contains(event.relatedTarget as Node)) setOpen(false);
                 } : undefined}
             >
                 {label && (
-                    <label className="text-xs font-medium 2xl:text-base">
+                    <label data-ui="field-label" className="text-xs font-medium leading-[18px] text-[#1d1d1d]">
                         {label}
                     </label>
                 )}
@@ -124,20 +124,20 @@ const LegacyDropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(functi
                             } else if (event.key === "Escape") setOpen(false);
                         } : undefined}
                         onClick={() => setOpen((prev) => !prev)}
-                        className={`flex w-full cursor-pointer items-center justify-between rounded-xl border border-gray-300 bg-white px-4 py-3 text-left text-sm font-medium text-gray-900 outline-none transition hover:border-gray-400 focus:border-brand 2xl:px-5 2xl:py-4 2xl:text-lg ${custom ? className : ""}`}
+                        className={`flex min-h-11 w-full cursor-pointer items-center justify-between rounded-lg border border-[#e2e5e9] bg-white px-3 py-2.5 text-left text-sm font-normal text-[#1d1d1d] outline-none transition-colors hover:bg-[#f7f8fa] focus:border-[#d93d00] focus:ring-1 focus:ring-[#d93d00] disabled:cursor-not-allowed disabled:bg-[#f1f3f5] disabled:text-[#626973] ${custom ? className : ""}`}
                     >
                         <span
                             className={`truncate ${
                                 selectedValue === ""
-                                    ? "text-gray-400"
-                                    : "text-gray-900"
+                                    ? "text-[#818994]"
+                                    : "text-[#1d1d1d]"
                             }`}
                         >
                             {selectedOption?.label || (custom ? "Selecione" : "Selecione sua mesa")}
                         </span>
                         <FontAwesomeIcon
                             icon={faChevronDown}
-                            className={`ml-3 shrink-0 text-xs text-brand transition-transform duration-200 ${
+                            className={`ml-3 shrink-0 text-xs text-[#626973] transition-transform duration-150 ${
                                 open ? "rotate-180" : ""
                             }`}
                         />
@@ -151,9 +151,9 @@ const LegacyDropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(functi
                         aria-hidden={custom ? !open : undefined}
                         inert={custom ? !open : undefined}
                         data-ui="dropdown-menu"
-                        className={`absolute left-0 right-0 top-full z-[110] mt-2 origin-top overflow-hidden rounded-xl border bg-white shadow-lg transition-all duration-200 ease-out ${
+                        className={`absolute left-0 right-0 top-full z-[110] mt-1.5 origin-top overflow-hidden rounded-lg border bg-white shadow-[0_6px_20px_#1d1d1d12] transition-all duration-150 ease-out ${
                             open
-                                ? "max-h-64 translate-y-0 scale-y-100 border-gray-200 opacity-100"
+                                ? "max-h-64 translate-y-0 scale-y-100 border-[#e2e5e9] opacity-100"
                                 : "pointer-events-none max-h-0 -translate-y-1 scale-y-95 border-transparent opacity-0"
                         }`}
                     >
@@ -180,19 +180,19 @@ const LegacyDropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(functi
                                             }
                                         } : undefined}
                                         onClick={() => handleSelect(option.value)}
-                                        className={`flex w-full cursor-pointer items-center justify-between gap-3 rounded-lg px-3.5 py-2.5 text-left text-sm font-medium transition 2xl:text-base ${
+                                        className={`flex min-h-10 w-full cursor-pointer items-center justify-between gap-3 rounded-[5px] px-2.5 py-[9px] text-left text-sm font-normal transition-colors ${
                                             selected && !placeholder
-                                                ? "bg-brand/5 text-brand"
+                                                ? "bg-[#fff1ea] text-[#c43700]"
                                                 : placeholder
-                                                  ? "text-gray-400 hover:bg-gray-50"
-                                                  : "text-gray-700 hover:bg-gray-50"
+                                                  ? "text-[#818994] hover:bg-[#f1f3f5]"
+                                                  : "text-[#1d1d1d] hover:bg-[#f1f3f5]"
                                         }`}
                                     >
                                         <span className="truncate">{option.label}</span>
                                         {selected && !placeholder && (
                                             <FontAwesomeIcon
                                                 icon={faCheck}
-                                                className="shrink-0 text-xs text-brand"
+                                                className="shrink-0 text-xs text-[#c43700]"
                                             />
                                         )}
                                     </button>
@@ -206,8 +206,8 @@ const LegacyDropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(functi
     }
 
     return (
-        <div className="flex flex-col gap-1 2xl:gap-2">
-            {label && <label className="text-xs font-medium 2xl:text-base">{label}</label>}
+        <div data-ui="field" className="flex flex-col gap-1.5">
+            {label && <label data-ui="field-label" className="text-xs font-medium leading-[18px] text-[#1d1d1d]">{label}</label>}
 
             <div
                 className="relative inline-block w-full cursor-pointer"
@@ -215,7 +215,7 @@ const LegacyDropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(functi
             >
                 <select
                     ref={selectRef}
-                    className={`w-full appearance-none border border-gray-300 rounded-md px-3 py-3 pr-9 bg-white text-gray-900 outline-none transition-all duration-150 cursor-pointer 2xl:rounded-lg 2xl:px-4 2xl:py-4 2xl:pr-11 2xl:text-lg ${className}`}
+                    className={`min-h-11 w-full cursor-pointer appearance-none rounded-lg border border-[#e2e5e9] bg-white px-3 py-2.5 pr-9 text-sm text-[#1d1d1d] outline-none transition-colors duration-150 hover:bg-[#f7f8fa] focus:border-[#d93d00] focus:ring-1 focus:ring-[#d93d00] disabled:cursor-not-allowed disabled:bg-[#f1f3f5] disabled:text-[#626973] ${className}`}
                     onBlur={() => setOpen(false)}
                     {...props}
                 >
@@ -228,7 +228,7 @@ const LegacyDropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(functi
 
                 <FontAwesomeIcon
                     icon={faChevronDown}
-                    className={`absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 transition-transform duration-200 pointer-events-none 2xl:right-4 2xl:text-lg ${
+                    className={`pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-[#626973] transition-transform duration-150 ${
                         open ? "rotate-180" : ""
                     } ${chevronClassName || ""}`}
                 />
@@ -240,8 +240,8 @@ const LegacyDropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(functi
 const Dropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(function Dropdown(props, ref) {
     const panel = usePanelAppearance();
     if (!panel && !props.options) {
-        const { label, custom, chevronClassName, options, ...nativeProps } = props;
-        return <select {...nativeProps} ref={ref} />;
+        const { label, custom, chevronClassName, options, className = "", ...nativeProps } = props;
+        return <select {...nativeProps} ref={ref} className={`min-h-11 w-full cursor-pointer rounded-lg border border-[#e2e5e9] bg-white px-3 py-2.5 text-sm text-[#1d1d1d] outline-none transition-colors hover:bg-[#f7f8fa] focus:border-[#d93d00] focus:ring-1 focus:ring-[#d93d00] disabled:cursor-not-allowed disabled:bg-[#f1f3f5] disabled:text-[#626973] ${className}`} />;
     }
     const options = props.options ?? React.Children.toArray(props.children).flatMap(child => {
         if (!React.isValidElement<React.ComponentProps<"option">>(child) || child.type !== "option") return [];
@@ -324,7 +324,7 @@ const PanelDropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(functio
     };
 
     return <div data-ui="field" className="panel-dropdown-field min-w-0">
-        {label && <label data-ui="field-label" htmlFor={`${id}-trigger`} className="mb-1 block text-sm font-medium">{label}</label>}
+        {label && <label data-ui="field-label" htmlFor={`${id}-trigger`} className="block text-xs font-medium leading-[18px] text-[#1d1d1d]">{label}</label>}
         <select {...props} ref={selectRef} className="sr-only" tabIndex={-1} aria-hidden="true"
             onChange={event => { setUncontrolledValue(event.target.value); props.onChange?.(event); }}
             onInvalid={event => { props.onInvalid?.(event); triggerRef.current?.focus(); }}>
@@ -334,7 +334,7 @@ const PanelDropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(functio
             aria-haspopup="listbox" aria-expanded={open} aria-controls={open ? `${id}-list` : undefined}
             aria-label={props["aria-label"] || label} aria-labelledby={props["aria-labelledby"]}
             aria-invalid={props["aria-invalid"]} disabled={props.disabled}
-            className={`flex w-full items-center justify-between gap-3 border bg-white text-left ${className}`}
+            className={`flex h-11 w-full cursor-pointer items-center justify-between gap-3 rounded-lg border border-[#e2e5e9] bg-white px-3 py-2.5 text-left text-sm font-normal text-[#1d1d1d] outline-none transition-colors hover:bg-[#f7f8fa] focus:border-[#d93d00] focus:ring-1 focus:ring-[#d93d00] disabled:cursor-not-allowed disabled:bg-[#f1f3f5] disabled:text-[#626973] ${className}`}
             onClick={() => setOpen(prev => !prev)} onBlur={closeOnBlur}
             onKeyDown={event => {
                 if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
@@ -343,14 +343,17 @@ const PanelDropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(functio
                 } else if (event.key === "Escape" && open) { event.stopPropagation(); setOpen(false); }
             }}>
             <span className="min-w-0 truncate">{selected?.label ?? "Selecione"}</span>
-            <FontAwesomeIcon icon={faChevronDown} className={`shrink-0 text-gray-500 ${open ? "rotate-180" : ""} ${chevronClassName || ""}`} />
+            <FontAwesomeIcon icon={faChevronDown} className={`h-3.5 w-3.5 shrink-0 text-[#626973] transition-transform duration-150 ${open ? "rotate-180" : ""} ${chevronClassName || ""}`} />
         </button>
-        {mounted && createPortal(<div className="panel-essencial panel-dropdown-portal" style={position}
+        {mounted && createPortal(<div className={`panel-essencial panel-dropdown-portal z-[1000] overflow-y-auto overscroll-contain rounded-lg border border-[#e2e5e9] bg-white p-[5px] shadow-[0_6px_20px_#1d1d1d12] transition-[opacity,transform] duration-150 origin-top ${active ? "translate-y-0 scale-100 opacity-100" : "pointer-events-none -translate-y-1 scale-[0.98] opacity-0"}`} style={position}
             data-state={active ? "open" : "closed"} aria-hidden={!open} inert={!open}
             ref={menuRef} id={`${id}-list`} role="listbox" aria-label={props["aria-label"] || label}
             data-ui="dropdown-menu" onBlur={closeOnBlur}>
-            {options.map(option => <button key={option.value} type="button" role="option"
-                aria-selected={String(option.value) === String(value)} disabled={option.disabled}
+            {options.map(option => {
+                const optionSelected = String(option.value) === String(value);
+                return <button key={option.value} type="button" role="option"
+                aria-selected={optionSelected} disabled={option.disabled}
+                className={`flex min-h-10 w-full cursor-pointer items-center justify-between gap-3 rounded-[5px] px-2.5 py-[9px] text-left text-sm transition-colors hover:bg-[#f1f3f5] focus-visible:bg-[#f1f3f5] focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-45 ${optionSelected ? "bg-[#fff1ea] text-[#c43700]" : "text-[#1d1d1d]"}`}
                 onClick={() => choose(option.value)}
                 onKeyDown={event => {
                     const buttons = Array.from(menuRef.current?.querySelectorAll('[role="option"]:not(:disabled)') || []);
@@ -362,8 +365,9 @@ const PanelDropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(functio
                     }
                 }}>
                 <span>{option.label}</span>
-                {String(option.value) === String(value) && <FontAwesomeIcon icon={faCheck} />}
-            </button>)}
+                {optionSelected && <FontAwesomeIcon icon={faCheck} className="h-3.5 w-3.5" />}
+            </button>;
+            })}
         </div>, document.body)}
     </div>;
 });
