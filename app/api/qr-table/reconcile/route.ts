@@ -91,29 +91,37 @@ async function savePayment(
 }
 
 async function activateAddon(
-    addonId: string,
+    addon: QrTableAddon,
     payment: AsaasPayment
-): Promise<void> {
+): Promise<"active" | "canceled"> {
+    const subscriptionId =
+        payment.billingType === "PIX"
+            ? ""
+            : payment.subscription || addon.asaas_subscription_id || "";
+    const status = subscriptionId ? "active" : "canceled";
+
     await query(
         `
             UPDATE public.restaurant_addons
             SET
-                status = 'active',
-                asaas_subscription_id = COALESCE(
-                    NULLIF($1, ''),
-                    asaas_subscription_id
-                ),
+                status = $1,
+                asaas_subscription_id = NULLIF($2, ''),
                 current_period_ends_at = GREATEST(
                     COALESCE(current_period_ends_at, NOW()),
-                    COALESCE($2::date::timestamptz, NOW()) + INTERVAL '1 month'
+                    COALESCE($3::date::timestamptz, NOW()) + INTERVAL '1 month 1 day'
                 ),
                 activated_at = COALESCE(activated_at, NOW()),
-                canceled_at = NULL,
+                canceled_at = CASE
+                    WHEN $1 = 'canceled' THEN COALESCE(canceled_at, NOW())
+                    ELSE NULL
+                END,
                 updated_at = NOW()
-            WHERE id = $3
+            WHERE id = $4
         `,
-        [payment.subscription || "", payment.dueDate || null, addonId]
+        [status, subscriptionId, payment.dueDate || null, addon.id]
     );
+
+    return status;
 }
 
 export async function POST(request: Request) {
@@ -222,13 +230,13 @@ export async function POST(request: Request) {
             );
         }
 
-        await activateAddon(addon.id, confirmedPayment);
+        const activatedStatus = await activateAddon(addon, confirmedPayment);
 
         return NextResponse.json(
             {
                 active: true,
                 activatedNow: true,
-                status: "active",
+                status: activatedStatus,
                 paymentStatus: confirmedPayment.status || null,
             },
             { headers: { "Cache-Control": "no-store" } }

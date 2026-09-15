@@ -108,8 +108,8 @@ export async function POST(request: Request) {
         const checkout = await asaasRequest<CheckoutResponse>("/checkouts", {
             method: "POST",
             body: JSON.stringify({
-                billingTypes: ["CREDIT_CARD"],
-                chargeTypes: ["RECURRENT"],
+                billingTypes: ["CREDIT_CARD", "PIX"],
+                chargeTypes: ["RECURRENT", "DETACHED"],
                 minutesToExpire: CHECKOUT_EXPIRATION_MINUTES,
                 externalReference: addon.id,
                 callback: {
@@ -145,6 +145,8 @@ export async function POST(request: Request) {
                     status = 'pending',
                     asaas_checkout_id = $1,
                     asaas_checkout_expires_at = NOW() + ($2 * INTERVAL '1 minute'),
+                    asaas_subscription_id = NULL,
+                    canceled_at = NULL,
                     updated_at = NOW()
                 WHERE id = $3
             `,
