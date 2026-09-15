@@ -72,13 +72,14 @@ export async function POST(request: Request) {
     const transfer = payload.transfer;
     const transferId = String(transfer.id || "").trim();
     const externalReference = String(transfer.externalReference || "").trim();
-    const match = /^imenu-payout-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.exec(
+    const externalReferenceMatch = /^imenu-payout-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.exec(
         externalReference
     );
+    const payoutIdFromReference = externalReferenceMatch?.[1] || "";
 
-    if (!transferId || !match) {
+    if (!transferId) {
         return refuse(
-            "Transferência não pertence a um repasse iMenu registrado.",
+            "Transferência sem identificador do Asaas.",
             transferId,
             externalReference
         );
@@ -101,15 +102,16 @@ export async function POST(request: Request) {
         );
     }
 
-    const payoutId = match[1];
     const payoutResult = await query<PayoutRow>(
         `
             SELECT id, amount_cents, status, asaas_transfer_id
             FROM public.payouts
-            WHERE id = $1
+            WHERE asaas_transfer_id = $1
+               OR ($2 <> '' AND id::text = $2)
+            ORDER BY CASE WHEN asaas_transfer_id = $1 THEN 0 ELSE 1 END
             LIMIT 1
         `,
-        [payoutId]
+        [transferId, payoutIdFromReference]
     );
     const payout = payoutResult.rows[0];
 
@@ -121,7 +123,7 @@ export async function POST(request: Request) {
         );
     }
 
-    if (!['processing', 'paid'].includes(payout.status)) {
+    if (!["processing", "paid"].includes(payout.status)) {
         return refuse(
             "Repasse não está autorizado para processamento.",
             transferId,
