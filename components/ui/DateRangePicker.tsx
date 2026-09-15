@@ -11,6 +11,8 @@ export default function DateRangePicker({ value, onChange, presets = DATE_FILTER
     allowFuture?: boolean; allowOpenEnd?: boolean; label?: string; emptyLabel?: string;
 }) {
     const [open, setOpen] = useState(false);
+    const [mounted, setMounted] = useState(false);
+    const [active, setActive] = useState(false);
     const [draft, setDraft] = useState(value);
     const [selectingEnd, setSelectingEnd] = useState(false);
     const [hoverDate, setHoverDate] = useState("");
@@ -19,6 +21,25 @@ export default function DateRangePicker({ value, onChange, presets = DATE_FILTER
     const trigger = useRef<HTMLButtonElement>(null);
     const popup = useRef<HTMLDivElement>(null);
     const today = formatDate(new Date());
+
+    useEffect(() => {
+        if (open) {
+            setMounted(true);
+            let secondFrame = 0;
+            const firstFrame = requestAnimationFrame(() => {
+                secondFrame = requestAnimationFrame(() => setActive(true));
+            });
+            return () => {
+                cancelAnimationFrame(firstFrame);
+                if (secondFrame) cancelAnimationFrame(secondFrame);
+            };
+        }
+
+        setActive(false);
+        const timer = window.setTimeout(() => setMounted(false), 170);
+        return () => window.clearTimeout(timer);
+    }, [open]);
+
     useEffect(() => {
         if (!open) return;
         const locate = () => {
@@ -32,8 +53,25 @@ export default function DateRangePicker({ value, onChange, presets = DATE_FILTER
         const frame = requestAnimationFrame(() => { if (allowFuture) popup.current?.querySelector<HTMLButtonElement>('.calendar-grid button[aria-pressed="true"]:not(:disabled), .calendar-grid button:not(:disabled)')?.focus(); });
         return () => { cancelAnimationFrame(frame); window.removeEventListener("resize", locate); window.removeEventListener("scroll", locate, true); document.removeEventListener("pointerdown", outside); };
     }, [open, allowFuture]);
-    const toggle = () => { if (!open) { setDraft(value); setSelectingEnd(false); setHoverDate(""); setMonth(parseDate((allowFuture ? value.startDate || value.endDate : value.endDate) || today)); } setOpen(!open); };
-    const apply = (range: DateRange) => { onChange(range); setOpen(false); trigger.current?.focus(); };
+
+    const close = (restoreFocus = false) => {
+        setActive(false);
+        setOpen(false);
+        if (restoreFocus) window.setTimeout(() => trigger.current?.focus(), 170);
+    };
+    const toggle = () => {
+        if (open) {
+            close();
+            return;
+        }
+        setDraft(value);
+        setSelectingEnd(false);
+        setHoverDate("");
+        setMonth(parseDate((allowFuture ? value.startDate || value.endDate : value.endDate) || today));
+        setMounted(true);
+        setOpen(true);
+    };
+    const apply = (range: DateRange) => { onChange(range); close(true); };
     const chooseDay = (date: string) => {
         if (!selectingEnd) { setDraft({ startDate: date, endDate: date }); setSelectingEnd(true); }
         else { setDraft({ startDate: date < draft.startDate ? date : draft.startDate, endDate: date < draft.startDate ? draft.startDate : date }); setSelectingEnd(false); setHoverDate(""); }
@@ -46,13 +84,14 @@ export default function DateRangePicker({ value, onChange, presets = DATE_FILTER
     return <div data-ui="field" className="flex min-w-0 flex-col gap-1.5">
         <span data-ui="field-label" className="block text-xs font-medium leading-[18px] text-[#1d1d1d]">{label}</span>
         <button ref={trigger} type="button" data-ui="dropdown-trigger" aria-label={`Selecionar ${label.toLowerCase()}`} aria-haspopup="dialog" aria-expanded={open}
-            className="flex h-11 w-full cursor-pointer items-center gap-3 rounded-lg border border-[#e2e5e9] bg-white px-3 text-left text-sm font-normal text-[#1d1d1d] outline-none transition-[border-color,background-color] duration-150 focus:border-[#d93d00]" onClick={toggle}>
-            <CalendarDays size={16} className="shrink-0 text-gray-500" />
+            className="flex h-11 w-full cursor-pointer items-center gap-3 rounded-[8px] border border-[#e2e5e9] bg-white px-3 text-left text-sm font-normal text-[#1d1d1d] outline-none transition-[border-color,background-color] duration-150 focus-visible:!outline-none" onClick={toggle}>
+            <CalendarDays size={14} className="shrink-0 text-gray-500" />
             <span className="min-w-0 flex-1 truncate">{value.startDate && value.endDate ? `${formatRangeDate(value.startDate)} — ${formatRangeDate(value.endDate)}` : allowOpenEnd && value.startDate ? `A partir de ${formatRangeDate(value.startDate)}` : emptyLabel}</span>
-            <ChevronDown size={14} className={open ? "rotate-180" : ""} />
+            <ChevronDown size={14} className={`transition-transform duration-150 ${open ? "rotate-180" : ""}`} />
         </button>
-        {open && createPortal(<div ref={popup} style={position} className="panel-essencial panel-date-picker" role="dialog" aria-label="Escolher período"
-            onKeyDown={event => { if (event.key === "Escape") { event.stopPropagation(); setOpen(false); trigger.current?.focus(); } }}>
+        {mounted && createPortal(<div ref={popup} style={position} className={`panel-essencial panel-date-picker !animate-none origin-top transition-[opacity,transform] duration-[160ms] ease-out ${active ? "translate-y-0 scale-100 opacity-100" : "pointer-events-none -translate-y-1 scale-[0.98] opacity-0"}`} role="dialog" aria-label="Escolher período"
+            aria-hidden={!open} inert={!open}
+            onKeyDown={event => { if (event.key === "Escape") { event.stopPropagation(); close(true); } }}>
             {(presets.length > 0 || allowClear) && <div className="grid grid-cols-2 gap-2 border-b border-gray-200 p-4">
                 {presets.map(preset => <button key={preset.label} type="button" className="rounded-md border border-gray-200 px-3 py-2 text-left text-sm hover:bg-gray-50" onClick={() => apply(preset.getRange())}>{preset.label}</button>)}
                 {allowClear && <button type="button" className="col-span-2 rounded-md px-3 py-2 text-left text-sm text-gray-500 hover:bg-gray-50" onClick={() => apply({ startDate: "", endDate: "" })}>{emptyLabel}</button>}
@@ -75,7 +114,7 @@ export default function DateRangePicker({ value, onChange, presets = DATE_FILTER
                     })}
                 </div>
                 {allowOpenEnd && <button type="button" className="calendar-preset mt-3 w-full rounded-lg border border-gray-200 px-3 py-2 text-left" disabled={!draft.startDate} aria-pressed={Boolean(draft.startDate && !draft.endDate)} onClick={() => { setDraft({ ...draft, endDate: "" }); setSelectingEnd(false); setHoverDate(""); }}>Sem data final</button>}
-                <div className="mt-4 flex justify-end gap-2"><Button variant="secondary" onClick={() => { setOpen(false); trigger.current?.focus(); }}>Cancelar</Button><Button disabled={!draft.startDate || (!allowOpenEnd && !draft.endDate) || Boolean(draft.endDate && draft.endDate < draft.startDate) || (!allowFuture && (draft.endDate > today || draft.startDate > today))} onClick={() => apply(draft)}>Aplicar</Button></div>
+                <div className="mt-4 flex justify-end gap-2"><Button variant="secondary" onClick={() => close(true)}>Cancelar</Button><Button disabled={!draft.startDate || (!allowOpenEnd && !draft.endDate) || Boolean(draft.endDate && draft.endDate < draft.startDate) || (!allowFuture && (draft.endDate > today || draft.startDate > today))} onClick={() => apply(draft)}>Aplicar</Button></div>
             </div>
         </div>, document.body)}
     </div>;

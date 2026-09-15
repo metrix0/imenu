@@ -9,6 +9,7 @@ import Switch from "@/components/ui/Switch";
 import SaveStatus from "@/components/ui/SaveStatus";
 import Button from "@/components/ui/Button";
 import Dropdown from "@/components/ui/Dropdown";
+import ChoiceCardGroup from "@/components/ui/ChoiceCardGroup";
 
 export default function PizzaSettingsSection({ restaurantId }: { restaurantId: string }) {
     const [settings, setSettings] = useState<PizzaSettings>(DEFAULT_PIZZA_SETTINGS);
@@ -59,14 +60,16 @@ export default function PizzaSettingsSection({ restaurantId }: { restaurantId: s
         {loaded && settings.enabled && <fieldset className="mt-6 space-y-5">
             <div>
                 <p className="mb-2 font-medium">Preço da pizza</p>
-                <div className="grid gap-3 sm:grid-cols-2">
-                    {([
-                        ["highest", "Sabor mais caro", "Cobra o maior preço entre os sabores escolhidos."],
-                        ["average", "Média dos sabores", "Soma os preços e divide pela quantidade de sabores."],
-                    ] as const).map(([rule, title, description]) => <button type="button" key={rule} aria-pressed={settings.pricing_rule === rule} onClick={() => void save({ ...settings, pricing_rule: rule })} disabled={status === "saving"} className={`cursor-pointer rounded-xl border p-4 text-left disabled:cursor-not-allowed disabled:opacity-60 ${settings.pricing_rule === rule ? "border-brand bg-brand/5" : "border-gray-200"}`}>
-                        <span className="block font-semibold">{title}</span><span className="mt-1 block text-sm text-gray-500">{description}</span>
-                    </button>)}
-                </div>
+                <ChoiceCardGroup
+                    value={settings.pricing_rule}
+                    disabled={status === "saving"}
+                    onChange={(rule) => void save({ ...settings, pricing_rule: rule })}
+                    className="sm:grid-cols-2"
+                    options={[
+                        { value: "highest", label: "Sabor mais caro", description: "Cobra o maior preço entre os sabores escolhidos." },
+                        { value: "average", label: "Média dos sabores", description: "Soma os preços e divide pela quantidade de sabores." },
+                    ]}
+                />
             </div>
             <Dropdown
                 custom

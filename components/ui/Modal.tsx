@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useEffect, useRef, useState } from "react";
+import { ReactNode, useEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { usePanelAppearance } from "./PanelAppearance";
 import ModalCloseButton from "./ModalCloseButton";
@@ -34,6 +34,7 @@ export default function Modal({
     const [mounted, setMounted] = useState(open);
     const [active, setActive] = useState(false);
     const scrollLocked = useRef(false);
+    const requestedHeight = typeof height === "number" ? `${height}px` : height;
 
     function lockPageScroll() {
         if (scrollLocked.current) return;
@@ -131,15 +132,15 @@ export default function Modal({
 
             <div
                 role="dialog"
-                style={{ height }}
+                style={{ "--modal-requested-height": requestedHeight } as CSSProperties}
                 aria-modal="true"
                 onClick={(event: { stopPropagation(): void }) =>
                     event.stopPropagation()
                 }
-                className={`relative flex w-full max-w-2xl flex-col overflow-y-auto rounded-[10px] border border-[#e2e5e9] bg-white shadow-[0_20px_60px_#1d1d1d26] transition-all duration-200 ${
+                className={`relative flex w-full max-w-2xl flex-col overflow-y-auto rounded-[10px] border border-[#e2e5e9] bg-white shadow-[0_20px_60px_#1d1d1d26] transition-all duration-200 [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1 ${
                     panel
-                        ? "max-h-[calc(100dvh-24px)] sm:max-h-[calc(100dvh-48px)]"
-                        : "max-h-[92dvh] sm:max-h-[90dvh] 2xl:max-h-[88dvh]"
+                        ? "max-h-[min(var(--modal-requested-height),calc(100dvh-24px))] sm:max-h-[min(var(--modal-requested-height),calc(100dvh-48px))]"
+                        : "max-h-[min(var(--modal-requested-height),92dvh)] sm:max-h-[min(var(--modal-requested-height),90dvh)] 2xl:max-h-[min(var(--modal-requested-height),88dvh)]"
                 } ${
                     active
                         ? "translate-y-0 scale-100 opacity-100"
@@ -147,7 +148,7 @@ export default function Modal({
                 } ${className}`}
             >
                 {(panel || showCloseButton) && <ModalCloseButton onClose={onClose} />}
-                {panel ? <div className="panel-modal-body">{children}</div> : children}
+                {panel ? <div className="panel-modal-body [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1">{children}</div> : children}
             </div>
         </div>,
         document.body

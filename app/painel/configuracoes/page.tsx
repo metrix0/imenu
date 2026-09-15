@@ -23,6 +23,7 @@ import Loader from "@/components/ui/Loader";
 import Toast from "@/components/ui/Toast";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import Tooltip from "@/components/ui/Tooltip";
+import ChoiceCardGroup from "@/components/ui/ChoiceCardGroup";
 import QrCodeMesaSettingsSection from "@/components/restaurant-owner/configuracoes/QrCodeMesaSettingsSection";
 import ResetOrderCountSection from "@/components/restaurant-owner/configuracoes/ResetOrderCountSection";
 import PizzaSettingsSection from "@/components/restaurant-owner/configuracoes/PizzaSettingsSection";
@@ -675,47 +676,16 @@ export default function ConfiguracoesPage() {
                             </p>
                         </div>
 
-                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                            <button
-                                type="button"
-                                data-ui="choice"
-                                aria-pressed={!allowFutureOrderScheduling}
-                                disabled={isSavingOrderScheduling}
-                                onClick={() => void saveOrderSchedulingMode(false)}
-                                className={`cursor-pointer rounded-xl border p-4 text-left transition disabled:cursor-not-allowed disabled:opacity-60 ${
-                                    !allowFutureOrderScheduling
-                                        ? "border-brand bg-red-50"
-                                        : "border-gray-200 bg-white hover:border-gray-300"
-                                }`}
-                            >
-                                <span className={`block font-semibold ${!allowFutureOrderScheduling ? "text-brand" : "text-gray-900"}`}>
-                                    Dia atual
-                                </span>
-                                <span className="mt-1 block text-sm text-gray-500">
-                                    Permite agendar apenas horários disponíveis de hoje.
-                                </span>
-                            </button>
-
-                            <button
-                                type="button"
-                                data-ui="choice"
-                                aria-pressed={allowFutureOrderScheduling}
-                                disabled={isSavingOrderScheduling}
-                                onClick={() => void saveOrderSchedulingMode(true)}
-                                className={`cursor-pointer rounded-xl border p-4 text-left transition disabled:cursor-not-allowed disabled:opacity-60 ${
-                                    allowFutureOrderScheduling
-                                        ? "border-brand bg-red-50"
-                                        : "border-gray-200 bg-white hover:border-gray-300"
-                                }`}
-                            >
-                                <span className={`block font-semibold ${allowFutureOrderScheduling ? "text-brand" : "text-gray-900"}`}>
-                                    Dias futuros
-                                </span>
-                                <span className="mt-1 block text-sm text-gray-500">
-                                    Ideal para encomendas: o cliente escolhe o dia e depois o horário disponível.
-                                </span>
-                            </button>
-                        </div>
+                        <ChoiceCardGroup
+                            value={allowFutureOrderScheduling ? "future" : "today"}
+                            disabled={isSavingOrderScheduling}
+                            onChange={(value) => void saveOrderSchedulingMode(value === "future")}
+                            className="sm:grid-cols-2"
+                            options={[
+                                { value: "today", label: "Dia atual", description: "Permite agendar apenas horários disponíveis de hoje." },
+                                { value: "future", label: "Dias futuros", description: "Ideal para encomendas: o cliente escolhe o dia e depois o horário disponível." },
+                            ]}
+                        />
 
                         {isSavingOrderScheduling && (
                             <SaveStatus status="saving" className="mt-3" />
@@ -749,42 +719,12 @@ export default function ConfiguracoesPage() {
                             </Button>
                         </div>
 
-                        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                            {ORDER_DINGLE_OPTIONS.map((option) => {
-                                const selected =
-                                    orderDingleDuration === option.value;
-
-                                return (
-                                    <button
-                                        key={option.value}
-                                        type="button"
-                                        data-ui="choice"
-                                        aria-pressed={selected}
-                                        onClick={() =>
-                                            saveOrderDingleDuration(option.value)
-                                        }
-                                        className={`cursor-pointer rounded-xl border p-4 text-left transition ${
-                                            selected
-                                                ? "border-brand bg-red-50 text-brand"
-                                                : "border-gray-200 bg-white text-gray-900 hover:border-gray-300 hover:bg-gray-50"
-                                        }`}
-                                    >
-                                        <span className="block font-semibold">
-                                            {option.label}
-                                        </span>
-                                        <span
-                                            className={`mt-1 block text-sm ${
-                                                selected
-                                                    ? "text-brand/80"
-                                                    : "text-gray-500"
-                                            }`}
-                                        >
-                                            {option.description}
-                                        </span>
-                                    </button>
-                                );
-                            })}
-                        </div>
+                        <ChoiceCardGroup
+                            value={orderDingleDuration}
+                            options={ORDER_DINGLE_OPTIONS}
+                            onChange={saveOrderDingleDuration}
+                            className="md:grid-cols-3"
+                        />
                     </Card>
 
                     <Card className="border border-gray-200 shadow-sm">
@@ -817,7 +757,7 @@ export default function ConfiguracoesPage() {
                                 </p>
                             </div>
 
-                            <div className="flex shrink-0 items-center gap-3">
+                            <div className="flex shrink-0 items-start gap-3">
                                 {isSavingWhatsappConfirmation && (
                                     <SaveStatus status="saving" />
                                 )}

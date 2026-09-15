@@ -26,14 +26,12 @@ export default function DraggableModal({
     const panel = usePanelAppearance();
     const startY = useRef(0);
     const currentY = useRef(0);
-    const closingRef = useRef(false); // 🔥 prevents double-close
+    const closingRef = useRef(false);
 
     const [translateY, setTranslateY] = useState(1000);
     const [animating, setAnimating] = useState(false);
     const [isDesktop, setIsDesktop] = useState(false);
 
-
-    // === Open / Close animation ===
     useEffect(() => {
         if (open) {
             closingRef.current = false;
@@ -42,16 +40,14 @@ export default function DraggableModal({
                 setTranslateY(0);
             });
         } else {
-            // triggered only from parent (not drag)
             closingRef.current = true;
             setAnimating(true);
             setTranslateY(1000);
         }
     }, [open]);
 
-    // === Shared start logic ===
     const handleStart = (clientY: number) => {
-        if (closingRef.current) return; // block dragging if closing
+        if (closingRef.current) return;
 
         startY.current = clientY;
         currentY.current = 0;
@@ -81,7 +77,6 @@ export default function DraggableModal({
         }
     };
 
-    // === Move ===
     const onMove = (e: MouseEvent | TouchEvent) => {
         const y = "touches" in e ? e.touches[0].clientY : e.clientY;
         const diff = y - startY.current;
@@ -94,7 +89,6 @@ export default function DraggableModal({
         if ("cancelable" in e && e.cancelable) e.preventDefault();
     };
 
-    // === End ===
     const onEnd = () => {
         document.removeEventListener("mousemove", onMove);
         document.removeEventListener("mouseup", onEnd);
@@ -106,24 +100,19 @@ export default function DraggableModal({
         if (currentY.current > 120) {
             closingRef.current = true;
             setTranslateY(1000);
-
-            // 🔥 WAIT for animation before unmount
             setTimeout(onClose, 250);
         } else {
             setTranslateY(0);
         }
     };
 
-    // === Backdrop click ===
     const backdropClose = () => {
         if (closingRef.current) return;
 
         closingRef.current = true;
-
         setAnimating(true);
         setTranslateY(1000);
-
-        setTimeout(onClose, 250); // match transition
+        setTimeout(onClose, 250);
     };
 
     useEffect(() => {
@@ -152,7 +141,6 @@ export default function DraggableModal({
             html.style.overscrollBehavior = previousHtmlOverscroll;
         };
     }, [open, isDesktop]);
-
 
     return (
         <>{isDesktop ?
@@ -183,7 +171,6 @@ export default function DraggableModal({
                 }}
             >
                 {panel && <ModalCloseButton onClose={onClose} />}
-                {/* Invisible drag zone */}
                 <div
                     onMouseDown={onMouseStart}
                     onTouchStart={(e) => {
@@ -206,7 +193,7 @@ export default function DraggableModal({
                 )}
 
                 <div
-                    className={`overflow-y-auto h-full pb-32 ${xPadding ? "px-4" : ""} ${contentClassName ?? ""}`}
+                    className={`overflow-y-auto h-full pb-32 [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1 ${xPadding ? "px-4" : ""} ${contentClassName ?? ""}`}
                     style={{ overscrollBehaviorY: "contain" }}
                 >
                     {children}

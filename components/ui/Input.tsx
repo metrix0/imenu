@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { usePanelAppearance } from "./PanelAppearance";
 
 type InputProps = Omit<
     React.InputHTMLAttributes<HTMLInputElement>,
@@ -36,6 +37,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
         },
         ref
     ) => {
+        const panel = usePanelAppearance();
         const generatedId = React.useId();
         const inputId = inputProps.id ?? generatedId;
         const withIcon = Boolean(icon);
@@ -110,15 +112,32 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
                 inputMode={numeric || float ? "numeric" : inputMode}
                 onKeyDown={handleKeyDown} onInput={handleInput}
                 {...(isControlled ? { value } : { defaultValue })}
-                className={type === "date"
-                    ? `min-h-11 !rounded-lg border-[#e2e5e9] bg-white !py-[11px] text-sm leading-5 text-[#1d1d1d] outline-none shadow-none transition-colors focus:border-[#d93d00] ${className}`
+                className={panel
+                    ? `min-h-11 !rounded-[8px] border-[#e2e5e9] bg-white !py-[11px] text-sm leading-5 text-[#1d1d1d] outline-none shadow-none transition-colors ${type === "date" ? "focus-visible:!outline-none" : ""} ${className}`
                     : className} />;
         }
 
+        const wrapperClassName = panel
+            ? "flex min-w-0 flex-col gap-1.5"
+            : "flex flex-col gap-1 2xl:gap-2";
+        const labelClassName = panel
+            ? "text-xs font-medium leading-[18px] text-[#1d1d1d]"
+            : "text-sm font-medium md:text-xs 2xl:text-base";
+        const inputClassName = panel
+            ? `min-h-11 w-full rounded-[8px] border border-[#e2e5e9] px-3 py-[11px] text-sm leading-5 text-[#1d1d1d] outline-none shadow-none transition-colors placeholder:text-[#818994] disabled:cursor-not-allowed disabled:bg-[#f1f3f5] disabled:text-[#626973] aria-[invalid=true]:border-[#be2626]
+                ${withIcon ? isLeft ? "pl-10" : "pr-10" : ""}
+                ${className}
+                ${locked ? "cursor-not-allowed bg-[#f1f3f5] text-[#626973]" : "bg-white"}`
+            : `w-full border border-gray-300 rounded-md px-3 py-3
+                focus:ring-brand focus:border-brand 2xl:text-lg
+                ${withIcon ? isLeft ? "pl-10" : "pr-10" : ""}
+                ${className}
+                ${locked ? "bg-gray-100 cursor-not-allowed text-gray-500" : "bg-white"}`;
+
         return (
-            <div data-ui="field" className="flex min-w-0 flex-col gap-1.5">
+            <div data-ui="field" className={wrapperClassName}>
                 {label && (
-                    <label data-ui="field-label" htmlFor={inputId} className="text-xs font-medium leading-[18px] text-[#1d1d1d]">
+                    <label data-ui="field-label" htmlFor={inputId} className={labelClassName}>
                         {label}
                     </label>
                 )}
@@ -150,21 +169,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
                         {...(isControlled
                             ? { value }
                             : { defaultValue })}
-                        className={`min-h-11 w-full rounded-lg border border-[#e2e5e9] px-3 py-[11px] text-sm leading-5 text-[#1d1d1d] outline-none shadow-none transition-colors placeholder:text-[#818994] focus:border-[#d93d00] disabled:cursor-not-allowed disabled:bg-[#f1f3f5] disabled:text-[#626973] aria-[invalid=true]:border-[#be2626]
-                            ${
-                                withIcon
-                                    ? isLeft
-                                        ? "pl-10"
-                                        : "pr-10"
-                                    : ""
-                            }
-                            ${className}
-                            ${
-                                locked
-                                    ? "cursor-not-allowed bg-[#f1f3f5] text-[#626973]"
-                                    : "bg-white"
-                            }
-                        `}
+                        className={inputClassName}
                     />
                 </div>
             </div>
