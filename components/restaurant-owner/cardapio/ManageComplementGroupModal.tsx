@@ -3,7 +3,6 @@
 import { LegacyModalClose } from "@/components/ui/ModalCloseButton";
 import Switch from "@/components/ui/Switch";
 import Input from "@/components/ui/Input";
-import Button from "@/components/ui/Button";
 import { useEffect, useRef, useState, type DragEvent } from "react";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import {
@@ -124,6 +123,7 @@ function ComplementPriceInput({
     const handleBlur = () => {
         if (priceCents === null) {
             if (parsedPriceCents !== null) onApplyMixed(parsedPriceCents);
+            setLocalValue(formatPriceInput(priceCents));
             return;
         }
 
@@ -132,60 +132,27 @@ function ComplementPriceInput({
         if (nextCents !== priceCents) void onSave(nextCents);
     };
 
-    const handleApplyMixed = () => {
-        if (!hasMixedPrices || parsedPriceCents === null) return;
-        onApplyMixed(parsedPriceCents);
-    };
-
     return (
-        <div
-            className={`flex items-center gap-2 ${
-                hasMixedPrices ? "w-44" : "w-24 sm:w-28 2xl:w-28"
-            }`}
-        >
-            <div className="relative min-w-0 flex-1">
-                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-400 2xl:text-base">
-                    R$
-                </span>
-                <Input inline
-                    type="text"
-                    inputMode="decimal"
-                    aria-label={
-                        hasMixedPrices
-                            ? "Preço diferente entre produtos"
-                            : "Preço"
-                    }
-                    disabled={disabled}
-                    value={localValue}
-                    onFocus={(event) => event.currentTarget.select()}
-                    onChange={(event) =>
-                        setLocalValue(sanitizePriceInput(event.target.value))
-                    }
-                    onBlur={handleBlur}
-                    onKeyDown={(event) => {
-                        if (event.key !== "Enter") return;
-                        if (hasMixedPrices) {
-                            event.preventDefault();
-                            handleApplyMixed();
-                        } else {
-                            event.currentTarget.blur();
-                        }
-                    }}
-                    className="w-full rounded border border-gray-200 py-1 pl-6 pr-1 text-right text-sm text-gray-700 focus:border-brand focus:outline-none disabled:opacity-60 2xl:text-base"
-                />
-            </div>
-            {hasMixedPrices && (
-                <Button
-                    type="button"
-                    variant="secondary"
-                    disabled={disabled || parsedPriceCents === null}
-                    onClick={handleApplyMixed}
-                    className="h-8 shrink-0 px-2 text-xs"
-                >
-                    Aplicar
-                </Button>
-            )}
-        </div>
+        <Input inline
+            type="text"
+            inputMode="decimal"
+            aria-label={
+                hasMixedPrices
+                    ? "Preço diferente entre produtos"
+                    : "Preço"
+            }
+            disabled={disabled}
+            value={localValue}
+            onFocus={(event) => event.currentTarget.select()}
+            onChange={(event) =>
+                setLocalValue(sanitizePriceInput(event.target.value))
+            }
+            onBlur={handleBlur}
+            onKeyDown={(event) => {
+                if (event.key === "Enter") event.currentTarget.blur();
+            }}
+            className="w-full rounded border border-gray-200 py-1 pl-6 pr-1 text-right text-sm text-gray-700 focus:border-brand focus:outline-none disabled:opacity-60 2xl:text-base"
+        />
     );
 }
 
@@ -822,21 +789,26 @@ export default function ManageComplementGroupModal({
                                         </div>
 
                                         <div className="ml-auto flex w-full items-center justify-end gap-3 pl-8 sm:w-auto sm:pl-0">
-                                            <ComplementPriceInput
-                                                priceCents={option.price_cents}
-                                                disabled={isSaving}
-                                                onSave={(price_cents) =>
-                                                    updateOption(option.id, {
-                                                        price_cents,
-                                                    })
-                                                }
-                                                onApplyMixed={(priceCents) =>
-                                                    setMixedPriceToApply({
-                                                        optionId: option.id,
-                                                        priceCents,
-                                                    })
-                                                }
-                                            />
+                                            <div className="relative flex w-24 shrink-0 items-center gap-1 sm:w-28 2xl:w-28">
+                                                <span className="absolute left-2 text-xs text-gray-400 2xl:text-base">
+                                                    R$
+                                                </span>
+                                                <ComplementPriceInput
+                                                    priceCents={option.price_cents}
+                                                    disabled={isSaving}
+                                                    onSave={(price_cents) =>
+                                                        updateOption(option.id, {
+                                                            price_cents,
+                                                        })
+                                                    }
+                                                    onApplyMixed={(priceCents) =>
+                                                        setMixedPriceToApply({
+                                                            optionId: option.id,
+                                                            priceCents,
+                                                        })
+                                                    }
+                                                />
+                                            </div>
 
                                             <Switch checked={option.availability === "mixed" ? "mixed" : isAvailable} disabled={isSaving}
                                                 onClick={() => void toggleOptionAvailability(option.id)}
