@@ -57,35 +57,12 @@ and use (without the "icons.")
 <FontAwesomeIcon icon={faPlus} />
 ```
 
-# popupStore.ts
+# Toast
 
 ### What it does
-Has a Helper Function and Layout (components/Popup.tsx and /Toast.tsx) for Popup calling
-- Popup is a simple full screen popup
-- Toast is a quick top-right corner message
+Toast is a quick top-right corner message.
 
-### Usage (Popup)
-
-Add imports
-```
-import Popup from "@/components/Popup";
-```
-
-Add state management (under ```export default function```)
-```
-const [showPopup, setShowPopup] = useState(false);
-```
-
-Add the popup and button
-```
-<Popup open={showPopup} onClose={() => setShowPopup(false)}>
-  Whatever
-</Popup>
-
-<button onClick={() => setShowPopup(true)} className="px-4 py-2 bg-green-600 text-white rounded-md">Botão</button>
-```
-
-### Usage (Toast)
+### Usage
 Add imports
 ```
 import Toast from "@/components/Toast";
