@@ -34,6 +34,11 @@ it("supports cross-category flavors, three/four parts and final cent rounding", 
     expect(isPizzaItem(sweet, settings)).toBe(true);
     expect(isPizzaItem({ ...sweet, category_id: "drinks" }, settings)).toBe(false);
 });
+it("blocks cross-category flavors when same-category mode is enabled", () => {
+    const sweet = { ...flavor("Doce", 4001, 1000), pizza_same_category_only: true };
+    expect(() => pricePizza([first, sweet], choice, "average")).toThrow("mesma categoria");
+    expect(pricePizza([first, { ...second, pizza_same_category_only: true }], choice, "average").unit_price_cents).toBe(5750);
+});
 it("matches names rather than display order; rejects missing, ambiguous or unavailable sizes", () => {
     const target = structuredClone(second);
     target.subcategories[0].subitems.reverse();
@@ -69,8 +74,8 @@ it("reserves each distinct flavor once even when repeated in two portions", () =
     const quote = pricePizza([first, second, second], choice, "average");
     expect(pizzaStockItemIds({ base_item_id: first.id, pizza: quote.pizza })).toEqual([first.id, second.id]);
 });
-it("defaults to disabled, two flavors, highest price", () => {
-    expect(parsePizzaSettings(undefined)).toEqual({ enabled: false, pricing_rule: "highest", max_flavors: 2, category_ids: [] });
+it("defaults to disabled, two flavors, highest price and cross-category combinations", () => {
+    expect(parsePizzaSettings(undefined)).toEqual({ enabled: false, pricing_rule: "highest", max_flavors: 2, category_ids: [], same_category_only: false });
 });
 it("does not qualify half a flavor as a whole product for automatic offers", () => {
     const a = "10000000-0000-4000-8000-000000000001", b = "10000000-0000-4000-8000-000000000002";
