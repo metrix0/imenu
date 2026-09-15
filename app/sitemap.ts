@@ -9,6 +9,7 @@ import {
     BLOG_ARTICLES,
     getBlogArticlePath,
 } from "@/lib/seo/blogArticles";
+import { COMPARISON_PAGES } from "@/lib/seo/comparisonPages";
 
 export const revalidate = 3600;
 
@@ -23,6 +24,11 @@ const STATIC_ROUTES: MetadataRoute.Sitemap = [
     { url: SITE_URL + "/saipos", priority: 0.7 },
     { url: SITE_URL + "/goomer", priority: 0.7 },
     { url: SITE_URL + "/gestor-de-pedidos", priority: 0.7 },
+    ...COMPARISON_PAGES.map((page) => ({
+        url: SITE_URL + `/${page.slug}`,
+        changeFrequency: "monthly" as const,
+        priority: 0.7,
+    })),
     {
         url: SITE_URL + "/blog",
         changeFrequency: "weekly",

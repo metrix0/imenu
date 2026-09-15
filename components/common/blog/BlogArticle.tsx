@@ -30,14 +30,19 @@ type ArticleFaq = {
     answer: string;
 };
 
+type BlogArticleData = Omit<BlogArticleDefinition, "category"> & {
+    category: BlogArticleDefinition["category"] | "Comparativo";
+};
+
 type BlogArticleProps = {
-    article: BlogArticleDefinition;
+    article: BlogArticleData;
     icon: IconDefinition;
     takeaways: string[];
     sections: ArticleSectionLink[];
     faq: ArticleFaq[];
     relatedSlugs: string[];
     ctaTitle: string;
+    canonicalUrl?: string;
     children: React.ReactNode;
 };
 
@@ -58,9 +63,11 @@ export default function BlogArticle({
     faq,
     relatedSlugs,
     ctaTitle,
+    canonicalUrl,
     children,
 }: BlogArticleProps) {
-    const canonical = `${BLOG_SITE_URL}${getBlogArticlePath(article.slug)}`;
+    const canonical =
+        canonicalUrl || `${BLOG_SITE_URL}${getBlogArticlePath(article.slug)}`;
     const relatedArticles = relatedSlugs
         .map((slug) => BLOG_ARTICLES.find((candidate) => candidate.slug === slug))
         .filter((candidate): candidate is BlogArticleDefinition => Boolean(candidate));

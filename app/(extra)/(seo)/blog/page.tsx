@@ -2,18 +2,12 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import {
-    faArrowRight,
-    faBellConcierge,
-    faBookOpen,
-    faChartLine,
-    faComments,
-    faMoneyBillTransfer,
-    faReceipt,
-    faStore,
-    faUtensils,
-} from "@fortawesome/free-solid-svg-icons";
+import { faArrowRight, faBookOpen } from "@fortawesome/free-solid-svg-icons";
 
+import {
+    BlogArticleGrid,
+    BlogLibraryGrid,
+} from "@/components/common/BlogContentGrids";
 import RestaurantToolsCta from "@/components/common/restaurant-tools/RestaurantToolsCta";
 import RestaurantToolIcon from "@/components/common/restaurant-tools/RestaurantToolIcon";
 import {
@@ -22,6 +16,7 @@ import {
     EXISTING_BLOG_PAGES,
     getBlogArticlePath,
 } from "@/lib/seo/blogArticles";
+import { COMPARISON_PAGES } from "@/lib/seo/comparisonPages";
 import {
     getRestaurantToolPath,
     RESTAURANT_TOOLS,
@@ -44,20 +39,6 @@ export const metadata: Metadata = {
     },
 };
 
-const articleIcons = [
-    faBellConcierge,
-    faComments,
-    faUtensils,
-    faStore,
-    faChartLine,
-    faReceipt,
-    faMoneyBillTransfer,
-    faComments,
-    faUtensils,
-    faChartLine,
-    faStore,
-];
-
 export default function BlogPage() {
     const allPages = [
         ...BLOG_ARTICLES.map((article) => ({
@@ -67,6 +48,10 @@ export default function BlogPage() {
         ...EXISTING_BLOG_PAGES.map((article) => ({
             name: article.title,
             url: `${BLOG_SITE_URL}${article.path}`,
+        })),
+        ...COMPARISON_PAGES.map((page) => ({
+            name: `iMenu vs ${page.competitor}`,
+            url: `${BLOG_SITE_URL}/${page.slug}`,
         })),
     ];
     const structuredData = [
@@ -133,7 +118,10 @@ export default function BlogPage() {
                             </p>
                             <span className="mt-6 inline-flex items-center gap-2 font-semibold text-brand">
                                 Ler comparação
-                                <FontAwesomeIcon icon={faArrowRight} className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                                <FontAwesomeIcon
+                                    icon={faArrowRight}
+                                    className="h-4 w-4 transition-transform group-hover:translate-x-1"
+                                />
                             </span>
                         </div>
                         <div className="relative min-h-[260px] overflow-hidden border-t border-orange-100 bg-orange-50 md:border-l md:border-t-0">
@@ -150,10 +138,16 @@ export default function BlogPage() {
                 </div>
             </header>
 
-            <section className="mx-auto max-w-6xl px-6 py-14 md:py-20" aria-labelledby="latest-guides-title">
+            <section
+                className="mx-auto max-w-6xl px-6 py-14 md:py-20"
+                aria-labelledby="latest-guides-title"
+            >
                 <div className="max-w-3xl">
                     <p className="font-semibold text-brand">Guias aprofundados</p>
-                    <h2 id="latest-guides-title" className="mt-2 text-3xl font-extrabold text-gray-950">
+                    <h2
+                        id="latest-guides-title"
+                        className="mt-2 text-3xl font-extrabold text-gray-950"
+                    >
                         Resolva uma decisão da operação
                     </h2>
                     <p className="mt-4 leading-7 text-gray-600">
@@ -162,52 +156,19 @@ export default function BlogPage() {
                     </p>
                 </div>
 
-                <div className="mt-9 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-                    {BLOG_ARTICLES.map((article, index) => (
-                        <Link
-                            key={article.slug}
-                            href={getBlogArticlePath(article.slug)}
-                            className="group flex h-full flex-col rounded-2xl border border-gray-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-md"
-                        >
-                            <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand/10 text-brand">
-                                <FontAwesomeIcon icon={articleIcons[index]} className="h-5 w-5" />
-                            </span>
-                            <span className="mt-5 text-xs font-bold uppercase tracking-wide text-brand">
-                                {article.category}
-                            </span>
-                            <h3 className="mt-2 text-xl font-bold leading-7 text-gray-950 group-hover:text-brand">
-                                {article.shortTitle}
-                            </h3>
-                            <p className="mt-3 flex-1 text-sm leading-6 text-gray-600">{article.excerpt}</p>
-                            <span className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-brand">
-                                Ler guia · {article.readingTime.replace(" de leitura", "")}
-                                <FontAwesomeIcon icon={faArrowRight} className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
-                            </span>
-                        </Link>
-                    ))}
-                </div>
+                <BlogArticleGrid />
             </section>
 
             <section className="border-y border-gray-200 bg-gray-50">
                 <div className="mx-auto max-w-6xl px-6 py-14 md:py-20">
-                    <h2 className="text-2xl font-bold text-gray-950 md:text-3xl">Biblioteca iMenu</h2>
+                    <h2 className="text-2xl font-bold text-gray-950 md:text-3xl">
+                        Biblioteca iMenu
+                    </h2>
                     <p className="mt-3 max-w-3xl leading-7 text-gray-600">
                         Comparativos e conteúdos essenciais que já ajudam restaurantes a
                         escolher um cardápio digital e organizar pedidos.
                     </p>
-                    <div className="mt-7 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                        {EXISTING_BLOG_PAGES.map((article) => (
-                            <Link
-                                key={article.path}
-                                href={article.path}
-                                className="group rounded-2xl border border-gray-200 bg-white p-5 transition hover:border-brand/40 hover:shadow-sm"
-                            >
-                                <span className="text-xs font-bold uppercase tracking-wide text-brand">{article.category}</span>
-                                <h3 className="mt-2 font-bold leading-6 text-gray-950 group-hover:text-brand">{article.title}</h3>
-                                <p className="mt-2 text-sm leading-6 text-gray-600">{article.excerpt}</p>
-                            </Link>
-                        ))}
-                    </div>
+                    <BlogLibraryGrid />
                 </div>
             </section>
 
@@ -224,9 +185,15 @@ export default function BlogPage() {
                                 Ferramentas para colocar em prática
                             </h2>
                         </div>
-                        <Link href="/ferramentas" className="inline-flex w-fit items-center gap-2 text-sm font-semibold text-brand hover:underline">
+                        <Link
+                            href="/ferramentas"
+                            className="inline-flex w-fit items-center gap-2 text-sm font-semibold text-brand hover:underline"
+                        >
                             Ver todas as ferramentas
-                            <FontAwesomeIcon icon={faArrowRight} className="h-3.5 w-3.5" />
+                            <FontAwesomeIcon
+                                icon={faArrowRight}
+                                className="h-3.5 w-3.5"
+                            />
                         </Link>
                     </div>
 
@@ -238,7 +205,10 @@ export default function BlogPage() {
                                 className="group flex h-full flex-col rounded-2xl border border-gray-200 bg-white p-5 transition hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-md"
                             >
                                 <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand/10 text-brand">
-                                    <RestaurantToolIcon tool={tool.slug} className="h-4 w-4" />
+                                    <RestaurantToolIcon
+                                        tool={tool.slug}
+                                        className="h-4 w-4"
+                                    />
                                 </span>
                                 <h3 className="mt-4 font-bold leading-6 text-gray-950 group-hover:text-brand">
                                     {tool.name}
