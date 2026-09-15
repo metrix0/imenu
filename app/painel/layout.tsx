@@ -115,6 +115,15 @@ export default function PainelLayout({
                     color: var(--panel-accent-text);
                 }
 
+                .panel-essencial .panel-nav-link:active,
+                .panel-essencial .panel-nav-link:active .panel-icon,
+                .panel-essencial .panel-nav-link:active > span,
+                .panel-essencial .panel-nav-link[data-pending-active="true"],
+                .panel-essencial .panel-nav-link[data-pending-active="true"] .panel-icon,
+                .panel-essencial .panel-nav-link[data-pending-active="true"] > span {
+                    transition-duration: 0ms !important;
+                }
+
                 @media (min-width: 768px) {
                     .panel-essencial .panel-sidebar .panel-nav-link:is([aria-current="page"], [data-pending-active="true"]) {
                         border-left: 3px solid var(--panel-brand);
