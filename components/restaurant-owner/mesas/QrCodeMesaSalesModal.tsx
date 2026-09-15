@@ -280,161 +280,203 @@ export default function QrCodeMesaSalesModal({
         <>
             <div className="border-b border-gray-100 px-6 py-5 sm:px-8">
                 <h2 className="text-xl font-semibold text-gray-900">
-                    Finalizar pagamento
+                    Finalizar pedido
                 </h2>
                 <p className="mt-1 text-sm text-gray-500">
-                    Confira os dados e escolha como deseja pagar.
+                    Confira seu pedido e escolha a forma de pagamento.
                 </p>
             </div>
 
-            <div className="space-y-5 px-6 py-5 sm:px-8">
-                <div className="flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 p-4">
-                    <FontAwesomeIcon icon={faCalendarDays} className="text-brand" />
-                    <div>
-                        <p className="text-xs text-gray-500">Data da compra</p>
-                        <p className="font-medium capitalize text-gray-900">{today}</p>
-                    </div>
-                </div>
+            <div className="min-h-0 flex-1 overflow-y-auto">
+                <div className="grid min-h-full md:grid-cols-[minmax(0,1fr)_320px]">
+                    <div className="px-6 py-6 sm:px-8">
+                        <h2 className="mb-4 text-md font-semibold text-gray-900 2xl:text-lg">
+                            Pagamento
+                        </h2>
 
-                <div className="rounded-xl border border-gray-200 p-4">
-                    <div className="flex items-start justify-between gap-4">
-                        <div>
-                            <p className="font-semibold text-gray-900">
-                                iMenu QR Code Mesa
-                            </p>
-                            <p className="mt-1 text-sm text-gray-500">
-                                Mesas e QR Codes ilimitados • 1 unidade
-                            </p>
+                        <div className="space-y-3">
+                            <button
+                                type="button"
+                                className={`w-full border cursor-pointer p-3 rounded-xl duration-200 text-left flex items-center gap-3 ${
+                                    paymentMethod === "pix"
+                                        ? "border-brand"
+                                        : "border-gray-300"
+                                }`}
+                                onClick={() => {
+                                    setPaymentMethod("pix");
+                                    setError(null);
+                                }}
+                            >
+                                <FontAwesomeIcon icon={faPix} />
+                                <div>
+                                    <p className="font-medium text-gray-900">
+                                        Pix
+                                    </p>
+                                    <p className="text-xs text-gray-500">
+                                        Pagamento único • acesso por 1 mês + 1 dia
+                                    </p>
+                                </div>
+                            </button>
+
+                            <button
+                                type="button"
+                                className={`w-full border cursor-pointer p-3 rounded-xl duration-200 text-left flex items-center gap-3 ${
+                                    paymentMethod === "credit_card"
+                                        ? "border-brand"
+                                        : "border-gray-300"
+                                }`}
+                                onClick={() => {
+                                    setPaymentMethod("credit_card");
+                                    setError(null);
+                                }}
+                            >
+                                <FontAwesomeIcon icon={faCreditCard} />
+                                <div>
+                                    <p className="font-medium text-gray-900">
+                                        Cartão de crédito
+                                    </p>
+                                    <p className="text-xs text-gray-500">
+                                        Cobrança recorrente mensal • cancele quando quiser
+                                    </p>
+                                </div>
+                            </button>
                         </div>
-                        <span className="font-semibold text-gray-900">R$ 5,00</span>
-                    </div>
-                </div>
 
-                <div>
-                    <h3 className="mb-3 font-semibold text-gray-900">
-                        Forma de pagamento
-                    </h3>
-                    <div className="space-y-3">
-                        <button
-                            type="button"
-                            className={`w-full cursor-pointer rounded-xl border p-3 text-left transition-colors duration-200 flex items-center gap-3 ${
-                                paymentMethod === "pix"
-                                    ? "border-brand"
-                                    : "border-gray-300"
-                            }`}
-                            onClick={() => {
-                                setPaymentMethod("pix");
-                                setError(null);
-                            }}
-                        >
-                            <FontAwesomeIcon icon={faPix} />
-                            <div>
-                                <p className="font-medium text-gray-900">Pix</p>
-                                <p className="text-xs text-gray-500">
-                                    Pagamento único • acesso por 1 mês + 1 dia
+                        {paymentMethod === "credit_card" && (
+                            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                                <div className="sm:col-span-2">
+                                    <Input
+                                        label="Número do cartão"
+                                        value={cardNumber}
+                                        inputMode="numeric"
+                                        autoComplete="cc-number"
+                                        onChange={(event) =>
+                                            setCardNumber(
+                                                formatCardNumber(event.target.value)
+                                            )
+                                        }
+                                    />
+                                </div>
+                                <div className="sm:col-span-2">
+                                    <Input
+                                        label="Nome no cartão"
+                                        value={cardHolder}
+                                        autoComplete="cc-name"
+                                        onChange={(event) =>
+                                            setCardHolder(
+                                                event.target.value.toUpperCase()
+                                            )
+                                        }
+                                    />
+                                </div>
+                                <Input
+                                    label="Validade"
+                                    placeholder="MM/AAAA"
+                                    value={cardExpiration}
+                                    inputMode="numeric"
+                                    autoComplete="cc-exp"
+                                    onChange={(event) =>
+                                        setCardExpiration(
+                                            formatExpiration(event.target.value)
+                                        )
+                                    }
+                                />
+                                <Input
+                                    label="CVV"
+                                    value={cardCvv}
+                                    inputMode="numeric"
+                                    autoComplete="cc-csc"
+                                    maxLength={4}
+                                    onChange={(event) =>
+                                        setCardCvv(
+                                            event.target.value.replace(/\D/g, "")
+                                        )
+                                    }
+                                />
+                            </div>
+                        )}
+
+                        {error && (
+                            <p className="mt-5 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
+                                {error}
+                            </p>
+                        )}
+
+                        <p className="mt-5 text-xs leading-relaxed text-gray-500">
+                            {paymentMethod === "credit_card"
+                                ? "Ao pagar, você autoriza a cobrança recorrente mensal de R$ 5,00 até o cancelamento."
+                                : "O Pix libera o acesso por 1 mês + 1 dia. Depois desse período, basta renovar pelo mesmo fluxo."}
+                        </p>
+                    </div>
+
+                    <div className="border-t border-gray-100 bg-gray-50/60 px-6 py-6 sm:px-8 md:border-l md:border-t-0">
+                        <h2 className="text-md font-semibold text-gray-900 2xl:text-lg">
+                            Seu pedido
+                        </h2>
+
+                        <div className="mt-4 flex items-start gap-3 border-b border-gray-200 pb-4">
+                            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand/10 text-brand">
+                                <FontAwesomeIcon icon={faQrcode} />
+                            </span>
+                            <div className="min-w-0 flex-1">
+                                <div className="flex items-start justify-between gap-3">
+                                    <div>
+                                        <p className="font-medium text-gray-900">
+                                            iMenu QR Code Mesa
+                                        </p>
+                                        <p className="mt-0.5 text-xs text-gray-500">
+                                            1 unidade
+                                        </p>
+                                    </div>
+                                    <span className="shrink-0 font-medium text-gray-900">
+                                        R$ 5,00
+                                    </span>
+                                </div>
+                                <p className="mt-2 text-xs text-gray-500">
+                                    Mesas e QR Codes ilimitados
                                 </p>
                             </div>
-                        </button>
+                        </div>
 
-                        <button
-                            type="button"
-                            className={`w-full cursor-pointer rounded-xl border p-3 text-left transition-colors duration-200 flex items-center gap-3 ${
-                                paymentMethod === "credit_card"
-                                    ? "border-brand"
-                                    : "border-gray-300"
-                            }`}
-                            onClick={() => {
-                                setPaymentMethod("credit_card");
-                                setError(null);
-                            }}
-                        >
-                            <FontAwesomeIcon icon={faCreditCard} />
+                        <div className="flex items-start gap-3 border-b border-gray-200 py-4">
+                            <FontAwesomeIcon
+                                icon={faCalendarDays}
+                                className="mt-0.5 text-gray-500"
+                            />
                             <div>
-                                <p className="font-medium text-gray-900">
-                                    Cartão de crédito
-                                </p>
                                 <p className="text-xs text-gray-500">
-                                    Cobrança recorrente mensal • cancele quando quiser
+                                    Data da compra
+                                </p>
+                                <p className="mt-0.5 text-sm font-medium capitalize text-gray-900">
+                                    {today}
                                 </p>
                             </div>
-                        </button>
+                        </div>
+
+                        <div className="mt-5 rounded-xl border border-gray-200 bg-gray-50 p-4">
+                            <h2 className="mb-4 font-semibold text-gray-900 2xl:text-lg">
+                                Resumo de valores
+                            </h2>
+                            <div className="flex justify-between text-[15px] text-gray-600 2xl:text-lg">
+                                <span>Subtotal</span>
+                                <span>R$ 5,00</span>
+                            </div>
+                            <div className="mt-3 flex justify-between border-t border-gray-200 pt-3 font-semibold text-gray-900">
+                                <span>Total</span>
+                                <span>R$ 5,00</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
+            </div>
 
-                {paymentMethod === "credit_card" && (
-                    <div className="grid gap-3 sm:grid-cols-2">
-                        <div className="sm:col-span-2">
-                            <Input
-                                label="Número do cartão"
-                                value={cardNumber}
-                                inputMode="numeric"
-                                autoComplete="cc-number"
-                                onChange={(event) =>
-                                    setCardNumber(formatCardNumber(event.target.value))
-                                }
-                            />
-                        </div>
-                        <div className="sm:col-span-2">
-                            <Input
-                                label="Nome no cartão"
-                                value={cardHolder}
-                                autoComplete="cc-name"
-                                onChange={(event) =>
-                                    setCardHolder(event.target.value.toUpperCase())
-                                }
-                            />
-                        </div>
-                        <Input
-                            label="Validade"
-                            placeholder="MM/AAAA"
-                            value={cardExpiration}
-                            inputMode="numeric"
-                            autoComplete="cc-exp"
-                            onChange={(event) =>
-                                setCardExpiration(formatExpiration(event.target.value))
-                            }
-                        />
-                        <Input
-                            label="CVV"
-                            value={cardCvv}
-                            inputMode="numeric"
-                            autoComplete="cc-csc"
-                            maxLength={4}
-                            onChange={(event) =>
-                                setCardCvv(event.target.value.replace(/\D/g, ""))
-                            }
-                        />
-                    </div>
-                )}
-
-                <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-                    <h3 className="mb-4 font-semibold text-gray-900">
-                        Resumo de valores
-                    </h3>
-                    <div className="flex justify-between text-[15px] text-gray-600">
-                        <span>Subtotal</span>
-                        <span>R$ 5,00</span>
-                    </div>
-                    <div className="mt-3 flex justify-between border-t border-gray-200 pt-3 font-semibold text-gray-900">
-                        <span>Total</span>
-                        <span>R$ 5,00</span>
-                    </div>
-                </div>
-
-                {error && (
-                    <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
-                        {error}
+            <div className="flex shrink-0 flex-col gap-3 border-t border-gray-100 bg-white px-6 py-4 sm:flex-row sm:items-center sm:px-8 sm:py-5">
+                <div className="hidden sm:mr-auto sm:block">
+                    <p className="text-xs text-gray-500">Total</p>
+                    <p className="text-lg font-semibold text-gray-900">
+                        R$ 5,00
                     </p>
-                )}
-
-                <p className="text-center text-xs leading-relaxed text-gray-500">
-                    {paymentMethod === "credit_card"
-                        ? "Ao pagar, você autoriza a cobrança recorrente mensal de R$ 5,00 até o cancelamento."
-                        : "O Pix libera o acesso por 1 mês + 1 dia. Depois desse período, basta renovar pelo mesmo fluxo."}
-                </p>
-            </div>
-
-            <div className="flex shrink-0 flex-col-reverse gap-3 border-t border-gray-100 bg-white px-6 py-4 sm:flex-row sm:justify-end sm:px-8 sm:py-5">
+                </div>
                 <Button
                     type="button"
                     variant="secondary"
@@ -557,11 +599,11 @@ export default function QrCodeMesaSalesModal({
                                 <div className="ml-auto flex flex-col items-end gap-1 pb-1">
                                     <span className="inline-flex items-center gap-2 text-xs font-medium text-gray-600">
                                         <FontAwesomeIcon icon={faCreditCard} />
-                                        Cartão recorrente ou Pix
+                                        Cartão ou PIX
                                     </span>
                                     <span className="inline-flex items-center gap-2 text-xs font-medium text-gray-500">
                                         <FontAwesomeIcon icon={faArrowRotateLeft} />
-                                        cartão: cancele quando quiser
+                                        cancele quando quiser
                                     </span>
                                 </div>
                             </div>
