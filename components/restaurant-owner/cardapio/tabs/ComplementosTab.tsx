@@ -80,7 +80,6 @@ const getGroupSignature = (
         options: options.map((option) => [
             normalizeText(option.name),
             normalizeText(option.description),
-            option.price_cents,
         ]),
     });
 
@@ -167,13 +166,19 @@ const buildSharedGroups = (
                         .filter(
                             (option): option is ComplementOptionRow => !!option
                         );
+                    const hasSamePrice = matchingOptions.every(
+                        (option) =>
+                            option.price_cents === firstOption.price_cents
+                    );
 
                     return {
                         id: firstOption.id,
                         ids: matchingOptions.map((option) => option.id),
                         name: firstOption.name,
                         description: firstOption.description,
-                        price_cents: firstOption.price_cents,
+                        price_cents: hasSamePrice
+                            ? firstOption.price_cents
+                            : null,
                         position: firstOption.position,
                         availability: getAvailability(matchingOptions),
                     };

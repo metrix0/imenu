@@ -3,6 +3,7 @@
 import { LegacyModalClose } from "@/components/ui/ModalCloseButton";
 import Switch from "@/components/ui/Switch";
 import Input from "@/components/ui/Input";
+import Button from "@/components/ui/Button";
 import { useEffect, useRef, useState, type DragEvent } from "react";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import {
@@ -27,7 +28,7 @@ export type SharedComplementOption = {
     ids: string[];
     name: string;
     description: string | null;
-    price_cents: number;
+    price_cents: number | null;
     position: number;
     availability: SharedComplementAvailability;
 };
@@ -63,8 +64,10 @@ const cloneGroup = (group: SharedComplementGroup): SharedComplementGroup => ({
     })),
 });
 
-const formatPriceInput = (cents: number) =>
-    (Math.max(0, cents) / 100).toFixed(2).replace(".", ",");
+const formatPriceInput = (cents: number | null) =>
+    cents === null
+        ? ""
+        : (Math.max(0, cents) / 100).toFixed(2).replace(".", ",");
 
 const sanitizePriceInput = (value: string) => {
     const cleaned = value.replace(/[^\d,.]/g, "");
@@ -89,14 +92,23 @@ const sanitizePriceInput = (value: string) => {
     return `${integerPart},${decimals}`;
 };
 
+const parsePriceInput = (value: string) => {
+    const parsed = Number.parseFloat(value.replace(",", "."));
+    return Number.isFinite(parsed) && parsed >= 0
+        ? Math.round(parsed * 100)
+        : null;
+};
+
 function ComplementPriceInput({
     priceCents,
     disabled,
     onSave,
+    onApplyMixed,
 }: {
-    priceCents: number;
+    priceCents: number | null;
     disabled: boolean;
     onSave: (priceCents: number) => Promise<void>;
+    onApplyMixed: (priceCents: number) => void;
 }) {
     const [localValue, setLocalValue] = useState(
         formatPriceInput(priceCents)
@@ -106,33 +118,71 @@ function ComplementPriceInput({
         setLocalValue(formatPriceInput(priceCents));
     }, [priceCents]);
 
-    const handleBlur = () => {
-        const parsed = Number.parseFloat(localValue.replace(",", "."));
-        const nextCents =
-            Number.isFinite(parsed) && parsed >= 0
-                ? Math.round(parsed * 100)
-                : priceCents;
+    const parsedPriceCents = parsePriceInput(localValue);
+    const hasMixedPrices = priceCents === null;
 
+    const handleBlur = () => {
+        if (priceCents === null) return;
+
+        const nextCents = parsedPriceCents ?? priceCents;
         setLocalValue(formatPriceInput(nextCents));
         if (nextCents !== priceCents) void onSave(nextCents);
     };
 
+    const handleApplyMixed = () => {
+        if (!hasMixedPrices || parsedPriceCents === null) return;
+        onApplyMixed(parsedPriceCents);
+    };
+
     return (
-        <Input inline
-            type="text"
-            inputMode="decimal"
-            disabled={disabled}
-            value={localValue}
-            onFocus={(event) => event.currentTarget.select()}
-            onChange={(event) =>
-                setLocalValue(sanitizePriceInput(event.target.value))
-            }
-            onBlur={handleBlur}
-            onKeyDown={(event) => {
-                if (event.key === "Enter") event.currentTarget.blur();
-            }}
-            className="w-full rounded border border-gray-200 py-1 pl-6 pr-1 text-right text-sm text-gray-700 focus:border-brand focus:outline-none disabled:opacity-60 2xl:text-base"
-        />
+        <div
+            className={`flex items-center gap-2 ${
+                hasMixedPrices ? "w-44" : "w-24 sm:w-28 2xl:w-28"
+            }`}
+        >
+            <div className="relative min-w-0 flex-1">
+                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-400 2xl:text-base">
+                    R$
+                </span>
+                <Input inline
+                    type="text"
+                    inputMode="decimal"
+                    aria-label={
+                        hasMixedPrices
+                            ? "Preço diferente entre produtos"
+                            : "Preço"
+                    }
+                    disabled={disabled}
+                    value={localValue}
+                    onFocus={(event) => event.currentTarget.select()}
+                    onChange={(event) =>
+                        setLocalValue(sanitizePriceInput(event.target.value))
+                    }
+                    onBlur={handleBlur}
+                    onKeyDown={(event) => {
+                        if (event.key !== "Enter") return;
+                        if (hasMixedPrices) {
+                            event.preventDefault();
+                            handleApplyMixed();
+                        } else {
+                            event.currentTarget.blur();
+                        }
+                    }}
+                    className="w-full rounded border border-gray-200 py-1 pl-6 pr-1 text-right text-sm text-gray-700 focus:border-brand focus:outline-none disabled:opacity-60 2xl:text-base"
+                />
+            </div>
+            {hasMixedPrices && (
+                <Button
+                    type="button"
+                    variant="secondary"
+                    disabled={disabled || parsedPriceCents === null}
+                    onClick={handleApplyMixed}
+                    className="h-8 shrink-0 px-2 text-xs"
+                >
+                    Aplicar
+                </Button>
+            )}
+        </div>
     );
 }
 
@@ -147,6 +197,10 @@ export default function ManageComplementGroupModal({
     const [allowDragId, setAllowDragId] = useState<string | null>(null);
     const [draggedOptionId, setDraggedOptionId] = useState<string | null>(null);
     const [optionToPause, setOptionToPause] = useState<string | null>(null);
+    const [mixedPriceToApply, setMixedPriceToApply] = useState<{
+        optionId: string;
+        priceCents: number;
+    } | null>(null);
     const [toast, setToast] = useState<{
         id: number;
         message: string;
@@ -156,6 +210,7 @@ export default function ManageComplementGroupModal({
 
     useEffect(() => {
         setOptionToPause(null);
+        setMixedPriceToApply(null);
 
         if (!open || !group) {
             setDraft(null);
@@ -251,6 +306,16 @@ export default function ManageComplementGroupModal({
         }
 
         setIsSaving(false);
+    };
+
+    const confirmMixedPriceApply = async () => {
+        if (!mixedPriceToApply) return;
+
+        const pending = mixedPriceToApply;
+        setMixedPriceToApply(null);
+        await updateOption(pending.optionId, {
+            price_cents: pending.priceCents,
+        });
     };
 
     const setOptionAvailability = async (
@@ -754,22 +819,21 @@ export default function ManageComplementGroupModal({
                                         </div>
 
                                         <div className="ml-auto flex w-full items-center justify-end gap-3 pl-8 sm:w-auto sm:pl-0">
-                                            <div className="relative flex w-24 shrink-0 items-center gap-1 sm:w-28 2xl:w-28">
-                                                <span className="absolute left-2 text-xs text-gray-400 2xl:text-base">
-                                                    R$
-                                                </span>
-                                                <ComplementPriceInput
-                                                    priceCents={
-                                                        option.price_cents
-                                                    }
-                                                    disabled={isSaving}
-                                                    onSave={(price_cents) =>
-                                                        updateOption(option.id, {
-                                                            price_cents,
-                                                        })
-                                                    }
-                                                />
-                                            </div>
+                                            <ComplementPriceInput
+                                                priceCents={option.price_cents}
+                                                disabled={isSaving}
+                                                onSave={(price_cents) =>
+                                                    updateOption(option.id, {
+                                                        price_cents,
+                                                    })
+                                                }
+                                                onApplyMixed={(priceCents) =>
+                                                    setMixedPriceToApply({
+                                                        optionId: option.id,
+                                                        priceCents,
+                                                    })
+                                                }
+                                            />
 
                                             <Switch checked={option.availability === "mixed" ? "mixed" : isAvailable} disabled={isSaving}
                                                 onClick={() => void toggleOptionAvailability(option.id)}
@@ -825,6 +889,18 @@ export default function ManageComplementGroupModal({
                     </div>
                 </div>
             </Modal>
+
+            <ConfirmModal
+                open={!!mixedPriceToApply}
+                onClose={() => {
+                    if (!isSaving) setMixedPriceToApply(null);
+                }}
+                onConfirm={() => void confirmMixedPriceApply()}
+                title="Aplicar o mesmo preço?"
+                description="Esta opção possui preços diferentes entre os produtos deste grupo. Ao continuar, o novo preço será aplicado a todos eles."
+                confirmLabel="Aplicar em todos"
+                isLoading={isSaving}
+            />
 
             <ConfirmModal
                 open={!!optionToPause}
