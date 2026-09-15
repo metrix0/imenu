@@ -14,6 +14,9 @@ type AsaasTransferValidationPayload = {
         value?: number;
         operationType?: string;
         externalReference?: string | null;
+        bankAccount?: {
+            pixAddressKey?: string | null;
+        } | null;
     };
 };
 
@@ -22,6 +25,7 @@ type PayoutRow = {
     amount_cents: number;
     status: string;
     asaas_transfer_id: string | null;
+    pix_address_key: string | null;
 };
 
 function validWebhookToken(request: Request): boolean {
@@ -35,6 +39,18 @@ function validWebhookToken(request: Request): boolean {
         expectedBuffer.length === receivedBuffer.length &&
         timingSafeEqual(expectedBuffer, receivedBuffer)
     );
+}
+
+function normalizePixKey(value: string | null | undefined): string {
+    const raw = String(value || "").trim().toLowerCase();
+    if (!raw) return "";
+    if (raw.includes("@") || /^[0-9a-f-]{36}$/i.test(raw)) return raw;
+
+    let digits = raw.replace(/\D/g, "");
+    if (digits.length === 13 && digits.startsWith("55")) {
+        digits = digits.slice(2);
+    }
+    return digits;
 }
 
 function refuse(reason: string, transferId?: string, externalReference?: string) {
@@ -102,9 +118,10 @@ export async function POST(request: Request) {
         );
     }
 
+    const transferCents = Math.round(value * 100);
     const payoutResult = await query<PayoutRow>(
         `
-            SELECT id, amount_cents, status, asaas_transfer_id
+            SELECT id, amount_cents, status, asaas_transfer_id, pix_address_key
             FROM public.payouts
             WHERE asaas_transfer_id = $1
                OR ($2 <> '' AND id::text = $2)
@@ -113,7 +130,32 @@ export async function POST(request: Request) {
         `,
         [transferId, payoutIdFromReference]
     );
-    const payout = payoutResult.rows[0];
+    let payout = payoutResult.rows[0];
+
+    if (!payout) {
+        const webhookPixKey = normalizePixKey(transfer.bankAccount?.pixAddressKey);
+        if (webhookPixKey) {
+            const candidates = await query<PayoutRow>(
+                `
+                    SELECT id, amount_cents, status, asaas_transfer_id, pix_address_key
+                    FROM public.payouts
+                    WHERE status = 'processing'
+                      AND asaas_transfer_id IS NULL
+                      AND amount_cents = $1
+                      AND created_at >= NOW() - INTERVAL '10 minutes'
+                    ORDER BY created_at DESC
+                    LIMIT 10
+                `,
+                [transferCents]
+            );
+            const matching = candidates.rows.filter(
+                (row) => normalizePixKey(row.pix_address_key) === webhookPixKey
+            );
+            if (matching.length === 1) {
+                payout = matching[0];
+            }
+        }
+    }
 
     if (!payout) {
         return refuse(
@@ -131,7 +173,6 @@ export async function POST(request: Request) {
         );
     }
 
-    const transferCents = Math.round(value * 100);
     if (transferCents !== Number(payout.amount_cents)) {
         return refuse(
             "Valor da transferência não corresponde ao repasse registrado.",
