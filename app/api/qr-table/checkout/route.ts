@@ -5,14 +5,14 @@ import {
     requireRestaurantOwner,
 } from "@/lib/auth/restaurantOwner";
 import { query } from "@/lib/database/sql";
-import type { QrTableAddon, QrTableSource } from "@/lib/qr-table/types";
-import { hasQrTableAccess } from "@/lib/qr-table/types";
 import {
     AsaasApiError,
     asaasRequest,
     buildAsaasCheckoutUrl,
     formatAsaasDate,
-} from "@/lib/services/asaas";
+} from "@/lib/qr-table/asaas";
+import type { QrTableAddon, QrTableSource } from "@/lib/qr-table/types";
+import { hasQrTableAccess } from "@/lib/qr-table/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

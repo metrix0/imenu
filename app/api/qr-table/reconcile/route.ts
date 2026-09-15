@@ -6,9 +6,9 @@ import {
     requireRestaurantOwner,
 } from "@/lib/auth/restaurantOwner";
 import { query } from "@/lib/database/sql";
+import { AsaasApiError, asaasRequest } from "@/lib/qr-table/asaas";
 import type { QrTableAddon } from "@/lib/qr-table/types";
 import { hasQrTableAccess } from "@/lib/qr-table/types";
-import { AsaasApiError, asaasRequest } from "@/lib/services/asaas";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
