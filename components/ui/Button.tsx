@@ -13,16 +13,22 @@ export default function Button({
                                    className = "",
                                    ...props
                                }: ButtonProps) {
-    const base =
-        "inline-flex min-h-10 cursor-pointer items-center justify-center rounded-lg border border-[#e2e5e9] px-[14px] py-[9px] text-[13px] font-medium leading-5 shadow-none transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#d93d00] focus-visible:ring-offset-2 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-[0.48]";
+    const classTokens = className.split(/\s+/);
+    const hasContextualHorizontalPadding = classTokens.some((token) => /^!?px-/.test(token));
+    const hasContextualVerticalPadding = classTokens.some((token) => /^!?py-/.test(token));
+    const base = [
+        "inline-flex min-h-10 cursor-pointer items-center justify-center rounded-lg text-[13px] font-medium shadow-none transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#d93d00] focus-visible:ring-offset-2 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-[0.48]",
+        hasContextualHorizontalPadding ? "" : "px-[14px]",
+        hasContextualVerticalPadding ? "" : "py-[9px]",
+    ].join(" ");
     const hasContextualSecondaryBackground =
         variant === "secondary" &&
-        className.split(/\s+/).some((token) => /^!?bg-(?!transparent$)/.test(token));
+        classTokens.some((token) => /^!?bg-(?!transparent$)/.test(token));
     const variants: Record<NonNullable<ButtonProps["variant"]>, string> = {
-        primary: "border-[#d93d00] bg-[#d93d00] text-white hover:border-[#c43700] hover:bg-[#c43700]",
+        primary: "bg-[#d93d00] text-white hover:bg-[#c43700]",
         secondary: hasContextualSecondaryBackground
             ? ""
-            : "bg-white text-[#1d1d1d] hover:bg-[#f1f3f5]",
+            : "border border-[#e2e5e9] bg-white text-[#1d1d1d] hover:bg-[#f1f3f5]",
     };
 
     return (
