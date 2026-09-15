@@ -1,7 +1,7 @@
 import type { PoolClient } from "pg";
 import type { PizzaSelection } from "@/lib/types/types";
 import { loadPizzaCatalog } from "./catalog";
-import { isPizzaItem, parsePizzaSettings, PizzaPricingError, pricePizza } from "./pricing";
+import { assertPizzaCategoriesCanCombine, isPizzaItem, parsePizzaSettings, PizzaPricingError, pricePizza } from "./pricing";
 
 // Rebuild names, options, eligibility and prices from the catalog, not browser prices.
 export async function pricePizzaOrderItems(client: Pick<PoolClient, "query">, restaurantId: string, settingsValue: unknown, items: any[]): Promise<any[]> {
@@ -19,6 +19,7 @@ export async function pricePizzaOrderItems(client: Pick<PoolClient, "query">, re
             return product;
         });
         if (flavors[0].id !== (item.base_item_id || item.item_id)) throw new PizzaPricingError("Primeiro sabor inválido.");
+        assertPizzaCategoriesCanCombine(flavors, settings.same_category_only);
         const priced = pricePizza(flavors, item.selectedSubitems, settings.pricing_rule);
         if (priced.unit_price_cents !== item.unit_price_cents || priced.unit_price_cents * item.qty !== item.total_cents) throw new PizzaPricingError("O preço da pizza mudou. Monte a pizza novamente para conferir o valor atualizado.");
         return { ...item, ...priced, total_cents: priced.unit_price_cents * item.qty, promotion: undefined };

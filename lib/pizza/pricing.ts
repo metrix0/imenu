@@ -1,9 +1,10 @@
 import type { CartItem, Item, PizzaCatalogItem, PizzaSelection, PizzaSettings, Subcategory } from "@/lib/types/types";
 
 export const DEFAULT_PIZZA_SETTINGS: PizzaSettings = {
-    enabled: false, pricing_rule: "highest", max_flavors: 2, category_ids: [],
+    enabled: false, pricing_rule: "highest", max_flavors: 2, category_ids: [], same_category_only: false,
 };
 export const MAX_PIZZA_FLAVORS = 8;
+export const SAME_CATEGORY_PIZZA_ERROR = "Apenas pizzas da mesma categoria podem ser combinadas.";
 export class PizzaPricingError extends Error {}
 
 export function parsePizzaSettings(value: unknown): PizzaSettings {
@@ -13,11 +14,20 @@ export function parsePizzaSettings(value: unknown): PizzaSettings {
         pricing_rule: v.pricing_rule === "average" ? "average" : "highest",
         max_flavors: Number.isInteger(v.max_flavors) && Number(v.max_flavors) >= 2 && Number(v.max_flavors) <= MAX_PIZZA_FLAVORS ? Number(v.max_flavors) : 2,
         category_ids: Array.isArray(v.category_ids) ? [...new Set(v.category_ids.filter(id => typeof id === "string"))] : [],
+        same_category_only: v.same_category_only === true,
     };
 }
 
 export function isPizzaItem(item: Item, settings: PizzaSettings): boolean {
     return settings.enabled && settings.category_ids.includes(item.category_id || item.category?.id || "");
+}
+
+export function assertPizzaCategoriesCanCombine(flavors: PizzaCatalogItem[], sameCategoryOnly: boolean): void {
+    if (!sameCategoryOnly) return;
+    const categoryId = flavors[0]?.category_id || flavors[0]?.category?.id || "";
+    if (!categoryId || flavors.some(flavor => (flavor.category_id || flavor.category?.id || "") !== categoryId)) {
+        throw new PizzaPricingError(SAME_CATEGORY_PIZZA_ERROR);
+    }
 }
 
 const normalized = (name: string) => name.trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").toLocaleLowerCase("pt-BR");
@@ -48,6 +58,7 @@ export function matchPizzaComplements(source: CartItem["selectedSubitems"], grou
 
 export function pricePizza(flavors: PizzaCatalogItem[], selected: CartItem["selectedSubitems"], rule: PizzaSettings["pricing_rule"]): { pizza: PizzaSelection; unit_price_cents: number; name: string; selectedSubitems: CartItem["selectedSubitems"] } {
     if (flavors.length < 2 || flavors.length > MAX_PIZZA_FLAVORS) throw new PizzaPricingError("Quantidade de sabores inválida.");
+    assertPizzaCategoriesCanCombine(flavors, flavors.some(flavor => flavor.pizza_same_category_only === true));
     const canonical = matchPizzaComplements(selected, flavors[0].subcategories, true);
     const snapshots = flavors.map((flavor, index) => {
         if (!flavor.is_available) throw new PizzaPricingError(`${flavor.name} não está disponível.`);

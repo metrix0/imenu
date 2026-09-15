@@ -18,6 +18,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
             category_id: item.category_id, promotion: item.promotion, image_path: item.image_path,
             image_public_url: item.image_path ? supabase.storage.from("menu-images").getPublicUrl(item.image_path).data.publicUrl : null,
             subcategories: item.subcategories,
+            pizza_same_category_only: settings.same_category_only,
         })) }, { headers: { "Cache-Control": "no-store" } });
     } catch {
         return NextResponse.json({ error: "Não foi possível carregar os sabores." }, { status: 500 });

@@ -5,6 +5,7 @@ import type { Category, ItemsByCategory, Item } from "@/lib/types/types";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { icons } from "@/lib/utils/fontawesome";
 import { formatPrice, promotionPrice } from "@/lib/utils/formatPrice";
+import { SAME_CATEGORY_PIZZA_ERROR } from "@/lib/pizza/pricing";
 import Input from "@/components/ui/Input";
 import DraggableModal from "@/components/ui/HybridModal";
 
@@ -40,9 +41,13 @@ export default function SearchModal({ categories, itemsByCategory, onClose, onSe
     const allItems = useMemo(() => {
         const orderedCategories = [...categories, ...Object.keys(itemsByCategory).filter(id => !categories.some(c => c.id === id)).map(id => ({ id, name: "Outros", position: 0 }))];
         return orderedCategories.flatMap(category => (itemsByCategory[category.id] || [])
-            .filter(item => item.is_available && (!debouncedSearch || item.name.toLocaleLowerCase("pt-BR").includes(debouncedSearch.toLocaleLowerCase("pt-BR"))))
+            .filter(item => {
+                if (!item.is_available) return false;
+                if (flavorStep && getFinalPrice?.(item).error === SAME_CATEGORY_PIZZA_ERROR) return false;
+                return !debouncedSearch || item.name.toLocaleLowerCase("pt-BR").includes(debouncedSearch.toLocaleLowerCase("pt-BR"));
+            })
             .map(item => ({ item, category })));
-    }, [categories, itemsByCategory, debouncedSearch]);
+    }, [categories, itemsByCategory, debouncedSearch, flavorStep, getFinalPrice]);
     const hasMore = visibleCount < allItems.length;
     useEffect(() => {
         // Desktop modals mount their portal after the parent effect runs.

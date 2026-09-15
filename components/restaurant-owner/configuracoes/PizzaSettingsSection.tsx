@@ -81,6 +81,13 @@ export default function PizzaSettingsSection({ restaurantId }: { restaurantId: s
                 }))}
                 className="cursor-pointer disabled:cursor-not-allowed"
             />
+            <div className="flex items-center justify-between gap-4 rounded-xl border border-gray-200 p-4">
+                <div>
+                    <p id="pizza-same-category-title" className="font-medium">Combinar apenas pizzas da mesma categoria</p>
+                    <p className="mt-1 text-sm text-gray-500">Apenas pizzas da mesma categoria podem ser combinadas. Na lista de itens, só aparecerão pizzas da mesma categoria.</p>
+                </div>
+                <Switch aria-labelledby="pizza-same-category-title" checked={settings.same_category_only} disabled={status === "saving"} className="shrink-0 cursor-pointer disabled:cursor-not-allowed" onClick={() => void save({ ...settings, same_category_only: !settings.same_category_only })} />
+            </div>
             <div>
                 <p className="font-medium">Categorias que podem combinar sabores</p>
                 <p className="mt-1 text-sm text-gray-500">Os produtos destas categorias podem ser combinados entre si, inclusive entre categorias diferentes.</p>
