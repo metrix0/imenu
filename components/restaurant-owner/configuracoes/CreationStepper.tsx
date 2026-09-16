@@ -5,10 +5,10 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 
 const steps = [
-  "/restaurante/criar/localizacao",
-  "/restaurante/criar/tempo-e-taxa",
-  "/restaurante/criar/disponibilidade",
   "/restaurante/criar/cardapio",
+  "/restaurante/criar/disponibilidade",
+  "/restaurante/criar/loja",
+  "/restaurante/criar/localizacao",
 ];
 
 export default function CreationStepper() {

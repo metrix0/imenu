@@ -114,7 +114,7 @@ export default function PainelTempoETaxaPage() {
     ].filter(Boolean).join(", ");
 
     return (
-        <div className="mx-auto max-w-6xl px-4 pb-20 pt-8 sm:px-6">
+        <div className="mx-auto max-w-6xl px-4 pb-20 pt-8 sm:px-6 [&_h2>div.relative]:ml-2 [&_.panel-neighborhood-fields_button]:!text-red">
             <div className="mb-8 flex flex-col gap-1">
                 <h1 className="text-3xl font-bold text-gray-900">Configurações de Entrega</h1>
                 <p className="mt-1 text-gray-500 2xl:text-lg">Defina suas faixas de entrega e o valor mínimo de pedido.</p>

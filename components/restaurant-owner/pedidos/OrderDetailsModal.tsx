@@ -138,7 +138,7 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
 
         const closeTimer = window.setTimeout(() => {
             setDetails(null);
-        }, 220);
+        }, 500);
 
         return () => window.clearTimeout(closeTimer);
     }, [isOpen, order]);

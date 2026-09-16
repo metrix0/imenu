@@ -7,56 +7,216 @@ import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 import Button from "@/components/ui/Button";
 import Toast from "@/components/ui/Toast";
 import Loader from "@/components/ui/Loader";
-import type { SaveState } from "@/components/ui/SaveStatus";
-import PanelAppearance from "@/components/ui/PanelAppearance";
-import StoreProfileManager from "@/components/restaurant-owner/loja/StoreProfileManager";
 import CardapioTab from "@/components/restaurant-owner/cardapio/tabs/CardapioTab";
 import ManageCategoryModal from "@/components/restaurant-owner/cardapio/ManageCategoryModal";
 import ItemDetailsModal from "@/components/restaurant-owner/cardapio/ItemDetailsModal";
 import { MenuItemType } from "@/components/restaurant-owner/cardapio/MenuItemRow";
 import ScanMenuModal from "@/components/restaurant-owner/ScanMenuImageModal";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { faWandMagicSparkles } from "@fortawesome/free-solid-svg-icons";
-import Input from "@/components/ui/Input";
-import Tooltip from "@/components/ui/Tooltip";
-import AllowedPaymentMethods, { DEFAULT_ALLOWED_PAYMENT_METHODS } from "@/components/restaurant-owner/configuracoes/AllowedPaymentMethods";
-import "../../../painel/essencial.css";
-
 
 type Category = { id: string; name: string; position: number };
-const formatPhone = (raw: string) => { const digits = raw.replace(/\D/g, "").replace(/^55(?=\d{10,11}$)/, "").slice(0, 11); if (digits.length <= 2) return digits ? `(${digits}` : ""; if (digits.length <= 7) return `(${digits.slice(0,2)}) ${digits.slice(2)}`; return `(${digits.slice(0,2)}) ${digits.slice(2,7)}-${digits.slice(7)}`; };
 
 export default function CriarCardapioPage() {
-    const router = useRouter(); const { restaurantId, clear } = useCreationStore();
-    const [loading, setLoading] = useState(true); const [saving, setSaving] = useState(false); const [toast, setToast] = useState<{message:string;type:"success"|"error"}|null>(null);
-    const [profileRestaurant,setProfileRestaurant]=useState<any>(null); const [name,setName]=useState(""); const [profileStatus,setProfileStatus]=useState<SaveState>("saved"); const [methods,setMethods]=useState<string[]>(DEFAULT_ALLOWED_PAYMENT_METHODS); const [paymentInfo,setPaymentInfo]=useState(""); const [hasInvalidPixPayout,setHasInvalidPixPayout]=useState(false);
-    const [categories,setCategories]=useState<Category[]>([]); const [items,setItems]=useState<MenuItemType[]>([]); const [catOpen,setCatOpen]=useState(false); const [catEdit,setCatEdit]=useState<{id:string;name:string}|null>(null); const [itemOpen,setItemOpen]=useState(false); const [itemEdit,setItemEdit]=useState<MenuItemType|null>(null); const [aiOpen,setAiOpen]=useState(false); const [responsiblePhone,setResponsiblePhone]=useState(""); const [needsResponsiblePhone,setNeedsResponsiblePhone]=useState(false);
+    const router = useRouter();
+    const { restaurantId } = useCreationStore();
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [toast, setToast] = useState<{
+        message: string;
+        type: "success" | "error";
+    } | null>(null);
+    const [categories, setCategories] = useState<Category[]>([]);
+    const [items, setItems] = useState<MenuItemType[]>([]);
+    const [catOpen, setCatOpen] = useState(false);
+    const [catEdit, setCatEdit] = useState<{ id: string; name: string } | null>(null);
+    const [itemOpen, setItemOpen] = useState(false);
+    const [itemEdit, setItemEdit] = useState<MenuItemType | null>(null);
+    const [aiOpen, setAiOpen] = useState(false);
 
-    const autoSave = async (fields: Record<string, unknown>) => {
-        if (!restaurantId) return null;
-        const response = await fetch(`/api/restaurants/${restaurantId}`, { method:"PATCH", headers:{"Content-Type":"application/json"}, body:JSON.stringify(fields) });
-        const payload = await response.json(); if (!response.ok) throw new Error(payload.error || "Erro ao salvar."); return payload;
-    };
     const load = async () => {
         if (!restaurantId) return router.replace("/restaurante/login");
-        try {
-            const { data: { user } } = await supabase.auth.getUser();
-            setNeedsResponsiblePhone(!String(user?.user_metadata?.phone || "").replace(/\D/g,""));
-            const { data: restaurant, error } = await supabase.from("restaurants").select("id,name,description,url_slug,logo_url,banner_url,payment_method,allowed_payment_methods,payment_info,payment_info_type,custom_domain,store_whatsapp").eq("id",restaurantId).single(); if(error||!restaurant) throw new Error("Restaurante não encontrado.");
-            setProfileRestaurant(restaurant); setName(restaurant.name||""); setMethods(Array.isArray(restaurant.allowed_payment_methods)&&restaurant.allowed_payment_methods.length?restaurant.allowed_payment_methods:DEFAULT_ALLOWED_PAYMENT_METHODS); setPaymentInfo(restaurant.payment_info||"");
-            const [{data:cats},{data:rawItems}] = await Promise.all([supabase.from("categories").select("*").eq("restaurant_id",restaurantId).order("position"),supabase.from("items").select("*").eq("restaurant_id",restaurantId).order("position")]); setCategories(cats||[]); setItems((rawItems||[]).map((item:any)=>({...item,image_url:item.image_path?supabase.storage.from("menu-images").getPublicUrl(item.image_path).data.publicUrl:null})));
-        } catch(caught){setToast({message:(caught as Error).message,type:"error"});} finally{setLoading(false);}
-    };
-    useEffect(()=>{void load();},[restaurantId]);
-    const missingPixPayoutKey=methods.includes("pix")&&!paymentInfo.trim();
-    const missingPixPayoutType=methods.includes("pix")&&hasInvalidPixPayout;
-    const finish=async()=>{if(missingPixPayoutKey)return setToast({message:"Preencha sua chave PIX para repasses",type:"error"});if(missingPixPayoutType)return setToast({message:"Defina o tipo da chave PIX acima.",type:"error"});if(!name.trim())return setToast({message:"Informe o nome do restaurante.",type:"error"});if(profileStatus==="saving")return setToast({message:"Aguarde os dados da loja terminarem de salvar.",type:"error"});if(profileStatus==="error")return setToast({message:"Corrija o erro ao salvar os dados da loja antes de continuar.",type:"error"});const responsiblePhoneDigits=responsiblePhone.replace(/\D/g,"");if(needsResponsiblePhone&&responsiblePhoneDigits.length!==11)return setToast({message:"Informe o celular do responsável.",type:"error"});setSaving(true);try{if(needsResponsiblePhone){const {error:phoneError}=await supabase.auth.updateUser({data:{phone:responsiblePhoneDigits}});if(phoneError)throw phoneError;}await autoSave({allowed_payment_methods:methods,first_time:false,creation_step:4});clear();router.replace("/painel");}catch(e){setToast({message:(e as Error).message,type:"error"});setSaving(false);}};
-    if(loading)return <main className="flex min-h-[60vh] items-center justify-center"><Loader className="border-t-brand"/></main>;
-    if(!restaurantId||!profileRestaurant)return null;
 
-    return <main className="flex min-h-screen flex-col items-center bg-white px-4 pb-32 pt-4 sm:px-6"><div className="mt-4 w-full max-w-4xl"><div className="mb-8"><p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-brand">Etapa 4/4</p><h1 className="text-3xl font-bold">Defina sua Loja</h1><p className="mt-1 text-gray-500">Adicione sua marca e seus primeiros produtos.</p></div>
-        <PanelAppearance><div className="mb-8 space-y-8"><StoreProfileManager restaurant={profileRestaurant} hideCustomDomainButton onNameChange={setName} onPaymentInfoChange={setPaymentInfo} onPixPayoutValidationChange={setHasInvalidPixPayout} onSaveStatusChange={setProfileStatus}/><AllowedPaymentMethods value={methods} onChange={(next)=>{setMethods(next);void autoSave({allowed_payment_methods:next});}}/></div></PanelAppearance>
-        <div className="mb-4 flex flex-col justify-between gap-3 px-2 sm:flex-row sm:items-center"><h2 className="text-xl font-bold">Cardápio</h2><button onClick={()=>setAiOpen(true)} className="flex items-center justify-center gap-2 rounded-full bg-gradient-to-br from-[#905CFF] to-[#6A3AFF] px-6 py-3 font-medium text-white"><FontAwesomeIcon icon={faWandMagicSparkles}/>Scanear Cardápio com IA</button></div><div className="rounded-xl border border-gray-100 bg-gray-50/50 p-4"><CardapioTab categories={categories} items={items} restaurantId={restaurantId} onRefresh={load} onItemUpdated={(updatedItem)=>setItems((current)=>current.map((item)=>item.id===updatedItem.id?{...item,...updatedItem}:item))} onEditCategory={(c)=>{setCatEdit(c);setCatOpen(true);}} onOpenItemDetails={(item)=>{setItemEdit(item);setItemOpen(true);}} onNewCategory={()=>{setCatEdit(null);setCatOpen(true);}} onAIScanMenu={setAiOpen}/></div>{needsResponsiblePhone&&<div className="mt-8"><Input label="Celular do Responsável*" type="tel" autoComplete="tel" value={responsiblePhone} maxLength={15} onChange={(e)=>setResponsiblePhone(formatPhone(e.target.value))}/><p className="mt-1 text-xs text-gray-500">Usado para suporte e casos de emergência.</p></div>}</div>
-        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white p-4"><div className="mx-auto flex max-w-4xl items-center justify-between"><button onClick={()=>router.back()} className="cursor-pointer font-medium text-brand">Voltar</button><Tooltip text={missingPixPayoutKey ? "Preencha sua chave PIX para repasses" : missingPixPayoutType ? "Defina o tipo da chave PIX acima." : !name.trim() ? "Você precisa completar os dados primeiro" : profileStatus==="saving" ? "Aguarde os dados terminarem de salvar" : ""}><Button onClick={finish} loading={saving} disabled={profileStatus==="saving"||missingPixPayoutKey||missingPixPayoutType} className={`px-8 ${!name.trim()?"!bg-brand/55 hover:!bg-brand/55":""}`}>Salvar e Continuar</Button></Tooltip></div></div>
-        <ManageCategoryModal isOpen={catOpen} onClose={()=>setCatOpen(false)} onSuccess={load} restaurantId={restaurantId} categoryToEdit={catEdit}/><ItemDetailsModal isOpen={itemOpen} onClose={()=>setItemOpen(false)} item={itemEdit} restaurantId={restaurantId}/><ScanMenuModal open={aiOpen} onClose={()=>setAiOpen(false)} restaurantId={restaurantId} existingCategories={categories} onRefresh={load}/>{toast&&<Toast message={toast.message} type={toast.type} onClose={()=>setToast(null)}/>}</main>;
+        try {
+            const [{ data: cats }, { data: rawItems }] = await Promise.all([
+                supabase
+                    .from("categories")
+                    .select("*")
+                    .eq("restaurant_id", restaurantId)
+                    .order("position"),
+                supabase
+                    .from("items")
+                    .select("*")
+                    .eq("restaurant_id", restaurantId)
+                    .order("position"),
+            ]);
+
+            setCategories(cats || []);
+            setItems(
+                (rawItems || []).map((item: any) => ({
+                    ...item,
+                    image_url: item.image_path
+                        ? supabase.storage
+                              .from("menu-images")
+                              .getPublicUrl(item.image_path).data.publicUrl
+                        : null,
+                }))
+            );
+        } catch (caught) {
+            setToast({
+                message:
+                    caught instanceof Error
+                        ? caught.message
+                        : "Não foi possível carregar o cardápio.",
+                type: "error",
+            });
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        void load();
+    }, [restaurantId]);
+
+    const continueOnboarding = async () => {
+        if (!restaurantId) return;
+        setSaving(true);
+
+        try {
+            const response = await fetch(`/api/restaurants/${restaurantId}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ creation_step: 2 }),
+            });
+            const payload = await response.json();
+            if (!response.ok) {
+                throw new Error(payload?.error || "Erro ao salvar.");
+            }
+            router.push("/restaurante/criar/disponibilidade");
+        } catch (caught) {
+            setToast({
+                message:
+                    caught instanceof Error
+                        ? caught.message
+                        : "Não foi possível continuar.",
+                type: "error",
+            });
+            setSaving(false);
+        }
+    };
+
+    if (loading) {
+        return (
+            <main className="flex min-h-[60vh] items-center justify-center">
+                <Loader className="border-t-brand" />
+            </main>
+        );
+    }
+
+    if (!restaurantId) return null;
+
+    return (
+        <main className="flex min-h-screen flex-col items-center bg-white px-4 pb-32 pt-4 sm:px-6">
+            <div className="mt-4 w-full max-w-4xl">
+                <div className="mb-8 text-center sm:text-left">
+                    <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-brand">
+                        Etapa 1/4
+                    </p>
+                    <h1 className="text-3xl font-bold text-gray-900">Cardápio</h1>
+                    <p className="mt-1 text-gray-500">
+                        Adicione seus primeiros produtos.
+                    </p>
+                </div>
+
+                <div className="mb-4 flex flex-col justify-between gap-3 px-2 sm:flex-row sm:items-center">
+                    <h2 className="text-xl font-bold">Cardápio</h2>
+                    <button
+                        onClick={() => setAiOpen(true)}
+                        className="flex items-center justify-center gap-2 rounded-full bg-gradient-to-br from-[#905CFF] to-[#6A3AFF] px-6 py-3 font-medium text-white"
+                    >
+                        <FontAwesomeIcon icon={faWandMagicSparkles} />
+                        Scanear Cardápio com IA
+                    </button>
+                </div>
+
+                <div className="rounded-xl border border-gray-100 bg-gray-50/50 p-4">
+                    <CardapioTab
+                        categories={categories}
+                        items={items}
+                        restaurantId={restaurantId}
+                        onRefresh={load}
+                        onItemUpdated={(updatedItem) =>
+                            setItems((current) =>
+                                current.map((item) =>
+                                    item.id === updatedItem.id
+                                        ? { ...item, ...updatedItem }
+                                        : item
+                                )
+                            )
+                        }
+                        onEditCategory={(category) => {
+                            setCatEdit(category);
+                            setCatOpen(true);
+                        }}
+                        onOpenItemDetails={(item) => {
+                            setItemEdit(item);
+                            setItemOpen(true);
+                        }}
+                        onNewCategory={() => {
+                            setCatEdit(null);
+                            setCatOpen(true);
+                        }}
+                        onAIScanMenu={setAiOpen}
+                    />
+                </div>
+            </div>
+
+            <div className="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white p-4">
+                <div className="mx-auto flex max-w-4xl items-center justify-between">
+                    <button
+                        onClick={() => router.back()}
+                        className="cursor-pointer font-medium text-brand"
+                    >
+                        Voltar
+                    </button>
+                    <Button
+                        onClick={continueOnboarding}
+                        loading={saving}
+                        className="px-8"
+                    >
+                        Salvar e Continuar
+                    </Button>
+                </div>
+            </div>
+
+            <ManageCategoryModal
+                isOpen={catOpen}
+                onClose={() => setCatOpen(false)}
+                onSuccess={load}
+                restaurantId={restaurantId}
+                categoryToEdit={catEdit}
+            />
+            <ItemDetailsModal
+                isOpen={itemOpen}
+                onClose={() => setItemOpen(false)}
+                item={itemEdit}
+                restaurantId={restaurantId}
+            />
+            <ScanMenuModal
+                open={aiOpen}
+                onClose={() => setAiOpen(false)}
+                restaurantId={restaurantId}
+                existingCategories={categories}
+                onRefresh={load}
+            />
+            {toast && (
+                <Toast
+                    message={toast.message}
+                    type={toast.type}
+                    onClose={() => setToast(null)}
+                />
+            )}
+        </main>
+    );
 }

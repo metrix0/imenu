@@ -5,34 +5,23 @@ import { supabase } from "@/lib/database/supabaseClient";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 import Loader from "@/components/ui/Loader";
 import SaveStatus, { type SaveState } from "@/components/ui/SaveStatus";
-import StoreProfileManager from "@/components/restaurant-owner/loja/StoreProfileManager";
+import StoreSettings from "@/components/restaurant-owner/loja/StoreSettings";
 import PreparationTimeCard from "@/components/restaurant-owner/loja/PreparationTimeCard";
-import AllowedPaymentMethods, {
-    DEFAULT_ALLOWED_PAYMENT_METHODS,
-} from "@/components/restaurant-owner/configuracoes/AllowedPaymentMethods";
 
 export default function LojaPage() {
     const { restaurantId, setRestaurantId } = useCreationStore();
     const [isLoading, setIsLoading] = useState(true);
     const [restaurant, setRestaurant] = useState<any>(null);
-    const [profileStatus, setProfileStatus] = useState<SaveState>("saved");
+    const [storeStatus, setStoreStatus] = useState<SaveState>("saved");
     const [preparationStatus, setPreparationStatus] = useState<SaveState>("saved");
-    const [paymentStatus, setPaymentStatus] = useState<SaveState>("saved");
-    const statuses = [profileStatus, preparationStatus, paymentStatus];
-    const saveStatus = statuses.includes("error") ? "error" : statuses.includes("saving") ? "saving" : statuses.includes("idle") ? "idle" : "saved";
-    const [allowedPaymentMethods, setAllowedPaymentMethods] = useState<string[]>(
-        DEFAULT_ALLOWED_PAYMENT_METHODS
-    );
-
-    useEffect(() => {
-        if (!restaurant) return;
-        setAllowedPaymentMethods(
-            Array.isArray(restaurant.allowed_payment_methods) &&
-                restaurant.allowed_payment_methods.length > 0
-                ? restaurant.allowed_payment_methods
-                : DEFAULT_ALLOWED_PAYMENT_METHODS
-        );
-    }, [restaurant]);
+    const statuses = [storeStatus, preparationStatus];
+    const saveStatus = statuses.includes("error")
+        ? "error"
+        : statuses.includes("saving")
+          ? "saving"
+          : statuses.includes("idle")
+            ? "idle"
+            : "saved";
 
     useEffect(() => {
         const load = async () => {
@@ -75,22 +64,6 @@ export default function LojaPage() {
         void load();
     }, [restaurantId, setRestaurantId]);
 
-    const handleAllowedPaymentMethodsChange = async (methods: string[]) => {
-        if (!restaurant?.id) return;
-        setAllowedPaymentMethods(methods);
-        setPaymentStatus("saving");
-        try {
-            const response = await fetch(`/api/restaurants/${restaurant.id}`, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ allowed_payment_methods: methods }),
-            });
-            setPaymentStatus(response.ok ? "saved" : "error");
-        } catch {
-            setPaymentStatus("error");
-        }
-    };
-
     if (isLoading) {
         return (
             <div className="flex justify-center p-10">
@@ -112,15 +85,19 @@ export default function LojaPage() {
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <h1>Perfil da Loja</h1>
-                    <p className="mt-1 text-sm text-gray-500">Como seu restaurante aparece para os clientes.</p>
+                    <p className="mt-1 text-sm text-gray-500">
+                        Como seu restaurante aparece para os clientes.
+                    </p>
                 </div>
-                <SaveStatus status={saveStatus} className="self-start sm:self-auto" />
+                <SaveStatus
+                    status={saveStatus}
+                    className="self-start sm:self-auto"
+                />
             </div>
-            <StoreProfileManager restaurant={restaurant} onSaveStatusChange={setProfileStatus} />
 
-            <AllowedPaymentMethods
-                value={allowedPaymentMethods}
-                onChange={handleAllowedPaymentMethodsChange}
+            <StoreSettings
+                restaurant={restaurant}
+                onSaveStatusChange={setStoreStatus}
             />
 
             <PreparationTimeCard
