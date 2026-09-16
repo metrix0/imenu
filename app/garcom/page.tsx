@@ -100,6 +100,7 @@ export default function GarcomPage() {
     const [error, setError] = useState<string | null>(null);
     const [linkCopied, setLinkCopied] = useState(false);
     const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
+    const [orderDetailsOpen, setOrderDetailsOpen] = useState(false);
     const [tableToFinalize, setTableToFinalize] = useState<RestaurantTable | null>(null);
     const [finishingTable, setFinishingTable] = useState(false);
 
@@ -414,7 +415,10 @@ export default function GarcomPage() {
                                                                     type="button"
                                                                     variant="secondary"
                                                                     className="h-9 w-9 shrink-0 px-0"
-                                                                    onClick={() => setSelectedOrder(order)}
+                                                                    onClick={() => {
+                                                                        setSelectedOrder(order);
+                                                                        setOrderDetailsOpen(true);
+                                                                    }}
                                                                     title="Ver detalhes do pedido"
                                                                     aria-label={`Ver detalhes do pedido #${order.display_id || order.id.slice(0, 4)}`}
                                                                 >
@@ -478,8 +482,8 @@ export default function GarcomPage() {
             </div>
 
             <OrderDetailsModal
-                isOpen={Boolean(selectedOrder)}
-                onClose={() => setSelectedOrder(null)}
+                isOpen={orderDetailsOpen}
+                onClose={() => setOrderDetailsOpen(false)}
                 order={selectedOrder}
                 onOrderUpdate={() => void loadData(false)}
             />
