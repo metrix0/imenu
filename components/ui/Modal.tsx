@@ -10,8 +10,7 @@ import ModalCloseButton from "./ModalCloseButton";
 let activeScrollLocks = 0;
 let originalBodyOverflow = "";
 let originalHtmlOverflow = "";
-let originalBodyPaddingRight = "";
-let originalHtmlScrollbarGutter = "";
+let originalBodyWidth = "";
 
 export type ModalHeight = number | `${number}dvh`;
 
@@ -52,21 +51,13 @@ export default function Modal({
 
         if (activeScrollLocks === 0) {
             const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
-            const bodyPaddingRight = Number.parseFloat(window.getComputedStyle(document.body).paddingRight) || 0;
-            const supportsStableScrollbarGutter =
-                typeof CSS !== "undefined" && CSS.supports("scrollbar-gutter", "stable");
 
             originalBodyOverflow = document.body.style.overflow;
             originalHtmlOverflow = document.documentElement.style.overflow;
-            originalBodyPaddingRight = document.body.style.paddingRight;
-            originalHtmlScrollbarGutter = document.documentElement.style.getPropertyValue("scrollbar-gutter");
+            originalBodyWidth = document.body.style.width;
 
             if (scrollbarWidth > 0) {
-                if (supportsStableScrollbarGutter) {
-                    document.documentElement.style.setProperty("scrollbar-gutter", "stable");
-                } else {
-                    document.body.style.paddingRight = `${bodyPaddingRight + scrollbarWidth}px`;
-                }
+                document.body.style.width = `calc(100% - ${scrollbarWidth}px)`;
             }
 
             document.body.style.overflow = "hidden";
@@ -86,12 +77,7 @@ export default function Modal({
         if (activeScrollLocks === 0) {
             document.body.style.overflow = originalBodyOverflow;
             document.documentElement.style.overflow = originalHtmlOverflow;
-            document.body.style.paddingRight = originalBodyPaddingRight;
-            if (originalHtmlScrollbarGutter) {
-                document.documentElement.style.setProperty("scrollbar-gutter", originalHtmlScrollbarGutter);
-            } else {
-                document.documentElement.style.removeProperty("scrollbar-gutter");
-            }
+            document.body.style.width = originalBodyWidth;
         }
     }
 
