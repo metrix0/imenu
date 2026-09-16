@@ -48,7 +48,8 @@ const SupportButton = forwardRef<SupportButtonRef, SupportButtonProps>(
                 {showFloating && !open && <button
                     type="button"
                     onClick={openSupport}
-                    className={`fixed right-6 z-[60] flex h-12 w-12 cursor-pointer items-center justify-center rounded-full bg-[#00A240] text-white shadow-md transition-[filter,box-shadow] duration-200 hover:brightness-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00A240] focus-visible:ring-offset-2 ${bottomClassName}`}
+                    style={{ right: "calc(1.5rem + var(--modal-scrollbar-width, 0px))" }}
+                    className={`fixed z-[60] flex h-12 w-12 cursor-pointer items-center justify-center rounded-full bg-[#00A240] text-white shadow-md transition-[filter,box-shadow] duration-200 hover:brightness-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00A240] focus-visible:ring-offset-2 ${bottomClassName}`}
                     aria-label="Suporte via WhatsApp"
                 >
                     <FontAwesomeIcon icon={icons.faWhatsapp} className="!h-6 !w-6" />
