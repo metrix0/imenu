@@ -11,6 +11,7 @@ let activeScrollLocks = 0;
 let originalBodyOverflow = "";
 let originalHtmlOverflow = "";
 let originalBodyWidth = "";
+let originalModalScrollbarWidth = "";
 
 export type ModalHeight = number | `${number}dvh`;
 
@@ -55,10 +56,12 @@ export default function Modal({
             originalBodyOverflow = document.body.style.overflow;
             originalHtmlOverflow = document.documentElement.style.overflow;
             originalBodyWidth = document.body.style.width;
+            originalModalScrollbarWidth = document.documentElement.style.getPropertyValue("--modal-scrollbar-width");
 
             if (scrollbarWidth > 0) {
                 document.body.style.width = `calc(100% - ${scrollbarWidth}px)`;
             }
+            document.documentElement.style.setProperty("--modal-scrollbar-width", `${scrollbarWidth}px`);
 
             document.body.style.overflow = "hidden";
             document.documentElement.style.overflow = "hidden";
@@ -78,6 +81,11 @@ export default function Modal({
             document.body.style.overflow = originalBodyOverflow;
             document.documentElement.style.overflow = originalHtmlOverflow;
             document.body.style.width = originalBodyWidth;
+            if (originalModalScrollbarWidth) {
+                document.documentElement.style.setProperty("--modal-scrollbar-width", originalModalScrollbarWidth);
+            } else {
+                document.documentElement.style.removeProperty("--modal-scrollbar-width");
+            }
         }
     }
 
