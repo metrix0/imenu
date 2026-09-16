@@ -2,6 +2,7 @@ import * as https from "node:https";
 import { HttpsProxyAgent } from "https-proxy-agent";
 
 import { query } from "@/lib/database/sql";
+import { selectFixieUrl } from "@/lib/fixie";
 import { calculateOnePercentPayout } from "@/lib/services/payoutSafety";
 
 const ASAAS_BASE_URL = (
@@ -83,8 +84,8 @@ export function getAsaasApiKey(): string | null {
     return process.env.ASAAS_API_KEY?.trim() || null;
 }
 
-function getFixieUrl(): string {
-    const fixieUrl = process.env.FIXIE_URL?.trim();
+function getFixieUrl(selectionKey: string): string {
+    const fixieUrl = selectFixieUrl(selectionKey);
     if (!fixieUrl) throw new Error("FIXIE_URL não configurado para os repasses Asaas.");
     return fixieUrl;
 }
@@ -101,13 +102,14 @@ function parseJsonText(text: string): any {
 
 async function asaasRequest<T>(
     path: string,
-    init: { method?: "GET" | "POST"; body?: string } = {}
+    init: { method?: "GET" | "POST"; body?: string } = {},
+    selectionKey = `${path}:${init.body ?? ""}`
 ): Promise<T> {
     const apiKey = getAsaasApiKey();
     if (!apiKey) throw new Error("ASAAS_API_KEY não configurada.");
 
     const target = new URL(`${ASAAS_BASE_URL}${path}`);
-    const agent = new HttpsProxyAgent(getFixieUrl());
+    const agent = new HttpsProxyAgent(getFixieUrl(selectionKey));
 
     return new Promise((resolve, reject) => {
         const request = https.request(
@@ -237,7 +239,12 @@ async function getPayables(cutoffAt: Date): Promise<PayableRestaurant[]> {
 }
 
 export async function getAsaasBalance(): Promise<number> {
-    const payload = await asaasRequest<{ balance?: number }>("/finance/balance");
+    const rotationDay = new Date().toISOString().slice(0, 10);
+    const payload = await asaasRequest<{ balance?: number }>(
+        "/finance/balance",
+        {},
+        `asaas-balance:${rotationDay}`
+    );
     const value = Number(payload.balance);
     if (!Number.isFinite(value)) throw new Error("Saldo inválido retornado pelo Asaas.");
     return Math.round(value * 100);

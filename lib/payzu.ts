@@ -1,6 +1,8 @@
 import * as https from "node:https";
 import { HttpsProxyAgent } from "https-proxy-agent";
 
+import { selectFixieUrl } from "@/lib/fixie";
+
 const PAYZU_BASE_URL = "https://api.payzu.processamento.com/v1";
 const PAYZU_REQUEST_TIMEOUT_MS = 10_000;
 
@@ -41,8 +43,8 @@ function getPayZuToken(): string {
     return token;
 }
 
-function getFixieUrl(): string {
-    const fixieUrl = process.env.FIXIE_URL?.trim();
+function getFixieUrl(selectionKey: string): string {
+    const fixieUrl = selectFixieUrl(selectionKey);
 
     if (!fixieUrl) {
         throw new PayZuApiError("Fixie não configurado para reembolso PayZu.", 500);
@@ -105,13 +107,14 @@ async function requestPayZu(
 
 async function requestPayZuThroughFixie(
     path: string,
-    body: string
+    body: string,
+    selectionKey: string
 ): Promise<{
     response: { ok: boolean; status: number };
     data: any;
 }> {
     const target = new URL(`${PAYZU_BASE_URL}${path}`);
-    const agent = new HttpsProxyAgent(getFixieUrl());
+    const agent = new HttpsProxyAgent(getFixieUrl(selectionKey));
 
     return new Promise((resolve, reject) => {
         const request = https.request(
@@ -283,7 +286,8 @@ export async function refundPayZuPixCharge(input: {
     });
     const { response, data } = await requestPayZuThroughFixie(
         `/refund/${encodeURIComponent(input.transactionId)}`,
-        body
+        body,
+        input.clientReference
     );
 
     if (!response.ok) throw errorFromResponse(response, data);
