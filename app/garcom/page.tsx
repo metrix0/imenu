@@ -494,7 +494,6 @@ export default function GarcomPage() {
                 description={`Os ${finalizingOrdersCount} ${finalizingOrdersCount === 1 ? "pedido em aberto será marcado como concluído" : "pedidos em aberto serão marcados como concluídos"}.`}
                 confirmLabel="Finalizar Mesa"
                 isLoading={finishingTable}
-                variant="primary"
             />
         </main>
     );
