@@ -13,7 +13,7 @@ import ItemDetailsModal from "@/components/restaurant-owner/cardapio/ItemDetails
 import { MenuItemType } from "@/components/restaurant-owner/cardapio/MenuItemRow";
 import ScanMenuModal from "@/components/restaurant-owner/ScanMenuImageModal";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
-import { faWandMagicSparkles } from "@fortawesome/free-solid-svg-icons";
+import { faPlus, faWandMagicSparkles } from "@fortawesome/free-solid-svg-icons";
 
 type Category = { id: string; name: string; position: number };
 
@@ -129,47 +129,88 @@ export default function CriarCardapioPage() {
                     </p>
                 </div>
 
-                <div className="mb-4 flex flex-col justify-between gap-3 px-2 sm:flex-row sm:items-center">
-                    <h2 className="text-xl font-bold">Cardápio</h2>
-                    <button
-                        onClick={() => setAiOpen(true)}
-                        className="flex cursor-pointer items-center justify-center gap-2 rounded-full bg-gradient-to-br from-[#905CFF] to-[#6A3AFF] px-6 py-3 font-medium text-white"
-                    >
-                        <FontAwesomeIcon icon={faWandMagicSparkles} />
-                        Scanear Cardápio com IA
-                    </button>
-                </div>
+                {categories.length === 0 ? (
+                    <div>
+                        <div className="grid gap-4 sm:grid-cols-2">
+                            <button
+                                type="button"
+                                onClick={() => setAiOpen(true)}
+                                className="group flex min-h-44 cursor-pointer flex-col items-start rounded-2xl border border-gray-200 bg-white p-6 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-[#6A3AFF]/40 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6A3AFF]/30"
+                            >
+                                <span className="mb-5 flex h-11 w-11 items-center justify-center rounded-xl bg-[#6A3AFF]/10 text-[#6A3AFF] transition-transform duration-200 group-hover:scale-105">
+                                    <FontAwesomeIcon icon={faWandMagicSparkles} />
+                                </span>
+                                <span className="text-base font-semibold text-gray-900">
+                                    Scanear Cardápio com IA
+                                </span>
+                                <span className="mt-1 text-sm leading-5 text-gray-500">
+                                    Envie fotos do seu cardápio para criar produtos e categorias automaticamente.
+                                </span>
+                            </button>
 
-                <div className="rounded-xl border border-gray-100 bg-gray-50/50 p-4">
-                    <CardapioTab
-                        categories={categories}
-                        items={items}
-                        restaurantId={restaurantId}
-                        onRefresh={load}
-                        onItemUpdated={(updatedItem) =>
-                            setItems((current) =>
-                                current.map((item) =>
-                                    item.id === updatedItem.id
-                                        ? { ...item, ...updatedItem }
-                                        : item
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setCatEdit(null);
+                                    setCatOpen(true);
+                                }}
+                                className="group flex min-h-44 cursor-pointer flex-col items-start rounded-2xl border border-gray-200 bg-white p-6 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/20"
+                            >
+                                <span className="mb-5 flex h-11 w-11 items-center justify-center rounded-xl bg-brand/10 text-brand transition-transform duration-200 group-hover:scale-105">
+                                    <FontAwesomeIcon icon={faPlus} />
+                                </span>
+                                <span className="text-base font-semibold text-gray-900">
+                                    Adicionar manualmente
+                                </span>
+                                <span className="mt-1 text-sm leading-5 text-gray-500">
+                                    Comece criando uma categoria e adicione seus produtos manualmente.
+                                </span>
+                            </button>
+                        </div>
+
+                        <div className="mt-5 text-center">
+                            <button
+                                type="button"
+                                onClick={continueOnboarding}
+                                disabled={saving}
+                                className="cursor-pointer text-sm font-medium text-gray-500 transition-colors hover:text-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                                {saving ? "Salvando..." : "Deixar para depois"}
+                            </button>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="rounded-xl border border-gray-100 bg-gray-50/50 p-4">
+                        <CardapioTab
+                            categories={categories}
+                            items={items}
+                            restaurantId={restaurantId}
+                            onRefresh={load}
+                            onItemUpdated={(updatedItem) =>
+                                setItems((current) =>
+                                    current.map((item) =>
+                                        item.id === updatedItem.id
+                                            ? { ...item, ...updatedItem }
+                                            : item
+                                    )
                                 )
-                            )
-                        }
-                        onEditCategory={(category) => {
-                            setCatEdit(category);
-                            setCatOpen(true);
-                        }}
-                        onOpenItemDetails={(item) => {
-                            setItemEdit(item);
-                            setItemOpen(true);
-                        }}
-                        onNewCategory={() => {
-                            setCatEdit(null);
-                            setCatOpen(true);
-                        }}
-                        onAIScanMenu={setAiOpen}
-                    />
-                </div>
+                            }
+                            onEditCategory={(category) => {
+                                setCatEdit(category);
+                                setCatOpen(true);
+                            }}
+                            onOpenItemDetails={(item) => {
+                                setItemEdit(item);
+                                setItemOpen(true);
+                            }}
+                            onNewCategory={() => {
+                                setCatEdit(null);
+                                setCatOpen(true);
+                            }}
+                            onAIScanMenu={setAiOpen}
+                        />
+                    </div>
+                )}
             </div>
 
             <div className="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white p-4">
