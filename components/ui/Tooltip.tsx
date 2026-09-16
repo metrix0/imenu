@@ -185,7 +185,7 @@ export default function Tooltip({
                 ref={tooltipRef}
                 className={`
                     ${panel ? "panel-essencial panel-tooltip" : ""}
-                    ${portal ? "fixed" : "absolute"} z-50 rounded text-xs font-normal !text-white
+                    ${portal ? "fixed" : "absolute"} z-50 ${panel ? "rounded-[8px] text-[12px] leading-[18px] text-white!" : "rounded text-xs text-white"} font-normal
                     pointer-events-auto select-none
                     transition-[opacity,transform] duration-150
                     ${padding}
