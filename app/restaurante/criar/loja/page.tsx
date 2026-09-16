@@ -4,18 +4,16 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/database/supabaseClient";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
-import AllowedPaymentMethods, {
-    DEFAULT_ALLOWED_PAYMENT_METHODS,
-} from "@/components/restaurant-owner/configuracoes/AllowedPaymentMethods";
-import PixPayoutFields, {
-    inferPixKeyType,
-} from "@/components/restaurant-owner/PixPayoutFields";
+import StoreSettings, {
+    type StoreSettingsRestaurant,
+} from "@/components/restaurant-owner/loja/StoreSettings";
 import Button from "@/components/ui/Button";
-import Card from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
 import Loader from "@/components/ui/Loader";
 import Toast from "@/components/ui/Toast";
 import Tooltip from "@/components/ui/Tooltip";
+import type { SaveState } from "@/components/ui/SaveStatus";
+import { DEFAULT_ALLOWED_PAYMENT_METHODS } from "@/components/restaurant-owner/configuracoes/AllowedPaymentMethods";
 
 const formatPhone = (raw: string) => {
     const digits = raw
@@ -31,7 +29,8 @@ const formatPhone = (raw: string) => {
 export default function LojaPage() {
     const router = useRouter();
     const { setRestaurantId } = useCreationStore();
-    const [restaurantId, setId] = useState<string | null>(null);
+    const [restaurant, setRestaurant] =
+        useState<StoreSettingsRestaurant | null>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [name, setName] = useState("");
@@ -39,8 +38,8 @@ export default function LojaPage() {
         DEFAULT_ALLOWED_PAYMENT_METHODS
     );
     const [paymentInfo, setPaymentInfo] = useState("");
-    const [paymentInfoType, setPaymentInfoType] = useState("AUTO");
     const [hasInvalidPixPayout, setHasInvalidPixPayout] = useState(false);
+    const [storeStatus, setStoreStatus] = useState<SaveState>("saved");
     const [responsiblePhone, setResponsiblePhone] = useState("");
     const [needsResponsiblePhone, setNeedsResponsiblePhone] = useState(false);
     const [toast, setToast] = useState<{
@@ -58,19 +57,19 @@ export default function LojaPage() {
                 return;
             }
 
-            const [{ data: restaurant, error }, { data: userData }] =
+            const [{ data: restaurantData, error }, { data: userData }] =
                 await Promise.all([
                     supabase
                         .from("restaurants")
                         .select(
-                            "id,name,allowed_payment_methods,payment_info,payment_info_type"
+                            "id,name,description,logo_url,banner_url,payment_method,payment_info,payment_info_type,allowed_payment_methods,url_slug,custom_domain,store_whatsapp"
                         )
                         .eq("user_id", session.user.id)
                         .single(),
                     supabase.auth.getUser(),
                 ]);
 
-            if (error || !restaurant) {
+            if (error || !restaurantData) {
                 setToast({
                     message: "Restaurante não encontrado.",
                     type: "error",
@@ -79,17 +78,16 @@ export default function LojaPage() {
                 return;
             }
 
-            setId(restaurant.id);
-            setRestaurantId(restaurant.id);
-            setName(restaurant.name || "");
+            setRestaurant(restaurantData);
+            setRestaurantId(restaurantData.id);
+            setName(restaurantData.name || "");
             setMethods(
-                Array.isArray(restaurant.allowed_payment_methods) &&
-                    restaurant.allowed_payment_methods.length
-                    ? restaurant.allowed_payment_methods
+                Array.isArray(restaurantData.allowed_payment_methods) &&
+                    restaurantData.allowed_payment_methods.length
+                    ? restaurantData.allowed_payment_methods
                     : DEFAULT_ALLOWED_PAYMENT_METHODS
             );
-            setPaymentInfo(restaurant.payment_info || "");
-            setPaymentInfoType(restaurant.payment_info_type || "AUTO");
+            setPaymentInfo(restaurantData.payment_info || "");
             setNeedsResponsiblePhone(
                 !String(userData.user?.user_metadata?.phone || "").replace(
                     /\D/g,
@@ -100,39 +98,16 @@ export default function LojaPage() {
         })();
     }, [router, setRestaurantId]);
 
-    const autoSave = async (fields: Record<string, unknown>) => {
-        if (!restaurantId) return null;
-        const response = await fetch(`/api/restaurants/${restaurantId}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(fields),
-        });
-        const payload = await response.json();
-        if (!response.ok) {
-            const message = payload?.error || "Erro ao salvar.";
-            setToast({ message, type: "error" });
-            throw new Error(message);
-        }
-        return payload;
-    };
-
-    const inferredPixType =
-        paymentInfoType === "AUTO" && paymentInfo.trim()
-            ? inferPixKeyType(paymentInfo)
-            : null;
     const missingPixPayoutKey = methods.includes("pix") && !paymentInfo.trim();
-    const missingPixPayoutType =
-        methods.includes("pix") &&
-        (hasInvalidPixPayout ||
-            (paymentInfoType === "AUTO" &&
-                Boolean(paymentInfo.trim()) &&
-                !inferredPixType));
+    const missingPixPayoutType = methods.includes("pix") && hasInvalidPixPayout;
     const responsiblePhoneInvalid =
         needsResponsiblePhone &&
         responsiblePhone.replace(/\D/g, "").length !== 11;
-    const finishVisuallyBlocked = !name.trim() || responsiblePhoneInvalid;
+    const finishVisuallyBlocked =
+        !name.trim() || storeStatus === "error" || responsiblePhoneInvalid;
 
     const continueOnboarding = async () => {
+        if (!restaurant) return;
         if (missingPixPayoutKey) {
             setToast({
                 message: "Preencha sua chave PIX para repasses",
@@ -150,6 +125,20 @@ export default function LojaPage() {
         if (!name.trim()) {
             setToast({
                 message: "Informe o nome do restaurante.",
+                type: "error",
+            });
+            return;
+        }
+        if (storeStatus === "saving") {
+            setToast({
+                message: "Aguarde os dados da loja terminarem de salvar.",
+                type: "error",
+            });
+            return;
+        }
+        if (storeStatus === "error") {
+            setToast({
+                message: "Corrija o erro ao salvar os dados da loja antes de continuar.",
                 type: "error",
             });
             return;
@@ -173,20 +162,12 @@ export default function LojaPage() {
                 if (phoneError) throw phoneError;
             }
 
-            const resolvedPaymentInfoType =
-                paymentInfoType === "AUTO"
-                    ? inferredPixType
-                    : paymentInfoType || null;
-
-            await autoSave({
-                name: name.trim(),
-                allowed_payment_methods: methods,
-                payment_info: paymentInfo,
-                payment_info_type: paymentInfo.trim()
-                    ? resolvedPaymentInfoType
-                    : null,
-                creation_step: 4,
+            const response = await fetch(`/api/restaurants/${restaurant.id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ creation_step: 4 }),
             });
+            if (!response.ok) throw new Error("Não foi possível continuar.");
             router.push("/restaurante/criar/localizacao");
         } catch (caught) {
             setToast({
@@ -208,7 +189,7 @@ export default function LojaPage() {
         );
     }
 
-    if (!restaurantId) return null;
+    if (!restaurant) return null;
 
     return (
         <main className="flex min-h-screen flex-col items-center bg-white px-4 pb-32 pt-4 sm:px-6">
@@ -221,63 +202,39 @@ export default function LojaPage() {
                         Defina sua Loja
                     </h1>
                     <p className="mt-1 text-gray-500">
-                        Defina o nome e as formas de pagamento da sua loja.
+                        Defina como sua loja aparece e as formas de pagamento.
                     </p>
                 </div>
 
-                <div className="space-y-8">
-                    <Card className="space-y-6">
+                <StoreSettings
+                    restaurant={restaurant}
+                    hideCustomDomainButton
+                    onNameChange={setName}
+                    onPaymentInfoChange={setPaymentInfo}
+                    onPixPayoutValidationChange={setHasInvalidPixPayout}
+                    onAllowedPaymentMethodsChange={setMethods}
+                    onSaveStatusChange={setStoreStatus}
+                />
+
+                {needsResponsiblePhone && (
+                    <div className="mt-8">
                         <Input
-                            label="Nome do Restaurante"
-                            value={name}
-                            onChange={(event) => setName(event.target.value)}
-                            onBlur={() => {
-                                if (name.trim()) {
-                                    void autoSave({ name: name.trim() }).catch(() => undefined);
-                                }
-                            }}
-                            placeholder="Ex: Burger King"
-                            className="font-medium"
+                            label="Celular do Responsável*"
+                            type="tel"
+                            autoComplete="tel"
+                            value={responsiblePhone}
+                            maxLength={15}
+                            onChange={(event) =>
+                                setResponsiblePhone(
+                                    formatPhone(event.target.value)
+                                )
+                            }
                         />
-
-                        <PixPayoutFields
-                            paymentInfo={paymentInfo}
-                            paymentInfoType={paymentInfoType}
-                            onPaymentInfoChange={setPaymentInfo}
-                            onPaymentInfoTypeChange={setPaymentInfoType}
-                            onValidationChange={setHasInvalidPixPayout}
-                            onSave={autoSave}
-                        />
-                    </Card>
-
-                    <AllowedPaymentMethods
-                        value={methods}
-                        onChange={(next) => {
-                            setMethods(next);
-                            void autoSave({ allowed_payment_methods: next }).catch(() => undefined);
-                        }}
-                    />
-
-                    {needsResponsiblePhone && (
-                        <div>
-                            <Input
-                                label="Celular do Responsável*"
-                                type="tel"
-                                autoComplete="tel"
-                                value={responsiblePhone}
-                                maxLength={15}
-                                onChange={(event) =>
-                                    setResponsiblePhone(
-                                        formatPhone(event.target.value)
-                                    )
-                                }
-                            />
-                            <p className="mt-1 text-xs text-gray-500">
-                                Usado para suporte e casos de emergência.
-                            </p>
-                        </div>
-                    )}
-                </div>
+                        <p className="mt-1 text-xs text-gray-500">
+                            Usado para suporte e casos de emergência.
+                        </p>
+                    </div>
+                )}
             </div>
 
             <div className="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white p-4">
@@ -298,9 +255,13 @@ export default function LojaPage() {
                                   ? "Defina o tipo da chave PIX acima."
                                   : !name.trim()
                                     ? "Você precisa completar os dados primeiro"
-                                    : responsiblePhoneInvalid
-                                      ? "Informe o celular do responsável"
-                                      : ""
+                                    : storeStatus === "saving"
+                                      ? "Aguarde os dados terminarem de salvar"
+                                      : storeStatus === "error"
+                                        ? "Corrija o erro ao salvar os dados da loja"
+                                        : responsiblePhoneInvalid
+                                          ? "Informe o celular do responsável"
+                                          : ""
                         }
                     >
                         <Button
@@ -308,6 +269,7 @@ export default function LojaPage() {
                             loading={saving}
                             disabled={
                                 saving ||
+                                storeStatus === "saving" ||
                                 missingPixPayoutKey ||
                                 missingPixPayoutType
                             }

@@ -12,7 +12,7 @@ import ManageCategoryModal from "@/components/restaurant-owner/cardapio/ManageCa
 import ItemDetailsModal from "@/components/restaurant-owner/cardapio/ItemDetailsModal";
 import { MenuItemType } from "@/components/restaurant-owner/cardapio/MenuItemRow";
 import ScanMenuModal from "@/components/restaurant-owner/ScanMenuImageModal";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { faWandMagicSparkles } from "@fortawesome/free-solid-svg-icons";
 
 type Category = { id: string; name: string; position: number };
