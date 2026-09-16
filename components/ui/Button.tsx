@@ -27,7 +27,7 @@ export default function Button({
     ].join(" ");
 
     const variants: Record<NonNullable<ButtonProps["variant"]>, string> = {
-        primary: "border-[#d93d00] bg-[#d93d00] text-white hover:border-[#c43700] hover:bg-[#c43700]",
+        primary: "!border-[#d93d00] bg-[#d93d00] text-white hover:!border-[#c43700] hover:bg-[#c43700]",
         secondary: hasContextualSecondaryBackground
             ? ""
             : "border-[#e2e5e9] bg-white text-[#1d1d1d] hover:border-[#e2e5e9] hover:bg-[#f1f3f5]",
