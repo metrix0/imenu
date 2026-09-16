@@ -1,8 +1,8 @@
 export const CREATION_STEP_PATHS = {
-    1: "/restaurante/criar/localizacao",
-    2: "/restaurante/criar/tempo-e-taxa",
-    3: "/restaurante/criar/disponibilidade",
-    4: "/restaurante/criar/cardapio",
+    1: "/restaurante/criar/cardapio",
+    2: "/restaurante/criar/disponibilidade",
+    3: "/restaurante/criar/loja",
+    4: "/restaurante/criar/localizacao",
 } as const;
 
 export type CreationStep = keyof typeof CREATION_STEP_PATHS;

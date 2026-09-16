@@ -29,23 +29,23 @@
         width: 100% !important;
     }
 
-    .creation-mobile-content[data-creation-path^="/restaurante/criar/tempo-e-taxa"] .max-w-2xl {
+    .creation-mobile-content[data-creation-path^="/restaurante/criar/localizacao"] .max-w-2xl {
         max-width: 100%;
     }
 
-    .creation-mobile-content[data-creation-path^="/restaurante/criar/tempo-e-taxa"] .max-w-2xl > .p-6:first-of-type {
+    .creation-mobile-content[data-creation-path^="/restaurante/criar/localizacao"] .max-w-2xl > .p-6:first-of-type {
         overflow-x: auto;
         padding: 1rem;
         overscroll-behavior-x: contain;
         -webkit-overflow-scrolling: touch;
     }
 
-    .creation-mobile-content[data-creation-path^="/restaurante/criar/tempo-e-taxa"] .max-w-2xl > .p-6:first-of-type > .flex,
-    .creation-mobile-content[data-creation-path^="/restaurante/criar/tempo-e-taxa"] .max-w-2xl > .p-6:first-of-type > .space-y-3 {
+    .creation-mobile-content[data-creation-path^="/restaurante/criar/localizacao"] .max-w-2xl > .p-6:first-of-type > .flex,
+    .creation-mobile-content[data-creation-path^="/restaurante/criar/localizacao"] .max-w-2xl > .p-6:first-of-type > .space-y-3 {
         min-width: 520px;
     }
 
-    .creation-mobile-content[data-creation-path^="/restaurante/criar/tempo-e-taxa"] .flex.items-center.justify-between.gap-6 {
+    .creation-mobile-content[data-creation-path^="/restaurante/criar/localizacao"] .flex.items-center.justify-between.gap-6 {
         align-items: flex-start;
         gap: 1rem;
     }
