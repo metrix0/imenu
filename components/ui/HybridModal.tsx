@@ -144,7 +144,7 @@ export default function DraggableModal({
 
     return (
         <>{isDesktop ?
-                    <Modal fixedHeight open={open} onClose={onClose} height={`${height * 100}dvh`} className={props.className}>
+                    <Modal fixedHeight showCloseButton={handle} open={open} onClose={onClose} height={`${height * 100}dvh`} className={props.className}>
                         {children}
                     </Modal>
             :
