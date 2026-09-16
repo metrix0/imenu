@@ -61,17 +61,6 @@ export default function PainelLayout({
     return (
         <PanelAppearance>
             <style jsx global>{`
-                .panel-essencial .panel-nav-link:active,
-                .panel-essencial .panel-nav-link:focus:not(:focus-visible) {
-                    background: var(--panel-tint);
-                    color: var(--panel-accent-text);
-                }
-
-                .panel-essencial .panel-nav-link:focus:not(:focus-visible) {
-                    outline: none;
-                    box-shadow: none;
-                }
-
                 @media (min-width: 768px) {
                     .panel-essencial .panel-sidebar .panel-nav-link[aria-current="page"] {
                         border-left: 3px solid var(--panel-brand);
