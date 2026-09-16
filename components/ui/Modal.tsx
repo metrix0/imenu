@@ -2,6 +2,8 @@
 
 import { ReactNode, isValidElement, useEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
+import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
+import { icons } from "@/lib/utils/fontawesome";
 import { usePanelAppearance } from "./PanelAppearance";
 import ModalCloseButton from "./ModalCloseButton";
 
@@ -128,37 +130,58 @@ export default function Modal({
     if (!mounted) return null;
 
     return createPortal(
-        <div className={`${panel ? "panel-essencial panel-modal" : ""} fixed inset-0 z-50 isolate flex min-h-[100dvh] w-full items-center justify-center overflow-y-auto p-3 sm:p-6`}>
+        <div className={`${panel ? "panel-essencial panel-modal" : ""} fixed inset-0 z-50 isolate flex min-h-[100dvh] w-full items-center justify-center overflow-y-auto p-3 sm:p-6 ${panel ? "" : "2xl:p-8"}`}>
             <button
                 type="button"
                 aria-label="Fechar modal pelo fundo"
                 onClick={onClose}
-                className={`fixed inset-0 min-h-[100dvh] bg-[#1d1d1d]/40 backdrop-blur-[3px] transition-opacity duration-200 ${
+                className={`fixed inset-0 min-h-[100dvh] ${
+                    panel
+                        ? "bg-[#1d1d1d]/40 backdrop-blur-[3px]"
+                        : "bg-black/40 backdrop-blur-sm"
+                } transition-opacity duration-200 ${
                     active ? "opacity-100" : "opacity-0"
                 }`}
             />
 
             <div
                 role="dialog"
-                style={{
-                    "--modal-requested-height": requestedHeight,
-                    ...(useFixedHeight ? { height: requestedHeight } : {}),
-                } as CSSProperties}
+                style={
+                    panel
+                        ? ({
+                              "--modal-requested-height": requestedHeight,
+                              ...(useFixedHeight ? { height: requestedHeight } : {}),
+                          } as CSSProperties)
+                        : { height }
+                }
                 aria-modal="true"
                 onClick={(event: { stopPropagation(): void }) =>
                     event.stopPropagation()
                 }
-                className={`relative flex w-full max-w-2xl flex-col overflow-y-auto rounded-[10px] border border-[#e2e5e9] bg-white shadow-[0_20px_60px_#1d1d1d26] transition-all duration-200 [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1 ${
+                className={`relative flex w-full max-w-2xl flex-col overflow-y-auto bg-white transition-all duration-200 ${
                     panel
-                        ? "max-h-[min(var(--modal-requested-height),calc(100dvh-24px))] sm:max-h-[min(var(--modal-requested-height),calc(100dvh-48px))]"
-                        : "max-h-[min(var(--modal-requested-height),92dvh)] sm:max-h-[min(var(--modal-requested-height),90dvh)] 2xl:max-h-[min(var(--modal-requested-height),88dvh)]"
+                        ? "rounded-[10px] border border-[#e2e5e9] shadow-[0_20px_60px_#1d1d1d26] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1 max-h-[min(var(--modal-requested-height),calc(100dvh-24px))] sm:max-h-[min(var(--modal-requested-height),calc(100dvh-48px))]"
+                        : "max-h-[92dvh] rounded-xl shadow-2xl sm:max-h-[90dvh] sm:rounded-2xl 2xl:max-h-[88dvh]"
                 } ${
                     active
                         ? "translate-y-0 scale-100 opacity-100"
                         : "translate-y-3 scale-95 opacity-0"
                 } ${className}`}
             >
-                {(panel || showCloseButton) && <ModalCloseButton onClose={onClose} />}
+                {panel && <ModalCloseButton onClose={onClose} />}
+                {!panel && showCloseButton && (
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        aria-label="Fechar"
+                        className="sticky top-3 z-30 -mb-12 ml-auto mr-3 mt-3 flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center text-gray-400 hover:text-gray-600"
+                    >
+                        <FontAwesomeIcon
+                            icon={icons.faTimes}
+                            className="text-xl"
+                        />
+                    </button>
+                )}
                 {panel ? <div className="panel-modal-body [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1">{children}</div> : children}
             </div>
         </div>,
