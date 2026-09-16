@@ -5,8 +5,10 @@ import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 import { supabase } from "@/lib/database/supabaseClient";
 import AddressForm from "@/components/restaurant-owner/configuracoes/AddressForm";
 import Loader from "@/components/ui/Loader";
+import PanelAppearance from "@/components/ui/PanelAppearance";
 import { AddressData } from "@/lib/types/types";
 import QrTableOnboardingSelection from "@/components/restaurant-owner/mesas/QrTableOnboardingSelection";
+import "../../../painel/essencial.css";
 
 export default function LocalizacaoPage() {
     const router = useRouter(); const { restaurantId, setRestaurantId, productSelectionCompleted, setProductSelectionCompleted } = useCreationStore();
@@ -15,5 +17,5 @@ export default function LocalizacaoPage() {
     const save = async (data: AddressData) => { if (!id) return; setSaving(true); try { const response = await fetch(`/api/restaurants/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ address: data, latitude: data.latitude, longitude: data.longitude, creation_step: 2 }) }); if (!response.ok) throw new Error(); router.push("/restaurante/criar/tempo-e-taxa"); } catch { alert("Não foi possível salvar. Tente novamente."); } finally { setSaving(false); } };
     if (loading) return <main className="flex min-h-[50vh] items-center justify-center"><Loader className="border-t-brand" /></main>;
     if (!productSelectionCompleted && id) return <QrTableOnboardingSelection restaurantId={id} onContinue={() => setProductSelectionCompleted(true)} />;
-    return <main className="w-full min-w-0 overflow-x-hidden px-4 pb-32 pt-4"><AddressForm initialData={initial} onSubmit={save} isLoading={saving} onValidityChange={() => {}} onBack={() => setProductSelectionCompleted(false)} /></main>;
+    return <main className="w-full min-w-0 overflow-x-hidden px-4 pb-32 pt-4"><PanelAppearance><AddressForm initialData={initial} onSubmit={save} isLoading={saving} onValidityChange={() => {}} onBack={() => setProductSelectionCompleted(false)} /></PanelAppearance></main>;
 }
