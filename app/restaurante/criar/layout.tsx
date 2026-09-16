@@ -7,6 +7,7 @@ import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import "../../painel/essencial.css";
 import "./mobile.css";
 
 export default function CreationLayout({
@@ -65,7 +66,7 @@ export default function CreationLayout({
     }
 
     return (
-        <div className="flex min-h-screen w-full min-w-0 flex-col overflow-x-hidden bg-white">
+        <div className="panel-essencial flex min-h-screen w-full min-w-0 flex-col overflow-x-hidden bg-white">
             <header className="top-0 z-10 flex w-full items-center justify-between bg-white px-4 py-5 sm:px-2 sm:py-7 2xl:px-4 2xl:py-10">
                 <div className="relative h-6 w-32 sm:ml-4 2xl:h-8 2xl:w-60">
                     <Image
