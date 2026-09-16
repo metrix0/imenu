@@ -32,7 +32,7 @@ export default function Button({
             "cursor-pointer duration-200 inline-flex items-center justify-center rounded-md font-medium transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 px-4 py-2 2xl:px-6 2xl:py-3 2xl:rounded-lg";
         const variants: Record<NonNullable<ButtonProps["variant"]>, string> = {
             primary: hasContextualPrimaryBackground
-                ? "focus:ring-0 focus:ring-offset-0"
+                ? "text-white focus:ring-0 focus:ring-offset-0"
                 : "bg-brand hover:bg-brand/90 text-white focus:ring-brand",
             secondary:
                 "bg-gray-100 hover:bg-gray-200 text-gray-800 focus:ring-gray-300",
@@ -87,7 +87,7 @@ export default function Button({
 
     const variants: Record<NonNullable<ButtonProps["variant"]>, string> = {
         primary: hasContextualPrimaryBackground
-            ? "!border-transparent hover:!border-transparent"
+            ? "text-white focus-visible:outline-none"
             : "!border-[#d93d00] bg-[#d93d00] text-white hover:!border-[#c43700] hover:bg-[#c43700] focus-visible:outline-2 focus-visible:outline-[#d93d00] focus-visible:outline-offset-[3px]",
         secondary: [
             hasContextualSecondaryBackground
