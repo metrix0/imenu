@@ -185,7 +185,7 @@ export default function Tooltip({
                 ref={tooltipRef}
                 className={`
                     ${panel ? "panel-essencial panel-tooltip" : ""}
-                    ${portal ? "fixed" : "absolute"} z-50 ${panel ? "rounded-[8px] text-[12px] leading-[18px] text-white!" : "rounded text-xs text-white"} font-normal
+                    ${portal ? "fixed" : "absolute"} z-50 rounded text-xs font-normal text-white
                     pointer-events-auto select-none
                     transition-[opacity,transform] duration-150
                     ${padding}
@@ -197,6 +197,14 @@ export default function Tooltip({
                     ${className}
                 `}
                 style={{
+                    ...(panel
+                        ? {
+                              borderRadius: "8px",
+                              fontSize: "12px",
+                              lineHeight: "18px",
+                              color: "white",
+                          }
+                        : {}),
                     visibility: visible ? "visible" : "hidden",
                     ...(portal ? portalPosition : {}),
                 }}
