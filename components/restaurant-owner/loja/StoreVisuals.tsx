@@ -178,13 +178,11 @@ export default function StoreVisuals({
                         onChange={(e) => onSelectFile(e, "banner")} 
                     />
                     
-                    {bannerUrl ? (
-                        <img src={bannerUrl} alt="Capa" className="w-full h-full object-cover" />
-                    ) : (
-                        <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400 gap-2">
-                            <FontAwesomeIcon icon={icons.faGripLines} className="text-3xl opacity-20" />
-                        </div>
-                    )}
+                    <img
+                        src={bannerUrl || "/placeholders/banner.png"}
+                        alt="Capa"
+                        className="h-full w-full object-cover"
+                    />
 
                     {/* Overlay Banner */}
                     <Button type="button" variant="secondary" className="absolute bottom-3 right-3 gap-2 !bg-white" onClick={() => bannerInputRef.current?.click()}>
