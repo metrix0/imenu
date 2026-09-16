@@ -8,7 +8,8 @@ import { useCheckoutStore } from "@/lib/stores/costumer/checkoutStore";
 import { useCartStore } from "@/lib/stores/costumer/cartStore";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { icons } from "@/lib/utils/fontawesome";
-import { faChair, faStar } from "@fortawesome/free-solid-svg-icons";
+import { faChair, faChevronRight, faStar } from "@fortawesome/free-solid-svg-icons";
+import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
 import { supabase } from "@/lib/database/supabaseClient";
 import Input from "@/components/ui/Input";
 import { formatPrice, formatPriceNoRS, promotionPrice } from "@/lib/utils/formatPrice";
@@ -25,6 +26,42 @@ import PromotionBanner from "@/components/costumer/PromotionBanner";
 import { evaluateAutomaticPromotions, parseAutomaticPromotions, promotionAvailable, promotionCartSubtotal } from "@/lib/promotions/automatic";
 import { parseNeighborhoodDeliveryRules } from "@/lib/delivery/neighborhood";
 
+const RESTAURANT_INFO_DAYS = [
+    { day: 1, label: "Segunda-feira" },
+    { day: 2, label: "Terça-feira" },
+    { day: 3, label: "Quarta-feira" },
+    { day: 4, label: "Quinta-feira" },
+    { day: 5, label: "Sexta-feira" },
+    { day: 6, label: "Sábado" },
+    { day: 0, label: "Domingo" },
+];
+
+const PAYMENT_METHOD_LABELS: Record<string, string> = {
+    pix: "Pix (Online)",
+    "pix-entrega": "Pix (Na entrega)",
+    dinheiro: "Dinheiro",
+    "trazer-maquininha": "Maquininha",
+    cartao: "Cartão (Online)",
+};
+
+function formatStoreWhatsapp(value: unknown) {
+    const rawDigits = String(value ?? "").replace(/\D/g, "");
+    if (!rawDigits) return null;
+
+    const localDigits =
+        rawDigits.startsWith("55") && (rawDigits.length === 12 || rawDigits.length === 13)
+            ? rawDigits.slice(2)
+            : rawDigits;
+
+    if (localDigits.length !== 10 && localDigits.length !== 11) return null;
+
+    return {
+        href: `https://wa.me/55${localDigits}`,
+        formatted: localDigits.length === 11
+            ? `(${localDigits.slice(0, 2)}) ${localDigits.slice(2, 7)}-${localDigits.slice(7)}`
+            : `(${localDigits.slice(0, 2)}) ${localDigits.slice(2, 6)}-${localDigits.slice(6)}`,
+    };
+}
 
 
 export default function MenuClientPage({
@@ -47,6 +84,11 @@ export default function MenuClientPage({
     const router = useRouter();
 
     const [historyOpen, setHistoryOpen] = useState(false);
+    const [restaurantInfoOpen, setRestaurantInfoOpen] = useState(false);
+    const [restaurantWhatsapp, setRestaurantWhatsapp] = useState<{
+        href: string;
+        formatted: string;
+    } | null | undefined>(undefined);
     const coupon_code = useCheckoutStore((s) => s.coupon_code);
     const coupon_value = useCheckoutStore((s) => s.coupon_value);
     const coupon_type = useCheckoutStore((s) => s.coupon_type);
@@ -112,6 +154,25 @@ export default function MenuClientPage({
     const selectedTable = tableOrder?.tables.find(
         (table) => table.id === selectedTableId
     );
+
+    useEffect(() => {
+        if (!restaurantInfoOpen || isTableOrder || restaurantWhatsapp !== undefined) return;
+
+        let active = true;
+        void fetch(`/api/restaurants/${restaurant.id}`)
+            .then(async (response) => response.ok ? response.json() : null)
+            .then((data) => {
+                if (!active) return;
+                setRestaurantWhatsapp(formatStoreWhatsapp(data?.store_whatsapp));
+            })
+            .catch(() => {
+                if (active) setRestaurantWhatsapp(null);
+            });
+
+        return () => {
+            active = false;
+        };
+    }, [restaurantInfoOpen, isTableOrder, restaurant.id, restaurantWhatsapp]);
 
     useEffect(() => {
         if (!tableOrder) return;
@@ -730,6 +791,11 @@ export default function MenuClientPage({
         return Array.isArray(slots) ? slots : [];
     })();
 
+    const infoPaymentMethods =
+        Array.isArray(restaurant.allowed_payment_methods) && restaurant.allowed_payment_methods.length > 0
+            ? restaurant.allowed_payment_methods
+            : ["pix", "dinheiro", "trazer-maquininha"];
+
     console.log(nextOpening, closedForToday)
 
     return (
@@ -759,10 +825,26 @@ export default function MenuClientPage({
                     </div>
                 )}
 
-                <div className="bg-white mx-5 md:mx-48 2xl:mx-80 px-5 py-4 2xl:py-7 rounded-3xl shadow-[0_2px_10px_rgba(0,0,0,0.08)]">
-                    <h1 className="text-[1.2rem] 2xl:text-2xl font-semibold mt-6 md:max-w-[45%]">
-                        {restaurant.name}
-                    </h1>
+                <div
+                    role="button"
+                    tabIndex={0}
+                    aria-haspopup="dialog"
+                    aria-label={`Ver informações de ${restaurant.name}`}
+                    onClick={() => setRestaurantInfoOpen(true)}
+                    onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            setRestaurantInfoOpen(true);
+                        }
+                    }}
+                    className="bg-white mx-5 md:mx-48 2xl:mx-80 px-5 py-4 2xl:py-7 rounded-3xl shadow-[0_2px_10px_rgba(0,0,0,0.08)] cursor-pointer"
+                >
+                    <div className="mt-6 flex items-center justify-between gap-4">
+                        <h1 className="text-[1.2rem] 2xl:text-2xl font-semibold md:max-w-[45%]">
+                            {restaurant.name}
+                        </h1>
+                        <FontAwesomeIcon icon={faChevronRight} className="shrink-0 text-sm text-gray-400 2xl:text-base" />
+                    </div>
 
                     <p className="text-gray-600 text-xs 2xl:text-[1rem] mt-1 border-b border-gray-200 pb-2">
                         {(isRestaurantOpen && !closedForToday) ? "Aberto" : "Fechado" }
@@ -996,7 +1078,6 @@ export default function MenuClientPage({
                                 <div id={`cat-${cat.id}`} />
                                 {cat.name}
                             </h2>
-
                             <div className="grid grid-cols-3 md:grid-cols-4 gap-[4dvw] w-full relative ">
                                 {filteredItemsByCat[cat.id]?.map((item) => (
                                     <button
@@ -1171,6 +1252,89 @@ export default function MenuClientPage({
                     restaurantId={restaurant.id}
                 />
             )}
+
+            <ModalMobile
+                open={restaurantInfoOpen}
+                onClose={() => setRestaurantInfoOpen(false)}
+                height={0.76}
+                handle={true}
+                className="md:!max-w-xl 2xl:!max-w-2xl"
+            >
+                <div className="px-2 pb-8 pt-2 md:px-4 2xl:px-6">
+                    <div className="flex items-center gap-3 border-b border-gray-200 pb-5">
+                        {restaurant.logo_url && (
+                            <img
+                                src={restaurant.logo_url}
+                                alt=""
+                                className="h-12 w-12 rounded-full border border-gray-200 object-cover 2xl:h-14 2xl:w-14"
+                            />
+                        )}
+                        <div className="min-w-0">
+                            <h2 className="truncate text-lg font-semibold 2xl:text-2xl">{restaurant.name}</h2>
+                            <p className="mt-0.5 text-sm text-gray-500 2xl:text-base">
+                                {(isRestaurantOpen && !closedForToday) ? "Aberto agora" : "Fechado agora"}
+                            </p>
+                        </div>
+                    </div>
+
+                    <section className="mt-6">
+                        <h3 className="text-base font-semibold 2xl:text-xl">Horários de atendimento</h3>
+                        <div className="mt-3 divide-y divide-gray-100 rounded-xl border border-gray-200 px-4">
+                            {RESTAURANT_INFO_DAYS.map(({ day, label }) => {
+                                const slots: { open: string; close: string }[] = Array.isArray(restaurant.availability_json?.[day])
+                                    ? restaurant.availability_json[day]
+                                    : [];
+                                return (
+                                    <div key={day} className="flex items-start justify-between gap-4 py-3 text-sm 2xl:text-base">
+                                        <span className="font-medium text-gray-800">{label}</span>
+                                        <span className={`text-right ${slots.length ? "text-gray-600" : "text-gray-400"}`}>
+                                            {slots.length
+                                                ? slots.map((slot) => `${slot.open} - ${slot.close}`).join(" · ")
+                                                : "Fechado"}
+                                        </span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </section>
+
+                    <section className="mt-6">
+                        <h3 className="text-base font-semibold 2xl:text-xl">Formas de pagamento</h3>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                            {infoPaymentMethods.map((method) => (
+                                <span
+                                    key={method}
+                                    className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm text-gray-700 2xl:text-base"
+                                >
+                                    {PAYMENT_METHOD_LABELS[method] || method}
+                                </span>
+                            ))}
+                        </div>
+                    </section>
+
+                    {!isTableOrder && restaurantWhatsapp && (
+                        <div className="mt-8 flex justify-center">
+                            <a
+                                href={restaurantWhatsapp.href}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                aria-label={`Abrir WhatsApp da loja no número ${restaurantWhatsapp.formatted}`}
+                                className="inline-flex items-center gap-3 rounded-full border border-gray-200 bg-gray-50 py-1.5 pl-4 pr-1.5 text-sm font-medium text-gray-700 transition hover:border-green-200 hover:bg-green-50 hover:text-green-700 2xl:text-lg"
+                            >
+                                <FontAwesomeIcon icon={faWhatsapp} className="text-lg text-green-600 2xl:text-xl" />
+                                <span>{restaurantWhatsapp.formatted}</span>
+                                {restaurant.logo_url && (
+                                    <img
+                                        src={restaurant.logo_url}
+                                        alt=""
+                                        className="h-10 w-10 rounded-full border border-gray-200 bg-white object-cover"
+                                    />
+                                )}
+                            </a>
+                        </div>
+                    )}
+                </div>
+            </ModalMobile>
 
             <ModalMobile
                 open={restaurantCartWarningVisible}
