@@ -13,12 +13,32 @@ export default function Button({
                                    className = "",
                                    ...props
                                }: ButtonProps) {
-    const classTokens = className.split(/\s+/);
-    const hasContextualHorizontalPadding = classTokens.some((token) => /^!?px-/.test(token));
-    const hasContextualVerticalPadding = classTokens.some((token) => /^!?py-/.test(token));
+    const classTokens = className.split(/\s+/).filter(Boolean);
+    const usesLegacyMenuRowSizing =
+        classTokens.includes("h-auto") &&
+        classTokens.includes("px-3") &&
+        classTokens.includes("py-1.5") &&
+        classTokens.includes("text-sm");
+    const effectiveClassTokens = usesLegacyMenuRowSizing
+        ? classTokens.filter(
+              (token) =>
+                  ![
+                      "h-auto",
+                      "px-3",
+                      "py-1.5",
+                      "text-sm",
+                      "font-medium",
+                      "text-gray-500",
+                      "hover:border-brand",
+                  ].includes(token)
+          )
+        : classTokens;
+    const effectiveClassName = effectiveClassTokens.join(" ");
+    const hasContextualHorizontalPadding = effectiveClassTokens.some((token) => /^!?px-/.test(token));
+    const hasContextualVerticalPadding = effectiveClassTokens.some((token) => /^!?py-/.test(token));
     const hasContextualSecondaryBackground =
         variant === "secondary" &&
-        classTokens.some((token) => /^!?bg-(?!transparent$)/.test(token));
+        effectiveClassTokens.some((token) => /^!?bg-(?!transparent$)/.test(token));
 
     const base = [
         "inline-flex min-h-10 cursor-pointer items-center justify-center rounded-[8px] border border-[#e2e5e9] font-[inherit] text-[13px] font-medium leading-5 shadow-none transition-[background-color,border-color,color] duration-150 focus:outline-none focus-visible:outline-2 focus-visible:outline-[#d93d00] focus-visible:outline-offset-[3px] disabled:cursor-not-allowed disabled:opacity-[0.48]",
@@ -37,7 +57,7 @@ export default function Button({
         <button
             data-ui="button"
             data-variant={variant}
-            className={`${base} ${variants[variant]} ${className} ${
+            className={`${base} ${variants[variant]} ${effectiveClassName} ${
                 loading ? "pointer-events-none cursor-not-allowed" : "pointer-events-auto"
             }`}
             disabled={loading || props.disabled}
