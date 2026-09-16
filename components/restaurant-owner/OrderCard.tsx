@@ -409,7 +409,7 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
     return (
         <Card className={`panel-order !p-0 overflow-hidden border-l-4 ${config.borderColor} flex flex-col h-full`}>
             {/* Header do Card */}
-            <div className="panel-order-head rounded-t-xl bg-gray-50 border-b border-gray-100 px-5 py-4 min-[1800px]:px-6 min-[1800px]:py-5">
+            <div className="panel-order-head rounded-t-xl !bg-white border-b border-gray-100 px-5 py-4 min-[1800px]:px-6 min-[1800px]:py-5">
                 <div className="panel-order-heading flex items-center gap-2 min-[1800px]:gap-4">
                     <span className="shrink-0 font-bold text-gray-900 text-lg">
                         #{order.display_id || order.id.slice(0, 4)}
