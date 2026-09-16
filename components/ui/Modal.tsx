@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useEffect, useRef, useState, type CSSProperties } from "react";
+import { ReactNode, isValidElement, useEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { usePanelAppearance } from "./PanelAppearance";
 import ModalCloseButton from "./ModalCloseButton";
@@ -18,6 +18,7 @@ interface ModalProps {
     children: ReactNode;
     className?: string;
     showCloseButton?: boolean;
+    fixedHeight?: boolean;
     /** Required per usage. Do not add a shared/default modal height. */
     height: ModalHeight;
 }
@@ -28,6 +29,7 @@ export default function Modal({
     children,
     className = "",
     showCloseButton = false,
+    fixedHeight = false,
     height,
 }: ModalProps) {
     const panel = usePanelAppearance();
@@ -35,6 +37,12 @@ export default function Modal({
     const [active, setActive] = useState(false);
     const scrollLocked = useRef(false);
     const requestedHeight = typeof height === "number" ? `${height}px` : height;
+    const childUsesFixedPanelLayout =
+        panel &&
+        isValidElement<{ className?: string }>(children) &&
+        typeof children.props.className === "string" &&
+        children.props.className.split(/\s+/).includes("panel-complements");
+    const useFixedHeight = fixedHeight || childUsesFixedPanelLayout;
 
     function lockPageScroll() {
         if (scrollLocked.current) return;
@@ -132,7 +140,10 @@ export default function Modal({
 
             <div
                 role="dialog"
-                style={{ "--modal-requested-height": requestedHeight } as CSSProperties}
+                style={{
+                    "--modal-requested-height": requestedHeight,
+                    ...(useFixedHeight ? { height: requestedHeight } : {}),
+                } as CSSProperties}
                 aria-modal="true"
                 onClick={(event: { stopPropagation(): void }) =>
                     event.stopPropagation()
