@@ -1256,9 +1256,9 @@ export default function MenuClientPage({
             <ModalMobile
                 open={restaurantInfoOpen}
                 onClose={() => setRestaurantInfoOpen(false)}
-                height={0.76}
+                height={0.86}
                 handle={true}
-                className="md:!max-w-xl 2xl:!max-w-2xl"
+                className="md:!h-[76dvh] md:!max-w-xl 2xl:!max-w-2xl"
             >
                 <div className="px-2 pb-8 pt-2 md:px-4 2xl:px-6">
                     <div className="flex items-center gap-3 border-b border-gray-200 pb-5">

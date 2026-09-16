@@ -133,7 +133,7 @@ export default function CriarCardapioPage() {
                     <h2 className="text-xl font-bold">Cardápio</h2>
                     <button
                         onClick={() => setAiOpen(true)}
-                        className="flex items-center justify-center gap-2 rounded-full bg-gradient-to-br from-[#905CFF] to-[#6A3AFF] px-6 py-3 font-medium text-white"
+                        className="flex cursor-pointer items-center justify-center gap-2 rounded-full bg-gradient-to-br from-[#905CFF] to-[#6A3AFF] px-6 py-3 font-medium text-white"
                     >
                         <FontAwesomeIcon icon={faWandMagicSparkles} />
                         Scanear Cardápio com IA
