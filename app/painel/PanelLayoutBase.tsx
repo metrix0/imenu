@@ -614,6 +614,7 @@ export default function PainelLayout({
                                     href={item.href}
                                     title={!expanded ? item.label : ""}
                                     aria-current={active ? "page" : undefined}
+                                    style={{ outlineColor: "#d93d00" }}
                                     className="panel-nav-link group relative flex cursor-pointer items-center transition-colors duration-200"
                                 >
                                     <div className="flex h-6 w-6 shrink-0 items-center justify-center 2xl:h-10 2xl:w-12">
