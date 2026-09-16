@@ -334,7 +334,8 @@ const PanelDropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(functio
             aria-haspopup="listbox" aria-expanded={open} aria-controls={open ? `${id}-list` : undefined}
             aria-label={props["aria-label"] || label} aria-labelledby={props["aria-labelledby"]}
             aria-invalid={props["aria-invalid"]} disabled={props.disabled}
-            className={`flex h-11 w-full cursor-pointer items-center justify-between gap-3 rounded-[8px] border border-[#e2e5e9] bg-white px-3 py-2.5 text-left text-sm font-normal text-[#1d1d1d] outline-none transition-colors hover:bg-[#f7f8fa] disabled:cursor-not-allowed disabled:bg-[#f1f3f5] disabled:text-[#626973] ${className}`}
+            className={`flex w-full cursor-pointer items-center justify-between gap-3 rounded-[8px] border border-[#e2e5e9] bg-white text-left text-[#1d1d1d] outline-none disabled:cursor-not-allowed disabled:bg-[#f1f3f5] disabled:opacity-[.55] ${className}`}
+            style={{ height: 44, minHeight: 44, padding: "10px 12px", fontSize: 14, fontWeight: 400, transition: "border-color 160ms, background-color 160ms" }}
             onClick={() => setOpen(prev => !prev)} onBlur={closeOnBlur}
             onKeyDown={event => {
                 if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
@@ -343,9 +344,13 @@ const PanelDropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(functio
                 } else if (event.key === "Escape" && open) { event.stopPropagation(); setOpen(false); }
             }}>
             <span className="min-w-0 truncate">{selected?.label ?? "Selecione"}</span>
-            <FontAwesomeIcon icon={faChevronDown} className={`h-3.5 w-3.5 shrink-0 text-[#626973] transition-transform duration-150 ${open ? "rotate-180" : ""} ${chevronClassName || ""}`} />
+            <FontAwesomeIcon
+                icon={faChevronDown}
+                className={`shrink-0 text-[#626973] ${open ? "rotate-180" : ""} ${chevronClassName || ""}`}
+                style={{ width: 14, height: 14, transition: "transform 180ms ease, rotate 180ms ease" }}
+            />
         </button>
-        {mounted && createPortal(<div className={`panel-essencial panel-dropdown-portal z-[1000] origin-top overflow-y-auto overscroll-contain rounded-[8px] border border-[#e2e5e9] bg-white p-[5px] shadow-[0_6px_20px_#1d1d1d12] transition-[opacity,transform] duration-[160ms] ease-out ${active ? "translate-y-0 scale-100 opacity-100" : "pointer-events-none -translate-y-1 scale-[0.98] opacity-0"}`} style={position}
+        {mounted && createPortal(<div className={`panel-essencial panel-dropdown-portal z-[1000] overflow-y-auto overscroll-contain rounded-[8px] border border-[#e2e5e9] bg-white p-[5px] shadow-[0_6px_20px_#1d1d1d12] ${active ? "translate-y-0 scale-100 opacity-100" : "pointer-events-none -translate-y-1 scale-[0.98] opacity-0"}`} style={{ ...position, transformOrigin: "top", transition: "opacity 160ms ease, transform 160ms ease" }}
             data-state={active ? "open" : "closed"} aria-hidden={!open} inert={!open}
             ref={menuRef} id={`${id}-list`} role="listbox" aria-label={props["aria-label"] || label}
             data-ui="dropdown-menu" onBlur={closeOnBlur}>
@@ -353,7 +358,7 @@ const PanelDropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(functio
                 const optionSelected = String(option.value) === String(value);
                 return <button key={option.value} type="button" role="option"
                 aria-selected={optionSelected} disabled={option.disabled}
-                className={`flex min-h-10 w-full cursor-pointer items-center justify-between gap-3 rounded-[5px] px-2.5 py-[9px] text-left text-sm transition-colors hover:bg-[#f1f3f5] focus-visible:bg-[#f1f3f5] focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-45 ${optionSelected ? "bg-[#fff1ea] text-[#c43700]" : "text-[#1d1d1d]"}`}
+                className={`flex min-h-10 w-full cursor-pointer items-center justify-between gap-3 rounded-[5px] px-2.5 py-[9px] text-left text-sm hover:bg-[#f1f3f5] focus-visible:bg-[#f1f3f5] focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-45 ${optionSelected ? "bg-[#fff1ea] text-[#c43700]" : "text-[#1d1d1d]"}`}
                 onClick={() => choose(option.value)}
                 onKeyDown={event => {
                     const buttons = Array.from(menuRef.current?.querySelectorAll('[role="option"]:not(:disabled)') || []);
