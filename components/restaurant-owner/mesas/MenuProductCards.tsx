@@ -49,7 +49,7 @@ export default function MenuProductCards({
 
     return (
         <div className="panel-product-cards grid gap-5 md:grid-cols-2">
-            <div className="relative flex min-h-[320px] flex-col overflow-hidden rounded-2xl border border-brand bg-gradient-to-br from-white via-white to-brand/[0.08] p-6 shadow-sm ring-2 ring-brand/10">
+            <div className="relative flex min-h-[320px] flex-col overflow-hidden rounded-2xl border border-brand bg-white p-6 shadow-sm ring-2 ring-brand/10">
                 <span className="absolute right-4 top-4 inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-600">
                     <FontAwesomeIcon icon={faLock} />
                     <span className="sm:hidden">Grátis</span>
@@ -116,8 +116,8 @@ export default function MenuProductCards({
                 data-selected={selected}
                 className={`relative flex min-h-[320px] flex-col overflow-hidden rounded-2xl border p-6 shadow-sm transition-all duration-200 ${
                     selected
-                        ? "border-brand bg-gradient-to-br from-brand/[0.09] via-white to-orange-50 ring-2 ring-brand/10"
-                        : "cursor-pointer border-orange-200 bg-gradient-to-br from-white via-orange-50/30 to-amber-50/70 hover:-translate-y-0.5 hover:border-brand/50 hover:shadow-md"
+                        ? "border-brand bg-[#fff1ea] ring-2 ring-brand/10"
+                        : "cursor-pointer border-orange-200 bg-white hover:-translate-y-0.5 hover:border-brand/50 hover:shadow-md"
                 } ${!qrActive && selected ? "cursor-pointer" : ""}`}
             >
                 <button

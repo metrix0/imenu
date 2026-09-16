@@ -561,7 +561,7 @@ export default function PainelLayout({
                         )}
                         <button type="button" onClick={toggleSidebar}
                             aria-label={expanded ? "Recolher menu lateral" : "Expandir menu lateral"}
-                            aria-expanded={expanded} className="panel-sidebar-toggle cursor-pointer">
+                            aria-expanded={expanded} className="panel-sidebar-toggle cursor-pointer bg-white">
                             {!expanded && <Image className="panel-sidebar-mark" src="/logos/LogoMark_Brand.png" alt="" width={32} height={32} />}
                             {expanded ? <PanelLeftClose aria-hidden="true" strokeWidth={1.75} /> : <PanelLeftOpen aria-hidden="true" strokeWidth={1.75} />}
                         </button>
