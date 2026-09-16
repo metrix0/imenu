@@ -315,7 +315,7 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                     }`}
                 >
                     <div className="overflow-hidden">
-                        <div className="mb-3 flex min-h-8 justify-end text-sm font-medium">
+                        <div className="mb-3 flex h-6 justify-end text-sm font-medium">
                             {!isNew && (
                                 <SaveStatus status={error ? "error" : status} />
                             )}
