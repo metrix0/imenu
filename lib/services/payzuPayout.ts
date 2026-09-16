@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 import * as https from "node:https";
 import { HttpsProxyAgent } from "https-proxy-agent";
 
+import { selectFixieUrl } from "@/lib/fixie";
+
 const PAYZU_BASE_URL = "https://api.payzu.processamento.com/v1";
 const PAYZU_REQUEST_TIMEOUT_MS = 10_000;
 const RESERVE_CENTS = 100;
@@ -57,8 +59,8 @@ function getPayZuToken(): string {
     return token;
 }
 
-function getFixieUrl(): string {
-    const fixieUrl = process.env.FIXIE_URL?.trim();
+function getFixieUrl(selectionKey: string): string {
+    const fixieUrl = selectFixieUrl(selectionKey);
     if (!fixieUrl) throw new Error("FIXIE_URL não configurado para o saque PayZu.");
     return fixieUrl;
 }
@@ -146,10 +148,11 @@ async function payzuRequest<T>(
 
 async function payzuRequestThroughFixie<T>(
     path: string,
-    init: { method: "GET" | "POST"; body?: string }
+    init: { method: "GET" | "POST"; body?: string },
+    selectionKey: string
 ): Promise<T> {
     const target = new URL(`${PAYZU_BASE_URL}${path}`);
-    const agent = new HttpsProxyAgent(getFixieUrl());
+    const agent = new HttpsProxyAgent(getFixieUrl(selectionKey));
 
     return new Promise((resolve, reject) => {
         const request = https.request(
@@ -216,7 +219,8 @@ async function getExistingWithdrawal(
     try {
         return await payzuRequestThroughFixie<PayZuWithdrawal>(
             `/withdraw?clientReference=${encodeURIComponent(clientReference)}`,
-            { method: "GET" }
+            { method: "GET" },
+            clientReference
         );
     } catch (error) {
         if (error instanceof PayZuRequestError && error.status === 404) {
@@ -269,10 +273,14 @@ async function createWithdrawal(input: {
             );
             if (existing) return existing;
 
-            return await payzuRequestThroughFixie<PayZuWithdrawal>("/withdraw", {
-                method: "POST",
-                body: JSON.stringify(payload),
-            });
+            return await payzuRequestThroughFixie<PayZuWithdrawal>(
+                "/withdraw",
+                {
+                    method: "POST",
+                    body: JSON.stringify(payload),
+                },
+                input.clientReference
+            );
         } catch (error) {
             lastError = error;
 
