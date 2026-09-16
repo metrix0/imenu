@@ -8,13 +8,16 @@ import {
     faArrowLeft,
     faBellConcierge,
     faChair,
+    faEye,
     faLink,
     faPlus,
 } from "@fortawesome/free-solid-svg-icons";
 
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
+import ConfirmModal from "@/components/ui/ConfirmModal";
 import Loader from "@/components/ui/Loader";
+import OrderDetailsModal from "@/components/restaurant-owner/pedidos/OrderDetailsModal";
 import { supabase } from "@/lib/database/supabaseClient";
 import type { QrTableAddon } from "@/lib/qr-table/types";
 import { hasQrTableAccess } from "@/lib/qr-table/types";
@@ -39,11 +42,14 @@ type WaiterOrder = {
     customer_name: string | null;
     status: string;
     total_cents: number;
+    payment_method: string | null;
+    is_delivery: string | null;
     table_id: string | null;
     table_name_snapshot: string | null;
     order_items: Array<{
         name: string;
         quantity: number;
+        price_cents: number;
     }>;
 };
 
@@ -93,9 +99,12 @@ export default function GarcomPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [linkCopied, setLinkCopied] = useState(false);
+    const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
+    const [tableToFinalize, setTableToFinalize] = useState<RestaurantTable | null>(null);
+    const [finishingTable, setFinishingTable] = useState(false);
 
-    const loadData = useCallback(async () => {
-        setLoading(true);
+    const loadData = useCallback(async (showLoader = true) => {
+        if (showLoader) setLoading(true);
         setError(null);
 
         try {
@@ -143,7 +152,7 @@ export default function GarcomPage() {
                 supabase
                     .from("orders")
                     .select(
-                        "id, display_id, created_at, customer_name, status, total_cents, table_id, table_name_snapshot, order_items(name, quantity)"
+                        "id, display_id, created_at, customer_name, status, total_cents, payment_method, is_delivery, table_id, table_name_snapshot, order_items(name, quantity, price_cents)"
                     )
                     .eq("restaurant_id", restaurantData.id)
                     .eq("is_delivery", "mesa")
@@ -166,7 +175,7 @@ export default function GarcomPage() {
                     : "Não foi possível carregar as mesas."
             );
         } finally {
-            setLoading(false);
+            if (showLoader) setLoading(false);
         }
     }, [router]);
 
@@ -196,11 +205,61 @@ export default function GarcomPage() {
         );
     };
 
+    const finalizeTable = async () => {
+        if (!tableToFinalize) return;
+
+        const tableOrders = ordersByTable.get(tableToFinalize.id) || [];
+        if (!tableOrders.length) {
+            setTableToFinalize(null);
+            return;
+        }
+
+        setFinishingTable(true);
+        setError(null);
+
+        try {
+            await Promise.all(
+                tableOrders.map(async (order) => {
+                    const response = await fetch(`/api/orders/${order.id}/status-order`, {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ status: "done" }),
+                    });
+
+                    if (!response.ok) {
+                        const payload = await response.json().catch(() => null);
+                        throw new Error(payload?.error || "Não foi possível finalizar a mesa.");
+                    }
+                })
+            );
+
+            const finalizedTableId = tableToFinalize.id;
+            setOrders((current) =>
+                current.filter((order) => order.table_id !== finalizedTableId)
+            );
+            setTableToFinalize(null);
+        } catch (caught) {
+            console.error("Erro ao finalizar mesa:", caught);
+            setError(
+                caught instanceof Error
+                    ? caught.message
+                    : "Não foi possível finalizar a mesa."
+            );
+            await loadData(false);
+        } finally {
+            setFinishingTable(false);
+        }
+    };
+
     const copyWaiterLink = async () => {
         await navigator.clipboard.writeText(window.location.href);
         setLinkCopied(true);
         window.setTimeout(() => setLinkCopied(false), 2000);
     };
+
+    const finalizingOrdersCount = tableToFinalize
+        ? (ordersByTable.get(tableToFinalize.id) || []).length
+        : 0;
 
     if (loading) {
         return (
@@ -325,7 +384,7 @@ export default function GarcomPage() {
                                                         className="rounded-lg border border-gray-200 bg-white p-3"
                                                     >
                                                         <div className="flex items-start justify-between gap-3">
-                                                            <div>
+                                                            <div className="min-w-0">
                                                                 <div className="flex flex-wrap items-center gap-2">
                                                                     <span className="text-sm font-bold text-gray-900">
                                                                         #{order.display_id || order.id.slice(0, 4)}
@@ -338,29 +397,53 @@ export default function GarcomPage() {
                                                                         {STATUS_LABELS[order.status] || order.status}
                                                                     </span>
                                                                 </div>
-                                                                <p className="mt-1 text-sm text-gray-700">
+                                                                <p className="mt-1 truncate text-sm text-gray-700">
                                                                     {order.customer_name || "Cliente"}
                                                                 </p>
                                                             </div>
-                                                            <div className="text-right">
-                                                                <p className="text-sm font-semibold text-gray-900">
-                                                                    {formatMoney(order.total_cents)}
-                                                                </p>
-                                                                <p className="mt-1 text-xs text-gray-400">
-                                                                    {formatTime(order.created_at)}
-                                                                </p>
+                                                            <div className="flex shrink-0 items-start gap-2">
+                                                                <div className="text-right">
+                                                                    <p className="text-sm font-semibold text-gray-900">
+                                                                        {formatMoney(order.total_cents)}
+                                                                    </p>
+                                                                    <p className="mt-1 text-xs text-gray-400">
+                                                                        {formatTime(order.created_at)}
+                                                                    </p>
+                                                                </div>
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="secondary"
+                                                                    className="h-9 w-9 shrink-0 px-0"
+                                                                    onClick={() => setSelectedOrder(order)}
+                                                                    title="Ver detalhes do pedido"
+                                                                    aria-label={`Ver detalhes do pedido #${order.display_id || order.id.slice(0, 4)}`}
+                                                                >
+                                                                    <FontAwesomeIcon icon={faEye} />
+                                                                </Button>
                                                             </div>
                                                         </div>
 
                                                         {order.order_items?.length > 0 && (
-                                                            <p className="mt-2 border-t border-gray-100 pt-2 text-xs leading-relaxed text-gray-500">
-                                                                {order.order_items
-                                                                    .map(
-                                                                        (item) =>
-                                                                            `${item.quantity}x ${item.name}`
-                                                                    )
-                                                                    .join(" • ")}
-                                                            </p>
+                                                            <div className="mt-3 space-y-2 border-t border-gray-100 pt-3">
+                                                                {order.order_items.map((item, index) => (
+                                                                    <div
+                                                                        key={`${order.id}-item-${index}`}
+                                                                        className="flex min-w-0 items-start justify-between gap-3 text-sm"
+                                                                    >
+                                                                        <div className="flex min-w-0 gap-2">
+                                                                            <span className="shrink-0 font-bold text-gray-900">
+                                                                                {item.quantity}x
+                                                                            </span>
+                                                                            <span className="min-w-0 break-words text-gray-700">
+                                                                                {item.name}
+                                                                            </span>
+                                                                        </div>
+                                                                        <span className="shrink-0 whitespace-nowrap text-gray-500">
+                                                                            {formatMoney(item.price_cents * item.quantity)}
+                                                                        </span>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
                                                         )}
                                                     </div>
                                                 ))}
@@ -368,20 +451,51 @@ export default function GarcomPage() {
                                         )}
                                     </div>
 
-                                    <Button
-                                        type="button"
-                                        className="w-full"
-                                        onClick={() => addOrder(table)}
-                                    >
-                                        <FontAwesomeIcon icon={faPlus} className="mr-2" />
-                                        Adicionar pedido
-                                    </Button>
+                                    <div className="space-y-2">
+                                        <Button
+                                            type="button"
+                                            className="w-full"
+                                            onClick={() => addOrder(table)}
+                                        >
+                                            <FontAwesomeIcon icon={faPlus} className="mr-2" />
+                                            Adicionar pedido
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            variant="secondary"
+                                            className="w-full"
+                                            disabled={tableOrders.length === 0}
+                                            onClick={() => setTableToFinalize(table)}
+                                        >
+                                            Finalizar Mesa
+                                        </Button>
+                                    </div>
                                 </Card>
                             );
                         })}
                     </div>
                 )}
             </div>
+
+            <OrderDetailsModal
+                isOpen={Boolean(selectedOrder)}
+                onClose={() => setSelectedOrder(null)}
+                order={selectedOrder}
+                onOrderUpdate={() => void loadData(false)}
+            />
+
+            <ConfirmModal
+                open={Boolean(tableToFinalize)}
+                onClose={() => {
+                    if (!finishingTable) setTableToFinalize(null);
+                }}
+                onConfirm={() => void finalizeTable()}
+                title={`Finalizar ${tableToFinalize?.name || "mesa"}?`}
+                description={`Os ${finalizingOrdersCount} ${finalizingOrdersCount === 1 ? "pedido em aberto será marcado como concluído" : "pedidos em aberto serão marcados como concluídos"}.`}
+                confirmLabel="Finalizar Mesa"
+                isLoading={finishingTable}
+                variant="primary"
+            />
         </main>
     );
 }
