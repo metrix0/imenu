@@ -143,12 +143,12 @@ export default function Modal({
     if (!mounted) return null;
 
     return createPortal(
-        <div className={`${panel ? "panel-essencial panel-modal" : ""} fixed inset-0 z-50 isolate flex min-h-[100dvh] w-full items-center justify-center overflow-y-auto p-3 sm:p-6 ${panel ? "" : "2xl:p-8"}`}>
+        <div className={`${panel ? "panel-essencial panel-modal" : ""} fixed inset-0 z-50 isolate flex min-h-[100dvh] w-screen items-center justify-center overflow-y-auto p-3 sm:p-6 ${panel ? "" : "2xl:p-8"}`}>
             <button
                 type="button"
                 aria-label="Fechar modal pelo fundo"
                 onClick={onClose}
-                className={`fixed inset-0 min-h-[100dvh] ${
+                className={`fixed inset-0 min-h-[100dvh] w-screen ${
                     panel
                         ? "bg-[#1d1d1d]/40 backdrop-blur-[3px]"
                         : "bg-black/40 backdrop-blur-sm"
