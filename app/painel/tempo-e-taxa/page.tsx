@@ -15,7 +15,6 @@ export default function PainelTempoETaxaPage() {
     const [address, setAddress] = useState<Partial<AddressData>>({});
     const [editingAddress, setEditingAddress] = useState(false);
     const [savingAddress, setSavingAddress] = useState(false);
-    const [addressSaved, setAddressSaved] = useState(false);
 
     useEffect(() => {
         const load = async () => {
@@ -72,7 +71,6 @@ export default function PainelTempoETaxaPage() {
         if (!restaurantId) return;
 
         setSavingAddress(true);
-        setAddressSaved(false);
 
         try {
             const response = await fetch(`/api/restaurants/${restaurantId}`, {
@@ -88,10 +86,10 @@ export default function PainelTempoETaxaPage() {
             if (!response.ok) throw new Error();
 
             setAddress(data);
-            setEditingAddress(false);
-            setAddressSaved(true);
-        } catch {
-            alert("Não foi possível salvar o endereço. Tente novamente.");
+        } catch (caught) {
+            const message = "Não foi possível salvar o endereço. Tente novamente.";
+            alert(message);
+            throw caught instanceof Error ? caught : new Error(message);
         } finally {
             setSavingAddress(false);
         }
@@ -135,10 +133,7 @@ export default function PainelTempoETaxaPage() {
                     {!editingAddress && (
                         <Button
                             type="button"
-                            onClick={() => {
-                                setAddressSaved(false);
-                                setEditingAddress(true);
-                            }}
+                            onClick={() => setEditingAddress(true)}
                             className="w-full sm:w-auto"
                         >
                             Alterar endereço
@@ -158,7 +153,6 @@ export default function PainelTempoETaxaPage() {
                             onSubmit={saveAddress}
                             isLoading={savingAddress}
                             onValidityChange={() => {}}
-                            submitLabel="Salvar endereço"
                         />
                         <button
                             type="button"
@@ -166,13 +160,9 @@ export default function PainelTempoETaxaPage() {
                             disabled={savingAddress}
                             className="mt-3 cursor-pointer text-sm font-medium text-gray-500 hover:text-gray-700 disabled:cursor-not-allowed"
                         >
-                            Cancelar
+                            Concluir
                         </button>
                     </div>
-                )}
-
-                {addressSaved && (
-                    <p className="mt-3 text-sm font-medium text-green-700">Endereço atualizado.</p>
                 )}
             </section>
         </div>

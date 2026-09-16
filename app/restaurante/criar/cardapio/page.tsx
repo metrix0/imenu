@@ -13,7 +13,7 @@ import ItemDetailsModal from "@/components/restaurant-owner/cardapio/ItemDetails
 import { MenuItemType } from "@/components/restaurant-owner/cardapio/MenuItemRow";
 import ScanMenuModal from "@/components/restaurant-owner/ScanMenuImageModal";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
-import { faWandMagicSparkles } from "@fortawesome/free-solid-svg-icons";
+import { faPlus, faWandMagicSparkles } from "@fortawesome/free-solid-svg-icons";
 
 type Category = { id: string; name: string; position: number };
 
@@ -129,15 +129,59 @@ export default function CriarCardapioPage() {
                     </p>
                 </div>
 
-                <div className="mb-4 flex flex-col justify-between gap-3 px-2 sm:flex-row sm:items-center">
-                    <h2 className="text-xl font-bold">Cardápio</h2>
-                    <button
-                        onClick={() => setAiOpen(true)}
-                        className="flex cursor-pointer items-center justify-center gap-2 rounded-full bg-gradient-to-br from-[#905CFF] to-[#6A3AFF] px-6 py-3 font-medium text-white"
-                    >
-                        <FontAwesomeIcon icon={faWandMagicSparkles} />
-                        Scanear Cardápio com IA
-                    </button>
+                <div className="mb-6">
+                    <div className="grid gap-4 sm:grid-cols-2">
+                        <button
+                            type="button"
+                            onClick={() => setAiOpen(true)}
+                            className="group relative flex min-h-48 cursor-pointer flex-col items-start overflow-hidden rounded-2xl border border-[#7653ff]/35 bg-gradient-to-br from-[#815dff] via-[#6A3AFF] to-[#4d25cc] p-6 text-left text-white shadow-[0_12px_30px_rgba(106,58,255,0.20)] transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_18px_38px_rgba(106,58,255,0.30)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6A3AFF]/35"
+                        >
+                            <span className="pointer-events-none absolute -right-12 -top-12 h-36 w-36 rounded-full bg-white/10 transition-transform duration-300 group-hover:scale-110" />
+                            <span className="pointer-events-none absolute -bottom-16 right-10 h-32 w-32 rounded-full bg-black/10" />
+                            <span className="relative mb-5 flex h-12 w-12 items-center justify-center rounded-xl border border-white/15 bg-white/15 text-xl shadow-sm backdrop-blur-sm transition-transform duration-200 group-hover:scale-110">
+                                <FontAwesomeIcon icon={faWandMagicSparkles} />
+                            </span>
+                            <span className="relative text-lg font-semibold">
+                                Scanear Cardápio com IA
+                            </span>
+                            <span className="relative mt-1 max-w-sm text-sm leading-5 text-white/80">
+                                Envie fotos do seu cardápio e deixe a IA criar produtos e categorias para você.
+                            </span>
+                            <span className="relative mt-auto pt-5 text-sm font-semibold text-white/95 transition-transform duration-200 group-hover:translate-x-1">
+                                Criar com IA →
+                            </span>
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setCatEdit(null);
+                                setCatOpen(true);
+                            }}
+                            className="group flex min-h-48 cursor-pointer flex-col items-start rounded-2xl border border-gray-200 bg-white p-6 text-left shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-brand/40 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/20"
+                        >
+                            <span className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-brand/10 text-lg text-brand transition-transform duration-200 group-hover:scale-110">
+                                <FontAwesomeIcon icon={faPlus} />
+                            </span>
+                            <span className="text-lg font-semibold text-gray-900">
+                                Adicionar manualmente
+                            </span>
+                            <span className="mt-1 text-sm leading-5 text-gray-500">
+                                Comece criando uma categoria e adicione seus produtos manualmente.
+                            </span>
+                        </button>
+                    </div>
+
+                    <div className="mt-5 text-center">
+                        <button
+                            type="button"
+                            onClick={continueOnboarding}
+                            disabled={saving}
+                            className="cursor-pointer text-sm font-medium text-gray-400 transition-colors duration-200 hover:text-brand disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                            {saving ? "Salvando..." : "Deixar para depois"}
+                        </button>
+                    </div>
                 </div>
 
                 <div className="rounded-xl border border-gray-100 bg-gray-50/50 p-4">
