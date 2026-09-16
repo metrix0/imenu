@@ -62,6 +62,9 @@ export default function PainelLayout({
         <PanelAppearance>
             <style jsx global>{`
                 @media (min-width: 768px) {
+                    .panel-essencial .panel-sidebar .panel-nav-link {
+                        border-color: var(--panel-brand);
+                    }
                     .panel-essencial .panel-sidebar .panel-nav-link[aria-current="page"] {
                         border-left: 3px solid var(--panel-brand);
                         padding-left: 11px;
