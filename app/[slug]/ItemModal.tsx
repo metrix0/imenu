@@ -64,6 +64,7 @@ export default function ItemModal({
     const flavors = [firstFlavor, ...extraFlavors];
     const modalStart = useRef<HTMLDivElement>(null);
     const detailsScroll = useRef<HTMLDivElement>(null);
+    const subcategoryRefs = useRef<Record<string, HTMLDivElement | null>>({});
     useEffect(() => {
         if (detailsScroll.current) detailsScroll.current.scrollTop = 0;
         modalStart.current?.scrollIntoView?.({ block: "start" });
@@ -142,6 +143,21 @@ export default function ItemModal({
 
     const changeQty = (delta: number) =>
         setQty((q) => Math.max(1, Math.min(99, q + delta)));
+
+    const scrollToNextSubcategory = (sc: Subcategory) => {
+        if (typeof window === "undefined" || window.innerWidth >= 768 || sc.subitems.length < 5) return;
+
+        const currentIndex = subcategories.findIndex((subcategory) => subcategory.id === sc.id);
+        const nextSubcategory = subcategories[currentIndex + 1];
+        if (!nextSubcategory) return;
+
+        window.requestAnimationFrame(() => {
+            subcategoryRefs.current[nextSubcategory.id]?.scrollIntoView({
+                behavior: "smooth",
+                block: "start",
+            });
+        });
+    };
 
     const toggleSubitem = (sc: Subcategory, si: Subitem) => {
         setSelected((prev) => {
@@ -436,7 +452,13 @@ export default function ItemModal({
                             sc.max_select === 1 || sc.max_select === 0;
 
                         return (
-                            <div key={sc.id} className="mt-4">
+                            <div
+                                key={sc.id}
+                                ref={(element) => {
+                                    subcategoryRefs.current[sc.id] = element;
+                                }}
+                                className="mt-4"
+                            >
                                 <div className="bg-gray-100 px-4 py-3 flex justify-between">
                                     <div>
                                         <p className="font-semibold text-gray-600 2xl:text-lg">
@@ -484,7 +506,10 @@ export default function ItemModal({
                                                             type="button"
                                                             aria-label={`Adicionar ${si.name}`}
                                                             disabled={quantityLimitReached}
-                                                            onClick={() => changeSubitemQuantity(sc, si, 1)}
+                                                            onClick={() => {
+                                                                changeSubitemQuantity(sc, si, 1);
+                                                                scrollToNextSubcategory(sc);
+                                                            }}
                                                             className="cursor-pointer w-7 h-7 2xl:w-10 2xl:h-10 rounded-full border border-gray-300 bg-gray-100 text-gray-500 flex items-center justify-center disabled:cursor-default disabled:opacity-40"
                                                         >
                                                             <FontAwesomeIcon icon={icons.faPlus} className="text-xs 2xl:text-lg" />
@@ -520,9 +545,10 @@ export default function ItemModal({
                                     return (
                                         <button
                                             key={si.id}
-                                            onClick={() =>
-                                                toggleSubitem(sc, si)
-                                            }
+                                            onClick={() => {
+                                                toggleSubitem(sc, si);
+                                                if (!isSelected) scrollToNextSubcategory(sc);
+                                            }}
                                             className="cursor-pointer 2xl:text-lg w-full px-4 py-3 flex justify-between"
                                         >
                                             <div className="text-left">
