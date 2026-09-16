@@ -125,7 +125,7 @@ export default function PainelTempoETaxaPage() {
                 isNew={false}
             />
 
-            <section className="mt-10 border-t border-gray-200 pt-8">
+            <section className="mx-auto mt-10 max-w-2xl border-t border-gray-200 pt-8 2xl:max-w-3xl">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div>
                         <h2 className="text-xl font-semibold text-gray-900">Endereço do restaurante</h2>
