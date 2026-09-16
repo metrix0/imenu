@@ -648,7 +648,7 @@ export default function DevPayoutPage() {
             <Card>
                 <h2 className="text-lg font-bold text-gray-900">Histórico da automação diária</h2>
                 <p className="mt-1 text-sm text-gray-500">
-                    Executa todos os dias às 12h. Só envia quando Transferido − Enviar fica entre −R$ 3,00 e +1% do total a enviar.
+                    Executa todos os dias às 12h. Após solicitar a transferência da PayZu, aguarda o saldo necessário aparecer no Asaas antes de enviar os repasses.
                 </p>
 
                 <div className="mt-5 overflow-x-auto">
@@ -670,9 +670,18 @@ export default function DevPayoutPage() {
                         <tbody className="divide-y divide-gray-100">
                             {paginatedAutomationRuns.map((run) => {
                                 const comparisonSafe = run.comparison_step_status === "completed";
+                                const asaasDifferenceCents =
+                                    run.asaas_balance_before_payout_cents != null &&
+                                    run.payout_cents != null
+                                        ? run.asaas_balance_before_payout_cents - run.payout_cents
+                                        : null;
+                                const transferDifferenceCents =
+                                    run.transferred_cents != null && run.payout_cents != null
+                                        ? run.transferred_cents - run.payout_cents
+                                        : null;
                                 const finalProfitCents =
                                     run.status === "completed"
-                                        ? run.difference_cents
+                                        ? run.discount_cents
                                         : null;
 
                                 return (
@@ -703,12 +712,28 @@ export default function DevPayoutPage() {
                                         </td>
                                         <td className="px-3 py-4 align-top">
                                             <StatusBadge status={run.comparison_step_status} />
-                                            <div className={`mt-2 font-semibold ${comparisonSafe ? "text-green-700" : "text-gray-900"}`}>
-                                                {run.difference_cents == null
-                                                    ? "—"
-                                                    : `${money(run.difference_cents)} · ${comparisonSafe ? "Dentro da faixa" : "Fora da faixa"}`}
-                                            </div>
-                                            <div className="mt-1 text-xs text-gray-500">Transferido − Enviar</div>
+                                            {asaasDifferenceCents == null ? (
+                                                <>
+                                                    <div className={`mt-2 font-semibold ${comparisonSafe ? "text-green-700" : "text-gray-900"}`}>
+                                                        {run.difference_cents == null
+                                                            ? "—"
+                                                            : `${money(run.difference_cents)} · ${comparisonSafe ? "Dentro da faixa" : "Fora da faixa"}`}
+                                                    </div>
+                                                    <div className="mt-1 text-xs text-gray-500">Transferido − Enviar</div>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <div className={`mt-2 font-semibold ${comparisonSafe ? "text-green-700" : "text-gray-900"}`}>
+                                                        {money(asaasDifferenceCents)} · {comparisonSafe ? "Saldo suficiente" : "Saldo insuficiente"}
+                                                    </div>
+                                                    <div className="mt-1 text-xs text-gray-500">Saldo Asaas − Enviar</div>
+                                                    {transferDifferenceCents != null && (
+                                                        <div className="mt-1 text-xs text-gray-500">
+                                                            Transferido − Enviar: {money(transferDifferenceCents)}
+                                                        </div>
+                                                    )}
+                                                </>
+                                            )}
                                         </td>
                                         <td className="px-3 py-4 align-top">
                                             <StatusBadge status={run.payout_step_status} />

@@ -12,17 +12,14 @@ import {
     PayZuRequestError,
     transferPayzuToAsaas,
 } from "@/lib/services/payzuPayout";
-import {
-    getMaxPayoutDifferenceCents,
-    isSafePayoutDifference,
-    MIN_PAYOUT_DIFFERENCE_CENTS,
-} from "@/lib/services/payoutSafety";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 const BUSINESS_TIME_ZONE = "America/Sao_Paulo";
+const ASAAS_BALANCE_WAIT_MS = 210_000;
+const ASAAS_BALANCE_POLL_MS = 5_000;
 
 type AutomationStep = "preflight" | "payzu" | "adjustment" | "comparison" | "payout";
 
@@ -49,14 +46,16 @@ function sleep(ms: number): Promise<void> {
 
 async function waitForAsaasBalance(requiredCents: number): Promise<number> {
     let balanceCents = 0;
+    const deadline = Date.now() + ASAAS_BALANCE_WAIT_MS;
 
-    for (let attempt = 0; attempt < 8; attempt += 1) {
+    while (true) {
         balanceCents = await getAsaasBalance();
         if (balanceCents >= requiredCents) return balanceCents;
-        if (attempt < 7) await sleep(4_000);
-    }
 
-    return balanceCents;
+        const remainingMs = deadline - Date.now();
+        if (remainingMs <= 0) return balanceCents;
+        await sleep(Math.min(ASAAS_BALANCE_POLL_MS, remainingMs));
+    }
 }
 
 async function notifyPayoutAlarm({
@@ -218,7 +217,7 @@ export async function GET(request: Request) {
             `,
             [
                 runId,
-                payzuTransfer.skipped ? "skipped" : "completed",
+                payzuTransfer.skipped ? "skipped" : "processing",
                 payzuTransfer.balanceBeforeCents,
                 payzuTransfer.reserveCents,
                 payzuTransfer.amountCents || 0,
@@ -287,19 +286,29 @@ export async function GET(request: Request) {
 
         currentStep = "comparison";
         const transferredCents = payzuTransfer.amountCents || 0;
-        const differenceCents = transferredCents - plan.totalNetCents;
-        const maxDifferenceCents = getMaxPayoutDifferenceCents(plan.totalNetCents);
-        const isSimilar =
-            skippedRestaurantCount > 0
-                ? differenceCents >= MIN_PAYOUT_DIFFERENCE_CENTS
-                : isSafePayoutDifference(differenceCents, plan.totalNetCents);
+        const asaasBalanceCents = await waitForAsaasBalance(plan.totalNetCents);
+        const differenceCents = asaasBalanceCents - plan.totalNetCents;
 
-        if (!isSimilar) {
+        await query(
+            `
+            UPDATE public.payout_automation_runs
+            SET
+                asaas_balance_before_payout_cents = $2,
+                payzu_step_status = CASE
+                    WHEN payzu_step_status = 'skipped' THEN 'skipped'
+                    WHEN $2 >= $3 THEN 'completed'
+                    ELSE 'processing'
+                END,
+                updated_at = NOW()
+            WHERE id = $1
+            `,
+            [runId, asaasBalanceCents, plan.totalNetCents]
+        );
+
+        if (asaasBalanceCents < plan.totalNetCents) {
             const message =
-                skippedRestaurantCount > 0
-                    ? `Diferença abaixo da faixa segura: ${differenceCents} centavos. Mínimo permitido: ${MIN_PAYOUT_DIFFERENCE_CENTS} centavos. Nenhum repasse foi enviado.`
-                    : `Diferença fora da faixa segura: ${differenceCents} centavos. ` +
-                      `Permitido: ${MIN_PAYOUT_DIFFERENCE_CENTS} a ${maxDifferenceCents} centavos (1% do total a enviar). Nenhum repasse foi enviado.`;
+                `Saldo Asaas insuficiente após aguardar a transferência PayZu: ${asaasBalanceCents} centavos disponíveis; ` +
+                `${plan.totalNetCents} centavos necessários. Nenhum repasse foi enviado.`;
             await query(
                 `
                 UPDATE public.payout_automation_runs
@@ -327,6 +336,7 @@ export async function GET(request: Request) {
                 blocked: true,
                 error: message,
                 differenceCents,
+                asaasBalanceCents,
             });
         }
 
@@ -344,23 +354,6 @@ export async function GET(request: Request) {
             `UPDATE public.payout_automation_runs SET payout_step_status = 'running', updated_at = NOW() WHERE id = $1`,
             [runId]
         );
-
-        const asaasBalanceCents = await waitForAsaasBalance(plan.totalNetCents);
-        await query(
-            `UPDATE public.payout_automation_runs SET asaas_balance_before_payout_cents = $2, updated_at = NOW() WHERE id = $1`,
-            [runId, asaasBalanceCents]
-        );
-
-        if (asaasBalanceCents < plan.totalNetCents) {
-            throw new PayoutValidationError(
-                "Saldo Asaas insuficiente após aguardar a transferência PayZu. Nenhum repasse foi enviado.",
-                409,
-                {
-                    balanceCents: asaasBalanceCents,
-                    requiredCents: plan.totalNetCents,
-                }
-            );
-        }
 
         const payoutResult = await sendPayouts({
             cutoffAt: startedAt,
@@ -426,6 +419,7 @@ export async function GET(request: Request) {
             transferredCents,
             payoutCents: plan.totalNetCents,
             differenceCents,
+            asaasBalanceCents,
             skippedRestaurantCount,
             ...payoutResult,
         });
