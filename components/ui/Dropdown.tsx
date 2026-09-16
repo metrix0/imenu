@@ -272,7 +272,7 @@ const PanelDropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(functio
             return () => { cancelAnimationFrame(frame); cancelAnimationFrame(secondFrame); };
         }
         setActive(false);
-        const timer = window.setTimeout(() => setMounted(false), 160);
+        const timer = window.setTimeout(() => setMounted(false), 200);
         return () => window.clearTimeout(timer);
     }, [open]);
     const [position, setPosition] = React.useState<React.CSSProperties>({});
@@ -350,7 +350,7 @@ const PanelDropdown = React.forwardRef<HTMLSelectElement, DropdownProps>(functio
                 style={{ width: 14, height: 14, transition: "transform 180ms ease, rotate 180ms ease" }}
             />
         </button>
-        {mounted && createPortal(<div className={`panel-essencial panel-dropdown-portal z-[1000] overflow-y-auto overscroll-contain rounded-[8px] border border-[#e2e5e9] bg-white p-[5px] shadow-[0_6px_20px_#1d1d1d12] ${active ? "translate-y-0 scale-100 opacity-100" : "pointer-events-none -translate-y-1 scale-[0.98] opacity-0"}`} style={{ ...position, transformOrigin: "top", transition: "opacity 160ms ease, transform 160ms ease" }}
+        {mounted && createPortal(<div className={`panel-essencial panel-dropdown-portal z-[1000] overflow-y-auto overscroll-contain rounded-[8px] border border-[#e2e5e9] bg-white p-[5px] shadow-[0_6px_20px_#1d1d1d12] ${active ? "translate-y-0 scale-100 opacity-100" : "pointer-events-none -translate-y-0.5 scale-[0.99] opacity-0"}`} style={{ ...position, transformOrigin: "top", transition: "opacity 200ms cubic-bezier(0.4, 0, 0.2, 1), transform 200ms cubic-bezier(0.4, 0, 0.2, 1)" }}
             data-state={active ? "open" : "closed"} aria-hidden={!open} inert={!open}
             ref={menuRef} id={`${id}-list`} role="listbox" aria-label={props["aria-label"] || label}
             data-ui="dropdown-menu" onBlur={closeOnBlur}>
