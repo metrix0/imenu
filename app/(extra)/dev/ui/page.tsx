@@ -30,6 +30,12 @@ export default function UIShowcase() {
 
     return (
         <div className="p-8 space-y-14">
+            <iframe
+                src="/dev/ui/design-system"
+                title="iMenu Painel Design System"
+                className="h-screen w-full border-0"
+            />
+
             <h1 className="text-3xl font-bold text-brand mb-10 tracking-wide">
                 UI Component Showcase
             </h1>
