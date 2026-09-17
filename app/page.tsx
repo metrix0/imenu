@@ -298,37 +298,42 @@ export default function LandingPage() {
                             <span className="hidden md:inline">Inteligência Artificial</span>
                         </u>.
                     </h2>
-                    <div className="mt-5 hidden text-gray-500 md:block min-[1400px]:text-lg 2xl:text-[1.4rem]">
-                        Grátis · Sem cartão · Sem limites de Pedidos · Sem taxas
+                    <div className="mt-5 hidden flex-wrap items-center gap-x-4 gap-y-2 text-gray-500 md:flex min-[1400px]:text-lg 2xl:text-[1.4rem]">
+                        {["Grátis", "Sem cartão", "Sem limites de Pedidos", "Sem taxas"].map((benefit) => (
+                            <span key={benefit} className="inline-flex items-center gap-1.5">
+                                <FontAwesomeIcon icon={icons.faCheck} className="text-green" />
+                                {benefit}
+                            </span>
+                        ))}
                     </div>
 
-                    <div className="mt-6 flex flex-row flex-nowrap items-start justify-center gap-4 md:justify-start min-[1400px]:mt-8 min-[1400px]:gap-5 2xl:mt-9 2xl:gap-6">
-                        <div className="flex flex-col items-center md:items-start">
+                    <div className="mt-6 flex flex-col items-center md:items-start min-[1400px]:mt-8 2xl:mt-9">
+                        <div className="flex flex-row flex-nowrap items-center justify-center gap-4 md:justify-start min-[1400px]:gap-5 2xl:gap-6">
                             <Button
                                 onClick={() => router.push("/restaurante/registrar")}
                                 className={LANDING_HERO_PRIMARY_BUTTON}
                             >
                                 Registrar Grátis
                             </Button>
-                            <p className="mt-2 max-w-48 text-center text-xs leading-4 text-gray-500 md:max-w-none md:text-left">
-                                Não é teste grátis. O iMenu é grátis para sempre.
-                            </p>
+                            <div className="relative">
+                                <Button
+                                    variant="secondary"
+                                    onClick={handlePanelLogin}
+                                    className={LANDING_HERO_SECONDARY_BUTTON}
+                                >
+                                    Entrar no Painel
+                                </Button>
+                                <PanelShortcutPrompt
+                                    open={showPanelShortcutPrompt}
+                                    onAccept={handleEnablePanelShortcut}
+                                    onDismiss={handleDismissPanelShortcut}
+                                    className="left-1/2 -translate-x-1/2 md:hidden"
+                                />
+                            </div>
                         </div>
-                        <div className="relative">
-                            <Button
-                                variant="secondary"
-                                onClick={handlePanelLogin}
-                                className={LANDING_HERO_SECONDARY_BUTTON}
-                            >
-                                Entrar no Painel
-                            </Button>
-                            <PanelShortcutPrompt
-                                open={showPanelShortcutPrompt}
-                                onAccept={handleEnablePanelShortcut}
-                                onDismiss={handleDismissPanelShortcut}
-                                className="left-1/2 -translate-x-1/2 md:hidden"
-                            />
-                        </div>
+                        <p className="mt-2 text-center text-xs leading-4 text-gray-500 md:text-left">
+                            <strong className="font-bold">Não é</strong> teste grátis. O iMenu é grátis para sempre.
+                        </p>
                     </div>
                 </div>
 
