@@ -43,6 +43,7 @@ type PreparedConversation = {
     customerName: string | null;
 };
 
+const HUMAN_HANDOFF_MINUTES = 30;
 const BOT_SESSION_MINUTES = 30;
 const CHAT_SEND_LIMIT_PER_MINUTE = 10;
 const RESTAURANT_SEND_LIMIT_PER_5_MINUTES = 100;
@@ -241,18 +242,25 @@ async function handoffConversation(
                 last_owner_message_at,
                 updated_at
             )
-            VALUES ($1, $2, 'human', NULL, CASE WHEN $3 THEN NOW() ELSE NULL END, NOW())
+            VALUES (
+                $1,
+                $2,
+                'human',
+                NOW() + ($3 * INTERVAL '1 minute'),
+                CASE WHEN $4 THEN NOW() ELSE NULL END,
+                NOW()
+            )
             ON CONFLICT (restaurant_id, chat_id)
             DO UPDATE SET
                 mode = 'human',
-                human_until = NULL,
+                human_until = NOW() + ($3 * INTERVAL '1 minute'),
                 last_owner_message_at = CASE
-                    WHEN $3 THEN NOW()
+                    WHEN $4 THEN NOW()
                     ELSE whatsapp_conversations.last_owner_message_at
                 END,
                 updated_at = NOW()
         `,
-        [restaurantId, chatId, ownerMessage]
+        [restaurantId, chatId, HUMAN_HANDOFF_MINUTES, ownerMessage]
     );
 }
 

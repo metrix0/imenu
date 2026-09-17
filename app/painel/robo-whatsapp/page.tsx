@@ -74,13 +74,6 @@ type TemplateVariable = {
     value: string;
 };
 
-type HumanConversation = {
-    chat_id: string;
-    customer_name: string | null;
-    last_owner_message_at: string | null;
-    updated_at: string;
-};
-
 type TemplateField = {
     key: WhatsAppTemplateKey;
     title: string;
@@ -551,10 +544,8 @@ export default function RoboWhatsAppPage() {
     const [connection, setConnection] = useState<WhatsAppConnection | null>(null);
     const [templates, setTemplates] = useState<WhatsAppMessageTemplates | null>(null);
     const [variables, setVariables] = useState<TemplateVariable[]>([]);
-    const [conversations, setConversations] = useState<HumanConversation[]>([]);
     const [openTemplate, setOpenTemplate] = useState<WhatsAppTemplateKey | null>(null);
     const [openVariables, setOpenVariables] = useState<WhatsAppTemplateKey | null>(null);
-    const [resumingChat, setResumingChat] = useState<string | null>(null);
     const [showToast, setShowToast] = useState(false);
     const [toastConfig, setToastConfig] = useState<{
         message: string;
@@ -629,7 +620,6 @@ export default function RoboWhatsAppPage() {
             if (settingsResponse.ok) {
                 setTemplates(settingsData.templates);
                 setVariables(settingsData.variables || []);
-                setConversations(settingsData.conversations || []);
             } else {
                 showMessage(
                     settingsData.error || "Não foi possível carregar as mensagens do robô.",
@@ -741,39 +731,6 @@ export default function RoboWhatsAppPage() {
             );
         } finally {
             setSaving(false);
-        }
-    };
-
-    const resumeBot = async (chatId: string) => {
-        if (!restaurantId || resumingChat) return;
-        const session = await getAuthenticatedSession();
-        if (!session) return;
-        setResumingChat(chatId);
-        try {
-            const response = await fetch(
-                `/api/whatsapp/settings?restaurantId=${encodeURIComponent(restaurantId)}`,
-                {
-                    method: "PATCH",
-                    headers: {
-                        "Content-Type": "application/json",
-                        Authorization: `Bearer ${session.access_token}`,
-                    },
-                    body: JSON.stringify({ chatId }),
-                }
-            );
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.error || "Erro ao reativar o robô.");
-            setConversations((current) =>
-                current.filter((conversation) => conversation.chat_id !== chatId)
-            );
-            showMessage("Robô reativado nesta conversa.", "success");
-        } catch (error) {
-            showMessage(
-                error instanceof Error ? error.message : "Erro ao reativar o robô.",
-                "error"
-            );
-        } finally {
-            setResumingChat(null);
         }
     };
 
@@ -1024,41 +981,6 @@ export default function RoboWhatsAppPage() {
                                     </div>
                                 );
                             })}
-                        </div>
-                    </Card>
-                )}
-
-                {conversations.length > 0 && (
-                    <Card className="border border-gray-200 p-7">
-                        <h3 className="text-lg font-semibold text-gray-900">
-                            Atendimentos humanos
-                        </h3>
-                        <p className="mt-1 text-sm text-gray-600">
-                            O robô não responde nestas conversas até você reativá-lo.
-                        </p>
-                        <div className="mt-5 divide-y divide-gray-200 rounded-lg border border-gray-200">
-                            {conversations.map((conversation) => (
-                                <div
-                                    key={conversation.chat_id}
-                                    className="flex flex-wrap items-center justify-between gap-3 p-4"
-                                >
-                                    <div>
-                                        <p className="text-sm font-semibold text-gray-900">
-                                            {conversation.customer_name?.trim() || "Cliente"}
-                                        </p>
-                                        <p className="mt-0.5 text-xs text-gray-500">
-                                            {formatPhone(conversation.chat_id.split("@")[0])}
-                                        </p>
-                                    </div>
-                                    <Button
-                                        variant="secondary"
-                                        onClick={() => resumeBot(conversation.chat_id)}
-                                        loading={resumingChat === conversation.chat_id}
-                                    >
-                                        Reativar robô
-                                    </Button>
-                                </div>
-                            ))}
                         </div>
                     </Card>
                 )}
