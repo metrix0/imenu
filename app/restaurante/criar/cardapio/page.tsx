@@ -171,17 +171,6 @@ export default function CriarCardapioPage() {
                             </span>
                         </button>
                     </div>
-
-                    <div className="mt-5 text-center">
-                        <button
-                            type="button"
-                            onClick={continueOnboarding}
-                            disabled={saving}
-                            className="cursor-pointer text-sm font-medium text-gray-400 transition-colors duration-200 hover:text-brand disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                            {saving ? "Salvando..." : "Deixar para depois"}
-                        </button>
-                    </div>
                 </div>
 
                 <div className="rounded-xl border border-gray-100 bg-gray-50/50 p-4">
