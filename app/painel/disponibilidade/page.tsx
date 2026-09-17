@@ -146,7 +146,7 @@ export default function DisponibilidadePage() {
             </div>
 
             <p className="mb-3 text-xs text-gray-500 md:hidden">Deslize a grade para os lados para ver todos os dias.</p>
-            <div tabIndex={0} role="region" aria-label="Grade de horários da semana" className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6 overflow-x-auto -mx-2 sm:mx-0">
+            <div tabIndex={0} role="region" aria-label="Grade de horários da semana" className="bg-white border border-gray-200 rounded-xl py-4 pl-3 pr-4 sm:py-6 sm:pl-5 sm:pr-6 overflow-x-auto -mx-2 sm:mx-0">
                 <div className="min-w-[700px]">
                     <WeeklyScheduleClick 
                         value={availability} 
