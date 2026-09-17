@@ -554,15 +554,36 @@ export default function PainelLayout({
                     }`}
                 >
                     <div className="panel-sidebar-header">
-                        {expanded && (
-                            <Link href="/painel" aria-label="Ir para o painel" className="panel-sidebar-logo">
-                                <Image src="/logos/CombinationMarkLogo_Brand.png" alt="iMenu" width={104} height={40} />
-                            </Link>
-                        )}
+                        <Link
+                            href="/painel"
+                            aria-label="Ir para o painel"
+                            aria-hidden={!expanded}
+                            tabIndex={expanded ? 0 : -1}
+                            className={`panel-sidebar-logo origin-left overflow-hidden transition-all duration-300 ${
+                                expanded
+                                    ? "w-[108px] scale-100 opacity-100"
+                                    : "pointer-events-none w-0 scale-75 opacity-0"
+                            }`}
+                        >
+                            <Image
+                                src="/logos/CombinationMarkLogo_Brand.png"
+                                alt="iMenu"
+                                width={104}
+                                height={40}
+                            />
+                        </Link>
                         <button type="button" onClick={toggleSidebar}
                             aria-label={expanded ? "Recolher menu lateral" : "Expandir menu lateral"}
                             aria-expanded={expanded} className="panel-sidebar-toggle cursor-pointer bg-white">
-                            {!expanded && <Image className="panel-sidebar-mark" src="/logos/LogoMark_Brand.png" alt="" width={32} height={32} />}
+                            <Image
+                                className={`panel-sidebar-mark transition-opacity duration-300 ${
+                                    expanded ? "opacity-0" : "opacity-100"
+                                }`}
+                                src="/logos/LogoMark_Brand.png"
+                                alt=""
+                                width={32}
+                                height={32}
+                            />
                             {expanded ? <PanelLeftClose aria-hidden="true" strokeWidth={1.75} /> : <PanelLeftOpen aria-hidden="true" strokeWidth={1.75} />}
                         </button>
                     </div>
