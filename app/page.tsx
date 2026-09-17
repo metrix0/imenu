@@ -299,24 +299,21 @@ export default function LandingPage() {
                         </u>.
                     </h2>
                     <div className="mt-5 hidden text-gray-500 md:block min-[1400px]:text-lg 2xl:text-[1.4rem]">
-                        Sem taxas, sem limites, sem custo.{" "}
-                        <Tooltip
-                            text="O iMenu é completamente grátis, para sempre."
-                            position="right"
-                        >
-                            <a href="#recursos" className="cursor-pointer underline">
-                                Para sempre.
-                            </a>
-                        </Tooltip>
+                        Grátis · Sem cartão · Sem limites de Pedidos · Sem taxas
                     </div>
 
-                    <div className="mt-6 flex flex-row flex-nowrap items-center justify-center gap-4 md:justify-start min-[1400px]:mt-8 min-[1400px]:gap-5 2xl:mt-9 2xl:gap-6">
-                        <Button
-                            onClick={() => router.push("/restaurante/registrar")}
-                            className={LANDING_HERO_PRIMARY_BUTTON}
-                        >
-                            Registrar Grátis
-                        </Button>
+                    <div className="mt-6 flex flex-row flex-nowrap items-start justify-center gap-4 md:justify-start min-[1400px]:mt-8 min-[1400px]:gap-5 2xl:mt-9 2xl:gap-6">
+                        <div className="flex flex-col items-center md:items-start">
+                            <Button
+                                onClick={() => router.push("/restaurante/registrar")}
+                                className={LANDING_HERO_PRIMARY_BUTTON}
+                            >
+                                Registrar Grátis
+                            </Button>
+                            <p className="mt-2 max-w-48 text-center text-xs leading-4 text-gray-500 md:max-w-none md:text-left">
+                                Não é teste grátis. O iMenu é grátis para sempre.
+                            </p>
+                        </div>
                         <div className="relative">
                             <Button
                                 variant="secondary"
