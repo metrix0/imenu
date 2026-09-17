@@ -52,7 +52,7 @@ export default function ShareMenuModal({
     if (isWelcome) {
         return (
             <Modal
-                height={showQr ? 740 : 560}
+                height="100dvh"
                 open={isOpen}
                 onClose={handleClose}
                 className="max-w-md"
@@ -100,40 +100,15 @@ export default function ShareMenuModal({
                         </p>
                     </div>
 
-                    <div className="mb-4 flex w-full items-start gap-3 rounded-xl bg-gray-50 p-3 text-left">
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand/10 text-brand">
-                            <FontAwesomeIcon icon={faStore} />
-                        </div>
-                        <p className="pt-0.5 text-sm leading-5 text-gray-600">
-                            Quer mudar esse endereço? Você pode alterar a qualquer momento na aba <strong className="text-gray-900">Loja</strong>, em <strong className="text-gray-900">Link do cardápio</strong>.
+                    <div className="mb-5 w-full rounded-xl bg-gray-50 p-3 text-left">
+                        <p className="text-sm leading-5 text-gray-600">
+                            Quer mudar esse endereço? Altere a qualquer momento na aba{" "}
+                            <span className="inline-flex items-center gap-1 font-semibold text-gray-900">
+                                <FontAwesomeIcon icon={faStore} className="text-brand" />
+                                Loja
+                            </span>
+                            .
                         </p>
-                    </div>
-
-                    <button
-                        type="button"
-                        onClick={() => setShowQr(!showQr)}
-                        className="mb-5 flex cursor-pointer items-center gap-2 text-sm font-medium text-brand hover:underline"
-                    >
-                        <FontAwesomeIcon icon={faQrcode} />
-                        {showQr ? "Ocultar QR Code" : "Mostrar QR Code"}
-                    </button>
-
-                    <div
-                        className={`flex w-full justify-center overflow-hidden transition-all duration-300 ease-in-out ${
-                            showQr
-                                ? "mb-6 max-h-60 opacity-100"
-                                : "mb-0 max-h-0 opacity-0"
-                        }`}
-                    >
-                        <div className="rounded-lg border border-gray-200 bg-white p-2 shadow-sm">
-                            <img
-                                src={qrCodeUrl}
-                                alt="QR Code do Cardápio"
-                                width={180}
-                                height={180}
-                                className="block"
-                            />
-                        </div>
                     </div>
 
                     <Button type="button" onClick={handleOrder} className="w-full">
