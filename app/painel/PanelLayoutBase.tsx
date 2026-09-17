@@ -468,6 +468,13 @@ export default function PainelLayout({
                 onConfirm={() => void handleStoreToggle("close")}
                 title="Fechar Loja Hoje?"
                 description="Isso fechará a loja temporariamente. Ela abrirá automaticamente amanhã ou você pode reabri-la manualmente a qualquer momento."
+                descriptionAfter={
+                    <span className="inline-flex items-center justify-center gap-1.5">
+                        Você pode abrir sua loja definindo horários na aba
+                        <FontAwesomeIcon icon={faClock} />
+                        Horários.
+                    </span>
+                }
                 confirmLabel="Fechar Loja"
                 variant="danger"
                 isLoading={isTogglingStore}

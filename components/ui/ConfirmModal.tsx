@@ -11,6 +11,7 @@ interface ConfirmModalProps {
     onConfirm: () => void;
     title: string;
     description?: string;
+    descriptionAfter?: React.ReactNode;
     confirmLabel?: string;
     cancelLabel?: string;
     isLoading?: boolean;
@@ -23,19 +24,22 @@ export default function ConfirmModal({
     onConfirm,
     title,
     description,
+    descriptionAfter,
     confirmLabel = "Confirmar",
     cancelLabel = "Cancelar",
     isLoading = false,
     variant = "danger"
 }: ConfirmModalProps) {
     const descriptionLength = description?.trim().length ?? 0;
-    const height = !description
-        ? 260
-        : descriptionLength > 120
-          ? 350
-          : descriptionLength > 70
-            ? 330
-            : 310;
+    const height = descriptionAfter
+        ? 370
+        : !description
+          ? 260
+          : descriptionLength > 120
+            ? 350
+            : descriptionLength > 70
+              ? 330
+              : 310;
 
     return (
         <Modal height={height} open={open} onClose={onClose} className="max-w-md 2xl:max-w-lg">
@@ -50,7 +54,11 @@ export default function ConfirmModal({
                 <h3 className="mb-2 text-lg font-bold text-gray-900 2xl:text-xl">{title}</h3>
 
                 {description && (
-                    <p className="mb-6 text-sm text-gray-500 2xl:text-lg">{description}</p>
+                    <p className={`${descriptionAfter ? "mb-3" : "mb-6"} text-sm text-gray-500 2xl:text-lg`}>{description}</p>
+                )}
+
+                {descriptionAfter && (
+                    <div className="mb-6 text-sm text-gray-500 2xl:text-lg">{descriptionAfter}</div>
                 )}
 
                 <div className="flex flex-col sm:flex-row justify-center gap-3">
