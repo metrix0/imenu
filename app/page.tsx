@@ -352,7 +352,7 @@ export default function LandingPage() {
             </section>
 
             <section className="mx-auto h-auto max-w-[1920px] px-8 py-16 md:min-h-[100vh] min-[1400px]:py-20 2xl:py-26">
-                <h2 className="reveal fade-up mb-4 text-center text-3xl font-bold text-brand md:mb-13 md:text-4xl min-[1400px]:mb-16 min-[1400px]:text-[2.75rem] 2xl:text-[3.2rem]">
+                <h2 className="reveal fade-up mb-4 text-center text-3xl font-bold text-brand md:mb-13 md:text-4xl min-[1400px]:mb-16 min-[1400px]:text-[2.75rem] 2xl:mb-20 2xl:text-[3.2rem]">
                     Totalmente Grátis
                     <br />
                     <span className="text-2xl text-text md:text-[100%]">
@@ -462,7 +462,7 @@ export default function LandingPage() {
                                 </Button>
                                 <Button
                                     onClick={() =>
-                                        router.push("/restaurante/registrar")
+                                        router.push("/restaurante/registrar")}
                                     }
                                     className="mb-3"
                                 >
