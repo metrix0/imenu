@@ -141,8 +141,11 @@ export default function LocalizacaoPage() {
                 throw new Error(payload?.error || "Erro ao finalizar cadastro.");
             }
 
+            const menuIdentifier = String(payload?.url_slug || restaurantId);
             clear();
-            router.replace("/painel");
+            router.replace(
+                `/painel?onboarding=complete&menu=${encodeURIComponent(menuIdentifier)}`
+            );
         } catch (caught) {
             setToast({
                 message:
@@ -173,8 +176,11 @@ export default function LocalizacaoPage() {
                 throw new Error(payload?.error || "Erro ao finalizar cadastro.");
             }
 
+            const menuIdentifier = String(payload?.url_slug || restaurantId);
             clear();
-            router.replace("/painel");
+            router.replace(
+                `/painel?onboarding=complete&menu=${encodeURIComponent(menuIdentifier)}`
+            );
         } catch (caught) {
             setToast({
                 message:

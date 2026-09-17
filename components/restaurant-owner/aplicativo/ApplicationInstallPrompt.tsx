@@ -7,6 +7,7 @@ import { faBell } from "@fortawesome/free-solid-svg-icons";
 
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
+import ShareMenuModal from "@/components/restaurant-owner/ShareMenuModal";
 import { supabase } from "@/lib/database/supabaseClient";
 
 const MOBILE_MEDIA_QUERY = "(max-width: 767px)";
@@ -46,8 +47,25 @@ export default function ApplicationInstallPrompt() {
     const pathname = usePathname();
     const router = useRouter();
     const [open, setOpen] = useState(false);
+    const [onboardingMenuIdentifier, setOnboardingMenuIdentifier] = useState<
+        string | null
+    >(null);
 
     useEffect(() => {
+        const searchParams = new URLSearchParams(window.location.search);
+        const onboardingMenu =
+            searchParams.get("onboarding") === "complete"
+                ? searchParams.get("menu")
+                : null;
+
+        if (onboardingMenu) {
+            setOnboardingMenuIdentifier(onboardingMenu);
+            setOpen(false);
+            return;
+        }
+
+        setOnboardingMenuIdentifier(null);
+
         if (
             pathname === "/painel/aplicativo" ||
             pathname?.startsWith("/painel/configuracoes/nova-senha")
@@ -107,48 +125,73 @@ export default function ApplicationInstallPrompt() {
         setOpen(false);
     };
 
+    const closeOnboardingWelcome = () => {
+        setOnboardingMenuIdentifier(null);
+
+        const url = new URL(window.location.href);
+        url.searchParams.delete("onboarding");
+        url.searchParams.delete("menu");
+        window.history.replaceState(
+            window.history.state,
+            "",
+            `${url.pathname}${url.search}${url.hash}`
+        );
+    };
+
     return (
-        <Modal height={500}
-            open={open}
-            onClose={close}
-            showCloseButton
-            className="max-w-sm"
-        >
-            <div className="p-6 pt-10 text-center">
-                <video
-                    src="/images/CellphoneVideo.webm"
-                    autoPlay
-                    loop
-                    muted
-                    playsInline
-                    aria-hidden="true"
-                    className="mx-auto h-[26dvh] max-h-56 w-full object-contain"
+        <>
+            {onboardingMenuIdentifier && (
+                <ShareMenuModal
+                    isOpen
+                    onClose={closeOnboardingWelcome}
+                    restaurantId={onboardingMenuIdentifier}
+                    variant="welcome"
                 />
-                <h2 className="mt-4 text-2xl font-bold text-gray-900">
-                    Tenha o app do iMenu!
-                </h2>
-                <p className="mt-3 text-sm leading-6 text-gray-600">
-                    Acesse seu painel direto da tela inicial do celular.
-                </p>
-                <div className="mt-4 inline-flex items-center justify-center gap-2 rounded-full bg-brand/10 px-4 py-2 text-sm font-semibold text-brand">
-                    <FontAwesomeIcon
-                        icon={faBell}
-                        className="shrink-0"
+            )}
+
+            <Modal
+                height={500}
+                open={open}
+                onClose={close}
+                showCloseButton
+                className="max-w-sm"
+            >
+                <div className="p-6 pt-10 text-center">
+                    <video
+                        src="/images/CellphoneVideo.webm"
+                        autoPlay
+                        loop
+                        muted
+                        playsInline
                         aria-hidden="true"
+                        className="mx-auto h-[26dvh] max-h-56 w-full object-contain"
                     />
-                    <span>Notificações de novos pedidos</span>
+                    <h2 className="mt-4 text-2xl font-bold text-gray-900">
+                        Tenha o app do iMenu!
+                    </h2>
+                    <p className="mt-3 text-sm leading-6 text-gray-600">
+                        Acesse seu painel direto da tela inicial do celular.
+                    </p>
+                    <div className="mt-4 inline-flex items-center justify-center gap-2 rounded-full bg-brand/10 px-4 py-2 text-sm font-semibold text-brand">
+                        <FontAwesomeIcon
+                            icon={faBell}
+                            className="shrink-0"
+                            aria-hidden="true"
+                        />
+                        <span>Notificações de novos pedidos</span>
+                    </div>
+                    <Button
+                        type="button"
+                        className="mt-6 w-full"
+                        onClick={() => {
+                            close();
+                            router.push("/painel/aplicativo");
+                        }}
+                    >
+                        Ir para Aplicativo
+                    </Button>
                 </div>
-                <Button
-                    type="button"
-                    className="mt-6 w-full"
-                    onClick={() => {
-                        close();
-                        router.push("/painel/aplicativo");
-                    }}
-                >
-                    Ir para Aplicativo
-                </Button>
-            </div>
-        </Modal>
+            </Modal>
+        </>
     );
 }
