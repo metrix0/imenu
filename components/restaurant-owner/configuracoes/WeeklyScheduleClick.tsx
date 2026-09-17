@@ -350,11 +350,16 @@ export default function WeeklyScheduleClick({
                                         />
                                         {height >= 60 && (
                                             <span className="mb-1 text-xs font-medium opacity-90">
-                                                {day.blockLabel}
+                                                <span className="sm:hidden">
+                                                    {day.label.toUpperCase()}
+                                                </span>
+                                                <span className="hidden sm:inline">
+                                                    {day.blockLabel}
+                                                </span>
                                             </span>
                                         )}
                                         {height >= 26 && (
-                                            <span className="text-center text-sm font-bold leading-tight min-[1800px]:text-lg">
+                                            <span className="whitespace-nowrap text-center text-[13px] font-bold leading-tight sm:text-sm min-[1800px]:text-lg">
                                                 {slot.open}–
                                                 {slot.close === "24:00"
                                                     ? "00:00"

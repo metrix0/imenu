@@ -6,9 +6,6 @@ import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore"; 
 import Loader from "@/components/ui/Loader";
 import SaveStatus from "@/components/ui/SaveStatus";
 import WeeklyScheduleClick, { Availability } from "@/components/restaurant-owner/configuracoes/WeeklyScheduleClick";
-import Tooltip from "@/components/ui/Tooltip";
-import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
-import { icons } from "@/lib/utils/fontawesome";
 
 export default function DisponibilidadePage() {
     const { restaurantId, setRestaurantId } = useCreationStore();
@@ -126,21 +123,19 @@ export default function DisponibilidadePage() {
     }
 
     return (
-        <div className="max-w-6xl min-[1800px]:max-w-[100rem] min-[1800px]:w-full mx-auto pb-20 px-4 sm:px-6 pt-8">
+        <div
+            className="max-w-6xl min-[1800px]:max-w-[100rem] min-[1800px]:w-full mx-auto pb-20 px-4 sm:px-6 pt-8"
+            onTouchStart={(event) => {
+                if (window.matchMedia("(max-width: 767px)").matches) event.stopPropagation();
+            }}
+            onTouchEnd={(event) => {
+                if (window.matchMedia("(max-width: 767px)").matches) event.stopPropagation();
+            }}
+        >
             <div className="mb-8 flex flex-col sm:flex-row sm:items-end justify-between gap-4 px-2">
                 <div>
                     <div className="flex items-center gap-2">
                         <h1 className="text-3xl font-bold text-gray-900">Horários de Funcionamento</h1>
-                        <Tooltip 
-                            text="Clique nos espaços vazios para criar um turno. Clique em um turno existente para editar ou excluir."
-                            position="right"
-                            size="line"
-                        >
-                            <FontAwesomeIcon 
-                                icon={icons.faCircleInfo} 
-                                className="text-gray-400 text-lg hover:text-brand cursor-help mt-1 transition-colors" 
-                            />
-                        </Tooltip>
                     </div>
                     <p className="text-gray-500 mt-1 min-[1800px]:text-lg">Defina quando sua loja estará aberta para receber pedidos.</p>
                 </div>
@@ -151,7 +146,7 @@ export default function DisponibilidadePage() {
             </div>
 
             <p className="mb-3 text-xs text-gray-500 md:hidden">Deslize a grade para os lados para ver todos os dias.</p>
-            <div tabIndex={0} role="region" aria-label="Grade de horários da semana" className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6 overflow-x-auto">
+            <div tabIndex={0} role="region" aria-label="Grade de horários da semana" className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6 overflow-x-auto -mx-2 sm:mx-0">
                 <div className="min-w-[700px]">
                     <WeeklyScheduleClick 
                         value={availability} 
