@@ -252,17 +252,17 @@ export default function WeeklyScheduleClick({
     return (
         <div className="relative flex min-w-[720px] flex-col select-none">
             <div className="flex pb-4">
-                <div className="w-14 shrink-0" />
+                <div className="w-10 shrink-0 sm:w-14" />
                 {DAYS.map((day) => (
                     <div
                         key={day.key}
                         className="flex flex-1 flex-col gap-1 text-center"
                     >
-                        <span className="text-lg font-bold text-gray-900">
+                        <span className="text-sm font-bold text-gray-900">
                             {day.label}
                         </span>
                         <span
-                            className={`text-sm font-medium ${(value[day.key] || []).length ? "text-brand" : "text-gray-400"}`}
+                            className={`text-xs font-medium ${(value[day.key] || []).length ? "text-brand" : "text-gray-400"}`}
                         >
                             {(value[day.key] || []).length
                                 ? "Aberta"
@@ -272,7 +272,7 @@ export default function WeeklyScheduleClick({
                 ))}
             </div>
             <div className="relative flex">
-                <div className="relative w-14 shrink-0 border-r border-transparent">
+                <div className="relative w-10 shrink-0 border-r border-transparent sm:w-14">
                     {gridHours.map((hour) => (
                         <div
                             key={hour}
