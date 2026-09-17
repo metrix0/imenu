@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
@@ -25,11 +25,24 @@ export default function ShareMenuModal({
 }: ShareMenuModalProps) {
     const [copied, setCopied] = useState(false);
     const [showQr, setShowQr] = useState(false);
+    const welcomeLinkRef = useRef<HTMLInputElement>(null);
     const isWelcome = variant === "welcome";
 
     const identifier = restaurantSlug || restaurantId;
     const origin = typeof window !== "undefined" ? window.location.origin : "";
     const menuUrl = `${origin}/${identifier}`;
+
+    useEffect(() => {
+        if (!isWelcome || !isOpen) return;
+
+        const frame = window.requestAnimationFrame(() => {
+            if (welcomeLinkRef.current) {
+                welcomeLinkRef.current.scrollLeft = welcomeLinkRef.current.scrollWidth;
+            }
+        });
+
+        return () => window.cancelAnimationFrame(frame);
+    }, [isOpen, isWelcome, menuUrl]);
 
     const handleCopy = () => {
         navigator.clipboard.writeText(menuUrl);
@@ -76,6 +89,7 @@ export default function ShareMenuModal({
                         <div className="flex w-full gap-2">
                             <div className="min-w-0 flex-1">
                                 <Input
+                                    ref={welcomeLinkRef}
                                     readOnly
                                     value={menuUrl}
                                     className="bg-white text-xs text-gray-700"
