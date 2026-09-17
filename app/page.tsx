@@ -298,10 +298,10 @@ export default function LandingPage() {
                             <span className="hidden md:inline">Inteligência Artificial</span>
                         </u>.
                     </h2>
-                    <div className="mt-5 hidden flex-wrap items-center gap-x-4 gap-y-2 text-gray-500 md:flex min-[1400px]:text-lg 2xl:text-[1.4rem]">
+                    <div className="mt-5 hidden flex-wrap items-center gap-x-2.5 gap-y-1 text-gray-500 md:flex min-[1400px]:text-lg 2xl:text-[1.4rem]">
                         {["Grátis", "Sem cartão", "Sem limites de Pedidos", "Sem taxas"].map((benefit) => (
-                            <span key={benefit} className="inline-flex items-center gap-1.5">
-                                <FontAwesomeIcon icon={icons.faCheck} className="text-green" />
+                            <span key={benefit} className="inline-flex items-center gap-1">
+                                <FontAwesomeIcon icon={icons.faCheck} className="h-3 w-3 shrink-0 text-green" />
                                 {benefit}
                             </span>
                         ))}
@@ -331,7 +331,7 @@ export default function LandingPage() {
                                 />
                             </div>
                         </div>
-                        <p className="mt-2 text-center text-xs leading-4 text-gray-500 md:text-left">
+                        <p className="mt-2 text-left text-xs leading-4 text-gray-500">
                             <strong className="font-bold">Não é</strong> teste grátis. O iMenu é grátis para sempre.
                         </p>
                     </div>
