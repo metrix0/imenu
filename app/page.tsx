@@ -331,7 +331,7 @@ export default function LandingPage() {
                                 />
                             </div>
                         </div>
-                        <div className="mt-2 flex flex-nowrap items-center justify-center gap-2 text-[13px] leading-4 font-normal whitespace-nowrap text-gray-500 md:hidden">
+                        <div className="mt-3 flex flex-nowrap items-center justify-center gap-2 text-[13px] leading-4 font-normal whitespace-nowrap text-gray-500 md:hidden">
                             {["Sem cartão", "Sem limites de Pedidos", "Sem taxas"].map((benefit) => (
                                 <span key={benefit} className="inline-flex items-center gap-[0.25em]">
                                     <FontAwesomeIcon icon={icons.faCheck} className="h-[0.65em] w-[0.65em] shrink-0 text-green" />
