@@ -508,7 +508,9 @@ export default function ItemModal({
                                                             disabled={quantityLimitReached}
                                                             onClick={() => {
                                                                 changeSubitemQuantity(sc, si, 1);
-                                                                scrollToNextSubcategory(sc);
+                                                                if (sc.max_select > 0 && quantityGroupCount + 1 === sc.max_select) {
+                                                                    scrollToNextSubcategory(sc);
+                                                                }
                                                             }}
                                                             className="cursor-pointer w-7 h-7 2xl:w-10 2xl:h-10 rounded-full border border-gray-300 bg-gray-100 text-gray-500 flex items-center justify-center disabled:cursor-default disabled:opacity-40"
                                                         >
@@ -529,7 +531,12 @@ export default function ItemModal({
                                                                 type="button"
                                                                 aria-label={`Adicionar ${si.name}`}
                                                                 disabled={quantityLimitReached}
-                                                                onClick={() => changeSubitemQuantity(sc, si, 1)}
+                                                                onClick={() => {
+                                                                    changeSubitemQuantity(sc, si, 1);
+                                                                    if (sc.max_select > 0 && quantityGroupCount + 1 === sc.max_select) {
+                                                                        scrollToNextSubcategory(sc);
+                                                                    }
+                                                                }}
                                                                 className="w-6 h-6 2xl:w-9 2xl:h-9 flex items-center justify-center text-brand cursor-pointer disabled:cursor-default disabled:opacity-40"
                                                             >
                                                                 <FontAwesomeIcon icon={icons.faPlus} />
@@ -547,7 +554,9 @@ export default function ItemModal({
                                             key={si.id}
                                             onClick={() => {
                                                 toggleSubitem(sc, si);
-                                                if (!isSelected) scrollToNextSubcategory(sc);
+                                                if (!isSelected && sc.max_select > 0 && (set?.size ?? 0) + 1 === sc.max_select) {
+                                                    scrollToNextSubcategory(sc);
+                                                }
                                             }}
                                             className="cursor-pointer 2xl:text-lg w-full px-4 py-3 flex justify-between"
                                         >
