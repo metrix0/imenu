@@ -296,7 +296,7 @@ export async function GET(request: Request) {
                 asaas_balance_before_payout_cents = $2,
                 payzu_step_status = CASE
                     WHEN payzu_step_status = 'skipped' THEN 'skipped'
-                    WHEN $2 >= $3 THEN 'completed'
+                    WHEN $2::integer >= $3::integer THEN 'completed'
                     ELSE 'processing'
                 END,
                 updated_at = NOW()
