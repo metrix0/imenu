@@ -1,5 +1,6 @@
 "use client";
 
+import { Children, isValidElement, type ReactNode } from "react";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
@@ -11,7 +12,7 @@ interface ConfirmModalProps {
     onConfirm: () => void;
     title: string;
     description?: string;
-    descriptionAfter?: React.ReactNode;
+    descriptionAfter?: ReactNode;
     confirmLabel?: string;
     cancelLabel?: string;
     isLoading?: boolean;
@@ -31,6 +32,11 @@ export default function ConfirmModal({
     variant = "danger"
 }: ConfirmModalProps) {
     const descriptionLength = description?.trim().length ?? 0;
+    const descriptionAfterParts = descriptionAfter
+        ? isValidElement<{ children?: ReactNode }>(descriptionAfter)
+            ? Children.toArray(descriptionAfter.props.children)
+            : [descriptionAfter]
+        : [];
     const height = descriptionAfter
         ? 370
         : !description
@@ -54,11 +60,24 @@ export default function ConfirmModal({
                 <h3 className="mb-2 text-lg font-bold text-gray-900 2xl:text-xl">{title}</h3>
 
                 {description && (
-                    <p className={`${descriptionAfter ? "mb-3" : "mb-6"} text-sm text-gray-500 2xl:text-lg`}>{description}</p>
-                )}
-
-                {descriptionAfter && (
-                    <div className="mb-6 text-sm text-gray-500 2xl:text-lg">{descriptionAfter}</div>
+                    <p className="mb-6 text-sm text-gray-500 2xl:text-lg">
+                        {description}
+                        {descriptionAfterParts.length > 0 && (
+                            <>
+                                {" "}
+                                {descriptionAfterParts.map((part, index) => (
+                                    <span key={index}>
+                                        {index > 0 ? " " : null}
+                                        {index === descriptionAfterParts.length - 1 ? (
+                                            <strong className="font-bold">{part}</strong>
+                                        ) : (
+                                            part
+                                        )}
+                                    </span>
+                                ))}
+                            </>
+                        )}
+                    </p>
                 )}
 
                 <div className="flex flex-col sm:flex-row justify-center gap-3">
