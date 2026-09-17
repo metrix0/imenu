@@ -331,7 +331,15 @@ export default function LandingPage() {
                                 />
                             </div>
                         </div>
-                        <p className="mt-2 text-left text-xs leading-4 text-gray-500">
+                        <div className="mt-2 flex flex-nowrap items-center justify-center gap-2 text-[11px] leading-4 font-normal whitespace-nowrap text-gray-500 md:hidden">
+                            {["Sem cartão", "Sem limites de Pedidos", "Sem taxas"].map((benefit) => (
+                                <span key={benefit} className="inline-flex items-center gap-[0.25em]">
+                                    <FontAwesomeIcon icon={icons.faCheck} className="h-[0.65em] w-[0.65em] shrink-0 text-green" />
+                                    {benefit}
+                                </span>
+                            ))}
+                        </div>
+                        <p className="mt-2 hidden text-left text-xs leading-4 text-gray-500 md:block">
                             <strong className="font-bold">Não é</strong> teste grátis. O iMenu é grátis para sempre.
                         </p>
                     </div>
