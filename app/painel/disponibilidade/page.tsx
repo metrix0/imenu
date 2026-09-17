@@ -6,9 +6,6 @@ import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore"; 
 import Loader from "@/components/ui/Loader";
 import SaveStatus from "@/components/ui/SaveStatus";
 import WeeklyScheduleClick, { Availability } from "@/components/restaurant-owner/configuracoes/WeeklyScheduleClick";
-import Tooltip from "@/components/ui/Tooltip";
-import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
-import { icons } from "@/lib/utils/fontawesome";
 
 export default function DisponibilidadePage() {
     const { restaurantId, setRestaurantId } = useCreationStore();
@@ -29,6 +26,48 @@ export default function DisponibilidadePage() {
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
 }, [isSaving]); // Adicione a variável de estado nas dependências
+
+    useEffect(() => {
+        let touchStart: { x: number; y: number } | null = null;
+
+        const handleTouchStart = (event: TouchEvent) => {
+            if (!window.matchMedia("(max-width: 767px)").matches) {
+                touchStart = null;
+                return;
+            }
+
+            const touch = event.touches[0];
+            touchStart = { x: touch.clientX, y: touch.clientY };
+        };
+
+        const handleTouchEnd = (event: TouchEvent) => {
+            const start = touchStart;
+            touchStart = null;
+            if (!start) return;
+
+            const touch = event.changedTouches[0];
+            const horizontalDistance = touch.clientX - start.x;
+            const verticalDistance = Math.abs(touch.clientY - start.y);
+
+            if (horizontalDistance >= 70 && verticalDistance < 50) {
+                event.stopImmediatePropagation();
+            }
+        };
+
+        document.addEventListener("touchstart", handleTouchStart, {
+            capture: true,
+            passive: true,
+        });
+        document.addEventListener("touchend", handleTouchEnd, {
+            capture: true,
+            passive: true,
+        });
+
+        return () => {
+            document.removeEventListener("touchstart", handleTouchStart, true);
+            document.removeEventListener("touchend", handleTouchEnd, true);
+        };
+    }, []);
 
     // 1. Carregar Dados Iniciais
     useEffect(() => {
@@ -131,16 +170,6 @@ export default function DisponibilidadePage() {
                 <div>
                     <div className="flex items-center gap-2">
                         <h1 className="text-3xl font-bold text-gray-900">Horários de Funcionamento</h1>
-                        <Tooltip 
-                            text="Clique nos espaços vazios para criar um turno. Clique em um turno existente para editar ou excluir."
-                            position="right"
-                            size="line"
-                        >
-                            <FontAwesomeIcon 
-                                icon={icons.faCircleInfo} 
-                                className="text-gray-400 text-lg hover:text-brand cursor-help mt-1 transition-colors" 
-                            />
-                        </Tooltip>
                     </div>
                     <p className="text-gray-500 mt-1 min-[1800px]:text-lg">Defina quando sua loja estará aberta para receber pedidos.</p>
                 </div>
@@ -151,7 +180,7 @@ export default function DisponibilidadePage() {
             </div>
 
             <p className="mb-3 text-xs text-gray-500 md:hidden">Deslize a grade para os lados para ver todos os dias.</p>
-            <div tabIndex={0} role="region" aria-label="Grade de horários da semana" className="bg-white border border-gray-200 rounded-xl p-4 sm:p-6 overflow-x-auto">
+            <div tabIndex={0} role="region" aria-label="Grade de horários da semana" className="bg-white border border-gray-200 rounded-xl py-4 pl-3 pr-4 sm:py-6 sm:pl-5 sm:pr-6 overflow-x-auto -mx-2 sm:mx-0">
                 <div className="min-w-[700px]">
                     <WeeklyScheduleClick 
                         value={availability} 

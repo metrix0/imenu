@@ -92,18 +92,8 @@ export default function Modal({
     useEffect(() => {
         if (open) {
             setMounted(true);
-            setActive(false);
             lockPageScroll();
-
-            let secondFrame = 0;
-            const firstFrame = requestAnimationFrame(() => {
-                secondFrame = requestAnimationFrame(() => setActive(true));
-            });
-
-            return () => {
-                cancelAnimationFrame(firstFrame);
-                if (secondFrame) cancelAnimationFrame(secondFrame);
-            };
+            return;
         }
 
         setActive(false);
@@ -115,6 +105,22 @@ export default function Modal({
 
         return () => window.clearTimeout(timer);
     }, [open]);
+
+    useEffect(() => {
+        if (!open || !mounted) return;
+
+        setActive(false);
+
+        let secondFrame = 0;
+        const firstFrame = requestAnimationFrame(() => {
+            secondFrame = requestAnimationFrame(() => setActive(true));
+        });
+
+        return () => {
+            cancelAnimationFrame(firstFrame);
+            if (secondFrame) cancelAnimationFrame(secondFrame);
+        };
+    }, [open, mounted]);
 
     useEffect(() => {
         if (!open) return;

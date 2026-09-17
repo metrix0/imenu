@@ -171,17 +171,6 @@ export default function CriarCardapioPage() {
                             </span>
                         </button>
                     </div>
-
-                    <div className="mt-5 text-center">
-                        <button
-                            type="button"
-                            onClick={continueOnboarding}
-                            disabled={saving}
-                            className="cursor-pointer text-sm font-medium text-gray-400 transition-colors duration-200 hover:text-brand disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                            {saving ? "Salvando..." : "Deixar para depois"}
-                        </button>
-                    </div>
                 </div>
 
                 <div className="rounded-xl border border-gray-100 bg-gray-50/50 p-4">
@@ -220,17 +209,27 @@ export default function CriarCardapioPage() {
                 <div className="mx-auto flex max-w-4xl items-center justify-between">
                     <button
                         onClick={() => router.back()}
-                        className="cursor-pointer font-medium text-brand"
+                        className="cursor-pointer text-[13px] font-medium text-brand"
                     >
                         Voltar
                     </button>
-                    <Button
-                        onClick={continueOnboarding}
-                        loading={saving}
-                        className="px-8"
-                    >
-                        Salvar e Continuar
-                    </Button>
+                    <div className="flex items-center gap-3">
+                        <button
+                            type="button"
+                            onClick={continueOnboarding}
+                            disabled={saving}
+                            className="cursor-pointer text-[13px] font-medium text-gray-500 transition-colors hover:text-brand disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                            Pular
+                        </button>
+                        <Button
+                            onClick={continueOnboarding}
+                            loading={saving}
+                            className="px-8"
+                        >
+                            Continuar
+                        </Button>
+                    </div>
                 </div>
             </div>
 

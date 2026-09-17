@@ -298,40 +298,50 @@ export default function LandingPage() {
                             <span className="hidden md:inline">Inteligência Artificial</span>
                         </u>.
                     </h2>
-                    <div className="mt-5 hidden text-gray-500 md:block min-[1400px]:text-lg 2xl:text-[1.4rem]">
-                        Sem taxas, sem pegadinhas.{" "}
-                        <Tooltip
-                            text="O iMenu é completamente grátis, para sempre."
-                            position="right"
-                        >
-                            <a href="#recursos" className="cursor-pointer underline">
-                                Para sempre.
-                            </a>
-                        </Tooltip>
+                    <div className="mt-5 hidden flex-wrap items-center gap-x-2.5 gap-y-1 text-base leading-normal font-normal text-gray-500 md:flex md:leading-7 min-[1400px]:text-lg min-[1400px]:leading-8 2xl:text-[1.4rem]">
+                        {["Grátis", "Sem cartão", "Sem limites de Pedidos", "Sem taxas"].map((benefit) => (
+                            <span key={benefit} className="inline-flex items-center gap-[0.25em]">
+                                <FontAwesomeIcon icon={icons.faCheck} className="h-[0.65em] w-[0.65em] shrink-0 text-green" />
+                                {benefit}
+                            </span>
+                        ))}
                     </div>
 
-                    <div className="mt-6 flex flex-row flex-nowrap items-center justify-center gap-4 md:justify-start min-[1400px]:mt-8 min-[1400px]:gap-5 2xl:mt-9 2xl:gap-6">
-                        <Button
-                            onClick={() => router.push("/restaurante/registrar")}
-                            className={LANDING_HERO_PRIMARY_BUTTON}
-                        >
-                            Registrar Grátis
-                        </Button>
-                        <div className="relative">
+                    <div className="mt-6 flex flex-col items-center md:items-start min-[1400px]:mt-8 2xl:mt-9">
+                        <div className="flex flex-row flex-nowrap items-center justify-center gap-4 md:justify-start min-[1400px]:gap-5 2xl:gap-6">
                             <Button
-                                variant="secondary"
-                                onClick={handlePanelLogin}
-                                className={LANDING_HERO_SECONDARY_BUTTON}
+                                onClick={() => router.push("/restaurante/registrar")}
+                                className={LANDING_HERO_PRIMARY_BUTTON}
                             >
-                                Entrar no Painel
+                                Registrar Grátis
                             </Button>
-                            <PanelShortcutPrompt
-                                open={showPanelShortcutPrompt}
-                                onAccept={handleEnablePanelShortcut}
-                                onDismiss={handleDismissPanelShortcut}
-                                className="left-1/2 -translate-x-1/2 md:hidden"
-                            />
+                            <div className="relative">
+                                <Button
+                                    variant="secondary"
+                                    onClick={handlePanelLogin}
+                                    className={LANDING_HERO_SECONDARY_BUTTON}
+                                >
+                                    Entrar no Painel
+                                </Button>
+                                <PanelShortcutPrompt
+                                    open={showPanelShortcutPrompt}
+                                    onAccept={handleEnablePanelShortcut}
+                                    onDismiss={handleDismissPanelShortcut}
+                                    className="left-1/2 -translate-x-1/2 md:hidden"
+                                />
+                            </div>
                         </div>
+                        <div className="mt-3 flex flex-nowrap items-center justify-center gap-2 text-[13px] leading-4 font-normal whitespace-nowrap text-gray-500 md:hidden">
+                            {["Sem cartão", "Sem limites de Pedidos", "Sem taxas"].map((benefit) => (
+                                <span key={benefit} className="inline-flex items-center gap-[0.25em]">
+                                    <FontAwesomeIcon icon={icons.faCheck} className="h-[0.65em] w-[0.65em] shrink-0 text-green" />
+                                    {benefit}
+                                </span>
+                            ))}
+                        </div>
+                        <p className="mt-2 hidden text-left text-xs leading-4 text-gray-500 md:block">
+                            <strong className="font-bold">Não é</strong> teste grátis. O iMenu é grátis para sempre.
+                        </p>
                     </div>
                 </div>
 
@@ -354,7 +364,7 @@ export default function LandingPage() {
                     Totalmente Grátis
                     <br />
                     <span className="text-2xl text-text md:text-[100%]">
-                        sem taxas, sem pegadinhas
+                        sem taxas, sem limites
                     </span>
                 </h2>
 
@@ -459,9 +469,7 @@ export default function LandingPage() {
                                     Ver Exemplo
                                 </Button>
                                 <Button
-                                    onClick={() =>
-                                        router.push("/restaurante/registrar")
-                                    }
+                                    onClick={() => router.push("/restaurante/registrar")}
                                     className="mb-3"
                                 >
                                     Registrar Grátis

@@ -33,6 +33,7 @@ export default function LocalizacaoPage() {
     const [savingAddress, setSavingAddress] = useState(false);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [skipping, setSkipping] = useState(false);
     const [toast, setToast] = useState<{
         message: string;
         type: "success" | "error";
@@ -140,8 +141,11 @@ export default function LocalizacaoPage() {
                 throw new Error(payload?.error || "Erro ao finalizar cadastro.");
             }
 
+            const menuIdentifier = String(payload?.url_slug || restaurantId);
             clear();
-            router.replace("/painel");
+            router.replace(
+                `/painel?onboarding=complete&menu=${encodeURIComponent(menuIdentifier)}`
+            );
         } catch (caught) {
             setToast({
                 message:
@@ -151,6 +155,41 @@ export default function LocalizacaoPage() {
                 type: "error",
             });
             setSaving(false);
+        }
+    };
+
+    const skipOnboardingStep = async () => {
+        if (!restaurantId) return;
+
+        setSkipping(true);
+        try {
+            const response = await fetch(`/api/restaurants/${restaurantId}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    first_time: false,
+                    creation_step: 4,
+                }),
+            });
+            const payload = await response.json();
+            if (!response.ok) {
+                throw new Error(payload?.error || "Erro ao finalizar cadastro.");
+            }
+
+            const menuIdentifier = String(payload?.url_slug || restaurantId);
+            clear();
+            router.replace(
+                `/painel?onboarding=complete&menu=${encodeURIComponent(menuIdentifier)}`
+            );
+        } catch (caught) {
+            setToast({
+                message:
+                    caught instanceof Error
+                        ? caught.message
+                        : "Não foi possível continuar.",
+                type: "error",
+            });
+            setSkipping(false);
         }
     };
 
@@ -237,28 +276,38 @@ export default function LocalizacaoPage() {
                 <div className="mx-auto flex max-w-4xl items-center justify-between">
                     <button
                         onClick={() => router.push("/restaurante/criar/loja")}
-                        className="cursor-pointer font-medium text-brand"
+                        className="cursor-pointer text-[13px] font-medium text-brand"
                     >
                         Voltar
                     </button>
-                    <Tooltip
-                        text={
-                            !addressComplete
-                                ? "Preencha o endereço do restaurante"
-                                : editingAddress
-                                  ? "Conclua a edição do endereço"
-                                  : ""
-                        }
-                    >
-                        <Button
-                            onClick={finish}
-                            loading={saving}
-                            disabled={addressBlocked || saving}
-                            className="px-8"
+                    <div className="flex items-center gap-3">
+                        <button
+                            type="button"
+                            onClick={skipOnboardingStep}
+                            disabled={saving || skipping}
+                            className="cursor-pointer text-[13px] font-medium text-gray-500 transition-colors hover:text-brand disabled:cursor-not-allowed disabled:opacity-50"
                         >
-                            Salvar e Continuar
-                        </Button>
-                    </Tooltip>
+                            {skipping ? "Pulando..." : "Pular"}
+                        </button>
+                        <Tooltip
+                            text={
+                                !addressComplete
+                                    ? "Preencha o endereço do restaurante"
+                                    : editingAddress
+                                      ? "Conclua a edição do endereço"
+                                      : ""
+                            }
+                        >
+                            <Button
+                                onClick={finish}
+                                loading={saving}
+                                disabled={addressBlocked || saving || skipping}
+                                className="px-8"
+                            >
+                                Continuar
+                            </Button>
+                        </Tooltip>
+                    </div>
                 </div>
             </div>
 

@@ -252,17 +252,17 @@ export default function WeeklyScheduleClick({
     return (
         <div className="relative flex min-w-[720px] flex-col select-none">
             <div className="flex pb-4">
-                <div className="w-14 shrink-0" />
+                <div className="w-10 shrink-0" />
                 {DAYS.map((day) => (
                     <div
                         key={day.key}
                         className="flex flex-1 flex-col gap-1 text-center"
                     >
-                        <span className="text-lg font-bold text-gray-900">
+                        <span className="text-sm font-bold text-gray-900">
                             {day.label}
                         </span>
                         <span
-                            className={`text-sm font-medium ${(value[day.key] || []).length ? "text-brand" : "text-gray-400"}`}
+                            className={`text-xs font-medium ${(value[day.key] || []).length ? "text-brand" : "text-gray-400"}`}
                         >
                             {(value[day.key] || []).length
                                 ? "Aberta"
@@ -272,7 +272,7 @@ export default function WeeklyScheduleClick({
                 ))}
             </div>
             <div className="relative flex">
-                <div className="relative w-14 shrink-0 border-r border-transparent">
+                <div className="relative w-10 shrink-0 border-r border-transparent">
                     {gridHours.map((hour) => (
                         <div
                             key={hour}
@@ -350,11 +350,16 @@ export default function WeeklyScheduleClick({
                                         />
                                         {height >= 60 && (
                                             <span className="mb-1 text-xs font-medium opacity-90">
-                                                {day.blockLabel}
+                                                <span className="sm:hidden">
+                                                    {day.label.toUpperCase()}
+                                                </span>
+                                                <span className="hidden sm:inline">
+                                                    {day.blockLabel}
+                                                </span>
                                             </span>
                                         )}
                                         {height >= 26 && (
-                                            <span className="text-center text-sm font-bold leading-tight min-[1800px]:text-lg">
+                                            <span className="whitespace-nowrap text-center text-[13px] font-bold leading-tight sm:text-sm min-[1800px]:text-lg">
                                                 {slot.open}–
                                                 {slot.close === "24:00"
                                                     ? "00:00"

@@ -53,7 +53,9 @@ export default function AllowedPaymentMethods({
                 Formas de pagamento para clientes
             </h2>
             <p className="mb-5 text-sm text-gray-500">
-                Escolha quais formas aparecem para o cliente no checkout.
+                Escolha quais formas aparecem para o cliente no checkout.{" "}
+                <strong>Pagamentos com Pix (Online) são repassados</strong>{" "}
+                dentro de 1 dia (todo dia às 12:00).
             </p>
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

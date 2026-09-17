@@ -249,7 +249,6 @@ export default function StoreProfileManager({
                         }}
                         onBlur={() => void saveFields({ name: name.trim() })}
                         placeholder="Ex: Burger King"
-                        className="font-medium"
                     />
 
                     <PixPayoutFields

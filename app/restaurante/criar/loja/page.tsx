@@ -33,6 +33,7 @@ export default function LojaPage() {
         useState<StoreSettingsRestaurant | null>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [skipping, setSkipping] = useState(false);
     const [name, setName] = useState("");
     const [methods, setMethods] = useState<string[]>(
         DEFAULT_ALLOWED_PAYMENT_METHODS
@@ -181,6 +182,33 @@ export default function LojaPage() {
         }
     };
 
+    const skipOnboardingStep = async () => {
+        if (!restaurant) return;
+        setSkipping(true);
+        try {
+            const fallbackName = `Sem Nome ${Math.floor(1000 + Math.random() * 9000)}`;
+            const response = await fetch(`/api/restaurants/${restaurant.id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    creation_step: 4,
+                    ...(!name.trim() ? { name: fallbackName } : {}),
+                }),
+            });
+            if (!response.ok) throw new Error("Não foi possível continuar.");
+            router.push("/restaurante/criar/localizacao");
+        } catch (caught) {
+            setToast({
+                message:
+                    caught instanceof Error
+                        ? caught.message
+                        : "Não foi possível continuar.",
+                type: "error",
+            });
+            setSkipping(false);
+        }
+    };
+
     if (loading) {
         return (
             <main className="flex min-h-[60vh] items-center justify-center">
@@ -243,45 +271,56 @@ export default function LojaPage() {
                         onClick={() =>
                             router.push("/restaurante/criar/disponibilidade")
                         }
-                        className="cursor-pointer font-medium text-brand"
+                        className="cursor-pointer text-[13px] font-medium text-brand"
                     >
                         Voltar
                     </button>
-                    <Tooltip
-                        text={
-                            missingPixPayoutKey
-                                ? "Preencha sua chave PIX para repasses"
-                                : missingPixPayoutType
-                                  ? "Defina o tipo da chave PIX acima."
-                                  : !name.trim()
-                                    ? "Você precisa completar os dados primeiro"
-                                    : storeStatus === "saving"
-                                      ? "Aguarde os dados terminarem de salvar"
-                                      : storeStatus === "error"
-                                        ? "Corrija o erro ao salvar os dados da loja"
-                                        : responsiblePhoneInvalid
-                                          ? "Informe o celular do responsável"
-                                          : ""
-                        }
-                    >
-                        <Button
-                            onClick={continueOnboarding}
-                            loading={saving}
-                            disabled={
-                                saving ||
-                                storeStatus === "saving" ||
-                                missingPixPayoutKey ||
-                                missingPixPayoutType
-                            }
-                            className={`px-8 ${
-                                finishVisuallyBlocked
-                                    ? "opacity-[0.55] hover:!bg-[#d93d00]"
-                                    : ""
-                            }`}
+                    <div className="flex items-center gap-3">
+                        <button
+                            type="button"
+                            onClick={skipOnboardingStep}
+                            disabled={saving || skipping}
+                            className="cursor-pointer text-[13px] font-medium text-gray-500 transition-colors hover:text-brand disabled:cursor-not-allowed disabled:opacity-50"
                         >
-                            Salvar e Continuar
-                        </Button>
-                    </Tooltip>
+                            {skipping ? "Pulando..." : "Pular"}
+                        </button>
+                        <Tooltip
+                            text={
+                                missingPixPayoutKey
+                                    ? "Preencha sua chave PIX para repasses"
+                                    : missingPixPayoutType
+                                      ? "Defina o tipo da chave PIX acima."
+                                      : !name.trim()
+                                        ? "Você precisa completar os dados primeiro"
+                                        : storeStatus === "saving"
+                                          ? "Aguarde os dados terminarem de salvar"
+                                          : storeStatus === "error"
+                                            ? "Corrija o erro ao salvar os dados da loja"
+                                            : responsiblePhoneInvalid
+                                              ? "Informe o celular do responsável"
+                                              : ""
+                            }
+                        >
+                            <Button
+                                onClick={continueOnboarding}
+                                loading={saving}
+                                disabled={
+                                    saving ||
+                                    skipping ||
+                                    storeStatus === "saving" ||
+                                    missingPixPayoutKey ||
+                                    missingPixPayoutType
+                                }
+                                className={`px-8 ${
+                                    finishVisuallyBlocked
+                                        ? "opacity-[0.55] hover:!bg-[#d93d00]"
+                                        : ""
+                                }`}
+                            >
+                                Continuar
+                            </Button>
+                        </Tooltip>
+                    </div>
                 </div>
             </div>
 

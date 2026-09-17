@@ -59,6 +59,36 @@ type ScreenWakeLockSentinel = {
     ) => void;
 };
 
+type AvailabilitySlot = {
+    open: string;
+    close: string;
+};
+
+type Availability = Record<string, AvailabilitySlot[]>;
+
+function isStoreOpenBySchedule(
+    availability: Availability | null,
+    now: Date
+): boolean {
+    if (!availability) return false;
+
+    const slots = availability[String(now.getDay())];
+    if (!Array.isArray(slots) || slots.length === 0) return false;
+
+    return slots.some((slot) => {
+        const [openH, openM] = slot.open.split(":").map(Number);
+        const [closeH, closeM] = slot.close.split(":").map(Number);
+
+        const openDate = new Date(now);
+        openDate.setHours(openH, openM, 0, 0);
+
+        const closeDate = new Date(now);
+        closeDate.setHours(closeH, closeM, 0, 0);
+
+        return now >= openDate && now <= closeDate;
+    });
+}
+
 function getParamRestaurantId(
     params: ReturnType<typeof useParams>
 ): string | null {
@@ -82,6 +112,8 @@ export default function PainelLayout({
     const [expanded, setExpanded] = useState(true);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [isStoreClosed, setIsStoreClosed] = useState(false);
+    const [availability, setAvailability] = useState<Availability | null>(null);
+    const [scheduleNow, setScheduleNow] = useState(() => new Date());
     const [showCloseModal, setShowCloseModal] = useState(false);
     const [isTogglingStore, setIsTogglingStore] = useState(false);
     const [isChecking, setIsChecking] = useState(true);
@@ -155,9 +187,13 @@ export default function PainelLayout({
             try {
                 const restaurantResult = await supabase
                     .from("restaurants")
-                    .select("is_closed")
+                    .select("is_closed, availability_json")
                     .eq("id", targetRestaurantId)
                     .single();
+
+                setAvailability(
+                    (restaurantResult.data?.availability_json as Availability | null) ?? null
+                );
 
                 const closedDate = restaurantResult.data?.is_closed;
                 if (!closedDate) {
@@ -187,7 +223,18 @@ export default function PainelLayout({
         };
 
         void fetchContext();
-    }, [targetRestaurantId]);
+    }, [targetRestaurantId, pathname]);
+
+    useEffect(() => {
+        const updateScheduleNow = () => setScheduleNow(new Date());
+        const interval = window.setInterval(updateScheduleNow, 30_000);
+        window.addEventListener("focus", updateScheduleNow);
+
+        return () => {
+            window.clearInterval(interval);
+            window.removeEventListener("focus", updateScheduleNow);
+        };
+    }, []);
 
     useEffect(() => {
         const checkAuth = async () => {
@@ -371,6 +418,12 @@ export default function PainelLayout({
             : pathname?.startsWith(item.href);
     };
 
+    const storeStatus = isStoreClosed
+        ? "manual"
+        : isStoreOpenBySchedule(availability, scheduleNow)
+          ? "open"
+          : "scheduled-closed";
+
     const storeStatusButton = (fullWidth: boolean) => (
         <button
             type="button"
@@ -383,13 +436,27 @@ export default function PainelLayout({
             className={`panel-store-status flex cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
                 fullWidth ? "w-full" : ""
             } ${
-                isStoreClosed
+                storeStatus === "manual"
                     ? "border-red-200 bg-red-50 text-red-600 hover:bg-red-100"
-                    : "border-green-200 bg-green-50 text-green-700 hover:bg-green-100"
+                    : storeStatus === "open"
+                      ? "border-green-200 bg-green-50 text-green-700 hover:bg-green-100"
+                      : "border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100"
             }`}
         >
-            <FontAwesomeIcon icon={isStoreClosed ? faDoorOpen : faPowerOff} />
-            {isStoreClosed ? "Abrir Loja" : "Loja Aberta"}
+            <FontAwesomeIcon
+                icon={
+                    storeStatus === "manual"
+                        ? faDoorOpen
+                        : storeStatus === "open"
+                          ? faPowerOff
+                          : faClock
+                }
+            />
+            {storeStatus === "manual"
+                ? "Fechada manualmente"
+                : storeStatus === "open"
+                  ? "Loja aberta"
+                  : "Loja fechada"}
         </button>
     );
 
@@ -401,6 +468,13 @@ export default function PainelLayout({
                 onConfirm={() => void handleStoreToggle("close")}
                 title="Fechar Loja Hoje?"
                 description="Isso fechará a loja temporariamente. Ela abrirá automaticamente amanhã ou você pode reabri-la manualmente a qualquer momento."
+                descriptionAfter={
+                    <span className="inline-flex items-center justify-center gap-1.5">
+                        Você pode abrir sua loja definindo horários na aba
+                        <FontAwesomeIcon icon={faClock} />
+                        Horários.
+                    </span>
+                }
                 confirmLabel="Fechar Loja"
                 variant="danger"
                 isLoading={isTogglingStore}
@@ -436,18 +510,35 @@ export default function PainelLayout({
                                 : setShowCloseModal(true)
                         }
                         disabled={isTogglingStore}
+                        title={
+                            storeStatus === "manual"
+                                ? "Fechada manualmente"
+                                : storeStatus === "open"
+                                  ? "Loja aberta"
+                                  : "Loja fechada"
+                        }
                         className={`flex h-10 items-center gap-2 rounded-lg border px-3 text-xs font-medium ${
-                            isStoreClosed
+                            storeStatus === "manual"
                                 ? "border-red-200 bg-red-50 text-red-600"
-                                : "border-green-200 bg-green-50 text-green-700"
+                                : storeStatus === "open"
+                                  ? "border-green-200 bg-green-50 text-green-700"
+                                  : "border-gray-200 bg-gray-50 text-gray-600"
                         }`}
                     >
                         <span
                             className={`h-2.5 w-2.5 rounded-full ${
-                                isStoreClosed ? "bg-red-500" : "bg-green-500"
+                                storeStatus === "manual"
+                                    ? "bg-red-500"
+                                    : storeStatus === "open"
+                                      ? "bg-green-500"
+                                      : "bg-gray-400"
                             }`}
                         />
-                        {isStoreClosed ? "Fechada" : "Aberta"}
+                        {storeStatus === "manual"
+                            ? "Manual"
+                            : storeStatus === "open"
+                              ? "Aberta"
+                              : "Fechada"}
                     </button>
                 </header>
 
@@ -554,15 +645,36 @@ export default function PainelLayout({
                     }`}
                 >
                     <div className="panel-sidebar-header">
-                        {expanded && (
-                            <Link href="/painel" aria-label="Ir para o painel" className="panel-sidebar-logo">
-                                <Image src="/logos/CombinationMarkLogo_Brand.png" alt="iMenu" width={104} height={40} />
-                            </Link>
-                        )}
+                        <Link
+                            href="/painel"
+                            aria-label="Ir para o painel"
+                            aria-hidden={!expanded}
+                            tabIndex={expanded ? 0 : -1}
+                            className={`panel-sidebar-logo origin-left overflow-hidden transition-all duration-300 ${
+                                expanded
+                                    ? "w-[108px] scale-100 opacity-100"
+                                    : "pointer-events-none w-0 scale-75 opacity-0"
+                            }`}
+                        >
+                            <Image
+                                src="/logos/CombinationMarkLogo_Brand.png"
+                                alt="iMenu"
+                                width={104}
+                                height={40}
+                            />
+                        </Link>
                         <button type="button" onClick={toggleSidebar}
                             aria-label={expanded ? "Recolher menu lateral" : "Expandir menu lateral"}
                             aria-expanded={expanded} className="panel-sidebar-toggle cursor-pointer bg-white">
-                            {!expanded && <Image className="panel-sidebar-mark" src="/logos/LogoMark_Brand.png" alt="" width={32} height={32} />}
+                            <Image
+                                className={`panel-sidebar-mark transition-opacity duration-300 ${
+                                    expanded ? "opacity-0" : "opacity-100"
+                                }`}
+                                src="/logos/LogoMark_Brand.png"
+                                alt=""
+                                width={32}
+                                height={32}
+                            />
                             {expanded ? <PanelLeftClose aria-hidden="true" strokeWidth={1.75} /> : <PanelLeftOpen aria-hidden="true" strokeWidth={1.75} />}
                         </button>
                     </div>
@@ -580,15 +692,23 @@ export default function PainelLayout({
                             <div
                                 className="mt-2 flex h-[30px] items-center justify-center"
                                 title={
-                                    isStoreClosed ? "Loja Fechada" : "Loja Aberta"
+                                    storeStatus === "manual"
+                                        ? "Fechada manualmente"
+                                        : storeStatus === "open"
+                                          ? "Loja aberta"
+                                          : "Loja fechada"
                                 }
                             >
                                 <div
                                     className={`relative h-3 w-3 rounded-full ${
-                                        isStoreClosed ? "bg-red-500" : "bg-green-500"
+                                        storeStatus === "manual"
+                                            ? "bg-red-500"
+                                            : storeStatus === "open"
+                                              ? "bg-green-500"
+                                              : "bg-gray-400"
                                     }`}
                                 >
-                                    {!isStoreClosed && (
+                                    {storeStatus === "open" && (
                                         <div className="absolute inset-0 animate-[pulseHalo_2s_infinite] rounded-full bg-green-500" />
                                     )}
                                 </div>
