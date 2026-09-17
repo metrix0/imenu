@@ -299,7 +299,7 @@ export default function LandingPage() {
                         </u>.
                     </h2>
                     <div className="mt-5 hidden text-gray-500 md:block min-[1400px]:text-lg 2xl:text-[1.4rem]">
-                        Sem taxas, sem pegadinhas.{" "}
+                        Sem taxas, sem limites, sem custo.{" "}
                         <Tooltip
                             text="O iMenu é completamente grátis, para sempre."
                             position="right"
