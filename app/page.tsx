@@ -298,10 +298,10 @@ export default function LandingPage() {
                             <span className="hidden md:inline">Inteligência Artificial</span>
                         </u>.
                     </h2>
-                    <div className="mt-5 hidden flex-wrap items-center gap-x-2.5 gap-y-1 text-gray-500 md:flex min-[1400px]:text-lg 2xl:text-[1.4rem]">
+                    <div className="mt-5 hidden flex-wrap items-center gap-x-2.5 gap-y-1 text-base leading-normal font-normal text-gray-500 md:flex md:leading-7 min-[1400px]:text-lg min-[1400px]:leading-8 2xl:text-[1.4rem]">
                         {["Grátis", "Sem cartão", "Sem limites de Pedidos", "Sem taxas"].map((benefit) => (
-                            <span key={benefit} className="inline-flex items-center gap-1">
-                                <FontAwesomeIcon icon={icons.faCheck} className="h-3 w-3 shrink-0 text-green" />
+                            <span key={benefit} className="inline-flex items-center gap-[0.25em]">
+                                <FontAwesomeIcon icon={icons.faCheck} className="h-[0.75em] w-[0.75em] shrink-0 text-green" />
                                 {benefit}
                             </span>
                         ))}
