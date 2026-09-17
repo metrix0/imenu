@@ -354,7 +354,7 @@ export default function LandingPage() {
                     Totalmente Grátis
                     <br />
                     <span className="text-2xl text-text md:text-[100%]">
-                        sem taxas, sem pegadinhas
+                        sem taxas, sem limites
                     </span>
                 </h2>
 
