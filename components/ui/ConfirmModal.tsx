@@ -60,23 +60,23 @@ export default function ConfirmModal({
                 <h3 className="mb-2 text-lg font-bold text-gray-900 2xl:text-xl">{title}</h3>
 
                 {description && (
-                    <p className="mb-6 text-sm text-gray-500 2xl:text-lg">
+                    <p className={`${descriptionAfterParts.length > 0 ? "mb-3" : "mb-6"} text-sm text-gray-500 2xl:text-lg`}>
                         {description}
-                        {descriptionAfterParts.length > 0 && (
-                            <>
-                                {" "}
-                                {descriptionAfterParts.map((part, index) => (
-                                    <span key={index}>
-                                        {index > 0 ? " " : null}
-                                        {index === descriptionAfterParts.length - 1 ? (
-                                            <strong className="font-bold">{part}</strong>
-                                        ) : (
-                                            part
-                                        )}
-                                    </span>
-                                ))}
-                            </>
-                        )}
+                    </p>
+                )}
+
+                {descriptionAfterParts.length > 0 && (
+                    <p className="mb-6 text-sm text-gray-500 2xl:text-lg">
+                        {descriptionAfterParts.map((part, index) => (
+                            <span key={index}>
+                                {index > 0 ? " " : null}
+                                {index === descriptionAfterParts.length - 1 ? (
+                                    <strong className="font-bold">{part}</strong>
+                                ) : (
+                                    part
+                                )}
+                            </span>
+                        ))}
                     </p>
                 )}
 
