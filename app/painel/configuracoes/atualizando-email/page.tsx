@@ -62,27 +62,24 @@ export default function UpdateEmailPage() {
         setLoading(true);
 
         try {
-            // 1. Verificar duplicidade na tabela users (opcional, mas recomendado)
-            const { data: foundUser, error: usersError } = await supabase
-                .from("users")
-                .select("id,email")
-                .eq("email", cleaned)
-                .maybeSingle();
+            // 1. Verificar duplicidade diretamente no auth.users via endpoint do servidor
+            const check = await fetch("/api/auth/email-exists", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email: cleaned }),
+            });
+            const checkData = await check.json();
 
-            if (foundUser) {
-                const { data: existingRestaurant } = await supabase
-                    .from("restaurants")
-                    .select("id")
-                    .eq("user_id", foundUser.id)
-                    .maybeSingle();
+            if (!check.ok) {
+                setMessage(
+                    checkData?.error || "Não foi possível verificar este e-mail."
+                );
+                return;
+            }
 
-                if (existingRestaurant) {
-                    setMessage("Este e-mail já está cadastrado em outra conta.");
-                    setLoading(false);
-                    return;
-                }
-            } else if (usersError) {
-                console.warn("Erro ao verificar users view:", usersError);
+            if (checkData.exists) {
+                setMessage("Este e-mail já está cadastrado em outra conta.");
+                return;
             }
 
             // 2. Update Auth
