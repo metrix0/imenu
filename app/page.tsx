@@ -469,9 +469,7 @@ export default function LandingPage() {
                                     Ver Exemplo
                                 </Button>
                                 <Button
-                                    onClick={() =>
-                                        router.push("/restaurante/registrar")}
-                                    }
+                                    onClick={() => router.push("/restaurante/registrar")}
                                     className="mb-3"
                                 >
                                     Registrar Grátis
