@@ -118,7 +118,7 @@ export default function UpdateEmailPage() {
     // 1. Tela de Input
     if (stage === "INPUT_EMAIL") {
         return (
-            <div className="mx-auto w-full max-w-2xl">
+            <div className="flex min-h-[calc(100dvh-4rem)] w-full items-center justify-center px-4 py-6 md:px-0 md:py-0">
                 <Card className="w-full max-w-2xl">
                     <div className="mb-6">
                         <h1 className="text-2xl font-medium text-gray-900">Atualizar E-mail</h1>
@@ -171,7 +171,7 @@ export default function UpdateEmailPage() {
     // 2. Tela de Aguardando Confirmação
     if (stage === "AWAITING_CONFIRMATION") {
         return (
-            <div className="mx-auto w-full max-w-2xl">
+            <div className="flex min-h-[calc(100dvh-4rem)] w-full items-center justify-center px-4 py-6 md:px-0 md:py-0">
                 <Card className="w-full max-w-2xl text-center py-10">
                     <div className="mb-6 flex justify-center">
                         <div className="h-16 w-16 bg-indigo-50 rounded-full flex items-center justify-center">
@@ -203,7 +203,7 @@ export default function UpdateEmailPage() {
     // 3. Tela de Sucesso (Opcional, caso o redirecionamento falhe ou seja rápido)
     if (stage === "SUCCESS") {
         return (
-            <div className="mx-auto w-full max-w-2xl">
+            <div className="flex min-h-[calc(100dvh-4rem)] w-full items-center justify-center px-4 py-6 md:px-0 md:py-0">
                 <Card className="w-full max-w-2xl text-center py-10">
                     <div className="mb-6 flex justify-center">
                         <FontAwesomeIcon icon={faCheckCircle} className="text-green-500 text-5xl" />
