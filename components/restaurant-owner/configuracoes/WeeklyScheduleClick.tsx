@@ -252,7 +252,7 @@ export default function WeeklyScheduleClick({
     return (
         <div className="relative flex min-w-[720px] flex-col select-none">
             <div className="flex pb-4">
-                <div className="w-10 shrink-0 sm:w-14" />
+                <div className="w-10 shrink-0" />
                 {DAYS.map((day) => (
                     <div
                         key={day.key}
@@ -272,7 +272,7 @@ export default function WeeklyScheduleClick({
                 ))}
             </div>
             <div className="relative flex">
-                <div className="relative w-10 shrink-0 border-r border-transparent sm:w-14">
+                <div className="relative w-10 shrink-0 border-r border-transparent">
                     {gridHours.map((hour) => (
                         <div
                             key={hour}
