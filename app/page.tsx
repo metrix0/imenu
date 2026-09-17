@@ -301,7 +301,7 @@ export default function LandingPage() {
                     <div className="mt-5 hidden flex-wrap items-center gap-x-2.5 gap-y-1 text-base leading-normal font-normal text-gray-500 md:flex md:leading-7 min-[1400px]:text-lg min-[1400px]:leading-8 2xl:text-[1.4rem]">
                         {["Grátis", "Sem cartão", "Sem limites de Pedidos", "Sem taxas"].map((benefit) => (
                             <span key={benefit} className="inline-flex items-center gap-[0.25em]">
-                                <FontAwesomeIcon icon={icons.faCheck} className="h-[0.75em] w-[0.75em] shrink-0 text-green" />
+                                <FontAwesomeIcon icon={icons.faCheck} className="h-[0.65em] w-[0.65em] shrink-0 text-green" />
                                 {benefit}
                             </span>
                         ))}
@@ -352,7 +352,7 @@ export default function LandingPage() {
             </section>
 
             <section className="mx-auto h-auto max-w-[1920px] px-8 py-16 md:min-h-[100vh] min-[1400px]:py-20 2xl:py-26">
-                <h2 className="reveal fade-up mb-4 text-center text-3xl font-bold text-brand md:mb-13 md:text-4xl min-[1400px]:mb-16 min-[1400px]:text-[2.75rem] 2xl:mb-20 2xl:text-[3.2rem]">
+                <h2 className="reveal fade-up mb-4 text-center text-3xl font-bold text-brand md:mb-13 md:text-4xl min-[1400px]:mb-16 min-[1400px]:text-[2.75rem] 2xl:text-[3.2rem]">
                     Totalmente Grátis
                     <br />
                     <span className="text-2xl text-text md:text-[100%]">
