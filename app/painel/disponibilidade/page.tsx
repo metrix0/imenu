@@ -27,6 +27,48 @@ export default function DisponibilidadePage() {
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
 }, [isSaving]); // Adicione a variável de estado nas dependências
 
+    useEffect(() => {
+        let touchStart: { x: number; y: number } | null = null;
+
+        const handleTouchStart = (event: TouchEvent) => {
+            if (!window.matchMedia("(max-width: 767px)").matches) {
+                touchStart = null;
+                return;
+            }
+
+            const touch = event.touches[0];
+            touchStart = { x: touch.clientX, y: touch.clientY };
+        };
+
+        const handleTouchEnd = (event: TouchEvent) => {
+            const start = touchStart;
+            touchStart = null;
+            if (!start) return;
+
+            const touch = event.changedTouches[0];
+            const horizontalDistance = touch.clientX - start.x;
+            const verticalDistance = Math.abs(touch.clientY - start.y);
+
+            if (horizontalDistance >= 70 && verticalDistance < 50) {
+                event.stopImmediatePropagation();
+            }
+        };
+
+        document.addEventListener("touchstart", handleTouchStart, {
+            capture: true,
+            passive: true,
+        });
+        document.addEventListener("touchend", handleTouchEnd, {
+            capture: true,
+            passive: true,
+        });
+
+        return () => {
+            document.removeEventListener("touchstart", handleTouchStart, true);
+            document.removeEventListener("touchend", handleTouchEnd, true);
+        };
+    }, []);
+
     // 1. Carregar Dados Iniciais
     useEffect(() => {
         const loadData = async () => {
@@ -123,15 +165,7 @@ export default function DisponibilidadePage() {
     }
 
     return (
-        <div
-            className="max-w-6xl min-[1800px]:max-w-[100rem] min-[1800px]:w-full mx-auto pb-20 px-4 sm:px-6 pt-8"
-            onTouchStart={(event) => {
-                if (window.matchMedia("(max-width: 767px)").matches) event.stopPropagation();
-            }}
-            onTouchEnd={(event) => {
-                if (window.matchMedia("(max-width: 767px)").matches) event.stopPropagation();
-            }}
-        >
+        <div className="max-w-6xl min-[1800px]:max-w-[100rem] min-[1800px]:w-full mx-auto pb-20 px-4 sm:px-6 pt-8">
             <div className="mb-8 flex flex-col sm:flex-row sm:items-end justify-between gap-4 px-2">
                 <div>
                     <div className="flex items-center gap-2">

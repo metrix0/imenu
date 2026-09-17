@@ -81,15 +81,7 @@ export default function LojaPage() {
     }
 
     return (
-        <div
-            className="mx-auto w-full max-w-6xl space-y-8 px-4 pb-20 pt-8 sm:px-6"
-            onTouchStart={(event) => {
-                if (window.matchMedia("(max-width: 767px)").matches) event.stopPropagation();
-            }}
-            onTouchEnd={(event) => {
-                if (window.matchMedia("(max-width: 767px)").matches) event.stopPropagation();
-            }}
-        >
+        <div className="mx-auto w-full max-w-6xl space-y-8 px-4 pb-20 pt-8 sm:px-6">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <h1>Perfil da Loja</h1>
