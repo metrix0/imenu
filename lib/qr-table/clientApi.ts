@@ -1,6 +1,7 @@
 "use client";
 
 import { supabase } from "@/lib/database/supabaseClient";
+import type { PaymentCheckoutInput } from "@/lib/payments/types";
 import type { QrTableSource } from "@/lib/qr-table/types";
 
 async function getAccessToken(): Promise<string> {
@@ -30,26 +31,42 @@ export async function qrTableAuthenticatedFetch(
     });
 }
 
+export type QrTableCheckoutResult = {
+    active: boolean;
+    recurring?: boolean;
+    paymentMethod: "pix" | "credit_card";
+    paymentStatus: string | null;
+    transactionId?: string;
+    qrCodeText?: string | null;
+    qrCodeBase64?: string | null;
+    qrCodeUrl?: string | null;
+};
+
 export async function startQrTableCheckout(
     restaurantId: string,
-    source: QrTableSource
-): Promise<void> {
+    source: QrTableSource,
+    payment: PaymentCheckoutInput
+): Promise<QrTableCheckoutResult> {
     const response = await qrTableAuthenticatedFetch("/api/qr-table/checkout", {
         method: "POST",
-        body: JSON.stringify({ restaurantId, source }),
+        body: JSON.stringify({
+            restaurantId,
+            source,
+            paymentMethod: payment.method,
+            card: payment.method === "credit_card" ? payment.card : undefined,
+        }),
     });
-    const payload = (await response.json()) as {
-        checkoutUrl?: string;
+    const payload = (await response.json()) as QrTableCheckoutResult & {
         error?: string;
     };
 
-    if (!response.ok || !payload.checkoutUrl) {
+    if (!response.ok) {
         throw new Error(
-            payload.error || "Não foi possível abrir o pagamento."
+            payload.error || "Não foi possível processar o pagamento."
         );
     }
 
-    window.location.assign(payload.checkoutUrl);
+    return payload;
 }
 
 export async function updateQrTableDesign(

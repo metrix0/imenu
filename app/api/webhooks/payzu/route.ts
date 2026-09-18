@@ -2,8 +2,102 @@ import { NextResponse } from "next/server";
 
 import { query } from "@/lib/database/sql";
 import { createSupabaseServerClient } from "@/lib/database/supabaseServerClient";
-import { getPayZuPixCharge } from "@/lib/payzu";
+import { getPayZuPixCharge, type PayZuTransaction } from "@/lib/payzu";
+import {
+    activatePayZuQrTablePrepaid,
+    markPayZuQrTablePaymentFailure,
+    QR_TABLE_PRICE_CENTS,
+    savePayZuQrTablePayment,
+} from "@/lib/qr-table/payzuBilling";
 import { notifyOrderReady } from "@/lib/push/server";
+
+type PayZuPixWithPaidAt = PayZuTransaction & {
+    paidAt?: string | null;
+};
+
+function qrTableAddonId(clientReference: string): string | null {
+    const match = clientReference.match(
+        /^qr-table:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}):/i
+    );
+    return match?.[1] || null;
+}
+
+async function processQrTablePix(
+    transaction: PayZuPixWithPaidAt,
+    addonId: string
+): Promise<void> {
+    const addonResult = await query<{
+        id: string;
+        payment_provider: string | null;
+        payzu_payment_id: string | null;
+    }>(
+        `
+            SELECT id, payment_provider, payzu_payment_id
+            FROM public.restaurant_addons
+            WHERE id = $1
+              AND product_key = 'qr_code_mesa'
+            LIMIT 1
+        `,
+        [addonId]
+    );
+    const addon = addonResult.rows[0];
+
+    if (
+        !addon ||
+        addon.payment_provider !== "payzu" ||
+        (addon.payzu_payment_id &&
+            addon.payzu_payment_id !== String(transaction.id))
+    ) {
+        return;
+    }
+
+    const paidAmountCents = Math.round(Number(transaction.amount) * 100);
+    if (
+        !Number.isFinite(paidAmountCents) ||
+        paidAmountCents !== QR_TABLE_PRICE_CENTS
+    ) {
+        console.error("[PAYZU_QR_TABLE] Valor divergente:", {
+            addonId,
+            expected: QR_TABLE_PRICE_CENTS,
+            received: transaction.amount,
+        });
+        return;
+    }
+
+    const status = String(transaction.status || "PENDING").toUpperCase();
+    await savePayZuQrTablePayment({
+        addonId,
+        paymentId: transaction.id,
+        status,
+        paidAt: transaction.paidAt || null,
+        amountCents: paidAmountCents,
+    });
+
+    if (status === "COMPLETED") {
+        await activatePayZuQrTablePrepaid({
+            addonId,
+            paymentId: transaction.id,
+            status,
+            paidAt: transaction.paidAt || null,
+        });
+        return;
+    }
+
+    if (
+        ["REFUNDED", "CANCELED", "CANCELLED", "EXPIRED", "FAILED"].includes(
+            status
+        )
+    ) {
+        await markPayZuQrTablePaymentFailure({
+            addonId,
+            paymentId: transaction.id,
+            status,
+            expireAccess: ["REFUNDED", "CANCELED", "CANCELLED"].includes(
+                status
+            ),
+        });
+    }
+}
 
 export async function POST(req: Request) {
     let body: any = {};
@@ -36,6 +130,15 @@ export async function POST(req: Request) {
                 transactionId,
                 clientReference,
             });
+            return NextResponse.json({ ok: true });
+        }
+
+        const addonId = qrTableAddonId(clientReference);
+        if (addonId) {
+            await processQrTablePix(
+                transaction as PayZuPixWithPaidAt,
+                addonId
+            );
             return NextResponse.json({ ok: true });
         }
 

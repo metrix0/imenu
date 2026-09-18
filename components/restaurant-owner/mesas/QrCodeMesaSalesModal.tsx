@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import {
     faArrowRotateLeft,
@@ -12,15 +13,18 @@ import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
 import Image from "next/image";
 import Link from "next/link";
 
+import QrTablePaymentCheckout from "@/components/restaurant-owner/mesas/QrTablePaymentCheckout";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
+import type { QrTableSource } from "@/lib/qr-table/types";
 
 type QrCodeMesaSalesModalProps = {
     open: boolean;
     onClose: () => void;
-    onBuy: () => void;
-    buying?: boolean;
+    restaurantId: string;
+    source: QrTableSource;
     active?: boolean;
+    onPaid?: () => void | Promise<void>;
 };
 
 const BENEFITS = [
@@ -50,14 +54,47 @@ const SUPPORT_URL =
 export default function QrCodeMesaSalesModal({
     open,
     onClose,
-    onBuy,
-    buying = false,
+    restaurantId,
+    source,
     active = false,
+    onPaid,
 }: QrCodeMesaSalesModalProps) {
+    const [checkoutOpen, setCheckoutOpen] = useState(false);
+
+    useEffect(() => {
+        if (!open || active) setCheckoutOpen(false);
+    }, [open, active]);
+
+    const close = () => {
+        setCheckoutOpen(false);
+        onClose();
+    };
+
+    if (checkoutOpen) {
+        return (
+            <Modal
+                height={760}
+                open={open}
+                onClose={close}
+                className="max-w-4xl"
+                showCloseButton
+            >
+                <QrTablePaymentCheckout
+                    restaurantId={restaurantId}
+                    source={source}
+                    onBack={() => setCheckoutOpen(false)}
+                    onClose={close}
+                    onPaid={onPaid}
+                />
+            </Modal>
+        );
+    }
+
     return (
-        <Modal height={700}
+        <Modal
+            height={700}
             open={open}
-            onClose={onClose}
+            onClose={close}
             className="max-w-4xl"
             showCloseButton
         >
@@ -90,7 +127,7 @@ export default function QrCodeMesaSalesModal({
                         <div className="ml-auto flex flex-col items-end gap-1 pb-1">
                             <span className="inline-flex items-center gap-2 text-xs font-medium text-gray-600">
                                 <FontAwesomeIcon icon={faCreditCard} />
-                                Cobrança mensal no cartão
+                                Cartão ou Pix
                             </span>
                             <span className="inline-flex items-center gap-2 text-xs font-medium text-gray-500">
                                 <FontAwesomeIcon icon={faArrowRotateLeft} />
@@ -165,8 +202,8 @@ export default function QrCodeMesaSalesModal({
                         >
                             Termos do iMenu QR Code Mesa
                         </Link>{" "}
-                        e autoriza a cobrança recorrente de R$ 5,00/mês até o
-                        cancelamento.
+                        e a cobrança recorrente só é ativada se você escolher
+                        cartão.
                     </p>
                 )}
             </div>
@@ -184,15 +221,14 @@ export default function QrCodeMesaSalesModal({
                     />
                     <span>Está em dúvida? Fale conosco</span>
                 </a>
-                <Button type="button" variant="secondary" onClick={onClose}>
+                <Button type="button" variant="secondary" onClick={close}>
                     Agora não
                 </Button>
                 {!active && (
                     <Button
                         type="button"
                         variant="primary"
-                        loading={buying}
-                        onClick={onBuy}
+                        onClick={() => setCheckoutOpen(true)}
                         className="w-full sm:w-auto sm:min-w-64"
                     >
                         Continuar

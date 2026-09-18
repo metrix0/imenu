@@ -5,9 +5,7 @@ import { useEffect, useState } from "react";
 import MenuProductCards from "@/components/restaurant-owner/mesas/MenuProductCards";
 import QrCodeMesaSalesModal from "@/components/restaurant-owner/mesas/QrCodeMesaSalesModal";
 import Button from "@/components/ui/Button";
-import Toast from "@/components/ui/Toast";
 import { captureQrTableEvent } from "@/lib/qr-table/analytics";
-import { startQrTableCheckout } from "@/lib/qr-table/clientApi";
 
 export default function QrTableOnboardingSelection({
     restaurantId,
@@ -18,8 +16,6 @@ export default function QrTableOnboardingSelection({
 }) {
     const [qrSelected, setQrSelected] = useState(false);
     const [salesOpen, setSalesOpen] = useState(false);
-    const [submitting, setSubmitting] = useState(false);
-    const [toast, setToast] = useState<string | null>(null);
 
     useEffect(() => {
         void captureQrTableEvent("qr_code_mesa_onboarding_viewed", {
@@ -35,49 +31,30 @@ export default function QrTableOnboardingSelection({
         });
     };
 
-    const completeSelection = async (selectQr = qrSelected) => {
-        if (submitting) return;
-        setSubmitting(true);
-
-        try {
-            if (selectQr) {
-                setQrSelected(true);
-                void captureQrTableEvent("qr_code_mesa_onboarding_selected", {
-                    restaurant_id: restaurantId,
-                });
-                void captureQrTableEvent("qr_code_mesa_purchase_started", {
-                    restaurant_id: restaurantId,
-                    source: "onboarding",
-                });
-                await startQrTableCheckout(restaurantId, "onboarding");
-            }
-
-            onContinue();
-        } catch (error) {
-            setSubmitting(false);
-            setToast(
-                error instanceof Error
-                    ? error.message
-                    : "Não foi possível continuar."
-            );
+    const completeSelection = (selectQr = qrSelected) => {
+        if (selectQr) {
+            setQrSelected(true);
+            void captureQrTableEvent("qr_code_mesa_onboarding_selected", {
+                restaurant_id: restaurantId,
+            });
+            setSalesOpen(true);
+            return;
         }
+
+        onContinue();
     };
 
     return (
         <>
-            {toast && (
-                <Toast
-                    message={toast}
-                    type="error"
-                    onClose={() => setToast(null)}
-                />
-            )}
-
             <QrCodeMesaSalesModal
                 open={salesOpen}
                 onClose={() => setSalesOpen(false)}
-                onBuy={() => void completeSelection(true)}
-                buying={submitting}
+                restaurantId={restaurantId}
+                source="onboarding"
+                onPaid={() => {
+                    setSalesOpen(false);
+                    onContinue();
+                }}
             />
 
             <main className="mx-auto w-full max-w-6xl px-4 pb-32 pt-5 sm:px-6 sm:pt-10">
@@ -112,9 +89,8 @@ export default function QrTableOnboardingSelection({
                 <div className="mt-8 flex justify-end">
                     <Button
                         type="button"
-                        loading={submitting}
                         className="w-full px-8 py-3 sm:w-auto"
-                        onClick={() => void completeSelection()}
+                        onClick={() => completeSelection()}
                     >
                         {qrSelected
                             ? "Continuar para pagamento"

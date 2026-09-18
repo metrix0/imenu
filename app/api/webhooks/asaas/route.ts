@@ -165,6 +165,7 @@ async function activateAddon(
             UPDATE public.restaurant_addons
             SET
                 status = 'active',
+                payment_provider = 'asaas',
                 asaas_subscription_id = COALESCE(
                     NULLIF($1, ''),
                     asaas_subscription_id
@@ -192,7 +193,7 @@ async function processEvent(payload: AsaasWebhook): Promise<void> {
     let payment = payload.payment || null;
     let addon = await findAddon(checkoutId, payment);
 
-    if (!addon) return;
+    if (!addon || addon.payment_provider === "payzu") return;
 
     if (event === "CHECKOUT_PAID" && checkoutId) {
         try {

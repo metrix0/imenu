@@ -29,10 +29,7 @@ import Modal from "@/components/ui/Modal";
 import Toast from "@/components/ui/Toast";
 import { supabase } from "@/lib/database/supabaseClient";
 import { captureQrTableEvent } from "@/lib/qr-table/analytics";
-import {
-    startQrTableCheckout,
-    updateQrTableDesign,
-} from "@/lib/qr-table/clientApi";
+import { updateQrTableDesign } from "@/lib/qr-table/clientApi";
 import { downloadQrDesign } from "@/lib/qr-table/downloadQrDesign";
 import type { QrTableAddon } from "@/lib/qr-table/types";
 import { hasQrTableAccess } from "@/lib/qr-table/types";
@@ -77,7 +74,6 @@ export default function MesasPage() {
     const [tables, setTables] = useState<RestaurantTable[]>([]);
     const [loading, setLoading] = useState(true);
     const [salesOpen, setSalesOpen] = useState(false);
-    const [buying, setBuying] = useState(false);
     const [designOpen, setDesignOpen] = useState(false);
     const [savingDesign, setSavingDesign] = useState(false);
     const [editorOpen, setEditorOpen] = useState(false);
@@ -229,27 +225,6 @@ export default function MesasPage() {
             restaurant_id: restaurant?.id || null,
             source: "mesas",
         });
-    };
-
-    const buy = async () => {
-        if (!restaurant) return;
-        setBuying(true);
-        void captureQrTableEvent("qr_code_mesa_purchase_started", {
-            restaurant_id: restaurant.id,
-            source: "mesas",
-        });
-        try {
-            await startQrTableCheckout(restaurant.id, "mesas");
-        } catch (error) {
-            setBuying(false);
-            setToast({
-                message:
-                    error instanceof Error
-                        ? error.message
-                        : "Não foi possível abrir o pagamento.",
-                type: "error",
-            });
-        }
     };
 
     const saveDesign = async (
@@ -432,8 +407,16 @@ export default function MesasPage() {
             <QrCodeMesaSalesModal
                 open={salesOpen}
                 onClose={() => setSalesOpen(false)}
-                onBuy={() => void buy()}
-                buying={buying}
+                restaurantId={restaurant?.id || ""}
+                source="mesas"
+                onPaid={async () => {
+                    setSalesOpen(false);
+                    setToast({
+                        message: "Pagamento confirmado. QR Code Mesa ativado!",
+                        type: "success",
+                    });
+                    await loadData();
+                }}
                 active={active}
             />
 
