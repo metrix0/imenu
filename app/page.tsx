@@ -563,7 +563,7 @@ export default function LandingPage() {
                                 ["Taxa por Transação", "0.99% *apenas para PIX Online*", "5%, 15%, 30%"],
                                 ["Scan de Cardápio com IA", "Pronto em segundos", "Manual"],
                                 ["Dados para análise", "Clicks, Visualizações do Cardápio, $ médio do Carrinho, Clicks por Plataforma, etc", "Limitado"],
-                                ["Calcular Taxa de Entrega", "Pelo Raio", "Configurações confusas"],
+                                ["Calcular Taxa de Entrega", "Pelo Raio", "(KM) ou Bairro Configurações confusas"],
                                 ["Fotos em Alta qualidade", "check", "Baixa qualidade"],
                                 ["Customização de opcionais", "check", "Limitado"],
                                 ["Identidade visual personalizada", "check", "Limitado"],
