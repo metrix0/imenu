@@ -684,7 +684,7 @@ export default function LandingPage() {
 
                         <Button
                             onClick={() => router.push("/restaurante/registrar")}
-                            className="group mt-9 gap-3 !rounded-2xl !bg-white !px-6 !py-3 !text-base !font-medium !text-brand shadow-2xl shadow-orange-950/20 hover:!-translate-y-1 hover:!bg-orange-50 hover:!shadow-[0_24px_50px_-18px_rgba(92,28,5,0.65)] min-[1400px]:!px-8 min-[1400px]:!py-3.5 min-[1400px]:!text-lg 2xl:!px-9 2xl:!py-4 2xl:!text-2xl"
+                            className="group mt-9 gap-3 !rounded-2xl !bg-white !px-6 !py-3 !text-base !font-medium !text-brand !transition-all !duration-300 shadow-2xl shadow-orange-950/20 hover:!-translate-y-1 hover:!bg-orange-50 hover:!shadow-[0_24px_50px_-18px_rgba(92,28,5,0.65)] min-[1400px]:!px-8 min-[1400px]:!py-3.5 min-[1400px]:!text-lg 2xl:!px-9 2xl:!py-4 2xl:!text-2xl"
                         >
                             Criar meu cardápio grátis
                             <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand text-white transition-transform group-hover:translate-x-0.5 min-[1400px]:h-9 min-[1400px]:w-9 2xl:h-10 2xl:w-10">
