@@ -246,7 +246,7 @@ export default function QrTablePaymentCheckout({
                     </div>
                     {error && <p className="text-sm text-red-600">{error}</p>}
                 </div>
-                <div className="flex justify-end border-t border-gray-100 px-6 py-4 sm:px-8">
+                <div className="sticky bottom-0 z-20 flex justify-end border-t border-gray-100 bg-white px-6 py-4 sm:px-8">
                     <Button type="button" variant="secondary" onClick={onClose}>
                         Fechar
                     </Button>
@@ -299,14 +299,14 @@ export default function QrTablePaymentCheckout({
                                 setError(null);
                             }}
                             onCardChange={setCard}
-                            pixDescription="Pagamento único • acesso por 1 mês + 1 dia"
+                            pixDescription="Pagamento único • acesso por 1 mês"
                             cardDescription="Cobrança recorrente mensal • cancele quando quiser"
                         />
 
                         <p className="mt-5 text-xs leading-relaxed text-gray-500">
                             {paymentMethod === "credit_card"
                                 ? "Ao pagar, você autoriza a cobrança recorrente mensal de R$ 5,00 até o cancelamento."
-                                : "O Pix libera o acesso por 1 mês + 1 dia. Depois desse período, basta renovar pelo mesmo fluxo."}
+                                : "O Pix libera o acesso por 1 mês, você receberá uma notificação no iMenu e Whatsapp antes da assinatura expirar."}
                         </p>
                     </div>
 
@@ -326,7 +326,7 @@ export default function QrTablePaymentCheckout({
                                             iMenu QR Code Mesa
                                         </p>
                                         <p className="mt-0.5 text-xs text-gray-500">
-                                            1 unidade
+                                            30 dias (1 mês)
                                         </p>
                                     </div>
                                     <span className="shrink-0 font-medium text-gray-900">
@@ -371,7 +371,7 @@ export default function QrTablePaymentCheckout({
                 </div>
             </div>
 
-            <div className="flex shrink-0 flex-col gap-3 border-t border-gray-100 bg-white px-6 py-4 sm:flex-row sm:items-center sm:px-8 sm:py-5">
+            <div className="sticky bottom-0 z-20 flex shrink-0 flex-col gap-3 border-t border-gray-100 bg-white px-6 py-4 sm:flex-row sm:items-center sm:px-8 sm:py-5">
                 <div className="hidden sm:mr-auto sm:block">
                     <p className="text-xs text-gray-500">Total</p>
                     <p className="text-lg font-semibold text-gray-900">

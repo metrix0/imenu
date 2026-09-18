@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import {
     faArrowRotateLeft,
@@ -60,12 +60,46 @@ export default function QrCodeMesaSalesModal({
     onPaid,
 }: QrCodeMesaSalesModalProps) {
     const [checkoutOpen, setCheckoutOpen] = useState(false);
+    const [switching, setSwitching] = useState(false);
+    const transitionTimerRef = useRef<number | null>(null);
 
     useEffect(() => {
-        if (!open || active) setCheckoutOpen(false);
+        if (!open || active) {
+            if (transitionTimerRef.current !== null) {
+                window.clearTimeout(transitionTimerRef.current);
+                transitionTimerRef.current = null;
+            }
+            setCheckoutOpen(false);
+            setSwitching(false);
+        }
+
+        return () => {
+            if (transitionTimerRef.current !== null) {
+                window.clearTimeout(transitionTimerRef.current);
+                transitionTimerRef.current = null;
+            }
+        };
     }, [open, active]);
 
+    const transitionTo = (checkout: boolean) => {
+        if (transitionTimerRef.current !== null) {
+            window.clearTimeout(transitionTimerRef.current);
+        }
+
+        setSwitching(true);
+        transitionTimerRef.current = window.setTimeout(() => {
+            setCheckoutOpen(checkout);
+            transitionTimerRef.current = null;
+            window.requestAnimationFrame(() => setSwitching(false));
+        }, 140);
+    };
+
     const close = () => {
+        if (transitionTimerRef.current !== null) {
+            window.clearTimeout(transitionTimerRef.current);
+            transitionTimerRef.current = null;
+        }
+        setSwitching(false);
         setCheckoutOpen(false);
         onClose();
     };
@@ -79,13 +113,21 @@ export default function QrCodeMesaSalesModal({
                 className="max-w-4xl"
                 showCloseButton
             >
-                <QrTablePaymentCheckout
-                    restaurantId={restaurantId}
-                    source={source}
-                    onBack={() => setCheckoutOpen(false)}
-                    onClose={close}
-                    onPaid={onPaid}
-                />
+                <div
+                    className={`flex min-h-0 flex-1 flex-col transition-[opacity,transform] duration-150 ease-out ${
+                        switching
+                            ? "translate-y-1 opacity-0"
+                            : "translate-y-0 opacity-100"
+                    }`}
+                >
+                    <QrTablePaymentCheckout
+                        restaurantId={restaurantId}
+                        source={source}
+                        onBack={() => transitionTo(false)}
+                        onClose={close}
+                        onPaid={onPaid}
+                    />
+                </div>
             </Modal>
         );
     }
@@ -98,6 +140,13 @@ export default function QrCodeMesaSalesModal({
             className="max-w-4xl"
             showCloseButton
         >
+            <div
+                className={`transition-[opacity,transform] duration-150 ease-out ${
+                    switching
+                        ? "translate-y-1 opacity-0"
+                        : "translate-y-0 opacity-100"
+                }`}
+            >
             <div className="grid shrink-0 overflow-hidden md:grid-cols-[minmax(0,1fr)_300px]">
                 <div className="px-6 pb-1 pt-5 sm:px-8 sm:py-8">
                     <div className="relative h-12 w-56 max-w-full">
@@ -208,7 +257,7 @@ export default function QrCodeMesaSalesModal({
                 )}
             </div>
 
-            <div className="sticky bottom-0 z-20 flex shrink-0 flex-col gap-3 border-t border-gray-100 bg-white px-6 py-4 sm:static sm:flex-row sm:items-center sm:px-8 sm:py-5">
+            <div className="sticky bottom-0 z-20 flex shrink-0 flex-col gap-3 border-t border-gray-100 bg-white px-6 py-4 sm:flex-row sm:items-center sm:px-8 sm:py-5">
                 <a
                     href={SUPPORT_URL}
                     target="_blank"
@@ -228,12 +277,13 @@ export default function QrCodeMesaSalesModal({
                     <Button
                         type="button"
                         variant="primary"
-                        onClick={() => setCheckoutOpen(true)}
+                        onClick={() => transitionTo(true)}
                         className="w-full sm:w-auto sm:min-w-64"
                     >
                         Continuar
                     </Button>
                 )}
+            </div>
             </div>
         </Modal>
     );

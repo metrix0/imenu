@@ -86,6 +86,7 @@ export default function PaymentForm({
     ) => {
         onCardChange({ ...card, [field]: value });
     };
+    const cardDisabled = disabled || method !== "credit_card";
 
     return (
         <div>
@@ -119,15 +120,23 @@ export default function PaymentForm({
                 ]}
             />
 
-            {method === "credit_card" && (
-                <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            <div
+                aria-hidden={method !== "credit_card"}
+                className={`grid transition-[grid-template-rows,opacity,margin] duration-200 ease-out ${
+                    method === "credit_card"
+                        ? "mt-5 grid-rows-[1fr] opacity-100"
+                        : "mt-0 grid-rows-[0fr] opacity-0"
+                }`}
+            >
+                <div className="min-h-0 overflow-hidden">
+                <div className="grid gap-3 sm:grid-cols-2">
                     <div className="sm:col-span-2">
                         <Input
                             label="Número do cartão"
                             value={card.number}
                             inputMode="numeric"
                             autoComplete="cc-number"
-                            disabled={disabled}
+                            disabled={cardDisabled}
                             onChange={(event) =>
                                 updateCard(
                                     "number",
@@ -141,7 +150,7 @@ export default function PaymentForm({
                             label="Nome no cartão"
                             value={card.holderName}
                             autoComplete="cc-name"
-                            disabled={disabled}
+                            disabled={cardDisabled}
                             onChange={(event) =>
                                 updateCard(
                                     "holderName",
@@ -156,7 +165,7 @@ export default function PaymentForm({
                         value={card.expiry}
                         inputMode="numeric"
                         autoComplete="cc-exp"
-                        disabled={disabled}
+                        disabled={cardDisabled}
                         onChange={(event) =>
                             updateCard(
                                 "expiry",
@@ -170,7 +179,7 @@ export default function PaymentForm({
                         inputMode="numeric"
                         autoComplete="cc-csc"
                         maxLength={4}
-                        disabled={disabled}
+                        disabled={cardDisabled}
                         onChange={(event) =>
                             updateCard(
                                 "ccv",
@@ -183,7 +192,7 @@ export default function PaymentForm({
                         value={card.cpfCnpj}
                         inputMode="numeric"
                         autoComplete="off"
-                        disabled={disabled}
+                        disabled={cardDisabled}
                         onChange={(event) =>
                             updateCard(
                                 "cpfCnpj",
@@ -196,7 +205,7 @@ export default function PaymentForm({
                         value={card.mobilePhone}
                         inputMode="tel"
                         autoComplete="tel"
-                        disabled={disabled}
+                        disabled={cardDisabled}
                         onChange={(event) =>
                             updateCard(
                                 "mobilePhone",
@@ -210,7 +219,7 @@ export default function PaymentForm({
                             type="email"
                             value={card.email}
                             autoComplete="email"
-                            disabled={disabled}
+                            disabled={cardDisabled}
                             onChange={(event) =>
                                 updateCard("email", event.target.value)
                             }
@@ -221,7 +230,7 @@ export default function PaymentForm({
                         value={card.postalCode}
                         inputMode="numeric"
                         autoComplete="postal-code"
-                        disabled={disabled}
+                        disabled={cardDisabled}
                         onChange={(event) =>
                             updateCard(
                                 "postalCode",
@@ -233,7 +242,7 @@ export default function PaymentForm({
                         label="Número"
                         value={card.addressNumber}
                         autoComplete="address-line2"
-                        disabled={disabled}
+                        disabled={cardDisabled}
                         onChange={(event) =>
                             updateCard("addressNumber", event.target.value)
                         }
@@ -243,7 +252,7 @@ export default function PaymentForm({
                             label="Complemento"
                             value={card.addressComplement}
                             autoComplete="off"
-                            disabled={disabled}
+                            disabled={cardDisabled}
                             onChange={(event) =>
                                 updateCard(
                                     "addressComplement",
@@ -253,7 +262,8 @@ export default function PaymentForm({
                         />
                     </div>
                 </div>
-            )}
+                </div>
+            </div>
 
             {error && (
                 <p className="mt-5 rounded-[8px] bg-red-50 px-4 py-3 text-sm text-red-700">
