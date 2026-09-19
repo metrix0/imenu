@@ -58,6 +58,7 @@ type AutomationRun = {
     gross_cents: number | null;
     payzu_fee_cents: number | null;
     discount_cents: number | null;
+    paid_profit_cents: number;
     payout_cents: number | null;
     difference_cents: number | null;
     restaurant_count: number;
@@ -682,7 +683,9 @@ export default function DevPayoutPage() {
                                 const finalProfitCents =
                                     run.status === "completed"
                                         ? run.discount_cents
-                                        : null;
+                                        : run.status === "partial"
+                                          ? run.paid_profit_cents
+                                          : null;
 
                                 return (
                                     <tr key={run.id}>

@@ -765,9 +765,25 @@ export async function getPayoutDashboardData() {
         ),
         query(
             `
-            SELECT *
-            FROM public.payout_automation_runs
-            ORDER BY run_date DESC, started_at DESC
+            SELECT
+                run.*,
+                paid.paid_profit_cents
+            FROM public.payout_automation_runs run
+            LEFT JOIN LATERAL (
+                SELECT
+                    COALESCE(
+                        SUM(
+                            p.gross_cents -
+                            p.amount_cents -
+                            COALESCE(p.payzu_fee_cents, 0)
+                        ),
+                        0
+                    )::integer AS paid_profit_cents
+                FROM public.payouts p
+                WHERE p.automation_run_id = run.id
+                  AND p.status = 'paid'
+            ) paid ON TRUE
+            ORDER BY run.run_date DESC, run.started_at DESC
             LIMIT 90
             `
         ),
