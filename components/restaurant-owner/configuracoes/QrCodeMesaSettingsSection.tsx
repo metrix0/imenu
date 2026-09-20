@@ -146,7 +146,7 @@ export default function QrCodeMesaSettingsSection({
     const [loading, setLoading] = useState(true);
     const [salesOpen, setSalesOpen] = useState(false);
     const [renewing, setRenewing] = useState(false);
-    const [cancelOpen, setCancelOpen] = useState(false);
+    const [cancelAddonId, setCancelAddonId] = useState<string | null>(null);
     const [canceling, setCanceling] = useState(false);
     const [toast, setToast] = useState<{
         message: string;
@@ -224,13 +224,18 @@ export default function QrCodeMesaSettingsSection({
     };
 
     const cancelSubscription = async () => {
+        if (!cancelAddonId) return;
+
         setCanceling(true);
         try {
             const response = await qrTableAuthenticatedFetch(
-                "/api/qr-table/subscription",
+                "/api/addons/subscription",
                 {
                     method: "DELETE",
-                    body: JSON.stringify({ restaurantId }),
+                    body: JSON.stringify({
+                        restaurantId,
+                        addonId: cancelAddonId,
+                    }),
                 }
             );
             const payload = (await response.json()) as { error?: string };
@@ -240,7 +245,7 @@ export default function QrCodeMesaSettingsSection({
                 );
             }
 
-            setCancelOpen(false);
+            setCancelAddonId(null);
             setToast({
                 message: "Assinatura cancelada.",
                 type: "success",
@@ -265,6 +270,9 @@ export default function QrCodeMesaSettingsSection({
         ) || null;
     const addon = qrBilling?.addon || null;
     const active = qrBilling?.active === true;
+    const cancelBilling =
+        billing?.addons.find((item) => item.addon.id === cancelAddonId) || null;
+    const cancelAddon = cancelBilling?.addon || null;
 
     return (
         <>
@@ -297,20 +305,20 @@ export default function QrCodeMesaSettingsSection({
             />
 
             <ConfirmModal
-                open={cancelOpen}
-                onClose={() => setCancelOpen(false)}
+                open={Boolean(cancelAddonId)}
+                onClose={() => setCancelAddonId(null)}
                 onConfirm={() => void cancelSubscription()}
                 title={
-                    addon
-                        ? `Cancelar ${addonProductName(addon.product_key)}?`
-                        : "Cancelar adicional?"
+                    cancelAddon
+                        ? `Descadastrar ${addonProductName(cancelAddon.product_key)}?`
+                        : "Descadastrar adicional?"
                 }
                 description={
-                    addon?.current_period_ends_at
-                        ? `As próximas cobranças serão canceladas. O acesso atual continua até ${formatDate(addon.current_period_ends_at)} e o histórico de pagamentos será mantido.`
-                        : "As próximas cobranças serão canceladas e o histórico de pagamentos será mantido."
+                    cancelAddon?.current_period_ends_at
+                        ? `A assinatura será cancelada. O acesso atual continua até ${formatDate(cancelAddon.current_period_ends_at)} e o histórico de pagamentos será mantido.`
+                        : "A assinatura será cancelada e o histórico de pagamentos será mantido."
                 }
-                confirmLabel="Cancelar cobrança"
+                confirmLabel="Descadastrar"
                 isLoading={canceling}
                 variant="danger"
             />
@@ -359,10 +367,9 @@ export default function QrCodeMesaSettingsSection({
                             const itemCanRenew =
                                 isQrCodeMesa && isPayZuPrepaid(itemAddon);
                             const itemCanCancel =
-                                isQrCodeMesa &&
                                 itemActive &&
                                 itemAddon.status !== "canceled" &&
-                                !isPayZuPrepaid(itemAddon);
+                                itemAddon.payment_provider === "asaas";
 
                             return (
                                 <section
@@ -381,15 +388,6 @@ export default function QrCodeMesaSettingsSection({
                                             </p>
                                         </div>
                                         <div className="flex flex-wrap items-center gap-2">
-                                            {itemCanRenew && (
-                                                <Button
-                                                    type="button"
-                                                    variant="primary"
-                                                    onClick={openRenewal}
-                                                >
-                                                    Renovar
-                                                </Button>
-                                            )}
                                             <span
                                                 className={`w-fit rounded-full px-3 py-1 text-xs font-semibold ${
                                                     itemActive
@@ -402,6 +400,28 @@ export default function QrCodeMesaSettingsSection({
                                                     itemActive
                                                 )}
                                             </span>
+                                            {itemCanRenew && (
+                                                <Button
+                                                    type="button"
+                                                    variant="primary"
+                                                    onClick={openRenewal}
+                                                >
+                                                    Renovar
+                                                </Button>
+                                            )}
+                                            {itemCanCancel && (
+                                                <Button
+                                                    type="button"
+                                                    variant="secondary"
+                                                    onClick={() =>
+                                                        setCancelAddonId(
+                                                            itemAddon.id
+                                                        )
+                                                    }
+                                                >
+                                                    Descadastrar do plano
+                                                </Button>
+                                            )}
                                         </div>
                                     </div>
 
@@ -515,18 +535,6 @@ export default function QrCodeMesaSettingsSection({
                                         )}
                                     </div>
 
-                                    {itemCanCancel && (
-                                        <div className="mt-5 flex justify-end border-t border-gray-100 pt-4">
-                                            <Button
-                                                type="button"
-                                                variant="secondary"
-                                                className="bg-transparent px-0 py-0 text-sm text-red-600 hover:bg-transparent hover:text-red-700 focus:ring-red-200 2xl:px-0 2xl:py-0 2xl:text-sm"
-                                                onClick={() => setCancelOpen(true)}
-                                            >
-                                                Descadastrar do plano
-                                            </Button>
-                                        </div>
-                                    )}
                                 </section>
                             );
                         })}
