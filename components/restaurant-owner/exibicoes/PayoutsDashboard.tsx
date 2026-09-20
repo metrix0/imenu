@@ -321,7 +321,7 @@ export default function PayoutsDashboard({
                                         <span className="inline-flex items-center justify-end gap-1.5">
                                             Taxa Pix (0,99%)
                                             <Tooltip
-                                                text="Taxas de processamento são comuns em sistemas de pagamento online. No Pix Online do iMenu, esta taxa é de 0,99% sobre o valor processado."
+                                                text="A taxa de 0.99% é para processar pagamentos Pix, e é comum em outros sistemas de cardápios digitais."
                                                 size="medium"
                                                 showOnClick
                                                 parentClassName="shrink-0 leading-none"
