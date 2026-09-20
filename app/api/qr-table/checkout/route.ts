@@ -7,7 +7,7 @@ import {
 } from "@/lib/auth/restaurantOwner";
 import { query } from "@/lib/database/sql";
 import {
-    isCreditCardPaymentDataComplete,
+    getCreditCardPaymentDataError,
     type CreditCardPaymentData,
 } from "@/lib/payments/types";
 import {
@@ -272,17 +272,16 @@ export async function POST(request: Request) {
                 { status: 400 }
             );
         }
-        if (
-            paymentMethod === "credit_card" &&
-            (!body.card || !isCreditCardPaymentDataComplete(body.card))
-        ) {
-            return NextResponse.json(
-                {
-                    error:
-                        "Preencha os dados do cartão e do titular corretamente.",
-                },
-                { status: 400 }
-            );
+        if (paymentMethod === "credit_card") {
+            const validationError = body.card
+                ? getCreditCardPaymentDataError(body.card)
+                : "Preencha os dados do cartão.";
+            if (validationError) {
+                return NextResponse.json(
+                    { error: validationError },
+                    { status: 400 }
+                );
+            }
         }
 
         await requireRestaurantOwner(request, restaurantId);
@@ -369,7 +368,7 @@ export async function POST(request: Request) {
             restaurantId,
             card
         );
-        const expiry = card.expiry.match(/^(\d{2})\/(\d{4})$/);
+        const expiry = card.expiry.trim().match(/^(\d{2})\/(\d{2}|\d{4})$/);
         if (!expiry) {
             return NextResponse.json(
                 { error: "Validade do cartão inválida." },
@@ -393,7 +392,10 @@ export async function POST(request: Request) {
                         holderName: card.holderName.trim(),
                         number: digits(card.number),
                         expiryMonth: expiry[1],
-                        expiryYear: expiry[2],
+                        expiryYear:
+                            expiry[2].length === 2
+                                ? `20${expiry[2]}`
+                                : expiry[2],
                         ccv: digits(card.ccv),
                     },
                     creditCardHolderInfo: {

@@ -13,7 +13,7 @@ import Button from "@/components/ui/Button";
 import Loader from "@/components/ui/Loader";
 import {
     EMPTY_CREDIT_CARD_PAYMENT_DATA,
-    isCreditCardPaymentDataComplete,
+    getCreditCardPaymentDataError,
     type CreditCardPaymentData,
     type OnlinePaymentMethod,
 } from "@/lib/payments/types";
@@ -62,11 +62,22 @@ function normalizeOwnerPhone(value: unknown): string {
         digits = digits.slice(2);
     }
 
-    return digits.slice(0, 11);
+    digits = digits.slice(0, 11);
+    if (digits.length <= 2) return digits;
+    if (digits.length <= 6) {
+        return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+    }
+    if (digits.length <= 10) {
+        return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+    }
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
 }
 
 function normalizePostalCode(value: unknown): string {
-    return textValue(value).replace(/\D/g, "").slice(0, 8);
+    const digits = textValue(value).replace(/\D/g, "").slice(0, 8);
+    return digits.length > 5
+        ? `${digits.slice(0, 5)}-${digits.slice(5)}`
+        : digits;
 }
 
 export default function QrTablePaymentCheckout({
@@ -209,12 +220,12 @@ export default function QrTablePaymentCheckout({
             return;
         }
 
-        if (
-            paymentMethod === "credit_card" &&
-            !isCreditCardPaymentDataComplete(card)
-        ) {
-            setError("Preencha os dados do cartão e do titular corretamente.");
-            return;
+        if (paymentMethod === "credit_card") {
+            const validationError = getCreditCardPaymentDataError(card);
+            if (validationError) {
+                setError(validationError);
+                return;
+            }
         }
 
         setProcessing(true);
