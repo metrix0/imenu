@@ -523,7 +523,7 @@ export default function QrCodeMesaSettingsSection({
                                                 className="bg-transparent px-0 py-0 text-sm text-red-600 hover:bg-transparent hover:text-red-700 focus:ring-red-200 2xl:px-0 2xl:py-0 2xl:text-sm"
                                                 onClick={() => setCancelOpen(true)}
                                             >
-                                                Cancelar cobrança recorrente
+                                                Descadastrar do plano
                                             </Button>
                                         </div>
                                     )}
