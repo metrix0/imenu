@@ -35,6 +35,8 @@ type WahaLidResponse = {
 
 const WAHA_SEND_TIMEOUT_MS = 5_000;
 
+export const SUPPORT_WAHA_SESSION_NAME = "imenu-support";
+
 class WahaHttpError extends Error {
     status: number;
     responseBody: string;
@@ -123,11 +125,17 @@ async function wahaRequest<T>(
     return parseResponse<T>(response);
 }
 
-function sessionConfig(restaurantId: string) {
+function getSupportPublicUrl(): string {
+    const configured = process.env.IMENU_SUPPORT_PUBLIC_URL?.trim();
+    return configured ? configured.replace(/\/+$/, "") : getIMenuPublicUrl();
+}
+
+function sessionConfig(
+    metadata: Record<string, string>,
+    publicUrl = getIMenuPublicUrl()
+) {
     return {
-        metadata: {
-            restaurant_id: restaurantId,
-        },
+        metadata,
         ignore: {
             status: true,
             groups: true,
@@ -136,12 +144,8 @@ function sessionConfig(restaurantId: string) {
         },
         webhooks: [
             {
-                url: `${getIMenuPublicUrl()}/api/webhooks/waha`,
-                events: [
-                    "message",
-                    "message.any",
-                    "session.status",
-                ],
+                url: `${publicUrl}/api/webhooks/waha`,
+                events: ["message", "message.any", "session.status"],
                 hmac: {
                     key: getWahaWebhookHmacKey(),
                 },
@@ -154,7 +158,6 @@ function sessionConfig(restaurantId: string) {
         ],
     };
 }
-
 export async function getWahaSession(
     sessionName: string
 ): Promise<WahaSession | null> {
@@ -170,12 +173,11 @@ export async function getWahaSession(
     }
 }
 
-export async function ensureWahaSession(
-    restaurantId: string,
-    sessionName: string
+async function ensureWahaSessionWithConfig(
+    sessionName: string,
+    config: Record<string, unknown>
 ): Promise<WahaSession> {
     const existing = await getWahaSession(sessionName);
-    const config = sessionConfig(restaurantId);
 
     if (!existing) {
         return wahaRequest<WahaSession>("/api/sessions", {
@@ -188,9 +190,8 @@ export async function ensureWahaSession(
         });
     }
 
-    // Never update a healthy running session during a status check or a
-    // repeated connect request. Updating the GOWS session config can restart it
-    // and make an already linked account return to QR mode.
+    // Never update a healthy restaurant session during a status check or
+    // repeated connect request. Updating GOWS config can restart it.
     if (existing.status === "WORKING") {
         return existing;
     }
@@ -211,6 +212,24 @@ export async function ensureWahaSession(
         : updated;
 }
 
+export async function ensureWahaSession(
+    restaurantId: string,
+    sessionName: string
+): Promise<WahaSession> {
+    return ensureWahaSessionWithConfig(
+        sessionName,
+        sessionConfig({ restaurant_id: restaurantId })
+    );
+}
+
+export async function ensureWahaSupportSession(
+    sessionName = SUPPORT_WAHA_SESSION_NAME
+): Promise<WahaSession> {
+    return ensureWahaSessionWithConfig(
+        sessionName,
+        sessionConfig({ support: "true" }, getSupportPublicUrl())
+    );
+}
 export async function startWahaSession(
     sessionName: string
 ): Promise<WahaSession> {
@@ -339,6 +358,20 @@ async function getPhoneChatIdForLid(
     }
 }
 
+export async function resolveWahaChatPhone(
+    sessionName: string,
+    chatId: string
+): Promise<string | null> {
+    const resolvedChatId = chatId.endsWith("@lid")
+        ? await getPhoneChatIdForLid(sessionName, chatId)
+        : chatId;
+
+    if (!resolvedChatId) return null;
+    const digits = String(resolvedChatId)
+        .split("@")[0]
+        .replace(/\D/g, "");
+    return digits || null;
+}
 export async function sendWahaList(
     sessionName: string,
     chatId: string,
