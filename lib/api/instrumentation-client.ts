@@ -43,3 +43,38 @@ export function getPosthog(): Promise<PosthogClient | null> {
 
     return posthogPromise;
 }
+
+
+type LightweightPosthogProperty = string | number | boolean | null;
+
+export function capturePosthogLightweight(
+    event: string,
+    distinctId: string,
+    properties: Record<string, LightweightPosthogProperty> = {}
+): void {
+    if (typeof window === "undefined") return;
+
+    const rawHost = process.env.NEXT_PUBLIC_POSTHOG_HOST?.trim();
+    const key = process.env.NEXT_PUBLIC_POSTHOG_KEY?.trim();
+
+    if (!rawHost || !key) return;
+
+    const host = rawHost.replace(/\/+$/, "");
+
+    void fetch(`${host}/i/v0/e/`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+            api_key: key,
+            event,
+            properties: {
+                distinct_id: distinctId,
+                ...properties,
+            },
+        }),
+        credentials: "omit",
+        keepalive: true,
+    }).catch(() => undefined);
+}

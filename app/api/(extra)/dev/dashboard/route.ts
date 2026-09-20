@@ -72,6 +72,16 @@ type PostHogMetrics = {
     blogViews: number | null;
 };
 
+type PanelTabUsage = {
+    available: boolean;
+    totalOpens: number;
+    tabs: Array<{
+        tab: string;
+        opens: number;
+        percentage: number;
+    }>;
+};
+
 type SeoTrafficMetrics = {
     available: boolean;
     pages: Array<{
@@ -531,6 +541,89 @@ async function loadPostHogMetrics(
     }
 }
 
+async function loadPostHogPanelTabUsage(
+    startAt: number,
+    endAt: number
+): Promise<PanelTabUsage> {
+    const personalApiKey = process.env.POSTHOG_PERSONAL_API_KEY?.trim();
+    const projectId = process.env.POSTHOG_PROJECT_ID?.trim();
+    const rawHost =
+        process.env.POSTHOG_API_HOST?.trim() ||
+        process.env.NEXT_PUBLIC_POSTHOG_HOST?.trim();
+
+    if (!personalApiKey || !projectId || !rawHost) {
+        return { available: false, totalOpens: 0, tabs: [] };
+    }
+
+    const start = new Date(startAt).toISOString();
+    const end = new Date(endAt).toISOString();
+    const hogql = `
+        SELECT
+            toString(properties.tab) AS tab,
+            count() AS opens
+        FROM events
+        WHERE timestamp >= parseDateTimeBestEffort('${start}')
+          AND timestamp < parseDateTimeBestEffort('${end}')
+          AND event = 'panel_tab_opened'
+          AND notEmpty(toString(properties.tab))
+        GROUP BY tab
+        ORDER BY opens DESC, tab ASC
+        LIMIT 50
+    `;
+
+    try {
+        const response = await fetch(
+            `${postHogApiHost(rawHost)}/api/projects/${encodeURIComponent(
+                projectId
+            )}/query/`,
+            {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${personalApiKey}`,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    query: {
+                        kind: "HogQLQuery",
+                        query: hogql,
+                    },
+                }),
+                signal: AbortSignal.timeout(15_000),
+                cache: "no-store",
+            }
+        );
+
+        if (!response.ok) {
+            throw new Error(`PostHog query failed with ${response.status}.`);
+        }
+
+        const payload = (await response.json()) as { results?: unknown[][] };
+        const rows = payload.results || [];
+        const tabs = rows
+            .map((row) => ({
+                tab: String(row[0] || ""),
+                opens: Number(row[1]) || 0,
+            }))
+            .filter((item) => item.tab && item.opens > 0);
+        const totalOpens = tabs.reduce((sum, item) => sum + item.opens, 0);
+
+        return {
+            available: true,
+            totalOpens,
+            tabs: tabs.map((item) => ({
+                ...item,
+                percentage:
+                    totalOpens > 0
+                        ? Number(((item.opens / totalOpens) * 100).toFixed(1))
+                        : 0,
+            })),
+        };
+    } catch (error) {
+        console.warn("[DEV_DASHBOARD] Panel tab usage unavailable:", error);
+        return { available: false, totalOpens: 0, tabs: [] };
+    }
+}
+
 async function loadPostHogSeoTraffic(
     startAt: number,
     endAt: number
@@ -816,6 +909,7 @@ export async function GET(request: Request) {
         const [
             onboardingResult,
             postHog,
+            panelTabUsage,
             consumerTracking,
             consumerTimeline,
             seoTraffic,
@@ -856,6 +950,7 @@ export async function GET(request: Request) {
                     [startIso, endIso]
                 ),
                 loadPostHogMetrics(startAt, endAt),
+                loadPostHogPanelTabUsage(startAt, endAt),
                 loadPostHogConsumerMetrics(startAt, endAt),
                 loadPostHogConsumerTimeline(buckets),
                 loadPostHogSeoTraffic(startAt, endAt),
@@ -1242,6 +1337,7 @@ export async function GET(request: Request) {
                     postHogAvailable: postHog.available,
                     blogViews: postHog.blogViews,
                 },
+                panelTabs: panelTabUsage,
                 traffic: seoTraffic,
                 generatedAt: new Date().toISOString(),
             },
