@@ -17,6 +17,7 @@ import {
     type CreditCardPaymentData,
     type OnlinePaymentMethod,
 } from "@/lib/payments/types";
+import { supabase } from "@/lib/database/supabaseClient";
 import { captureQrTableEvent } from "@/lib/qr-table/analytics";
 import {
     reconcileQrTableCheckout,
@@ -48,6 +49,25 @@ const FAILED_PAYMENT_STATUSES = new Set([
     "REFUSED",
     "VOIDED",
 ]);
+
+function textValue(value: unknown): string {
+    if (value === null || value === undefined) return "";
+    return String(value).trim();
+}
+
+function normalizeOwnerPhone(value: unknown): string {
+    let digits = textValue(value).replace(/\D/g, "");
+
+    if (digits.startsWith("55") && digits.length >= 12) {
+        digits = digits.slice(2);
+    }
+
+    return digits.slice(0, 11);
+}
+
+function normalizePostalCode(value: unknown): string {
+    return textValue(value).replace(/\D/g, "").slice(0, 8);
+}
 
 export default function QrTablePaymentCheckout({
     restaurantId,
@@ -88,6 +108,56 @@ export default function QrTablePaymentCheckout({
         }
         window.location.reload();
     }, [onPaid]);
+
+    useEffect(() => {
+        if (!restaurantId) return;
+
+        let disposed = false;
+
+        void (async () => {
+            const [
+                {
+                    data: { user },
+                },
+                { data: restaurant },
+            ] = await Promise.all([
+                supabase.auth.getUser(),
+                supabase
+                    .from("restaurants")
+                    .select("address")
+                    .eq("id", restaurantId)
+                    .maybeSingle(),
+            ]);
+
+            if (disposed) return;
+
+            const address =
+                restaurant?.address &&
+                typeof restaurant.address === "object" &&
+                !Array.isArray(restaurant.address)
+                    ? (restaurant.address as Record<string, unknown>)
+                    : {};
+            const ownerPhone =
+                user?.user_metadata?.phone ?? user?.phone ?? "";
+
+            setCard((current) => ({
+                ...current,
+                email: current.email || user?.email || "",
+                mobilePhone:
+                    current.mobilePhone || normalizeOwnerPhone(ownerPhone),
+                postalCode:
+                    current.postalCode || normalizePostalCode(address.cep),
+                addressNumber:
+                    current.addressNumber || textValue(address.number),
+                addressComplement:
+                    current.addressComplement || textValue(address.complement),
+            }));
+        })();
+
+        return () => {
+            disposed = true;
+        };
+    }, [restaurantId]);
 
     useEffect(() => {
         if (!awaitingConfirmation || !restaurantId) return;

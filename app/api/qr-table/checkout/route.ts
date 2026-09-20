@@ -306,7 +306,7 @@ export async function POST(request: Request) {
                 ((await createPayZuPixCharge({
                     amount: QR_TABLE_PRICE_CENTS / 100,
                     callbackUrl: `${origin}/api/webhooks/payzu`,
-                    clientReference: `qr-table:${addon.id}:${randomUUID()}`,
+                    clientReference: `qr-table:${addon.id}:${randomUUID().slice(0, 8)}`,
                 })) as PayZuPixWithPaidAt);
 
             if (!payment.id) {
