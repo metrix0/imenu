@@ -1,12 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { faCircleInfo } from "@fortawesome/free-solid-svg-icons";
 
 import { supabase } from "@/lib/database/supabaseClient";
 import { calculateOnePercentPayout } from "@/lib/services/payoutSafety";
 import Card from "@/components/ui/Card";
 import ListLoader from "@/components/ui/ListLoader";
 import Pagination from "@/components/ui/Pagination";
+import Tooltip from "@/components/ui/Tooltip";
+import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 
 const PAGE_SIZE = 5;
 const BUSINESS_TIME_ZONE = "America/Sao_Paulo";
@@ -314,7 +317,28 @@ export default function PayoutsDashboard({
                                     <th className="px-3 py-3">Data e hora</th>
                                     <th className="px-3 py-3 text-right">Pedidos</th>
                                     <th className="px-3 py-3 text-right">Valor bruto</th>
-                                    <th className="px-3 py-3 text-right">Taxas/descontos</th>
+                                    <th className="px-3 py-3 text-right">
+                                        <span className="inline-flex items-center justify-end gap-1.5">
+                                            Taxa Pix (0,99%)
+                                            <Tooltip
+                                                text="Taxas de processamento são comuns em sistemas de pagamento online. No Pix Online do iMenu, esta taxa é de 0,99% sobre o valor processado."
+                                                size="medium"
+                                                showOnClick
+                                                parentClassName="shrink-0 leading-none"
+                                            >
+                                                <button
+                                                    type="button"
+                                                    aria-label="Mais informações sobre a Taxa Pix"
+                                                    className="inline-flex h-4 w-4 items-center justify-center text-gray-500 transition-colors hover:text-gray-700"
+                                                >
+                                                    <FontAwesomeIcon
+                                                        icon={faCircleInfo}
+                                                        className="text-[13px]"
+                                                    />
+                                                </button>
+                                            </Tooltip>
+                                        </span>
+                                    </th>
                                     <th className="px-3 py-3 text-right">Valor repassado</th>
                                 </tr>
                             </thead>
