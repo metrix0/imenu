@@ -236,6 +236,8 @@ export default function DevPayoutPage() {
     const [manualAmounts, setManualAmounts] = useState<Record<string, string>>({});
     const [loading, setLoading] = useState(true);
     const [sending, setSending] = useState(false);
+    const [sendRestaurantId, setSendRestaurantId] = useState<string | null>(null);
+    const [retryingPayoutId, setRetryingPayoutId] = useState<string | null>(null);
     const [transferringPayzu, setTransferringPayzu] = useState(false);
     const [savingPixTypeId, setSavingPixTypeId] = useState<string | null>(null);
     const [error, setError] = useState("");
@@ -367,6 +369,7 @@ export default function DevPayoutPage() {
 
     const payables = data?.payables || [];
     const history = data?.history || [];
+    const failedHistory = history.filter((item) => item.status === "failed");
     const automationRuns = data?.automationRuns || [];
     const historyPageCount = Math.max(1, Math.ceil(history.length / HISTORY_PAGE_SIZE));
     const currentHistoryPage = Math.min(historyPage, historyPageCount);
@@ -407,12 +410,13 @@ export default function DevPayoutPage() {
         return parseAmountInput(manual) ?? 0;
     };
 
-    const invalidManualAmounts = sendable.some((item) => {
+    const hasInvalidManualAmount = (item: Payable) => {
         const manual = manualAmounts[item.restaurantId];
         if (manual === undefined) return false;
         const cents = parseAmountInput(manual);
         return cents === null || cents <= 0 || cents > item.grossCents;
-    });
+    };
+    const invalidManualAmounts = sendable.some(hasInvalidManualAmount);
 
     const grossOwedCents = payables.reduce(
         (sum, item) => sum + item.grossCents,
@@ -433,6 +437,13 @@ export default function DevPayoutPage() {
     );
 
     const netSendableCents = sendable.reduce(
+        (sum, item) => sum + getSendCents(item),
+        0
+    );
+    const confirmSendable = sendRestaurantId
+        ? sendable.filter((item) => item.restaurantId === sendRestaurantId)
+        : sendable;
+    const confirmNetSendableCents = confirmSendable.reduce(
         (sum, item) => sum + getSendCents(item),
         0
     );
@@ -551,11 +562,14 @@ export default function DevPayoutPage() {
                     discountPercent: numericDiscount,
                     adjustToOnePercent: onePercentNet,
                     amounts: Object.fromEntries(
-                        sendable.map((item) => [
+                        confirmSendable.map((item) => [
                             item.restaurantId,
                             getSendCents(item),
                         ])
                     ),
+                    restaurantIds: sendRestaurantId
+                        ? [sendRestaurantId]
+                        : undefined,
                 }),
             });
             const payload = await response.json();
@@ -568,6 +582,7 @@ export default function DevPayoutPage() {
 
             setLastResult(payload as SendResult);
             setConfirmOpen(false);
+            setSendRestaurantId(null);
             await loadDashboard();
         } catch (caught) {
             setError(
@@ -577,6 +592,46 @@ export default function DevPayoutPage() {
             );
         } finally {
             setSending(false);
+        }
+    };
+
+    const handleRetryPayout = async (payoutId: string) => {
+        setRetryingPayoutId(payoutId);
+        setError("");
+        setLastResult(null);
+
+        try {
+            const {
+                data: { session },
+            } = await supabase.auth.getSession();
+            if (!session?.access_token) {
+                setAccessState("signed-out");
+                return;
+            }
+
+            const response = await fetch("/api/dev/payout", {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${session.access_token}`,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ retryPayoutId: payoutId }),
+            });
+            const payload = await response.json();
+            if (!response.ok) {
+                throw new Error(payload.error || "Falha ao reenviar repasse.");
+            }
+
+            setLastResult(payload as SendResult);
+            await loadDashboard();
+        } catch (caught) {
+            setError(
+                caught instanceof Error
+                    ? caught.message
+                    : "Falha ao reenviar repasse."
+            );
+        } finally {
+            setRetryingPayoutId(null);
         }
     };
 
@@ -906,7 +961,10 @@ export default function DevPayoutPage() {
                                 : "Ajustar p/ 1% líquido"}
                         </Button>
                         <Button
-                            onClick={() => setConfirmOpen(true)}
+                            onClick={() => {
+                                setSendRestaurantId(null);
+                                setConfirmOpen(true);
+                            }}
                             disabled={
                                 sending ||
                                 transferringPayzu ||
@@ -959,6 +1017,7 @@ export default function DevPayoutPage() {
                                 <th className="px-3 py-3 text-right">PayZu</th>
                                 <th className="px-3 py-3 text-right">Desconto</th>
                                 <th className="px-3 py-3 text-right">Enviar</th>
+                                <th className="px-3 py-3 text-right">Ação</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
@@ -1039,13 +1098,136 @@ export default function DevPayoutPage() {
                                                 "—"
                                             )}
                                         </td>
+                                        <td className="px-3 py-4 text-right">
+                                            {item.canSend ? (
+                                                <Button
+                                                    variant="secondary"
+                                                    disabled={
+                                                        sending ||
+                                                        transferringPayzu ||
+                                                        !data?.asaasConfigured ||
+                                                        hasInvalidManualAmount(item) ||
+                                                        (!onePercentNet &&
+                                                            (numericDiscount < 0 ||
+                                                                numericDiscount > 100))
+                                                    }
+                                                    onClick={() => {
+                                                        setSendRestaurantId(item.restaurantId);
+                                                        setConfirmOpen(true);
+                                                    }}
+                                                    className="px-3 py-1.5 text-xs"
+                                                >
+                                                    Enviar
+                                                </Button>
+                                            ) : (
+                                                "—"
+                                            )}
+                                        </td>
                                     </tr>
                                 );
                             })}
                             {payables.length === 0 && (
                                 <tr>
-                                    <td colSpan={7} className="px-3 py-10 text-center text-gray-400">
+                                    <td colSpan={8} className="px-3 py-10 text-center text-gray-400">
                                         Nada a repassar agora.
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </Card>
+
+            <Card>
+                <h2 className="text-lg font-bold text-gray-900">Repasses com falha</h2>
+                <div className="mt-5 overflow-x-auto">
+                    <table className="w-full min-w-[1150px] table-fixed text-left text-sm">
+                        <thead className="border-b border-gray-100 text-xs uppercase text-gray-400">
+                            <tr>
+                                <th className="w-48 px-3 py-3">Restaurante</th>
+                                <th className="w-40 px-3 py-3">Data</th>
+                                <th className="w-36 px-3 py-3">Telefone</th>
+                                <th className="w-56 px-3 py-3">PIX atual</th>
+                                <th className="w-28 px-3 py-3 text-right">Bruto</th>
+                                <th className="w-28 px-3 py-3 text-right">PayZu</th>
+                                <th className="w-28 px-3 py-3 text-right">Desconto</th>
+                                <th className="w-28 px-3 py-3 text-right">Valor</th>
+                                <th className="w-36 px-3 py-3 text-right">Ação</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                            {failedHistory.map((item) => {
+                                const phone = restaurantPhones[item.restaurant_id];
+                                const pixInfo = restaurantPixInfo[item.restaurant_id];
+                                const pixLabel = pixInfo?.pixKey
+                                    ? `${pixInfo.pixKeyType ? `${pixInfo.pixKeyType} · ` : ""}${pixInfo.pixKey}`
+                                    : "—";
+                                const effectiveDiscountCents =
+                                    item.gross_cents == null
+                                        ? item.discount_cents
+                                        : item.gross_cents -
+                                          item.amount_cents -
+                                          (item.payzu_fee_cents ?? 0);
+
+                                return (
+                                    <tr key={item.id}>
+                                        <td
+                                            className="truncate whitespace-nowrap px-3 py-4 font-semibold text-gray-900"
+                                            title={item.restaurant_name}
+                                        >
+                                            {item.restaurant_name}
+                                        </td>
+                                        <td className="whitespace-nowrap px-3 py-4 text-gray-500">
+                                            {dateTime(item.created_at)}
+                                        </td>
+                                        <td className="whitespace-nowrap px-3 py-4 text-gray-500">
+                                            {formatPhone(phone) || "—"}
+                                        </td>
+                                        <td
+                                            className="truncate whitespace-nowrap px-3 py-4 text-gray-500"
+                                            title={pixLabel}
+                                        >
+                                            {pixLabel}
+                                        </td>
+                                        <td className="whitespace-nowrap px-3 py-4 text-right">
+                                            {item.gross_cents == null ? "—" : money(item.gross_cents)}
+                                        </td>
+                                        <td className="whitespace-nowrap px-3 py-4 text-right text-gray-500">
+                                            {item.payzu_fee_cents == null
+                                                ? "—"
+                                                : money(item.payzu_fee_cents)}
+                                        </td>
+                                        <td className="whitespace-nowrap px-3 py-4 text-right text-gray-500">
+                                            {effectiveDiscountCents == null
+                                                ? "—"
+                                                : money(effectiveDiscountCents)}
+                                        </td>
+                                        <td className="whitespace-nowrap px-3 py-4 text-right font-bold text-gray-900">
+                                            {money(item.amount_cents)}
+                                        </td>
+                                        <td className="whitespace-nowrap px-3 py-4 text-right">
+                                            <Button
+                                                variant="secondary"
+                                                loading={retryingPayoutId === item.id}
+                                                disabled={
+                                                    Boolean(retryingPayoutId) ||
+                                                    sending ||
+                                                    transferringPayzu ||
+                                                    !data?.asaasConfigured
+                                                }
+                                                onClick={() => void handleRetryPayout(item.id)}
+                                                className="px-3 py-1.5 text-xs"
+                                            >
+                                                Tentar novamente
+                                            </Button>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                            {failedHistory.length === 0 && (
+                                <tr>
+                                    <td colSpan={9} className="px-3 py-10 text-center text-gray-400">
+                                        Nenhum repasse com falha.
                                     </td>
                                 </tr>
                             )}
@@ -1209,17 +1391,26 @@ export default function DevPayoutPage() {
                 )}
             </Card>
 
-            <Modal height={580} open={confirmOpen} onClose={() => !sending && setConfirmOpen(false)}>
+            <Modal
+                height={580}
+                open={confirmOpen}
+                onClose={() => {
+                    if (!sending) {
+                        setConfirmOpen(false);
+                        setSendRestaurantId(null);
+                    }
+                }}
+            >
                 <div className="p-6 sm:p-7">
                     <h2 className="text-xl font-bold text-gray-900">Confirmar envio</h2>
                     <p className="mt-2 text-sm text-gray-500">
                         {onePercentNet
-                            ? `Serão enviados ${money(netSendableCents)} para ${sendable.length} restaurante(s). PayZu + Desconto totalizam exatamente 1% do bruto de cada restaurante; valores editados manualmente são respeitados.`
-                            : `Serão enviados ${money(netSendableCents)} para ${sendable.length} restaurante(s). PayZu + Desconto totalizam ${numericDiscount.toLocaleString("pt-BR", { maximumFractionDigits: 4 })}% do bruto; valores editados manualmente são respeitados.`}
+                            ? `Serão enviados ${money(confirmNetSendableCents)} para ${confirmSendable.length} restaurante(s). PayZu + Desconto totalizam exatamente 1% do bruto de cada restaurante; valores editados manualmente são respeitados.`
+                            : `Serão enviados ${money(confirmNetSendableCents)} para ${confirmSendable.length} restaurante(s). PayZu + Desconto totalizam ${numericDiscount.toLocaleString("pt-BR", { maximumFractionDigits: 4 })}% do bruto; valores editados manualmente são respeitados.`}
                     </p>
 
                     <div className="mt-5 max-h-64 space-y-2 overflow-y-auto rounded-lg border border-gray-100 p-3">
-                        {sendable.map((item) => (
+                        {confirmSendable.map((item) => (
                             <div key={item.restaurantId} className="flex items-center justify-between gap-4 text-sm">
                                 <span className="truncate text-gray-600">{item.restaurantName}</span>
                                 <span className="shrink-0 font-semibold">
@@ -1230,7 +1421,14 @@ export default function DevPayoutPage() {
                     </div>
 
                     <div className="mt-6 flex justify-end gap-3">
-                        <Button variant="secondary" disabled={sending} onClick={() => setConfirmOpen(false)}>
+                        <Button
+                            variant="secondary"
+                            disabled={sending}
+                            onClick={() => {
+                                setConfirmOpen(false);
+                                setSendRestaurantId(null);
+                            }}
+                        >
                             Cancelar
                         </Button>
                         <Button

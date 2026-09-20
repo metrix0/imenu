@@ -200,7 +200,9 @@ function normalizePixKey(value: string, type: PixKeyType): string {
     return digits;
 }
 
-function resolvePixKeyType(row: PayableRestaurant): PixKeyType | null {
+function resolvePixKeyType(
+    row: Pick<PayableRestaurant, "payment_info" | "payment_info_type">
+): PixKeyType | null {
     return row.payment_info_type || inferPixKeyType(row.payment_info);
 }
 
@@ -430,10 +432,16 @@ export async function createPayoutPlan(input: {
     discountPercent?: number;
     adjustToOnePercent: boolean;
     amountOverrides?: Record<string, unknown>;
+    restaurantIds?: string[];
 }): Promise<PayoutPlan> {
     const discountPercent = input.discountPercent ?? 0.75;
     const amountOverrides = input.amountOverrides || {};
-    const payables = await getPayables(input.cutoffAt);
+    const restaurantIds = input.restaurantIds
+        ? new Set(input.restaurantIds)
+        : null;
+    const payables = (await getPayables(input.cutoffAt)).filter(
+        (row) => !restaurantIds || restaurantIds.has(row.restaurant_id)
+    );
     const ambiguous = payables.filter(
         (row) => row.payment_info && !resolvePixKeyType(row)
     );
@@ -485,11 +493,92 @@ export async function createPayoutPlan(input: {
     };
 }
 
+async function sendPayoutTransfer(input: {
+    payoutId: string;
+    restaurantId: string;
+    restaurantName: string;
+    amountCents: number;
+    pixKey: string;
+    keyType: PixKeyType;
+}): Promise<SendPayoutResult["results"][number]> {
+    try {
+        const transfer = await asaasRequest<AsaasTransfer>("/transfers", {
+            method: "POST",
+            body: JSON.stringify({
+                value: input.amountCents / 100,
+                operationType: "PIX",
+                pixAddressKey: input.pixKey,
+                pixAddressKeyType: input.keyType,
+                description: `Repasse iMenu - ${input.restaurantName}`.slice(0, 140),
+                externalReference: `imenu-payout-${input.payoutId}`,
+            }),
+        });
+
+        if (["CANCELLED", "FAILED", "REFUSED"].includes(transfer.status || "")) {
+            await query(
+                `UPDATE public.payouts SET status = 'cancelled', asaas_transfer_id = $2 WHERE id = $1 AND status = 'processing'`,
+                [input.payoutId, transfer.id || null]
+            );
+            return {
+                restaurantId: input.restaurantId,
+                restaurantName: input.restaurantName,
+                amountCents: input.amountCents,
+                status: "failed",
+                message: transfer.failReason || "Transferência cancelada pelo Asaas.",
+            };
+        }
+
+        if (transfer.status === "DONE") {
+            await query(
+                `UPDATE public.payouts SET status = 'paid', paid_at = NOW(), asaas_transfer_id = $2 WHERE id = $1`,
+                [input.payoutId, transfer.id || null]
+            );
+            return {
+                restaurantId: input.restaurantId,
+                restaurantName: input.restaurantName,
+                amountCents: input.amountCents,
+                status: "paid",
+            };
+        }
+
+        await query(
+            `UPDATE public.payouts SET asaas_transfer_id = $2 WHERE id = $1`,
+            [input.payoutId, transfer.id || null]
+        );
+        return {
+            restaurantId: input.restaurantId,
+            restaurantName: input.restaurantName,
+            amountCents: input.amountCents,
+            status: "processing",
+            message: "Transferência aceita e aguardando confirmação do Asaas.",
+        };
+    } catch (error) {
+        const message = error instanceof Error ? error.message : "Falha ao enviar PIX.";
+        const isNetworkFailure = /fetch|network|socket|timeout|ECONN|UND_ERR/i.test(message);
+
+        if (!isNetworkFailure) {
+            await query(
+                `UPDATE public.payouts SET status = 'failed' WHERE id = $1 AND status = 'processing'`,
+                [input.payoutId]
+            );
+        }
+
+        return {
+            restaurantId: input.restaurantId,
+            restaurantName: input.restaurantName,
+            amountCents: input.amountCents,
+            status: isNetworkFailure ? "processing" : "failed",
+            message,
+        };
+    }
+}
+
 export async function sendPayouts(input: {
     cutoffAt: Date;
     discountPercent: number;
     adjustToOnePercent: boolean;
     amountOverrides?: Record<string, unknown>;
+    restaurantIds?: string[];
     automationRunId?: string | null;
     expectedTotalCents?: number | null;
 }): Promise<SendPayoutResult> {
@@ -515,6 +604,7 @@ export async function sendPayouts(input: {
         discountPercent: input.discountPercent,
         adjustToOnePercent: input.adjustToOnePercent,
         amountOverrides: input.amountOverrides,
+        restaurantIds: input.restaurantIds,
     });
 
     const invalidAmount = plan.sendable.find(
@@ -638,77 +728,16 @@ export async function sendPayouts(input: {
             continue;
         }
 
-        try {
-            const transfer = await asaasRequest<AsaasTransfer>("/transfers", {
-                method: "POST",
-                body: JSON.stringify({
-                    value: item.netCents / 100,
-                    operationType: "PIX",
-                    pixAddressKey: pixKey,
-                    pixAddressKeyType: keyType,
-                    description: `Repasse iMenu - ${item.row.restaurant_name}`.slice(0, 140),
-                    externalReference: `imenu-payout-${payoutId}`,
-                }),
-            });
-
-            if (["CANCELLED", "FAILED", "REFUSED"].includes(transfer.status || "")) {
-                await query(
-                    `UPDATE public.payouts SET status = 'cancelled', asaas_transfer_id = $2 WHERE id = $1 AND status = 'processing'`,
-                    [payoutId, transfer.id || null]
-                );
-                results.push({
-                    restaurantId: item.row.restaurant_id,
-                    restaurantName: item.row.restaurant_name,
-                    amountCents: item.netCents,
-                    status: "failed",
-                    message: transfer.failReason || "Transferência cancelada pelo Asaas.",
-                });
-                continue;
-            }
-
-            if (transfer.status === "DONE") {
-                await query(
-                    `UPDATE public.payouts SET status = 'paid', paid_at = NOW(), asaas_transfer_id = $2 WHERE id = $1`,
-                    [payoutId, transfer.id || null]
-                );
-                results.push({
-                    restaurantId: item.row.restaurant_id,
-                    restaurantName: item.row.restaurant_name,
-                    amountCents: item.netCents,
-                    status: "paid",
-                });
-            } else {
-                await query(
-                    `UPDATE public.payouts SET asaas_transfer_id = $2 WHERE id = $1`,
-                    [payoutId, transfer.id || null]
-                );
-                results.push({
-                    restaurantId: item.row.restaurant_id,
-                    restaurantName: item.row.restaurant_name,
-                    amountCents: item.netCents,
-                    status: "processing",
-                    message: "Transferência aceita e aguardando confirmação do Asaas.",
-                });
-            }
-        } catch (error) {
-            const message = error instanceof Error ? error.message : "Falha ao enviar PIX.";
-            const isNetworkFailure = /fetch|network|socket|timeout|ECONN|UND_ERR/i.test(message);
-
-            if (!isNetworkFailure) {
-                await query(
-                    `UPDATE public.payouts SET status = 'failed' WHERE id = $1 AND status = 'processing'`,
-                    [payoutId]
-                );
-            }
-
-            results.push({
+        results.push(
+            await sendPayoutTransfer({
+                payoutId,
                 restaurantId: item.row.restaurant_id,
                 restaurantName: item.row.restaurant_name,
                 amountCents: item.netCents,
-                status: isNetworkFailure ? "processing" : "failed",
-                message,
-            });
-        }
+                pixKey,
+                keyType,
+            })
+        );
     }
 
     const paidCount = results.filter((item) => item.status === "paid").length;
@@ -725,6 +754,126 @@ export async function sendPayouts(input: {
         processingCount,
         failedCount,
         results,
+    };
+}
+
+export async function retryFailedPayout(
+    payoutId: string
+): Promise<SendPayoutResult> {
+    if (!getAsaasApiKey()) {
+        throw new PayoutValidationError("ASAAS_API_KEY não configurada.", 503);
+    }
+
+    await reconcileProcessingPayouts();
+
+    const failed = await query<{
+        id: string;
+        restaurant_id: string;
+        restaurant_name: string;
+        amount_cents: number | string;
+        automation_run_id: string | null;
+        asaas_transfer_id: string | null;
+        payment_info: string | null;
+        payment_info_type: PixKeyType | null;
+    }>(
+        `
+        SELECT
+            p.id,
+            p.restaurant_id,
+            COALESCE(r.name, 'Restaurante') AS restaurant_name,
+            p.amount_cents,
+            p.automation_run_id,
+            p.asaas_transfer_id,
+            r.payment_info,
+            r.payment_info_type
+        FROM public.payouts p
+        JOIN public.restaurants r ON r.id = p.restaurant_id
+        WHERE p.id = $1
+          AND p.status = 'failed'
+        LIMIT 1
+        `,
+        [payoutId]
+    );
+    const payout = failed.rows[0];
+    if (!payout) {
+        throw new PayoutValidationError(
+            "Repasse com falha não encontrado ou já processado.",
+            404
+        );
+    }
+    if (payout.asaas_transfer_id) {
+        throw new PayoutValidationError(
+            "Este repasse já possui uma transferência registrada no Asaas.",
+            409
+        );
+    }
+
+    const keyType = resolvePixKeyType(payout);
+    if (!payout.payment_info || !keyType) {
+        throw new PayoutValidationError(
+            "O restaurante não possui uma chave PIX válida para o reenvio.",
+            400
+        );
+    }
+
+    const amountCents = Number(payout.amount_cents) || 0;
+    if (amountCents <= 0) {
+        throw new PayoutValidationError("Valor de repasse inválido.", 400);
+    }
+
+    const balanceCents = await getAsaasBalance();
+    if (balanceCents < amountCents) {
+        throw new PayoutValidationError(
+            "Saldo Asaas insuficiente para reenviar o repasse.",
+            409,
+            {
+                balanceCents,
+                requiredCents: amountCents,
+            }
+        );
+    }
+
+    const pixKey = normalizePixKey(payout.payment_info, keyType);
+    const reset = await query<{ id: string }>(
+        `
+        UPDATE public.payouts
+        SET
+            status = 'processing',
+            paid_at = NULL,
+            asaas_transfer_id = NULL,
+            pix_address_key = $2
+        WHERE id = $1
+          AND status = 'failed'
+        RETURNING id
+        `,
+        [payout.id, pixKey]
+    );
+    if (!reset.rows[0]) {
+        throw new PayoutValidationError(
+            "O status do repasse mudou antes do reenvio. Atualize a página.",
+            409
+        );
+    }
+
+    const result = await sendPayoutTransfer({
+        payoutId: payout.id,
+        restaurantId: payout.restaurant_id,
+        restaurantName: payout.restaurant_name,
+        amountCents,
+        pixKey,
+        keyType,
+    });
+
+    if (payout.automation_run_id) await syncAutomationRuns();
+
+    return {
+        cutoffAt: new Date().toISOString(),
+        discountPercent: 0,
+        adjustToOnePercent: false,
+        paidCount: result.status === "paid" ? 1 : 0,
+        processingCount: result.status === "processing" ? 1 : 0,
+        failedCount: result.status === "failed" ? 1 : 0,
+        results: [result],
     };
 }
 
