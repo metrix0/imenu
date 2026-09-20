@@ -50,7 +50,8 @@ function getFixieUrl(selectionKey: string): string {
 
 export async function asaasRequest<T>(
     path: string,
-    init: RequestInit = {}
+    init: RequestInit = {},
+    timeoutMs = ASAAS_REQUEST_TIMEOUT_MS
 ): Promise<T> {
     const target = new URL(`${getAsaasBaseUrl()}${path}`);
     const body = typeof init.body === "string" ? init.body : undefined;
@@ -80,7 +81,7 @@ export async function asaasRequest<T>(
                 method: init.method || "GET",
                 agent,
                 headers,
-                timeout: ASAAS_REQUEST_TIMEOUT_MS,
+                timeout: timeoutMs,
             },
             (response) => {
                 const chunks: Buffer[] = [];

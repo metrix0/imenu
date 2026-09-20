@@ -4,6 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import {
     getPayoutDashboardData,
     PayoutValidationError,
+    retryFailedPayout,
     sendPayouts,
 } from "@/lib/services/payouts";
 
@@ -97,6 +98,8 @@ export async function POST(request: Request) {
         discountPercent?: unknown;
         adjustToOnePercent?: unknown;
         amounts?: unknown;
+        restaurantIds?: unknown;
+        retryPayoutId?: unknown;
     };
     try {
         body = await request.json();
@@ -112,14 +115,29 @@ export async function POST(request: Request) {
         !Array.isArray(body.amounts)
             ? (body.amounts as Record<string, unknown>)
             : {};
+    const restaurantIds = Array.isArray(body.restaurantIds)
+        ? body.restaurantIds.filter(
+              (restaurantId): restaurantId is string =>
+                  typeof restaurantId === "string" && restaurantId.length > 0
+          )
+        : undefined;
+    const retryPayoutId =
+        typeof body.retryPayoutId === "string" && body.retryPayoutId.trim()
+            ? body.retryPayoutId.trim()
+            : null;
 
     try {
+        if (retryPayoutId) {
+            return NextResponse.json(await retryFailedPayout(retryPayoutId));
+        }
+
         return NextResponse.json(
             await sendPayouts({
                 cutoffAt: new Date(),
                 discountPercent,
                 adjustToOnePercent,
                 amountOverrides,
+                restaurantIds,
             })
         );
     } catch (error) {

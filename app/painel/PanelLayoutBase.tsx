@@ -38,6 +38,7 @@ import SupportButton, {
 } from "@/components/common/SupportButton";
 import { OrderSoundProvider } from "@/components/restaurant-owner/OrderSoundProvider";
 import { supabase } from "@/lib/database/supabaseClient";
+import { capturePosthogLightweight } from "@/lib/api/instrumentation-client";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 import "./mobile.css";
 
@@ -372,9 +373,9 @@ export default function PainelLayout({
         { label: "Cardápio", icon: faUtensils, href: cardapioHref },
         { label: "Mesas", icon: faChair, href: `${base}/mesas` },
         {
-            label: "Financeiro",
+            label: "Repasses",
             icon: faMoneyBillWave,
-            href: `${base}/financeiro`,
+            href: `${base}/repasses`,
         },
         {
             label: "Analytics",
@@ -398,6 +399,17 @@ export default function PainelLayout({
             href: `${base}/configuracoes`,
         },
     ];
+
+    const trackPanelTabOpen = (item: { label: string; href: string }) => {
+        capturePosthogLightweight(
+            "panel_tab_opened",
+            targetRestaurantId || "panel_navigation",
+            {
+                tab: item.label,
+                path: item.href,
+            }
+        );
+    };
 
     if (isChecking) {
         return (
@@ -597,6 +609,7 @@ export default function PainelLayout({
                                 <Link
                                     key={`mobile-${item.href}`}
                                     href={item.href}
+                                    onClick={() => trackPanelTabOpen(item)}
                                     aria-current={active ? "page" : undefined}
                                     className={`panel-nav-link flex items-center gap-3 rounded-lg px-4 py-3 text-sm transition-colors ${
                                         active
@@ -732,6 +745,7 @@ export default function PainelLayout({
                                 <Link
                                     key={item.href}
                                     href={item.href}
+                                    onClick={() => trackPanelTabOpen(item)}
                                     title={!expanded ? item.label : ""}
                                     aria-current={active ? "page" : undefined}
                                     style={{ outlineColor: "#d93d00" }}

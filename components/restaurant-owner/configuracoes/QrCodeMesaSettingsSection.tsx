@@ -16,11 +16,20 @@ import ConfirmModal from "@/components/ui/ConfirmModal";
 import Loader from "@/components/ui/Loader";
 import Toast from "@/components/ui/Toast";
 import { captureQrTableEvent } from "@/lib/qr-table/analytics";
-import {
-    qrTableAuthenticatedFetch,
-    startQrTableCheckout,
-} from "@/lib/qr-table/clientApi";
-import type { QrTableAddon } from "@/lib/qr-table/types";
+import { qrTableAuthenticatedFetch } from "@/lib/qr-table/clientApi";
+type Addon = {
+    id: string;
+    restaurant_id: string;
+    product_key: string;
+    status: string;
+    price_cents: number;
+    billing_cycle: string;
+    payment_provider: string | null;
+    payzu_payment_method: string | null;
+    payzu_recurrence_id: string | null;
+    payzu_payment_status: string | null;
+    current_period_ends_at: string | null;
+};
 
 type Payment = {
     id: string;
@@ -33,19 +42,28 @@ type Payment = {
     created_at: string;
 };
 
-type BillingPayload = {
-    addon: QrTableAddon | null;
+type BillingItem = {
+    addon: Addon;
     active: boolean;
     payments: Payment[];
+};
+
+type BillingPayload = {
+    addons: BillingItem[];
     error?: string;
 };
 
 const PAYMENT_STATUS: Record<string, string> = {
     CONFIRMED: "Confirmado",
+    COMPLETED: "Confirmado",
     RECEIVED: "Recebido",
     PENDING: "Pendente",
     OVERDUE: "Vencido",
     REFUNDED: "Reembolsado",
+    DENIED: "Negado",
+    FAILED: "Falhou",
+    ABORTED: "Cancelado",
+    VOIDED: "Cancelado",
 };
 
 function formatMoney(cents: number): string {
@@ -64,17 +82,59 @@ function formatDate(value: string | null): string {
     }).format(new Date(value));
 }
 
-function addonStatus(addon: QrTableAddon | null, active: boolean): string {
+function isPayZuPrepaid(addon: Addon | null): boolean {
+    return Boolean(
+        addon?.payment_provider === "payzu" &&
+            addon.payzu_payment_method?.toUpperCase() === "PIX" &&
+            !addon.payzu_recurrence_id
+    );
+}
+
+function addonProductName(productKey: string): string {
+    if (productKey === "qr_code_mesa") return "iMenu QR Code Mesa";
+
+    return productKey
+        .split("_")
+        .filter(Boolean)
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(" ");
+}
+
+function addonStatus(addon: Addon | null, active: boolean): string {
+    if (active && isPayZuPrepaid(addon)) {
+        return `Ativo — acesso até ${formatDate(
+            addon?.current_period_ends_at || null
+        )}`;
+    }
     if (addon?.status === "canceled" && active) {
         return `Cancelado — acesso até ${formatDate(
             addon.current_period_ends_at
         )}`;
     }
     if (active) return "Ativo";
+    if (isPayZuPrepaid(addon) && addon?.current_period_ends_at) {
+        return "Expirado";
+    }
     if (addon?.status === "pending") return "Aguardando pagamento";
     if (addon?.status === "past_due") return "Pagamento pendente";
     if (addon?.status === "canceled") return "Cancelado";
     return "Inativo";
+}
+
+function planLabel(addon: Addon | null): string {
+    if (!addon) return "—";
+
+    if (isPayZuPrepaid(addon)) {
+        return `Pix • ${formatMoney(addon.price_cents)} por período`;
+    }
+
+    if (addon.billing_cycle === "monthly") {
+        const method =
+            addon.payment_provider === "asaas" ? " no cartão" : "";
+        return `${formatMoney(addon.price_cents)}/mês${method}`;
+    }
+
+    return formatMoney(addon.price_cents);
 }
 
 export default function QrCodeMesaSettingsSection({
@@ -85,8 +145,8 @@ export default function QrCodeMesaSettingsSection({
     const [billing, setBilling] = useState<BillingPayload | null>(null);
     const [loading, setLoading] = useState(true);
     const [salesOpen, setSalesOpen] = useState(false);
-    const [buying, setBuying] = useState(false);
-    const [cancelOpen, setCancelOpen] = useState(false);
+    const [renewing, setRenewing] = useState(false);
+    const [cancelAddonId, setCancelAddonId] = useState<string | null>(null);
     const [canceling, setCanceling] = useState(false);
     const [toast, setToast] = useState<{
         message: string;
@@ -97,7 +157,7 @@ export default function QrCodeMesaSettingsSection({
         setLoading(true);
         try {
             const response = await qrTableAuthenticatedFetch(
-                `/api/qr-table/billing?restaurantId=${encodeURIComponent(
+                `/api/addons/billing?restaurantId=${encodeURIComponent(
                     restaurantId
                 )}`,
                 { cache: "no-store" }
@@ -109,9 +169,12 @@ export default function QrCodeMesaSettingsSection({
                 );
             }
             setBilling(payload);
+            const qrCodeMesa = payload.addons.find(
+                (item) => item.addon.product_key === "qr_code_mesa"
+            );
             void captureQrTableEvent("qr_code_mesa_settings_viewed", {
                 restaurant_id: restaurantId,
-                active: payload.active,
+                active: qrCodeMesa?.active === true,
             });
         } catch (error) {
             setToast({
@@ -142,6 +205,7 @@ export default function QrCodeMesaSettingsSection({
     }, [loadBilling]);
 
     const openSales = () => {
+        setRenewing(false);
         setSalesOpen(true);
         void captureQrTableEvent("qr_code_mesa_learn_more_viewed", {
             restaurant_id: restaurantId,
@@ -149,34 +213,29 @@ export default function QrCodeMesaSettingsSection({
         });
     };
 
-    const buy = async () => {
-        setBuying(true);
-        void captureQrTableEvent("qr_code_mesa_purchase_started", {
-            restaurant_id: restaurantId,
-            source: "settings",
-        });
-        try {
-            await startQrTableCheckout(restaurantId, "settings");
-        } catch (error) {
-            setBuying(false);
-            setToast({
-                message:
-                    error instanceof Error
-                        ? error.message
-                        : "Não foi possível abrir o pagamento.",
-                type: "error",
-            });
-        }
+    const openRenewal = () => {
+        setRenewing(true);
+        setSalesOpen(true);
+    };
+
+    const closeSales = () => {
+        setSalesOpen(false);
+        setRenewing(false);
     };
 
     const cancelSubscription = async () => {
+        if (!cancelAddonId) return;
+
         setCanceling(true);
         try {
             const response = await qrTableAuthenticatedFetch(
-                "/api/qr-table/subscription",
+                "/api/addons/subscription",
                 {
                     method: "DELETE",
-                    body: JSON.stringify({ restaurantId }),
+                    body: JSON.stringify({
+                        restaurantId,
+                        addonId: cancelAddonId,
+                    }),
                 }
             );
             const payload = (await response.json()) as { error?: string };
@@ -186,7 +245,7 @@ export default function QrCodeMesaSettingsSection({
                 );
             }
 
-            setCancelOpen(false);
+            setCancelAddonId(null);
             setToast({
                 message: "Assinatura cancelada.",
                 type: "success",
@@ -205,9 +264,15 @@ export default function QrCodeMesaSettingsSection({
         }
     };
 
-    const addon = billing?.addon || null;
-    const active = billing?.active === true;
-    const canCancel = active && addon?.status !== "canceled";
+    const qrBilling =
+        billing?.addons.find(
+            (item) => item.addon.product_key === "qr_code_mesa"
+        ) || null;
+    const addon = qrBilling?.addon || null;
+    const active = qrBilling?.active === true;
+    const cancelBilling =
+        billing?.addons.find((item) => item.addon.id === cancelAddonId) || null;
+    const cancelAddon = cancelBilling?.addon || null;
 
     return (
         <>
@@ -221,21 +286,37 @@ export default function QrCodeMesaSettingsSection({
 
             <QrCodeMesaSalesModal
                 open={salesOpen}
-                onClose={() => setSalesOpen(false)}
-                onBuy={() => void buy()}
-                buying={buying}
+                onClose={closeSales}
+                restaurantId={restaurantId}
+                source="settings"
+                onPaid={async () => {
+                    closeSales();
+                    setToast({
+                        message: renewing
+                            ? "Pagamento confirmado. Renovação concluída!"
+                            : "Pagamento confirmado. QR Code Mesa ativado!",
+                        type: "success",
+                    });
+                    await loadBilling();
+                }}
                 active={active}
+                renewal={renewing}
+                startInCheckout={renewing}
             />
 
             <ConfirmModal
-                open={cancelOpen}
-                onClose={() => setCancelOpen(false)}
+                open={Boolean(cancelAddonId)}
+                onClose={() => setCancelAddonId(null)}
                 onConfirm={() => void cancelSubscription()}
-                title="Descadastrar do plano?"
+                title={
+                    cancelAddon
+                        ? `Descadastrar ${addonProductName(cancelAddon.product_key)}?`
+                        : "Descadastrar adicional?"
+                }
                 description={
-                    addon?.current_period_ends_at
-                        ? `As próximas cobranças serão canceladas. Seus benefícios ficam disponíveis até ${formatDate(addon.current_period_ends_at)}. Seu histórico de pagamentos continuará disponível.`
-                        : "As próximas cobranças serão canceladas. Seu histórico de pagamentos continuará disponível."
+                    cancelAddon?.current_period_ends_at
+                        ? `A assinatura será cancelada. O acesso atual continua até ${formatDate(cancelAddon.current_period_ends_at)} e o histórico de pagamentos será mantido.`
+                        : "A assinatura será cancelada e o histórico de pagamentos será mantido."
                 }
                 confirmLabel="Descadastrar"
                 isLoading={canceling}
@@ -265,148 +346,199 @@ export default function QrCodeMesaSettingsSection({
                 )}
             </Card>
 
-            {(addon || (billing?.payments.length || 0) > 0) && (
+            {(billing?.addons.length || 0) > 0 && (
                 <Card className="border border-gray-200 shadow-sm">
-                    <div className="flex flex-col justify-between gap-4 border-b border-gray-100 pb-5 sm:flex-row sm:items-start">
-                        <div>
-                            <h2 className="text-xl font-medium text-gray-900">
-                                Assinaturas e pagamentos
-                            </h2>
-                            <p className="mt-1 text-sm text-gray-500">
-                                iMenu QR Code Mesa
-                            </p>
-                        </div>
-                        <span
-                            className={`w-fit self-start rounded-full px-3 py-1 text-xs font-semibold ${
-                                active
-                                    ? "bg-green-100 text-green-800"
-                                    : "bg-gray-100 text-gray-700"
-                            }`}
-                        >
-                            {addonStatus(addon, active)}
-                        </span>
+                    <div className="border-b border-gray-100 pb-5">
+                        <h2 className="text-xl font-medium text-gray-900">
+                            Assinaturas e pagamentos
+                        </h2>
+                        <p className="mt-1 text-sm text-gray-500">
+                            Gerencie planos, renovações e histórico de pagamentos
+                            dos seus adicionais.
+                        </p>
                     </div>
 
-                    <div className="grid gap-4 border-b border-gray-100 py-5 sm:grid-cols-2">
-                        <div className="flex items-center gap-3 rounded-xl bg-gray-50 p-4">
-                            <FontAwesomeIcon
-                                icon={faCreditCard}
-                                className="text-brand"
-                            />
-                            <div>
-                                <p className="text-xs text-gray-500">Plano</p>
-                                <p className="font-semibold text-gray-900">
-                                    R$ 5,00/mês no cartão
-                                </p>
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-3 rounded-xl bg-gray-50 p-4">
-                            <FontAwesomeIcon
-                                icon={faCalendarDays}
-                                className="text-brand"
-                            />
-                            <div>
-                                <p className="text-xs text-gray-500">
-                                    Acesso atual até
-                                </p>
-                                <p className="font-semibold text-gray-900">
-                                    {formatDate(addon?.current_period_ends_at || null)}
-                                </p>
-                            </div>
-                        </div>
-                    </div>
+                    <div className="divide-y divide-gray-100">
+                        {billing?.addons.map((item) => {
+                            const itemAddon = item.addon;
+                            const itemActive = item.active;
+                            const isQrCodeMesa =
+                                itemAddon.product_key === "qr_code_mesa";
+                            const itemCanRenew =
+                                isQrCodeMesa && isPayZuPrepaid(itemAddon);
+                            const itemCanCancel =
+                                itemActive &&
+                                itemAddon.status !== "canceled" &&
+                                itemAddon.payment_provider === "asaas";
 
-                    <div className="pt-5">
-                        <h3 className="font-semibold text-gray-900">
-                            Histórico de pagamentos
-                        </h3>
-                        {billing?.payments.length ? (
-                            <div className="mt-4 overflow-x-auto rounded-xl border border-gray-200">
-                                <table className="w-full min-w-[620px] text-left text-sm">
-                                    <thead className="border-b border-gray-200 bg-gray-50 text-xs text-gray-500">
-                                        <tr>
-                                            <th className="px-4 py-3 font-semibold">
-                                                Data
-                                            </th>
-                                            <th className="px-4 py-3 font-semibold">
-                                                Situação
-                                            </th>
-                                            <th className="px-4 py-3 text-right font-semibold">
-                                                Valor
-                                            </th>
-                                            <th className="px-4 py-3 text-right font-semibold">
-                                                Cobrança
-                                            </th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-100">
-                                        {billing.payments.map((payment) => (
-                                            <tr key={payment.id}>
-                                                <td className="px-4 py-3 text-gray-700">
+                            return (
+                                <section
+                                    key={itemAddon.id}
+                                    className="py-5 first:pt-5 last:pb-0"
+                                >
+                                    <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
+                                        <div>
+                                            <h3 className="font-semibold text-gray-900">
+                                                {addonProductName(
+                                                    itemAddon.product_key
+                                                )}
+                                            </h3>
+                                            <p className="mt-1 text-sm text-gray-500">
+                                                {planLabel(itemAddon)}
+                                            </p>
+                                        </div>
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <span
+                                                className={`w-fit rounded-full px-3 py-1 text-xs font-semibold ${
+                                                    itemActive
+                                                        ? "bg-green-100 text-green-800"
+                                                        : "bg-gray-100 text-gray-700"
+                                                }`}
+                                            >
+                                                {addonStatus(
+                                                    itemAddon,
+                                                    itemActive
+                                                )}
+                                            </span>
+                                            {itemCanRenew && (
+                                                <Button
+                                                    type="button"
+                                                    variant="primary"
+                                                    onClick={openRenewal}
+                                                >
+                                                    Renovar
+                                                </Button>
+                                            )}
+                                            {itemCanCancel && (
+                                                <Button
+                                                    type="button"
+                                                    variant="secondary"
+                                                    onClick={() =>
+                                                        setCancelAddonId(
+                                                            itemAddon.id
+                                                        )
+                                                    }
+                                                >
+                                                    Descadastrar do plano
+                                                </Button>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div className="grid gap-4 border-b border-gray-100 py-5 sm:grid-cols-2">
+                                        <div className="flex items-center gap-3 rounded-xl bg-gray-50 p-4">
+                                            <FontAwesomeIcon
+                                                icon={faCreditCard}
+                                                className="text-brand"
+                                            />
+                                            <div>
+                                                <p className="text-xs text-gray-500">
+                                                    Plano
+                                                </p>
+                                                <p className="font-semibold text-gray-900">
+                                                    {planLabel(itemAddon)}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-3 rounded-xl bg-gray-50 p-4">
+                                            <FontAwesomeIcon
+                                                icon={faCalendarDays}
+                                                className="text-brand"
+                                            />
+                                            <div>
+                                                <p className="text-xs text-gray-500">
+                                                    Acesso atual até
+                                                </p>
+                                                <p className="font-semibold text-gray-900">
                                                     {formatDate(
-                                                        payment.paid_at ||
-                                                            payment.due_date ||
-                                                            payment.created_at
+                                                        itemAddon.current_period_ends_at
                                                     )}
-                                                </td>
-                                                <td className="px-4 py-3 text-gray-700">
-                                                    {PAYMENT_STATUS[
-                                                        payment.status
-                                                    ] || payment.status}
-                                                </td>
-                                                <td className="px-4 py-3 text-right font-medium text-gray-900">
-                                                    {formatMoney(
-                                                        payment.amount_cents
-                                                    )}
-                                                </td>
-                                                <td className="px-4 py-3 text-right">
-                                                    {payment.invoice_url ? (
-                                                        <a
-                                                            href={
-                                                                payment.invoice_url
-                                                            }
-                                                            target="_blank"
-                                                            rel="noreferrer"
-                                                            className="inline-flex items-center gap-2 font-semibold text-brand hover:underline"
-                                                        >
-                                                            Ver
-                                                            <FontAwesomeIcon
-                                                                icon={
-                                                                    faExternalLinkAlt
-                                                                }
-                                                                className="text-xs"
-                                                            />
-                                                        </a>
-                                                    ) : (
-                                                        <span className="text-gray-400">
-                                                            —
-                                                        </span>
-                                                    )}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        ) : (
-                            <p className="mt-3 text-sm text-gray-500">
-                                Nenhum pagamento registrado ainda.
-                            </p>
-                        )}
-                    </div>
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
 
-                    {canCancel && (
-                        <div className="mt-5 flex justify-end border-t border-gray-100 pt-4">
-                            <Button
-                                type="button"
-                                variant="secondary"
-                                className="bg-transparent px-0 py-0 text-sm text-red-600 hover:bg-transparent hover:text-red-700 focus:ring-red-200 2xl:px-0 2xl:py-0 2xl:text-sm"
-                                onClick={() => setCancelOpen(true)}
-                            >
-                                Descadastrar do plano
-                            </Button>
-                        </div>
-                    )}
+                                    <div className="pt-5">
+                                        <h4 className="font-semibold text-gray-900">
+                                            Histórico de pagamentos
+                                        </h4>
+                                        {item.payments.length ? (
+                                            <div className="mt-4 overflow-x-auto rounded-xl border border-gray-200">
+                                                <table className="w-full min-w-[620px] text-left text-sm">
+                                                    <thead className="border-b border-gray-200 bg-gray-50 text-xs text-gray-500">
+                                                        <tr>
+                                                            <th className="px-4 py-3 font-semibold">
+                                                                Data
+                                                            </th>
+                                                            <th className="px-4 py-3 font-semibold">
+                                                                Situação
+                                                            </th>
+                                                            <th className="px-4 py-3 text-right font-semibold">
+                                                                Valor
+                                                            </th>
+                                                            <th className="px-4 py-3 text-right font-semibold">
+                                                                Cobrança
+                                                            </th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-gray-100">
+                                                        {item.payments.map(
+                                                            (payment) => (
+                                                                <tr key={payment.id}>
+                                                                    <td className="px-4 py-3 text-gray-700">
+                                                                        {formatDate(
+                                                                            payment.paid_at ||
+                                                                                payment.due_date ||
+                                                                                payment.created_at
+                                                                        )}
+                                                                    </td>
+                                                                    <td className="px-4 py-3 text-gray-700">
+                                                                        {PAYMENT_STATUS[
+                                                                            payment.status
+                                                                        ] || payment.status}
+                                                                    </td>
+                                                                    <td className="px-4 py-3 text-right font-medium text-gray-900">
+                                                                        {formatMoney(
+                                                                            payment.amount_cents
+                                                                        )}
+                                                                    </td>
+                                                                    <td className="px-4 py-3 text-right">
+                                                                        {payment.invoice_url ? (
+                                                                            <a
+                                                                                href={payment.invoice_url}
+                                                                                target="_blank"
+                                                                                rel="noreferrer"
+                                                                                className="inline-flex items-center gap-2 font-semibold text-brand hover:underline"
+                                                                            >
+                                                                                Ver
+                                                                                <FontAwesomeIcon
+                                                                                    icon={faExternalLinkAlt}
+                                                                                    className="text-xs"
+                                                                                />
+                                                                            </a>
+                                                                        ) : (
+                                                                            <span className="text-gray-400">
+                                                                                —
+                                                                            </span>
+                                                                        )}
+                                                                    </td>
+                                                                </tr>
+                                                            )
+                                                        )}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        ) : (
+                                            <p className="mt-3 text-sm text-gray-500">
+                                                Nenhum pagamento registrado ainda.
+                                            </p>
+                                        )}
+                                    </div>
+
+                                </section>
+                            );
+                        })}
+                    </div>
                 </Card>
             )}
         </>

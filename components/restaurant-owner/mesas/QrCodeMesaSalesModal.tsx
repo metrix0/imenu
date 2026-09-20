@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback, useEffect, useRef, useState } from "react";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import {
     faArrowRotateLeft,
@@ -12,15 +13,27 @@ import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
 import Image from "next/image";
 import Link from "next/link";
 
+import PaymentCheckout from "@/components/payments/PaymentCheckout";
+import { supabase } from "@/lib/database/supabaseClient";
+import type { OnlinePaymentMethod } from "@/lib/payments/types";
+import { captureQrTableEvent } from "@/lib/qr-table/analytics";
+import {
+    reconcileQrTableCheckout,
+    startQrTableCheckout,
+} from "@/lib/qr-table/clientApi";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
+import type { QrTableSource } from "@/lib/qr-table/types";
 
 type QrCodeMesaSalesModalProps = {
     open: boolean;
     onClose: () => void;
-    onBuy: () => void;
-    buying?: boolean;
+    restaurantId: string;
+    source: QrTableSource;
     active?: boolean;
+    renewal?: boolean;
+    startInCheckout?: boolean;
+    onPaid?: () => void | Promise<void>;
 };
 
 const BENEFITS = [
@@ -47,20 +60,220 @@ const BENEFITS = [
 const SUPPORT_URL =
     "https://wa.me/5519988760900?text=Ol%C3%A1%2C%20tenho%20uma%20d%C3%BAvida%20sobre%20o%20iMenu%20QR%20Code%20Mesa.";
 
+const QR_TABLE_PAYMENT_PRODUCT = {
+    name: "iMenu QR Code Mesa",
+    periodLabel: "30 dias (1 mês)",
+    detail: "Mesas e QR Codes ilimitados",
+    priceLabel: "R$ 5,00",
+    icon: faQrcode,
+    pixDescription: "Pagamento único • acesso por 1 mês",
+    cardDescription: "Cobrança recorrente mensal • cancele quando quiser",
+    pixNotice:
+        "O Pix libera o acesso por 1 mês, você receberá uma notificação no iMenu e Whatsapp antes da assinatura expirar.",
+    cardNotice:
+        "Ao pagar, você autoriza a cobrança recorrente mensal de R$ 5,00 até o cancelamento.",
+    pixConfirmationDescription:
+        "Assim que o PayZu confirmar o pagamento, o QR Code Mesa será liberado automaticamente.",
+    cardConfirmationDescription:
+        "Estamos aguardando a confirmação do Asaas. Não feche esta janela.",
+} as const;
+
+function textValue(value: unknown): string {
+    if (value === null || value === undefined) return "";
+    return String(value).trim();
+}
+
+function formatOwnerPhone(value: unknown): string {
+    let digits = textValue(value).replace(/\D/g, "");
+
+    if (digits.startsWith("55") && digits.length >= 12) {
+        digits = digits.slice(2);
+    }
+
+    digits = digits.slice(0, 11);
+    if (digits.length <= 2) return digits;
+    if (digits.length <= 6) {
+        return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+    }
+    if (digits.length <= 10) {
+        return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+    }
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+}
+
+function formatPostalCode(value: unknown): string {
+    const digits = textValue(value).replace(/\D/g, "").slice(0, 8);
+    return digits.length > 5
+        ? `${digits.slice(0, 5)}-${digits.slice(5)}`
+        : digits;
+}
+
 export default function QrCodeMesaSalesModal({
     open,
     onClose,
-    onBuy,
-    buying = false,
+    restaurantId,
+    source,
     active = false,
+    renewal = false,
+    startInCheckout = false,
+    onPaid,
 }: QrCodeMesaSalesModalProps) {
+    const [checkoutOpen, setCheckoutOpen] = useState(false);
+    const [switching, setSwitching] = useState(false);
+    const transitionTimerRef = useRef<number | null>(null);
+
+    const loadCardPrefill = useCallback(async () => {
+        const [
+            {
+                data: { user },
+            },
+            { data: restaurant },
+        ] = await Promise.all([
+            supabase.auth.getUser(),
+            supabase
+                .from("restaurants")
+                .select("address")
+                .eq("id", restaurantId)
+                .maybeSingle(),
+        ]);
+
+        const address =
+            restaurant?.address &&
+            typeof restaurant.address === "object" &&
+            !Array.isArray(restaurant.address)
+                ? (restaurant.address as Record<string, unknown>)
+                : {};
+        const ownerPhone =
+            user?.user_metadata?.phone ?? user?.phone ?? "";
+
+        return {
+            email: user?.email || "",
+            mobilePhone: formatOwnerPhone(ownerPhone),
+            postalCode: formatPostalCode(address.cep),
+            addressNumber: textValue(address.number),
+            addressComplement: textValue(address.complement),
+        };
+    }, [restaurantId]);
+
+    const startPayment = useCallback(
+        (payment: Parameters<typeof startQrTableCheckout>[2]) =>
+            startQrTableCheckout(restaurantId, source, payment, {
+                renew: renewal,
+            }),
+        [renewal, restaurantId, source]
+    );
+
+    const reconcilePayment = useCallback(
+        () =>
+            reconcileQrTableCheckout(restaurantId, {
+                renew: renewal,
+            }),
+        [renewal, restaurantId]
+    );
+
+    const trackPaymentStarted = useCallback(
+        (method: OnlinePaymentMethod) => {
+            void captureQrTableEvent("qr_code_mesa_purchase_started", {
+                restaurant_id: restaurantId,
+                source,
+                payment_method: method,
+            });
+        },
+        [restaurantId, source]
+    );
+
+    useEffect(() => {
+        if (!open || (active && !renewal)) {
+            if (transitionTimerRef.current !== null) {
+                window.clearTimeout(transitionTimerRef.current);
+                transitionTimerRef.current = null;
+            }
+            setCheckoutOpen(false);
+            setSwitching(false);
+        }
+
+        return () => {
+            if (transitionTimerRef.current !== null) {
+                window.clearTimeout(transitionTimerRef.current);
+                transitionTimerRef.current = null;
+            }
+        };
+    }, [open, active, renewal]);
+
+    const transitionTo = (checkout: boolean) => {
+        if (transitionTimerRef.current !== null) {
+            window.clearTimeout(transitionTimerRef.current);
+        }
+
+        setSwitching(true);
+        transitionTimerRef.current = window.setTimeout(() => {
+            setCheckoutOpen(checkout);
+            transitionTimerRef.current = null;
+            window.requestAnimationFrame(() => setSwitching(false));
+        }, 140);
+    };
+
+    const close = () => {
+        if (transitionTimerRef.current !== null) {
+            window.clearTimeout(transitionTimerRef.current);
+            transitionTimerRef.current = null;
+        }
+        setSwitching(false);
+        setCheckoutOpen(false);
+        onClose();
+    };
+
+    if (checkoutOpen || (open && startInCheckout)) {
+        return (
+            <Modal
+                height={760}
+                open={open}
+                onClose={close}
+                className="max-w-4xl"
+                showCloseButton
+            >
+                <div
+                    className={`flex min-h-0 flex-1 flex-col transition-[opacity,transform] duration-150 ease-out ${
+                        switching
+                            ? "translate-y-1 opacity-0"
+                            : "translate-y-0 opacity-100"
+                    }`}
+                >
+                    <PaymentCheckout
+                        product={QR_TABLE_PAYMENT_PRODUCT}
+                        onBack={
+                            startInCheckout
+                                ? undefined
+                                : () => transitionTo(false)
+                        }
+                        onClose={close}
+                        startPayment={startPayment}
+                        reconcilePayment={reconcilePayment}
+                        loadCardPrefill={loadCardPrefill}
+                        onPaymentStarted={trackPaymentStarted}
+                        successEventName="imenu:qr-table-activated"
+                        onPaid={onPaid}
+                    />
+                </div>
+            </Modal>
+        );
+    }
+
     return (
-        <Modal height={700}
+        <Modal
+            height={700}
             open={open}
-            onClose={onClose}
+            onClose={close}
             className="max-w-4xl"
             showCloseButton
         >
+            <div
+                className={`transition-[opacity,transform] duration-150 ease-out ${
+                    switching
+                        ? "translate-y-1 opacity-0"
+                        : "translate-y-0 opacity-100"
+                }`}
+            >
             <div className="grid shrink-0 overflow-hidden md:grid-cols-[minmax(0,1fr)_300px]">
                 <div className="px-6 pb-1 pt-5 sm:px-8 sm:py-8">
                     <div className="relative h-12 w-56 max-w-full">
@@ -90,7 +303,7 @@ export default function QrCodeMesaSalesModal({
                         <div className="ml-auto flex flex-col items-end gap-1 pb-1">
                             <span className="inline-flex items-center gap-2 text-xs font-medium text-gray-600">
                                 <FontAwesomeIcon icon={faCreditCard} />
-                                Cobrança mensal no cartão
+                                Cartão ou Pix
                             </span>
                             <span className="inline-flex items-center gap-2 text-xs font-medium text-gray-500">
                                 <FontAwesomeIcon icon={faArrowRotateLeft} />
@@ -165,18 +378,18 @@ export default function QrCodeMesaSalesModal({
                         >
                             Termos do iMenu QR Code Mesa
                         </Link>{" "}
-                        e autoriza a cobrança recorrente de R$ 5,00/mês até o
-                        cancelamento.
+                        e a cobrança recorrente só é ativada se você escolher
+                        cartão.
                     </p>
                 )}
             </div>
 
-            <div className="sticky bottom-0 z-20 flex shrink-0 flex-col gap-3 border-t border-gray-100 bg-white px-6 py-4 sm:static sm:flex-row sm:items-center sm:px-8 sm:py-5">
+            <div className="sticky bottom-0 z-20 flex shrink-0 flex-col gap-3 border-t border-gray-100 bg-white px-6 py-4 sm:flex-row sm:items-center sm:px-8 sm:py-5">
                 <a
                     href={SUPPORT_URL}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center justify-center gap-3 rounded-full border border-gray-200 bg-gray-50 px-4 py-2 text-sm font-medium text-gray-700 transition hover:border-green-200 hover:bg-green-50 hover:text-green-700 sm:mr-auto"
+                    className="hidden items-center justify-center gap-3 rounded-full border border-gray-200 bg-gray-50 px-4 py-2 text-sm font-medium text-gray-700 transition hover:border-green-200 hover:bg-green-50 hover:text-green-700 sm:mr-auto sm:inline-flex"
                 >
                     <FontAwesomeIcon
                         icon={faWhatsapp}
@@ -184,20 +397,20 @@ export default function QrCodeMesaSalesModal({
                     />
                     <span>Está em dúvida? Fale conosco</span>
                 </a>
-                <Button type="button" variant="secondary" onClick={onClose}>
+                <Button type="button" variant="secondary" onClick={close}>
                     Agora não
                 </Button>
-                {!active && (
+                {(!active || renewal) && (
                     <Button
                         type="button"
                         variant="primary"
-                        loading={buying}
-                        onClick={onBuy}
+                        onClick={() => transitionTo(true)}
                         className="w-full sm:w-auto sm:min-w-64"
                     >
-                        Continuar
+                        {renewal ? "Renovar" : "Continuar"}
                     </Button>
                 )}
+            </div>
             </div>
         </Modal>
     );

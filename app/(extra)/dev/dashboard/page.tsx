@@ -97,6 +97,15 @@ type DashboardPayload = {
         postHogAvailable: boolean;
         blogViews: number | null;
     };
+    panelTabs: {
+        available: boolean;
+        totalOpens: number;
+        tabs: Array<{
+            tab: string;
+            opens: number;
+            percentage: number;
+        }>;
+    };
     traffic: {
         available: boolean;
         pages: Array<{
@@ -373,6 +382,36 @@ function paymentOptions() {
     };
 }
 
+function panelTabOptions() {
+    return {
+        indexAxis: "y" as const,
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { display: false },
+            tooltip: {
+                callbacks: {
+                    label: (context: any) =>
+                        `${formatRatio(Number(context.parsed.x) || 0)} do uso`,
+                },
+            },
+        },
+        scales: {
+            x: {
+                beginAtZero: true,
+                max: 100,
+                ticks: {
+                    callback: (value: string | number) =>
+                        formatRatio(Number(value) || 0),
+                },
+            },
+            y: {
+                grid: { display: false },
+            },
+        },
+    };
+}
+
 export default function DevDashboardPage() {
     const router = useRouter();
     const [range, setRange] = useState<RangeKey>("7d");
@@ -511,6 +550,23 @@ export default function DevDashboardPage() {
                     ? Number(((method.valueCents / totalCents) * 100).toFixed(1))
                     : 0,
         }));
+    }, [data]);
+
+    const panelTabChartData = useMemo(() => {
+        if (!data) return { labels: [], datasets: [] };
+
+        return {
+            labels: data.panelTabs.tabs.map((item) => item.tab),
+            datasets: [
+                {
+                    label: "Participação",
+                    data: data.panelTabs.tabs.map((item) => item.percentage),
+                    backgroundColor: "#f14400",
+                    borderWidth: 0,
+                    borderRadius: 4,
+                },
+            ],
+        };
     }, [data]);
 
     if (accessState === "checking") {
@@ -705,6 +761,41 @@ export default function DevDashboardPage() {
                                         <EmptyChart />
                                     )}
                                 </div>
+                            </div>
+                        </section>
+
+                        <section>
+                            <SectionHeading
+                                title="Uso das abas do painel"
+                                description="Distribuição dos cliques nas abas do menu lateral no período selecionado."
+                            />
+                            <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
+                                {data.panelTabs.available ? (
+                                    data.panelTabs.tabs.length ? (
+                                        <>
+                                            <p className="mb-4 text-sm text-gray-600">
+                                                <span className="font-medium text-gray-800">
+                                                    Total
+                                                </span>{" "}
+                                                {formatCount(data.panelTabs.totalOpens)} aberturas
+                                            </p>
+                                            <div className="h-[420px]">
+                                                <Bar
+                                                    data={panelTabChartData}
+                                                    options={panelTabOptions()}
+                                                />
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <div className="h-[280px]">
+                                            <EmptyChart />
+                                        </div>
+                                    )
+                                ) : (
+                                    <div className="flex h-[280px] items-center justify-center text-center text-sm text-gray-500">
+                                        Dados de uso das abas indisponíveis no PostHog.
+                                    </div>
+                                )}
                             </div>
                         </section>
 

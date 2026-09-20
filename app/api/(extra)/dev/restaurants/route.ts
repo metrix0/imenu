@@ -7,6 +7,8 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const ALLOWED_DEV_EMAIL = "joaovralmeida@hotmail.com";
+const PREVIEW_ORIGIN = "https://preview.imenuapp.com.br";
+const PRODUCTION_ORIGIN = "https://imenuapp.com.br";
 
 type RestaurantResult = {
     id: string;
@@ -205,10 +207,11 @@ export async function POST(request: Request) {
         const authorization = await authorizeDevRequest(request);
         if (!authorization.ok) return authorization.response;
 
-        let body: { restaurantId?: unknown };
+        let body: { restaurantId?: unknown; targetOrigin?: unknown };
         try {
             body = (await request.json()) as {
                 restaurantId?: unknown;
+                targetOrigin?: unknown;
             };
         } catch {
             return NextResponse.json(
@@ -225,6 +228,24 @@ export async function POST(request: Request) {
         if (!restaurantId) {
             return NextResponse.json(
                 { error: "Restaurante não informado." },
+                { status: 400 }
+            );
+        }
+
+        const targetOrigin =
+            typeof body.targetOrigin === "string"
+                ? body.targetOrigin.trim().replace(/\/+$/, "")
+                : "";
+        const requestOrigin = new URL(request.url).origin;
+        const allowedTargetOrigins = new Set([
+            requestOrigin,
+            PREVIEW_ORIGIN,
+            PRODUCTION_ORIGIN,
+        ]);
+
+        if (!targetOrigin || !allowedTargetOrigins.has(targetOrigin)) {
+            return NextResponse.json(
+                { error: "Destino de login inválido." },
                 { status: 400 }
             );
         }
@@ -291,11 +312,15 @@ export async function POST(request: Request) {
             await adminClient.auth.admin.generateLink({
                 type: "magiclink",
                 email: user.email,
+                options: {
+                    redirectTo: `${targetOrigin}/restaurante/login`,
+                },
             });
 
         const tokenHash = linkData?.properties?.hashed_token;
+        const actionLink = linkData?.properties?.action_link;
 
-        if (linkError || !tokenHash) {
+        if (linkError || !tokenHash || !actionLink) {
             console.error(
                 "[DEV_RESTAURANT_ACCESS] Login link generation failed:",
                 linkError
@@ -313,6 +338,7 @@ export async function POST(request: Request) {
         return NextResponse.json(
             {
                 token_hash: tokenHash,
+                action_link: actionLink,
                 user_id: restaurant.user_id,
             },
             {

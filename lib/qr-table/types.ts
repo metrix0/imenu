@@ -24,6 +24,11 @@ export type QrTableAddon = {
     asaas_checkout_id: string | null;
     asaas_checkout_expires_at: string | null;
     asaas_subscription_id: string | null;
+    payment_provider: string | null;
+    payzu_payment_method: string | null;
+    payzu_payment_id: string | null;
+    payzu_recurrence_id: string | null;
+    payzu_payment_status: string | null;
     current_period_ends_at: string | null;
     activated_at: string | null;
     canceled_at: string | null;
