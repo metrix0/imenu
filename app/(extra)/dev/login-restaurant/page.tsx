@@ -4,9 +4,22 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { supabase } from "@/lib/database/supabaseClient";
-import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 
 const ALLOWED_DEV_EMAIL = "joaovralmeida@hotmail.com";
+const PREVIEW_ORIGIN = "https://preview.imenuapp.com.br";
+const PRODUCTION_ORIGIN = "https://imenuapp.com.br";
+
+function getRestaurantLoginOrigin(): string {
+    if (window.location.origin === PREVIEW_ORIGIN) {
+        return PRODUCTION_ORIGIN;
+    }
+
+    if (window.location.origin === PRODUCTION_ORIGIN) {
+        return PREVIEW_ORIGIN;
+    }
+
+    return window.location.origin;
+}
 
 type AccessState = "checking" | "allowed" | "forbidden" | "signed-out";
 
@@ -47,7 +60,6 @@ function displayPhone(value: string | null): string {
 
 export default function DevRestaurantAccessPage() {
     const router = useRouter();
-    const { setRestaurantId, setRestaurantSlug } = useCreationStore();
 
     const [accessState, setAccessState] =
         useState<AccessState>("checking");
@@ -163,12 +175,21 @@ export default function DevRestaurantAccessPage() {
         setEnteringRestaurantId(restaurant.id);
         setError("");
 
+        const targetWindow = window.open("", "_blank");
+        if (!targetWindow) {
+            setError("Permita pop-ups para abrir o painel do restaurante.");
+            setEnteringRestaurantId(null);
+            return;
+        }
+        targetWindow.opener = null;
+
         try {
             const {
                 data: { session },
             } = await supabase.auth.getSession();
 
             if (!session?.access_token) {
+                targetWindow.close();
                 setAccessState("signed-out");
                 return;
             }
@@ -179,63 +200,41 @@ export default function DevRestaurantAccessPage() {
                     Authorization: `Bearer ${session.access_token}`,
                     "Content-Type": "application/json",
                 },
-                body: JSON.stringify({ restaurantId: restaurant.id }),
+                body: JSON.stringify({
+                    restaurantId: restaurant.id,
+                    targetOrigin: getRestaurantLoginOrigin(),
+                }),
                 cache: "no-store",
             });
 
             const payload = (await response.json()) as {
-                token_hash?: string;
-                user_id?: string;
+                action_link?: string;
                 error?: string;
             };
 
             if (response.status === 401) {
+                targetWindow.close();
                 setAccessState("signed-out");
                 return;
             }
 
             if (response.status === 403) {
+                targetWindow.close();
                 setAccessState("forbidden");
                 return;
             }
 
-            if (!response.ok || !payload.token_hash || !payload.user_id) {
+            if (!response.ok || !payload.action_link) {
                 throw new Error(
                     payload.error ||
                         "Não foi possível entrar neste restaurante."
                 );
             }
 
-            const {
-                data: { user },
-                error: loginError,
-            } = await supabase.auth.verifyOtp({
-                token_hash: payload.token_hash,
-                type: "email",
-            });
-
-            if (loginError || !user || user.id !== payload.user_id) {
-                throw new Error(
-                    loginError?.message ||
-                        "Não foi possível iniciar a sessão do restaurante."
-                );
-            }
-
-            setRestaurantId(restaurant.id);
-            setRestaurantSlug(restaurant.url_slug);
-
-            window.localStorage.setItem(
-                "imenu-dev-current-restaurant",
-                JSON.stringify({
-                    id: restaurant.id,
-                    name: restaurant.name,
-                    urlSlug: restaurant.url_slug,
-                    selectedAt: new Date().toISOString(),
-                })
-            );
-
-            window.location.assign("/painel");
+            targetWindow.location.replace(payload.action_link);
+            setEnteringRestaurantId(null);
         } catch (caught) {
+            targetWindow.close();
             setError(
                 caught instanceof Error
                     ? caught.message
