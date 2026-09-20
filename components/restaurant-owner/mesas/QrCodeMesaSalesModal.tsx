@@ -241,7 +241,11 @@ export default function QrCodeMesaSalesModal({
                 >
                     <PaymentCheckout
                         product={QR_TABLE_PAYMENT_PRODUCT}
-                        onBack={renewal ? close : () => transitionTo(false)}
+                        onBack={
+                            startInCheckout
+                                ? undefined
+                                : () => transitionTo(false)
+                        }
                         onClose={close}
                         startPayment={startPayment}
                         reconcilePayment={reconcilePayment}

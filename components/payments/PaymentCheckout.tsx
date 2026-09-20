@@ -46,7 +46,7 @@ export type PaymentCheckoutProduct = {
 
 type PaymentCheckoutProps = {
     product: PaymentCheckoutProduct;
-    onBack: () => void;
+    onBack?: () => void;
     onClose: () => void;
     startPayment: (
         payment: PaymentCheckoutInput
@@ -437,14 +437,16 @@ export default function PaymentCheckout({
                         {product.priceLabel}
                     </p>
                 </div>
-                <Button
-                    type="button"
-                    variant="secondary"
-                    disabled={processing}
-                    onClick={onBack}
-                >
-                    Voltar
-                </Button>
+                {onBack && (
+                    <Button
+                        type="button"
+                        variant="secondary"
+                        disabled={processing}
+                        onClick={onBack}
+                    >
+                        Voltar
+                    </Button>
+                )}
                 <Button
                     type="button"
                     variant="primary"
