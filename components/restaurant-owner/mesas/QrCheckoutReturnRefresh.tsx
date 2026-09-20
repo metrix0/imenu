@@ -23,6 +23,7 @@ const CHECKOUT_RETURN_PATHS = new Set([
 ]);
 const CHECKOUT_RECONCILE_ATTEMPTS = 40;
 const CHECKOUT_RECONCILE_DELAY_MS = 5000;
+const INTERNAL_ACTIVATION_EVENT = "imenu:qr-table-activated";
 
 const BENEFITS = [
     {
@@ -136,8 +137,6 @@ export default function QrCheckoutReturnRefresh() {
     const reloadAfterCloseRef = useRef(false);
 
     useEffect(() => {
-        if (!CHECKOUT_RETURN_PATHS.has(window.location.pathname)) return;
-
         const checkoutState = new URLSearchParams(window.location.search).get(
             "checkout"
         );
@@ -158,6 +157,15 @@ export default function QrCheckoutReturnRefresh() {
             partyCleanupRef.current?.();
             partyCleanupRef.current = launchPartyPoppers();
         };
+
+        const handleInternalActivation = () => {
+            celebrateActivation();
+        };
+
+        window.addEventListener(
+            INTERNAL_ACTIVATION_EVENT,
+            handleInternalActivation
+        );
 
         const reconcile = async () => {
             const attempts = returnedFromSuccessfulCheckout
@@ -189,10 +197,16 @@ export default function QrCheckoutReturnRefresh() {
             }
         };
 
-        void reconcile();
+        if (CHECKOUT_RETURN_PATHS.has(window.location.pathname)) {
+            void reconcile();
+        }
 
         return () => {
             cancelled = true;
+            window.removeEventListener(
+                INTERNAL_ACTIVATION_EVENT,
+                handleInternalActivation
+            );
             partyCleanupRef.current?.();
             partyCleanupRef.current = null;
         };

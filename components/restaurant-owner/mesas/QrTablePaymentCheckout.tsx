@@ -102,6 +102,7 @@ export default function QrTablePaymentCheckout({
 
     const completePayment = useCallback(async () => {
         setAwaitingConfirmation(false);
+        window.dispatchEvent(new Event("imenu:qr-table-activated"));
         if (onPaid) {
             await onPaid();
             return;
