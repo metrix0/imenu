@@ -248,7 +248,11 @@ async function reconcileAsaasPayments(
 
 export async function POST(request: Request) {
     try {
-        const body = (await request.json()) as { restaurantId?: string };
+        const body = (await request.json()) as {
+            restaurantId?: string;
+            renew?: boolean;
+        };
+        const renew = body.renew === true;
         let restaurantId = String(body.restaurantId || "");
 
         if (restaurantId) {
@@ -297,6 +301,39 @@ export async function POST(request: Request) {
                 },
                 { headers: { "Cache-Control": "no-store" } }
             );
+        }
+
+        if (renew) {
+            if (
+                addon.payment_provider === "payzu" &&
+                addon.payzu_payment_method === "PIX"
+            ) {
+                return NextResponse.json(await reconcilePayZuPix(addon), {
+                    headers: { "Cache-Control": "no-store" },
+                });
+            }
+
+            if (addon.asaas_subscription_id) {
+                return NextResponse.json(
+                    await reconcileAsaasPayments(
+                        addon,
+                        "subscription",
+                        addon.asaas_subscription_id
+                    ),
+                    { headers: { "Cache-Control": "no-store" } }
+                );
+            }
+
+            if (addon.asaas_checkout_id) {
+                return NextResponse.json(
+                    await reconcileAsaasPayments(
+                        addon,
+                        "checkoutSession",
+                        addon.asaas_checkout_id
+                    ),
+                    { headers: { "Cache-Control": "no-store" } }
+                );
+            }
         }
 
         if (hasQrTableAccess(addon)) {

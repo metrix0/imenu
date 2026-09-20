@@ -41,6 +41,7 @@ type CheckoutBody = {
     source?: QrTableSource;
     paymentMethod?: "pix" | "credit_card";
     card?: CreditCardPaymentData;
+    renew?: boolean;
 };
 
 type PayZuPixWithPaidAt = PayZuTransaction & {
@@ -151,7 +152,8 @@ function payZuFailureStatus(status: string): boolean {
 }
 
 async function existingPayZuPix(
-    addon: QrTableAddon
+    addon: QrTableAddon,
+    options: { reuseCompleted?: boolean } = {}
 ): Promise<PayZuPixWithPaidAt | null> {
     if (
         addon.payment_provider !== "payzu" ||
@@ -166,6 +168,16 @@ async function existingPayZuPix(
     })) as PayZuPixWithPaidAt | null;
 
     if (!payment || payZuFailureStatus(String(payment.status || ""))) {
+        return null;
+    }
+
+    const remoteStatus = String(payment.status || "").toUpperCase();
+    const storedStatus = String(addon.payzu_payment_status || "").toUpperCase();
+    if (
+        options.reuseCompleted === false &&
+        remoteStatus === "COMPLETED" &&
+        storedStatus === "COMPLETED"
+    ) {
         return null;
     }
 
@@ -228,13 +240,14 @@ async function findExistingAsaasSubscription(
 
 async function setAsaasSubscriptionPending(
     addonId: string,
-    subscriptionId: string
+    subscriptionId: string,
+    preserveAccess = false
 ): Promise<void> {
     await query(
         `
             UPDATE public.restaurant_addons
             SET
-                status = 'pending',
+                status = CASE WHEN $3 THEN status ELSE 'pending' END,
                 payment_provider = 'asaas',
                 asaas_subscription_id = $2,
                 asaas_checkout_id = NULL,
@@ -243,11 +256,11 @@ async function setAsaasSubscriptionPending(
                 payzu_payment_id = NULL,
                 payzu_recurrence_id = NULL,
                 payzu_payment_status = NULL,
-                canceled_at = NULL,
+                canceled_at = CASE WHEN $3 THEN canceled_at ELSE NULL END,
                 updated_at = NOW()
             WHERE id = $1
         `,
-        [addonId, subscriptionId]
+        [addonId, subscriptionId, preserveAccess]
     );
 }
 
@@ -259,6 +272,7 @@ export async function POST(request: Request) {
             ? (body.source as QrTableSource)
             : "mesas";
         const paymentMethod = body.paymentMethod;
+        const renew = body.renew === true;
 
         if (!restaurantId) {
             return NextResponse.json(
@@ -286,20 +300,29 @@ export async function POST(request: Request) {
 
         await requireRestaurantOwner(request, restaurantId);
         const addon = await prepareAddon(restaurantId, source);
+        const hasAccess = hasQrTableAccess(addon);
+        const prepaidAccess =
+            hasAccess &&
+            addon.payment_provider === "payzu" &&
+            addon.payzu_payment_method?.toUpperCase() === "PIX" &&
+            !addon.payzu_recurrence_id;
 
-        if (hasQrTableAccess(addon)) {
+        if (hasAccess && (!renew || !prepaidAccess)) {
             return NextResponse.json(
                 { error: "O iMenu QR Code Mesa já está ativo." },
                 { status: 409 }
             );
         }
 
+        const preserveAccess = renew && prepaidAccess;
         const origin = new URL(request.url).origin;
 
         if (paymentMethod === "pix") {
             await cancelPendingAsaasSubscription(addon);
 
-            const reusedPayment = await existingPayZuPix(addon);
+            const reusedPayment = await existingPayZuPix(addon, {
+                reuseCompleted: !renew,
+            });
             const payment =
                 reusedPayment ||
                 ((await createPayZuPixCharge({
@@ -316,7 +339,11 @@ export async function POST(request: Request) {
             await setPayZuQrTablePending({
                 addonId: addon.id,
                 paymentId: payment.id,
-                status: paymentStatus,
+                status:
+                    paymentStatus.toUpperCase() === "COMPLETED"
+                        ? "PENDING"
+                        : paymentStatus,
+                preserveAccess,
             });
             await savePayZuQrTablePayment({
                 addonId: addon.id,
@@ -353,7 +380,8 @@ export async function POST(request: Request) {
         if (existingSubscription) {
             await setAsaasSubscriptionPending(
                 addon.id,
-                existingSubscription
+                existingSubscription,
+                preserveAccess
             );
             return NextResponse.json({
                 active: false,
@@ -422,7 +450,11 @@ export async function POST(request: Request) {
             throw new Error("O Asaas não retornou a assinatura.");
         }
 
-        await setAsaasSubscriptionPending(addon.id, subscription.id);
+        await setAsaasSubscriptionPending(
+            addon.id,
+            subscription.id,
+            preserveAccess
+        );
 
         return NextResponse.json({
             active: false,

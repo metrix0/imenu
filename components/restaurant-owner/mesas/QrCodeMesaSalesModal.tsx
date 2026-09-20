@@ -31,6 +31,8 @@ type QrCodeMesaSalesModalProps = {
     restaurantId: string;
     source: QrTableSource;
     active?: boolean;
+    renewal?: boolean;
+    startInCheckout?: boolean;
     onPaid?: () => void | Promise<void>;
 };
 
@@ -112,6 +114,8 @@ export default function QrCodeMesaSalesModal({
     restaurantId,
     source,
     active = false,
+    renewal = false,
+    startInCheckout = false,
     onPaid,
 }: QrCodeMesaSalesModalProps) {
     const [checkoutOpen, setCheckoutOpen] = useState(false);
@@ -153,13 +157,18 @@ export default function QrCodeMesaSalesModal({
 
     const startPayment = useCallback(
         (payment: Parameters<typeof startQrTableCheckout>[2]) =>
-            startQrTableCheckout(restaurantId, source, payment),
-        [restaurantId, source]
+            startQrTableCheckout(restaurantId, source, payment, {
+                renew: renewal,
+            }),
+        [renewal, restaurantId, source]
     );
 
     const reconcilePayment = useCallback(
-        () => reconcileQrTableCheckout(restaurantId),
-        [restaurantId]
+        () =>
+            reconcileQrTableCheckout(restaurantId, {
+                renew: renewal,
+            }),
+        [renewal, restaurantId]
     );
 
     const trackPaymentStarted = useCallback(
@@ -174,7 +183,7 @@ export default function QrCodeMesaSalesModal({
     );
 
     useEffect(() => {
-        if (!open || active) {
+        if (!open || (active && !renewal)) {
             if (transitionTimerRef.current !== null) {
                 window.clearTimeout(transitionTimerRef.current);
                 transitionTimerRef.current = null;
@@ -189,7 +198,7 @@ export default function QrCodeMesaSalesModal({
                 transitionTimerRef.current = null;
             }
         };
-    }, [open, active]);
+    }, [open, active, renewal]);
 
     const transitionTo = (checkout: boolean) => {
         if (transitionTimerRef.current !== null) {
@@ -214,7 +223,7 @@ export default function QrCodeMesaSalesModal({
         onClose();
     };
 
-    if (checkoutOpen) {
+    if (checkoutOpen || (open && startInCheckout)) {
         return (
             <Modal
                 height={760}
@@ -232,7 +241,7 @@ export default function QrCodeMesaSalesModal({
                 >
                     <PaymentCheckout
                         product={QR_TABLE_PAYMENT_PRODUCT}
-                        onBack={() => transitionTo(false)}
+                        onBack={renewal ? close : () => transitionTo(false)}
                         onClose={close}
                         startPayment={startPayment}
                         reconcilePayment={reconcilePayment}
@@ -387,14 +396,14 @@ export default function QrCodeMesaSalesModal({
                 <Button type="button" variant="secondary" onClick={close}>
                     Agora não
                 </Button>
-                {!active && (
+                {(!active || renewal) && (
                     <Button
                         type="button"
                         variant="primary"
                         onClick={() => transitionTo(true)}
                         className="w-full sm:w-auto sm:min-w-64"
                     >
-                        Continuar
+                        {renewal ? "Renovar" : "Continuar"}
                     </Button>
                 )}
             </div>

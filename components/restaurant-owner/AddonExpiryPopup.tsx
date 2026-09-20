@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { faClock } from "@fortawesome/free-solid-svg-icons";
 
@@ -13,6 +14,14 @@ import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import { supabase } from "@/lib/database/supabaseClient";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
+
+const QrCodeMesaSalesModal = dynamic(
+    () =>
+        import(
+            "@/components/restaurant-owner/mesas/QrCodeMesaSalesModal"
+        ),
+    { ssr: false }
+);
 
 type ExpiringAddonNotice = {
     addonId: string;
@@ -43,6 +52,7 @@ export default function AddonExpiryPopup() {
     const restaurantId = useCreationStore((state) => state.restaurantId);
     const [notices, setNotices] = useState<ExpiringAddonNotice[]>([]);
     const [eligible, setEligible] = useState(false);
+    const [renewalOpen, setRenewalOpen] = useState(false);
     const markedShownRef = useRef(false);
     const dateKey = useMemo(() => saoPauloDateKey(), []);
 
@@ -138,15 +148,36 @@ export default function AddonExpiryPopup() {
         setEligible(false);
     };
 
-    const manage = () => {
+    const single = notices.length === 1;
+    const directQrRenewal =
+        single && notices[0]?.productKey === "qr_code_mesa";
+
+    const renew = () => {
         close();
+
+        if (directQrRenewal) {
+            setRenewalOpen(true);
+            return;
+        }
+
         router.push("/painel/configuracoes");
     };
 
-    const single = notices.length === 1;
-
     return (
-        <Modal
+        <>
+            {renewalOpen && restaurantId && (
+                <QrCodeMesaSalesModal
+                    open={renewalOpen}
+                    onClose={() => setRenewalOpen(false)}
+                    restaurantId={restaurantId}
+                    source="settings"
+                    active
+                    renewal
+                    startInCheckout
+                    onPaid={() => setRenewalOpen(false)}
+                />
+            )}
+            <Modal
             height={single ? 330 : 390}
             open={popup.open}
             onClose={close}
@@ -163,8 +194,8 @@ export default function AddonExpiryPopup() {
                         : `${notices.length} adicionais vencem hoje`}
                 </h2>
                 <p className="mt-2 text-sm leading-6 text-gray-600">
-                    O acesso pago via Pix termina hoje. Gerencie seus pagamentos
-                    para continuar usando os recursos sem interrupções.
+                    O acesso pago via Pix termina hoje. Renove para continuar
+                    usando os recursos sem interrupções.
                 </p>
 
                 {!single && (
@@ -184,11 +215,12 @@ export default function AddonExpiryPopup() {
                     <Button type="button" variant="secondary" onClick={close}>
                         Agora não
                     </Button>
-                    <Button type="button" onClick={manage}>
-                        Gerenciar pagamentos
+                    <Button type="button" onClick={renew}>
+                        {directQrRenewal ? "Renovar agora" : "Gerenciar pagamentos"}
                     </Button>
                 </div>
             </div>
-        </Modal>
+            </Modal>
+        </>
     );
 }

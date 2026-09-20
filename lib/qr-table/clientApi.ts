@@ -45,7 +45,8 @@ export type QrTableCheckoutResult = {
 export async function startQrTableCheckout(
     restaurantId: string,
     source: QrTableSource,
-    payment: PaymentCheckoutInput
+    payment: PaymentCheckoutInput,
+    options: { renew?: boolean } = {}
 ): Promise<QrTableCheckoutResult> {
     const response = await qrTableAuthenticatedFetch("/api/qr-table/checkout", {
         method: "POST",
@@ -54,6 +55,7 @@ export async function startQrTableCheckout(
             source,
             paymentMethod: payment.method,
             card: payment.method === "credit_card" ? payment.card : undefined,
+            renew: options.renew === true,
         }),
     });
     const payload = (await response.json()) as QrTableCheckoutResult & {
@@ -95,11 +97,15 @@ export type QrTableReconcileResult = {
 };
 
 export async function reconcileQrTableCheckout(
-    restaurantId?: string | null
+    restaurantId?: string | null,
+    options: { renew?: boolean } = {}
 ): Promise<QrTableReconcileResult> {
     const response = await qrTableAuthenticatedFetch("/api/qr-table/reconcile", {
         method: "POST",
-        body: JSON.stringify(restaurantId ? { restaurantId } : {}),
+        body: JSON.stringify({
+            ...(restaurantId ? { restaurantId } : {}),
+            renew: options.renew === true,
+        }),
         cache: "no-store",
     });
     const payload = (await response.json()) as QrTableReconcileResult & {
