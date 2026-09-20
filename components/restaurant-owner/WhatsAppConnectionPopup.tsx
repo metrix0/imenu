@@ -10,6 +10,10 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
 
+import {
+    AUTO_POPUP_PRIORITY,
+    useAutoPopup,
+} from "@/components/common/AutoPopupProvider";
 import { supabase } from "@/lib/database/supabaseClient";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 import Modal from "@/components/ui/Modal";
@@ -40,7 +44,10 @@ export default function WhatsAppConnectionPopup() {
     const { restaurantId, setRestaurantId } = useCreationStore();
     const [connection, setConnection] = useState<WhatsAppConnection | null>(null);
     const [loadingQr, setLoadingQr] = useState(false);
-    const [dismissedIncident, setDismissedIncident] = useState<string | null>(null);
+    const [dismissalState, setDismissalState] = useState<{
+        incidentKey: string | null;
+        dismissed: boolean;
+    }>({ incidentKey: null, dismissed: false });
 
     useEffect(() => {
         if (pathname !== "/painel" && pathname !== "/painel/") return;
@@ -120,16 +127,42 @@ export default function WhatsAppConnectionPopup() {
         return `${connection.status}:${connection.last_disconnected_at || "none"}`;
     }, [connection]);
 
+    useEffect(() => {
+        if (!restaurantId || !incidentKey) {
+            setDismissalState({ incidentKey, dismissed: false });
+            return;
+        }
+
+        let dismissed = false;
+        try {
+            dismissed =
+                window.localStorage.getItem(
+                    `imenu:whatsapp-popup-dismissed:${restaurantId}`
+                ) === incidentKey;
+        } catch {
+            // The incident can still be shown without persistence.
+        }
+        setDismissalState({ incidentKey, dismissed });
+    }, [incidentKey, restaurantId]);
+
     const hasConnectionProblem = Boolean(
         connection &&
             connection.desired_state === "connected" &&
             connection.last_connected_at &&
             connection.status !== "WORKING"
     );
-    const open =
+    const eligible =
         (pathname === "/painel" || pathname === "/painel/") &&
         hasConnectionProblem &&
-        incidentKey !== dismissedIncident;
+        Boolean(incidentKey) &&
+        dismissalState.incidentKey === incidentKey &&
+        !dismissalState.dismissed;
+    const popup = useAutoPopup({
+        id: `whatsapp-connection:${restaurantId || "unknown"}:${incidentKey || "none"}`,
+        priority: AUTO_POPUP_PRIORITY.operational,
+        enabled: eligible,
+        bypassSessionLimit: true,
+    });
 
     const generateNewQr = async () => {
         if (!restaurantId || loadingQr) return;
@@ -163,7 +196,18 @@ export default function WhatsAppConnectionPopup() {
     };
 
     const close = () => {
-        setDismissedIncident(incidentKey);
+        if (restaurantId && incidentKey) {
+            try {
+                window.localStorage.setItem(
+                    `imenu:whatsapp-popup-dismissed:${restaurantId}`,
+                    incidentKey
+                );
+            } catch {
+                // Current-session dismissal still works without storage.
+            }
+        }
+        setDismissalState({ incidentKey, dismissed: true });
+        popup.dismiss();
     };
 
     const needsQr =
@@ -175,7 +219,12 @@ export default function WhatsAppConnectionPopup() {
     const modalHeight = needsQr ? 660 : needsPhoneConfirmation ? 360 : 320;
 
     return (
-        <Modal height={modalHeight} open={open} onClose={close} className="max-w-lg">
+        <Modal
+            height={modalHeight}
+            open={popup.open}
+            onClose={close}
+            className="max-w-lg"
+        >
             <div className="p-6 sm:p-8">
                 <div className="flex items-start gap-4">
                     <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-amber-50 text-xl text-amber-700">

@@ -108,22 +108,6 @@ export default function PainelPedidosAtivosPage() {
         setHasMesasAccess(hasQrTableAccess(data));
     };
 
-    // --- HELPER PARA TRATAR FIRST TIME ---
-    const handleFirstTime = async (restId: string, isFirstTime: boolean) => {
-        if (isFirstTime) {
-            console.log(
-                "🎉 Primeiro acesso detectado! Abrindo modal de compartilhamento.",
-            );
-            setIsShareModalOpen(true);
-
-            // Atualiza no banco para não abrir mais
-            await supabase
-                .from("restaurants")
-                .update({ first_time: false })
-                .eq("id", restId);
-        }
-    };
-
     const handleViewOrder = (order: OrderData) => {
         setSelectedOrder(order);
         setIsDetailsOpen(true);
@@ -137,17 +121,15 @@ export default function PainelPedidosAtivosPage() {
                 fetchOrders(restaurantId);
                 void fetchMesasAccess(restaurantId);
 
-                // Precisamos verificar o first_time e o slug mesmo se já tivermos o ID
+                // Precisamos verificar o slug mesmo se já tivermos o ID
                 const { data } = await supabase
                     .from("restaurants")
-                    .select("url_slug, first_time")
+                    .select("url_slug")
                     .eq("id", restaurantId)
                     .single();
 
-                if (data) {
-                    if (!restaurantSlug) setRestaurantSlug(data.url_slug);
-                    // Verifica se é a primeira vez
-                    handleFirstTime(restaurantId, data.first_time);
+                if (data && !restaurantSlug) {
+                    setRestaurantSlug(data.url_slug);
                 }
 
                 setIsLoading(false);
@@ -165,7 +147,7 @@ export default function PainelPedidosAtivosPage() {
 
             const { data: restaurant } = await supabase
                 .from("restaurants")
-                .select("id, url_slug, first_time") // <--- ADICIONADO first_time
+                .select("id, url_slug")
                 .eq("user_id", session.user.id)
                 .single();
 
@@ -177,8 +159,6 @@ export default function PainelPedidosAtivosPage() {
                 await fetchOrders(restaurant.id);
                 await fetchMesasAccess(restaurant.id);
 
-                // Verifica se é a primeira vez
-                handleFirstTime(restaurant.id, restaurant.first_time);
             }
             setIsLoading(false);
         };

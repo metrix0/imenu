@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import "./globals.css";
 import "@/lib/utils/fontawesome";
 import PosthogProvider from "@/components/common/PosthogProvider";
+import { AutoPopupProvider } from "@/components/common/AutoPopupProvider";
 import RestaurantDirectoryProvider from "@/components/common/RestaurantDirectoryProvider";
 import QrTablePaymentSuccess from "@/components/restaurant-owner/mesas/QrTablePaymentSuccess";
 import { getRestaurantCityLinks } from "@/lib/seo/restaurantDirectory";
@@ -49,12 +50,14 @@ export default async function RootLayout({
                 className="min-h-screen bg-white text-gray-900"
                 suppressHydrationWarning
             >
-                <QrTablePaymentSuccess />
-                <PosthogProvider>
-                    <RestaurantDirectoryProvider cities={restaurantCities}>
-                        {children}
-                    </RestaurantDirectoryProvider>
-                </PosthogProvider>
+                <AutoPopupProvider>
+                    <QrTablePaymentSuccess />
+                    <PosthogProvider>
+                        <RestaurantDirectoryProvider cities={restaurantCities}>
+                            {children}
+                        </RestaurantDirectoryProvider>
+                    </PosthogProvider>
+                </AutoPopupProvider>
             </body>
         </html>
     );

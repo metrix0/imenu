@@ -9,6 +9,10 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
 
+import {
+    AUTO_POPUP_PRIORITY,
+    useAutoPopup,
+} from "@/components/common/AutoPopupProvider";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 
@@ -139,7 +143,13 @@ export default function PaymentSuccessCelebration({
     checkoutQueryParam = "checkout",
     checkoutSuccessValue = "success",
 }: PaymentSuccessCelebrationProps) {
-    const [open, setOpen] = useState(false);
+    const [requested, setRequested] = useState(false);
+    const popup = useAutoPopup({
+        id: `payment-success:${successEventName}`,
+        priority: AUTO_POPUP_PRIORITY.paymentSuccess,
+        enabled: requested,
+        bypassSessionLimit: true,
+    });
     const partyCleanupRef = useRef<(() => void) | null>(null);
     const reloadAfterCloseRef = useRef(false);
 
@@ -159,9 +169,7 @@ export default function PaymentSuccessCelebration({
             onActivated?.();
 
             reloadAfterCloseRef.current = true;
-            setOpen(true);
-            partyCleanupRef.current?.();
-            partyCleanupRef.current = launchPartyPoppers();
+            setRequested(true);
         };
 
         const handleInternalActivation = () => {
@@ -225,10 +233,22 @@ export default function PaymentSuccessCelebration({
         successEventName,
     ]);
 
+    useEffect(() => {
+        if (!popup.open) return;
+
+        partyCleanupRef.current?.();
+        partyCleanupRef.current = launchPartyPoppers();
+        return () => {
+            partyCleanupRef.current?.();
+            partyCleanupRef.current = null;
+        };
+    }, [popup.open]);
+
     const closeCelebration = () => {
         partyCleanupRef.current?.();
         partyCleanupRef.current = null;
-        setOpen(false);
+        popup.dismiss();
+        setRequested(false);
 
         if (reloadAfterCloseRef.current) {
             reloadAfterCloseRef.current = false;
@@ -238,7 +258,7 @@ export default function PaymentSuccessCelebration({
 
     return (
         <Modal height={560}
-            open={open}
+            open={popup.open}
             onClose={closeCelebration}
             className="max-w-xl"
             showCloseButton

@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 
+import AddonExpiryPopup from "@/components/restaurant-owner/AddonExpiryPopup";
 import ApplicationInstallPrompt from "@/components/restaurant-owner/aplicativo/ApplicationInstallPrompt";
 import PanelLayoutBase from "./PanelLayoutBase";
 import PanelAppearance from "@/components/ui/PanelAppearance";
@@ -72,6 +73,7 @@ export default function PainelLayout({
                 }
             `}</style>
             <PanelLayoutBase>{children}</PanelLayoutBase>
+            <AddonExpiryPopup />
             <ApplicationInstallPrompt />
         </PanelAppearance>
     );

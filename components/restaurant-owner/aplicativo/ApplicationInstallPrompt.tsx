@@ -5,6 +5,10 @@ import { usePathname, useRouter } from "next/navigation";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { faBell } from "@fortawesome/free-solid-svg-icons";
 
+import {
+    AUTO_POPUP_PRIORITY,
+    useAutoPopup,
+} from "@/components/common/AutoPopupProvider";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import ShareMenuModal from "@/components/restaurant-owner/ShareMenuModal";
@@ -46,10 +50,21 @@ function rememberDismissal() {
 export default function ApplicationInstallPrompt() {
     const pathname = usePathname();
     const router = useRouter();
-    const [open, setOpen] = useState(false);
+    const [appEligible, setAppEligible] = useState(false);
     const [onboardingMenuIdentifier, setOnboardingMenuIdentifier] = useState<
         string | null
     >(null);
+
+    const onboardingPopup = useAutoPopup({
+        id: `onboarding-welcome:${onboardingMenuIdentifier || "none"}`,
+        priority: AUTO_POPUP_PRIORITY.onboarding,
+        enabled: Boolean(onboardingMenuIdentifier),
+    });
+    const applicationPopup = useAutoPopup({
+        id: "application-install",
+        priority: AUTO_POPUP_PRIORITY.promotion,
+        enabled: appEligible && !onboardingMenuIdentifier,
+    });
 
     useEffect(() => {
         const searchParams = new URLSearchParams(window.location.search);
@@ -60,7 +75,7 @@ export default function ApplicationInstallPrompt() {
 
         if (onboardingMenu) {
             setOnboardingMenuIdentifier(onboardingMenu);
-            setOpen(false);
+            setAppEligible(false);
             return;
         }
 
@@ -70,7 +85,7 @@ export default function ApplicationInstallPrompt() {
             pathname === "/painel/aplicativo" ||
             pathname?.startsWith("/painel/configuracoes/nova-senha")
         ) {
-            setOpen(false);
+            setAppEligible(false);
             return;
         }
 
@@ -80,7 +95,7 @@ export default function ApplicationInstallPrompt() {
             isStandaloneMode() ||
             wasRecentlyDismissed()
         ) {
-            setOpen(false);
+            setAppEligible(false);
             return;
         }
 
@@ -96,17 +111,17 @@ export default function ApplicationInstallPrompt() {
                     !isStandaloneMode() &&
                     !wasRecentlyDismissed()
                 ) {
-                    setOpen(true);
+                    setAppEligible(true);
                 }
             }, OPEN_DELAY_MS);
         });
 
         const handleInstalled = () => {
             rememberDismissal();
-            setOpen(false);
+            setAppEligible(false);
         };
         const handleViewportChange = () => {
-            if (!mediaQuery.matches || isStandaloneMode()) setOpen(false);
+            if (!mediaQuery.matches || isStandaloneMode()) setAppEligible(false);
         };
 
         window.addEventListener("appinstalled", handleInstalled);
@@ -122,10 +137,12 @@ export default function ApplicationInstallPrompt() {
 
     const close = () => {
         rememberDismissal();
-        setOpen(false);
+        applicationPopup.dismiss();
+        setAppEligible(false);
     };
 
     const closeOnboardingWelcome = () => {
+        onboardingPopup.dismiss();
         setOnboardingMenuIdentifier(null);
 
         const url = new URL(window.location.href);
@@ -142,7 +159,7 @@ export default function ApplicationInstallPrompt() {
         <>
             {onboardingMenuIdentifier && (
                 <ShareMenuModal
-                    isOpen
+                    isOpen={onboardingPopup.open}
                     onClose={closeOnboardingWelcome}
                     restaurantId={onboardingMenuIdentifier}
                     variant="welcome"
@@ -151,7 +168,7 @@ export default function ApplicationInstallPrompt() {
 
             <Modal
                 height={500}
-                open={open}
+                open={applicationPopup.open}
                 onClose={close}
                 showCloseButton
                 className="max-w-sm"
