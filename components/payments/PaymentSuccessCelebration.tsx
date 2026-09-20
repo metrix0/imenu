@@ -6,39 +6,37 @@ import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import {
     faCheck,
     faGift,
-    faPrint,
-    faQrcode,
-    faUsers,
 } from "@fortawesome/free-solid-svg-icons";
+import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
 
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
-import { reconcileQrTableCheckout } from "@/lib/qr-table/clientApi";
-import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 
-const CHECKOUT_RETURN_PATHS = new Set([
-    "/painel/mesas",
-    "/painel/configuracoes",
-    "/restaurante/criar/localizacao",
-]);
 const CHECKOUT_RECONCILE_ATTEMPTS = 40;
 const CHECKOUT_RECONCILE_DELAY_MS = 5000;
-const INTERNAL_ACTIVATION_EVENT = "imenu:qr-table-activated";
 
-const BENEFITS = [
-    {
-        icon: faQrcode,
-        text: "QR Code exclusivo por mesa e QR Code universal",
-    },
-    {
-        icon: faUsers,
-        text: "Vários clientes podem pedir ao mesmo tempo pela mesma mesa",
-    },
-    {
-        icon: faPrint,
-        text: "Pedidos identificados pela mesa no painel e na impressão",
-    },
-] as const;
+export type PaymentSuccessBenefit = {
+    icon: IconDefinition;
+    text: string;
+};
+
+type PaymentSuccessCelebrationProps = {
+    successEventName: string;
+    returnPaths: readonly string[];
+    reconcilePayment: () => Promise<{
+        active: boolean;
+        activatedNow?: boolean;
+    }>;
+    onActivated?: () => void;
+    title: string;
+    description: string;
+    benefits: readonly PaymentSuccessBenefit[];
+    bonusTitle: string;
+    bonusDescription: string;
+    actionLabel: string;
+    checkoutQueryParam?: string;
+    checkoutSuccessValue?: string;
+};
 
 function launchPartyPoppers(): () => void {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
@@ -113,9 +111,9 @@ function launchPartyPoppers(): () => void {
     return () => pieces.forEach((piece) => piece.remove());
 }
 
-function removeCheckoutStateFromUrl() {
+function removeCheckoutStateFromUrl(queryParam: string) {
     const url = new URL(window.location.href);
-    url.searchParams.delete("checkout");
+    url.searchParams.delete(queryParam);
     window.history.replaceState(
         {},
         "",
@@ -127,30 +125,38 @@ function delay(ms: number): Promise<void> {
     return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
-export default function QrCheckoutReturnRefresh() {
+export default function PaymentSuccessCelebration({
+    successEventName,
+    returnPaths,
+    reconcilePayment,
+    onActivated,
+    title,
+    description,
+    benefits,
+    bonusTitle,
+    bonusDescription,
+    actionLabel,
+    checkoutQueryParam = "checkout",
+    checkoutSuccessValue = "success",
+}: PaymentSuccessCelebrationProps) {
     const [open, setOpen] = useState(false);
-    const restaurantId = useCreationStore((state) => state.restaurantId);
-    const setProductSelectionCompleted = useCreationStore(
-        (state) => state.setProductSelectionCompleted
-    );
     const partyCleanupRef = useRef<(() => void) | null>(null);
     const reloadAfterCloseRef = useRef(false);
 
     useEffect(() => {
         const checkoutState = new URLSearchParams(window.location.search).get(
-            "checkout"
+            checkoutQueryParam
         );
-        const returnedFromSuccessfulCheckout = checkoutState === "success";
+        const returnedFromSuccessfulCheckout =
+            checkoutState === checkoutSuccessValue;
         let cancelled = false;
 
         const celebrateActivation = () => {
             if (returnedFromSuccessfulCheckout) {
-                removeCheckoutStateFromUrl();
+                removeCheckoutStateFromUrl(checkoutQueryParam);
             }
 
-            if (window.location.pathname === "/restaurante/criar/localizacao") {
-                setProductSelectionCompleted(true);
-            }
+            onActivated?.();
 
             reloadAfterCloseRef.current = true;
             setOpen(true);
@@ -163,7 +169,7 @@ export default function QrCheckoutReturnRefresh() {
         };
 
         window.addEventListener(
-            INTERNAL_ACTIVATION_EVENT,
+            successEventName,
             handleInternalActivation
         );
 
@@ -179,7 +185,7 @@ export default function QrCheckoutReturnRefresh() {
                 if (cancelled) return;
 
                 try {
-                    const result = await reconcileQrTableCheckout(restaurantId);
+                    const result = await reconcilePayment();
                     if (cancelled) return;
 
                     if (result.active) {
@@ -197,20 +203,27 @@ export default function QrCheckoutReturnRefresh() {
             }
         };
 
-        if (CHECKOUT_RETURN_PATHS.has(window.location.pathname)) {
+        if (returnPaths.includes(window.location.pathname)) {
             void reconcile();
         }
 
         return () => {
             cancelled = true;
             window.removeEventListener(
-                INTERNAL_ACTIVATION_EVENT,
+                successEventName,
                 handleInternalActivation
             );
             partyCleanupRef.current?.();
             partyCleanupRef.current = null;
         };
-    }, [restaurantId, setProductSelectionCompleted]);
+    }, [
+        checkoutQueryParam,
+        checkoutSuccessValue,
+        onActivated,
+        reconcilePayment,
+        returnPaths,
+        successEventName,
+    ]);
 
     const closeCelebration = () => {
         partyCleanupRef.current?.();
@@ -242,15 +255,14 @@ export default function QrCheckoutReturnRefresh() {
                 </div>
 
                 <h2 className="mt-5 text-2xl font-bold text-gray-900 sm:text-3xl">
-                    Obrigado pela compra!
+                    {title}
                 </h2>
                 <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-gray-600 sm:text-base">
-                    Seu iMenu QR Code Mesa foi ativado. Agora você tem novos
-                    recursos para atender seus clientes direto pela mesa.
+                    {description}
                 </p>
 
                 <div className="mt-6 space-y-3 text-left">
-                    {BENEFITS.map((benefit) => (
+                    {benefits.map((benefit) => (
                         <div
                             key={benefit.text}
                             className="flex items-center gap-3 rounded-xl border border-gray-100 bg-gray-50 px-4 py-3"
@@ -276,11 +288,10 @@ export default function QrCheckoutReturnRefresh() {
                         </span>
                         <div>
                             <p className="text-sm font-bold text-gray-900">
-                                BÔNUS: Atendimento Exclusivo
+                                {bonusTitle}
                             </p>
                             <p className="mt-1 text-sm leading-relaxed text-gray-600">
-                                Funcionalidades e melhorias que você pedir e que
-                                fizerem sentido serão implementadas em 1 semana.
+                                {bonusDescription}
                             </p>
                         </div>
                     </div>
@@ -291,7 +302,7 @@ export default function QrCheckoutReturnRefresh() {
                     className="mt-6 w-full"
                     onClick={closeCelebration}
                 >
-                    Começar a usar
+                    {actionLabel}
                 </Button>
             </div>
         </Modal>

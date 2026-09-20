@@ -5,8 +5,8 @@ import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import {
     faCalendarDays,
     faCopy,
-    faQrcode,
 } from "@fortawesome/free-solid-svg-icons";
+import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
 
 import PaymentForm from "@/components/payments/PaymentForm";
 import Button from "@/components/ui/Button";
@@ -16,21 +16,50 @@ import {
     getCreditCardPaymentDataError,
     type CreditCardPaymentData,
     type OnlinePaymentMethod,
+    type PaymentCheckoutInput,
 } from "@/lib/payments/types";
-import { supabase } from "@/lib/database/supabaseClient";
-import { captureQrTableEvent } from "@/lib/qr-table/analytics";
-import {
-    reconcileQrTableCheckout,
-    startQrTableCheckout,
-    type QrTableCheckoutResult,
-} from "@/lib/qr-table/clientApi";
-import type { QrTableSource } from "@/lib/qr-table/types";
 
-type QrTablePaymentCheckoutProps = {
-    restaurantId: string;
-    source: QrTableSource;
+export type PaymentCheckoutResult = {
+    active: boolean;
+    recurring?: boolean;
+    paymentMethod: OnlinePaymentMethod;
+    paymentStatus: string | null;
+    transactionId?: string;
+    qrCodeText?: string | null;
+    qrCodeBase64?: string | null;
+    qrCodeUrl?: string | null;
+};
+
+export type PaymentCheckoutProduct = {
+    name: string;
+    periodLabel: string;
+    detail: string;
+    priceLabel: string;
+    icon: IconDefinition;
+    pixDescription: string;
+    cardDescription: string;
+    pixNotice: string;
+    cardNotice: string;
+    pixConfirmationDescription: string;
+    cardConfirmationDescription: string;
+};
+
+type PaymentCheckoutProps = {
+    product: PaymentCheckoutProduct;
     onBack: () => void;
     onClose: () => void;
+    startPayment: (
+        payment: PaymentCheckoutInput
+    ) => Promise<PaymentCheckoutResult>;
+    reconcilePayment: () => Promise<{
+        active: boolean;
+        paymentStatus: string | null;
+    }>;
+    loadCardPrefill?: () => Promise<Partial<CreditCardPaymentData>>;
+    onPaymentStarted?: (
+        method: OnlinePaymentMethod
+    ) => void | Promise<void>;
+    successEventName?: string;
     onPaid?: () => void | Promise<void>;
 };
 
@@ -50,43 +79,17 @@ const FAILED_PAYMENT_STATUSES = new Set([
     "VOIDED",
 ]);
 
-function textValue(value: unknown): string {
-    if (value === null || value === undefined) return "";
-    return String(value).trim();
-}
-
-function normalizeOwnerPhone(value: unknown): string {
-    let digits = textValue(value).replace(/\D/g, "");
-
-    if (digits.startsWith("55") && digits.length >= 12) {
-        digits = digits.slice(2);
-    }
-
-    digits = digits.slice(0, 11);
-    if (digits.length <= 2) return digits;
-    if (digits.length <= 6) {
-        return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
-    }
-    if (digits.length <= 10) {
-        return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
-    }
-    return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
-}
-
-function normalizePostalCode(value: unknown): string {
-    const digits = textValue(value).replace(/\D/g, "").slice(0, 8);
-    return digits.length > 5
-        ? `${digits.slice(0, 5)}-${digits.slice(5)}`
-        : digits;
-}
-
-export default function QrTablePaymentCheckout({
-    restaurantId,
-    source,
+export default function PaymentCheckout({
+    product,
     onBack,
     onClose,
+    startPayment,
+    reconcilePayment,
+    loadCardPrefill,
+    onPaymentStarted,
+    successEventName,
     onPaid,
-}: QrTablePaymentCheckoutProps) {
+}: PaymentCheckoutProps) {
     const [phase, setPhase] = useState<Phase>("form");
     const [paymentMethod, setPaymentMethod] =
         useState<OnlinePaymentMethod>("pix");
@@ -96,7 +99,7 @@ export default function QrTablePaymentCheckout({
     const [processing, setProcessing] = useState(false);
     const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
     const [pixResult, setPixResult] =
-        useState<QrTableCheckoutResult | null>(null);
+        useState<PaymentCheckoutResult | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [copied, setCopied] = useState(false);
 
@@ -113,73 +116,58 @@ export default function QrTablePaymentCheckout({
 
     const completePayment = useCallback(async () => {
         setAwaitingConfirmation(false);
-        window.dispatchEvent(new Event("imenu:qr-table-activated"));
+        if (successEventName) {
+            window.dispatchEvent(new Event(successEventName));
+        }
         if (onPaid) {
             await onPaid();
             return;
         }
         window.location.reload();
-    }, [onPaid]);
+    }, [onPaid, successEventName]);
 
     useEffect(() => {
-        if (!restaurantId) return;
+        if (!loadCardPrefill) return;
 
         let disposed = false;
 
-        void (async () => {
-            const [
-                {
-                    data: { user },
-                },
-                { data: restaurant },
-            ] = await Promise.all([
-                supabase.auth.getUser(),
-                supabase
-                    .from("restaurants")
-                    .select("address")
-                    .eq("id", restaurantId)
-                    .maybeSingle(),
-            ]);
-
+        void loadCardPrefill().then((prefill) => {
             if (disposed) return;
-
-            const address =
-                restaurant?.address &&
-                typeof restaurant.address === "object" &&
-                !Array.isArray(restaurant.address)
-                    ? (restaurant.address as Record<string, unknown>)
-                    : {};
-            const ownerPhone =
-                user?.user_metadata?.phone ?? user?.phone ?? "";
 
             setCard((current) => ({
                 ...current,
-                email: current.email || user?.email || "",
-                mobilePhone:
-                    current.mobilePhone || normalizeOwnerPhone(ownerPhone),
-                postalCode:
-                    current.postalCode || normalizePostalCode(address.cep),
+                number: current.number || prefill.number || "",
+                holderName: current.holderName || prefill.holderName || "",
+                expiry: current.expiry || prefill.expiry || "",
+                ccv: current.ccv || prefill.ccv || "",
+                cpfCnpj: current.cpfCnpj || prefill.cpfCnpj || "",
+                email: current.email || prefill.email || "",
+                postalCode: current.postalCode || prefill.postalCode || "",
                 addressNumber:
-                    current.addressNumber || textValue(address.number),
+                    current.addressNumber || prefill.addressNumber || "",
                 addressComplement:
-                    current.addressComplement || textValue(address.complement),
+                    current.addressComplement ||
+                    prefill.addressComplement ||
+                    "",
+                mobilePhone:
+                    current.mobilePhone || prefill.mobilePhone || "",
             }));
-        })();
+        });
 
         return () => {
             disposed = true;
         };
-    }, [restaurantId]);
+    }, [loadCardPrefill]);
 
     useEffect(() => {
-        if (!awaitingConfirmation || !restaurantId) return;
+        if (!awaitingConfirmation) return;
 
         let disposed = false;
         let timeout: ReturnType<typeof setTimeout> | null = null;
 
         const poll = async () => {
             try {
-                const result = await reconcileQrTableCheckout(restaurantId);
+                const result = await reconcilePayment();
                 if (disposed) return;
 
                 if (result.active) {
@@ -212,14 +200,9 @@ export default function QrTablePaymentCheckout({
             disposed = true;
             if (timeout) clearTimeout(timeout);
         };
-    }, [awaitingConfirmation, completePayment, restaurantId]);
+    }, [awaitingConfirmation, completePayment, reconcilePayment]);
 
     const pay = async () => {
-        if (!restaurantId) {
-            setError("Restaurante não encontrado.");
-            return;
-        }
-
         if (paymentMethod === "credit_card") {
             const validationError = getCreditCardPaymentDataError(card);
             if (validationError) {
@@ -232,16 +215,10 @@ export default function QrTablePaymentCheckout({
         setError(null);
         setCopied(false);
 
-        void captureQrTableEvent("qr_code_mesa_purchase_started", {
-            restaurant_id: restaurantId,
-            source,
-            payment_method: paymentMethod,
-        });
+        void onPaymentStarted?.(paymentMethod);
 
         try {
-            const result = await startQrTableCheckout(
-                restaurantId,
-                source,
+            const result = await startPayment(
                 paymentMethod === "pix"
                     ? { method: "pix" }
                     : { method: "credit_card", card }
@@ -291,7 +268,7 @@ export default function QrTablePaymentCheckout({
                         Pague com Pix
                     </h2>
                     <p className="mt-1 text-sm text-gray-500">
-                        Assim que o PayZu confirmar o pagamento, o QR Code Mesa será liberado automaticamente.
+                        {product.pixConfirmationDescription}
                     </p>
                 </div>
                 <div className="flex flex-1 flex-col items-center justify-center gap-5 px-6 py-7 text-center sm:px-8">
@@ -346,7 +323,7 @@ export default function QrTablePaymentCheckout({
                         Confirmando pagamento
                     </h2>
                     <p className="mt-1 text-sm text-gray-500">
-                        Estamos aguardando a confirmação do Asaas. Não feche esta janela.
+                        {product.cardConfirmationDescription}
                     </p>
                 </div>
             </div>
@@ -381,14 +358,14 @@ export default function QrTablePaymentCheckout({
                                 setError(null);
                             }}
                             onCardChange={setCard}
-                            pixDescription="Pagamento único • acesso por 1 mês"
-                            cardDescription="Cobrança recorrente mensal • cancele quando quiser"
+                            pixDescription={product.pixDescription}
+                            cardDescription={product.cardDescription}
                         />
 
                         <p className="mt-5 text-xs leading-relaxed text-gray-500">
                             {paymentMethod === "credit_card"
-                                ? "Ao pagar, você autoriza a cobrança recorrente mensal de R$ 5,00 até o cancelamento."
-                                : "O Pix libera o acesso por 1 mês, você receberá uma notificação no iMenu e Whatsapp antes da assinatura expirar."}
+                                ? product.cardNotice
+                                : product.pixNotice}
                         </p>
                     </div>
 
@@ -399,24 +376,24 @@ export default function QrTablePaymentCheckout({
 
                         <div className="mt-4 flex items-start gap-3 border-b border-gray-200 pb-4">
                             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand/10 text-brand">
-                                <FontAwesomeIcon icon={faQrcode} />
+                                <FontAwesomeIcon icon={product.icon} />
                             </span>
                             <div className="min-w-0 flex-1">
                                 <div className="flex items-start justify-between gap-3">
                                     <div>
                                         <p className="font-medium text-gray-900">
-                                            iMenu QR Code Mesa
+                                            {product.name}
                                         </p>
                                         <p className="mt-0.5 text-xs text-gray-500">
-                                            30 dias (1 mês)
+                                            {product.periodLabel}
                                         </p>
                                     </div>
                                     <span className="shrink-0 font-medium text-gray-900">
-                                        R$ 5,00
+                                        {product.priceLabel}
                                     </span>
                                 </div>
                                 <p className="mt-2 text-xs text-gray-500">
-                                    Mesas e QR Codes ilimitados
+                                    {product.detail}
                                 </p>
                             </div>
                         </div>
@@ -442,11 +419,11 @@ export default function QrTablePaymentCheckout({
                             </h2>
                             <div className="flex justify-between text-[15px] text-gray-600 2xl:text-lg">
                                 <span>Subtotal</span>
-                                <span>R$ 5,00</span>
+                                <span>{product.priceLabel}</span>
                             </div>
                             <div className="mt-3 flex justify-between border-t border-gray-200 pt-3 font-semibold text-gray-900">
                                 <span>Total</span>
-                                <span>R$ 5,00</span>
+                                <span>{product.priceLabel}</span>
                             </div>
                         </div>
                     </div>
@@ -457,7 +434,7 @@ export default function QrTablePaymentCheckout({
                 <div className="hidden sm:mr-auto sm:block">
                     <p className="text-xs text-gray-500">Total</p>
                     <p className="text-lg font-semibold text-gray-900">
-                        R$ 5,00
+                        {product.priceLabel}
                     </p>
                 </div>
                 <Button
@@ -475,7 +452,7 @@ export default function QrTablePaymentCheckout({
                     onClick={() => void pay()}
                     className="w-full sm:w-auto sm:min-w-48"
                 >
-                    Pagar R$ 5,00
+                    Pagar {product.priceLabel}
                 </Button>
             </div>
         </>
