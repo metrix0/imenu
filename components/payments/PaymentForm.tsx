@@ -31,7 +31,7 @@ function formatCardNumber(value: string): string {
 }
 
 function formatExpiration(value: string): string {
-    const digits = value.replace(/\D/g, "").slice(0, 6);
+    const digits = value.replace(/\D/g, "").slice(0, 4);
     if (digits.length <= 2) return digits;
     return `${digits.slice(0, 2)}/${digits.slice(2)}`;
 }
@@ -161,7 +161,7 @@ export default function PaymentForm({
                     </div>
                     <Input
                         label="Validade"
-                        placeholder="MM/AAAA"
+                        placeholder="MM/AA"
                         value={card.expiry}
                         inputMode="numeric"
                         autoComplete="cc-exp"
