@@ -15,8 +15,8 @@
         overflow-wrap: anywhere;
     }
 
-    /* Financeiro */
-    .panel-mobile-content[data-panel-path^="/painel/financeiro"] .h-\[300px\] {
+    /* Repasses */
+    .panel-mobile-content[data-panel-path^="/painel/repasses"] .h-\[300px\] {
         height: 260px;
     }
 

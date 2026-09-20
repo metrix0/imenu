@@ -373,9 +373,9 @@ export default function PainelLayout({
         { label: "Cardápio", icon: faUtensils, href: cardapioHref },
         { label: "Mesas", icon: faChair, href: `${base}/mesas` },
         {
-            label: "Financeiro",
+            label: "Repasses",
             icon: faMoneyBillWave,
-            href: `${base}/financeiro`,
+            href: `${base}/repasses`,
         },
         {
             label: "Analytics",
