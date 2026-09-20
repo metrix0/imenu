@@ -44,7 +44,7 @@ export type PaymentCheckoutProduct = {
     cardConfirmationDescription: string;
 };
 
-type PaymentCheckoutProps = {
+export type PaymentCheckoutProps = {
     product: PaymentCheckoutProduct;
     onBack?: () => void;
     onClose: () => void;
