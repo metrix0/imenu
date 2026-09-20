@@ -154,10 +154,10 @@ export default function AddonExpiryPopup() {
             showCloseButton
         >
             <div className="p-6 text-center sm:p-7">
-                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-amber-50 text-amber-700">
-                    <FontAwesomeIcon icon={faClock} />
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-amber-50 text-amber-700">
+                    <FontAwesomeIcon icon={faClock} className="text-[28px]" />
                 </div>
-                <h2 className="mt-4 text-xl font-bold text-gray-900">
+                <h2 className="mt-4 !pr-0 text-xl font-bold text-gray-900">
                     {single
                         ? `Seu ${notices[0]?.productName} vence hoje`
                         : `${notices.length} adicionais vencem hoje`}
