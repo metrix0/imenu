@@ -15,10 +15,10 @@ import Modal from "@/components/ui/Modal";
 import { supabase } from "@/lib/database/supabaseClient";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 
-const QrCodeMesaSalesModal = dynamic(
+const QrCodeMesaCheckoutModal = dynamic(
     () =>
         import(
-            "@/components/restaurant-owner/mesas/QrCodeMesaSalesModal"
+            "@/components/restaurant-owner/mesas/QrCodeMesaCheckoutModal"
         ),
     { ssr: false }
 );
@@ -53,6 +53,7 @@ export default function AddonExpiryPopup() {
     const [notices, setNotices] = useState<ExpiringAddonNotice[]>([]);
     const [eligible, setEligible] = useState(false);
     const [renewalOpen, setRenewalOpen] = useState(false);
+    const [renewalMounted, setRenewalMounted] = useState(false);
     const markedShownRef = useRef(false);
     const dateKey = useMemo(() => saoPauloDateKey(), []);
 
@@ -156,6 +157,7 @@ export default function AddonExpiryPopup() {
         close();
 
         if (directQrRenewal) {
+            setRenewalMounted(true);
             setRenewalOpen(true);
             return;
         }
@@ -165,15 +167,13 @@ export default function AddonExpiryPopup() {
 
     return (
         <>
-            {renewalOpen && restaurantId && (
-                <QrCodeMesaSalesModal
+            {renewalMounted && restaurantId && (
+                <QrCodeMesaCheckoutModal
                     open={renewalOpen}
                     onClose={() => setRenewalOpen(false)}
                     restaurantId={restaurantId}
                     source="settings"
-                    active
                     renewal
-                    startInCheckout
                     onPaid={() => setRenewalOpen(false)}
                 />
             )}

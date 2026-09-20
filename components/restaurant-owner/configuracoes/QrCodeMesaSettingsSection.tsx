@@ -9,6 +9,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 
 import MenuProductCards from "@/components/restaurant-owner/mesas/MenuProductCards";
+import QrCodeMesaCheckoutModal from "@/components/restaurant-owner/mesas/QrCodeMesaCheckoutModal";
 import QrCodeMesaSalesModal from "@/components/restaurant-owner/mesas/QrCodeMesaSalesModal";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
@@ -145,7 +146,7 @@ export default function QrCodeMesaSettingsSection({
     const [billing, setBilling] = useState<BillingPayload | null>(null);
     const [loading, setLoading] = useState(true);
     const [salesOpen, setSalesOpen] = useState(false);
-    const [renewing, setRenewing] = useState(false);
+    const [renewalOpen, setRenewalOpen] = useState(false);
     const [cancelAddonId, setCancelAddonId] = useState<string | null>(null);
     const [canceling, setCanceling] = useState(false);
     const [toast, setToast] = useState<{
@@ -205,7 +206,6 @@ export default function QrCodeMesaSettingsSection({
     }, [loadBilling]);
 
     const openSales = () => {
-        setRenewing(false);
         setSalesOpen(true);
         void captureQrTableEvent("qr_code_mesa_learn_more_viewed", {
             restaurant_id: restaurantId,
@@ -214,13 +214,11 @@ export default function QrCodeMesaSettingsSection({
     };
 
     const openRenewal = () => {
-        setRenewing(true);
-        setSalesOpen(true);
+        setRenewalOpen(true);
     };
 
     const closeSales = () => {
         setSalesOpen(false);
-        setRenewing(false);
     };
 
     const cancelSubscription = async () => {
@@ -292,16 +290,28 @@ export default function QrCodeMesaSettingsSection({
                 onPaid={async () => {
                     closeSales();
                     setToast({
-                        message: renewing
-                            ? "Pagamento confirmado. Renovação concluída!"
-                            : "Pagamento confirmado. QR Code Mesa ativado!",
+                        message: "Pagamento confirmado. QR Code Mesa ativado!",
                         type: "success",
                     });
                     await loadBilling();
                 }}
                 active={active}
-                renewal={renewing}
-                startInCheckout={renewing}
+            />
+
+            <QrCodeMesaCheckoutModal
+                open={renewalOpen}
+                onClose={() => setRenewalOpen(false)}
+                restaurantId={restaurantId}
+                source="settings"
+                renewal
+                onPaid={async () => {
+                    setRenewalOpen(false);
+                    setToast({
+                        message: "Pagamento confirmado. Renovação concluída!",
+                        type: "success",
+                    });
+                    await loadBilling();
+                }}
             />
 
             <ConfirmModal
