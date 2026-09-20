@@ -249,8 +249,8 @@ export default function PaymentForm({
                     />
                     <div className="sm:col-span-2">
                         <Input
-                            label="Complemento"
-                            value={card.addressComplement}
+                            label="Complemento (opcional)"
+                            value={card.addressComplement ?? ""}
                             autoComplete="off"
                             disabled={cardDisabled}
                             onChange={(event) =>

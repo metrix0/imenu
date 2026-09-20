@@ -9,7 +9,7 @@ export type CreditCardPaymentData = {
     email: string;
     postalCode: string;
     addressNumber: string;
-    addressComplement: string;
+    addressComplement?: string;
     mobilePhone: string;
 };
 

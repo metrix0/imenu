@@ -201,7 +201,7 @@ async function getOrCreateAsaasCustomer(
             mobilePhone: digits(card.mobilePhone),
             postalCode: digits(card.postalCode),
             addressNumber: card.addressNumber.trim(),
-            complement: card.addressComplement.trim() || undefined,
+            complement: card.addressComplement?.trim() || undefined,
             externalReference,
         }),
     });
@@ -402,8 +402,12 @@ export async function POST(request: Request) {
                         cpfCnpj: digits(card.cpfCnpj),
                         postalCode: digits(card.postalCode),
                         addressNumber: card.addressNumber.trim(),
-                        addressComplement:
-                            card.addressComplement.trim() || null,
+                        ...(card.addressComplement?.trim()
+                            ? {
+                                  addressComplement:
+                                      card.addressComplement.trim(),
+                              }
+                            : {}),
                         mobilePhone: digits(card.mobilePhone),
                     },
                     remoteIp: getClientIp(request),
