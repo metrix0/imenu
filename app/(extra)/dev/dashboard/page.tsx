@@ -412,6 +412,33 @@ function panelTabOptions() {
     };
 }
 
+const panelTabValueLabelsPlugin = {
+    id: "panelTabValueLabels",
+    afterDatasetsDraw(chart: any) {
+        const dataset = chart.data.datasets[0];
+        const meta = chart.getDatasetMeta(0);
+        const { ctx, chartArea } = chart;
+
+        ctx.save();
+        ctx.font = "600 12px sans-serif";
+        ctx.textBaseline = "middle";
+
+        meta.data.forEach((bar: any, index: number) => {
+            const value = Number(dataset.data[index]) || 0;
+            const label = formatRatio(value);
+            const padding = 8;
+            const labelWidth = ctx.measureText(label).width;
+            const fitsAfterBar = bar.x + padding + labelWidth <= chartArea.right;
+
+            ctx.textAlign = fitsAfterBar ? "left" : "right";
+            ctx.fillStyle = fitsAfterBar ? "#4b5563" : "#ffffff";
+            ctx.fillText(label, fitsAfterBar ? bar.x + padding : bar.x - padding, bar.y);
+        });
+
+        ctx.restore();
+    },
+};
+
 export default function DevDashboardPage() {
     const router = useRouter();
     const [range, setRange] = useState<RangeKey>("7d");
@@ -783,6 +810,7 @@ export default function DevDashboardPage() {
                                                 <Bar
                                                     data={panelTabChartData}
                                                     options={panelTabOptions()}
+                                                    plugins={[panelTabValueLabelsPlugin]}
                                                 />
                                             </div>
                                         </>

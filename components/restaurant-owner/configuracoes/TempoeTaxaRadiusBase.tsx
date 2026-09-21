@@ -145,12 +145,9 @@ const DeliveryRules = forwardRef<DeliveryRulesRef, DeliveryRulesProps>(
                 data?.min_order_cents !== undefined &&
                 minOrderRef.current
             ) {
-                const value =
-                    data.min_order_cents === 0
-                        ? 20
-                        : data.min_order_cents / 100;
-
-                minOrderRef.current.value = String(value);
+                minOrderRef.current.value = String(
+                    data.min_order_cents / 100
+                );
             } else if (isNew && minOrderRef.current) {
                 minOrderRef.current.value = "20";
             }

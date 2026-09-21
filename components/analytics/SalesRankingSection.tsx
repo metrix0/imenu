@@ -136,7 +136,7 @@ export default function SalesRankingSection({ range }: { range: RangeKey }) {
                             value={formatCount(data.summary.restaurantCount)}
                         />
                         <SummaryCard
-                            label="GMV médio por restaurante"
+                            label="GMV médio por restaurante com vendas"
                             value={formatCurrencyFromCents(
                                 data.summary.averageGmvPerRestaurantCents
                             )}
