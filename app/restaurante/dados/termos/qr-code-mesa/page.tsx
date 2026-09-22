@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 };
 
 const SUPPORT_URL =
-    "https://wa.me/5519988760900?text=Ol%C3%A1%2C%20tenho%20uma%20d%C3%BAvida%20sobre%20os%20Termos%20do%20iMenu%20QR%20Code%20Mesa.";
+    "https://wa.me/5519997235394?text=Ol%C3%A1%2C%20tenho%20uma%20d%C3%BAvida%20sobre%20os%20Termos%20do%20iMenu%20QR%20Code%20Mesa.";
 
 export default function QrCodeMesaTermsPage() {
     return (

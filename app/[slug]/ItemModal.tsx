@@ -24,8 +24,8 @@ type Props = {
     error?: string;
     onRetry?: () => void;
     onClose: () => void;
-    deliveryTax: { lowest: number; highest: number  };
-    deliveryTime: { lowest: number; highest: number  };
+    deliveryTax: { lowest: number; highest: number  } | null;
+    deliveryTime: { lowest: number; highest: number  } | null;
     onAdd?: () => void;
     trackMeta?: (slug: string, eventName: string, data: Record<string, any>) => void;
     slug?: string;
@@ -383,12 +383,20 @@ export default function ItemModal({
     };
 
     const taxText = () => {
+        if (!deliveryTax) return null;
 
         if(deliveryTax.lowest === deliveryTax.highest){
             return `R$ ${formatPriceNoRS(deliveryTax.lowest)}`
         }
         return `R$ ${formatPriceNoRS(deliveryTax.lowest)}-${formatPriceNoRS(deliveryTax.highest )}`
     }
+
+    const deliveryTimeText = deliveryTime
+        ? deliveryTime.lowest === deliveryTime.highest
+            ? `${deliveryTime.lowest} min`
+            : `${deliveryTime.lowest}–${deliveryTime.highest} min`
+        : null;
+    const deliveryTaxText = taxText();
 
     const renderContent = () => {
         if (error) return <div className="px-4 py-8"><p role="alert" className="text-sm text-red-700">{error}</p><button type="button" className="mt-3 text-brand" onClick={onRetry}>Tentar novamente</button></div>;
@@ -668,12 +676,18 @@ export default function ItemModal({
                         <span className="text-[13px] font-semibold 2xl:text-md">
                             {restaurant.name}
                         </span>
-                        <br />
-                        <span className="text-[12px] text-gray-600 2xl:text-md">
-                            {deliveryTime.lowest}–
-                            {deliveryTime.highest} min •{" "}
-                            <span className="text-green">{taxText()}</span>
-                        </span>
+                        {(deliveryTimeText || deliveryTaxText) && (
+                            <>
+                                <br />
+                                <span className="text-[12px] text-gray-600 2xl:text-md">
+                                    {deliveryTimeText}
+                                    {deliveryTimeText && deliveryTaxText && <> • </>}
+                                    {deliveryTaxText && (
+                                        <span className="text-green">{deliveryTaxText}</span>
+                                    )}
+                                </span>
+                            </>
+                        )}
                     </div>
                 </div>
             </div>

@@ -596,7 +596,7 @@ export default function CartBar({
                     open={cartWarningVisible}
                     onClose={() => setCartWarningVisible(false)}
                     height={0.3}
-                    className="md:max-w-md"
+                    className="md:!h-auto md:max-w-md"
                 >
                     {minimumOrderContent}
                 </HybridModal>

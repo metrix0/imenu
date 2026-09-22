@@ -8,8 +8,8 @@ import { icons } from "@/lib/utils/fontawesome";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { faCopy, faCheck } from "@fortawesome/free-solid-svg-icons";
 
-const PHONE = "5519988760900";
-const DISPLAY_PHONE = "+55 19 98876-0900";
+const PHONE = "5519997235394";
+const DISPLAY_PHONE = "+55 19 99723-5394";
 const MESSAGE = "Olá, preciso de ajuda com o iMenu!";
 const SUPPORT_BUTTON_BASE =
     "!min-h-10 !rounded-lg !border !border-[#e2e5e9] !px-[14px] !py-[9px] !text-[13px] !leading-5 !font-medium !shadow-none 2xl:!rounded-lg 2xl:!px-[14px] 2xl:!py-[9px] 2xl:!text-[13px]";

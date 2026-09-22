@@ -477,7 +477,7 @@ export default function ApplicationSetup() {
                     )}
 
                     <a
-                        href="https://wa.me/5519988760900?text=Ol%C3%A1%2C%20preciso%20de%20ajuda%20para%20instalar%20o%20aplicativo%20do%20iMenu!"
+                        href="https://wa.me/5519997235394?text=Ol%C3%A1%2C%20preciso%20de%20ajuda%20para%20instalar%20o%20aplicativo%20do%20iMenu!"
                         target="_blank"
                         rel="noopener noreferrer"
                         className="mt-6 block text-center text-sm font-medium text-brand underline underline-offset-4"
