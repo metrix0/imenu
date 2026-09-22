@@ -558,13 +558,23 @@ export async function processSupportIncomingWhatsAppMessage(input: {
         } catch (error) {
             console.warn("[SUPPORT_WHATSAPP] AI reply failed:", error);
 
+            const fallbackKey = input.messageId + ":ai-fallback";
+            const errorMessage =
+                error instanceof Error
+                    ? error.message.slice(0, 500)
+                    : "AI reply failed";
+
             await sendTrackedSupportText({
                 conversationId: conversation.id,
                 sessionName: input.sessionName,
                 chatId: input.chatId,
                 text: "Tive um problema para responder agora. Tente novamente em instantes.",
-                dedupeKey: input.messageId + ":ai-fallback",
+                dedupeKey: fallbackKey,
             });
+            await query(
+                "UPDATE support_messages SET error = $2 WHERE dedupe_key = $1",
+                [fallbackKey, errorMessage]
+            );
         }
     } finally {
         await typingPromise;
