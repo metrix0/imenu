@@ -46,6 +46,8 @@ function normalize(value: unknown): string {
         .trim();
 }
 
+const BLOCKED_HANDOFF_PHONE = "5511913519119";
+
 function phoneCandidates(value: string | null): string[] {
     const digits = String(value || "").replace(/\D/g, "");
     if (!digits) return [];
@@ -205,6 +207,13 @@ async function prepareConversation(input: {
 
 function wantsHuman(body: string): boolean {
     const value = normalize(body);
+    if (
+        value.includes("nao quero atendente") ||
+        value.includes("nao quero humano")
+    ) {
+        return false;
+    }
+
     return [
         "falar com atendente",
         "quero falar com atendente",
@@ -212,7 +221,65 @@ function wantsHuman(body: string): boolean {
         "quero falar com uma pessoa",
         "atendimento humano",
         "suporte humano",
+        "falar com humano",
+        "quero um atendente",
     ].some((phrase) => value.includes(phrase));
+}
+
+function isInitialHelpGreeting(body: string): boolean {
+    return normalize(body) === "ola preciso de ajuda com o imenu";
+}
+
+function getPersonName(value: string | null): string | null {
+    const raw = String(value || "").trim();
+    if (!raw || raw.length > 60 || /\d/.test(raw)) return null;
+    if (/[^\p{L}\s'-]/u.test(raw)) return null;
+
+    const normalized = normalize(raw);
+    const businessTerms = [
+        "restaurante",
+        "pizzaria",
+        "hamburgueria",
+        "lanchonete",
+        "delivery",
+        "loja",
+        "bar",
+        "acai",
+        "sushi",
+        "burger",
+        "cafe",
+        "padaria",
+        "doceria",
+        "confeitaria",
+        "marmitaria",
+    ];
+    if (businessTerms.some((term) => normalized.includes(term))) return null;
+
+    const words = raw.split(/\s+/).filter(Boolean);
+    if (words.length < 1 || words.length > 4) return null;
+
+    return words
+        .map(
+            (word) =>
+                word.charAt(0).toLocaleUpperCase("pt-BR") +
+                word.slice(1).toLocaleLowerCase("pt-BR")
+        )
+        .join(" ");
+}
+
+function isBlockedHandoffPhone(phone: string | null): boolean {
+    return phoneCandidates(phone).includes(BLOCKED_HANDOFF_PHONE);
+}
+
+async function previousOutboundMentionedHandoffDelay(
+    conversationId: string
+): Promise<boolean> {
+    const result = await query<{ body: string }>(
+        "SELECT body FROM support_messages WHERE conversation_id = $1 AND direction = 'outbound' ORDER BY created_at DESC LIMIT 1",
+        [conversationId]
+    );
+
+    return normalize(result.rows[0]?.body || "").includes("1 dia util");
 }
 
 async function sendTrackedSupportText(input: {
@@ -323,20 +390,43 @@ export async function processSupportIncomingWhatsAppMessage(input: {
 
     if (conversation.mode === "human" || !input.botEnabled) return;
 
-    if (wantsHuman(input.body)) {
-        await query(
-            "UPDATE support_conversations SET mode = 'human', updated_at = NOW() WHERE id = $1",
-            [conversation.id]
+    if (isInitialHelpGreeting(input.body)) {
+        const personName = getPersonName(
+            input.customerName || conversation.customer_name
         );
+        const greeting = personName
+            ? "Olá, " +
+              personName +
+              "! Sou o assistente virtual do iMenu. Como posso ajudar você hoje?"
+            : "Olá! Sou o assistente virtual do iMenu. Como posso ajudar você hoje?";
 
         await sendTrackedSupportText({
             conversationId: conversation.id,
             sessionName: input.sessionName,
             chatId: input.chatId,
-            text: "Certo. Vou deixar esta conversa para o atendimento humano.",
-            dedupeKey: input.messageId + ":handoff",
+            text: greeting,
+            dedupeKey: input.messageId + ":greeting",
         });
         return;
+    }
+
+    if (wantsHuman(input.body)) {
+        const alreadyExplained = await previousOutboundMentionedHandoffDelay(
+            conversation.id
+        );
+
+        if (isBlockedHandoffPhone(conversation.phone) || !alreadyExplained) {
+            await sendTrackedSupportText({
+                conversationId: conversation.id,
+                sessionName: input.sessionName,
+                chatId: input.chatId,
+                text: isBlockedHandoffPhone(conversation.phone)
+                    ? "O suporte técnico especial pode levar até 1 dia útil. Neste contato, o encaminhamento não é feito. Qual é sua dúvida?"
+                    : "O suporte técnico especial pode levar até 1 dia útil. Qual é sua dúvida? Vou tentar ajudar ou agilizar o suporte.",
+                dedupeKey: input.messageId + ":human-request",
+            });
+            return;
+        }
     }
 
     if (input.hasMedia && !input.body.trim()) {
@@ -386,16 +476,11 @@ export async function processSupportIncomingWhatsAppMessage(input: {
     } catch (error) {
         console.warn("[SUPPORT_WHATSAPP] AI reply failed:", error);
 
-        await query(
-            "UPDATE support_conversations SET mode = 'human', updated_at = NOW() WHERE id = $1",
-            [conversation.id]
-        );
-
         await sendTrackedSupportText({
             conversationId: conversation.id,
             sessionName: input.sessionName,
             chatId: input.chatId,
-            text: "Tive um problema para responder agora. Vou deixar esta conversa para o atendimento humano.",
+            text: "Tive um problema para responder agora. Tente novamente em instantes.",
             dedupeKey: input.messageId + ":ai-fallback",
         });
     }

@@ -14,6 +14,8 @@ type DataColumn = {
     data_type: string;
 };
 
+const BLOCKED_HANDOFF_PHONE = "5511913519119";
+
 const BLOCKED_TABLES = new Set([
     "owner_push_subscriptions",
     "support_whatsapp_connection",
@@ -159,7 +161,7 @@ export const SUPPORT_MCP_TOOLS: SupportMcpToolDefinition[] = [
     {
         name: "request_human_handoff",
         description:
-            "Hand this conversation to a human iMenu support agent.",
+            "Hand off only after the customer explicitly asks for a human again, after being told the special technical support may take up to 1 business day and after an attempt to understand/help. Never use proactively.",
         inputSchema: {
             type: "object",
             properties: { reason: { type: "string" } },
@@ -167,6 +169,37 @@ export const SUPPORT_MCP_TOOLS: SupportMcpToolDefinition[] = [
         },
     },
 ];
+
+function normalizeSupportText(value: unknown): string {
+    return String(value ?? "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+}
+
+function explicitlyRequestsHuman(value: unknown): boolean {
+    const normalized = normalizeSupportText(value);
+    if (
+        normalized.includes("nao quero atendente") ||
+        normalized.includes("nao quero humano")
+    ) {
+        return false;
+    }
+
+    return [
+        "falar com atendente",
+        "quero falar com atendente",
+        "falar com uma pessoa",
+        "quero falar com uma pessoa",
+        "atendimento humano",
+        "suporte humano",
+        "falar com humano",
+        "quero um atendente",
+    ].some((phrase) => normalized.includes(phrase));
+}
 
 function phoneCandidates(value: string | null): string[] {
     const digits = String(value || "").replace(/\D/g, "");
@@ -414,14 +447,58 @@ export async function executeSupportMcpTool(
         const search = String(args.query || "").trim();
         if (!search) return { results: [] };
 
-        const pattern = "%" + search + "%";
+        const stopWords = new Set([
+            "como",
+            "qual",
+            "quais",
+            "para",
+            "com",
+            "uma",
+            "uns",
+            "das",
+            "dos",
+            "que",
+            "meu",
+            "minha",
+            "imenu",
+            "funciona",
+        ]);
+        const terms = [
+            ...new Set(
+                search
+                    .split(/\s+/)
+                    .map((term) => term.replace(/[^\p{L}\p{N}-]/gu, ""))
+                    .filter(
+                        (term) =>
+                            term.length >= 3 &&
+                            !stopWords.has(
+                                normalizeSupportText(term)
+                            )
+                    )
+            ),
+        ].slice(0, 6);
+        const patterns = [
+            "%" + search + "%",
+            ...terms.map((term) => "%" + term + "%"),
+        ];
+        const clauses = patterns.map(
+            (_, index) =>
+                "(title ILIKE $" +
+                String(index + 1) +
+                " OR content ILIKE $" +
+                String(index + 1) +
+                ")"
+        );
+
         const result = await query<{
             id: string;
             title: string;
             content: string;
         }>(
-            "SELECT id, title, content FROM support_knowledge WHERE enabled = true AND (title ILIKE $1 OR content ILIKE $1) ORDER BY CASE WHEN title ILIKE $1 THEN 0 ELSE 1 END, updated_at DESC LIMIT 8",
-            [pattern]
+            "SELECT id, title, content FROM support_knowledge WHERE enabled = true AND (" +
+                clauses.join(" OR ") +
+                ") ORDER BY CASE WHEN title ILIKE $1 THEN 0 WHEN content ILIKE $1 THEN 1 ELSE 2 END, updated_at DESC LIMIT 8",
+            patterns
         );
 
         return { results: result.rows };
@@ -479,6 +556,64 @@ export async function executeSupportMcpTool(
     }
 
     if (name === "request_human_handoff") {
+        if (
+            phoneCandidates(conversation.phone).includes(
+                BLOCKED_HANDOFF_PHONE
+            )
+        ) {
+            return {
+                handed_off: false,
+                blocked: true,
+                reason:
+                    "Este contato não pode ser encaminhado para atendimento humano.",
+            };
+        }
+
+        const recentMessages = await query<{
+            direction: "inbound" | "outbound";
+            body: string;
+        }>(
+            "SELECT direction, body FROM support_messages WHERE conversation_id = $1 ORDER BY created_at DESC LIMIT 8",
+            [conversationId]
+        );
+        const latestInboundIndex = recentMessages.rows.findIndex(
+            (message) => message.direction === "inbound"
+        );
+        const latestInbound =
+            latestInboundIndex >= 0
+                ? recentMessages.rows[latestInboundIndex]
+                : null;
+        const previousOutbound =
+            latestInboundIndex >= 0
+                ? recentMessages.rows
+                      .slice(latestInboundIndex + 1)
+                      .find(
+                          (message) =>
+                              message.direction === "outbound"
+                      )
+                : null;
+        const previousText = normalizeSupportText(
+            previousOutbound?.body || ""
+        );
+        const delayWasExplained =
+            previousText.includes("1 dia util") &&
+            (previousText.includes("duvida") ||
+                previousText.includes("ajudar") ||
+                previousText.includes("agilizar"));
+
+        if (
+            !latestInbound ||
+            !explicitlyRequestsHuman(latestInbound.body) ||
+            !delayWasExplained
+        ) {
+            return {
+                handed_off: false,
+                blocked: true,
+                reason:
+                    "Antes do handoff, informe que o suporte técnico especial pode levar até 1 dia útil e tente entender a dúvida.",
+            };
+        }
+
         await query(
             "UPDATE support_conversations SET mode = 'human', updated_at = NOW() WHERE id = $1",
             [conversationId]
