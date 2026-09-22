@@ -62,6 +62,12 @@ const MENU_ROWS: WahaListRow[] = [
     { title: "Falar com atendente", rowId: "handoff" },
 ];
 
+const MENU_TEXT = [
+    "Escolha uma opção:",
+    "",
+    ...MENU_ROWS.map((row, index) => `${index + 1}. ${row.title}`),
+].join("\n");
+
 const FLOW_BY_TEXT = new Map<string, BotFlow>([
     ["1", "menu_link"],
     ["menu_link", "menu_link"],
@@ -505,6 +511,31 @@ async function sendTrackedMenu({
         });
         return true;
     } catch (error) {
+        if (chatId.endsWith("@lid")) {
+            try {
+                const response = await sendWahaText(
+                    sessionName,
+                    chatId,
+                    MENU_TEXT
+                );
+                await finishOutboundSafely(dedupeKey, "sent", response);
+                console.warn("[WHATSAPP_AUTOMATION] outbound_list_fallback_text", {
+                    restaurantId,
+                    error,
+                });
+                return true;
+            } catch (fallbackError) {
+                await finishOutboundSafely(dedupeKey, "failed", fallbackError);
+                console.warn("[WHATSAPP_AUTOMATION] outbound_send_failed", {
+                    restaurantId,
+                    messageType: "list",
+                    error,
+                    fallbackError,
+                });
+                return false;
+            }
+        }
+
         await finishOutboundSafely(dedupeKey, "failed", error);
         console.warn("[WHATSAPP_AUTOMATION] outbound_send_failed", {
             restaurantId,

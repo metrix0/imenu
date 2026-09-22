@@ -10,6 +10,7 @@ import {
     getWahaSession,
     logoutWahaSession,
     restartWahaSession,
+    sendWahaText,
     SUPPORT_WAHA_SESSION_NAME,
     type WahaSession,
 } from "@/lib/services/wahaClient";
@@ -313,6 +314,103 @@ export async function POST(request: Request) {
 
             await updateFromWahaSession(session);
             return NextResponse.json(await getDashboardData());
+        }
+
+        if (action === "send_bulk_message") {
+            const batchId = String(body.batchId || "").trim();
+            const rawPhone = String(body.phone || "").trim();
+            const message = String(body.message || "").trim();
+            let phone = rawPhone.replace(/\D/g, "");
+
+            if (phone.startsWith("0055")) phone = phone.slice(2);
+            if (phone.startsWith("055") && phone.length >= 13) {
+                phone = phone.slice(1);
+            }
+            if (!phone.startsWith("55") && (phone.length === 10 || phone.length === 11)) {
+                phone = "55" + phone;
+            }
+
+            if (!batchId || !message || !/^55\d{10,11}$/.test(phone)) {
+                return NextResponse.json(
+                    { error: "Número, mensagem ou lote inválido." },
+                    { status: 400 }
+                );
+            }
+
+            const localPhone = phone.slice(2);
+            const recipients = await query<{
+                restaurant_id: string;
+            }>(
+                `
+                    SELECT DISTINCT r.id AS restaurant_id
+                    FROM restaurants r
+                    LEFT JOIN auth.users u ON u.id = r.user_id
+                    WHERE regexp_replace(COALESCE(u.raw_user_meta_data->>'phone', ''), '[^0-9]', '', 'g') = ANY($1::text[])
+                       OR regexp_replace(COALESCE(r.phone, ''), '[^0-9]', '', 'g') = ANY($1::text[])
+                       OR regexp_replace(COALESCE(r.store_whatsapp, ''), '[^0-9]', '', 'g') = ANY($1::text[])
+                    LIMIT 2
+                `,
+                [[phone, localPhone]]
+            );
+
+            if (recipients.rows.length === 0) {
+                return NextResponse.json(
+                    { error: "Número não encontrado em nenhum restaurante." },
+                    { status: 404 }
+                );
+            }
+
+            if (recipients.rows.length > 1) {
+                return NextResponse.json(
+                    { error: "Número vinculado a mais de um restaurante." },
+                    { status: 409 }
+                );
+            }
+
+            const connection = await readConnection();
+            if (
+                connection.desired_state !== "connected" ||
+                connection.status !== "WORKING"
+            ) {
+                return NextResponse.json(
+                    { error: "WhatsApp de suporte não está conectado." },
+                    { status: 503 }
+                );
+            }
+
+            const restaurantId = recipients.rows[0].restaurant_id;
+            const chatId = phone + "@c.us";
+            const dedupeKey =
+                "support:bulk:" + batchId + ":" + restaurantId;
+
+            const claim = await query(
+                "INSERT INTO whatsapp_outbound_messages (dedupe_key, restaurant_id, chat_id, message_type, status, updated_at) VALUES ($1, $2, $3, 'text', 'sending', NOW()) ON CONFLICT (dedupe_key) DO NOTHING RETURNING dedupe_key",
+                [dedupeKey, restaurantId, chatId]
+            );
+
+            if (claim.rowCount === 0) {
+                return NextResponse.json({ ok: true, duplicate: true });
+            }
+
+            try {
+                await sendWahaText(connection.session_name, chatId, message);
+                await query(
+                    "UPDATE whatsapp_outbound_messages SET status = 'sent', last_error = NULL, updated_at = NOW() WHERE dedupe_key = $1",
+                    [dedupeKey]
+                );
+                return NextResponse.json({ ok: true });
+            } catch (sendError) {
+                await query(
+                    "UPDATE whatsapp_outbound_messages SET status = 'failed', last_error = $2, updated_at = NOW() WHERE dedupe_key = $1",
+                    [
+                        dedupeKey,
+                        sendError instanceof Error
+                            ? sendError.message.slice(0, 500)
+                            : "WAHA send failed",
+                    ]
+                );
+                throw sendError;
+            }
         }
 
         if (action === "set_bot_enabled") {

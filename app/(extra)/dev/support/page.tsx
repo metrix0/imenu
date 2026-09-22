@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
     faCircleCheck,
@@ -21,6 +21,22 @@ import Textarea from "@/components/ui/Textarea";
 import { supabase } from "@/lib/database/supabaseClient";
 
 const ALLOWED_DEV_EMAIL = "joaovralmeida@hotmail.com";
+const BULK_SEND_MIN_DELAY_SECONDS = 15;
+const BULK_SEND_MAX_DELAY_SECONDS = 30;
+
+function parseBulkPhones(value: string): string[] {
+    const seen = new Set<string>();
+
+    return value
+        .split(/\r?\n|[,;]/)
+        .map((phone) => phone.trim())
+        .filter((phone) => {
+            const digits = phone.replace(/\D/g, "");
+            if (!digits || seen.has(digits)) return false;
+            seen.add(digits);
+            return true;
+        });
+}
 
 type AccessState = "checking" | "allowed" | "forbidden" | "signed-out";
 
@@ -157,6 +173,13 @@ export default function DevSupportPage() {
     const [knowledgeEditorOpen, setKnowledgeEditorOpen] = useState(false);
     const [knowledgeTitle, setKnowledgeTitle] = useState("");
     const [knowledgeContent, setKnowledgeContent] = useState("");
+    const [bulkPhones, setBulkPhones] = useState("");
+    const [bulkMessage, setBulkMessage] = useState("");
+    const [bulkSending, setBulkSending] = useState(false);
+    const [bulkSent, setBulkSent] = useState(0);
+    const [bulkTotal, setBulkTotal] = useState(0);
+    const [bulkStatus, setBulkStatus] = useState("");
+    const bulkStopRef = useRef(false);
 
     const getAccessToken = useCallback(async () => {
         const {
@@ -307,6 +330,110 @@ export default function DevSupportPage() {
             );
         } finally {
             setAction("");
+        }
+    };
+
+    const startBulkSend = async () => {
+        const recipients = parseBulkPhones(bulkPhones);
+        const message = bulkMessage.trim();
+
+        if (!recipients.length || !message) {
+            setBulkStatus("Informe pelo menos um número e uma mensagem.");
+            return;
+        }
+
+        const token = await getAccessToken();
+        if (!token) {
+            setAccessState("signed-out");
+            return;
+        }
+
+        const batchId = crypto.randomUUID();
+        bulkStopRef.current = false;
+        setBulkSending(true);
+        setBulkSent(0);
+        setBulkTotal(recipients.length);
+        setBulkStatus("");
+
+        try {
+            for (let index = 0; index < recipients.length; index += 1) {
+                if (bulkStopRef.current) break;
+
+                const phone = recipients[index];
+                setBulkStatus(
+                    "Enviando " + (index + 1) + " de " + recipients.length + "..."
+                );
+
+                const response = await fetch("/api/dev/support", {
+                    method: "POST",
+                    headers: {
+                        Authorization: "Bearer " + token,
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        action: "send_bulk_message",
+                        batchId,
+                        phone,
+                        message,
+                    }),
+                });
+                const payload = (await response.json()) as {
+                    error?: string;
+                };
+
+                if (!response.ok) {
+                    throw new Error(
+                        phone + ": " + (payload.error || "Falha ao enviar.")
+                    );
+                }
+
+                setBulkSent(index + 1);
+
+                if (index < recipients.length - 1 && !bulkStopRef.current) {
+                    const delaySeconds =
+                        Math.floor(
+                            Math.random() *
+                                (BULK_SEND_MAX_DELAY_SECONDS -
+                                    BULK_SEND_MIN_DELAY_SECONDS +
+                                    1)
+                        ) + BULK_SEND_MIN_DELAY_SECONDS;
+
+                    setBulkStatus(
+                        "Enviado " +
+                            (index + 1) +
+                            " de " +
+                            recipients.length +
+                            ". Próximo envio em " +
+                            delaySeconds +
+                            "s..."
+                    );
+
+                    for (
+                        let waited = 0;
+                        waited < delaySeconds && !bulkStopRef.current;
+                        waited += 1
+                    ) {
+                        await new Promise((resolve) =>
+                            window.setTimeout(resolve, 1000)
+                        );
+                    }
+                }
+            }
+
+            setBulkStatus(
+                bulkStopRef.current
+                    ? "Envio interrompido."
+                    : "Envio concluído."
+            );
+        } catch (caught) {
+            setBulkStatus(
+                "Envio pausado por erro: " +
+                    (caught instanceof Error
+                        ? caught.message
+                        : "Falha desconhecida.")
+            );
+        } finally {
+            setBulkSending(false);
         }
     };
 
@@ -632,6 +759,102 @@ export default function DevSupportPage() {
                             {connection?.bot_enabled ? "IA ativa" : "Ativar IA"}
                         </Button>
                     </div>
+                </Card>
+
+                <Card>
+                    <h2 className="text-lg font-semibold text-gray-900">
+                        Envio em massa
+                    </h2>
+                    <p className="mt-1 text-sm text-gray-500">
+                        Envia uma mensagem por vez pelo WhatsApp de suporte, com intervalo aleatório entre 15 e 30 segundos.
+                    </p>
+
+                    <div className="mt-5 grid gap-4 md:grid-cols-2">
+                        <div>
+                            <label className="mb-1.5 block text-xs font-medium text-gray-800">
+                                Números
+                            </label>
+                            <Textarea
+                                value={bulkPhones}
+                                onChange={(event) =>
+                                    setBulkPhones(event.target.value)
+                                }
+                                rows={6}
+                                disabled={bulkSending}
+                                placeholder={"19 99999-9999\n19 98888-8888"}
+                                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-brand"
+                            />
+                            <p className="mt-1 text-xs text-gray-500">
+                                Um número por linha. {parseBulkPhones(bulkPhones).length} destinatário(s).
+                            </p>
+                        </div>
+
+                        <div>
+                            <label className="mb-1.5 block text-xs font-medium text-gray-800">
+                                Mensagem
+                            </label>
+                            <Textarea
+                                value={bulkMessage}
+                                onChange={(event) =>
+                                    setBulkMessage(event.target.value)
+                                }
+                                rows={6}
+                                disabled={bulkSending}
+                                placeholder="Digite a mensagem..."
+                                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-brand"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                        <p>
+                            <strong>Atenção:</strong> não é recomendado enviar para mais de 50 destinatários por lote.
+                        </p>
+                        <p className="mt-1">
+                            Mantenha esta janela aberta durante todo o envio. Fechar ou recarregar a página interrompe o lote.
+                        </p>
+                        {parseBulkPhones(bulkPhones).length > 50 && (
+                            <p className="mt-1 font-semibold">
+                                Este lote tem mais de 50 destinatários.
+                            </p>
+                        )}
+                    </div>
+
+                    <div className="mt-4 flex flex-wrap items-center gap-3">
+                        <Button
+                            onClick={() => void startBulkSend()}
+                            disabled={
+                                bulkSending ||
+                                !bulkMessage.trim() ||
+                                !parseBulkPhones(bulkPhones).length ||
+                                connection?.status !== "WORKING"
+                            }
+                        >
+                            Enviar em massa
+                        </Button>
+                        {bulkSending && (
+                            <Button
+                                variant="secondary"
+                                onClick={() => {
+                                    bulkStopRef.current = true;
+                                    setBulkStatus("Interrompendo após o envio atual...");
+                                }}
+                            >
+                                Parar
+                            </Button>
+                        )}
+                        {bulkTotal > 0 && (
+                            <span className="text-sm text-gray-500">
+                                {bulkSent} / {bulkTotal} enviados
+                            </span>
+                        )}
+                    </div>
+
+                    {bulkStatus && (
+                        <p className="mt-3 text-sm text-gray-600">
+                            {bulkStatus}
+                        </p>
+                    )}
                 </Card>
 
                 <Card>
