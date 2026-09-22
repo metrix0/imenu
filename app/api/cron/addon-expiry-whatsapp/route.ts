@@ -85,7 +85,9 @@ function buildMessage(productKeys: string[]): string {
             ? "Como os pagamentos foram feitos via Pix, a renovação não é automática."
             : "Como o pagamento foi feito via Pix, a renovação não é automática.",
         "",
-        "Acesse o painel do iMenu para renovar e continuar usando os recursos.",
+        "Acesse a aba Configurações no iMenu para renovar e continuar usando os recursos. imenuapp.com.br/painel/configuracoes",
+        "",
+        "Fico à disposição caso precise de ajuda!",
     ].join("\n");
 }
 
