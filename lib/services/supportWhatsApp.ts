@@ -1,7 +1,12 @@
 import { query, withAdvisoryLock } from "@/lib/database/sql";
-import { generateSupportReply } from "@/lib/services/supportAgent";
+import {
+    analyzeSupportImage,
+    generateSupportReply,
+    transcribeSupportAudio,
+} from "@/lib/services/supportAgent";
 import {
     extractWahaPhone,
+    getWahaMessageMedia,
     getWahaQrCode,
     resolveWahaChatPhone,
     restartWahaSession,
@@ -379,15 +384,78 @@ export async function processSupportIncomingWhatsAppMessage(input: {
         chatId: input.chatId,
         customerName: input.customerName,
     });
+    const originalBody = input.body.trim();
+    let messageBody =
+        originalBody ||
+        (input.hasMedia ? "[Mídia enviada]" : "[Mensagem vazia]");
+    let intentBody = originalBody;
+    let mediaProcessingFailed = false;
+    let unsupportedMedia = false;
+
+    if (
+        input.hasMedia &&
+        conversation.mode === "ai" &&
+        input.botEnabled
+    ) {
+        try {
+            const media = await getWahaMessageMedia(
+                input.sessionName,
+                input.chatId,
+                input.messageId
+            );
+            if (!media) {
+                throw new Error("WAHA returned no downloadable media");
+            }
+
+            if (media.mimetype.startsWith("image/")) {
+                const analysis = await analyzeSupportImage(
+                    media.data,
+                    media.mimetype,
+                    originalBody
+                );
+                messageBody = originalBody
+                    ? "[Imagem]\nLegenda: " +
+                      originalBody +
+                      "\nAnálise: " +
+                      analysis
+                    : "[Imagem]\n" + analysis;
+            } else if (media.mimetype.startsWith("audio/")) {
+                const transcription = await transcribeSupportAudio(
+                    media.data,
+                    media.mimetype,
+                    media.filename
+                );
+                intentBody = transcription;
+                messageBody = originalBody
+                    ? "[Áudio transcrito]\n" +
+                      transcription +
+                      "\nLegenda: " +
+                      originalBody
+                    : "[Áudio transcrito]\n" + transcription;
+            } else {
+                unsupportedMedia = true;
+                messageBody = originalBody
+                    ? originalBody +
+                      "\n[Mídia não suportada: " +
+                      media.mimetype +
+                      "]"
+                    : "[Mídia não suportada: " + media.mimetype + "]";
+            }
+        } catch (error) {
+            mediaProcessingFailed = true;
+            console.warn(
+                "[SUPPORT_WHATSAPP] media_processing_failed:",
+                error
+            );
+            messageBody = originalBody
+                ? originalBody + "\n[Mídia não pôde ser analisada]"
+                : "[Mídia não pôde ser analisada]";
+        }
+    }
 
     await query(
         "INSERT INTO support_messages (conversation_id, direction, body, provider_message_id, send_status) VALUES ($1, 'inbound', $2, $3, 'received') ON CONFLICT (provider_message_id) WHERE provider_message_id IS NOT NULL DO NOTHING",
-        [
-            conversation.id,
-            input.body.trim() ||
-                (input.hasMedia ? "[Mídia enviada]" : "[Mensagem vazia]"),
-            input.messageId,
-        ]
+        [conversation.id, messageBody, input.messageId]
     );
 
     if (conversation.mode === "human" || !input.botEnabled) return;
@@ -399,100 +467,105 @@ export async function processSupportIncomingWhatsAppMessage(input: {
     );
 
     try {
-    if (isInitialHelpGreeting(input.body)) {
-        const personName = getPersonName(
-            input.customerName || conversation.customer_name
-        );
-        const greeting = personName
-            ? "Olá, " +
-              personName +
-              "! Sou o assistente virtual do iMenu. Como posso ajudar você hoje?"
-            : "Olá! Sou o assistente virtual do iMenu. Como posso ajudar você hoje?";
+        if (isInitialHelpGreeting(intentBody)) {
+            const personName = getPersonName(
+                input.customerName || conversation.customer_name
+            );
+            const greeting = personName
+                ? "Olá, " +
+                  personName +
+                  "! Sou o assistente virtual do iMenu. Como posso ajudar você hoje?"
+                : "Olá! Sou o assistente virtual do iMenu. Como posso ajudar você hoje?";
 
-        await sendTrackedSupportText({
-            conversationId: conversation.id,
-            sessionName: input.sessionName,
-            chatId: input.chatId,
-            text: greeting,
-            dedupeKey: input.messageId + ":greeting",
-        });
-        return;
-    }
-
-    if (wantsHuman(input.body)) {
-        const alreadyExplained = await previousOutboundMentionedHandoffDelay(
-            conversation.id
-        );
-
-        if (isBlockedHandoffPhone(conversation.phone) || !alreadyExplained) {
             await sendTrackedSupportText({
                 conversationId: conversation.id,
                 sessionName: input.sessionName,
                 chatId: input.chatId,
-                text: isBlockedHandoffPhone(conversation.phone)
-                    ? "O suporte técnico especial pode levar até 1 dia útil. Neste contato, o encaminhamento não é feito. Qual é sua dúvida?"
-                    : "O suporte técnico especial pode levar até 1 dia útil. Qual é sua dúvida? Vou tentar ajudar ou agilizar o suporte.",
-                dedupeKey: input.messageId + ":human-request",
+                text: greeting,
+                dedupeKey: input.messageId + ":greeting",
             });
             return;
         }
-    }
 
-    if (input.hasMedia && !input.body.trim()) {
-        await sendTrackedSupportText({
-            conversationId: conversation.id,
-            sessionName: input.sessionName,
-            chatId: input.chatId,
-            text: "Por enquanto, consigo atender melhor por texto. Me conte em uma mensagem o que aconteceu.",
-            dedupeKey: input.messageId + ":media",
-        });
-        return;
-    }
+        if (wantsHuman(intentBody)) {
+            const alreadyExplained =
+                await previousOutboundMentionedHandoffDelay(conversation.id);
 
-    const replyKey = input.messageId + ":ai";
-    const existingReply = await query<{
-        body: string;
-        send_status: string;
-    }>(
-        "SELECT body, send_status FROM support_messages WHERE dedupe_key = $1 LIMIT 1",
-        [replyKey]
-    );
+            if (isBlockedHandoffPhone(conversation.phone) || !alreadyExplained) {
+                await sendTrackedSupportText({
+                    conversationId: conversation.id,
+                    sessionName: input.sessionName,
+                    chatId: input.chatId,
+                    text: isBlockedHandoffPhone(conversation.phone)
+                        ? "O suporte técnico especial pode levar até 1 dia útil. Neste contato, o encaminhamento não é feito. Qual é sua dúvida?"
+                        : "O suporte técnico especial pode levar até 1 dia útil. Qual é sua dúvida? Vou tentar ajudar ou agilizar o suporte.",
+                    dedupeKey: input.messageId + ":human-request",
+                });
+                return;
+            }
+        }
 
-    if (existingReply.rows[0]) {
-        await sendTrackedSupportText({
-            conversationId: conversation.id,
-            sessionName: input.sessionName,
-            chatId: input.chatId,
-            text: existingReply.rows[0].body,
-            dedupeKey: replyKey,
-        });
-        return;
-    }
+        if (
+            input.hasMedia &&
+            !originalBody &&
+            (mediaProcessingFailed || unsupportedMedia)
+        ) {
+            await sendTrackedSupportText({
+                conversationId: conversation.id,
+                sessionName: input.sessionName,
+                chatId: input.chatId,
+                text: unsupportedMedia
+                    ? "Consigo analisar imagens e áudios, mas ainda não esse tipo de arquivo. Pode explicar por texto?"
+                    : "Não consegui analisar essa mídia agora. Pode reenviar ou explicar por texto?",
+                dedupeKey: input.messageId + ":media",
+            });
+            return;
+        }
 
-    try {
-        const reply = await generateSupportReply(conversation.id);
+        const replyKey = input.messageId + ":ai";
+        const existingReply = await query<{
+            body: string;
+            send_status: string;
+        }>(
+            "SELECT body, send_status FROM support_messages WHERE dedupe_key = $1 LIMIT 1",
+            [replyKey]
+        );
 
-        await sendTrackedSupportText({
-            conversationId: conversation.id,
-            sessionName: input.sessionName,
-            chatId: input.chatId,
-            text: reply.text,
-            dedupeKey: replyKey,
-            model: reply.model,
-            inputTokens: reply.inputTokens,
-            outputTokens: reply.outputTokens,
-        });
-    } catch (error) {
-        console.warn("[SUPPORT_WHATSAPP] AI reply failed:", error);
+        if (existingReply.rows[0]) {
+            await sendTrackedSupportText({
+                conversationId: conversation.id,
+                sessionName: input.sessionName,
+                chatId: input.chatId,
+                text: existingReply.rows[0].body,
+                dedupeKey: replyKey,
+            });
+            return;
+        }
 
-        await sendTrackedSupportText({
-            conversationId: conversation.id,
-            sessionName: input.sessionName,
-            chatId: input.chatId,
-            text: "Tive um problema para responder agora. Tente novamente em instantes.",
-            dedupeKey: input.messageId + ":ai-fallback",
-        });
-    }
+        try {
+            const reply = await generateSupportReply(conversation.id);
+
+            await sendTrackedSupportText({
+                conversationId: conversation.id,
+                sessionName: input.sessionName,
+                chatId: input.chatId,
+                text: reply.text,
+                dedupeKey: replyKey,
+                model: reply.model,
+                inputTokens: reply.inputTokens,
+                outputTokens: reply.outputTokens,
+            });
+        } catch (error) {
+            console.warn("[SUPPORT_WHATSAPP] AI reply failed:", error);
+
+            await sendTrackedSupportText({
+                conversationId: conversation.id,
+                sessionName: input.sessionName,
+                chatId: input.chatId,
+                text: "Tive um problema para responder agora. Tente novamente em instantes.",
+                dedupeKey: input.messageId + ":ai-fallback",
+            });
+        }
     } finally {
         await typingPromise;
         try {

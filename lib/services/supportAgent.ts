@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import OpenAI, { toFile } from "openai";
 
 import { query } from "@/lib/database/sql";
 import { createSupportMcpToken } from "@/lib/services/supportMcp";
@@ -89,6 +89,224 @@ function getSupportMcpBaseUrl(): string {
     throw new Error(
         "Missing IMENU_SUPPORT_PUBLIC_URL or a public Vercel URL."
     );
+}
+
+const MAX_SUPPORT_IMAGE_BYTES = 8 * 1024 * 1024;
+const MAX_SUPPORT_AUDIO_BYTES = 12 * 1024 * 1024;
+const MAX_SUPPORT_AUDIO_SECONDS = 12 * 60;
+const SUPPORT_AUDIO_SAMPLE_RATE = 16_000;
+
+function getSupportOpenAIClient(): OpenAI {
+    const apiKey = process.env.OPENAI_API_KEY?.trim();
+    if (!apiKey) throw new Error("OPENAI_API_KEY is not configured.");
+    return new OpenAI({ apiKey });
+}
+
+function limitMediaContext(value: string, maxCharacters = 1_600): string {
+    const compact = value.replace(/\s+/g, " ").trim();
+    const characters = Array.from(compact);
+    if (characters.length <= maxCharacters) return compact;
+    return characters.slice(0, maxCharacters - 3).join("").trimEnd() + "...";
+}
+
+export async function analyzeSupportImage(
+    data: Buffer,
+    mimetype: string,
+    caption: string
+): Promise<string> {
+    if (data.length > MAX_SUPPORT_IMAGE_BYTES) {
+        throw new Error("Support image is too large");
+    }
+
+    const type = mimetype.split(";")[0].trim().toLowerCase();
+    if (!["image/jpeg", "image/png", "image/webp", "image/gif"].includes(type)) {
+        throw new Error("Unsupported support image format");
+    }
+
+    const client = getSupportOpenAIClient();
+    const model =
+        process.env.OPENAI_SUPPORT_MODEL?.trim() || "gpt-5.6-luna";
+    const captionText = caption.trim()
+        ? `O cliente escreveu junto da imagem: "${caption.trim().slice(0, 1_000)}"`
+        : "O cliente não enviou legenda.";
+
+    const response = await client.responses.create(
+        {
+            model,
+            instructions:
+                "Analise a imagem como contexto para outro agente de suporte do iMenu. Descreva somente o que for útil para resolver o problema. Preserve textos visíveis importantes, mensagens de erro, valores, nomes de telas e estados da interface. Não invente nada. Responda em português e seja conciso.",
+            input: [
+                {
+                    role: "user",
+                    content: [
+                        {
+                            type: "input_text",
+                            text: captionText,
+                        },
+                        {
+                            type: "input_image",
+                            image_url:
+                                `data:${type};base64,${data.toString("base64")}`,
+                            detail: "auto",
+                        },
+                    ],
+                },
+            ],
+            max_output_tokens: 450,
+            store: false,
+        },
+        { timeout: 25_000 }
+    );
+
+    const text = response.output_text?.trim();
+    if (!text) throw new Error("Image analysis returned an empty response");
+    return limitMediaContext(text);
+}
+
+function isOggOpusAudio(mimetype: string, filename: string): boolean {
+    const type = mimetype.split(";")[0].trim().toLowerCase();
+    const extension = filename.toLowerCase().split(".").pop();
+    return (
+        type === "audio/ogg" ||
+        extension === "ogg" ||
+        extension === "oga" ||
+        extension === "opus"
+    );
+}
+
+async function decodeOggOpusToWav(data: Buffer): Promise<Buffer> {
+    const { OggOpusDecoder } = await import("ogg-opus-decoder");
+    const decoder = new OggOpusDecoder();
+
+    try {
+        await decoder.ready;
+        const decoded = await decoder.decodeFile(
+            new Uint8Array(data.buffer, data.byteOffset, data.byteLength)
+        );
+        if (!decoded.samplesDecoded || !decoded.channelData.length) {
+            throw new Error("Could not decode WhatsApp voice note");
+        }
+
+        const durationSeconds = decoded.samplesDecoded / decoded.sampleRate;
+        if (durationSeconds > MAX_SUPPORT_AUDIO_SECONDS) {
+            throw new Error("Support audio is too long");
+        }
+
+        const outputSamples = Math.floor(
+            durationSeconds * SUPPORT_AUDIO_SAMPLE_RATE
+        );
+        const wav = Buffer.alloc(44 + outputSamples * 2);
+        wav.write("RIFF", 0);
+        wav.writeUInt32LE(36 + outputSamples * 2, 4);
+        wav.write("WAVE", 8);
+        wav.write("fmt ", 12);
+        wav.writeUInt32LE(16, 16);
+        wav.writeUInt16LE(1, 20);
+        wav.writeUInt16LE(1, 22);
+        wav.writeUInt32LE(SUPPORT_AUDIO_SAMPLE_RATE, 24);
+        wav.writeUInt32LE(SUPPORT_AUDIO_SAMPLE_RATE * 2, 28);
+        wav.writeUInt16LE(2, 32);
+        wav.writeUInt16LE(16, 34);
+        wav.write("data", 36);
+        wav.writeUInt32LE(outputSamples * 2, 40);
+
+        for (let index = 0; index < outputSamples; index += 1) {
+            const sourceIndex = Math.min(
+                decoded.samplesDecoded - 1,
+                Math.floor(
+                    (index * decoded.sampleRate) / SUPPORT_AUDIO_SAMPLE_RATE
+                )
+            );
+            let sample = 0;
+            for (const channel of decoded.channelData) {
+                sample += channel[sourceIndex] || 0;
+            }
+            sample /= decoded.channelData.length;
+            sample = Math.max(-1, Math.min(1, sample));
+            wav.writeInt16LE(
+                sample < 0 ? Math.round(sample * 32768) : Math.round(sample * 32767),
+                44 + index * 2
+            );
+        }
+
+        return wav;
+    } finally {
+        decoder.free();
+    }
+}
+
+function getSupportedAudioUpload(
+    data: Buffer,
+    mimetype: string,
+    filename: string
+): { data: Buffer; mimetype: string; filename: string } {
+    const type = mimetype.split(";")[0].trim().toLowerCase();
+    const extension = filename.toLowerCase().split(".").pop() || "";
+    const supportedExtensions = new Set([
+        "mp3",
+        "mp4",
+        "mpeg",
+        "mpga",
+        "m4a",
+        "wav",
+        "webm",
+    ]);
+
+    if (supportedExtensions.has(extension)) {
+        return { data, mimetype: type || "application/octet-stream", filename };
+    }
+
+    const byMime: Record<string, string> = {
+        "audio/mpeg": "mp3",
+        "audio/mp4": "m4a",
+        "audio/x-m4a": "m4a",
+        "audio/wav": "wav",
+        "audio/x-wav": "wav",
+        "audio/webm": "webm",
+    };
+    const mappedExtension = byMime[type];
+    if (!mappedExtension) {
+        throw new Error("Unsupported support audio format");
+    }
+
+    return {
+        data,
+        mimetype: type,
+        filename: `support-audio.${mappedExtension}`,
+    };
+}
+
+export async function transcribeSupportAudio(
+    data: Buffer,
+    mimetype: string,
+    filename: string
+): Promise<string> {
+    if (data.length > MAX_SUPPORT_AUDIO_BYTES) {
+        throw new Error("Support audio is too large");
+    }
+
+    const upload = isOggOpusAudio(mimetype, filename)
+        ? {
+              data: await decodeOggOpusToWav(data),
+              mimetype: "audio/wav",
+              filename: "support-audio.wav",
+          }
+        : getSupportedAudioUpload(data, mimetype, filename);
+
+    const client = getSupportOpenAIClient();
+    const transcription = await client.audio.transcriptions.create(
+        {
+            file: await toFile(upload.data, upload.filename, {
+                type: upload.mimetype,
+            }),
+            model: "gpt-4o-mini-transcribe",
+        },
+        { timeout: 30_000 }
+    );
+
+    const text = transcription.text?.trim();
+    if (!text) throw new Error("Audio transcription returned an empty response");
+    return limitMediaContext(text, 4_000);
 }
 
 export async function generateSupportReply(

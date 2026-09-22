@@ -33,7 +33,27 @@ type WahaLidResponse = {
     pn?: string | null;
 };
 
+type WahaMessageMedia = {
+    url?: string | null;
+    mimetype?: string | null;
+    filename?: string | null;
+    error?: unknown;
+};
+
+type WahaMessageWithMedia = {
+    media?: WahaMessageMedia | null;
+    mediaUrl?: string | null;
+};
+
+export type WahaDownloadedMedia = {
+    data: Buffer;
+    mimetype: string;
+    filename: string;
+};
+
 const WAHA_SEND_TIMEOUT_MS = 5_000;
+const WAHA_MEDIA_TIMEOUT_MS = 15_000;
+const MAX_WAHA_MEDIA_BYTES = 12 * 1024 * 1024;
 const WAHA_TYPING_TIMEOUT_MS = 1_000;
 
 export const SUPPORT_WAHA_SESSION_NAME = "imenu-support";
@@ -316,6 +336,96 @@ export async function stopWahaTyping(
         },
         WAHA_TYPING_TIMEOUT_MS
     );
+}
+
+function inferWahaMediaMimeType(filename: string): string {
+    const extension = filename.toLowerCase().split(".").pop();
+    if (extension === "jpg" || extension === "jpeg") return "image/jpeg";
+    if (extension === "png") return "image/png";
+    if (extension === "webp") return "image/webp";
+    if (extension === "gif") return "image/gif";
+    if (extension === "ogg" || extension === "oga" || extension === "opus") {
+        return "audio/ogg";
+    }
+    if (extension === "mp3") return "audio/mpeg";
+    if (extension === "m4a" || extension === "mp4") return "audio/mp4";
+    if (extension === "wav") return "audio/wav";
+    if (extension === "webm") return "audio/webm";
+    return "application/octet-stream";
+}
+
+function resolveWahaMediaUrl(value: string): URL {
+    const base = new URL(getWahaBaseUrl());
+    const url = new URL(value, base);
+
+    if (
+        url.pathname.startsWith("/api/files/") ||
+        ["localhost", "127.0.0.1", "::1"].includes(url.hostname)
+    ) {
+        return new URL(url.pathname + url.search, base);
+    }
+
+    return url;
+}
+
+export async function getWahaMessageMedia(
+    sessionName: string,
+    chatId: string,
+    messageId: string
+): Promise<WahaDownloadedMedia | null> {
+    const message = await wahaRequest<WahaMessageWithMedia>(
+        `/api/${encodeURIComponent(sessionName)}/chats/${encodeURIComponent(chatId)}/messages/${encodeURIComponent(messageId)}?downloadMedia=true`,
+        {},
+        WAHA_MEDIA_TIMEOUT_MS
+    );
+    const rawUrl = message.media?.url || message.mediaUrl;
+    if (!rawUrl) return null;
+
+    const url = resolveWahaMediaUrl(rawUrl);
+    const wahaOrigin = new URL(getWahaBaseUrl()).origin;
+    const headers = new Headers({ Accept: "*/*" });
+    if (url.origin === wahaOrigin) {
+        headers.set("X-Api-Key", getWahaApiKey());
+    }
+
+    const response = await fetch(url, {
+        headers,
+        cache: "no-store",
+        signal: AbortSignal.timeout(WAHA_MEDIA_TIMEOUT_MS),
+    });
+    if (!response.ok) {
+        throw new Error(`WAHA media download returned HTTP ${response.status}`);
+    }
+
+    const contentLength = Number(response.headers.get("content-length") || 0);
+    if (
+        Number.isFinite(contentLength) &&
+        contentLength > MAX_WAHA_MEDIA_BYTES
+    ) {
+        throw new Error("WAHA media file is too large");
+    }
+
+    const data = Buffer.from(await response.arrayBuffer());
+    if (data.length > MAX_WAHA_MEDIA_BYTES) {
+        throw new Error("WAHA media file is too large");
+    }
+
+    const pathFilename = decodeURIComponent(
+        url.pathname.split("/").pop() || ""
+    );
+    const filename =
+        message.media?.filename?.trim() || pathFilename || "media";
+    const mimetype =
+        (
+            message.media?.mimetype ||
+            response.headers.get("content-type") ||
+            inferWahaMediaMimeType(filename)
+        )
+            .split(";")[0]
+            .trim()
+            .toLowerCase() || inferWahaMediaMimeType(filename);
+
+    return { data, mimetype, filename };
 }
 
 export async function sendWahaText(

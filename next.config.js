@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  serverExternalPackages: ['ogg-opus-decoder'],
   async redirects() {
     return [
       {
