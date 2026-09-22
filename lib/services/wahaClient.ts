@@ -33,7 +33,30 @@ type WahaLidResponse = {
     pn?: string | null;
 };
 
+type WahaMessageMedia = {
+    url?: string | null;
+    mimetype?: string | null;
+    filename?: string | null;
+    error?: unknown;
+};
+
+type WahaMessageWithMedia = {
+    media?: WahaMessageMedia | null;
+    mediaUrl?: string | null;
+};
+
+export type WahaDownloadedMedia = {
+    data: Buffer;
+    mimetype: string;
+    filename: string;
+};
+
 const WAHA_SEND_TIMEOUT_MS = 5_000;
+const WAHA_MEDIA_TIMEOUT_MS = 15_000;
+const MAX_WAHA_MEDIA_BYTES = 12 * 1024 * 1024;
+const WAHA_TYPING_TIMEOUT_MS = 1_000;
+
+export const SUPPORT_WAHA_SESSION_NAME = "imenu-support";
 
 class WahaHttpError extends Error {
     status: number;
@@ -123,11 +146,17 @@ async function wahaRequest<T>(
     return parseResponse<T>(response);
 }
 
-function sessionConfig(restaurantId: string) {
+function getSupportPublicUrl(): string {
+    const configured = process.env.IMENU_SUPPORT_PUBLIC_URL?.trim();
+    return configured ? configured.replace(/\/+$/, "") : getIMenuPublicUrl();
+}
+
+function sessionConfig(
+    metadata: Record<string, string>,
+    publicUrl = getIMenuPublicUrl()
+) {
     return {
-        metadata: {
-            restaurant_id: restaurantId,
-        },
+        metadata,
         ignore: {
             status: true,
             groups: true,
@@ -136,12 +165,8 @@ function sessionConfig(restaurantId: string) {
         },
         webhooks: [
             {
-                url: `${getIMenuPublicUrl()}/api/webhooks/waha`,
-                events: [
-                    "message",
-                    "message.any",
-                    "session.status",
-                ],
+                url: `${publicUrl}/api/webhooks/waha`,
+                events: ["message", "message.any", "session.status"],
                 hmac: {
                     key: getWahaWebhookHmacKey(),
                 },
@@ -154,7 +179,6 @@ function sessionConfig(restaurantId: string) {
         ],
     };
 }
-
 export async function getWahaSession(
     sessionName: string
 ): Promise<WahaSession | null> {
@@ -170,12 +194,11 @@ export async function getWahaSession(
     }
 }
 
-export async function ensureWahaSession(
-    restaurantId: string,
-    sessionName: string
+async function ensureWahaSessionWithConfig(
+    sessionName: string,
+    config: Record<string, unknown>
 ): Promise<WahaSession> {
     const existing = await getWahaSession(sessionName);
-    const config = sessionConfig(restaurantId);
 
     if (!existing) {
         return wahaRequest<WahaSession>("/api/sessions", {
@@ -188,9 +211,8 @@ export async function ensureWahaSession(
         });
     }
 
-    // Never update a healthy running session during a status check or a
-    // repeated connect request. Updating the GOWS session config can restart it
-    // and make an already linked account return to QR mode.
+    // Never update a healthy restaurant session during a status check or
+    // repeated connect request. Updating GOWS config can restart it.
     if (existing.status === "WORKING") {
         return existing;
     }
@@ -211,6 +233,24 @@ export async function ensureWahaSession(
         : updated;
 }
 
+export async function ensureWahaSession(
+    restaurantId: string,
+    sessionName: string
+): Promise<WahaSession> {
+    return ensureWahaSessionWithConfig(
+        sessionName,
+        sessionConfig({ restaurant_id: restaurantId })
+    );
+}
+
+export async function ensureWahaSupportSession(
+    sessionName = SUPPORT_WAHA_SESSION_NAME
+): Promise<WahaSession> {
+    return ensureWahaSessionWithConfig(
+        sessionName,
+        sessionConfig({ support: "true" }, getSupportPublicUrl())
+    );
+}
 export async function startWahaSession(
     sessionName: string
 ): Promise<WahaSession> {
@@ -262,6 +302,130 @@ export async function getWahaQrCode(
         }
         throw error;
     }
+}
+
+export async function startWahaTyping(
+    sessionName: string,
+    chatId: string
+): Promise<void> {
+    await wahaRequest<void>(
+        "/api/startTyping",
+        {
+            method: "POST",
+            body: JSON.stringify({
+                session: sessionName,
+                chatId,
+            }),
+        },
+        WAHA_TYPING_TIMEOUT_MS
+    );
+}
+
+export async function stopWahaTyping(
+    sessionName: string,
+    chatId: string
+): Promise<void> {
+    await wahaRequest<void>(
+        "/api/stopTyping",
+        {
+            method: "POST",
+            body: JSON.stringify({
+                session: sessionName,
+                chatId,
+            }),
+        },
+        WAHA_TYPING_TIMEOUT_MS
+    );
+}
+
+function inferWahaMediaMimeType(filename: string): string {
+    const extension = filename.toLowerCase().split(".").pop();
+    if (extension === "jpg" || extension === "jpeg") return "image/jpeg";
+    if (extension === "png") return "image/png";
+    if (extension === "webp") return "image/webp";
+    if (extension === "gif") return "image/gif";
+    if (extension === "ogg" || extension === "oga" || extension === "opus") {
+        return "audio/ogg";
+    }
+    if (extension === "mp3") return "audio/mpeg";
+    if (extension === "m4a" || extension === "mp4") return "audio/mp4";
+    if (extension === "wav") return "audio/wav";
+    if (extension === "webm") return "audio/webm";
+    return "application/octet-stream";
+}
+
+function resolveWahaMediaUrl(value: string): URL {
+    const base = new URL(getWahaBaseUrl());
+    const url = new URL(value, base);
+
+    if (
+        url.pathname.startsWith("/api/files/") ||
+        ["localhost", "127.0.0.1", "::1"].includes(url.hostname)
+    ) {
+        return new URL(url.pathname + url.search, base);
+    }
+
+    return url;
+}
+
+export async function getWahaMessageMedia(
+    sessionName: string,
+    chatId: string,
+    messageId: string
+): Promise<WahaDownloadedMedia | null> {
+    const message = await wahaRequest<WahaMessageWithMedia>(
+        `/api/${encodeURIComponent(sessionName)}/chats/${encodeURIComponent(chatId)}/messages/${encodeURIComponent(messageId)}?downloadMedia=true`,
+        {},
+        WAHA_MEDIA_TIMEOUT_MS
+    );
+    const rawUrl = message.media?.url || message.mediaUrl;
+    if (!rawUrl) return null;
+
+    const url = resolveWahaMediaUrl(rawUrl);
+    const wahaOrigin = new URL(getWahaBaseUrl()).origin;
+    const headers = new Headers({ Accept: "*/*" });
+    if (url.origin === wahaOrigin) {
+        headers.set("X-Api-Key", getWahaApiKey());
+    }
+
+    const response = await fetch(url, {
+        headers,
+        cache: "no-store",
+        signal: AbortSignal.timeout(WAHA_MEDIA_TIMEOUT_MS),
+    });
+    if (!response.ok) {
+        throw new Error(`WAHA media download returned HTTP ${response.status}`);
+    }
+
+    const contentLength = Number(response.headers.get("content-length") || 0);
+    if (
+        Number.isFinite(contentLength) &&
+        contentLength > MAX_WAHA_MEDIA_BYTES
+    ) {
+        throw new Error("WAHA media file is too large");
+    }
+
+    const data = Buffer.from(await response.arrayBuffer());
+    if (data.length > MAX_WAHA_MEDIA_BYTES) {
+        throw new Error("WAHA media file is too large");
+    }
+
+    const pathFilename = decodeURIComponent(
+        url.pathname.split("/").pop() || ""
+    );
+    const filename =
+        message.media?.filename?.trim() || pathFilename || "media";
+    const mimetype =
+        (
+            message.media?.mimetype ||
+            response.headers.get("content-type") ||
+            inferWahaMediaMimeType(filename)
+        )
+            .split(";")[0]
+            .trim()
+            .toLowerCase() || inferWahaMediaMimeType(filename);
+
+    return { data, mimetype, filename };
 }
 
 export async function sendWahaText(
@@ -339,6 +503,20 @@ async function getPhoneChatIdForLid(
     }
 }
 
+export async function resolveWahaChatPhone(
+    sessionName: string,
+    chatId: string
+): Promise<string | null> {
+    const resolvedChatId = chatId.endsWith("@lid")
+        ? await getPhoneChatIdForLid(sessionName, chatId)
+        : chatId;
+
+    if (!resolvedChatId) return null;
+    const digits = String(resolvedChatId)
+        .split("@")[0]
+        .replace(/\D/g, "");
+    return digits || null;
+}
 export async function sendWahaList(
     sessionName: string,
     chatId: string,

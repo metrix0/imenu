@@ -10,6 +10,8 @@ import {
 import {
     sendWahaList,
     sendWahaText,
+    startWahaTyping,
+    stopWahaTyping,
     type WahaListRow,
 } from "@/lib/services/wahaClient";
 
@@ -709,6 +711,14 @@ export async function processIncomingWhatsAppMessage({
         return;
     }
 
+    const typingPromise = startWahaTyping(sessionName, chatId).catch((error) => {
+        console.warn("[WHATSAPP_AUTOMATION] start_typing_failed", {
+            restaurantId,
+            error,
+        });
+    });
+
+    try {
     const [restaurant, templates] = await Promise.all([
         getRestaurantTemplateData(restaurantId),
         getWhatsAppTemplates(restaurantId),
@@ -806,6 +816,17 @@ export async function processIncomingWhatsAppMessage({
             sessionName,
             chatId,
         });
+    }
+    } finally {
+        await typingPromise;
+        try {
+            await stopWahaTyping(sessionName, chatId);
+        } catch (error) {
+            console.warn("[WHATSAPP_AUTOMATION] stop_typing_failed", {
+                restaurantId,
+                error,
+            });
+        }
     }
 }
 
