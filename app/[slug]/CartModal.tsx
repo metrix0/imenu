@@ -11,6 +11,7 @@ import {
 } from "@/lib/api/geocoding";
 import {
     findNeighborhoodDeliveryRule,
+    findSimilarNeighborhoodDeliveryRule,
     normalizeNeighborhoodName,
     parseNeighborhoodDeliveryRules,
     type NeighborhoodDeliveryRule,
@@ -102,14 +103,14 @@ export default function CartModal(props: LegacyProps) {
             );
 
             if (addressNeighborhood) {
-                const acceptedNeighborhoods = [
-                    match.neighborhood,
-                    ...(match.aliases || []),
-                ]
-                    .map(normalizeNeighborhoodName)
-                    .filter(Boolean);
+                const similarMatch = findSimilarNeighborhoodDeliveryRule(
+                    [match],
+                    addressNeighborhood,
+                    address.city,
+                    address.state
+                );
 
-                if (!acceptedNeighborhoods.includes(addressNeighborhood)) {
+                if (!similarMatch) {
                     return "invalid-address";
                 }
             }

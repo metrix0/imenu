@@ -24,7 +24,11 @@ import { supabase } from "@/lib/database/supabaseClient";
 import { MenuItemType } from "@/components/restaurant-owner/cardapio/MenuItemRow";
 import { Item } from "@/lib/types/types";
 import type { QrTableMenuContext } from "@/lib/qr-table/types";
-import { normalizeNeighborhoodName, type NeighborhoodDeliveryRule } from "@/lib/delivery/neighborhood";
+import {
+    findSimilarNeighborhoodDeliveryRule,
+    normalizeNeighborhoodName,
+    type NeighborhoodDeliveryRule,
+} from "@/lib/delivery/neighborhood";
 const DEFAULT_ALLOWED_PAYMENT_METHODS = [
     "pix",
     "dinheiro",
@@ -492,8 +496,20 @@ export default function CartModal({
                     return;
                 }
 
+                const matchedNeighborhood = neighborhoodMode
+                    ? findSimilarNeighborhoodDeliveryRule(
+                          neighborhoodDeliveryRules || [],
+                          addr.neighborhood,
+                          addr.city,
+                          addr.state
+                      )
+                    : null;
+
                 setField("rua", addr.street);
-                setField("bairro", addr.neighborhood);
+                setField(
+                    "bairro",
+                    matchedNeighborhood?.neighborhood || addr.neighborhood
+                );
                 setField("cidade", addr.city);
                 setField("estado", addr.state);
 
