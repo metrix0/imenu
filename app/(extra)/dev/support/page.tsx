@@ -59,6 +59,8 @@ type Conversation = {
     restaurant_name: string | null;
     mode: "ai" | "human";
     updated_at: string;
+    human_started_at?: string | null;
+    last_human_reply_at?: string | null;
     last_message: string | null;
 };
 
@@ -67,6 +69,7 @@ type DashboardData = {
     stats: Stats;
     knowledge: KnowledgeEntry[];
     conversations: Conversation[];
+    handedOff: Conversation[];
 };
 
 function formatPhone(value: string | null): string {
@@ -96,6 +99,15 @@ function formatPhone(value: string | null): string {
     }
 
     return value || "—";
+}
+
+function getWhatsappUrl(value: string | null): string | null {
+    let digits = String(value || "").replace(/\D/g, "");
+    if (!digits) return null;
+    if (!digits.startsWith("55") && (digits.length === 10 || digits.length === 11)) {
+        digits = "55" + digits;
+    }
+    return "https://wa.me/" + digits;
 }
 
 function statusPresentation(connection: Connection | null) {
@@ -248,6 +260,16 @@ export default function DevSupportPage() {
         return () => window.clearInterval(timer);
     }, [accessState, data?.connection, loadDashboard]);
 
+    useEffect(() => {
+        if (accessState !== "allowed" || !data?.handedOff.length) return;
+
+        const timer = window.setInterval(() => {
+            void loadDashboard().catch(() => undefined);
+        }, 60_000);
+
+        return () => window.clearInterval(timer);
+    }, [accessState, data?.handedOff.length, loadDashboard]);
+
     const runAction = async (
         nextAction: string,
         extra: Record<string, unknown> = {}
@@ -370,6 +392,83 @@ export default function DevSupportPage() {
                         <p className="text-sm text-red-700">{error}</p>
                     </Card>
                 )}
+
+                <Card>
+                    <h2 className="text-lg font-semibold text-gray-900">
+                        Handed Off
+                    </h2>
+                    <p className="mt-1 text-sm text-gray-500">
+                        Conversas atualmente sob atendimento humano.
+                    </p>
+
+                    <div className="mt-5 overflow-x-auto rounded-xl border border-gray-200">
+                        {data?.handedOff.length ? (
+                            <table className="w-full min-w-[620px] text-left text-sm">
+                                <thead className="border-b border-gray-200 bg-gray-50 text-xs text-gray-500">
+                                    <tr>
+                                        <th className="px-4 py-3 font-semibold">
+                                            Restaurante
+                                        </th>
+                                        <th className="px-4 py-3 font-semibold">
+                                            Contato
+                                        </th>
+                                        <th className="px-4 py-3 text-right font-semibold">
+                                            Ação
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                    {data.handedOff.map((conversation) => {
+                                        const whatsappUrl = getWhatsappUrl(
+                                            conversation.phone
+                                        );
+
+                                        return (
+                                            <tr key={conversation.id}>
+                                                <td className="px-4 py-3">
+                                                    <p className="font-medium text-gray-900">
+                                                        {conversation.restaurant_name ||
+                                                            "Restaurante não identificado"}
+                                                    </p>
+                                                </td>
+                                                <td className="px-4 py-3 text-gray-600">
+                                                    {conversation.customer_name
+                                                        ? conversation.customer_name + " · "
+                                                        : ""}
+                                                    {formatPhone(conversation.phone)}
+                                                </td>
+                                                <td className="px-4 py-3 text-right">
+                                                    <Button
+                                                        variant="secondary"
+                                                        disabled={!whatsappUrl}
+                                                        onClick={() => {
+                                                            if (!whatsappUrl) return;
+                                                            window.open(
+                                                                whatsappUrl,
+                                                                "_blank",
+                                                                "noopener,noreferrer"
+                                                            );
+                                                        }}
+                                                    >
+                                                        <FontAwesomeIcon
+                                                            icon={faWhatsapp}
+                                                            className="mr-2"
+                                                        />
+                                                        Abrir WhatsApp
+                                                    </Button>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        ) : (
+                            <p className="p-6 text-center text-sm text-gray-500">
+                                Nenhuma conversa em atendimento humano.
+                            </p>
+                        )}
+                    </div>
+                </Card>
 
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     {[

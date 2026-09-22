@@ -55,6 +55,28 @@ function normalize(value: unknown): string {
 
 const BLOCKED_HANDOFF_PHONE = "5511913519119";
 
+export async function releaseExpiredSupportHandoffs(
+    chatId?: string
+): Promise<void> {
+    await query(
+        `
+            UPDATE support_conversations
+            SET
+                mode = 'ai',
+                human_started_at = NULL,
+                last_human_reply_at = NULL,
+                updated_at = NOW()
+            WHERE mode = 'human'
+              AND (
+                    human_started_at <= NOW() - INTERVAL '12 hours'
+                    OR last_human_reply_at <= NOW() - INTERVAL '30 minutes'
+                  )
+              AND ($1::text IS NULL OR chat_id = $1)
+        `,
+        [chatId || null]
+    );
+}
+
 function phoneCandidates(value: string | null): string[] {
     const digits = String(value || "").replace(/\D/g, "");
     if (!digits) return [];
@@ -175,6 +197,8 @@ async function prepareConversation(input: {
             (await resolveWahaChatPhone(input.sessionName, input.chatId)) ||
             String(input.chatId).split("@")[0].replace(/\D/g, "") ||
             null;
+
+        await releaseExpiredSupportHandoffs(input.chatId);
 
         const existing = await query<ConversationRow>(
             "SELECT id, chat_id, phone, customer_name, restaurant_id, mode FROM support_conversations WHERE chat_id = $1 LIMIT 1",
@@ -357,7 +381,23 @@ export async function markSupportHumanTakeover(input: {
     body?: string;
 }): Promise<void> {
     const result = await query<{ id: string }>(
-        "UPDATE support_conversations SET mode = 'human', last_outbound_at = NOW(), updated_at = NOW() WHERE chat_id = $1 RETURNING id",
+        `
+            UPDATE support_conversations
+            SET
+                mode = 'human',
+                human_started_at = CASE
+                    WHEN mode = 'human'
+                     AND human_started_at IS NOT NULL
+                     AND human_started_at > NOW() - INTERVAL '12 hours'
+                    THEN human_started_at
+                    ELSE NOW()
+                END,
+                last_human_reply_at = NOW(),
+                last_outbound_at = NOW(),
+                updated_at = NOW()
+            WHERE chat_id = $1
+            RETURNING id
+        `,
         [input.chatId]
     );
 

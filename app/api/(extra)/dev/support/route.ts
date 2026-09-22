@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
 import { query } from "@/lib/database/sql";
+import { releaseExpiredSupportHandoffs } from "@/lib/services/supportWhatsApp";
 import {
     ensureWahaSupportSession,
     extractWahaPhone,
@@ -146,6 +147,8 @@ async function updateFromWahaSession(
 }
 
 async function getDashboardData() {
+    await releaseExpiredSupportHandoffs();
+
     let connection = await readConnection();
 
     if (connection.desired_state === "connected") {
@@ -162,7 +165,7 @@ async function getDashboardData() {
         }
     }
 
-    const [stats, knowledge, conversations] = await Promise.all([
+    const [stats, knowledge, conversations, handedOff] = await Promise.all([
         query<{
             conversations_today: number;
             ai_replies_today: number;
@@ -192,6 +195,20 @@ async function getDashboardData() {
         }>(
             "SELECT c.id, c.phone, c.customer_name, c.restaurant_id, r.name AS restaurant_name, c.mode, c.updated_at, (SELECT sm.body FROM support_messages sm WHERE sm.conversation_id = c.id ORDER BY sm.created_at DESC LIMIT 1) AS last_message FROM support_conversations c LEFT JOIN restaurants r ON r.id = c.restaurant_id ORDER BY c.updated_at DESC LIMIT 30"
         ),
+        query<{
+            id: string;
+            phone: string | null;
+            customer_name: string | null;
+            restaurant_id: string | null;
+            restaurant_name: string | null;
+            mode: "ai" | "human";
+            updated_at: string;
+            human_started_at: string | null;
+            last_human_reply_at: string | null;
+            last_message: string | null;
+        }>(
+            "SELECT c.id, c.phone, c.customer_name, c.restaurant_id, r.name AS restaurant_name, c.mode, c.updated_at, c.human_started_at, c.last_human_reply_at, (SELECT sm.body FROM support_messages sm WHERE sm.conversation_id = c.id ORDER BY sm.created_at DESC LIMIT 1) AS last_message FROM support_conversations c LEFT JOIN restaurants r ON r.id = c.restaurant_id WHERE c.mode = 'human' ORDER BY COALESCE(c.last_human_reply_at, c.human_started_at, c.updated_at) DESC LIMIT 50"
+        ),
     ]);
 
     return {
@@ -199,6 +216,7 @@ async function getDashboardData() {
         stats: stats.rows[0],
         knowledge: knowledge.rows,
         conversations: conversations.rows,
+        handedOff: handedOff.rows,
     };
 }
 
@@ -350,8 +368,10 @@ export async function POST(request: Request) {
             }
 
             await query(
-                "UPDATE support_conversations SET mode = $2, updated_at = NOW() WHERE id = $1",
-                [String(body.id || ""), mode]
+                mode === "human"
+                    ? "UPDATE support_conversations SET mode = 'human', human_started_at = NOW(), last_human_reply_at = NULL, updated_at = NOW() WHERE id = $1"
+                    : "UPDATE support_conversations SET mode = 'ai', human_started_at = NULL, last_human_reply_at = NULL, updated_at = NOW() WHERE id = $1",
+                [String(body.id || "")]
             );
             return NextResponse.json(await getDashboardData());
         }
