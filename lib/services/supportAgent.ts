@@ -366,7 +366,7 @@ export async function generateSupportReply(
                     require_approval: "never",
                 } as any,
             ],
-            max_output_tokens: 800,
+            max_output_tokens: 220,
             store: false,
         },
         { timeout: 45_000 }
