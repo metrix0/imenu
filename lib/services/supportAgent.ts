@@ -1,10 +1,7 @@
 import OpenAI, { toFile } from "openai";
 
 import { query } from "@/lib/database/sql";
-import {
-    executeSupportMcpTool,
-    SUPPORT_MCP_TOOLS,
-} from "@/lib/services/supportMcp";
+import { createSupportMcpToken } from "@/lib/services/supportMcp";
 
 type SupportMessage = {
     direction: "inbound" | "outbound";
@@ -68,6 +65,29 @@ function limitSupportReply(value: string): string {
             .slice(0, MAX_REPLY_CHARACTERS - 3)
             .join("")
             .trimEnd() + "..."
+    );
+}
+
+function getSupportMcpBaseUrl(): string {
+    const publicUrl = process.env.IMENU_SUPPORT_PUBLIC_URL?.trim();
+    if (publicUrl) return publicUrl.replace(/\/+$/, "");
+
+    const configured = process.env.IMENU_SUPPORT_MCP_BASE_URL?.trim();
+    if (configured) return configured.replace(/\/+$/, "");
+
+    const vercelUrl = process.env.VERCEL_URL?.trim();
+    if (vercelUrl) return "https://" + vercelUrl.replace(/\/+$/, "");
+
+    const imenuPublicUrl = process.env.IMENU_PUBLIC_URL?.trim();
+    if (imenuPublicUrl) return imenuPublicUrl.replace(/\/+$/, "");
+
+    const productionUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim();
+    if (productionUrl) {
+        return "https://" + productionUrl.replace(/\/+$/, "");
+    }
+
+    throw new Error(
+        "Missing IMENU_SUPPORT_PUBLIC_URL or a public Vercel URL."
     );
 }
 
@@ -319,90 +339,40 @@ export async function generateSupportReply(
     const model =
         process.env.OPENAI_SUPPORT_MODEL?.trim() || "gpt-5.6-luna";
     const client = new OpenAI({ apiKey });
+    const serverUrl =
+        getSupportMcpBaseUrl() +
+        "/api/support/mcp?conversationId=" +
+        encodeURIComponent(conversationId);
 
-    const tools = SUPPORT_MCP_TOOLS.map((tool) => ({
-        type: "function",
-        name: tool.name,
-        description: tool.description,
-        parameters: tool.inputSchema,
-        strict: false,
-    })) as any;
+    const response = await client.responses.create(
+        {
+            model,
+            instructions,
+            input: history.rows.map((message) => ({
+                role:
+                    message.direction === "inbound"
+                        ? ("user" as const)
+                        : ("assistant" as const),
+                content: message.body,
+            })),
+            tools: [
+                {
+                    type: "mcp",
+                    server_label: "imenu_support",
+                    server_description:
+                        "Curated iMenu knowledge plus read-only, restaurant-scoped account diagnostics.",
+                    server_url: serverUrl,
+                    authorization: createSupportMcpToken(conversationId),
+                    require_approval: "never",
+                } as any,
+            ],
+            max_output_tokens: 220,
+            store: false,
+        },
+        { timeout: 45_000 }
+    );
 
-    let responseInput: any[] = history.rows.map((message) => ({
-        role: message.direction === "inbound" ? "user" : "assistant",
-        content: message.body,
-    }));
-    let response: any = null;
-    let inputTokens = 0;
-    let outputTokens = 0;
-
-    for (let round = 0; round < 6; round += 1) {
-        response = await client.responses.create(
-            {
-                model,
-                instructions,
-                input: responseInput,
-                tools,
-                max_output_tokens: 800,
-                store: false,
-            } as any,
-            { timeout: 45_000 }
-        );
-
-        inputTokens += response.usage?.input_tokens ?? 0;
-        outputTokens += response.usage?.output_tokens ?? 0;
-
-        const toolCalls = (response.output || []).filter(
-            (item: any) => item.type === "function_call"
-        );
-
-        if (!toolCalls.length) break;
-
-        const toolOutputs = await Promise.all(
-            toolCalls.map(async (call: any) => {
-                let args: unknown = {};
-                try {
-                    args = call.arguments
-                        ? JSON.parse(call.arguments)
-                        : {};
-                } catch {
-                    args = {};
-                }
-
-                try {
-                    const result = await executeSupportMcpTool(
-                        conversationId,
-                        call.name,
-                        args
-                    );
-                    return {
-                        type: "function_call_output",
-                        call_id: call.call_id,
-                        output: JSON.stringify(result),
-                    };
-                } catch (error) {
-                    return {
-                        type: "function_call_output",
-                        call_id: call.call_id,
-                        output: JSON.stringify({
-                            error:
-                                error instanceof Error
-                                    ? error.message
-                                    : "Support tool failed.",
-                        }),
-                    };
-                }
-            })
-        );
-
-        responseInput = [
-            ...responseInput,
-            ...(response.output || []),
-            ...toolOutputs,
-        ];
-    }
-
-    const rawText = response?.output_text?.trim();
+    const rawText = response.output_text?.trim();
     if (!rawText) {
         throw new Error("The support model returned an empty response.");
     }
@@ -420,7 +390,7 @@ export async function generateSupportReply(
     return {
         text,
         model,
-        inputTokens: inputTokens || null,
-        outputTokens: outputTokens || null,
+        inputTokens: response.usage?.input_tokens ?? null,
+        outputTokens: response.usage?.output_tokens ?? null,
     };
 }
