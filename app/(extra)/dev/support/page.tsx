@@ -21,7 +21,8 @@ import Textarea from "@/components/ui/Textarea";
 import { supabase } from "@/lib/database/supabaseClient";
 
 const ALLOWED_DEV_EMAIL = "joaovralmeida@hotmail.com";
-const BULK_SEND_DELAY_MS = 20_000;
+const BULK_SEND_MIN_DELAY_SECONDS = 15;
+const BULK_SEND_MAX_DELAY_SECONDS = 30;
 
 function parseBulkPhones(value: string): string[] {
     const seen = new Set<string>();
@@ -389,18 +390,27 @@ export default function DevSupportPage() {
                 setBulkSent(index + 1);
 
                 if (index < recipients.length - 1 && !bulkStopRef.current) {
+                    const delaySeconds =
+                        Math.floor(
+                            Math.random() *
+                                (BULK_SEND_MAX_DELAY_SECONDS -
+                                    BULK_SEND_MIN_DELAY_SECONDS +
+                                    1)
+                        ) + BULK_SEND_MIN_DELAY_SECONDS;
+
                     setBulkStatus(
                         "Enviado " +
                             (index + 1) +
                             " de " +
                             recipients.length +
-                            ". Próximo envio em 20s..."
+                            ". Próximo envio em " +
+                            delaySeconds +
+                            "s..."
                     );
 
                     for (
                         let waited = 0;
-                        waited < BULK_SEND_DELAY_MS / 1000 &&
-                        !bulkStopRef.current;
+                        waited < delaySeconds && !bulkStopRef.current;
                         waited += 1
                     ) {
                         await new Promise((resolve) =>
@@ -756,7 +766,7 @@ export default function DevSupportPage() {
                         Envio em massa
                     </h2>
                     <p className="mt-1 text-sm text-gray-500">
-                        Envia uma mensagem por vez pelo WhatsApp de suporte, com intervalo de 20 segundos.
+                        Envia uma mensagem por vez pelo WhatsApp de suporte, com intervalo aleatório entre 15 e 30 segundos.
                     </p>
 
                     <div className="mt-5 grid gap-4 md:grid-cols-2">
