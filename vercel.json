@@ -9,6 +9,10 @@
     {
       "path": "/api/cron/daily-payout",
       "schedule": "0 14 * * *"
+    },
+    {
+      "path": "/api/cron/addon-expiry-whatsapp",
+      "schedule": "0 18 * * *"
     }
   ]
 }
