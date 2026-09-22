@@ -507,6 +507,7 @@ export default function MenuClientPage({
         ])
     );
     const taxText = () => {
+        if (!deliveryTax) return null;
 
         if(deliveryTax.lowest === deliveryTax.highest){
             return `R$ ${formatPriceNoRS(deliveryTax.lowest)}`
@@ -523,28 +524,34 @@ export default function MenuClientPage({
         }
     }, []);
 
+    const deliveryRules = restaurant.delivery_fee_mode === "neighborhood"
+        ? parseNeighborhoodDeliveryRules(restaurant.delivery_neighborhood_fee_json)
+        : Array.isArray(restaurant.delivery_fee_json)
+            ? restaurant.delivery_fee_json
+            : [];
+
     const deliveryTax = (() => {
-        const rules = restaurant.delivery_fee_mode === "neighborhood"
-            ? parseNeighborhoodDeliveryRules(restaurant.delivery_neighborhood_fee_json)
-            : restaurant.delivery_fee_json;
-        const fees = rules.map(
-            (i: { fee_cents: number }) => i.fee_cents
-        );
+        const fees = deliveryRules
+            .map((i: { fee_cents: number }) => Number(i.fee_cents))
+            .filter(Number.isFinite);
+
+        if (fees.length === 0) return null;
 
         const lowest = Math.min(...fees);
         const highest = Math.max(...fees);
-
 
         return { lowest, highest };
     })();
 
     const deliveryTime = (() => {
-        const fees = restaurant.delivery_fee_json.map(
-            (i: { time_minutes: number }) => i.time_minutes
-        );
+        const times = deliveryRules
+            .map((i: { time_minutes: number }) => Number(i.time_minutes))
+            .filter(Number.isFinite);
 
-        const lowest = Math.min(...fees);
-        let highest = Math.max(...fees);
+        if (times.length === 0) return null;
+
+        const lowest = Math.min(...times);
+        let highest = Math.max(...times);
 
         if(highest-lowest >= 20){
             highest = lowest+20
@@ -554,6 +561,8 @@ export default function MenuClientPage({
     })();
 
     const deliveryText = (()=>{
+
+        if (!deliveryTime) return null;
 
         if(deliveryTime.lowest === deliveryTime.highest){
             return `${deliveryTime.lowest} min`
@@ -868,10 +877,18 @@ export default function MenuClientPage({
                         ) : (
                             <div className="flex items-center gap-2 text-xs 2xl:text-[1rem] font-bold">
                                 <span>Entrega</span>
-                                <span>•</span>
-                                <span>{deliveryText()}</span>
-                                <span>•</span>
-                                <span className={"text-green"}>{taxText()}</span>
+                                {deliveryText() && (
+                                    <>
+                                        <span>•</span>
+                                        <span>{deliveryText()}</span>
+                                    </>
+                                )}
+                                {taxText() && (
+                                    <>
+                                        <span>•</span>
+                                        <span className={"text-green"}>{taxText()}</span>
+                                    </>
+                                )}
                             </div>
                         )}
                         <div className={"hidden md:inline-block"}>
