@@ -54,6 +54,92 @@ function normalize(value: unknown): string {
 }
 
 const BLOCKED_HANDOFF_PHONE = "5511913519119";
+const SUPPORT_AI_RETRY_DELAYS_MS = [500, 1_500] as const;
+
+function isRetryableSupportAiError(error: unknown): boolean {
+    const value = error as {
+        status?: unknown;
+        code?: unknown;
+        name?: unknown;
+    };
+
+    const status =
+        typeof value?.status === "number" ? value.status : null;
+    if (
+        status === 408 ||
+        status === 424 ||
+        status === 429 ||
+        (status !== null && status >= 500)
+    ) {
+        return true;
+    }
+
+    const code =
+        typeof value?.code === "string" ? value.code.toUpperCase() : "";
+    if (
+        [
+            "ECONNRESET",
+            "ECONNREFUSED",
+            "ETIMEDOUT",
+            "EAI_AGAIN",
+            "ENOTFOUND",
+            "UND_ERR_CONNECT_TIMEOUT",
+            "UND_ERR_SOCKET",
+        ].includes(code)
+    ) {
+        return true;
+    }
+
+    const name =
+        typeof value?.name === "string" ? value.name.toLowerCase() : "";
+    return (
+        name.includes("connectionerror") ||
+        name.includes("connectiontimeouterror") ||
+        name === "timeouterror" ||
+        name === "aborterror"
+    );
+}
+
+async function generateSupportReplyWithRetry(conversationId: string) {
+    for (let attempt = 0; ; attempt += 1) {
+        try {
+            return await generateSupportReply(conversationId);
+        } catch (error) {
+            const delayMs = SUPPORT_AI_RETRY_DELAYS_MS[attempt];
+            if (delayMs === undefined || !isRetryableSupportAiError(error)) {
+                throw error;
+            }
+
+            console.warn(
+                `[SUPPORT_WHATSAPP] AI reply transient failure; retrying ${attempt + 1}/${SUPPORT_AI_RETRY_DELAYS_MS.length}:`,
+                error
+            );
+            await new Promise((resolve) => setTimeout(resolve, delayMs));
+        }
+    }
+}
+
+export async function releaseExpiredSupportHandoffs(
+    chatId?: string
+): Promise<void> {
+    await query(
+        `
+            UPDATE support_conversations
+            SET
+                mode = 'ai',
+                human_started_at = NULL,
+                last_human_reply_at = NULL,
+                updated_at = NOW()
+            WHERE mode = 'human'
+              AND (
+                    human_started_at <= NOW() - INTERVAL '12 hours'
+                    OR last_human_reply_at <= NOW() - INTERVAL '30 minutes'
+                  )
+              AND ($1::text IS NULL OR chat_id = $1)
+        `,
+        [chatId || null]
+    );
+}
 
 function phoneCandidates(value: string | null): string[] {
     const digits = String(value || "").replace(/\D/g, "");
@@ -175,6 +261,8 @@ async function prepareConversation(input: {
             (await resolveWahaChatPhone(input.sessionName, input.chatId)) ||
             String(input.chatId).split("@")[0].replace(/\D/g, "") ||
             null;
+
+        await releaseExpiredSupportHandoffs(input.chatId);
 
         const existing = await query<ConversationRow>(
             "SELECT id, chat_id, phone, customer_name, restaurant_id, mode FROM support_conversations WHERE chat_id = $1 LIMIT 1",
@@ -357,7 +445,23 @@ export async function markSupportHumanTakeover(input: {
     body?: string;
 }): Promise<void> {
     const result = await query<{ id: string }>(
-        "UPDATE support_conversations SET mode = 'human', last_outbound_at = NOW(), updated_at = NOW() WHERE chat_id = $1 RETURNING id",
+        `
+            UPDATE support_conversations
+            SET
+                mode = 'human',
+                human_started_at = CASE
+                    WHEN mode = 'human'
+                     AND human_started_at IS NOT NULL
+                     AND human_started_at > NOW() - INTERVAL '12 hours'
+                    THEN human_started_at
+                    ELSE NOW()
+                END,
+                last_human_reply_at = NOW(),
+                last_outbound_at = NOW(),
+                updated_at = NOW()
+            WHERE chat_id = $1
+            RETURNING id
+        `,
         [input.chatId]
     );
 
@@ -543,7 +647,7 @@ export async function processSupportIncomingWhatsAppMessage(input: {
         }
 
         try {
-            const reply = await generateSupportReply(conversation.id);
+            const reply = await generateSupportReplyWithRetry(conversation.id);
 
             await sendTrackedSupportText({
                 conversationId: conversation.id,

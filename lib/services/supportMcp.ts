@@ -615,7 +615,7 @@ export async function executeSupportMcpTool(
         }
 
         await query(
-            "UPDATE support_conversations SET mode = 'human', updated_at = NOW() WHERE id = $1",
+            "UPDATE support_conversations SET mode = 'human', human_started_at = NOW(), last_human_reply_at = NULL, updated_at = NOW() WHERE id = $1",
             [conversationId]
         );
 
