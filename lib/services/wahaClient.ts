@@ -34,6 +34,7 @@ type WahaLidResponse = {
 };
 
 const WAHA_SEND_TIMEOUT_MS = 5_000;
+const WAHA_TYPING_TIMEOUT_MS = 1_000;
 
 export const SUPPORT_WAHA_SESSION_NAME = "imenu-support";
 
@@ -281,6 +282,40 @@ export async function getWahaQrCode(
         }
         throw error;
     }
+}
+
+export async function startWahaTyping(
+    sessionName: string,
+    chatId: string
+): Promise<void> {
+    await wahaRequest<void>(
+        "/api/startTyping",
+        {
+            method: "POST",
+            body: JSON.stringify({
+                session: sessionName,
+                chatId,
+            }),
+        },
+        WAHA_TYPING_TIMEOUT_MS
+    );
+}
+
+export async function stopWahaTyping(
+    sessionName: string,
+    chatId: string
+): Promise<void> {
+    await wahaRequest<void>(
+        "/api/stopTyping",
+        {
+            method: "POST",
+            body: JSON.stringify({
+                session: sessionName,
+                chatId,
+            }),
+        },
+        WAHA_TYPING_TIMEOUT_MS
+    );
 }
 
 export async function sendWahaText(

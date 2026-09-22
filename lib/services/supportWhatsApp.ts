@@ -6,6 +6,8 @@ import {
     resolveWahaChatPhone,
     restartWahaSession,
     sendWahaText,
+    startWahaTyping,
+    stopWahaTyping,
 } from "@/lib/services/wahaClient";
 
 export type SupportConnectionRow = {
@@ -390,6 +392,13 @@ export async function processSupportIncomingWhatsAppMessage(input: {
 
     if (conversation.mode === "human" || !input.botEnabled) return;
 
+    const typingPromise = startWahaTyping(input.sessionName, input.chatId).catch(
+        (error) => {
+            console.warn("[SUPPORT_WHATSAPP] start_typing_failed:", error);
+        }
+    );
+
+    try {
     if (isInitialHelpGreeting(input.body)) {
         const personName = getPersonName(
             input.customerName || conversation.customer_name
@@ -483,5 +492,13 @@ export async function processSupportIncomingWhatsAppMessage(input: {
             text: "Tive um problema para responder agora. Tente novamente em instantes.",
             dedupeKey: input.messageId + ":ai-fallback",
         });
+    }
+    } finally {
+        await typingPromise;
+        try {
+            await stopWahaTyping(input.sessionName, input.chatId);
+        } catch (error) {
+            console.warn("[SUPPORT_WHATSAPP] stop_typing_failed:", error);
+        }
     }
 }
