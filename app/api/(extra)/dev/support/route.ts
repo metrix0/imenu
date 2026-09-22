@@ -133,7 +133,7 @@ async function updateFromWahaSession(
             : null;
 
     await query(
-        "UPDATE support_whatsapp_connection SET desired_state = 'connected', status = $1, status_data = NULL, phone = COALESCE($2, phone), push_name = COALESCE($3, push_name), qr_code_data = $4, qr_updated_at = CASE WHEN $4 IS NULL THEN NULL ELSE NOW() END, last_connected_at = CASE WHEN $1 = 'WORKING' THEN NOW() ELSE last_connected_at END, last_disconnected_at = CASE WHEN $1 IN ('FAILED','STOPPED') THEN NOW() ELSE last_disconnected_at END, last_event_at = NOW(), last_error = NULL, updated_at = NOW() WHERE id = 'default'",
+        "UPDATE support_whatsapp_connection SET desired_state = 'connected', status = $1, status_data = NULL, phone = COALESCE($2, phone), push_name = COALESCE($3, push_name), qr_code_data = $4, qr_updated_at = CASE WHEN $4::text IS NULL THEN NULL ELSE NOW() END, last_connected_at = CASE WHEN $1 = 'WORKING' THEN NOW() ELSE last_connected_at END, last_disconnected_at = CASE WHEN $1 IN ('FAILED','STOPPED') THEN NOW() ELSE last_disconnected_at END, last_event_at = NOW(), last_error = NULL, updated_at = NOW() WHERE id = 'default'",
         [
             status,
             phone,
