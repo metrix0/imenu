@@ -8,14 +8,22 @@ import {
     getWahaQrCode,
     getWahaWebhookHmacKey,
     restartWahaSession,
+    SUPPORT_WAHA_SESSION_NAME,
 } from "@/lib/services/wahaClient";
 import {
     markOwnerTookOverConversation,
     processIncomingWhatsAppMessage,
 } from "@/lib/services/whatsappAutomation";
+import {
+    getSupportConnectionForSession,
+    handleSupportSessionStatus,
+    markSupportHumanTakeover,
+    processSupportIncomingWhatsAppMessage,
+} from "@/lib/services/supportWhatsApp";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 type WahaEvent = {
     id?: string;
@@ -386,6 +394,74 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ ok: true });
         }
 
+        if (sessionName === SUPPORT_WAHA_SESSION_NAME) {
+            const supportConnection =
+                await getSupportConnectionForSession(sessionName);
+            if (!supportConnection) {
+                return NextResponse.json({ ok: true, ignored: "unknown_support_session" });
+            }
+
+            if (supportConnection.desired_state !== "connected") {
+                return NextResponse.json({ ok: true, ignored: "disconnected_support_session" });
+            }
+
+            if (eventName === "session.status") {
+                await handleSupportSessionStatus({
+                    connection: supportConnection,
+                    status: String(payload.status || "FAILED"),
+                    statusData: payload.data || null,
+                    meId: event.me?.id,
+                    pushName: event.me?.pushName,
+                    sourceEventTime: getSourceEventTime(event),
+                });
+                return NextResponse.json({ ok: true });
+            }
+
+            const supportChatId = getCustomerChatId(payload);
+            if (!supportChatId) {
+                return NextResponse.json({ ok: true, ignored: "unsupported_chat" });
+            }
+
+            if (eventName === "message.any") {
+                if (payload.fromMe !== true || payload.source === "api") {
+                    return NextResponse.json({ ok: true });
+                }
+
+                const messageId = getStableMessageId(event, rawBody);
+                claimedEventId = "support-owner:" + sessionName + ":" + messageId;
+                if (!(await claimEvent(claimedEventId))) {
+                    return NextResponse.json({ ok: true, duplicate: true });
+                }
+
+                await markSupportHumanTakeover({
+                    chatId: supportChatId,
+                    body: extractIncomingBody(payload),
+                });
+                await finishEvent(claimedEventId, "processed");
+                return NextResponse.json({ ok: true });
+            }
+
+            if (eventName === "message" && payload.fromMe !== true) {
+                const messageId = getStableMessageId(event, rawBody);
+                claimedEventId = "support-inbound:" + sessionName + ":" + messageId;
+                if (!(await claimEvent(claimedEventId))) {
+                    return NextResponse.json({ ok: true, duplicate: true });
+                }
+
+                await processSupportIncomingWhatsAppMessage({
+                    sessionName,
+                    chatId: supportChatId,
+                    body: extractIncomingBody(payload),
+                    hasMedia: payload.hasMedia === true,
+                    messageId,
+                    customerName: extractCustomerName(payload),
+                    botEnabled: supportConnection.bot_enabled,
+                });
+                await finishEvent(claimedEventId, "processed");
+            }
+
+            return NextResponse.json({ ok: true });
+        }
         const supabase = createSupabaseServerClient();
         const connection = await getConnection(sessionName, supabase);
         if (!connection) {
