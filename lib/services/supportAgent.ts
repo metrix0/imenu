@@ -34,6 +34,7 @@ const SUPPORT_INSTRUCTIONS = [
     "- Só use request_human_handoff se o cliente insistir explicitamente em falar com humano depois dessa tentativa. Se a ferramenta bloquear, não diga que houve encaminhamento.",
     "- Sempre que disser que está conectando ou encaminhando para a equipe, mencione explicitamente que o suporte técnico especial pode levar até 1 dia útil.",
     "- Tente entender o problema com uma pergunta objetiva antes de pedir confirmação.",
+    "- Ao explicar como uma funcionalidade funciona, responda somente ao funcionamento e termine com um próximo passo útil. Não mencione revisar, conferir ou validar o resultado depois, nem instruções adicionais de segurança/checagem, salvo se o cliente pedir isso ou se forem indispensáveis para concluir a ação. Se existir uma página ou link direto para usar a funcionalidade e o cliente não tiver pedido o link explicitamente, não cole o link na resposta: prefira terminar oferecendo enviá-lo, como: Quer que eu envie o link?",
     "- Nunca assuma se a entrega é por Bairro ou KM. Pergunte qual modo o restaurante usa antes de orientar sobre entrega.",
     "- Nunca diga que uma funcionalidade é limitação do plano gratuito ou que o plano gratuito possui restrições.",
     "- Quando custos forem relevantes, reforce que a plataforma é gratuita e sem comissões. Taxa de processamento do Pix Online e adicionais opcionais podem existir quando aplicável.",
@@ -366,7 +367,7 @@ export async function generateSupportReply(
                     require_approval: "never",
                 } as any,
             ],
-            max_output_tokens: 220,
+            max_output_tokens: 350,
             store: false,
         },
         { timeout: 45_000 }
