@@ -121,7 +121,7 @@ export async function handleSupportSessionStatus(input: {
     }
 
     await query(
-        "UPDATE support_whatsapp_connection SET status = $1, status_data = $2::jsonb, phone = COALESCE($3, phone), push_name = COALESCE($4, push_name), qr_code_data = $5, qr_updated_at = CASE WHEN $5 IS NULL THEN NULL ELSE NOW() END, last_connected_at = CASE WHEN $1 = 'WORKING' THEN NOW() ELSE last_connected_at END, last_disconnected_at = CASE WHEN $1 IN ('FAILED','STOPPED') THEN NOW() ELSE last_disconnected_at END, last_event_at = NOW(), last_error = CASE WHEN $1 = 'FAILED' THEN 'A sessão de suporte não conseguiu se reconectar.' WHEN $1 = 'WORKING' THEN NULL ELSE last_error END, updated_at = NOW() WHERE id = 'default'",
+        "UPDATE support_whatsapp_connection SET status = $1, status_data = $2::jsonb, phone = COALESCE($3, phone), push_name = COALESCE($4, push_name), qr_code_data = $5, qr_updated_at = CASE WHEN $5::text IS NULL THEN NULL ELSE NOW() END, last_connected_at = CASE WHEN $1 = 'WORKING' THEN NOW() ELSE last_connected_at END, last_disconnected_at = CASE WHEN $1 IN ('FAILED','STOPPED') THEN NOW() ELSE last_disconnected_at END, last_event_at = NOW(), last_error = CASE WHEN $1 = 'FAILED' THEN 'A sessão de suporte não conseguiu se reconectar.' WHEN $1 = 'WORKING' THEN NULL ELSE last_error END, updated_at = NOW() WHERE id = 'default'",
         [
             status,
             JSON.stringify(statusData ?? null),
