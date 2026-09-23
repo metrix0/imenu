@@ -60,6 +60,13 @@ type DashboardPayload = {
         moneyHandledCents: number | null;
         onlineMoneyHandledCents: number | null;
     };
+    deviceUsage: {
+        measuredUsers: number;
+        mainlyMobile: number;
+        mainlyDesktop: number;
+        tied: number;
+        mainlyMobilePercentage: number | null;
+    };
     series: Record<MetricKey, SeriesPoint[]>;
     abandonmentRates: {
         activeUsers: SeriesPoint[];
@@ -796,6 +803,28 @@ export default function DevDashboardPage() {
                                 title="Uso das abas do painel"
                                 description="Distribuição dos cliques nas abas do menu lateral no período selecionado."
                             />
+                            <div className="mb-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                                <MetricCard
+                                    title="Principalmente mobile"
+                                    value={
+                                        data.deviceUsage.mainlyMobilePercentage === null
+                                            ? "—"
+                                            : formatRatio(
+                                                  data.deviceUsage
+                                                      .mainlyMobilePercentage
+                                              )
+                                    }
+                                    description={
+                                        data.deviceUsage.measuredUsers > 0
+                                            ? `${formatCount(
+                                                  data.deviceUsage.mainlyMobile
+                                              )} de ${formatCount(
+                                                  data.deviceUsage.measuredUsers
+                                              )} usuários ativos com sessões registradas tiveram mais sessões mobile do que desktop.`
+                                            : "Sem sessões registradas para os usuários ativos."
+                                    }
+                                />
+                            </div>
                             <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
                                 {data.panelTabs.available ? (
                                     data.panelTabs.tabs.length ? (
@@ -843,51 +872,32 @@ export default function DevDashboardPage() {
                                             "step_3",
                                             "step_4",
                                         ].includes(step.key);
-                                        const creationStepPostHogValue =
-                                            step.key === "step_1"
-                                                ? details?.funnelSummary.step1Views ?? null
-                                                : step.key === "step_2"
-                                                  ? details?.funnelSummary.step2Views ?? null
-                                                  : step.key === "step_3"
-                                                    ? details?.funnelSummary.step3Views ?? null
-                                                    : step.key === "step_4"
-                                                      ? details?.funnelSummary.step4Views ?? null
-                                                      : null;
-                                        const previousStep = data.pipeline[index - 1];
-                                        const previousDisplayValue =
-                                            previousStep?.key === "registration_complete"
-                                                ? details?.funnelSummary.registrationComplete ?? null
-                                                : previousStep?.key === "step_1"
-                                                  ? details?.funnelSummary.step1Views ?? null
-                                                  : previousStep?.key === "step_2"
-                                                    ? details?.funnelSummary.step2Views ?? null
-                                                    : previousStep?.key === "step_3"
-                                                      ? details?.funnelSummary.step3Views ?? null
-                                                      : previousStep?.key === "step_4"
-                                                        ? details?.funnelSummary.step4Views ?? null
-                                                        : previousStep?.value ?? null;
-                                        const displayValue = isRegistrationComplete
-                                            ? details?.funnelSummary.registrationComplete ?? null
-                                            : isCreationStep
-                                              ? creationStepPostHogValue
-                                              : step.value;
-                                        const secondaryValue =
-                                            isRegistrationComplete || isCreationStep
-                                                ? step.value
-                                                : null;
-                                        const displayConversion =
-                                            isRegistrationComplete || isCreationStep
-                                                ? conversion(displayValue, previousDisplayValue)
-                                                : step.key === "activated_users"
-                                                  ? conversion(
-                                                        step.value,
-                                                        details?.funnelSummary.step4Views ??
-                                                            data.pipeline.find(
-                                                                (item) => item.key === "step_4"
-                                                            )?.value ??
-                                                            null
-                                                    )
-                                                  : step.conversion;
+                                        const isSupabaseStep =
+                                            isRegistrationComplete ||
+                                            isCreationStep ||
+                                            step.key === "activated_users";
+                                        const supabaseConversion =
+                                            step.key === "activated_users"
+                                                ? conversion(
+                                                      step.value,
+                                                      data.pipeline.find(
+                                                          (item) => item.key === "step_4"
+                                                      )?.value ?? null
+                                                  )
+                                                : isSupabaseStep
+                                                  ? step.conversion
+                                                  : null;
+                                        const sourceDescription = isSupabaseStep
+                                            ? supabaseConversion !== null
+                                                ? `Supabase ${supabaseConversion.toLocaleString("pt-BR")}%`
+                                                : "Supabase"
+                                            : step.key === "register_clicks" &&
+                                                step.conversion !== null
+                                              ? `PostHog ${step.conversion.toLocaleString("pt-BR")}%`
+                                              : step.note ||
+                                                (step.available
+                                                    ? "Conversão indisponível"
+                                                    : "Evento ainda não conectado");
 
                                         return (
                                             <div
@@ -907,26 +917,104 @@ export default function DevDashboardPage() {
                                                     </p>
                                                 </div>
                                                 <p className="mt-4 text-2xl font-bold">
-                                                    {displayValue === null
+                                                    {step.value === null
                                                         ? "—"
-                                                        : formatCount(displayValue)}
-                                                    {secondaryValue !== null &&
-                                                        ` (${formatCount(secondaryValue)})`}
+                                                        : formatCount(step.value)}
                                                 </p>
                                                 <p className="mt-1 text-xs text-gray-500">
-                                                    {displayConversion !== null
-                                                        ? `${displayConversion.toLocaleString(
-                                                              "pt-BR"
-                                                          )}% do passo anterior`
-                                                        : step.note ||
-                                                          (step.available
-                                                              ? "Conversão indisponível"
-                                                              : "Evento ainda não conectado")}
+                                                    {sourceDescription}
                                                 </p>
                                             </div>
                                         );
                                     })}
                                 </div>
+
+                                {(() => {
+                                    const landingViews =
+                                        data.pipeline.find(
+                                            (step) => step.key === "landing_views"
+                                        )?.value ?? null;
+                                    const registerClicks =
+                                        data.pipeline.find(
+                                            (step) => step.key === "register_clicks"
+                                        )?.value ?? null;
+                                    const registrationComplete =
+                                        data.pipeline.find(
+                                            (step) => step.key === "registration_complete"
+                                        )?.value ?? null;
+                                    const step4 =
+                                        data.pipeline.find(
+                                            (step) => step.key === "step_4"
+                                        )?.value ?? null;
+                                    const activatedUsers =
+                                        data.pipeline.find(
+                                            (step) => step.key === "activated_users"
+                                        )?.value ?? null;
+                                    const landingToRegister = conversion(
+                                        registerClicks,
+                                        landingViews
+                                    );
+                                    const registrationToStep4 = conversion(
+                                        step4,
+                                        registrationComplete
+                                    );
+                                    const registrationToActivated = conversion(
+                                        activatedUsers,
+                                        registrationComplete
+                                    );
+                                    const estimatedLandingToActivated =
+                                        landingToRegister !== null &&
+                                        registrationToActivated !== null
+                                            ? Number(
+                                                  (
+                                                      (landingToRegister *
+                                                          registrationToActivated) /
+                                                      100
+                                                  ).toFixed(1)
+                                              )
+                                            : null;
+                                    const summary = [
+                                        {
+                                            label:
+                                                "Visualizações LP Únicas → Cliques Registrar Únicos",
+                                            value: landingToRegister,
+                                        },
+                                        {
+                                            label: "Registro completo → Passo 4",
+                                            value: registrationToStep4,
+                                        },
+                                        {
+                                            label:
+                                                "Registro completo → Usuário ativado",
+                                            value: registrationToActivated,
+                                        },
+                                        {
+                                            label:
+                                                "Visualizações LP Únicas → Usuário ativado (estimado)",
+                                            value: estimatedLandingToActivated,
+                                        },
+                                    ];
+
+                                    return (
+                                        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                                            {summary.map((item) => (
+                                                <div
+                                                    key={item.label}
+                                                    className="rounded-xl border border-gray-200 bg-gray-50 p-4"
+                                                >
+                                                    <p className="text-xs font-medium leading-5 text-gray-500">
+                                                        {item.label}
+                                                    </p>
+                                                    <p className="mt-1 text-xl font-bold tabular-nums text-gray-950">
+                                                        {item.value === null
+                                                            ? "—"
+                                                            : formatRatio(item.value)}
+                                                    </p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    );
+                                })()}
 
                                 {!data.tracking.postHogAvailable && (
                                     <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">

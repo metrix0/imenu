@@ -324,11 +324,7 @@ async function loadFunnelSummary(
         SELECT
             countIf(
                 event = '$pageview'
-                AND properties.$pathname = '/restaurante/criar/localizacao'
-            ),
-            countIf(
-                event = '$pageview'
-                AND properties.$pathname = '/restaurante/criar/tempo-e-taxa'
+                AND properties.$pathname = '/restaurante/criar/cardapio'
             ),
             countIf(
                 event = '$pageview'
@@ -336,7 +332,11 @@ async function loadFunnelSummary(
             ),
             countIf(
                 event = '$pageview'
-                AND properties.$pathname = '/restaurante/criar/cardapio'
+                AND properties.$pathname = '/restaurante/criar/loja'
+            ),
+            countIf(
+                event = '$pageview'
+                AND properties.$pathname = '/restaurante/criar/localizacao'
             )
         FROM events
         WHERE timestamp >= parseDateTimeBestEffort('${start}')

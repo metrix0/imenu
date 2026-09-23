@@ -64,6 +64,13 @@ type OrderCountRow = {
     total_orders: number | string;
 };
 
+type DeviceUsageRow = {
+    measured_users: number | string;
+    mainly_mobile: number | string;
+    mainly_desktop: number | string;
+    tied: number | string;
+};
+
 type PostHogMetrics = {
     available: boolean;
     landingViews: number | null;
@@ -470,8 +477,13 @@ async function loadPostHogMetrics(
 
     const hogql = `
         SELECT
-            countIf(event = '$pageview' AND properties.$pathname = '/') AS landing_views,
-            countIf(
+            uniqIf(
+                distinct_id,
+                event = '$pageview'
+                AND properties.$pathname = '/'
+            ) AS landing_views,
+            uniqIf(
+                distinct_id,
                 event = '$pageview'
                 AND properties.$pathname = '/restaurante/registrar'
             ) AS register_clicks,
@@ -904,6 +916,7 @@ export async function GET(request: Request) {
         const previousStartAt = startAt - (endAt - startAt);
         const startIso = new Date(startAt).toISOString();
         const endIso = new Date(endAt).toISOString();
+        const activeStartIso = new Date(endAt - 7 * DAY_MS).toISOString();
         const buckets = buildBuckets(startAt, endAt, range);
 
         const [
@@ -914,6 +927,7 @@ export async function GET(request: Request) {
             consumerTimeline,
             seoTraffic,
             orderCountResult,
+            deviceUsageResult,
         ] =
             await Promise.all([
                 query<OnboardingFunnelRow>(
@@ -965,9 +979,78 @@ export async function GET(request: Request) {
                     `,
                     [startIso, endIso]
                 ),
+                query<DeviceUsageRow>(
+                    `
+                        WITH active_accounts AS (
+                            SELECT DISTINCT r.user_id
+                            FROM orders AS o
+                            LEFT JOIN restaurants AS r
+                                ON r.id = o.restaurant_id
+                            WHERE o.created_at >= $1
+                              AND o.created_at < $2
+                              AND o.table_id IS NULL
+                              AND o.status = 'done'
+                              AND r.user_id IS NOT NULL
+                        ),
+                        sessions_by_user AS (
+                            SELECT
+                                account.user_id,
+                                COUNT(session.id) FILTER (
+                                    WHERE session.user_agent ~* '(Android|iPhone|iPad|iPod|Mobile)'
+                                )::int AS mobile_sessions,
+                                COUNT(session.id) FILTER (
+                                    WHERE session.user_agent IS NOT NULL
+                                      AND NOT (
+                                          session.user_agent ~* '(Android|iPhone|iPad|iPod|Mobile)'
+                                      )
+                                )::int AS desktop_sessions
+                            FROM active_accounts AS account
+                            LEFT JOIN auth.sessions AS session
+                                ON session.user_id = account.user_id
+                            GROUP BY account.user_id
+                        )
+                        SELECT
+                            COUNT(*) FILTER (
+                                WHERE mobile_sessions + desktop_sessions > 0
+                            )::int AS measured_users,
+                            COUNT(*) FILTER (
+                                WHERE mobile_sessions > desktop_sessions
+                            )::int AS mainly_mobile,
+                            COUNT(*) FILTER (
+                                WHERE desktop_sessions > mobile_sessions
+                            )::int AS mainly_desktop,
+                            COUNT(*) FILTER (
+                                WHERE mobile_sessions > 0
+                                  AND mobile_sessions = desktop_sessions
+                            )::int AS tied
+                        FROM sessions_by_user
+                    `,
+                    [activeStartIso, endIso]
+                ),
             ]);
 
         const onboardingRow = onboardingResult.rows[0];
+        const deviceUsageRow = deviceUsageResult.rows[0];
+        const measuredDeviceUsers =
+            Number(deviceUsageRow?.measured_users) || 0;
+        const mainlyMobileUsers =
+            Number(deviceUsageRow?.mainly_mobile) || 0;
+        const deviceUsage = {
+            measuredUsers: measuredDeviceUsers,
+            mainlyMobile: mainlyMobileUsers,
+            mainlyDesktop: Number(deviceUsageRow?.mainly_desktop) || 0,
+            tied: Number(deviceUsageRow?.tied) || 0,
+            mainlyMobilePercentage:
+                measuredDeviceUsers > 0
+                    ? Number(
+                          (
+                              (mainlyMobileUsers / measuredDeviceUsers) *
+                              100
+                          ).toFixed(1)
+                      )
+                    : null,
+        };
+
         const onboarding = {
             registrationComplete: Number(onboardingRow?.registration_complete) || 0,
             step1: Number(onboardingRow?.step_1) || 0,
@@ -1219,7 +1302,7 @@ export async function GET(request: Request) {
         const pipeline = [
             {
                 key: "landing_views",
-                label: "Visualizações da landing page",
+                label: "Visualizações LP Únicas",
                 value: postHog.landingViews,
                 conversion: null,
                 available: postHog.available,
@@ -1227,7 +1310,7 @@ export async function GET(request: Request) {
             },
             {
                 key: "register_clicks",
-                label: "Cliques em Registrar",
+                label: "Cliques Registrar Únicos",
                 value: postHog.registerClicks,
                 conversion: conversion(postHog.registerClicks, postHog.landingViews),
                 available: postHog.available,
@@ -1249,25 +1332,12 @@ export async function GET(request: Request) {
                     : "Supabase Auth; conversão anterior aguarda PostHog",
             },
             {
-                key: "before_start",
-                label: "Antes de começar",
-                value: postHog.beforeStartViews,
-                conversion: conversion(
-                    postHog.beforeStartViews,
-                    onboarding.registrationComplete
-                ),
-                available: postHog.available,
-                note: postHog.available
-                    ? "Acessaram a seleção de sistemas antes do passo 1"
-                    : "PostHog ainda não conectado",
-            },
-            {
                 key: "step_1",
                 label: "Passo 1",
                 value: onboarding.step1,
                 conversion: conversion(
                     onboarding.step1,
-                    postHog.beforeStartViews
+                    onboarding.registrationComplete
                 ),
                 available: true,
                 note: postHog.available
@@ -1318,6 +1388,7 @@ export async function GET(request: Request) {
                 },
                 cards,
                 cardChanges,
+                deviceUsage,
                 series: metricSeries,
                 abandonmentRates,
                 abandonedUsers,

@@ -317,9 +317,10 @@ async function syncAutomationRuns(): Promise<void> {
     );
 }
 
-async function notifyReconciledPartialRun(run: {
+async function notifyReconciledUnsuccessfulRun(run: {
     id: string;
     run_date: string;
+    status: "partial" | "failed";
     restaurant_count: number;
     paid_count: number;
     failed_count: number;
@@ -337,9 +338,9 @@ async function notifyReconciledPartialRun(run: {
             body: [
                 "Pagamento automático não foi concluído.",
                 `Data: ${run.run_date}`,
-                "Status: partial",
+                `Status: ${run.status}`,
                 "Etapa: payout",
-                `Motivo: Execução reconciliada como parcial. Pagos: ${run.paid_count}/${run.restaurant_count}; falhas: ${run.failed_count}.`,
+                `Motivo: Execução reconciliada como ${run.status}. Pagos: ${run.paid_count}/${run.restaurant_count}; falhas: ${run.failed_count}.`,
                 `Run: ${run.id}`,
             ].join("\n"),
             cache: "no-store",
@@ -405,24 +406,25 @@ export async function reconcileProcessingPayouts(): Promise<void> {
 
     if (processingRuns.rows.length > 0) {
         const runIds = processingRuns.rows.map((row) => row.id);
-        const partialRuns = await query<{
+        const unsuccessfulRuns = await query<{
             id: string;
             run_date: string;
+            status: "partial" | "failed";
             restaurant_count: number;
             paid_count: number;
             failed_count: number;
         }>(
             `
-            SELECT id, run_date, restaurant_count, paid_count, failed_count
+            SELECT id, run_date, status, restaurant_count, paid_count, failed_count
             FROM public.payout_automation_runs
             WHERE id = ANY($1::uuid[])
-              AND status = 'partial'
+              AND status IN ('partial', 'failed')
             `,
             [runIds]
         );
 
-        for (const run of partialRuns.rows) {
-            await notifyReconciledPartialRun(run);
+        for (const run of unsuccessfulRuns.rows) {
+            await notifyReconciledUnsuccessfulRun(run);
         }
     }
 }
