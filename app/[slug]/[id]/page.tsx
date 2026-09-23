@@ -325,7 +325,7 @@ export default function PedidoPage({
                     </div>
 
                     {order?.pix_qr_base64 && (
-                        <div className="mt-5 text-center">
+                        <div className="mt-3 text-center">
                             <img
                                 className="w-[55vw] max-w-56 mx-auto"
                                 src={`data:image/png;base64,${order.pix_qr_base64}`}
@@ -338,7 +338,7 @@ export default function PedidoPage({
                     )}
 
                     {order?.pix_copia_cola && (
-                        <div className="mt-5">
+                        <div className="mt-3">
                             {order?.pix_qr_base64 && (
                                 <div className="flex items-center gap-3 mb-4">
                                     <div className="h-px flex-1 bg-gray-100" />
