@@ -316,7 +316,7 @@ export default function PedidoPage({
             </section>
 
             {paymentMethod === "pix" && status === "pending_online_payment" && (
-                <section className="bg-white rounded-xl p-5 pb-6 shadow mt-3 mb-3">
+                <section className="bg-white rounded-xl p-5 pb-6 md:pt-2 shadow mt-3 mb-3">
                     <div className="text-center">
                         <p className="font-semibold text-lg">Pague com Pix</p>
                         <p className="mt-1 text-2xl font-semibold text-text">
@@ -325,7 +325,7 @@ export default function PedidoPage({
                     </div>
 
                     {order?.pix_qr_base64 && (
-                        <div className="mt-3 text-center">
+                        <div className="mt-1 text-center">
                             <img
                                 className="w-[55vw] max-w-56 mx-auto"
                                 src={`data:image/png;base64,${order.pix_qr_base64}`}
