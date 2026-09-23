@@ -31,21 +31,23 @@ type SalesRankingPayload = {
     }>;
 };
 
-function formatCurrencyFromCents(value: number): string {
+function formatCurrencyFromCents(value?: number | null): string {
+    const safeValue = Number.isFinite(value) ? Number(value) : 0;
     return new Intl.NumberFormat("pt-BR", {
         style: "currency",
         currency: "BRL",
         maximumFractionDigits: 2,
-    }).format(value / 100);
+    }).format(safeValue / 100);
 }
 
-function formatCount(value: number): string {
-    return value.toLocaleString("pt-BR");
+function formatCount(value?: number | null): string {
+    return (Number.isFinite(value) ? Number(value) : 0).toLocaleString("pt-BR");
 }
 
-function formatPercent(value: number): string {
-    return `${value.toLocaleString("pt-BR", {
-        minimumFractionDigits: value % 1 === 0 ? 0 : 1,
+function formatPercent(value?: number | null): string {
+    const safeValue = Number.isFinite(value) ? Number(value) : 0;
+    return `${safeValue.toLocaleString("pt-BR", {
+        minimumFractionDigits: safeValue % 1 === 0 ? 0 : 1,
         maximumFractionDigits: 1,
     })}%`;
 }
