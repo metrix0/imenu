@@ -60,6 +60,13 @@ type DashboardPayload = {
         moneyHandledCents: number | null;
         onlineMoneyHandledCents: number | null;
     };
+    deviceUsage: {
+        measuredUsers: number;
+        mainlyMobile: number;
+        mainlyDesktop: number;
+        tied: number;
+        mainlyMobilePercentage: number | null;
+    };
     series: Record<MetricKey, SeriesPoint[]>;
     abandonmentRates: {
         activeUsers: SeriesPoint[];
@@ -685,6 +692,26 @@ export default function DevDashboardPage() {
                                     value={formatCount(data.cards.activeUsers)}
                                     change={data.cardChanges.activeUsers}
                                     description="Tiveram pelo menos um pedido concluído nos sete dias anteriores ao fim do período."
+                                />
+                                <MetricCard
+                                    title="Principalmente mobile"
+                                    value={
+                                        data.deviceUsage.mainlyMobilePercentage === null
+                                            ? "—"
+                                            : formatRatio(
+                                                  data.deviceUsage
+                                                      .mainlyMobilePercentage
+                                              )
+                                    }
+                                    description={
+                                        data.deviceUsage.measuredUsers > 0
+                                            ? `${formatCount(
+                                                  data.deviceUsage.mainlyMobile
+                                              )} de ${formatCount(
+                                                  data.deviceUsage.measuredUsers
+                                              )} usuários ativos com sessões registradas tiveram mais sessões mobile do que desktop.`
+                                            : "Sem sessões registradas para os usuários ativos."
+                                    }
                                 />
                                 <MetricCard
                                     title="Usuários realmente ativos"
@@ -1606,7 +1633,7 @@ function EmptyChart() {
 function DashboardLoading() {
     return (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {Array.from({ length: 6 }, (_, index) => (
+            {Array.from({ length: 7 }, (_, index) => (
                 <div
                     key={index}
                     className="h-40 animate-pulse rounded-2xl border border-gray-200 bg-white"

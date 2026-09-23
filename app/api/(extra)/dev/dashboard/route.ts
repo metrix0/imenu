@@ -64,6 +64,13 @@ type OrderCountRow = {
     total_orders: number | string;
 };
 
+type DeviceUsageRow = {
+    measured_users: number | string;
+    mainly_mobile: number | string;
+    mainly_desktop: number | string;
+    tied: number | string;
+};
+
 type PostHogMetrics = {
     available: boolean;
     landingViews: number | null;
@@ -904,6 +911,7 @@ export async function GET(request: Request) {
         const previousStartAt = startAt - (endAt - startAt);
         const startIso = new Date(startAt).toISOString();
         const endIso = new Date(endAt).toISOString();
+        const activeStartIso = new Date(endAt - 7 * DAY_MS).toISOString();
         const buckets = buildBuckets(startAt, endAt, range);
 
         const [
@@ -914,6 +922,7 @@ export async function GET(request: Request) {
             consumerTimeline,
             seoTraffic,
             orderCountResult,
+            deviceUsageResult,
         ] =
             await Promise.all([
                 query<OnboardingFunnelRow>(
@@ -965,9 +974,78 @@ export async function GET(request: Request) {
                     `,
                     [startIso, endIso]
                 ),
+                query<DeviceUsageRow>(
+                    `
+                        WITH active_accounts AS (
+                            SELECT DISTINCT r.user_id
+                            FROM orders AS o
+                            LEFT JOIN restaurants AS r
+                                ON r.id = o.restaurant_id
+                            WHERE o.created_at >= $1
+                              AND o.created_at < $2
+                              AND o.table_id IS NULL
+                              AND o.status = 'done'
+                              AND r.user_id IS NOT NULL
+                        ),
+                        sessions_by_user AS (
+                            SELECT
+                                account.user_id,
+                                COUNT(session.id) FILTER (
+                                    WHERE session.user_agent ~* '(Android|iPhone|iPad|iPod|Mobile)'
+                                )::int AS mobile_sessions,
+                                COUNT(session.id) FILTER (
+                                    WHERE session.user_agent IS NOT NULL
+                                      AND NOT (
+                                          session.user_agent ~* '(Android|iPhone|iPad|iPod|Mobile)'
+                                      )
+                                )::int AS desktop_sessions
+                            FROM active_accounts AS account
+                            LEFT JOIN auth.sessions AS session
+                                ON session.user_id = account.user_id
+                            GROUP BY account.user_id
+                        )
+                        SELECT
+                            COUNT(*) FILTER (
+                                WHERE mobile_sessions + desktop_sessions > 0
+                            )::int AS measured_users,
+                            COUNT(*) FILTER (
+                                WHERE mobile_sessions > desktop_sessions
+                            )::int AS mainly_mobile,
+                            COUNT(*) FILTER (
+                                WHERE desktop_sessions > mobile_sessions
+                            )::int AS mainly_desktop,
+                            COUNT(*) FILTER (
+                                WHERE mobile_sessions > 0
+                                  AND mobile_sessions = desktop_sessions
+                            )::int AS tied
+                        FROM sessions_by_user
+                    `,
+                    [activeStartIso, endIso]
+                ),
             ]);
 
         const onboardingRow = onboardingResult.rows[0];
+        const deviceUsageRow = deviceUsageResult.rows[0];
+        const measuredDeviceUsers =
+            Number(deviceUsageRow?.measured_users) || 0;
+        const mainlyMobileUsers =
+            Number(deviceUsageRow?.mainly_mobile) || 0;
+        const deviceUsage = {
+            measuredUsers: measuredDeviceUsers,
+            mainlyMobile: mainlyMobileUsers,
+            mainlyDesktop: Number(deviceUsageRow?.mainly_desktop) || 0,
+            tied: Number(deviceUsageRow?.tied) || 0,
+            mainlyMobilePercentage:
+                measuredDeviceUsers > 0
+                    ? Number(
+                          (
+                              (mainlyMobileUsers / measuredDeviceUsers) *
+                              100
+                          ).toFixed(1)
+                      )
+                    : null,
+        };
+
         const onboarding = {
             registrationComplete: Number(onboardingRow?.registration_complete) || 0,
             step1: Number(onboardingRow?.step_1) || 0,
@@ -1318,6 +1396,7 @@ export async function GET(request: Request) {
                 },
                 cards,
                 cardChanges,
+                deviceUsage,
                 series: metricSeries,
                 abandonmentRates,
                 abandonedUsers,
