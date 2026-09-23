@@ -41,6 +41,7 @@ type ConversationRow = {
     customer_name: string | null;
     restaurant_id: string | null;
     mode: "ai" | "human";
+    handoff_prompted_at: string | null;
 };
 
 function normalize(value: unknown): string {
@@ -55,6 +56,13 @@ function normalize(value: unknown): string {
 
 const BLOCKED_HANDOFF_PHONE = "5511913519119";
 const SUPPORT_AI_RETRY_DELAYS_MS = [500, 1_500] as const;
+const FIRST_HUMAN_REQUEST_MESSAGE =
+    "O suporte técnico especial pode levar até 1 dia útil. Mas posso te ajudar por enquanto, qual sua dúvida?";
+const HANDOFF_CONFIRMED_MESSAGE =
+    "A equipe de suporte já tem acesso à esta conversa e entrará em contato em breve neste chat. Para agilizarmos o atendimento, qual sua dúvida?";
+const GENERIC_FREE_MESSAGE = "O iMenu é totalmente gratuito.";
+const QR_CODE_MESA_MESSAGE =
+    "O iMenu QR Code Mesa custa R$ 5,00/mês, sem limites. Ative em https://imenuapp.com.br/painel/mesas";
 
 function isRetryableSupportAiError(error: unknown): boolean {
     const value = error as {
@@ -129,6 +137,7 @@ export async function releaseExpiredSupportHandoffs(
                 mode = 'ai',
                 human_started_at = NULL,
                 last_human_reply_at = NULL,
+                handoff_prompted_at = NULL,
                 updated_at = NOW()
             WHERE mode = 'human'
               AND (
@@ -251,6 +260,13 @@ export async function handleSupportSessionStatus(input: {
     }
 }
 
+async function resetExpiredSupportHandoffPrompt(chatId: string): Promise<void> {
+    await query(
+        "UPDATE support_conversations SET handoff_prompted_at = NULL, updated_at = NOW() WHERE chat_id = $1 AND mode = 'ai' AND handoff_prompted_at IS NOT NULL AND last_inbound_at <= NOW() - INTERVAL '12 hours'",
+        [chatId]
+    );
+}
+
 async function prepareConversation(input: {
     sessionName: string;
     chatId: string;
@@ -263,9 +279,10 @@ async function prepareConversation(input: {
             null;
 
         await releaseExpiredSupportHandoffs(input.chatId);
+        await resetExpiredSupportHandoffPrompt(input.chatId);
 
         const existing = await query<ConversationRow>(
-            "SELECT id, chat_id, phone, customer_name, restaurant_id, mode FROM support_conversations WHERE chat_id = $1 LIMIT 1",
+            "SELECT id, chat_id, phone, customer_name, restaurant_id, mode, handoff_prompted_at FROM support_conversations WHERE chat_id = $1 LIMIT 1",
             [input.chatId]
         );
 
@@ -276,7 +293,7 @@ async function prepareConversation(input: {
 
         if (!current) {
             const inserted = await query<ConversationRow>(
-                "INSERT INTO support_conversations (chat_id, phone, customer_name, restaurant_id, mode, last_inbound_at, updated_at) VALUES ($1, $2, $3, $4, 'ai', NOW(), NOW()) RETURNING id, chat_id, phone, customer_name, restaurant_id, mode",
+                "INSERT INTO support_conversations (chat_id, phone, customer_name, restaurant_id, mode, last_inbound_at, updated_at) VALUES ($1, $2, $3, $4, 'ai', NOW(), NOW()) RETURNING id, chat_id, phone, customer_name, restaurant_id, mode, handoff_prompted_at",
                 [
                     input.chatId,
                     resolvedPhone,
@@ -288,7 +305,7 @@ async function prepareConversation(input: {
         }
 
         const updated = await query<ConversationRow>(
-            "UPDATE support_conversations SET phone = COALESCE($2, phone), customer_name = COALESCE($3, customer_name), restaurant_id = COALESCE(restaurant_id, $4), last_inbound_at = NOW(), updated_at = NOW() WHERE id = $1 RETURNING id, chat_id, phone, customer_name, restaurant_id, mode",
+            "UPDATE support_conversations SET phone = COALESCE($2, phone), customer_name = COALESCE($3, customer_name), restaurant_id = COALESCE(restaurant_id, $4), last_inbound_at = NOW(), updated_at = NOW() WHERE id = $1 RETURNING id, chat_id, phone, customer_name, restaurant_id, mode, handoff_prompted_at",
             [
                 current.id,
                 resolvedPhone,
@@ -318,7 +335,69 @@ function wantsHuman(body: string): boolean {
         "suporte humano",
         "falar com humano",
         "quero um atendente",
+        "quero atendente",
+        "preciso de atendente",
+        "preciso falar com atendente",
+        "atendente por favor",
+        "chamar atendente",
     ].some((phrase) => value.includes(phrase));
+}
+
+function isQrCodeMesaQuestion(body: string): boolean {
+    const value = normalize(body);
+    const mentionsQrCodeMesa =
+        value.includes("qr code mesa") ||
+        (value.includes("qr code") && value.includes("mesa"));
+    if (!mentionsQrCodeMesa) return false;
+
+    return [
+        "preco",
+        "valor",
+        "custa",
+        "custo",
+        "mensal",
+        "mensalidade",
+        "taxa",
+        "ativar",
+        "ativacao",
+        "contratar",
+        "assinar",
+        "link",
+        "pagina",
+        "onde",
+    ].some((term) => value.includes(term));
+}
+
+function isGenericPricingQuestion(body: string): boolean {
+    const value = normalize(body);
+    if (
+        value.includes("pix") ||
+        value.includes("qr code") ||
+        value.includes("mesa")
+    ) {
+        return false;
+    }
+
+    if (
+        ["gratuito", "gratis", "tem plano", "planos", "mensalidade"].some(
+            (term) => value.includes(term)
+        )
+    ) {
+        return true;
+    }
+
+    const mentionsImenu =
+        value.includes("imenu") ||
+        value.includes("esse app") ||
+        value.includes("o app") ||
+        value.includes("aplicativo");
+
+    return (
+        mentionsImenu &&
+        ["quanto custa", "preco", "valor", "custa", "custo", "taxa", "pago", "pagar"].some(
+            (term) => value.includes(term)
+        )
+    );
 }
 
 function isInitialHelpGreeting(body: string): boolean {
@@ -364,17 +443,6 @@ function getPersonName(value: string | null): string | null {
 
 function isBlockedHandoffPhone(phone: string | null): boolean {
     return phoneCandidates(phone).includes(BLOCKED_HANDOFF_PHONE);
-}
-
-async function previousOutboundMentionedHandoffDelay(
-    conversationId: string
-): Promise<boolean> {
-    const result = await query<{ body: string }>(
-        "SELECT body FROM support_messages WHERE conversation_id = $1 AND direction = 'outbound' ORDER BY created_at DESC LIMIT 1",
-        [conversationId]
-    );
-
-    return normalize(result.rows[0]?.body || "").includes("1 dia util");
 }
 
 async function sendTrackedSupportText(input: {
@@ -578,8 +646,8 @@ export async function processSupportIncomingWhatsAppMessage(input: {
             const greeting = personName
                 ? "Olá, " +
                   personName +
-                  "! Sou o assistente virtual do iMenu. Como posso ajudar você hoje?"
-                : "Olá! Sou o assistente virtual do iMenu. Como posso ajudar você hoje?";
+                  "! Como podemos ajudar você hoje?"
+                : "Olá! Como podemos ajudar você hoje?";
 
             await sendTrackedSupportText({
                 conversationId: conversation.id,
@@ -592,21 +660,66 @@ export async function processSupportIncomingWhatsAppMessage(input: {
         }
 
         if (wantsHuman(intentBody)) {
-            const alreadyExplained =
-                await previousOutboundMentionedHandoffDelay(conversation.id);
-
-            if (isBlockedHandoffPhone(conversation.phone) || !alreadyExplained) {
+            if (isBlockedHandoffPhone(conversation.phone)) {
                 await sendTrackedSupportText({
                     conversationId: conversation.id,
                     sessionName: input.sessionName,
                     chatId: input.chatId,
-                    text: isBlockedHandoffPhone(conversation.phone)
-                        ? "O suporte técnico especial pode levar até 1 dia útil. Neste contato, o encaminhamento não é feito. Qual é sua dúvida?"
-                        : "O suporte técnico especial pode levar até 1 dia útil. Qual é sua dúvida? Vou tentar ajudar ou agilizar o suporte.",
+                    text: "O suporte técnico especial pode levar até 1 dia útil. Neste contato, o encaminhamento não é feito. Qual é sua dúvida?",
                     dedupeKey: input.messageId + ":human-request",
                 });
                 return;
             }
+
+            if (!conversation.handoff_prompted_at) {
+                await sendTrackedSupportText({
+                    conversationId: conversation.id,
+                    sessionName: input.sessionName,
+                    chatId: input.chatId,
+                    text: FIRST_HUMAN_REQUEST_MESSAGE,
+                    dedupeKey: input.messageId + ":human-request",
+                });
+                await query(
+                    "UPDATE support_conversations SET handoff_prompted_at = COALESCE(handoff_prompted_at, NOW()), updated_at = NOW() WHERE id = $1",
+                    [conversation.id]
+                );
+                return;
+            }
+
+            await query(
+                "UPDATE support_conversations SET mode = 'human', human_started_at = NOW(), last_human_reply_at = NULL, updated_at = NOW() WHERE id = $1",
+                [conversation.id]
+            );
+            await sendTrackedSupportText({
+                conversationId: conversation.id,
+                sessionName: input.sessionName,
+                chatId: input.chatId,
+                text: HANDOFF_CONFIRMED_MESSAGE,
+                dedupeKey: input.messageId + ":human-handoff",
+            });
+            return;
+        }
+
+        if (isQrCodeMesaQuestion(intentBody)) {
+            await sendTrackedSupportText({
+                conversationId: conversation.id,
+                sessionName: input.sessionName,
+                chatId: input.chatId,
+                text: QR_CODE_MESA_MESSAGE,
+                dedupeKey: input.messageId + ":qr-code-mesa",
+            });
+            return;
+        }
+
+        if (isGenericPricingQuestion(intentBody)) {
+            await sendTrackedSupportText({
+                conversationId: conversation.id,
+                sessionName: input.sessionName,
+                chatId: input.chatId,
+                text: GENERIC_FREE_MESSAGE,
+                dedupeKey: input.messageId + ":free-pricing",
+            });
+            return;
         }
 
         if (
