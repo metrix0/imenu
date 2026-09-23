@@ -12,6 +12,14 @@ type SalesRankingPayload = {
         totalOrders: number;
         restaurantCount: number;
         averageGmvPerRestaurantCents: number;
+        averageGmvPerActiveCustomerRestaurantCents: number;
+        active10Restaurants30d: number;
+        active10RestaurantPercent30d: number;
+        active10GmvSharePercent30d: number;
+        sellingRestaurants30d: number;
+        activationEligible30d: number;
+        activation10In14d30d: number;
+        activationQualityPercent30d: number;
     };
     restaurants: Array<{
         id: string;
@@ -23,21 +31,23 @@ type SalesRankingPayload = {
     }>;
 };
 
-function formatCurrencyFromCents(value: number): string {
+function formatCurrencyFromCents(value?: number | null): string {
+    const safeValue = Number.isFinite(value) ? Number(value) : 0;
     return new Intl.NumberFormat("pt-BR", {
         style: "currency",
         currency: "BRL",
         maximumFractionDigits: 2,
-    }).format(value / 100);
+    }).format(safeValue / 100);
 }
 
-function formatCount(value: number): string {
-    return value.toLocaleString("pt-BR");
+function formatCount(value?: number | null): string {
+    return (Number.isFinite(value) ? Number(value) : 0).toLocaleString("pt-BR");
 }
 
-function formatPercent(value: number): string {
-    return `${value.toLocaleString("pt-BR", {
-        minimumFractionDigits: value % 1 === 0 ? 0 : 1,
+function formatPercent(value?: number | null): string {
+    const safeValue = Number.isFinite(value) ? Number(value) : 0;
+    return `${safeValue.toLocaleString("pt-BR", {
+        minimumFractionDigits: safeValue % 1 === 0 ? 0 : 1,
         maximumFractionDigits: 1,
     })}%`;
 }
@@ -124,7 +134,7 @@ export default function SalesRankingSection({ range }: { range: RangeKey }) {
                 </div>
             ) : data ? (
                 <>
-                    <div className="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                    <div className="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
                         <SummaryCard
                             label="GMV total"
                             value={formatCurrencyFromCents(
@@ -142,10 +152,64 @@ export default function SalesRankingSection({ range }: { range: RangeKey }) {
                             )}
                         />
                         <SummaryCard
+                            label="GMV médio por usuário com clientes ativos"
+                            value={formatCurrencyFromCents(
+                                data.summary
+                                    .averageGmvPerActiveCustomerRestaurantCents
+                            )}
+                        />
+                        <SummaryCard
+                            label="Restaurantes ativos (10+ pedidos / 30d)"
+                            value={formatCount(
+                                data.summary.active10Restaurants30d
+                            )}
+                        />
+                        <SummaryCard
+                            label="Qualidade de ativação (14d)"
+                            value={formatPercent(
+                                data.summary.activationQualityPercent30d
+                            )}
+                            note={`${formatCount(
+                                data.summary.activation10In14d30d
+                            )} de ${formatCount(
+                                data.summary.activationEligible30d
+                            )} chegaram a 10 pedidos nos primeiros 14 dias`}
+                        />
+                        <SummaryCard
+                            label="Restaurantes com 10+ pedidos / 30d"
+                            value={formatPercent(
+                                data.summary.active10RestaurantPercent30d
+                            )}
+                            note={`${formatCount(
+                                data.summary.active10Restaurants30d
+                            )} de ${formatCount(
+                                data.summary.sellingRestaurants30d
+                            )} com vendas · ${formatPercent(
+                                data.summary.active10GmvSharePercent30d
+                            )} do GMV`}
+                        />
+                        <SummaryCard
                             label="Pedidos"
                             value={formatCount(data.summary.totalOrders)}
                         />
                     </div>
+
+                    <p className="mb-5 text-xs leading-5 text-gray-500">
+                        Referência de mercado: não existe uma taxa universal de ativação
+                        diretamente comparável entre plataformas. Já a concentração de
+                        vendas em uma minoria dos vendedores é comum em marketplaces; um
+                        estudo de marketplace P2P encontrou 10% dos produtores gerando
+                        81% das vendas.{" "}
+                        <a
+                            href="https://link.springer.com/article/10.1007/s12525-019-00339-w"
+                            target="_blank"
+                            rel="noreferrer"
+                            className="font-medium text-brand hover:underline"
+                        >
+                            Electronic Markets (2019)
+                        </a>
+                        .
+                    </p>
 
                     <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
                         <div className="overflow-x-auto">
@@ -238,13 +302,24 @@ export default function SalesRankingSection({ range }: { range: RangeKey }) {
     );
 }
 
-function SummaryCard({ label, value }: { label: string; value: string }) {
+function SummaryCard({
+    label,
+    value,
+    note,
+}: {
+    label: string;
+    value: string;
+    note?: string;
+}) {
     return (
         <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
             <p className="text-sm font-medium text-gray-600">{label}</p>
             <p className="mt-2 text-2xl font-bold tracking-tight text-gray-950">
                 {value}
             </p>
+            {note && (
+                <p className="mt-2 text-xs leading-5 text-gray-500">{note}</p>
+            )}
         </div>
     );
 }
