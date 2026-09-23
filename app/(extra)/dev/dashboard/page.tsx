@@ -874,34 +874,6 @@ export default function DevDashboardPage() {
                                             isRegistrationComplete ||
                                             isCreationStep ||
                                             step.key === "activated_users";
-                                        const postHogValue = isRegistrationComplete
-                                            ? details?.funnelSummary.registrationComplete ?? null
-                                            : step.key === "step_1"
-                                              ? details?.funnelSummary.step1Views ?? null
-                                              : step.key === "step_2"
-                                                ? details?.funnelSummary.step2Views ?? null
-                                                : step.key === "step_3"
-                                                  ? details?.funnelSummary.step3Views ?? null
-                                                  : step.key === "step_4"
-                                                    ? details?.funnelSummary.step4Views ?? null
-                                                    : null;
-                                        const previousStep = data.pipeline[index - 1];
-                                        const previousPostHogValue =
-                                            previousStep?.key === "registration_complete"
-                                                ? details?.funnelSummary.registrationComplete ?? null
-                                                : previousStep?.key === "step_1"
-                                                  ? details?.funnelSummary.step1Views ?? null
-                                                  : previousStep?.key === "step_2"
-                                                    ? details?.funnelSummary.step2Views ?? null
-                                                    : previousStep?.key === "step_3"
-                                                      ? details?.funnelSummary.step3Views ?? null
-                                                      : previousStep?.key === "step_4"
-                                                        ? details?.funnelSummary.step4Views ?? null
-                                                        : previousStep?.value ?? null;
-                                        const postHogConversion =
-                                            isRegistrationComplete || isCreationStep
-                                                ? conversion(postHogValue, previousPostHogValue)
-                                                : null;
                                         const supabaseConversion =
                                             step.key === "activated_users"
                                                 ? conversion(
@@ -914,16 +886,9 @@ export default function DevDashboardPage() {
                                                   ? step.conversion
                                                   : null;
                                         const sourceDescription = isSupabaseStep
-                                            ? [
-                                                  supabaseConversion !== null
-                                                      ? `Supabase ${supabaseConversion.toLocaleString("pt-BR")}%`
-                                                      : "Supabase",
-                                                  postHogConversion !== null
-                                                      ? `PostHog ${postHogConversion.toLocaleString("pt-BR")}%`
-                                                      : null,
-                                              ]
-                                                  .filter(Boolean)
-                                                  .join(" · ")
+                                            ? supabaseConversion !== null
+                                                ? `Supabase ${supabaseConversion.toLocaleString("pt-BR")}%`
+                                                : "Supabase"
                                             : step.key === "register_clicks" &&
                                                 step.conversion !== null
                                               ? `PostHog ${step.conversion.toLocaleString("pt-BR")}%`
