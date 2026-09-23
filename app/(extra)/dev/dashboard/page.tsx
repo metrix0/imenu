@@ -870,18 +870,23 @@ export default function DevDashboardPage() {
                                             "step_3",
                                             "step_4",
                                         ].includes(step.key);
-                                        const creationStepPostHogValue =
-                                            step.key === "step_1"
-                                                ? details?.funnelSummary.step1Views ?? null
-                                                : step.key === "step_2"
-                                                  ? details?.funnelSummary.step2Views ?? null
-                                                  : step.key === "step_3"
-                                                    ? details?.funnelSummary.step3Views ?? null
-                                                    : step.key === "step_4"
-                                                      ? details?.funnelSummary.step4Views ?? null
-                                                      : null;
+                                        const isSupabaseStep =
+                                            isRegistrationComplete ||
+                                            isCreationStep ||
+                                            step.key === "activated_users";
+                                        const postHogValue = isRegistrationComplete
+                                            ? details?.funnelSummary.registrationComplete ?? null
+                                            : step.key === "step_1"
+                                              ? details?.funnelSummary.step1Views ?? null
+                                              : step.key === "step_2"
+                                                ? details?.funnelSummary.step2Views ?? null
+                                                : step.key === "step_3"
+                                                  ? details?.funnelSummary.step3Views ?? null
+                                                  : step.key === "step_4"
+                                                    ? details?.funnelSummary.step4Views ?? null
+                                                    : null;
                                         const previousStep = data.pipeline[index - 1];
-                                        const previousDisplayValue =
+                                        const previousPostHogValue =
                                             previousStep?.key === "registration_complete"
                                                 ? details?.funnelSummary.registrationComplete ?? null
                                                 : previousStep?.key === "step_1"
@@ -893,28 +898,39 @@ export default function DevDashboardPage() {
                                                       : previousStep?.key === "step_4"
                                                         ? details?.funnelSummary.step4Views ?? null
                                                         : previousStep?.value ?? null;
-                                        const displayValue = isRegistrationComplete
-                                            ? details?.funnelSummary.registrationComplete ?? null
-                                            : isCreationStep
-                                              ? creationStepPostHogValue
-                                              : step.value;
-                                        const secondaryValue =
+                                        const postHogConversion =
                                             isRegistrationComplete || isCreationStep
-                                                ? step.value
+                                                ? conversion(postHogValue, previousPostHogValue)
                                                 : null;
-                                        const displayConversion =
-                                            isRegistrationComplete || isCreationStep
-                                                ? conversion(displayValue, previousDisplayValue)
-                                                : step.key === "activated_users"
-                                                  ? conversion(
-                                                        step.value,
-                                                        details?.funnelSummary.step4Views ??
-                                                            data.pipeline.find(
-                                                                (item) => item.key === "step_4"
-                                                            )?.value ??
-                                                            null
-                                                    )
-                                                  : step.conversion;
+                                        const supabaseConversion =
+                                            step.key === "activated_users"
+                                                ? conversion(
+                                                      step.value,
+                                                      data.pipeline.find(
+                                                          (item) => item.key === "step_4"
+                                                      )?.value ?? null
+                                                  )
+                                                : isSupabaseStep
+                                                  ? step.conversion
+                                                  : null;
+                                        const sourceDescription = isSupabaseStep
+                                            ? [
+                                                  supabaseConversion !== null
+                                                      ? `Supabase ${supabaseConversion.toLocaleString("pt-BR")}%`
+                                                      : "Supabase",
+                                                  postHogConversion !== null
+                                                      ? `PostHog ${postHogConversion.toLocaleString("pt-BR")}%`
+                                                      : null,
+                                              ]
+                                                  .filter(Boolean)
+                                                  .join(" · ")
+                                            : step.key === "register_clicks" &&
+                                                step.conversion !== null
+                                              ? `PostHog ${step.conversion.toLocaleString("pt-BR")}%`
+                                              : step.note ||
+                                                (step.available
+                                                    ? "Conversão indisponível"
+                                                    : "Evento ainda não conectado");
 
                                         return (
                                             <div
@@ -934,21 +950,12 @@ export default function DevDashboardPage() {
                                                     </p>
                                                 </div>
                                                 <p className="mt-4 text-2xl font-bold">
-                                                    {displayValue === null
+                                                    {step.value === null
                                                         ? "—"
-                                                        : formatCount(displayValue)}
-                                                    {secondaryValue !== null &&
-                                                        ` (${formatCount(secondaryValue)})`}
+                                                        : formatCount(step.value)}
                                                 </p>
                                                 <p className="mt-1 text-xs text-gray-500">
-                                                    {displayConversion !== null
-                                                        ? `${displayConversion.toLocaleString(
-                                                              "pt-BR"
-                                                          )}% do passo anterior`
-                                                        : step.note ||
-                                                          (step.available
-                                                              ? "Conversão indisponível"
-                                                              : "Evento ainda não conectado")}
+                                                    {sourceDescription}
                                                 </p>
                                             </div>
                                         );

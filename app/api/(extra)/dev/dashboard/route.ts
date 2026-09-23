@@ -1327,25 +1327,12 @@ export async function GET(request: Request) {
                     : "Supabase Auth; conversão anterior aguarda PostHog",
             },
             {
-                key: "before_start",
-                label: "Antes de começar",
-                value: postHog.beforeStartViews,
-                conversion: conversion(
-                    postHog.beforeStartViews,
-                    onboarding.registrationComplete
-                ),
-                available: postHog.available,
-                note: postHog.available
-                    ? "Acessaram a seleção de sistemas antes do passo 1"
-                    : "PostHog ainda não conectado",
-            },
-            {
                 key: "step_1",
                 label: "Passo 1",
                 value: onboarding.step1,
                 conversion: conversion(
                     onboarding.step1,
-                    postHog.beforeStartViews
+                    onboarding.registrationComplete
                 ),
                 available: true,
                 note: postHog.available
