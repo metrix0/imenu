@@ -11,6 +11,10 @@
       "schedule": "0 14 * * *"
     },
     {
+      "path": "/api/cron/reconcile-payouts",
+      "schedule": "5 15 * * *"
+    },
+    {
       "path": "/api/cron/addon-expiry-whatsapp",
       "schedule": "0 18 * * *"
     }
