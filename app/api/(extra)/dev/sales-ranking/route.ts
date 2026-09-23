@@ -218,8 +218,16 @@ export async function GET(request: Request) {
                        AND o.created_at < r.created_at + INTERVAL '14 days'
                        AND o.status IS DISTINCT FROM 'canceled'
                        AND o.status IS DISTINCT FROM 'pending_online_payment'
-                    WHERE r.created_at >= NOW() - INTERVAL '44 days'
-                      AND r.created_at < NOW() - INTERVAL '14 days'
+                    WHERE (r.created_at AT TIME ZONE 'America/Sao_Paulo') >=
+                              date_trunc(
+                                  'month',
+                                  NOW() AT TIME ZONE 'America/Sao_Paulo'
+                              ) - INTERVAL '1 month'
+                      AND (r.created_at AT TIME ZONE 'America/Sao_Paulo') <
+                              date_trunc(
+                                  'month',
+                                  NOW() AT TIME ZONE 'America/Sao_Paulo'
+                              )
                     GROUP BY r.id, r.created_at
                 )
                 SELECT
