@@ -77,6 +77,7 @@ type DashboardPayload = {
     payables: Payable[];
     history: HistoryItem[];
     automationRuns: AutomationRun[];
+    ownerPhones: Record<string, string>;
     error?: string;
 };
 
@@ -306,14 +307,13 @@ export default function DevPayoutPage() {
                         if (!restaurantResponse.ok) {
                             return [
                                 restaurantId,
-                                { phone: "", pixKey: "", pixKeyType: "" },
+                                { pixKey: "", pixKeyType: "" },
                             ] as const;
                         }
                         const restaurant = await restaurantResponse.json();
                         return [
                             restaurantId,
                             {
-                                phone: String(restaurant?.phone || ""),
                                 pixKey: String(restaurant?.payment_info || ""),
                                 pixKeyType: String(restaurant?.payment_info_type || ""),
                             },
@@ -321,20 +321,13 @@ export default function DevPayoutPage() {
                     } catch {
                         return [
                             restaurantId,
-                            { phone: "", pixKey: "", pixKeyType: "" },
+                            { pixKey: "", pixKeyType: "" },
                         ] as const;
                     }
                 })
             );
 
-            setRestaurantPhones(
-                Object.fromEntries(
-                    restaurantEntries.map(([restaurantId, details]) => [
-                        restaurantId,
-                        details.phone,
-                    ])
-                )
-            );
+            setRestaurantPhones(payload.ownerPhones || {});
             setRestaurantPixInfo(
                 Object.fromEntries(
                     restaurantEntries.map(([restaurantId, details]) => [

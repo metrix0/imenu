@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
+import { query } from "@/lib/database/sql";
 import {
     getPayoutDashboardData,
     PayoutValidationError,
@@ -74,8 +75,41 @@ export async function GET(request: Request) {
 
     try {
         const data = await getPayoutDashboardData();
+        const restaurantIds = Array.from(
+            new Set([
+                ...data.payables.map((item) => item.restaurantId),
+                ...data.history.map((item) => item.restaurant_id),
+            ])
+        );
+        const ownerPhoneResult =
+            restaurantIds.length > 0
+                ? await query<{
+                      restaurant_id: string;
+                      owner_phone: string | null;
+                  }>(
+                      `
+                      SELECT
+                          r.id AS restaurant_id,
+                          COALESCE(
+                              NULLIF(TRIM(u.raw_user_meta_data ->> 'phone'), ''),
+                              NULLIF(TRIM(u.phone), '')
+                          ) AS owner_phone
+                      FROM public.restaurants r
+                      LEFT JOIN auth.users u ON u.id = r.user_id
+                      WHERE r.id = ANY($1::uuid[])
+                      `,
+                      [restaurantIds]
+                  )
+                : { rows: [] };
+
         return NextResponse.json({
             ...data,
+            ownerPhones: Object.fromEntries(
+                ownerPhoneResult.rows.map((row) => [
+                    row.restaurant_id,
+                    row.owner_phone || "",
+                ])
+            ),
             automationRuns: data.automationRuns.map((run: any) => ({
                 ...run,
                 run_date: new Date(run.run_date).toISOString().slice(0, 10),
