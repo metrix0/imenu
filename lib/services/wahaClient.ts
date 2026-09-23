@@ -45,6 +45,14 @@ type WahaMessageWithMedia = {
     mediaUrl?: string | null;
 };
 
+export type WahaTextHistoryMessage = {
+    id: string;
+    timestamp: number;
+    fromMe: boolean;
+    body: string;
+    hasMedia?: boolean;
+};
+
 export type WahaDownloadedMedia = {
     data: Buffer;
     mimetype: string;
@@ -366,6 +374,42 @@ function resolveWahaMediaUrl(value: string): URL {
     }
 
     return url;
+}
+
+export async function getWahaRecentTextHistory(
+    sessionName: string,
+    chatId: string,
+    currentMessageId: string,
+    limit = 5
+): Promise<WahaTextHistoryMessage[]> {
+    const messages = await wahaRequest<WahaTextHistoryMessage[]>(
+        `/api/${encodeURIComponent(sessionName)}/chats/${encodeURIComponent(chatId)}/messages?limit=${limit + 1}&downloadMedia=false`
+    );
+
+    return [...messages]
+        .filter(
+            (message) =>
+                message &&
+                typeof message.id === "string" &&
+                message.id !== currentMessageId &&
+                typeof message.timestamp === "number" &&
+                Number.isFinite(message.timestamp) &&
+                message.timestamp > 0 &&
+                typeof message.fromMe === "boolean"
+        )
+        .sort((first, second) => second.timestamp - first.timestamp)
+        .slice(0, limit)
+        .filter(
+            (message) =>
+                !message.hasMedia &&
+                typeof message.body === "string" &&
+                message.body.trim().length > 0
+        )
+        .sort((first, second) => first.timestamp - second.timestamp)
+        .map((message) => ({
+            ...message,
+            body: message.body.trim(),
+        }));
 }
 
 export async function getWahaMessageMedia(
