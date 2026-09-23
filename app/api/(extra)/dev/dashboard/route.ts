@@ -477,8 +477,13 @@ async function loadPostHogMetrics(
 
     const hogql = `
         SELECT
-            countIf(event = '$pageview' AND properties.$pathname = '/') AS landing_views,
-            countIf(
+            uniqIf(
+                distinct_id,
+                event = '$pageview'
+                AND properties.$pathname = '/'
+            ) AS landing_views,
+            uniqIf(
+                distinct_id,
                 event = '$pageview'
                 AND properties.$pathname = '/restaurante/registrar'
             ) AS register_clicks,
@@ -1297,7 +1302,7 @@ export async function GET(request: Request) {
         const pipeline = [
             {
                 key: "landing_views",
-                label: "Visualizações da landing page",
+                label: "Visualizações LP Únicas",
                 value: postHog.landingViews,
                 conversion: null,
                 available: postHog.available,
@@ -1305,7 +1310,7 @@ export async function GET(request: Request) {
             },
             {
                 key: "register_clicks",
-                label: "Cliques em Registrar",
+                label: "Cliques Registrar Únicos",
                 value: postHog.registerClicks,
                 conversion: conversion(postHog.registerClicks, postHog.landingViews),
                 available: postHog.available,

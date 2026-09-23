@@ -929,6 +929,93 @@ export default function DevDashboardPage() {
                                     })}
                                 </div>
 
+                                {(() => {
+                                    const landingViews =
+                                        data.pipeline.find(
+                                            (step) => step.key === "landing_views"
+                                        )?.value ?? null;
+                                    const registerClicks =
+                                        data.pipeline.find(
+                                            (step) => step.key === "register_clicks"
+                                        )?.value ?? null;
+                                    const registrationComplete =
+                                        data.pipeline.find(
+                                            (step) => step.key === "registration_complete"
+                                        )?.value ?? null;
+                                    const step4 =
+                                        data.pipeline.find(
+                                            (step) => step.key === "step_4"
+                                        )?.value ?? null;
+                                    const activatedUsers =
+                                        data.pipeline.find(
+                                            (step) => step.key === "activated_users"
+                                        )?.value ?? null;
+                                    const landingToRegister = conversion(
+                                        registerClicks,
+                                        landingViews
+                                    );
+                                    const registrationToStep4 = conversion(
+                                        step4,
+                                        registrationComplete
+                                    );
+                                    const registrationToActivated = conversion(
+                                        activatedUsers,
+                                        registrationComplete
+                                    );
+                                    const estimatedLandingToActivated =
+                                        landingToRegister !== null &&
+                                        registrationToActivated !== null
+                                            ? Number(
+                                                  (
+                                                      (landingToRegister *
+                                                          registrationToActivated) /
+                                                      100
+                                                  ).toFixed(1)
+                                              )
+                                            : null;
+                                    const summary = [
+                                        {
+                                            label:
+                                                "Visualizações LP Únicas → Cliques Registrar Únicos",
+                                            value: landingToRegister,
+                                        },
+                                        {
+                                            label: "Registro completo → Passo 4",
+                                            value: registrationToStep4,
+                                        },
+                                        {
+                                            label:
+                                                "Registro completo → Usuário ativado",
+                                            value: registrationToActivated,
+                                        },
+                                        {
+                                            label:
+                                                "Visualizações LP Únicas → Usuário ativado (estimado)",
+                                            value: estimatedLandingToActivated,
+                                        },
+                                    ];
+
+                                    return (
+                                        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                                            {summary.map((item) => (
+                                                <div
+                                                    key={item.label}
+                                                    className="rounded-xl border border-gray-200 bg-gray-50 p-4"
+                                                >
+                                                    <p className="text-xs font-medium leading-5 text-gray-500">
+                                                        {item.label}
+                                                    </p>
+                                                    <p className="mt-1 text-xl font-bold tabular-nums text-gray-950">
+                                                        {item.value === null
+                                                            ? "—"
+                                                            : formatRatio(item.value)}
+                                                    </p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    );
+                                })()}
+
                                 {!data.tracking.postHogAvailable && (
                                     <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
                                         Landing page, acesso ao cadastro e Blog precisam das variáveis
