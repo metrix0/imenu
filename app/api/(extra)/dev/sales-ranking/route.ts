@@ -24,6 +24,14 @@ type RankingRow = {
     customer_count: number | string;
 };
 
+type GrowthMetricsRow = {
+    selling_restaurants_30d: number | string;
+    active_10_restaurants_30d: number | string;
+    active_10_gmv_share_percent: number | string;
+    activation_eligible_30d: number | string;
+    activation_10_in_14d_30d: number | string;
+};
+
 function getBearerToken(request: Request): string | null {
     const authorization = request.headers.get("authorization")?.trim();
     const match = authorization?.match(/^Bearer\s+(.+)$/i);
@@ -179,6 +187,71 @@ export async function GET(request: Request) {
             [startIso, endIso]
         );
 
+        const growthMetricsResult = await query<GrowthMetricsRow>(
+            `
+                WITH sales_30d AS (
+                    SELECT
+                        o.restaurant_id,
+                        COUNT(*)::int AS order_count,
+                        COALESCE(SUM(o.total_cents), 0)::bigint AS gmv_cents
+                    FROM orders AS o
+                    WHERE o.created_at >= NOW() - INTERVAL '30 days'
+                      AND o.status IS DISTINCT FROM 'canceled'
+                      AND o.status IS DISTINCT FROM 'pending_online_payment'
+                    GROUP BY o.restaurant_id
+                ),
+                sales_totals AS (
+                    SELECT
+                        COUNT(*)::int AS selling_restaurants,
+                        COALESCE(SUM(gmv_cents), 0)::bigint AS total_gmv_cents
+                    FROM sales_30d
+                ),
+                activation_cohort AS (
+                    SELECT
+                        r.id,
+                        r.created_at,
+                        COUNT(o.id)::int AS first_14d_orders
+                    FROM restaurants AS r
+                    LEFT JOIN orders AS o
+                        ON o.restaurant_id = r.id
+                       AND o.created_at >= r.created_at
+                       AND o.created_at < r.created_at + INTERVAL '14 days'
+                       AND o.status IS DISTINCT FROM 'canceled'
+                       AND o.status IS DISTINCT FROM 'pending_online_payment'
+                    WHERE r.created_at >= NOW() - INTERVAL '44 days'
+                      AND r.created_at < NOW() - INTERVAL '14 days'
+                    GROUP BY r.id, r.created_at
+                )
+                SELECT
+                    totals.selling_restaurants AS selling_restaurants_30d,
+                    COUNT(*) FILTER (
+                        WHERE sales.order_count >= 10
+                    )::int AS active_10_restaurants_30d,
+                    CASE
+                        WHEN totals.total_gmv_cents > 0 THEN
+                            ROUND(
+                                100.0 * COALESCE(
+                                    SUM(sales.gmv_cents) FILTER (
+                                        WHERE sales.order_count >= 10
+                                    ),
+                                    0
+                                ) / totals.total_gmv_cents,
+                                1
+                            )
+                        ELSE 0
+                    END AS active_10_gmv_share_percent,
+                    (SELECT COUNT(*) FROM activation_cohort)::int AS activation_eligible_30d,
+                    (
+                        SELECT COUNT(*)
+                        FROM activation_cohort
+                        WHERE first_14d_orders >= 10
+                    )::int AS activation_10_in_14d_30d
+                FROM sales_30d AS sales
+                CROSS JOIN sales_totals AS totals
+                GROUP BY totals.selling_restaurants, totals.total_gmv_cents
+            `
+        );
+
         const restaurants = rankingResult.rows.map((row) => ({
             id: row.restaurant_id,
             name: row.restaurant_name,
@@ -195,6 +268,23 @@ export async function GET(request: Request) {
             0
         );
         const restaurantCount = restaurants.length;
+        const growthMetrics = growthMetricsResult.rows[0];
+        const sellingRestaurants30d = Math.max(
+            0,
+            Number(growthMetrics?.selling_restaurants_30d) || 0
+        );
+        const active10Restaurants30d = Math.max(
+            0,
+            Number(growthMetrics?.active_10_restaurants_30d) || 0
+        );
+        const activationEligible30d = Math.max(
+            0,
+            Number(growthMetrics?.activation_eligible_30d) || 0
+        );
+        const activation10In14d30d = Math.max(
+            0,
+            Number(growthMetrics?.activation_10_in_14d_30d) || 0
+        );
         const restaurantsWithActiveCustomers = restaurants.filter(
             (restaurant) =>
                 restaurant.orders >= 4 && restaurant.customers >= 4
@@ -220,6 +310,34 @@ export async function GET(request: Request) {
                             ? Math.round(
                                   activeCustomerRestaurantGmvCents /
                                       restaurantsWithActiveCustomers.length
+                              )
+                            : 0,
+                    active10Restaurants30d,
+                    active10RestaurantPercent30d:
+                        sellingRestaurants30d > 0
+                            ? Number(
+                                  (
+                                      (active10Restaurants30d /
+                                          sellingRestaurants30d) *
+                                      100
+                                  ).toFixed(1)
+                              )
+                            : 0,
+                    active10GmvSharePercent30d: Math.max(
+                        0,
+                        Number(growthMetrics?.active_10_gmv_share_percent) || 0
+                    ),
+                    sellingRestaurants30d,
+                    activationEligible30d,
+                    activation10In14d30d,
+                    activationQualityPercent30d:
+                        activationEligible30d > 0
+                            ? Number(
+                                  (
+                                      (activation10In14d30d /
+                                          activationEligible30d) *
+                                      100
+                                  ).toFixed(1)
                               )
                             : 0,
                 },

@@ -13,6 +13,13 @@ type SalesRankingPayload = {
         restaurantCount: number;
         averageGmvPerRestaurantCents: number;
         averageGmvPerActiveCustomerRestaurantCents: number;
+        active10Restaurants30d: number;
+        active10RestaurantPercent30d: number;
+        active10GmvSharePercent30d: number;
+        sellingRestaurants30d: number;
+        activationEligible30d: number;
+        activation10In14d30d: number;
+        activationQualityPercent30d: number;
     };
     restaurants: Array<{
         id: string;
@@ -150,10 +157,57 @@ export default function SalesRankingSection({ range }: { range: RangeKey }) {
                             )}
                         />
                         <SummaryCard
+                            label="Restaurantes ativos (10+ pedidos / 30d)"
+                            value={formatCount(
+                                data.summary.active10Restaurants30d
+                            )}
+                        />
+                        <SummaryCard
+                            label="Qualidade de ativação (14d)"
+                            value={formatPercent(
+                                data.summary.activationQualityPercent30d
+                            )}
+                            note={`${formatCount(
+                                data.summary.activation10In14d30d
+                            )} de ${formatCount(
+                                data.summary.activationEligible30d
+                            )} chegaram a 10 pedidos nos primeiros 14 dias`}
+                        />
+                        <SummaryCard
+                            label="Restaurantes com 10+ pedidos / 30d"
+                            value={formatPercent(
+                                data.summary.active10RestaurantPercent30d
+                            )}
+                            note={`${formatCount(
+                                data.summary.active10Restaurants30d
+                            )} de ${formatCount(
+                                data.summary.sellingRestaurants30d
+                            )} com vendas · ${formatPercent(
+                                data.summary.active10GmvSharePercent30d
+                            )} do GMV`}
+                        />
+                        <SummaryCard
                             label="Pedidos"
                             value={formatCount(data.summary.totalOrders)}
                         />
                     </div>
+
+                    <p className="mb-5 text-xs leading-5 text-gray-500">
+                        Referência de mercado: não existe uma taxa universal de ativação
+                        diretamente comparável entre plataformas. Já a concentração de
+                        vendas em uma minoria dos vendedores é comum em marketplaces; um
+                        estudo de marketplace P2P encontrou 10% dos produtores gerando
+                        81% das vendas.{" "}
+                        <a
+                            href="https://link.springer.com/article/10.1007/s12525-019-00339-w"
+                            target="_blank"
+                            rel="noreferrer"
+                            className="font-medium text-brand hover:underline"
+                        >
+                            Electronic Markets (2019)
+                        </a>
+                        .
+                    </p>
 
                     <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
                         <div className="overflow-x-auto">
@@ -246,13 +300,24 @@ export default function SalesRankingSection({ range }: { range: RangeKey }) {
     );
 }
 
-function SummaryCard({ label, value }: { label: string; value: string }) {
+function SummaryCard({
+    label,
+    value,
+    note,
+}: {
+    label: string;
+    value: string;
+    note?: string;
+}) {
     return (
         <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
             <p className="text-sm font-medium text-gray-600">{label}</p>
             <p className="mt-2 text-2xl font-bold tracking-tight text-gray-950">
                 {value}
             </p>
+            {note && (
+                <p className="mt-2 text-xs leading-5 text-gray-500">{note}</p>
+            )}
         </div>
     );
 }
