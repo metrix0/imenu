@@ -6,6 +6,8 @@ import { icons } from "@/lib/utils/fontawesome";
 import Card from "@/components/ui/Card";
 import RecommendedBadge from "@/components/ui/RecommendedBadge";
 import ToggleOptionCard from "@/components/ui/ToggleOptionCard";
+import ConfirmModal from "@/components/ui/ConfirmModal";
+import { useState } from "react";
 
 export const DEFAULT_ALLOWED_PAYMENT_METHODS = [
     "pix",
@@ -35,16 +37,28 @@ export default function AllowedPaymentMethods({
     onChange,
     className = "",
 }: Props) {
+    const [confirmPixDisableOpen, setConfirmPixDisableOpen] = useState(false);
     const selected =
         Array.isArray(value) && value.length
             ? value
             : DEFAULT_ALLOWED_PAYMENT_METHODS;
 
     const toggle = (method: string) => {
+        if (method === "pix" && selected.includes("pix")) {
+            setConfirmPixDisableOpen(true);
+            return;
+        }
+
         const next = selected.includes(method)
             ? selected.filter((value) => value !== method)
             : [...selected, method];
         if (next.length) onChange(next);
+    };
+
+    const disablePix = () => {
+        const next = selected.filter((value) => value !== "pix");
+        if (next.length) onChange(next);
+        setConfirmPixDisableOpen(false);
     };
 
     return (
@@ -69,11 +83,25 @@ export default function AllowedPaymentMethods({
                             checked={active}
                             onChange={() => toggle(option.value)}
                             icon={<FontAwesomeIcon icon={option.icon} />}
-                            badge={option.recommended ? <RecommendedBadge /> : undefined}
+                            badge={
+                                option.recommended ? (
+                                    <RecommendedBadge infoText="Pagamentos são confirmados automaticamente e 34% dos usuários preferem pagar com Pix." />
+                                ) : undefined
+                            }
                         />
                     );
                 })}
             </div>
+
+            <ConfirmModal
+                open={confirmPixDisableOpen}
+                onClose={() => setConfirmPixDisableOpen(false)}
+                onConfirm={disablePix}
+                title="Desativar Pix Online?"
+                description="Os pagamentos com Pix Online são confirmados automaticamente e 34% dos usuários preferem pagar com Pix. Tem certeza de que deseja desativá-lo?"
+                confirmLabel="Desativar Pix Online"
+                cancelLabel="Manter ativado"
+            />
         </Card>
     );
 }
