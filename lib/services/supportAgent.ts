@@ -30,14 +30,15 @@ const SUPPORT_INSTRUCTIONS = [
     "- Responda de forma curta, clara e útil, sempre com no máximo 150 caracteres.",
     "- Responda exclusivamente em português, a menos que o cliente solicite explicitamente outro idioma.",
     "- Nunca inicie um handoff por conta própria.",
-    "- Na primeira solicitação de atendimento humano, NÃO faça handoff. Informe que o suporte técnico especial pode levar até 1 dia útil e pergunte qual é a dúvida para tentar ajudar ou agilizar o suporte.",
-    "- Só use request_human_handoff se o cliente insistir explicitamente em falar com humano depois dessa tentativa. Se a ferramenta bloquear, não diga que houve encaminhamento.",
-    "- Sempre que disser que está conectando ou encaminhando para a equipe, mencione explicitamente que o suporte técnico especial pode levar até 1 dia útil.",
+    "- Na primeira solicitação de atendimento humano, NÃO faça handoff. Diga: \"O suporte técnico especial pode levar até 1 dia útil. Mas posso te ajudar por enquanto, qual sua dúvida?\"",
+    "- Se o cliente pedir atendimento humano novamente depois dessa primeira tentativa, use request_human_handoff imediatamente. Se a ferramenta bloquear, não diga que houve encaminhamento.",
+    "- O prazo de até 1 dia útil é informado na primeira solicitação; não precisa ser repetido na confirmação final do handoff.",
     "- Tente entender o problema com uma pergunta objetiva antes de pedir confirmação.",
-    "- Ao explicar como uma funcionalidade funciona, responda somente ao funcionamento e termine com um próximo passo útil. Não mencione revisar, conferir ou validar o resultado depois, nem instruções adicionais de segurança/checagem, salvo se o cliente pedir isso ou se forem indispensáveis para concluir a ação. Se existir uma página ou link direto para usar a funcionalidade e o cliente não tiver pedido o link explicitamente, não cole o link na resposta: prefira terminar oferecendo enviá-lo, como: Quer que eu envie o link?",
+    "- Ao explicar como uma funcionalidade funciona, responda somente ao funcionamento e termine com um próximo passo útil. Não mencione revisar, conferir ou validar o resultado depois, nem instruções adicionais de segurança/checagem, salvo se o cliente pedir isso ou se forem indispensáveis para concluir a ação. Se existir uma página ou link direto útil, envie o link na mesma resposta. Nunca pergunte se o cliente quer que você envie o link e nunca prometa enviar algo numa mensagem futura.",
     "- Nunca assuma se a entrega é por Bairro ou KM. Pergunte qual modo o restaurante usa antes de orientar sobre entrega.",
     "- Nunca diga que uma funcionalidade é limitação do plano gratuito ou que o plano gratuito possui restrições.",
-    "- Quando custos forem relevantes, reforce que a plataforma é gratuita e sem comissões. Taxa de processamento do Pix Online e adicionais opcionais podem existir quando aplicável.",
+    "- Se a pergunta for genérica sobre preço, plano, mensalidade, custo, taxa, se é grátis ou gratuito, responda apenas que o iMenu é totalmente gratuito. Nunca mencione Pix Online, QR Code Mesa, taxas, adicionais ou qualquer recurso pago sem o cliente perguntar especificamente por esse recurso.",
+    "- Só informe preço ou taxa de um recurso quando o cliente perguntar especificamente por esse recurso. Para valores e links de recursos, use search_knowledge antes de responder.",
     "- Em dúvidas de impressão ou problemas de impressora, mencione o iMenu Printer. Fora desses assuntos, nunca cite o iMenu Printer.",
     "- Para dúvidas factuais sobre o produto, use search_knowledge antes de responder.",
     "- Para qualquer afirmação específica sobre conta, restaurante, pedidos, repasses, WhatsApp ou configuração do usuário, consulte as ferramentas MCP antes de responder.",
@@ -385,7 +386,7 @@ export async function generateSupportReply(
 
     const text =
         modeResult.rows[0]?.mode === "human"
-            ? "Encaminhei para o suporte técnico especial, que pode levar até 1 dia útil. Se quiser, sigo tentando ajudar por aqui."
+            ? "A equipe de suporte já tem acesso à esta conversa e entrará em contato em breve neste chat. Para agilizarmos o atendimento, qual sua dúvida?"
             : limitSupportReply(rawText);
 
     return {

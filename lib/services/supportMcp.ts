@@ -7,6 +7,7 @@ type SupportConversation = {
     id: string;
     phone: string | null;
     restaurant_id: string | null;
+    handoff_prompted_at: string | null;
 };
 
 type DataColumn = {
@@ -161,7 +162,7 @@ export const SUPPORT_MCP_TOOLS: SupportMcpToolDefinition[] = [
     {
         name: "request_human_handoff",
         description:
-            "Hand off only after the customer explicitly asks for a human again, after being told the special technical support may take up to 1 business day and after an attempt to understand/help. Never use proactively.",
+            "Hand off only after the server has recorded the first human-support request and the customer explicitly asks for a human again. Never use proactively.",
         inputSchema: {
             type: "object",
             properties: { reason: { type: "string" } },
@@ -221,7 +222,7 @@ async function getConversation(
     conversationId: string
 ): Promise<SupportConversation> {
     const result = await query<SupportConversation>(
-        "SELECT id, phone, restaurant_id FROM support_conversations WHERE id = $1 LIMIT 1",
+        "SELECT id, phone, restaurant_id, handoff_prompted_at FROM support_conversations WHERE id = $1 LIMIT 1",
         [conversationId]
     );
 
@@ -569,48 +570,22 @@ export async function executeSupportMcpTool(
             };
         }
 
-        const recentMessages = await query<{
-            direction: "inbound" | "outbound";
-            body: string;
-        }>(
-            "SELECT direction, body FROM support_messages WHERE conversation_id = $1 ORDER BY created_at DESC LIMIT 8",
+        const latestInboundResult = await query<{ body: string }>(
+            "SELECT body FROM support_messages WHERE conversation_id = $1 AND direction = 'inbound' ORDER BY created_at DESC LIMIT 1",
             [conversationId]
         );
-        const latestInboundIndex = recentMessages.rows.findIndex(
-            (message) => message.direction === "inbound"
-        );
-        const latestInbound =
-            latestInboundIndex >= 0
-                ? recentMessages.rows[latestInboundIndex]
-                : null;
-        const previousOutbound =
-            latestInboundIndex >= 0
-                ? recentMessages.rows
-                      .slice(latestInboundIndex + 1)
-                      .find(
-                          (message) =>
-                              message.direction === "outbound"
-                      )
-                : null;
-        const previousText = normalizeSupportText(
-            previousOutbound?.body || ""
-        );
-        const delayWasExplained =
-            previousText.includes("1 dia util") &&
-            (previousText.includes("duvida") ||
-                previousText.includes("ajudar") ||
-                previousText.includes("agilizar"));
+        const latestInbound = latestInboundResult.rows[0];
 
         if (
+            !conversation.handoff_prompted_at ||
             !latestInbound ||
-            !explicitlyRequestsHuman(latestInbound.body) ||
-            !delayWasExplained
+            !explicitlyRequestsHuman(latestInbound.body)
         ) {
             return {
                 handed_off: false,
                 blocked: true,
                 reason:
-                    "Antes do handoff, informe que o suporte técnico especial pode levar até 1 dia útil e tente entender a dúvida.",
+                    "O handoff só pode acontecer depois da primeira solicitação de atendimento humano já registrada e de uma nova solicitação explícita do cliente.",
             };
         }
 
