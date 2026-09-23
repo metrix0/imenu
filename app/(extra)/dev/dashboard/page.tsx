@@ -694,26 +694,6 @@ export default function DevDashboardPage() {
                                     description="Tiveram pelo menos um pedido concluído nos sete dias anteriores ao fim do período."
                                 />
                                 <MetricCard
-                                    title="Principalmente mobile"
-                                    value={
-                                        data.deviceUsage.mainlyMobilePercentage === null
-                                            ? "—"
-                                            : formatRatio(
-                                                  data.deviceUsage
-                                                      .mainlyMobilePercentage
-                                              )
-                                    }
-                                    description={
-                                        data.deviceUsage.measuredUsers > 0
-                                            ? `${formatCount(
-                                                  data.deviceUsage.mainlyMobile
-                                              )} de ${formatCount(
-                                                  data.deviceUsage.measuredUsers
-                                              )} usuários ativos com sessões registradas tiveram mais sessões mobile do que desktop.`
-                                            : "Sem sessões registradas para os usuários ativos."
-                                    }
-                                />
-                                <MetricCard
                                     title="Usuários realmente ativos"
                                     value={formatCount(data.cards.realActiveUsers)}
                                     change={data.cardChanges.realActiveUsers}
@@ -823,6 +803,28 @@ export default function DevDashboardPage() {
                                 title="Uso das abas do painel"
                                 description="Distribuição dos cliques nas abas do menu lateral no período selecionado."
                             />
+                            <div className="mb-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                                <MetricCard
+                                    title="Principalmente mobile"
+                                    value={
+                                        data.deviceUsage.mainlyMobilePercentage === null
+                                            ? "—"
+                                            : formatRatio(
+                                                  data.deviceUsage
+                                                      .mainlyMobilePercentage
+                                              )
+                                    }
+                                    description={
+                                        data.deviceUsage.measuredUsers > 0
+                                            ? `${formatCount(
+                                                  data.deviceUsage.mainlyMobile
+                                              )} de ${formatCount(
+                                                  data.deviceUsage.measuredUsers
+                                              )} usuários ativos com sessões registradas tiveram mais sessões mobile do que desktop.`
+                                            : "Sem sessões registradas para os usuários ativos."
+                                    }
+                                />
+                            </div>
                             <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
                                 {data.panelTabs.available ? (
                                     data.panelTabs.tabs.length ? (
@@ -1605,7 +1607,7 @@ function EmptyChart() {
 function DashboardLoading() {
     return (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {Array.from({ length: 7 }, (_, index) => (
+            {Array.from({ length: 6 }, (_, index) => (
                 <div
                     key={index}
                     className="h-40 animate-pulse rounded-2xl border border-gray-200 bg-white"
