@@ -316,22 +316,16 @@ export default function PedidoPage({
             </section>
 
             {paymentMethod === "pix" && status === "pending_online_payment" && (
-                <section className="bg-white rounded-xl p-5 pb-7 shadow space-y-4 mt-3 mb-3">
+                <section className="bg-white rounded-xl p-5 pb-6 shadow mt-3 mb-3">
                     <div className="text-center">
                         <p className="font-semibold text-lg">Pague com Pix</p>
                         <p className="mt-1 text-sm text-gray-500">
-                            Copie o código abaixo e pague pelo aplicativo do seu banco.
+                            Copie o código e cole no aplicativo do seu banco.
                         </p>
                     </div>
 
                     {order?.pix_copia_cola && (
-                        <div className="space-y-3">
-                            <div className="rounded-lg bg-gray-50 p-4 text-sm text-gray-700">
-                                <p><strong>1.</strong> Toque em <strong>Copiar código Pix</strong>.</p>
-                                <p className="mt-2"><strong>2.</strong> Abra o aplicativo do seu banco e escolha <strong>Pix → Copia e Cola</strong>.</p>
-                                <p className="mt-2"><strong>3.</strong> Cole o código e confirme o pagamento.</p>
-                            </div>
-
+                        <div className="mt-5">
                             <Button
                                 type="button"
                                 className="w-full min-h-12 text-base gap-2"
@@ -353,20 +347,36 @@ export default function PedidoPage({
                                 <FontAwesomeIcon icon={icons.faCopy} />
                                 {copiedPix ? "Código Pix copiado!" : "Copiar código Pix"}
                             </Button>
+                            <p className="mt-2 text-center text-xs text-gray-400">
+                                O pagamento é confirmado automaticamente.
+                            </p>
                         </div>
                     )}
 
                     {order?.pix_qr_base64 && (
-                        <div className="pt-1">
-                            <p className="mb-3 text-center text-sm text-gray-500">
-                                Ou escaneie o QR Code
-                            </p>
-                            <img
-                                className="w-[50vw] md:w-64 mx-auto"
-                                src={`data:image/png;base64,${order.pix_qr_base64}`}
-                                alt="QR Code Pix"
-                            />
-                        </div>
+                        <>
+                            <div className="hidden md:block mt-5 border-t border-gray-100 pt-5">
+                                <p className="mb-3 text-center text-sm text-gray-500">
+                                    Ou escaneie o QR Code com outro celular
+                                </p>
+                                <img
+                                    className="w-56 mx-auto"
+                                    src={`data:image/png;base64,${order.pix_qr_base64}`}
+                                    alt="QR Code Pix"
+                                />
+                            </div>
+
+                            <details className="group md:hidden mt-4 border-t border-gray-100 pt-4 text-center">
+                                <summary className="cursor-pointer list-none text-sm font-medium text-gray-500">
+                                    Prefere usar QR Code?
+                                </summary>
+                                <img
+                                    className="w-[50vw] mx-auto mt-4"
+                                    src={`data:image/png;base64,${order.pix_qr_base64}`}
+                                    alt="QR Code Pix"
+                                />
+                            </details>
+                        </>
                     )}
                 </section>
             )}
