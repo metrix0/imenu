@@ -12,6 +12,7 @@ type SalesRankingPayload = {
         totalOrders: number;
         restaurantCount: number;
         averageGmvPerRestaurantCents: number;
+        averageGmvPerActiveCustomerRestaurantCents: number;
     };
     restaurants: Array<{
         id: string;
@@ -124,7 +125,7 @@ export default function SalesRankingSection({ range }: { range: RangeKey }) {
                 </div>
             ) : data ? (
                 <>
-                    <div className="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                    <div className="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
                         <SummaryCard
                             label="GMV total"
                             value={formatCurrencyFromCents(
@@ -139,6 +140,13 @@ export default function SalesRankingSection({ range }: { range: RangeKey }) {
                             label="GMV médio por restaurante com vendas"
                             value={formatCurrencyFromCents(
                                 data.summary.averageGmvPerRestaurantCents
+                            )}
+                        />
+                        <SummaryCard
+                            label="GMV médio por usuário com clientes ativos"
+                            value={formatCurrencyFromCents(
+                                data.summary
+                                    .averageGmvPerActiveCustomerRestaurantCents
                             )}
                         />
                         <SummaryCard

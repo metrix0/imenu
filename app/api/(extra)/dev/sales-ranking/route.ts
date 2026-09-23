@@ -21,6 +21,7 @@ type RankingRow = {
     restaurant_name: string;
     gmv_cents: number | string;
     order_count: number | string;
+    customer_count: number | string;
 };
 
 function getBearerToken(request: Request): string | null {
@@ -133,18 +134,45 @@ export async function GET(request: Request) {
 
         const rankingResult = await query<RankingRow>(
             `
+                WITH normalized_orders AS (
+                    SELECT
+                        o.restaurant_id,
+                        o.total_cents,
+                        CASE
+                            WHEN phone_digits LIKE '55%'
+                              AND LENGTH(phone_digits) IN (12, 13)
+                                THEN SUBSTRING(phone_digits FROM 3)
+                            ELSE phone_digits
+                        END AS customer_key
+                    FROM orders AS o
+                    CROSS JOIN LATERAL (
+                        SELECT REGEXP_REPLACE(
+                            COALESCE(o.customer_phone, ''),
+                            '[^0-9]',
+                            '',
+                            'g'
+                        ) AS phone_digits
+                    ) AS normalized_phone
+                    WHERE o.created_at >= $1
+                      AND o.created_at < $2
+                      AND o.status IS DISTINCT FROM 'canceled'
+                      AND o.status IS DISTINCT FROM 'pending_online_payment'
+                )
                 SELECT
                     o.restaurant_id::text AS restaurant_id,
                     COALESCE(r.name, 'Restaurante removido') AS restaurant_name,
                     COALESCE(SUM(o.total_cents), 0)::bigint AS gmv_cents,
-                    COUNT(*)::int AS order_count
-                FROM orders AS o
+                    COUNT(*)::int AS order_count,
+                    COUNT(
+                        DISTINCT CASE
+                            WHEN LENGTH(o.customer_key) >= 10
+                                THEN o.customer_key
+                            ELSE NULL
+                        END
+                    )::int AS customer_count
+                FROM normalized_orders AS o
                 LEFT JOIN restaurants AS r
                     ON r.id = o.restaurant_id
-                WHERE o.created_at >= $1
-                  AND o.created_at < $2
-                  AND o.status IS DISTINCT FROM 'canceled'
-                  AND o.status IS DISTINCT FROM 'pending_online_payment'
                 GROUP BY o.restaurant_id, r.name
                 ORDER BY gmv_cents DESC, order_count DESC, restaurant_name ASC
             `,
@@ -156,6 +184,7 @@ export async function GET(request: Request) {
             name: row.restaurant_name,
             gmvCents: Math.max(0, Number(row.gmv_cents) || 0),
             orders: Math.max(0, Number(row.order_count) || 0),
+            customers: Math.max(0, Number(row.customer_count) || 0),
         }));
         const totalGmvCents = restaurants.reduce(
             (total, restaurant) => total + restaurant.gmvCents,
@@ -166,6 +195,15 @@ export async function GET(request: Request) {
             0
         );
         const restaurantCount = restaurants.length;
+        const restaurantsWithActiveCustomers = restaurants.filter(
+            (restaurant) =>
+                restaurant.orders >= 4 && restaurant.customers >= 4
+        );
+        const activeCustomerRestaurantGmvCents =
+            restaurantsWithActiveCustomers.reduce(
+                (total, restaurant) => total + restaurant.gmvCents,
+                0
+            );
 
         return NextResponse.json(
             {
@@ -176,6 +214,13 @@ export async function GET(request: Request) {
                     averageGmvPerRestaurantCents:
                         restaurantCount > 0
                             ? Math.round(totalGmvCents / restaurantCount)
+                            : 0,
+                    averageGmvPerActiveCustomerRestaurantCents:
+                        restaurantsWithActiveCustomers.length > 0
+                            ? Math.round(
+                                  activeCustomerRestaurantGmvCents /
+                                      restaurantsWithActiveCustomers.length
+                              )
                             : 0,
                 },
                 restaurants: restaurants.map((restaurant) => ({
