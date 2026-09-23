@@ -1,12 +1,15 @@
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
-import { faStar } from "@fortawesome/free-solid-svg-icons";
+import { faCircleInfo, faStar } from "@fortawesome/free-solid-svg-icons";
+import Tooltip from "@/components/ui/Tooltip";
 
 type RecommendedBadgeProps = {
     className?: string;
+    infoText?: string;
 };
 
 export default function RecommendedBadge({
     className = "",
+    infoText,
 }: RecommendedBadgeProps) {
     return (
         <span
@@ -14,6 +17,22 @@ export default function RecommendedBadge({
         >
             <FontAwesomeIcon icon={faStar} className="text-[8px]" />
             Recomendado
+            {infoText && (
+                <Tooltip
+                    text={infoText}
+                    size="medium"
+                    showOnClick
+                    parentClassName="shrink-0 leading-none"
+                >
+                    <button
+                        type="button"
+                        aria-label="Mais informações sobre a recomendação"
+                        className="inline-flex h-3.5 w-3.5 items-center justify-center !text-brand"
+                    >
+                        <FontAwesomeIcon icon={faCircleInfo} className="text-[9px]" />
+                    </button>
+                </Tooltip>
+            )}
         </span>
     );
 }

@@ -9,6 +9,7 @@ import { icons } from "@/lib/utils/fontawesome";
 import { faPix, faWhatsapp } from "@fortawesome/free-brands-svg-icons";
 import { faChair } from "@fortawesome/free-solid-svg-icons";
 import ListLoader from "@/components/ui/ListLoader";
+import Button from "@/components/ui/Button";
 import { formatPrice, promotionPrice } from "@/lib/utils/formatPrice";
 
 export default function PedidoPage({
@@ -315,48 +316,61 @@ export default function PedidoPage({
             </section>
 
             {paymentMethod === "pix" && status === "pending_online_payment" && (
-                <section className="bg-white rounded-xl p-5 pb-7 shadow space-y-3 mt-3 mb-3">
-                    <p className="font-semibold text-lg text-center">Pix</p>
+                <section className="bg-white rounded-xl px-5 pt-3 pb-6 md:pt-2 shadow mt-3 mb-3">
+                    <div className="text-center">
+                        <p className="font-semibold text-lg">Pague com Pix</p>
+                        <p className="mt-1 text-2xl font-semibold text-text">
+                            {totalDisplay}
+                        </p>
+                    </div>
+
                     {order?.pix_qr_base64 && (
-                        <img
-                            className="w-[50vw] md:w-64 mx-auto"
-                            src={`data:image/png;base64,${order.pix_qr_base64}`}
-                            alt="QR Code Pix"
-                        />
-                    )}
-                    {order?.pix_copia_cola && (
-                        <div
-                            className="cursor-pointer"
-                            onClick={async () => {
-                                try {
-                                    await navigator.clipboard.writeText(order.pix_copia_cola);
-                                } catch {
-                                    const element = document.createElement("textarea");
-                                    element.value = order.pix_copia_cola;
-                                    document.body.appendChild(element);
-                                    element.select();
-                                    document.execCommand("copy");
-                                    document.body.removeChild(element);
-                                }
-                                setCopiedPix(true);
-                                window.setTimeout(() => setCopiedPix(false), 1200);
-                            }}
-                        >
-                            <p className="text-gray-500 text-sm mb-3 mt-4">
-                                Copia e cola <FontAwesomeIcon icon={icons.faCopy} />
+                        <div className="mt-1 text-center">
+                            <img
+                                className="w-[55vw] max-w-56 mx-auto"
+                                src={`data:image/png;base64,${order.pix_qr_base64}`}
+                                alt="QR Code Pix"
+                            />
+                            <p className="mt-3 text-sm text-gray-500">
+                                Escaneie com o app do seu banco
                             </p>
-                            <div className="relative">
-                                <textarea
-                                    className="w-full p-3 rounded text-sm border-gray-200 border overflow-hidden focus:outline-none focus:ring-0"
-                                    readOnly
-                                    value={order.pix_copia_cola}
-                                />
-                                {copiedPix && (
-                                    <div className="absolute inset-0 flex items-center justify-center rounded bg-black/10">
-                                        <span className="text-sm font-semibold text-gray-700 bg-white px-3 py-1 rounded">Copiado</span>
-                                    </div>
-                                )}
-                            </div>
+                        </div>
+                    )}
+
+                    {order?.pix_copia_cola && (
+                        <div className="mt-3">
+                            {order?.pix_qr_base64 && (
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="h-px flex-1 bg-gray-100" />
+                                    <span className="text-xs text-gray-400">ou</span>
+                                    <div className="h-px flex-1 bg-gray-100" />
+                                </div>
+                            )}
+
+                            <Button
+                                type="button"
+                                className="w-full min-h-12 text-base gap-2"
+                                onClick={async () => {
+                                    try {
+                                        await navigator.clipboard.writeText(order.pix_copia_cola);
+                                    } catch {
+                                        const element = document.createElement("textarea");
+                                        element.value = order.pix_copia_cola;
+                                        document.body.appendChild(element);
+                                        element.select();
+                                        document.execCommand("copy");
+                                        document.body.removeChild(element);
+                                    }
+                                    setCopiedPix(true);
+                                    window.setTimeout(() => setCopiedPix(false), 1800);
+                                }}
+                            >
+                                <FontAwesomeIcon icon={icons.faCopy} />
+                                {copiedPix ? "Código Pix copiado!" : "Copiar código Pix"}
+                            </Button>
+                            <p className="mt-2 text-center text-xs text-gray-400">
+                                O pagamento é confirmado automaticamente.
+                            </p>
                         </div>
                     )}
                 </section>
