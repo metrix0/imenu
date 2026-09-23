@@ -9,6 +9,7 @@ import { icons } from "@/lib/utils/fontawesome";
 import { faPix, faWhatsapp } from "@fortawesome/free-brands-svg-icons";
 import { faChair } from "@fortawesome/free-solid-svg-icons";
 import ListLoader from "@/components/ui/ListLoader";
+import Button from "@/components/ui/Button";
 import { formatPrice, promotionPrice } from "@/lib/utils/formatPrice";
 
 export default function PedidoPage({
@@ -315,48 +316,56 @@ export default function PedidoPage({
             </section>
 
             {paymentMethod === "pix" && status === "pending_online_payment" && (
-                <section className="bg-white rounded-xl p-5 pb-7 shadow space-y-3 mt-3 mb-3">
-                    <p className="font-semibold text-lg text-center">Pix</p>
-                    {order?.pix_qr_base64 && (
-                        <img
-                            className="w-[50vw] md:w-64 mx-auto"
-                            src={`data:image/png;base64,${order.pix_qr_base64}`}
-                            alt="QR Code Pix"
-                        />
-                    )}
+                <section className="bg-white rounded-xl p-5 pb-7 shadow space-y-4 mt-3 mb-3">
+                    <div className="text-center">
+                        <p className="font-semibold text-lg">Pague com Pix</p>
+                        <p className="mt-1 text-sm text-gray-500">
+                            Copie o código abaixo e pague pelo aplicativo do seu banco.
+                        </p>
+                    </div>
+
                     {order?.pix_copia_cola && (
-                        <div
-                            className="cursor-pointer"
-                            onClick={async () => {
-                                try {
-                                    await navigator.clipboard.writeText(order.pix_copia_cola);
-                                } catch {
-                                    const element = document.createElement("textarea");
-                                    element.value = order.pix_copia_cola;
-                                    document.body.appendChild(element);
-                                    element.select();
-                                    document.execCommand("copy");
-                                    document.body.removeChild(element);
-                                }
-                                setCopiedPix(true);
-                                window.setTimeout(() => setCopiedPix(false), 1200);
-                            }}
-                        >
-                            <p className="text-gray-500 text-sm mb-3 mt-4">
-                                Copia e cola <FontAwesomeIcon icon={icons.faCopy} />
-                            </p>
-                            <div className="relative">
-                                <textarea
-                                    className="w-full p-3 rounded text-sm border-gray-200 border overflow-hidden focus:outline-none focus:ring-0"
-                                    readOnly
-                                    value={order.pix_copia_cola}
-                                />
-                                {copiedPix && (
-                                    <div className="absolute inset-0 flex items-center justify-center rounded bg-black/10">
-                                        <span className="text-sm font-semibold text-gray-700 bg-white px-3 py-1 rounded">Copiado</span>
-                                    </div>
-                                )}
+                        <div className="space-y-3">
+                            <div className="rounded-lg bg-gray-50 p-4 text-sm text-gray-700">
+                                <p><strong>1.</strong> Toque em <strong>Copiar código Pix</strong>.</p>
+                                <p className="mt-2"><strong>2.</strong> Abra o aplicativo do seu banco e escolha <strong>Pix → Copia e Cola</strong>.</p>
+                                <p className="mt-2"><strong>3.</strong> Cole o código e confirme o pagamento.</p>
                             </div>
+
+                            <Button
+                                type="button"
+                                className="w-full min-h-12 text-base gap-2"
+                                onClick={async () => {
+                                    try {
+                                        await navigator.clipboard.writeText(order.pix_copia_cola);
+                                    } catch {
+                                        const element = document.createElement("textarea");
+                                        element.value = order.pix_copia_cola;
+                                        document.body.appendChild(element);
+                                        element.select();
+                                        document.execCommand("copy");
+                                        document.body.removeChild(element);
+                                    }
+                                    setCopiedPix(true);
+                                    window.setTimeout(() => setCopiedPix(false), 1800);
+                                }}
+                            >
+                                <FontAwesomeIcon icon={icons.faCopy} />
+                                {copiedPix ? "Código Pix copiado!" : "Copiar código Pix"}
+                            </Button>
+                        </div>
+                    )}
+
+                    {order?.pix_qr_base64 && (
+                        <div className="pt-1">
+                            <p className="mb-3 text-center text-sm text-gray-500">
+                                Ou escaneie o QR Code
+                            </p>
+                            <img
+                                className="w-[50vw] md:w-64 mx-auto"
+                                src={`data:image/png;base64,${order.pix_qr_base64}`}
+                                alt="QR Code Pix"
+                            />
                         </div>
                     )}
                 </section>
