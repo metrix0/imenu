@@ -30,6 +30,8 @@ type GrowthMetricsRow = {
     active_10_gmv_share_percent: number | string;
     activation_eligible_30d: number | string;
     activation_10_in_14d_30d: number | string;
+    activated_users_eligible_30d: number | string;
+    activated_users_10_in_14d_30d: number | string;
 };
 
 function getBearerToken(request: Request): string | null {
@@ -229,6 +231,49 @@ export async function GET(request: Request) {
                                   NOW() AT TIME ZONE 'America/Sao_Paulo'
                               )
                     GROUP BY r.id, r.created_at
+                ),
+                account_orders AS (
+                    SELECT
+                        COALESCE(r.user_id::text, o.restaurant_id::text) AS account_id,
+                        o.id,
+                        o.created_at,
+                        o.status
+                    FROM orders AS o
+                    LEFT JOIN restaurants AS r
+                        ON r.id = o.restaurant_id
+                    WHERE o.table_id IS NULL
+                ),
+                account_first_orders AS (
+                    SELECT
+                        account_id,
+                        MIN(created_at) AS first_order_at
+                    FROM account_orders
+                    GROUP BY account_id
+                ),
+                activated_user_cohort AS (
+                    SELECT
+                        first_orders.account_id,
+                        first_orders.first_order_at,
+                        COUNT(account_orders.id) FILTER (
+                            WHERE account_orders.created_at >= first_orders.first_order_at
+                              AND account_orders.created_at < first_orders.first_order_at + INTERVAL '14 days'
+                              AND account_orders.status IS DISTINCT FROM 'canceled'
+                              AND account_orders.status IS DISTINCT FROM 'pending_online_payment'
+                        )::int AS first_14d_orders
+                    FROM account_first_orders AS first_orders
+                    LEFT JOIN account_orders
+                        ON account_orders.account_id = first_orders.account_id
+                    WHERE (first_orders.first_order_at AT TIME ZONE 'America/Sao_Paulo') >=
+                              date_trunc(
+                                  'month',
+                                  NOW() AT TIME ZONE 'America/Sao_Paulo'
+                              ) - INTERVAL '1 month'
+                      AND (first_orders.first_order_at AT TIME ZONE 'America/Sao_Paulo') <
+                              date_trunc(
+                                  'month',
+                                  NOW() AT TIME ZONE 'America/Sao_Paulo'
+                              )
+                    GROUP BY first_orders.account_id, first_orders.first_order_at
                 )
                 SELECT
                     totals.selling_restaurants AS selling_restaurants_30d,
@@ -253,7 +298,14 @@ export async function GET(request: Request) {
                         SELECT COUNT(*)
                         FROM activation_cohort
                         WHERE first_14d_orders >= 10
-                    )::int AS activation_10_in_14d_30d
+                    )::int AS activation_10_in_14d_30d,
+                    (SELECT COUNT(*) FROM activated_user_cohort)::int
+                        AS activated_users_eligible_30d,
+                    (
+                        SELECT COUNT(*)
+                        FROM activated_user_cohort
+                        WHERE first_14d_orders >= 10
+                    )::int AS activated_users_10_in_14d_30d
                 FROM sales_30d AS sales
                 CROSS JOIN sales_totals AS totals
                 GROUP BY totals.selling_restaurants, totals.total_gmv_cents
@@ -292,6 +344,14 @@ export async function GET(request: Request) {
         const activation10In14d30d = Math.max(
             0,
             Number(growthMetrics?.activation_10_in_14d_30d) || 0
+        );
+        const activatedUsersEligible30d = Math.max(
+            0,
+            Number(growthMetrics?.activated_users_eligible_30d) || 0
+        );
+        const activatedUsers10In14d30d = Math.max(
+            0,
+            Number(growthMetrics?.activated_users_10_in_14d_30d) || 0
         );
         const restaurantsWithActiveCustomers = restaurants.filter(
             (restaurant) =>
@@ -344,6 +404,18 @@ export async function GET(request: Request) {
                                   (
                                       (activation10In14d30d /
                                           activationEligible30d) *
+                                      100
+                                  ).toFixed(1)
+                              )
+                            : 0,
+                    activatedUsersEligible30d,
+                    activatedUsers10In14d30d,
+                    activatedTo10In14dPercent30d:
+                        activatedUsersEligible30d > 0
+                            ? Number(
+                                  (
+                                      (activatedUsers10In14d30d /
+                                          activatedUsersEligible30d) *
                                       100
                                   ).toFixed(1)
                               )

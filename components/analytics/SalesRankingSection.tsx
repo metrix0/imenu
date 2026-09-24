@@ -20,6 +20,9 @@ type SalesRankingPayload = {
         activationEligible30d: number;
         activation10In14d30d: number;
         activationQualityPercent30d: number;
+        activatedUsersEligible30d: number;
+        activatedUsers10In14d30d: number;
+        activatedTo10In14dPercent30d: number;
     };
     restaurants: Array<{
         id: string;
@@ -174,6 +177,17 @@ export default function SalesRankingSection({ range }: { range: RangeKey }) {
                             )} de ${formatCount(
                                 data.summary.activationEligible30d
                             )} chegaram a 10 pedidos nos primeiros 14 dias`}
+                        />
+                        <SummaryCard
+                            label="Ativados → 10 pedidos (14d)"
+                            value={formatPercent(
+                                data.summary.activatedTo10In14dPercent30d
+                            )}
+                            note={`${formatCount(
+                                data.summary.activatedUsers10In14d30d
+                            )} de ${formatCount(
+                                data.summary.activatedUsersEligible30d
+                            )} usuários ativados chegaram a 10 pedidos nos primeiros 14 dias`}
                         />
                         <SummaryCard
                             label="Restaurantes com 10+ pedidos / 30d"
