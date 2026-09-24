@@ -28,6 +28,7 @@ import {
     faTimes,
     faTruck,
     faUtensils,
+    faWandMagicSparkles,
     type IconDefinition,
 } from "@fortawesome/free-solid-svg-icons";
 
@@ -371,6 +372,7 @@ export default function PainelLayout({
         { label: "Pedidos", icon: faHome, href: `${base}/` },
         { label: "Histórico", icon: faBox, href: `${base}/historico` },
         { label: "Cardápio", icon: faUtensils, href: cardapioHref },
+        { label: "IA Vendas", icon: faWandMagicSparkles, href: `${base}/ia-vendas` },
         { label: "Mesas", icon: faChair, href: `${base}/mesas` },
         {
             label: "Repasses",
