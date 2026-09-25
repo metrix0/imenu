@@ -8,6 +8,7 @@ import {
     extractWahaPhone,
     getWahaMessageMedia,
     getWahaQrCode,
+    getWahaRecentTextHistory,
     resolveWahaChatPhone,
     restartWahaSession,
     sendWahaText,
@@ -271,6 +272,7 @@ async function prepareConversation(input: {
     sessionName: string;
     chatId: string;
     customerName: string | null;
+    currentMessageId: string;
 }): Promise<ConversationRow> {
     return withAdvisoryLock("support:" + input.chatId, async () => {
         const resolvedPhone =
@@ -301,7 +303,37 @@ async function prepareConversation(input: {
                     restaurantId,
                 ]
             );
-            return inserted.rows[0];
+            const conversation = inserted.rows[0];
+
+            try {
+                const history = await getWahaRecentTextHistory(
+                    input.sessionName,
+                    input.chatId,
+                    input.currentMessageId,
+                    5
+                );
+
+                for (const message of history) {
+                    await query(
+                        "INSERT INTO support_messages (conversation_id, direction, body, provider_message_id, send_status, created_at) VALUES ($1, $2, $3, $4, $5, to_timestamp($6)) ON CONFLICT (provider_message_id) WHERE provider_message_id IS NOT NULL DO NOTHING",
+                        [
+                            conversation.id,
+                            message.fromMe ? "outbound" : "inbound",
+                            message.body,
+                            message.id,
+                            message.fromMe ? "sent" : "received",
+                            message.timestamp,
+                        ]
+                    );
+                }
+            } catch (error) {
+                console.warn(
+                    "[SUPPORT_WHATSAPP] history_backfill_failed:",
+                    error
+                );
+            }
+
+            return conversation;
         }
 
         const updated = await query<ConversationRow>(
@@ -555,6 +587,7 @@ export async function processSupportIncomingWhatsAppMessage(input: {
         sessionName: input.sessionName,
         chatId: input.chatId,
         customerName: input.customerName,
+        currentMessageId: input.messageId,
     });
     const originalBody = input.body.trim();
     let messageBody =

@@ -349,6 +349,8 @@ export default function DevSupportPage() {
         }
 
         const batchId = crypto.randomUUID();
+        const skippedErrors: string[] = [];
+        let sentCount = 0;
         bulkStopRef.current = false;
         setBulkSending(true);
         setBulkSent(0);
@@ -382,12 +384,20 @@ export default function DevSupportPage() {
                 };
 
                 if (!response.ok) {
-                    throw new Error(
-                        phone + ": " + (payload.error || "Falha ao enviar.")
-                    );
+                    const errorMessage =
+                        phone + ": " + (payload.error || "Falha ao enviar.");
+
+                    if (response.status === 404) {
+                        skippedErrors.push(errorMessage);
+                        setBulkStatus("Ignorado: " + errorMessage);
+                        continue;
+                    }
+
+                    throw new Error(errorMessage);
                 }
 
-                setBulkSent(index + 1);
+                sentCount += 1;
+                setBulkSent(sentCount);
 
                 if (index < recipients.length - 1 && !bulkStopRef.current) {
                     const delaySeconds =
@@ -400,7 +410,7 @@ export default function DevSupportPage() {
 
                     setBulkStatus(
                         "Enviado " +
-                            (index + 1) +
+                            sentCount +
                             " de " +
                             recipients.length +
                             ". Próximo envio em " +
@@ -420,10 +430,13 @@ export default function DevSupportPage() {
                 }
             }
 
+            const skippedSuffix = skippedErrors.length
+                ? " Erros: " + skippedErrors.join(" | ")
+                : "";
             setBulkStatus(
-                bulkStopRef.current
+                (bulkStopRef.current
                     ? "Envio interrompido."
-                    : "Envio concluído."
+                    : "Envio concluído.") + skippedSuffix
             );
         } catch (caught) {
             setBulkStatus(
