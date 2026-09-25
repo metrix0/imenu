@@ -212,6 +212,7 @@ async function getPayables(cutoffAt: Date): Promise<PayableRestaurant[]> {
         WITH last_payout AS (
             SELECT restaurant_id, MAX(created_at) AS last_created_at
             FROM public.payouts
+            WHERE status = 'paid'
             GROUP BY restaurant_id
         )
         SELECT
@@ -355,6 +356,37 @@ async function notifyReconciledUnsuccessfulRun(run: {
             error: error instanceof Error ? error.message : String(error),
         });
     }
+}
+
+export type FailedRecentPendingPayout = {
+    id: string;
+    restaurant_id: string;
+    restaurant_name: string;
+    amount_cents: number | string;
+    created_at: string | Date;
+};
+
+export async function failRecentPendingPayouts(): Promise<
+    FailedRecentPendingPayout[]
+> {
+    const { rows } = await query<FailedRecentPendingPayout>(
+        `
+        UPDATE public.payouts p
+        SET status = 'failed'
+        FROM public.restaurants r
+        WHERE p.restaurant_id = r.id
+          AND p.status = 'pending'
+          AND p.created_at >= NOW() - INTERVAL '3 days'
+        RETURNING
+            p.id,
+            p.restaurant_id,
+            COALESCE(r.name, 'Restaurante') AS restaurant_name,
+            p.amount_cents,
+            p.created_at
+        `
+    );
+
+    return rows;
 }
 
 export async function reconcileProcessingPayouts(): Promise<void> {

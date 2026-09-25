@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { query } from "@/lib/database/sql";
 import {
     createPayoutPlan,
+    failRecentPendingPayouts,
     getAsaasBalance,
     PayoutValidationError,
     reconcileProcessingPayouts,
@@ -196,9 +197,45 @@ export async function GET(request: Request) {
         });
     }
 
-    let currentStep: AutomationStep = "payzu";
+    let currentStep: AutomationStep = "preflight";
 
     try {
+        const failedPendingPayouts = await failRecentPendingPayouts();
+        if (failedPendingPayouts.length > 0) {
+            const totalCents = failedPendingPayouts.reduce(
+                (sum, payout) => sum + Number(payout.amount_cents || 0),
+                0
+            );
+            const details = failedPendingPayouts
+                .slice(0, 10)
+                .map(
+                    (payout) =>
+                        `${payout.restaurant_name}: R$ ${(
+                            Number(payout.amount_cents || 0) / 100
+                        ).toFixed(2)}`
+                )
+                .join(", ");
+            const remainingCount = Math.max(
+                0,
+                failedPendingPayouts.length - 10
+            );
+
+            await notifyPayoutAlarm({
+                runId,
+                runDate,
+                status: "failed",
+                step: currentStep,
+                message:
+                    `${failedPendingPayouts.length} repasse(s) pendente(s) dos últimos 3 dias foram movidos para failed. ` +
+                    `Total: R$ ${(totalCents / 100).toFixed(2)}. ` +
+                    details +
+                    (remainingCount > 0
+                        ? ` (+${remainingCount} outros)`
+                        : ""),
+            });
+        }
+
+        currentStep = "payzu";
         await reconcileProcessingPayouts();
 
         const payzuTransfer = await transferPayzuToAsaas(clientReference);
