@@ -683,7 +683,7 @@ export default function CartBar({
             <HybridModal
                 open={Boolean(orderWarning)}
                 onClose={() => setOrderWarning(null)}
-                height={0.32}
+                height={0.3}
                 className="md:!h-auto md:max-w-md"
             >
                 {orderWarningContent}
