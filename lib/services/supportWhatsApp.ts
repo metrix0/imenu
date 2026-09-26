@@ -94,6 +94,7 @@ function isRetryableSupportAiError(error: unknown): boolean {
             "ENOTFOUND",
             "UND_ERR_CONNECT_TIMEOUT",
             "UND_ERR_SOCKET",
+            "SUPPORT_AI_MAX_OUTPUT_TOKENS",
         ].includes(code)
     ) {
         return true;
