@@ -90,12 +90,8 @@ export async function GET(request: Request) {
                       `
                       SELECT
                           r.id AS restaurant_id,
-                          COALESCE(
-                              NULLIF(TRIM(u.raw_user_meta_data ->> 'phone'), ''),
-                              NULLIF(TRIM(u.phone), '')
-                          ) AS owner_phone
+                          NULLIF(TRIM(r.phone), '') AS owner_phone
                       FROM public.restaurants r
-                      LEFT JOIN auth.users u ON u.id = r.user_id
                       WHERE r.id = ANY($1::uuid[])
                       `,
                       [restaurantIds]
