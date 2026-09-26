@@ -848,7 +848,7 @@ export default function MenuClientPage({
                     }}
                     className="bg-white mx-5 md:mx-48 2xl:mx-80 px-5 py-4 2xl:py-7 rounded-3xl shadow-[0_2px_10px_rgba(0,0,0,0.08)] cursor-pointer"
                 >
-                    <div className="mt-8 flex items-center justify-between gap-4">
+                    <div className="mt-6 flex items-center justify-between gap-4">
                         <h1 className="text-[1.2rem] 2xl:text-2xl font-semibold md:max-w-[45%]">
                             {restaurant.name}
                         </h1>
@@ -1278,7 +1278,7 @@ export default function MenuClientPage({
                 xPadding={false}
                 className="md:!h-[76dvh] md:!max-w-xl 2xl:!max-w-2xl"
             >
-                <div className="px-5 pb-8 pt-2 md:px-6 2xl:px-8">
+                <div className="px-5 pb-8 pt-2 md:px-6 md:pt-6 2xl:px-8">
                     <div className="flex items-center gap-3 border-b border-gray-200 pb-4">
                         {restaurant.logo_url && (
                             <img
