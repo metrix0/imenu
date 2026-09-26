@@ -387,13 +387,9 @@ export default function DevSupportPage() {
                     const errorMessage =
                         phone + ": " + (payload.error || "Falha ao enviar.");
 
-                    if (response.status === 404) {
-                        skippedErrors.push(errorMessage);
-                        setBulkStatus("Ignorado: " + errorMessage);
-                        continue;
-                    }
-
-                    throw new Error(errorMessage);
+                    skippedErrors.push(errorMessage);
+                    setBulkStatus("Ignorado: " + errorMessage);
+                    continue;
                 }
 
                 sentCount += 1;
