@@ -373,11 +373,27 @@ export async function generateSupportReply(
                     require_approval: "never",
                 } as any,
             ],
-            max_output_tokens: 350,
+            max_output_tokens: 800,
             store: false,
         },
         { timeout: 45_000 }
     );
+
+    if (response.status !== "completed") {
+        const reason = response.incomplete_details?.reason;
+        const error = new Error(
+            `The support model returned status ${response.status}${reason ? ` (${reason})` : ""}.`
+        ) as Error & { code?: string };
+
+        if (
+            response.status === "incomplete" &&
+            reason === "max_output_tokens"
+        ) {
+            error.code = "SUPPORT_AI_MAX_OUTPUT_TOKENS";
+        }
+
+        throw error;
+    }
 
     const rawText = response.output_text?.trim();
     if (!rawText) {
