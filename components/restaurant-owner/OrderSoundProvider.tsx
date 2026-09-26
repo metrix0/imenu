@@ -193,6 +193,25 @@ export function OrderSoundProvider({ children }: { children: ReactNode }) {
         await playOrderDingleWithDuration(audio, orderDingleDuration);
     }, [orderDingleDuration]);
 
+    const playOrderDingleWithRetry = useCallback(async () => {
+        try {
+            await playOrderDingle();
+            return;
+        } catch (firstError) {
+            console.error("❌ audio play failed, retrying", firstError);
+        }
+
+        await new Promise((resolve) => window.setTimeout(resolve, 1000));
+
+        try {
+            await playOrderDingle();
+        } catch (retryError) {
+            soundEnabledRef.current = false;
+            setSoundEnabled(false);
+            throw retryError;
+        }
+    }, [playOrderDingle]);
+
     useEffect(() => {
         if (soundEnabled) return;
 
@@ -307,27 +326,25 @@ export function OrderSoundProvider({ children }: { children: ReactNode }) {
                             String(newOrder?.status),
                         );
 
-                        if (newId) {
+                        if (newId && shouldPlaySound) {
                             const alreadySeen =
                                 knownOrderIdsRef.current.has(newId);
 
-                            if (
-                                !alreadySeen &&
-                                shouldPlaySound &&
-                                soundEnabled &&
-                                audioRef.current
-                            ) {
-                                try {
-                                    await playOrderDingle();
-                                } catch (error) {
-                                    console.error(
-                                        "❌ audio play failed in realtime",
-                                        error,
-                                    );
+                            if (!alreadySeen) {
+                                if (soundEnabled && audioRef.current) {
+                                    try {
+                                        await playOrderDingleWithRetry();
+                                        knownOrderIdsRef.current.add(newId);
+                                    } catch (error) {
+                                        console.error(
+                                            "❌ audio play failed in realtime after retry",
+                                            error,
+                                        );
+                                    }
+                                } else {
+                                    knownOrderIdsRef.current.add(newId);
                                 }
                             }
-
-                            knownOrderIdsRef.current.add(newId);
                         }
                     } else if (payload.eventType === "UPDATE") {
                         const updated = payload.new as {
@@ -341,24 +358,20 @@ export function OrderSoundProvider({ children }: { children: ReactNode }) {
                         const alreadySeen =
                             knownOrderIdsRef.current.has(id);
 
-                        if (
-                            isRelevant &&
-                            !alreadySeen &&
-                            soundEnabled &&
-                            audioRef.current
-                        ) {
-                            try {
-                                await playOrderDingle();
-                            } catch (error) {
-                                console.error(
-                                    "❌ audio play failed on update",
-                                    error,
-                                );
+                        if (isRelevant && !alreadySeen) {
+                            if (soundEnabled && audioRef.current) {
+                                try {
+                                    await playOrderDingleWithRetry();
+                                    knownOrderIdsRef.current.add(id);
+                                } catch (error) {
+                                    console.error(
+                                        "❌ audio play failed on update after retry",
+                                        error,
+                                    );
+                                }
+                            } else if (id) {
+                                knownOrderIdsRef.current.add(id);
                             }
-                        }
-
-                        if (id) {
-                            knownOrderIdsRef.current.add(id);
                         }
                     }
 
@@ -370,7 +383,7 @@ export function OrderSoundProvider({ children }: { children: ReactNode }) {
         return () => {
             void supabase.removeChannel(channel);
         };
-    }, [playOrderDingle, restaurantId, soundEnabled]);
+    }, [playOrderDingleWithRetry, restaurantId, soundEnabled]);
 
     return (
         <OrderSoundContext.Provider value={{ soundEnabled, enableSound }}>

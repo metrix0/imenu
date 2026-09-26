@@ -43,6 +43,12 @@ export default function CartBar({
     const setStep = useCheckoutStore((s) => s.setStep);
     const setShowAddressWarning = useCheckoutStore(s => s.setShowAddressWarning);
     const [cartWarningVisible, setCartWarningVisible] = useState(false);
+    const [orderWarning, setOrderWarning] = useState<{
+        message: string;
+        itemName?: string;
+        availableStock?: number;
+        requestedQuantity?: number;
+    } | null>(null);
 
     const checkoutState = useCheckoutStore((s) => s);
     const isTableOrder = Boolean(tableOrder);
@@ -314,12 +320,7 @@ export default function CartBar({
         const whatsappRedirectStorageKey = whatsappRedirectKey
             ? `imenu-whatsapp-redirect:${whatsappRedirectKey}`
             : null;
-        const whatsappWindow = whatsappRedirectKey
-            ? window.open(
-                `/whatsapp-redirect?key=${encodeURIComponent(whatsappRedirectKey)}`,
-                "_blank"
-            )
-            : null;
+        let whatsappWindow: Window | null = null;
 
         const notifyWhatsappWindow = (value: string) => {
             if (whatsappRedirectStorageKey) {
@@ -422,6 +423,40 @@ export default function CartBar({
             total_cents,
         };
 
+        if (shouldOpenWhatsappHandoff) {
+            const stockResponse = await fetch("/api/orders?stock_check=1", {
+                method: "POST",
+                body: JSON.stringify(body),
+                headers: { "Content-Type": "application/json" },
+            });
+            const stockData = await stockResponse.json();
+
+            if (!stockResponse.ok) {
+                setOrderWarning({
+                    message:
+                        stockData?.error ||
+                        "Não foi possível confirmar o pedido. Tente novamente.",
+                    itemName: stockData?.item_name || undefined,
+                    availableStock:
+                        typeof stockData?.available_stock === "number"
+                            ? stockData.available_stock
+                            : undefined,
+                    requestedQuantity:
+                        typeof stockData?.requested_quantity === "number"
+                            ? stockData.requested_quantity
+                            : undefined,
+                });
+                return;
+            }
+
+            if (whatsappRedirectKey) {
+                whatsappWindow = window.open(
+                    `/whatsapp-redirect?key=${encodeURIComponent(whatsappRedirectKey)}`,
+                    "_blank"
+                );
+            }
+        }
+
         const res = await fetch("/api/orders", {
             method: "POST",
             body: JSON.stringify(body),
@@ -433,7 +468,20 @@ export default function CartBar({
         if (!res.ok) {
             closeWhatsappWindow();
             if (res.status === 409) router.refresh();
-            window.alert(data?.error || "Não foi possível criar o pedido. Tente novamente.");
+            setOrderWarning({
+                message:
+                    data?.error ||
+                    "Não foi possível criar o pedido. Tente novamente.",
+                itemName: data?.item_name || undefined,
+                availableStock:
+                    typeof data?.available_stock === "number"
+                        ? data.available_stock
+                        : undefined,
+                requestedQuantity:
+                    typeof data?.requested_quantity === "number"
+                        ? data.requested_quantity
+                        : undefined,
+            });
             return;
         }
 
@@ -515,6 +563,36 @@ export default function CartBar({
     }
 
     const displayTotalCents = total + (delivery_fee_cents || 0);
+
+    const orderWarningContent = orderWarning ? (
+        <div className="p-6 text-center md:p-8">
+            <div className="text-text mb-2 mt-2 text-md font-medium">
+                Não foi possível confirmar o pedido
+            </div>
+            <p className="text-sm text-gray-500">
+                {orderWarning.message}
+            </p>
+            {typeof orderWarning.availableStock === "number" && (
+                <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700">
+                    <div>
+                        Estoque disponível: <b>{orderWarning.availableStock}</b>
+                    </div>
+                    {typeof orderWarning.requestedQuantity === "number" && (
+                        <div className="mt-1">
+                            Quantidade no pedido: <b>{orderWarning.requestedQuantity}</b>
+                        </div>
+                    )}
+                </div>
+            )}
+            <Button
+                variant="primary"
+                className="mt-5 w-full py-3 text-sm"
+                onClick={() => setOrderWarning(null)}
+            >
+                Revisar pedido
+            </Button>
+        </div>
+    ) : null;
 
     const minimumOrderContent = (
         <div className="p-6 text-center md:p-8">
@@ -601,6 +679,15 @@ export default function CartBar({
                     {minimumOrderContent}
                 </HybridModal>
             )}
+
+            <HybridModal
+                open={Boolean(orderWarning)}
+                onClose={() => setOrderWarning(null)}
+                height={0.3}
+                className="md:!h-auto md:max-w-md"
+            >
+                {orderWarningContent}
+            </HybridModal>
         </>
     );
 }

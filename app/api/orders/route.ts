@@ -16,11 +16,17 @@ export const dynamic = "force-dynamic";
 
 class OrderRequestError extends Error {
     status: number;
+    details?: Record<string, unknown>;
 
-    constructor(message: string, status = 400) {
+    constructor(
+        message: string,
+        status = 400,
+        details?: Record<string, unknown>
+    ) {
         super(message);
         this.name = "OrderRequestError";
         this.status = status;
+        this.details = details;
     }
 }
 
@@ -235,6 +241,9 @@ export async function POST(request: Request) {
     }
 
     try {
+        const stockCheckOnly =
+            new URL(request.url).searchParams.get("stock_check") === "1";
+
         const {
             restaurantId,
             customer_name,
@@ -275,6 +284,96 @@ export async function POST(request: Request) {
 
         if (isTableOrder && !String(customer_name || "").trim()) {
             throw new OrderRequestError("Informe seu nome.");
+        }
+
+        if (stockCheckOnly) {
+            const requestedQuantities = new Map<string, number>();
+
+            for (const cartItem of items) {
+                const requestedQuantity = Number(cartItem?.qty);
+
+                if (
+                    !Number.isInteger(requestedQuantity) ||
+                    requestedQuantity <= 0
+                ) {
+                    throw new OrderRequestError(
+                        `Quantidade inválida para ${
+                            cartItem?.name || "um item"
+                        }.`
+                    );
+                }
+
+                for (const stockItemId of pizzaStockItemIds(cartItem)) {
+                    if (!stockItemId) {
+                        throw new OrderRequestError(
+                            "Um item do pedido não foi identificado."
+                        );
+                    }
+
+                    requestedQuantities.set(
+                        stockItemId,
+                        (requestedQuantities.get(stockItemId) || 0) +
+                            requestedQuantity
+                    );
+                }
+            }
+
+            for (const [itemId, requestedQuantity] of requestedQuantities) {
+                const itemResult = await query(
+                    `
+                        SELECT
+                            id,
+                            restaurant_id,
+                            name,
+                            stock_enabled,
+                            stock_quantity,
+                            is_available
+                        FROM items
+                        WHERE id = $1
+                        LIMIT 1
+                    `,
+                    [itemId]
+                );
+                const databaseItem = itemResult.rows[0];
+
+                if (
+                    !databaseItem ||
+                    String(databaseItem.restaurant_id) !==
+                        String(restaurantId)
+                ) {
+                    throw new OrderRequestError(
+                        "Um item não pertence a este restaurante."
+                    );
+                }
+
+                const availableStock =
+                    Number(databaseItem.stock_quantity) || 0;
+
+                if (
+                    databaseItem.stock_enabled === true &&
+                    availableStock < requestedQuantity
+                ) {
+                    throw new OrderRequestError(
+                        `Estoque insuficiente para ${databaseItem.name}.`,
+                        409,
+                        {
+                            code: "INSUFFICIENT_STOCK",
+                            item_name: databaseItem.name,
+                            available_stock: availableStock,
+                            requested_quantity: requestedQuantity,
+                        }
+                    );
+                }
+
+                if (databaseItem.is_available === false) {
+                    throw new OrderRequestError(
+                        `${databaseItem.name} não está disponível.`,
+                        409
+                    );
+                }
+            }
+
+            return NextResponse.json({ ok: true });
         }
 
         const uuidPattern =
@@ -661,27 +760,35 @@ export async function POST(request: Request) {
                             );
                         }
 
+                        const availableStock =
+                            Number(
+                                databaseItem.stock_quantity
+                            ) || 0;
+
+                        if (
+                            databaseItem.stock_enabled ===
+                                true &&
+                            availableStock <
+                                requestedQuantity
+                        ) {
+                            throw new OrderRequestError(
+                                `Estoque insuficiente para ${databaseItem.name}.`,
+                                409,
+                                {
+                                    code: "INSUFFICIENT_STOCK",
+                                    item_name: databaseItem.name,
+                                    available_stock: availableStock,
+                                    requested_quantity: requestedQuantity,
+                                }
+                            );
+                        }
+
                         if (
                             databaseItem.is_available ===
                             false
                         ) {
                             throw new OrderRequestError(
                                 `${databaseItem.name} não está disponível.`
-                            );
-                        }
-
-                        if (
-                            databaseItem.stock_enabled ===
-                                true &&
-                            Number(
-                                databaseItem.stock_quantity
-                            ) <
-                                requestedQuantity
-                        ) {
-                            throw new OrderRequestError(
-                                `Estoque insuficiente para ${databaseItem.name}. Disponível: ${Number(
-                                    databaseItem.stock_quantity
-                                ) || 0}.`
                             );
                         }
 
@@ -1108,7 +1215,10 @@ export async function POST(request: Request) {
         }
         if (error instanceof OrderRequestError) {
             return NextResponse.json(
-                { error: error.message },
+                {
+                    error: error.message,
+                    ...(error.details || {}),
+                },
                 { status: error.status }
             );
         }
