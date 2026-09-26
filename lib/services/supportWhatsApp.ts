@@ -94,6 +94,7 @@ function isRetryableSupportAiError(error: unknown): boolean {
             "ENOTFOUND",
             "UND_ERR_CONNECT_TIMEOUT",
             "UND_ERR_SOCKET",
+            "SUPPORT_AI_MAX_OUTPUT_TOKENS",
         ].includes(code)
     ) {
         return true;
@@ -152,18 +153,58 @@ export async function releaseExpiredSupportHandoffs(
 }
 
 function phoneCandidates(value: string | null): string[] {
-    const digits = String(value || "").replace(/\D/g, "");
+    let digits = String(value || "").replace(/\D/g, "");
     if (!digits) return [];
 
-    const values = new Set<string>([digits]);
+    if (digits.startsWith("0055")) digits = digits.slice(2);
+    if (digits.startsWith("055") && digits.length >= 13) {
+        digits = digits.slice(1);
+    }
+    if (
+        digits.startsWith("0") &&
+        (digits.length === 11 || digits.length === 12)
+    ) {
+        digits = digits.slice(1);
+    }
+
+    const values = new Set<string>();
+    const addNational = (national: string) => {
+        if (national.length !== 10 && national.length !== 11) return;
+        values.add(national);
+        values.add("55" + national);
+    };
+
     if (
         digits.startsWith("55") &&
         (digits.length === 12 || digits.length === 13)
     ) {
-        values.add(digits.slice(2));
+        addNational(digits.slice(2));
     } else if (digits.length === 10 || digits.length === 11) {
-        values.add("55" + digits);
+        addNational(digits);
+    } else {
+        values.add(digits);
     }
+
+    const nationalValues = [...values]
+        .map((candidate) =>
+            candidate.startsWith("55") &&
+            (candidate.length === 12 || candidate.length === 13)
+                ? candidate.slice(2)
+                : candidate
+        )
+        .filter((candidate) => candidate.length === 10 || candidate.length === 11);
+
+    for (const national of nationalValues) {
+        if (national.length === 11 && national[2] === "9") {
+            addNational(national.slice(0, 2) + national.slice(3));
+        } else if (
+            national.length === 10 &&
+            /^[6-9]$/.test(national[2] || "")
+        ) {
+            addNational(national.slice(0, 2) + "9" + national.slice(2));
+        }
+    }
+
     return [...values];
 }
 
@@ -174,7 +215,15 @@ async function findSingleRestaurantId(
     if (!candidates.length) return null;
 
     const result = await query<{ id: string }>(
-        "SELECT DISTINCT id FROM restaurants WHERE regexp_replace(COALESCE(phone, ''), '[^0-9]', '', 'g') = ANY($1::text[]) OR regexp_replace(COALESCE(store_whatsapp, ''), '[^0-9]', '', 'g') = ANY($1::text[]) LIMIT 2",
+        `
+            SELECT DISTINCT r.id
+            FROM restaurants r
+            LEFT JOIN auth.users u ON u.id = r.user_id
+            WHERE regexp_replace(COALESCE(r.phone, ''), '[^0-9]', '', 'g') = ANY($1::text[])
+               OR regexp_replace(COALESCE(r.store_whatsapp, ''), '[^0-9]', '', 'g') = ANY($1::text[])
+               OR regexp_replace(COALESCE(u.raw_user_meta_data->>'phone', ''), '[^0-9]', '', 'g') = ANY($1::text[])
+            LIMIT 2
+        `,
         [candidates]
     );
 

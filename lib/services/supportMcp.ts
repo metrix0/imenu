@@ -67,20 +67,23 @@ export const SUPPORT_MCP_TOOLS: SupportMcpToolDefinition[] = [
     {
         name: "list_my_restaurants",
         description:
-            "List iMenu restaurants associated with the WhatsApp number in this support conversation.",
+            "List iMenu restaurants matching this support conversation. By default uses the WhatsApp number; when the customer provides another phone, email, restaurant name or slug, pass it as identifier.",
         inputSchema: {
             type: "object",
-            properties: {},
+            properties: { identifier: { type: "string" } },
             additionalProperties: false,
         },
     },
     {
         name: "select_restaurant",
         description:
-            "Select one restaurant for this support conversation. The restaurant must belong to the WhatsApp number already associated with the conversation.",
+            "Select one restaurant for this support conversation. If the restaurant was identified from an alternate phone, email, name or slug, pass that same value as identifier.",
         inputSchema: {
             type: "object",
-            properties: { restaurant_id: { type: "string" } },
+            properties: {
+                restaurant_id: { type: "string" },
+                identifier: { type: "string" },
+            },
             required: ["restaurant_id"],
             additionalProperties: false,
         },
@@ -203,18 +206,58 @@ function explicitlyRequestsHuman(value: unknown): boolean {
 }
 
 function phoneCandidates(value: string | null): string[] {
-    const digits = String(value || "").replace(/\D/g, "");
+    let digits = String(value || "").replace(/\D/g, "");
     if (!digits) return [];
 
-    const values = new Set<string>([digits]);
+    if (digits.startsWith("0055")) digits = digits.slice(2);
+    if (digits.startsWith("055") && digits.length >= 13) {
+        digits = digits.slice(1);
+    }
+    if (
+        digits.startsWith("0") &&
+        (digits.length === 11 || digits.length === 12)
+    ) {
+        digits = digits.slice(1);
+    }
+
+    const values = new Set<string>();
+    const addNational = (national: string) => {
+        if (national.length !== 10 && national.length !== 11) return;
+        values.add(national);
+        values.add("55" + national);
+    };
+
     if (
         digits.startsWith("55") &&
         (digits.length === 12 || digits.length === 13)
     ) {
-        values.add(digits.slice(2));
+        addNational(digits.slice(2));
     } else if (digits.length === 10 || digits.length === 11) {
-        values.add("55" + digits);
+        addNational(digits);
+    } else {
+        values.add(digits);
     }
+
+    const nationalValues = [...values]
+        .map((candidate) =>
+            candidate.startsWith("55") &&
+            (candidate.length === 12 || candidate.length === 13)
+                ? candidate.slice(2)
+                : candidate
+        )
+        .filter((candidate) => candidate.length === 10 || candidate.length === 11);
+
+    for (const national of nationalValues) {
+        if (national.length === 11 && national[2] === "9") {
+            addNational(national.slice(0, 2) + national.slice(3));
+        } else if (
+            national.length === 10 &&
+            /^[6-9]$/.test(national[2] || "")
+        ) {
+            addNational(national.slice(0, 2) + "9" + national.slice(2));
+        }
+    }
+
     return [...values];
 }
 
@@ -231,7 +274,48 @@ async function getConversation(
     return conversation;
 }
 
-async function getPhoneRestaurants(phone: string | null) {
+async function getRestaurantMatches(
+    phone: string | null,
+    identifier?: string
+) {
+    const lookup = String(identifier || "").trim();
+
+    if (lookup) {
+        const lookupDigits = lookup.replace(/\D/g, "");
+        const lookupPhones =
+            lookupDigits.length >= 8 ? phoneCandidates(lookup) : [];
+        const result = await query<{
+            id: string;
+            name: string | null;
+            url_slug: string | null;
+        }>(
+            `
+                SELECT r.id, r.name, r.url_slug
+                FROM restaurants r
+                LEFT JOIN auth.users u ON u.id = r.user_id
+                WHERE LOWER(COALESCE(u.email, '')) = LOWER($1)
+                   OR LOWER(COALESCE(r.url_slug, '')) = LOWER($1)
+                   OR r.name ILIKE $2
+                   OR regexp_replace(COALESCE(r.phone, ''), '[^0-9]', '', 'g') = ANY($3::text[])
+                   OR regexp_replace(COALESCE(r.store_whatsapp, ''), '[^0-9]', '', 'g') = ANY($3::text[])
+                   OR regexp_replace(COALESCE(u.raw_user_meta_data->>'phone', ''), '[^0-9]', '', 'g') = ANY($3::text[])
+                ORDER BY
+                    CASE
+                        WHEN LOWER(COALESCE(u.email, '')) = LOWER($1) THEN 0
+                        WHEN LOWER(COALESCE(r.url_slug, '')) = LOWER($1) THEN 1
+                        WHEN LOWER(COALESCE(r.name, '')) = LOWER($1) THEN 2
+                        ELSE 3
+                    END,
+                    r.name ASC NULLS LAST,
+                    r.created_at ASC
+                LIMIT 20
+            `,
+            [lookup, "%" + lookup + "%", lookupPhones]
+        );
+
+        return result.rows;
+    }
+
     const candidates = phoneCandidates(phone);
     if (!candidates.length) return [];
 
@@ -240,7 +324,16 @@ async function getPhoneRestaurants(phone: string | null) {
         name: string | null;
         url_slug: string | null;
     }>(
-        "SELECT id, name, url_slug FROM restaurants WHERE regexp_replace(COALESCE(phone, ''), '[^0-9]', '', 'g') = ANY($1::text[]) OR regexp_replace(COALESCE(store_whatsapp, ''), '[^0-9]', '', 'g') = ANY($1::text[]) ORDER BY name ASC NULLS LAST, created_at ASC LIMIT 20",
+        `
+            SELECT r.id, r.name, r.url_slug
+            FROM restaurants r
+            LEFT JOIN auth.users u ON u.id = r.user_id
+            WHERE regexp_replace(COALESCE(r.phone, ''), '[^0-9]', '', 'g') = ANY($1::text[])
+               OR regexp_replace(COALESCE(r.store_whatsapp, ''), '[^0-9]', '', 'g') = ANY($1::text[])
+               OR regexp_replace(COALESCE(u.raw_user_meta_data->>'phone', ''), '[^0-9]', '', 'g') = ANY($1::text[])
+            ORDER BY r.name ASC NULLS LAST, r.created_at ASC
+            LIMIT 20
+        `,
         [candidates]
     );
 
@@ -506,19 +599,43 @@ export async function executeSupportMcpTool(
     }
 
     if (name === "list_my_restaurants") {
+        const identifier = String(args.identifier || "").trim();
+        const restaurants = await getRestaurantMatches(
+            conversation.phone,
+            identifier
+        );
+        let selectedRestaurantId = conversation.restaurant_id;
+
+        if (
+            restaurants.length === 1 &&
+            (!selectedRestaurantId || identifier)
+        ) {
+            selectedRestaurantId = restaurants[0].id;
+            if (selectedRestaurantId !== conversation.restaurant_id) {
+                await query(
+                    "UPDATE support_conversations SET restaurant_id = $2, updated_at = NOW() WHERE id = $1",
+                    [conversationId, selectedRestaurantId]
+                );
+            }
+        }
+
         return {
-            restaurants: await getPhoneRestaurants(conversation.phone),
-            selected_restaurant_id: conversation.restaurant_id,
+            restaurants,
+            selected_restaurant_id: selectedRestaurantId,
         };
     }
 
     if (name === "select_restaurant") {
         const restaurantId = String(args.restaurant_id || "");
-        const available = await getPhoneRestaurants(conversation.phone);
+        const identifier = String(args.identifier || "").trim();
+        const available = await getRestaurantMatches(
+            conversation.phone,
+            identifier
+        );
         if (!available.some((restaurant) => restaurant.id === restaurantId)) {
             return {
                 error:
-                    "This restaurant is not associated with the WhatsApp number in this conversation.",
+                    "This restaurant does not match the WhatsApp number or supplied identifier.",
             };
         }
 
