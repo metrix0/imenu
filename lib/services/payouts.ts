@@ -212,7 +212,6 @@ async function getPayables(cutoffAt: Date): Promise<PayableRestaurant[]> {
         WITH last_payout AS (
             SELECT restaurant_id, MAX(created_at) AS last_created_at
             FROM public.payouts
-            WHERE status = 'paid'
             GROUP BY restaurant_id
         )
         SELECT
