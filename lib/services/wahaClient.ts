@@ -33,6 +33,11 @@ type WahaLidResponse = {
     pn?: string | null;
 };
 
+type WahaContactExistsResponse = {
+    numberExists?: boolean;
+    chatId?: string | null;
+};
+
 type WahaMessageMedia = {
     url?: string | null;
     mimetype?: string | null;
@@ -76,6 +81,13 @@ class WahaHttpError extends Error {
         this.status = status;
         this.responseBody = responseBody;
     }
+}
+
+export function isWahaHttpErrorStatus(
+    error: unknown,
+    status: number
+): boolean {
+    return error instanceof WahaHttpError && error.status === status;
 }
 
 function getRequiredEnv(name: string): string {
@@ -470,6 +482,27 @@ export async function getWahaMessageMedia(
             .toLowerCase() || inferWahaMediaMimeType(filename);
 
     return { data, mimetype, filename };
+}
+
+export async function checkWahaPhoneExists(
+    sessionName: string,
+    phone: string
+): Promise<{ numberExists: boolean; chatId: string | null }> {
+    const result = await wahaRequest<WahaContactExistsResponse>(
+        `/api/contacts/check-exists?phone=${encodeURIComponent(
+            phone
+        )}&session=${encodeURIComponent(sessionName)}`,
+        {},
+        WAHA_SEND_TIMEOUT_MS
+    );
+
+    return {
+        numberExists: result?.numberExists === true,
+        chatId:
+            typeof result?.chatId === "string" && result.chatId.trim()
+                ? result.chatId.trim()
+                : null,
+    };
 }
 
 export async function sendWahaText(
