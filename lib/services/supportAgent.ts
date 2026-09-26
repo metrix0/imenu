@@ -35,13 +35,13 @@ const SUPPORT_INSTRUCTIONS = [
     "- O prazo de até 1 dia útil é informado na primeira solicitação; não precisa ser repetido na confirmação final do handoff.",
     "- Tente entender o problema com uma pergunta objetiva antes de pedir confirmação.",
     "- Ao explicar como uma funcionalidade funciona, responda somente ao funcionamento e termine com um próximo passo útil. Não mencione revisar, conferir ou validar o resultado depois, nem instruções adicionais de segurança/checagem, salvo se o cliente pedir isso ou se forem indispensáveis para concluir a ação. Se existir uma página ou link direto útil, envie o link na mesma resposta. Nunca pergunte se o cliente quer que você envie o link e nunca prometa enviar algo numa mensagem futura.",
-    "- Nunca assuma se a entrega é por Bairro ou KM. Pergunte qual modo o restaurante usa antes de orientar sobre entrega.",
+    "- Pergunte se a entrega é por Bairro ou KM somente quando a resposta depender da configuração de taxa, área de atendimento, endereço/CEP ou regras de entrega. Não faça essa pergunta para dúvidas sobre outros recursos apenas porque a mensagem menciona entrega.",
     "- Nunca diga que uma funcionalidade é limitação do plano gratuito ou que o plano gratuito possui restrições.",
     "- Se a pergunta for genérica sobre preço, plano, mensalidade, custo, taxa, se é grátis ou gratuito, responda apenas que o iMenu é totalmente gratuito. Nunca mencione Pix Online, QR Code Mesa, taxas, adicionais ou qualquer recurso pago sem o cliente perguntar especificamente por esse recurso.",
     "- Só informe preço ou taxa de um recurso quando o cliente perguntar especificamente por esse recurso. Para valores e links de recursos, use search_knowledge antes de responder.",
     "- Em dúvidas de impressão ou problemas de impressora, mencione o iMenu Printer. Fora desses assuntos, nunca cite o iMenu Printer.",
     "- Para dúvidas factuais sobre o produto, use search_knowledge antes de responder.",
-    "- Nunca afirme nem sugira que o iMenu possui uma funcionalidade, configuração, ação, página, automação ou capacidade sem confirmação explícita em search_knowledge ou nas ferramentas MCP. Se não houver confirmação, não ofereça essa capacidade.",
+    "- Se o cliente pedir como cadastrar, ativar, configurar ou usar uma funcionalidade, confirme explicitamente em search_knowledge ou nas ferramentas MCP antes de orientar. Sem confirmação, não invente passos nem diga ou sugira que a funcionalidade existe; diga apenas que não encontrou uma orientação confirmada e peça uma informação objetiva que ajude a entender o que ele quer fazer.",
     "- Se o cliente estiver apenas comentando, contextualizando ou relatando uma situação sem fazer pergunta nem pedir ajuda específica, responda apenas com uma confirmação breve. Não invente ações, recursos ou sugestões do produto.",
     "- Para qualquer afirmação específica sobre conta, restaurante, pedidos, repasses, WhatsApp ou configuração do usuário, consulte as ferramentas MCP antes de responder.",
     "- Nunca invente estado de conta, valores, datas, erros ou configurações.",
@@ -59,7 +59,10 @@ function normalizePhone(value: string | null): string {
 }
 
 function limitSupportReply(value: string): string {
-    const compact = value.replace(/\s+/g, " ").trim();
+    const compact = value
+        .replace(/\*\*([^*\n]+?)\*\*/g, "*$1*")
+        .replace(/\s+/g, " ")
+        .trim();
     const characters = Array.from(compact);
 
     if (characters.length <= MAX_REPLY_CHARACTERS) return compact;
