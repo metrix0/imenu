@@ -27,7 +27,9 @@ const MAX_REPLY_CHARACTERS = 800;
 const FIRST_HUMAN_REQUEST_MESSAGE =
     "O suporte técnico especial pode levar até 1 dia útil. Gostaria de continuar?";
 const HANDOFF_CONFIRMED_MESSAGE =
-    "A equipe de suporte já tem acesso à esta conversa e entrará em contato em breve neste chat. Para agilizarmos o atendimento, qual sua dúvida?";
+    "A equipe de suporte já tem acesso ao histórico da conversa e entrará em contato em breve por aqui.";
+const HANDOFF_QUESTION_MESSAGE =
+    HANDOFF_CONFIRMED_MESSAGE + " Para agilizarmos o atendimento, qual sua dúvida?";
 
 const SUPPORT_INSTRUCTIONS = [
     "Você é o suporte oficial do iMenu para donos e equipes de restaurantes.",
@@ -93,6 +95,48 @@ function limitSupportReply(value: string): string {
 
     // A very long single sentence is safer left intact than cut mid-sentence.
     return compact;
+}
+
+function hasClearRecentSupportQuestion(history: SupportMessage[]): boolean {
+    return history
+        .filter((message) => message.direction === "inbound")
+        .slice(-6)
+        .some((message) => {
+            const normalized = message.body
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "")
+                .toLowerCase()
+                .replace(/[^a-z0-9?\s]/g, " ")
+                .replace(/\s+/g, " ")
+                .trim();
+
+            const remaining = normalized
+                .replace(
+                    /\b(oi|ola|bom|dia|boa|tarde|noite|sim|ok|okay|certo|pode|quero|gostaria|preciso|falar|conversar|com|suporte|atendimento|humano|humana|atendente|pessoa|alguem|especial|ajuda|ajudar|por|favor|pfv|de|do|da|o|a|um|uma)\b/g,
+                    " "
+                )
+                .replace(/\s+/g, " ")
+                .trim();
+
+            if (!remaining) return false;
+            if (message.body.includes("?")) return true;
+            if (
+                /\b(como|onde|quando|qual|quais|quanto|quantos|quantas)\b/.test(
+                    normalized
+                ) ||
+                /\bpor que\b/.test(normalized) ||
+                /\b(erro|problema|falha|sumiu|parou|quero saber)\b/.test(
+                    normalized
+                ) ||
+                /\bnao (consigo|funciona|aparece|recebo|chegou|abre|carrega)\b/.test(
+                    normalized
+                )
+            ) {
+                return true;
+            }
+
+            return remaining.split(" ").filter(Boolean).length >= 3;
+        });
 }
 
 function getSupportMcpBaseUrl(): string {
@@ -454,7 +498,9 @@ export async function generateSupportReply(
 
     const text =
         handoffState === "handed_off"
-            ? HANDOFF_CONFIRMED_MESSAGE
+            ? hasClearRecentSupportQuestion(history.rows)
+                ? HANDOFF_CONFIRMED_MESSAGE
+                : HANDOFF_QUESTION_MESSAGE
             : handoffState === "prompted"
               ? FIRST_HUMAN_REQUEST_MESSAGE
               : limitSupportReply(rawText);
