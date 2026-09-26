@@ -55,12 +55,10 @@ function normalize(value: unknown): string {
         .trim();
 }
 
-const BLOCKED_HANDOFF_PHONE = "5511913519119";
 const SUPPORT_AI_RETRY_DELAYS_MS = [500, 1_500] as const;
-const FIRST_HUMAN_REQUEST_MESSAGE =
-    "O suporte técnico especial pode levar até 1 dia útil. Mas posso te ajudar por enquanto, qual sua dúvida?";
-const HANDOFF_CONFIRMED_MESSAGE =
-    "A equipe de suporte já tem acesso à esta conversa e entrará em contato em breve neste chat. Para agilizarmos o atendimento, qual sua dúvida?";
+const SUPPORT_REPLY_DEBOUNCE_MS = 1_500;
+const KNOWN_INFRASTRUCTURE_QUOTA_MESSAGE =
+    "Esse erro é uma indisponibilidade técnica do iMenu por limite do serviço. Não é problema da sua senha ou cadastro; o iMenu precisa restabelecê-lo.";
 const GENERIC_FREE_MESSAGE = "O iMenu é totalmente gratuito.";
 const QR_CODE_MESA_MESSAGE =
     "O iMenu QR Code Mesa custa R$ 5,00/mês, sem limites. Ative em https://imenuapp.com.br/painel/mesas";
@@ -398,32 +396,6 @@ async function prepareConversation(input: {
     });
 }
 
-function wantsHuman(body: string): boolean {
-    const value = normalize(body);
-    if (
-        value.includes("nao quero atendente") ||
-        value.includes("nao quero humano")
-    ) {
-        return false;
-    }
-
-    return [
-        "falar com atendente",
-        "quero falar com atendente",
-        "falar com uma pessoa",
-        "quero falar com uma pessoa",
-        "atendimento humano",
-        "suporte humano",
-        "falar com humano",
-        "quero um atendente",
-        "quero atendente",
-        "preciso de atendente",
-        "preciso falar com atendente",
-        "atendente por favor",
-        "chamar atendente",
-    ].some((phrase) => value.includes(phrase));
-}
-
 function isQrCodeMesaQuestion(body: string): boolean {
     const value = normalize(body);
     const mentionsQrCodeMesa =
@@ -485,6 +457,32 @@ function isInitialHelpGreeting(body: string): boolean {
     return normalize(body) === "ola preciso de ajuda com o imenu";
 }
 
+function isKnownInfrastructureQuotaError(body: string): boolean {
+    const raw = body.toLowerCase();
+    const value = normalize(body);
+
+    return (
+        raw.includes("exceed_cached_egress_quota") ||
+        value.includes("exceed cached egress quota") ||
+        value.includes("exceed capped egress quota") ||
+        value.includes("cota de egress em cache") ||
+        value.includes("cota de trafego em cache") ||
+        value.includes("cota de saida em cache")
+    );
+}
+
+async function isLatestInboundMessage(
+    conversationId: string,
+    messageId: string
+): Promise<boolean> {
+    const result = await query<{ provider_message_id: string | null }>(
+        "SELECT provider_message_id FROM support_messages WHERE conversation_id = $1 AND direction = 'inbound' ORDER BY created_at DESC, id DESC LIMIT 1",
+        [conversationId]
+    );
+
+    return result.rows[0]?.provider_message_id === messageId;
+}
+
 function getPersonName(value: string | null): string | null {
     const raw = String(value || "").trim();
     if (!raw || raw.length > 60 || /\d/.test(raw)) return null;
@@ -520,10 +518,6 @@ function getPersonName(value: string | null): string | null {
                 word.slice(1).toLocaleLowerCase("pt-BR")
         )
         .join(" ");
-}
-
-function isBlockedHandoffPhone(phone: string | null): boolean {
-    return phoneCandidates(phone).includes(BLOCKED_HANDOFF_PHONE);
 }
 
 async function sendTrackedSupportText(input: {
@@ -714,163 +708,179 @@ export async function processSupportIncomingWhatsAppMessage(input: {
 
     if (conversation.mode === "human" || !input.botEnabled) return;
 
-    const typingPromise = startWahaTyping(input.sessionName, input.chatId).catch(
-        (error) => {
-            console.warn("[SUPPORT_WHATSAPP] start_typing_failed:", error);
-        }
+    await new Promise((resolve) =>
+        setTimeout(resolve, SUPPORT_REPLY_DEBOUNCE_MS)
     );
 
-    try {
-        if (isInitialHelpGreeting(intentBody)) {
-            const personName = getPersonName(
-                input.customerName || conversation.customer_name
-            );
-            const greeting = personName
-                ? "Olá, " +
-                  personName +
-                  "! Como podemos ajudar você hoje?"
-                : "Olá! Como podemos ajudar você hoje?";
-
-            await sendTrackedSupportText({
-                conversationId: conversation.id,
-                sessionName: input.sessionName,
-                chatId: input.chatId,
-                text: greeting,
-                dedupeKey: input.messageId + ":greeting",
-            });
-            return;
-        }
-
-        if (wantsHuman(intentBody)) {
-            if (isBlockedHandoffPhone(conversation.phone)) {
-                await sendTrackedSupportText({
-                    conversationId: conversation.id,
-                    sessionName: input.sessionName,
-                    chatId: input.chatId,
-                    text: "O suporte técnico especial pode levar até 1 dia útil. Neste contato, o encaminhamento não é feito. Qual é sua dúvida?",
-                    dedupeKey: input.messageId + ":human-request",
-                });
-                return;
-            }
-
-            if (!conversation.handoff_prompted_at) {
-                await sendTrackedSupportText({
-                    conversationId: conversation.id,
-                    sessionName: input.sessionName,
-                    chatId: input.chatId,
-                    text: FIRST_HUMAN_REQUEST_MESSAGE,
-                    dedupeKey: input.messageId + ":human-request",
-                });
-                await query(
-                    "UPDATE support_conversations SET handoff_prompted_at = COALESCE(handoff_prompted_at, NOW()), updated_at = NOW() WHERE id = $1",
-                    [conversation.id]
-                );
-                return;
-            }
-
-            await query(
-                "UPDATE support_conversations SET mode = 'human', human_started_at = NOW(), last_human_reply_at = NULL, updated_at = NOW() WHERE id = $1",
-                [conversation.id]
-            );
-            await sendTrackedSupportText({
-                conversationId: conversation.id,
-                sessionName: input.sessionName,
-                chatId: input.chatId,
-                text: HANDOFF_CONFIRMED_MESSAGE,
-                dedupeKey: input.messageId + ":human-handoff",
-            });
-            return;
-        }
-
-        if (isQrCodeMesaQuestion(intentBody)) {
-            await sendTrackedSupportText({
-                conversationId: conversation.id,
-                sessionName: input.sessionName,
-                chatId: input.chatId,
-                text: QR_CODE_MESA_MESSAGE,
-                dedupeKey: input.messageId + ":qr-code-mesa",
-            });
-            return;
-        }
-
-        if (isGenericPricingQuestion(intentBody)) {
-            await sendTrackedSupportText({
-                conversationId: conversation.id,
-                sessionName: input.sessionName,
-                chatId: input.chatId,
-                text: GENERIC_FREE_MESSAGE,
-                dedupeKey: input.messageId + ":free-pricing",
-            });
-            return;
-        }
+    await withAdvisoryLock("support-reply:" + input.chatId, async () => {
+        const stateResult = await query<{ mode: "ai" | "human" }>(
+            "SELECT mode FROM support_conversations WHERE id = $1 LIMIT 1",
+            [conversation.id]
+        );
+        if (stateResult.rows[0]?.mode === "human") return;
 
         if (
-            input.hasMedia &&
-            !originalBody &&
-            (mediaProcessingFailed || unsupportedMedia)
+            !(await isLatestInboundMessage(
+                conversation.id,
+                input.messageId
+            ))
         ) {
-            await sendTrackedSupportText({
-                conversationId: conversation.id,
-                sessionName: input.sessionName,
-                chatId: input.chatId,
-                text: unsupportedMedia
-                    ? "Consigo analisar imagens e áudios, mas ainda não esse tipo de arquivo. Pode explicar por texto?"
-                    : "Não consegui analisar essa mídia agora. Pode reenviar ou explicar por texto?",
-                dedupeKey: input.messageId + ":media",
-            });
             return;
         }
 
-        const replyKey = input.messageId + ":ai";
-        const existingReply = await query<{
-            body: string;
-            send_status: string;
-        }>(
-            "SELECT body, send_status FROM support_messages WHERE dedupe_key = $1 LIMIT 1",
-            [replyKey]
-        );
-
-        if (existingReply.rows[0]) {
-            await sendTrackedSupportText({
-                conversationId: conversation.id,
-                sessionName: input.sessionName,
-                chatId: input.chatId,
-                text: existingReply.rows[0].body,
-                dedupeKey: replyKey,
-            });
-            return;
-        }
+        const typingPromise = startWahaTyping(
+            input.sessionName,
+            input.chatId
+        ).catch((error) => {
+            console.warn("[SUPPORT_WHATSAPP] start_typing_failed:", error);
+        });
 
         try {
-            const reply = await generateSupportReplyWithRetry(conversation.id);
+            if (isInitialHelpGreeting(intentBody)) {
+                const personName = getPersonName(
+                    input.customerName || conversation.customer_name
+                );
+                const greeting = personName
+                    ? "Olá, " +
+                      personName +
+                      "! Como podemos ajudar você hoje?"
+                    : "Olá! Como podemos ajudar você hoje?";
 
-            await sendTrackedSupportText({
-                conversationId: conversation.id,
-                sessionName: input.sessionName,
-                chatId: input.chatId,
-                text: reply.text,
-                dedupeKey: replyKey,
-                model: reply.model,
-                inputTokens: reply.inputTokens,
-                outputTokens: reply.outputTokens,
-            });
-        } catch (error) {
-            console.warn("[SUPPORT_WHATSAPP] AI reply failed:", error);
+                await sendTrackedSupportText({
+                    conversationId: conversation.id,
+                    sessionName: input.sessionName,
+                    chatId: input.chatId,
+                    text: greeting,
+                    dedupeKey: input.messageId + ":greeting",
+                });
+                return;
+            }
 
-            await sendTrackedSupportText({
-                conversationId: conversation.id,
-                sessionName: input.sessionName,
-                chatId: input.chatId,
-                text: "Tive um problema para responder agora. Tente novamente em instantes.",
-                dedupeKey: input.messageId + ":ai-fallback",
-            });
+            if (isKnownInfrastructureQuotaError(messageBody)) {
+                await sendTrackedSupportText({
+                    conversationId: conversation.id,
+                    sessionName: input.sessionName,
+                    chatId: input.chatId,
+                    text: KNOWN_INFRASTRUCTURE_QUOTA_MESSAGE,
+                    dedupeKey: input.messageId + ":known-infrastructure",
+                });
+                return;
+            }
+
+            if (isQrCodeMesaQuestion(intentBody)) {
+                await sendTrackedSupportText({
+                    conversationId: conversation.id,
+                    sessionName: input.sessionName,
+                    chatId: input.chatId,
+                    text: QR_CODE_MESA_MESSAGE,
+                    dedupeKey: input.messageId + ":qr-code-mesa",
+                });
+                return;
+            }
+
+            if (isGenericPricingQuestion(intentBody)) {
+                await sendTrackedSupportText({
+                    conversationId: conversation.id,
+                    sessionName: input.sessionName,
+                    chatId: input.chatId,
+                    text: GENERIC_FREE_MESSAGE,
+                    dedupeKey: input.messageId + ":free-pricing",
+                });
+                return;
+            }
+
+            if (
+                input.hasMedia &&
+                !originalBody &&
+                (mediaProcessingFailed || unsupportedMedia)
+            ) {
+                await sendTrackedSupportText({
+                    conversationId: conversation.id,
+                    sessionName: input.sessionName,
+                    chatId: input.chatId,
+                    text: unsupportedMedia
+                        ? "Consigo analisar imagens e áudios, mas ainda não esse tipo de arquivo. Pode explicar por texto?"
+                        : "Não consegui analisar essa mídia agora. Pode reenviar ou explicar por texto?",
+                    dedupeKey: input.messageId + ":media",
+                });
+                return;
+            }
+
+            const replyKey = input.messageId + ":ai";
+            const existingReply = await query<{
+                body: string;
+                send_status: string;
+            }>(
+                "SELECT body, send_status FROM support_messages WHERE dedupe_key = $1 LIMIT 1",
+                [replyKey]
+            );
+
+            if (existingReply.rows[0]) {
+                await sendTrackedSupportText({
+                    conversationId: conversation.id,
+                    sessionName: input.sessionName,
+                    chatId: input.chatId,
+                    text: existingReply.rows[0].body,
+                    dedupeKey: replyKey,
+                });
+                return;
+            }
+
+            try {
+                const reply = await generateSupportReplyWithRetry(
+                    conversation.id
+                );
+
+                if (
+                    !reply.handoffState &&
+                    !(await isLatestInboundMessage(
+                        conversation.id,
+                        input.messageId
+                    ))
+                ) {
+                    return;
+                }
+
+                await sendTrackedSupportText({
+                    conversationId: conversation.id,
+                    sessionName: input.sessionName,
+                    chatId: input.chatId,
+                    text: reply.text,
+                    dedupeKey: replyKey,
+                    model: reply.model,
+                    inputTokens: reply.inputTokens,
+                    outputTokens: reply.outputTokens,
+                });
+            } catch (error) {
+                console.warn("[SUPPORT_WHATSAPP] AI reply failed:", error);
+
+                if (
+                    !(await isLatestInboundMessage(
+                        conversation.id,
+                        input.messageId
+                    ))
+                ) {
+                    return;
+                }
+
+                await sendTrackedSupportText({
+                    conversationId: conversation.id,
+                    sessionName: input.sessionName,
+                    chatId: input.chatId,
+                    text: "Tive um problema para responder agora. Tente novamente em instantes.",
+                    dedupeKey: input.messageId + ":ai-fallback",
+                });
+            }
+        } finally {
+            await typingPromise;
+            try {
+                await stopWahaTyping(input.sessionName, input.chatId);
+            } catch (error) {
+                console.warn(
+                    "[SUPPORT_WHATSAPP] stop_typing_failed:",
+                    error
+                );
+            }
         }
-    } finally {
-        await typingPromise;
-        try {
-            await stopWahaTyping(input.sessionName, input.chatId);
-        } catch (error) {
-            console.warn("[SUPPORT_WHATSAPP] stop_typing_failed:", error);
-        }
-    }
+    });
 }
