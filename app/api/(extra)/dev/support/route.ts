@@ -4,11 +4,13 @@ import { createClient } from "@supabase/supabase-js";
 import { query } from "@/lib/database/sql";
 import { releaseExpiredSupportHandoffs } from "@/lib/services/supportWhatsApp";
 import {
+    checkWahaPhoneExists,
     ensureWahaSupportSession,
     extractWahaPhone,
     getWahaQrCode,
     getWahaSession,
     logoutWahaSession,
+    isWahaHttpErrorStatus,
     restartWahaSession,
     sendWahaText,
     SUPPORT_WAHA_SESSION_NAME,
@@ -19,6 +21,11 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const ALLOWED_DEV_EMAIL = "joaovralmeida@hotmail.com";
+const BULK_SEND_RETRY_DELAY_MS = 1_000;
+
+function sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 type ConnectionAction =
     | "connect"
@@ -393,10 +400,46 @@ export async function POST(request: Request) {
             }
 
             try {
-                await sendWahaText(connection.session_name, chatId, message);
+                const contact = await checkWahaPhoneExists(
+                    connection.session_name,
+                    phone
+                );
+
+                if (!contact.numberExists) {
+                    await query(
+                        "UPDATE whatsapp_outbound_messages SET status = 'failed', last_error = 'Número não existe no WhatsApp.', updated_at = NOW() WHERE dedupe_key = $1",
+                        [dedupeKey]
+                    );
+                    return NextResponse.json(
+                        { error: "Número não existe no WhatsApp." },
+                        { status: 404 }
+                    );
+                }
+
+                const resolvedChatId = contact.chatId || chatId;
+
+                try {
+                    await sendWahaText(
+                        connection.session_name,
+                        resolvedChatId,
+                        message
+                    );
+                } catch (firstSendError) {
+                    if (!isWahaHttpErrorStatus(firstSendError, 500)) {
+                        throw firstSendError;
+                    }
+
+                    await sleep(BULK_SEND_RETRY_DELAY_MS);
+                    await sendWahaText(
+                        connection.session_name,
+                        resolvedChatId,
+                        message
+                    );
+                }
+
                 await query(
-                    "UPDATE whatsapp_outbound_messages SET status = 'sent', last_error = NULL, updated_at = NOW() WHERE dedupe_key = $1",
-                    [dedupeKey]
+                    "UPDATE whatsapp_outbound_messages SET chat_id = $2, status = 'sent', last_error = NULL, updated_at = NOW() WHERE dedupe_key = $1",
+                    [dedupeKey, resolvedChatId]
                 );
                 return NextResponse.json({ ok: true });
             } catch (sendError) {
