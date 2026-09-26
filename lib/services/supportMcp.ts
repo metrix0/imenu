@@ -67,7 +67,7 @@ export const SUPPORT_MCP_TOOLS: SupportMcpToolDefinition[] = [
     {
         name: "list_my_restaurants",
         description:
-            "List iMenu restaurants matching this support conversation. By default uses the WhatsApp number; when the customer provides another phone, email, restaurant name or slug, pass it as identifier.",
+            "List iMenu restaurants matching this support conversation. By default uses the WhatsApp number; when the customer provides another phone, email, restaurant name or slug, pass it as identifier. An empty result means only that this search found no match; it does not prove the restaurant or account does not exist.",
         inputSchema: {
             type: "object",
             properties: { identifier: { type: "string" } },
@@ -165,7 +165,7 @@ export const SUPPORT_MCP_TOOLS: SupportMcpToolDefinition[] = [
     {
         name: "request_human_handoff",
         description:
-            "Hand off only after the server has recorded the first human-support request and the customer explicitly asks for a human again. Never use proactively.",
+            "Use when you understand from the conversation that the customer wants human support. Call at most once per customer turn. The first call records the up-to-1-business-day confirmation; only a later customer message that you interpret as a positive confirmation or renewed human-support request can complete the handoff.",
         inputSchema: {
             type: "object",
             properties: { reason: { type: "string" } },
@@ -182,27 +182,6 @@ function normalizeSupportText(value: unknown): string {
         .replace(/[^a-z0-9\s]/g, " ")
         .replace(/\s+/g, " ")
         .trim();
-}
-
-function explicitlyRequestsHuman(value: unknown): boolean {
-    const normalized = normalizeSupportText(value);
-    if (
-        normalized.includes("nao quero atendente") ||
-        normalized.includes("nao quero humano")
-    ) {
-        return false;
-    }
-
-    return [
-        "falar com atendente",
-        "quero falar com atendente",
-        "falar com uma pessoa",
-        "quero falar com uma pessoa",
-        "atendimento humano",
-        "suporte humano",
-        "falar com humano",
-        "quero um atendente",
-    ].some((phrase) => normalized.includes(phrase));
 }
 
 function phoneCandidates(value: string | null): string[] {
@@ -680,6 +659,7 @@ export async function executeSupportMcpTool(
             )
         ) {
             return {
+                state: "blocked",
                 handed_off: false,
                 blocked: true,
                 reason:
@@ -687,22 +667,41 @@ export async function executeSupportMcpTool(
             };
         }
 
-        const latestInboundResult = await query<{ body: string }>(
-            "SELECT body FROM support_messages WHERE conversation_id = $1 AND direction = 'inbound' ORDER BY created_at DESC LIMIT 1",
+        if (!conversation.handoff_prompted_at) {
+            await query(
+                "UPDATE support_conversations SET handoff_prompted_at = COALESCE(handoff_prompted_at, NOW()), updated_at = NOW() WHERE id = $1",
+                [conversationId]
+            );
+
+            return {
+                state: "prompted",
+                handed_off: false,
+                message:
+                    "O suporte técnico especial pode levar até 1 dia útil. Mas posso te ajudar por enquanto, qual sua dúvida?",
+            };
+        }
+
+        const latestInboundResult = await query<{ created_at: string }>(
+            "SELECT created_at FROM support_messages WHERE conversation_id = $1 AND direction = 'inbound' ORDER BY created_at DESC LIMIT 1",
             [conversationId]
         );
-        const latestInbound = latestInboundResult.rows[0];
+        const latestInboundAt = latestInboundResult.rows[0]?.created_at
+            ? new Date(latestInboundResult.rows[0].created_at).getTime()
+            : 0;
+        const promptedAt = new Date(
+            conversation.handoff_prompted_at
+        ).getTime();
 
         if (
-            !conversation.handoff_prompted_at ||
-            !latestInbound ||
-            !explicitlyRequestsHuman(latestInbound.body)
+            !Number.isFinite(latestInboundAt) ||
+            !Number.isFinite(promptedAt) ||
+            latestInboundAt <= promptedAt
         ) {
             return {
+                state: "awaiting_confirmation",
                 handed_off: false,
-                blocked: true,
                 reason:
-                    "O handoff só pode acontecer depois da primeira solicitação de atendimento humano já registrada e de uma nova solicitação explícita do cliente.",
+                    "Aguarde uma nova mensagem do cliente antes de efetivar o encaminhamento.",
             };
         }
 
@@ -712,8 +711,11 @@ export async function executeSupportMcpTool(
         );
 
         return {
+            state: "handed_off",
             handed_off: true,
             reason: String(args.reason || "").trim() || null,
+            message:
+                "A equipe de suporte já tem acesso à esta conversa e entrará em contato em breve neste chat. Para agilizarmos o atendimento, qual sua dúvida?",
         };
     }
 
