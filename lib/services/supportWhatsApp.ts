@@ -57,6 +57,7 @@ function normalize(value: unknown): string {
 
 const SUPPORT_AI_RETRY_DELAYS_MS = [500, 1_500] as const;
 const SUPPORT_REPLY_DEBOUNCE_MS = 1_500;
+const SUPPORT_BULK_SILENCE_SECONDS = 60;
 const KNOWN_INFRASTRUCTURE_QUOTA_MESSAGE =
     "Esse erro é uma indisponibilidade técnica do iMenu por limite do serviço. Não é problema da sua senha ou cadastro; o iMenu precisa restabelecê-lo.";
 const GENERIC_FREE_MESSAGE = "O iMenu é totalmente gratuito.";
@@ -226,6 +227,29 @@ async function findSingleRestaurantId(
     );
 
     return result.rows.length === 1 ? result.rows[0].id : null;
+}
+
+async function isSupportBulkSilenced(
+    restaurantId: string | null,
+    chatId: string
+): Promise<boolean> {
+    const result = await query(
+        `
+            SELECT 1
+            FROM whatsapp_outbound_messages
+            WHERE status = 'sent'
+              AND dedupe_key LIKE 'support:bulk:%'
+              AND updated_at >= NOW() - ($3 * INTERVAL '1 second')
+              AND (
+                    ($1::uuid IS NOT NULL AND restaurant_id = $1)
+                    OR chat_id = $2
+                  )
+            LIMIT 1
+        `,
+        [restaurantId, chatId, SUPPORT_BULK_SILENCE_SECONDS]
+    );
+
+    return result.rowCount > 0;
 }
 
 export async function getSupportConnectionForSession(
@@ -707,6 +731,18 @@ export async function processSupportIncomingWhatsAppMessage(input: {
     );
 
     if (conversation.mode === "human" || !input.botEnabled) return;
+
+    if (
+        await isSupportBulkSilenced(
+            conversation.restaurant_id,
+            input.chatId
+        )
+    ) {
+        console.info("[SUPPORT_WHATSAPP] inbound_suppressed_bulk", {
+            restaurantId: conversation.restaurant_id,
+        });
+        return;
+    }
 
     await new Promise((resolve) =>
         setTimeout(resolve, SUPPORT_REPLY_DEBOUNCE_MS)
