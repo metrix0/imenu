@@ -848,7 +848,7 @@ export default function MenuClientPage({
                     }}
                     className="bg-white mx-5 md:mx-48 2xl:mx-80 px-5 py-4 2xl:py-7 rounded-3xl shadow-[0_2px_10px_rgba(0,0,0,0.08)] cursor-pointer"
                 >
-                    <div className="mt-6 flex items-center justify-between gap-4">
+                    <div className="mt-8 flex items-center justify-between gap-4">
                         <h1 className="text-[1.2rem] 2xl:text-2xl font-semibold md:max-w-[45%]">
                             {restaurant.name}
                         </h1>
@@ -1275,10 +1275,11 @@ export default function MenuClientPage({
                 onClose={() => setRestaurantInfoOpen(false)}
                 height={0.86}
                 handle={true}
+                xPadding={false}
                 className="md:!h-[76dvh] md:!max-w-xl 2xl:!max-w-2xl"
             >
-                <div className="px-2 pb-8 pt-2 md:px-4 2xl:px-6">
-                    <div className="flex items-center gap-3 border-b border-gray-200 pb-5">
+                <div className="px-5 pb-8 pt-2 md:px-6 2xl:px-8">
+                    <div className="flex items-center gap-3 border-b border-gray-200 pb-4">
                         {restaurant.logo_url && (
                             <img
                                 src={restaurant.logo_url}
@@ -1293,6 +1294,21 @@ export default function MenuClientPage({
                             </p>
                         </div>
                     </div>
+
+                    {!isTableOrder && restaurantWhatsapp && (
+                        <div className="mt-4">
+                            <a
+                                href={restaurantWhatsapp.href}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                aria-label={`Abrir WhatsApp da loja no número ${restaurantWhatsapp.formatted}`}
+                                className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-medium text-gray-700 transition hover:border-green-200 hover:bg-green-50 hover:text-green-700 2xl:text-lg"
+                            >
+                                <FontAwesomeIcon icon={faWhatsapp} className="text-lg text-green-600 2xl:text-xl" />
+                                <span>{restaurantWhatsapp.formatted}</span>
+                            </a>
+                        </div>
+                    )}
 
                     <section className="mt-6">
                         <h3 className="text-base font-semibold 2xl:text-xl">Horários de atendimento</h3>
@@ -1328,28 +1344,6 @@ export default function MenuClientPage({
                             ))}
                         </div>
                     </section>
-
-                    {!isTableOrder && restaurantWhatsapp && (
-                        <div className="mt-8 flex justify-center">
-                            <a
-                                href={restaurantWhatsapp.href}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                aria-label={`Abrir WhatsApp da loja no número ${restaurantWhatsapp.formatted}`}
-                                className="inline-flex items-center gap-3 rounded-full border border-gray-200 bg-gray-50 py-1.5 pl-4 pr-1.5 text-sm font-medium text-gray-700 transition hover:border-green-200 hover:bg-green-50 hover:text-green-700 2xl:text-lg"
-                            >
-                                <FontAwesomeIcon icon={faWhatsapp} className="text-lg text-green-600 2xl:text-xl" />
-                                <span>{restaurantWhatsapp.formatted}</span>
-                                {restaurant.logo_url && (
-                                    <img
-                                        src={restaurant.logo_url}
-                                        alt=""
-                                        className="h-10 w-10 rounded-full border border-gray-200 bg-white object-cover"
-                                    />
-                                )}
-                            </a>
-                        </div>
-                    )}
                 </div>
             </ModalMobile>
 
