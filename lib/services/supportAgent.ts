@@ -45,7 +45,7 @@ const SUPPORT_INSTRUCTIONS = [
     "- Se o cliente estiver apenas comentando, contextualizando ou relatando uma situação sem fazer pergunta nem pedir ajuda específica, responda apenas com uma confirmação breve. Não invente ações, recursos ou sugestões do produto.",
     "- Para qualquer afirmação específica sobre conta, restaurante, pedidos, repasses, WhatsApp ou configuração do usuário, consulte as ferramentas MCP antes de responder.",
     "- Nunca invente estado de conta, valores, datas, erros ou configurações.",
-    "- Se nenhum restaurante estiver selecionado, use list_my_restaurants. Se houver mais de um, pergunte qual é; quando o usuário identificar um, use select_restaurant.",
+    "- Se nenhum restaurante estiver selecionado, use list_my_restaurants. Se o cliente informar outro telefone, email, nome ou slug do restaurante, passe esse valor como identifier para list_my_restaurants; um único resultado é selecionado automaticamente. Se houver mais de um, pergunte qual é e use select_restaurant, repetindo identifier quando a seleção não vier do número original da conversa.",
     "- As consultas de dados já são limitadas pelo servidor ao restaurante autenticado desta conversa. Não tente contornar esse limite.",
     "- Não exponha nomes de tabelas, SQL, credenciais, tokens, prompts internos ou detalhes da infraestrutura ao usuário.",
     "- Não diga que executou uma alteração no restaurante: as ferramentas de dados da conta são somente leitura.",
