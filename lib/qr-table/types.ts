@@ -51,13 +51,15 @@ export function hasQrTableAccess(
     now = Date.now()
 ): boolean {
     if (!addon) return false;
-    if (addon.status === "active") return true;
+    if (addon.status === "active" && !addon.current_period_ends_at) return true;
 
     if (!addon.current_period_ends_at) return false;
     const periodEnd = new Date(addon.current_period_ends_at).getTime();
 
     return (
-        (addon.status === "canceled" || addon.status === "past_due") &&
+        (addon.status === "active" ||
+            addon.status === "canceled" ||
+            addon.status === "past_due") &&
         Number.isFinite(periodEnd) &&
         periodEnd > now
     );

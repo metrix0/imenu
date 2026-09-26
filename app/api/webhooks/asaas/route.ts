@@ -96,6 +96,59 @@ async function findAddon(
     return result.rows[0] || null;
 }
 
+async function findAddonFromSubscriptionHistory(
+    subscriptionId: string
+): Promise<QrTableAddon | null> {
+    const paymentList = await asaasRequest<PaymentListResponse>(
+        `/payments?subscription=${encodeURIComponent(
+            subscriptionId
+        )}&limit=100`
+    );
+    const checkoutIds = [
+        ...new Set(
+            (paymentList.data || [])
+                .map((payment) => String(payment.checkoutSession || ""))
+                .filter(Boolean)
+        ),
+    ];
+
+    if (!checkoutIds.length) return null;
+
+    const result = await query<QrTableAddon>(
+        `
+            SELECT *
+            FROM public.restaurant_addons
+            WHERE product_key = 'qr_code_mesa'
+              AND asaas_checkout_id = ANY($1::text[])
+            LIMIT 2
+        `,
+        [checkoutIds]
+    );
+
+    return result.rows.length === 1 ? result.rows[0] : null;
+}
+
+async function linkAsaasSubscription(
+    addonId: string,
+    subscriptionId: string
+): Promise<void> {
+    await query(
+        `
+            UPDATE public.restaurant_addons
+            SET
+                payment_provider = 'asaas',
+                asaas_subscription_id = COALESCE(
+                    asaas_subscription_id,
+                    $2
+                ),
+                updated_at = NOW()
+            WHERE id = $1
+              AND payment_provider IS DISTINCT FROM 'payzu'
+        `,
+        [addonId, subscriptionId]
+    );
+}
+
 async function savePayment(
     addonId: string,
     payment: AsaasPayment,
@@ -193,7 +246,24 @@ async function processEvent(payload: AsaasWebhook): Promise<void> {
     let payment = payload.payment || null;
     let addon = await findAddon(checkoutId, payment);
 
+    if (!addon && payment?.subscription) {
+        try {
+            addon = await findAddonFromSubscriptionHistory(
+                payment.subscription
+            );
+        } catch (error) {
+            console.warn(
+                "[ASAAS_WEBHOOK] Não foi possível recuperar assinatura legada:",
+                error instanceof Error ? error.message : "erro desconhecido"
+            );
+        }
+    }
+
     if (!addon || addon.payment_provider === "payzu") return;
+
+    if (payment?.subscription && !addon.asaas_subscription_id) {
+        await linkAsaasSubscription(addon.id, payment.subscription);
+    }
 
     if (event === "CHECKOUT_PAID" && checkoutId) {
         try {
