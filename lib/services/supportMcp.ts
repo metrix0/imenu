@@ -75,6 +75,17 @@ export const SUPPORT_MCP_TOOLS: SupportMcpToolDefinition[] = [
         },
     },
     {
+        name: "find_restaurant_public_contact",
+        description:
+            "Find the public WhatsApp configured by a restaurant for its customers. Use only when an end customer wants to place an order or asks about an existing order. Search by restaurant name or slug. This tool returns store_whatsapp only and must not be used as an owner/account lookup.",
+        inputSchema: {
+            type: "object",
+            properties: { identifier: { type: "string" } },
+            required: ["identifier"],
+            additionalProperties: false,
+        },
+    },
+    {
         name: "select_restaurant",
         description:
             "Select one restaurant for this support conversation. If the restaurant was identified from an alternate phone, email, name or slug, pass that same value as identifier.",
@@ -317,6 +328,55 @@ async function getRestaurantMatches(
     );
 
     return result.rows;
+}
+
+async function getPublicRestaurantContacts(identifier: string) {
+    const lookup = identifier.trim();
+    if (!lookup) return [];
+
+    const result = await query<{
+        name: string | null;
+        url_slug: string | null;
+        store_whatsapp: string | null;
+    }>(
+        `
+            SELECT r.name, r.url_slug, NULLIF(BTRIM(r.store_whatsapp), '') AS store_whatsapp
+            FROM restaurants r
+            WHERE LOWER(COALESCE(r.url_slug, '')) = LOWER($1)
+               OR LOWER(COALESCE(r.name, '')) = LOWER($1)
+               OR r.name ILIKE $2
+            ORDER BY
+                CASE
+                    WHEN LOWER(COALESCE(r.url_slug, '')) = LOWER($1) THEN 0
+                    WHEN LOWER(COALESCE(r.name, '')) = LOWER($1) THEN 1
+                    ELSE 2
+                END,
+                r.name ASC NULLS LAST,
+                r.created_at ASC
+            LIMIT 5
+        `,
+        [lookup, "%" + lookup + "%"]
+    );
+
+    return result.rows.map((restaurant) => {
+        let digits = String(restaurant.store_whatsapp || "").replace(/\D/g, "");
+        if (
+            !digits.startsWith("55") &&
+            (digits.length === 10 || digits.length === 11)
+        ) {
+            digits = "55" + digits;
+        }
+        const validWhatsapp =
+            digits.startsWith("55") &&
+            (digits.length === 12 || digits.length === 13);
+
+        return {
+            name: restaurant.name,
+            url_slug: restaurant.url_slug,
+            store_whatsapp: restaurant.store_whatsapp,
+            whatsapp_url: validWhatsapp ? "https://wa.me/" + digits : null,
+        };
+    });
 }
 
 function isSensitiveColumn(column: string): boolean {
@@ -604,6 +664,15 @@ export async function executeSupportMcpTool(
         };
     }
 
+    if (name === "find_restaurant_public_contact") {
+        const identifier = String(args.identifier || "").trim();
+        if (!identifier) return { restaurants: [] };
+
+        return {
+            restaurants: await getPublicRestaurantContacts(identifier),
+        };
+    }
+
     if (name === "select_restaurant") {
         const restaurantId = String(args.restaurant_id || "");
         const identifier = String(args.identifier || "").trim();
@@ -677,7 +746,7 @@ export async function executeSupportMcpTool(
                 state: "prompted",
                 handed_off: false,
                 message:
-                    "O suporte técnico especial pode levar até 1 dia útil. Mas posso te ajudar por enquanto, qual sua dúvida?",
+                    "O suporte técnico especial pode levar até 1 dia útil. Gostaria de continuar?",
             };
         }
 
