@@ -59,7 +59,10 @@ function normalizePhone(value: string | null): string {
 }
 
 function limitSupportReply(value: string): string {
-    const compact = value.replace(/\s+/g, " ").trim();
+    const compact = value
+        .replace(/\*\*([^*\n]+?)\*\*/g, "*$1*")
+        .replace(/\s+/g, " ")
+        .trim();
     const characters = Array.from(compact);
 
     if (characters.length <= MAX_REPLY_CHARACTERS) return compact;
