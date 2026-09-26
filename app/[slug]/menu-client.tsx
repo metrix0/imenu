@@ -848,7 +848,7 @@ export default function MenuClientPage({
                     }}
                     className="bg-white mx-5 md:mx-48 2xl:mx-80 px-5 py-4 2xl:py-7 rounded-3xl shadow-[0_2px_10px_rgba(0,0,0,0.08)] cursor-pointer"
                 >
-                    <div className="mt-8 flex items-center justify-between gap-4">
+                    <div className="mt-6 md:mt-8 flex items-center justify-between gap-4">
                         <h1 className="text-[1.2rem] 2xl:text-2xl font-semibold md:max-w-[45%]">
                             {restaurant.name}
                         </h1>
