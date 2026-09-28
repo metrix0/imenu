@@ -446,6 +446,16 @@ export default function DevPayoutPage() {
         setOnePercentNet(true);
     };
 
+    const handleCopyRestaurantWhatsapps = async () => {
+        const numbers = payables
+            .map((item) =>
+                normalizeWhatsappNumber(restaurantPhones[item.restaurantId])
+            )
+            .filter(Boolean);
+
+        await navigator.clipboard.writeText(numbers.join("\n"));
+    };
+
     const handlePixTypeChange = async (
         restaurantId: string,
         pixKeyType: PixKeyType
@@ -994,10 +1004,32 @@ export default function DevPayoutPage() {
             </Card>
 
             <Card>
-                <h2 className="text-lg font-bold text-gray-900">Valores por restaurante</h2>
-                <p className="mt-1 text-sm text-gray-500">
-                    Apenas pedidos PIX Online confirmados desde o último repasse registrado são considerados. O valor em Enviar pode ser ajustado manualmente antes da confirmação.
-                </p>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                        <h2 className="text-lg font-bold text-gray-900">Valores por restaurante</h2>
+                        <p className="mt-1 text-sm text-gray-500">
+                            Apenas pedidos PIX Online confirmados desde o último repasse registrado são considerados. O valor em Enviar pode ser ajustado manualmente antes da confirmação.
+                        </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-3">
+                        <span className="text-sm font-medium text-gray-500">
+                            {payables.length} restaurante(s)
+                        </span>
+                        <Button
+                            variant="secondary"
+                            onClick={() => void handleCopyRestaurantWhatsapps()}
+                            disabled={
+                                !payables.some((item) =>
+                                    normalizeWhatsappNumber(
+                                        restaurantPhones[item.restaurantId]
+                                    )
+                                )
+                            }
+                        >
+                            Copiar WhatsApps
+                        </Button>
+                    </div>
+                </div>
 
                 <div className="mt-5 overflow-x-auto">
                     <table className="w-full min-w-[1000px] text-left text-sm">
