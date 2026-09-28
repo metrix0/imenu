@@ -481,6 +481,82 @@ function isInitialHelpGreeting(body: string): boolean {
     return normalize(body) === "ola preciso de ajuda com o imenu";
 }
 
+function shouldIgnoreAutomatedSupportMessage(input: {
+    originalBody: string;
+    messageBody: string;
+}): boolean {
+    const textValue = normalize(input.originalBody);
+    const rawText = input.originalBody.toLowerCase();
+
+    if (
+        textValue.includes("sou o atendimento automatico") ||
+        textValue.includes("resposta automatica")
+    ) {
+        return true;
+    }
+
+    const isAwayMessage =
+        textValue.includes("no momento estamos fechados") ||
+        textValue.includes("no momento nao estamos por aqui") ||
+        textValue.includes("fora do horario") ||
+        textValue.includes("fora do nosso horario");
+    const promisesLaterReply =
+        textValue.includes("responderemos") ||
+        textValue.includes("retornaremos") ||
+        textValue.includes("assim que voltarmos") ||
+        textValue.includes("assim que estivermos online") ||
+        textValue.includes("horario de atendimento");
+
+    if (isAwayMessage && promisesLaterReply) {
+        return true;
+    }
+
+    const isWelcomeMessage =
+        textValue.includes("seja bem vindo") ||
+        textValue.includes("seja muito bem vindo");
+    const hasOrderCallToAction = [
+        "peca online",
+        "faca seu pedido",
+        "pedido online",
+        "segue nosso cardapio",
+        "segue o nosso cardapio",
+        "confira nosso cardapio",
+    ].some((term) => textValue.includes(term));
+    const hasLink =
+        rawText.includes("http://") ||
+        rawText.includes("https://") ||
+        rawText.includes("www.") ||
+        rawText.includes("imenuapp.com.br");
+
+    if (isWelcomeMessage && hasOrderCallToAction && hasLink) {
+        return true;
+    }
+
+    if (
+        !input.originalBody &&
+        input.messageBody.startsWith("[Imagem]")
+    ) {
+        const imageValue = normalize(input.messageBody);
+        const isPromotionalImage =
+            imageValue.includes("imagem promocional") ||
+            imageValue.includes("promocao") ||
+            imageValue.includes("novidades");
+        const hasPromotionalCallToAction = [
+            "peca pelo link",
+            "ifood",
+            "instagram",
+            "whatsapp",
+            "cta",
+        ].some((term) => imageValue.includes(term));
+
+        if (isPromotionalImage && hasPromotionalCallToAction) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 function isKnownInfrastructureQuotaError(body: string): boolean {
     const raw = body.toLowerCase();
     const value = normalize(body);
@@ -731,6 +807,18 @@ export async function processSupportIncomingWhatsAppMessage(input: {
     );
 
     if (conversation.mode === "human" || !input.botEnabled) return;
+
+    if (
+        shouldIgnoreAutomatedSupportMessage({
+            originalBody,
+            messageBody,
+        })
+    ) {
+        console.info("[SUPPORT_WHATSAPP] inbound_automated_message_ignored", {
+            restaurantId: conversation.restaurant_id,
+        });
+        return;
+    }
 
     if (
         await isSupportBulkSilenced(

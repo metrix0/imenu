@@ -67,7 +67,7 @@ export const SUPPORT_MCP_TOOLS: SupportMcpToolDefinition[] = [
     {
         name: "list_my_restaurants",
         description:
-            "List iMenu restaurants matching this support conversation. By default uses the WhatsApp number; when the customer provides another phone, email, restaurant name or slug, pass it as identifier. An empty result means only that this search found no match; it does not prove the restaurant or account does not exist.",
+            "List iMenu restaurants matching this support conversation. By default uses the WhatsApp number. When the customer provides another phone, email, restaurant name or slug, pass it as identifier; supplied identifiers return candidates for the AI to interpret and do not select a restaurant automatically. An empty result means only that this search found no match; it does not prove the restaurant or account does not exist.",
         inputSchema: {
             type: "object",
             properties: { identifier: { type: "string" } },
@@ -195,6 +195,103 @@ function normalizeSupportText(value: unknown): string {
         .trim();
 }
 
+const KNOWLEDGE_STOP_WORDS = new Set([
+    "como",
+    "qual",
+    "quais",
+    "para",
+    "com",
+    "uma",
+    "uns",
+    "das",
+    "dos",
+    "que",
+    "meu",
+    "minha",
+    "imenu",
+    "funciona",
+    "nao",
+    "sim",
+    "tem",
+    "ter",
+    "isso",
+    "essa",
+    "esse",
+    "aqui",
+    "onde",
+    "vejo",
+    "ver",
+    "dizem",
+    "precisa",
+    "saber",
+    "pois",
+    "porque",
+    "por",
+    "favor",
+    "sem",
+]);
+
+export async function searchSupportKnowledge(search: string, limit = 8) {
+    const trimmedSearch = search.trim();
+    if (!trimmedSearch) return [];
+
+    const terms = [
+        ...new Set(
+            normalizeSupportText(trimmedSearch)
+                .split(" ")
+                .filter(
+                    (term) =>
+                        term.length >= 3 &&
+                        !KNOWLEDGE_STOP_WORDS.has(term)
+                )
+        ),
+    ].slice(0, 8);
+
+    const patterns = [
+        "%" + trimmedSearch + "%",
+        ...terms.map((term) => "%" + term + "%"),
+    ];
+    const clauses = patterns.map(
+        (_, index) =>
+            "(title ILIKE $" +
+            String(index + 1) +
+            " OR content ILIKE $" +
+            String(index + 1) +
+            ")"
+    );
+    const scoreExpression =
+        terms.length > 0
+            ? terms
+                  .map(
+                      (_, index) =>
+                          "CASE WHEN title ILIKE $" +
+                          String(index + 2) +
+                          " THEN 3 WHEN content ILIKE $" +
+                          String(index + 2) +
+                          " THEN 1 ELSE 0 END"
+                  )
+                  .join(" + ")
+            : "0";
+    const safeLimit = Math.min(8, Math.max(1, limit));
+    const limitParameter = patterns.length + 1;
+
+    const result = await query<{
+        id: string;
+        title: string;
+        content: string;
+    }>(
+        "SELECT id, title, content FROM support_knowledge WHERE enabled = true AND (" +
+            clauses.join(" OR ") +
+            ") ORDER BY CASE WHEN title ILIKE $1 THEN 0 WHEN content ILIKE $1 THEN 1 ELSE 2 END, (" +
+            scoreExpression +
+            ") DESC, updated_at DESC LIMIT $" +
+            String(limitParameter),
+        [...patterns, safeLimit]
+    );
+
+    return result.rows;
+}
+
 function phoneCandidates(value: string | null): string[] {
     let digits = String(value || "").replace(/\D/g, "");
     if (!digits) return [];
@@ -274,33 +371,98 @@ async function getRestaurantMatches(
         const lookupDigits = lookup.replace(/\D/g, "");
         const lookupPhones =
             lookupDigits.length >= 8 ? phoneCandidates(lookup) : [];
+        const normalizedLookup = normalizeSupportText(lookup);
+        const lookupTerms = [
+            ...new Set(
+                normalizedLookup
+                    .split(" ")
+                    .filter((term) => term.length >= 2)
+            ),
+        ].slice(0, 6);
+
         const result = await query<{
             id: string;
             name: string | null;
             url_slug: string | null;
         }>(
             `
-                SELECT r.id, r.name, r.url_slug
-                FROM restaurants r
-                LEFT JOIN auth.users u ON u.id = r.user_id
-                WHERE LOWER(COALESCE(u.email, '')) = LOWER($1)
-                   OR LOWER(COALESCE(r.url_slug, '')) = LOWER($1)
-                   OR r.name ILIKE $2
-                   OR regexp_replace(COALESCE(r.phone, ''), '[^0-9]', '', 'g') = ANY($3::text[])
-                   OR regexp_replace(COALESCE(r.store_whatsapp, ''), '[^0-9]', '', 'g') = ANY($3::text[])
-                   OR regexp_replace(COALESCE(u.raw_user_meta_data->>'phone', ''), '[^0-9]', '', 'g') = ANY($3::text[])
+                WITH candidate_restaurants AS (
+                    SELECT
+                        r.id,
+                        r.name,
+                        r.url_slug,
+                        r.created_at,
+                        u.email AS owner_email,
+                        regexp_replace(COALESCE(r.phone, ''), '[^0-9]', '', 'g') AS restaurant_phone,
+                        regexp_replace(COALESCE(r.store_whatsapp, ''), '[^0-9]', '', 'g') AS store_whatsapp,
+                        regexp_replace(COALESCE(u.raw_user_meta_data->>'phone', ''), '[^0-9]', '', 'g') AS owner_phone,
+                        trim(regexp_replace(
+                            translate(
+                                lower(COALESCE(r.name, '')),
+                                'áàâãäåéèêëíìîïóòôõöúùûüçñ',
+                                'aaaaaaeeeeiiiiooooouuuucn'
+                            ),
+                            '[^a-z0-9]+',
+                            ' ',
+                            'g'
+                        )) AS normalized_name,
+                        trim(regexp_replace(
+                            translate(
+                                lower(COALESCE(r.url_slug, '')),
+                                'áàâãäåéèêëíìîïóòôõöúùûüçñ',
+                                'aaaaaaeeeeiiiiooooouuuucn'
+                            ),
+                            '[^a-z0-9]+',
+                            ' ',
+                            'g'
+                        )) AS normalized_slug
+                    FROM restaurants r
+                    LEFT JOIN auth.users u ON u.id = r.user_id
+                )
+                SELECT id, name, url_slug
+                FROM candidate_restaurants
+                WHERE LOWER(COALESCE(owner_email, '')) = LOWER($1)
+                   OR restaurant_phone = ANY($2::text[])
+                   OR store_whatsapp = ANY($2::text[])
+                   OR owner_phone = ANY($2::text[])
+                   OR (
+                        $3 <> ''
+                        AND (
+                            normalized_name = $3
+                            OR normalized_slug = $3
+                            OR normalized_name LIKE '%' || $3 || '%'
+                            OR normalized_slug LIKE '%' || $3 || '%'
+                        )
+                   )
+                   OR EXISTS (
+                        SELECT 1
+                        FROM unnest($4::text[]) AS term
+                        WHERE normalized_name LIKE '%' || term || '%'
+                           OR normalized_slug LIKE '%' || term || '%'
+                   )
                 ORDER BY
                     CASE
-                        WHEN LOWER(COALESCE(u.email, '')) = LOWER($1) THEN 0
-                        WHEN LOWER(COALESCE(r.url_slug, '')) = LOWER($1) THEN 1
-                        WHEN LOWER(COALESCE(r.name, '')) = LOWER($1) THEN 2
-                        ELSE 3
+                        WHEN LOWER(COALESCE(owner_email, '')) = LOWER($1) THEN 0
+                        WHEN restaurant_phone = ANY($2::text[])
+                          OR store_whatsapp = ANY($2::text[])
+                          OR owner_phone = ANY($2::text[]) THEN 1
+                        WHEN normalized_slug = $3 THEN 2
+                        WHEN normalized_name = $3 THEN 3
+                        WHEN normalized_name LIKE '%' || $3 || '%'
+                          OR normalized_slug LIKE '%' || $3 || '%' THEN 4
+                        ELSE 5
                     END,
-                    r.name ASC NULLS LAST,
-                    r.created_at ASC
+                    (
+                        SELECT COUNT(*)
+                        FROM unnest($4::text[]) AS term
+                        WHERE normalized_name LIKE '%' || term || '%'
+                           OR normalized_slug LIKE '%' || term || '%'
+                    ) DESC,
+                    name ASC NULLS LAST,
+                    created_at ASC
                 LIMIT 20
             `,
-            [lookup, "%" + lookup + "%", lookupPhones]
+            [lookup, lookupPhones, normalizedLookup, lookupTerms]
         );
 
         return result.rows;
@@ -578,63 +740,9 @@ export async function executeSupportMcpTool(
 
     if (name === "search_knowledge") {
         const search = String(args.query || "").trim();
-        if (!search) return { results: [] };
-
-        const stopWords = new Set([
-            "como",
-            "qual",
-            "quais",
-            "para",
-            "com",
-            "uma",
-            "uns",
-            "das",
-            "dos",
-            "que",
-            "meu",
-            "minha",
-            "imenu",
-            "funciona",
-        ]);
-        const terms = [
-            ...new Set(
-                search
-                    .split(/\s+/)
-                    .map((term) => term.replace(/[^\p{L}\p{N}-]/gu, ""))
-                    .filter(
-                        (term) =>
-                            term.length >= 3 &&
-                            !stopWords.has(
-                                normalizeSupportText(term)
-                            )
-                    )
-            ),
-        ].slice(0, 6);
-        const patterns = [
-            "%" + search + "%",
-            ...terms.map((term) => "%" + term + "%"),
-        ];
-        const clauses = patterns.map(
-            (_, index) =>
-                "(title ILIKE $" +
-                String(index + 1) +
-                " OR content ILIKE $" +
-                String(index + 1) +
-                ")"
-        );
-
-        const result = await query<{
-            id: string;
-            title: string;
-            content: string;
-        }>(
-            "SELECT id, title, content FROM support_knowledge WHERE enabled = true AND (" +
-                clauses.join(" OR ") +
-                ") ORDER BY CASE WHEN title ILIKE $1 THEN 0 WHEN content ILIKE $1 THEN 1 ELSE 2 END, updated_at DESC LIMIT 8",
-            patterns
-        );
-
-        return { results: result.rows };
+        return {
+            results: await searchSupportKnowledge(search),
+        };
     }
 
     if (name === "list_my_restaurants") {
@@ -647,7 +755,8 @@ export async function executeSupportMcpTool(
 
         if (
             restaurants.length === 1 &&
-            (!selectedRestaurantId || identifier)
+            !identifier &&
+            !selectedRestaurantId
         ) {
             selectedRestaurantId = restaurants[0].id;
             if (selectedRestaurantId !== conversation.restaurant_id) {
