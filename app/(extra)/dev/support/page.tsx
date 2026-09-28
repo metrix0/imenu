@@ -40,6 +40,19 @@ function parseBulkPhones(value: string): string[] {
 
 type AccessState = "checking" | "allowed" | "forbidden" | "signed-out";
 
+type BulkRecipientStatus =
+    | "pending"
+    | "sending"
+    | "sent"
+    | "skipped_recent"
+    | "failed";
+
+type BulkRecipientResult = {
+    phone: string;
+    status: BulkRecipientStatus;
+    error?: string;
+};
+
 type Connection = {
     session_name: string;
     desired_state: "connected" | "disconnected";
@@ -179,6 +192,11 @@ export default function DevSupportPage() {
     const [bulkSent, setBulkSent] = useState(0);
     const [bulkTotal, setBulkTotal] = useState(0);
     const [bulkStatus, setBulkStatus] = useState("");
+    const [bulkSkipRecent, setBulkSkipRecent] = useState(true);
+    const [bulkRecipients, setBulkRecipients] = useState<BulkRecipientResult[]>([]);
+    const [bulkFailures, setBulkFailures] = useState<
+        Array<{ phone: string; error: string }>
+    >([]);
     const bulkStopRef = useRef(false);
 
     const getAccessToken = useCallback(async () => {
@@ -356,12 +374,27 @@ export default function DevSupportPage() {
         setBulkSent(0);
         setBulkTotal(recipients.length);
         setBulkStatus("");
+        setBulkPhones("");
+        setBulkFailures([]);
+        setBulkRecipients(
+            recipients.map((phone) => ({
+                phone,
+                status: "pending",
+            }))
+        );
 
         try {
             for (let index = 0; index < recipients.length; index += 1) {
                 if (bulkStopRef.current) break;
 
                 const phone = recipients[index];
+                setBulkRecipients((current) =>
+                    current.map((recipient) =>
+                        recipient.phone === phone
+                            ? { ...recipient, status: "sending", error: undefined }
+                            : recipient
+                    )
+                );
                 setBulkStatus(
                     "Enviando " + (index + 1) + " de " + recipients.length + "..."
                 );
@@ -377,23 +410,63 @@ export default function DevSupportPage() {
                         batchId,
                         phone,
                         message,
+                        skipRecent: bulkSkipRecent,
                     }),
                 });
                 const payload = (await response.json()) as {
                     error?: string;
+                    skippedRecent?: boolean;
                 };
 
                 if (!response.ok) {
-                    const errorMessage =
-                        phone + ": " + (payload.error || "Falha ao enviar.");
+                    const error = payload.error || "Falha ao enviar.";
+                    const errorMessage = phone + ": " + error;
 
                     skippedErrors.push(errorMessage);
+                    setBulkRecipients((current) =>
+                        current.map((recipient) =>
+                            recipient.phone === phone
+                                ? {
+                                      ...recipient,
+                                      status: "failed",
+                                      error,
+                                  }
+                                : recipient
+                        )
+                    );
+                    setBulkFailures((current) => [
+                        ...current,
+                        { phone, error },
+                    ]);
                     setBulkStatus("Ignorado: " + errorMessage);
+                    continue;
+                }
+
+                if (payload.skippedRecent) {
+                    setBulkRecipients((current) =>
+                        current.map((recipient) =>
+                            recipient.phone === phone
+                                ? { ...recipient, status: "skipped_recent" }
+                                : recipient
+                        )
+                    );
+                    setBulkStatus(
+                        "Ignorado: " +
+                            phone +
+                            " já recebeu envio em massa nos últimos 7 dias."
+                    );
                     continue;
                 }
 
                 sentCount += 1;
                 setBulkSent(sentCount);
+                setBulkRecipients((current) =>
+                    current.map((recipient) =>
+                        recipient.phone === phone
+                            ? { ...recipient, status: "sent" }
+                            : recipient
+                    )
+                );
 
                 if (index < recipients.length - 1 && !bulkStopRef.current) {
                     const delaySeconds =
@@ -815,6 +888,21 @@ export default function DevSupportPage() {
                         </div>
                     </div>
 
+                    <label className="mt-4 flex cursor-pointer items-center gap-2 text-sm text-gray-700">
+                        <input
+                            type="checkbox"
+                            checked={bulkSkipRecent}
+                            onChange={(event) =>
+                                setBulkSkipRecent(event.target.checked)
+                            }
+                            disabled={bulkSending}
+                            className="h-4 w-4 cursor-pointer accent-brand disabled:cursor-not-allowed"
+                        />
+                        <span>
+                            Não repetir números que já receberam envio em massa nos últimos 7 dias
+                        </span>
+                    </label>
+
                     <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
                         <p>
                             <strong>Atenção:</strong> não é recomendado enviar para mais de 50 destinatários por lote.
@@ -863,6 +951,89 @@ export default function DevSupportPage() {
                         <p className="mt-3 text-sm text-gray-600">
                             {bulkStatus}
                         </p>
+                    )}
+
+                    {bulkRecipients.length > 0 && (
+                        <div className="mt-4 grid gap-4 md:grid-cols-2">
+                            <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                                <div className="flex items-center justify-between gap-3">
+                                    <h3 className="text-sm font-semibold text-gray-900">
+                                        Números do lote
+                                    </h3>
+                                    <span className="text-xs text-gray-500">
+                                        {bulkRecipients.length}
+                                    </span>
+                                </div>
+                                <div className="mt-3 max-h-64 divide-y divide-gray-200 overflow-y-auto">
+                                    {bulkRecipients.map((recipient) => (
+                                        <div
+                                            key={recipient.phone}
+                                            className="flex items-center justify-between gap-3 py-2 text-sm"
+                                        >
+                                            <span className="text-gray-700">
+                                                {formatPhone(recipient.phone)}
+                                            </span>
+                                            <span
+                                                className={
+                                                    recipient.status === "sent"
+                                                        ? "text-green-700"
+                                                        : recipient.status === "failed"
+                                                          ? "text-red-700"
+                                                          : recipient.status ===
+                                                              "sending"
+                                                            ? "text-amber-700"
+                                                            : "text-gray-500"
+                                                }
+                                            >
+                                                {recipient.status === "sent"
+                                                    ? "Enviado"
+                                                    : recipient.status === "failed"
+                                                      ? "Falhou"
+                                                      : recipient.status ===
+                                                          "skipped_recent"
+                                                        ? "Ignorado (7 dias)"
+                                                        : recipient.status ===
+                                                            "sending"
+                                                          ? "Enviando"
+                                                          : "Pendente"}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="rounded-xl border border-red-200 bg-red-50/50 p-4">
+                                <div className="flex items-center justify-between gap-3">
+                                    <h3 className="text-sm font-semibold text-red-900">
+                                        Falhas
+                                    </h3>
+                                    <span className="text-xs text-red-700">
+                                        {bulkFailures.length}
+                                    </span>
+                                </div>
+                                {bulkFailures.length ? (
+                                    <div className="mt-3 max-h-64 divide-y divide-red-100 overflow-y-auto">
+                                        {bulkFailures.map((failure, index) => (
+                                            <div
+                                                key={failure.phone + ":" + index}
+                                                className="py-2 text-sm"
+                                            >
+                                                <p className="font-medium text-red-900">
+                                                    {formatPhone(failure.phone)}
+                                                </p>
+                                                <p className="mt-0.5 text-xs text-red-700">
+                                                    {failure.error}
+                                                </p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="mt-3 text-sm text-red-700/70">
+                                        Nenhuma falha neste lote.
+                                    </p>
+                                )}
+                            </div>
+                        </div>
                     )}
                 </Card>
 
