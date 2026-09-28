@@ -327,6 +327,7 @@ export async function POST(request: Request) {
             const batchId = String(body.batchId || "").trim();
             const rawPhone = String(body.phone || "").trim();
             const message = String(body.message || "").trim();
+            const skipRecent = body.skipRecent !== false;
             let phone = rawPhone.replace(/\D/g, "");
 
             if (phone.startsWith("0055")) phone = phone.slice(2);
@@ -386,6 +387,29 @@ export async function POST(request: Request) {
             }
 
             const restaurantId = recipients.rows[0].restaurant_id;
+
+            if (skipRecent) {
+                const recentlySent = await query(
+                    `
+                        SELECT 1
+                        FROM whatsapp_outbound_messages
+                        WHERE restaurant_id = $1
+                          AND dedupe_key LIKE 'support:bulk:%'
+                          AND status = 'sent'
+                          AND updated_at >= NOW() - INTERVAL '7 days'
+                        LIMIT 1
+                    `,
+                    [restaurantId]
+                );
+
+                if (recentlySent.rowCount > 0) {
+                    return NextResponse.json({
+                        ok: true,
+                        skippedRecent: true,
+                    });
+                }
+            }
+
             const chatId = phone + "@c.us";
             const dedupeKey =
                 "support:bulk:" + batchId + ":" + restaurantId;
