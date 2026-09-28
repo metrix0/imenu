@@ -17,7 +17,7 @@ export default function PixOnlineTemporaryNotice() {
 
     return (
         <Modal
-            height={330}
+            height={430}
             open={popup.open}
             onClose={popup.dismiss}
             className="max-w-md"
