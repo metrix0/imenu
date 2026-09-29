@@ -88,7 +88,11 @@ export async function GET() {
                 CHECK_TIMEOUT_MS,
                 "database"
             ),
-            checkSupabaseEndpoint(url, anonKey, "/rest/v1/"),
+            checkSupabaseEndpoint(
+                url,
+                anonKey,
+                "/rest/v1/restaurants?select=id&limit=1"
+            ),
             checkSupabaseEndpoint(url, anonKey, "/auth/v1/settings"),
         ]);
 
