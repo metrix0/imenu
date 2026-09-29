@@ -2,7 +2,7 @@
 
 import { faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
 
-import { useAutoPopup } from "@/components/common/AutoPopupProvider";
+import { AUTO_POPUP_PRIORITY, useAutoPopup } from "@/components/common/AutoPopupProvider";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
@@ -10,7 +10,7 @@ import Modal from "@/components/ui/Modal";
 export default function PixOnlineTemporaryNotice() {
     const popup = useAutoPopup({
         id: "pix-online-temporarily-disabled",
-        priority: 1000,
+        priority: AUTO_POPUP_PRIORITY.onboarding - 1,
         enabled: true,
         bypassSessionLimit: true,
     });
