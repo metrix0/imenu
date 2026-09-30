@@ -62,3 +62,43 @@ it("activates QR Mesa without prematurely marking it approved", async () => {
     expect(activateMercadoPagoQrTablePrepaid).toHaveBeenCalledWith(expect.objectContaining({ addonId: id, paymentId: "123" }));
     expect(query).toHaveBeenCalledTimes(1);
 });
+
+it("acknowledges a stale QR Mesa webhook after the addon switched providers", async () => {
+    (getMercadoPagoPixPayment as jest.Mock).mockResolvedValue({
+        ...payment,
+        amount: 5,
+        externalReference: `qr-table:${id}:stale`,
+    });
+    (query as jest.Mock).mockResolvedValue({
+        rows: [
+            {
+                id,
+                payment_provider: "asaas",
+                mercadopago_order_id: "123",
+            },
+        ],
+    });
+
+    expect((await send()).status).toBe(200);
+    expect(activateMercadoPagoQrTablePrepaid).not.toHaveBeenCalled();
+});
+
+it("keeps the QR Mesa creation race retryable until the payment reference is saved", async () => {
+    (getMercadoPagoPixPayment as jest.Mock).mockResolvedValue({
+        ...payment,
+        amount: 5,
+        externalReference: `qr-table:${id}:race`,
+    });
+    (query as jest.Mock).mockResolvedValue({
+        rows: [
+            {
+                id,
+                payment_provider: null,
+                mercadopago_order_id: null,
+            },
+        ],
+    });
+
+    expect((await send()).status).toBe(500);
+    expect(activateMercadoPagoQrTablePrepaid).not.toHaveBeenCalled();
+});

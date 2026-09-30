@@ -203,13 +203,6 @@ export default function PaymentCheckout({
     }, [awaitingConfirmation, completePayment, reconcilePayment]);
 
     const pay = async () => {
-        if (["pix"].includes(paymentMethod)) {
-            setError(
-                "Pix está temporariamente desativado. Tente pagar com cartão de crédito."
-            );
-            return;
-        }
-
         if (paymentMethod === "credit_card") {
             const validationError = getCreditCardPaymentDataError(card);
             if (validationError) {

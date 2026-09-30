@@ -149,13 +149,7 @@ export async function markMercadoPagoQrTablePaymentFailure(input: {
                 mercadopago_order_id = $2,
                 mercadopago_order_status = $3,
                 current_period_ends_at = CASE
-                    WHEN
-                        $4
-                        AND (
-                            current_period_ends_at IS NULL
-                            OR current_period_ends_at <= NOW()
-                        )
-                    THEN NOW()
+                    WHEN $4 THEN NOW()
                     ELSE current_period_ends_at
                 END,
                 updated_at = NOW()

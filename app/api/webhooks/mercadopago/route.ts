@@ -41,7 +41,7 @@ async function processQrTablePix(
         [addonId]
     );
     const addon = addonResult.rows[0];
-    if (addon && (!addon.mercadopago_order_id || addon.payment_provider !== "mercadopago")) {
+    if (addon && !addon.mercadopago_order_id) {
         // Charge creation can still be saving the provider reference. Ask MP to retry.
         throw new Error("A cobrança Pix ainda não está vinculada ao adicional.");
     }
@@ -49,8 +49,7 @@ async function processQrTablePix(
     if (
         !addon ||
         addon.payment_provider !== "mercadopago" ||
-        (addon.mercadopago_order_id &&
-            addon.mercadopago_order_id !== payment.id)
+        addon.mercadopago_order_id !== payment.id
     ) {
         return;
     }
