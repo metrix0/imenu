@@ -63,7 +63,7 @@ export default function PixOnlineTemporaryNotice() {
 
     return (
         <Modal
-            height={390}
+            height={450}
             open={popup.open}
             onClose={close}
             className="max-w-md"
@@ -82,6 +82,9 @@ export default function PixOnlineTemporaryNotice() {
 
                 <p className="mt-3 text-sm leading-6 text-gray-600">
                     Seus clientes já podem pagar normalmente pelo Pix Online, com confirmação automática do pagamento.
+                </p>
+                <p className="mt-2 text-sm leading-6 text-gray-600">
+                    Para mantermos nossa taxa baixa de 1%, temporariamente o nome exibido no Pix será João Vitor. Essa é uma medida temporária enquanto concluímos os ajustes do Pix Online.
                 </p>
 
                 <Button
