@@ -306,12 +306,13 @@ export async function runChat(args: {
           ).length / 2,
         ) +
         attachments.length * 5000;
-      if (
-        inputTokens + estimatedInput > LIMITS.runInput ||
-        outputTokens + 500 > maxOutput
-      )
+      if (estimatedInput > LIMITS.runInput)
         throw new SalesError(
           "Esta conversa ficou extensa. Abra uma nova conversa; suas propostas já foram salvas.",
+        );
+      if (outputTokens + 500 > maxOutput)
+        throw new SalesError(
+          "A resposta atingiu o limite. As propostas prontas foram salvas.",
         );
       const response = await ai.responses.create({
         model: deep ? MODELS.analysis : MODELS.chat,
