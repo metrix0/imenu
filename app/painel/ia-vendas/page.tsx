@@ -531,7 +531,8 @@ export default function SalesPage() {
                     }
                   }}
                   placeholder="O que podemos melhorar no seu restaurante?"
-                  className="w-full resize-none bg-transparent px-2 py-1 text-sm outline-none focus-visible:!outline-none"
+                  style={{ outline: "none" }}
+                  className="w-full resize-none bg-transparent px-2 py-1 text-sm"
                 />
                 <div className="flex items-center justify-between">
                   <input
@@ -559,11 +560,11 @@ export default function SalesPage() {
                   </Button>
                 </div>
               </div>
-              <p className="mt-2 text-center text-[11px] text-gray-400">
-                {uploading
-                  ? "Enviando anexo…"
-                  : "Confira as propostas antes de aplicar. Você pode desfazer as mudanças."}
-              </p>
+              {uploading && (
+                <p className="mt-2 text-center text-[11px] text-gray-400">
+                  Enviando anexo…
+                </p>
+              )}
             </div>
           </div>
         </section>
