@@ -23,6 +23,8 @@ export default function PostPaymentWhatsappPrompt({
     const [whatsappUrl, setWhatsappUrl] = useState<string | null>(null);
 
     useEffect(() => {
+        if (!window.matchMedia("(max-width: 767px)").matches) return;
+
         let active = true;
         let finished = false;
 
