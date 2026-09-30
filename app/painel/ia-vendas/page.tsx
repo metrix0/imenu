@@ -123,9 +123,9 @@ export default function SalesPage() {
     input.current?.focus();
   };
   return (
-    <div className="p-4 md:p-0">
-      <div className="flex h-[calc(100dvh-96px)] min-h-[520px] overflow-hidden md:h-[calc(100dvh-64px)]">
-        <aside className="hidden w-56 shrink-0 flex-col border-r border-gray-200 bg-gray-50/60 p-3 lg:flex">
+    <div className="h-full min-h-0">
+      <div className="flex h-full min-h-0 overflow-hidden">
+        <aside className="hidden min-h-0 w-56 shrink-0 flex-col border-r border-gray-200 bg-gray-50/60 p-3 lg:flex">
           <Button
             variant="secondary"
             disabled={disabled}
@@ -191,7 +191,7 @@ export default function SalesPage() {
             ))}
           </nav>
         </aside>
-        <section className="flex min-w-0 flex-1 flex-col">
+        <section className="flex min-h-0 min-w-0 flex-1 flex-col">
           <div className="flex items-center justify-between gap-2 border-b border-gray-100 px-4 py-3">
             <div className="min-w-0">
               <h2 className="hidden truncate text-sm font-medium lg:block">
@@ -259,7 +259,7 @@ export default function SalesPage() {
               </button>
             </div>
           </div>
-          <div className="flex-1 overflow-y-auto px-4 py-5 md:px-8">
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 md:px-8">
             {sales.loading && !sales.messages.length ? <Loader /> : null}
             {sales.has_more && (
               <div className="mb-5 text-center">
