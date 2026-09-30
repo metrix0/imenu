@@ -98,6 +98,11 @@ export default function SalesPage() {
     setDeep(false);
   }, [sales.conversation_id]);
   useEffect(() => {
+    if (!input.current) return;
+    input.current.style.height = "auto";
+    input.current.style.height = `${input.current.scrollHeight}px`;
+  }, [text]);
+  useEffect(() => {
     if (!sales.running || sales.busy) return;
     const timer = setInterval(
       () =>
@@ -535,48 +540,49 @@ export default function SalesPage() {
                 </div>
               )}
               <div className="rounded-[8px] border border-[var(--panel-border)] bg-[var(--panel-surface)] p-2 transition-[border-color] focus-within:border-[var(--panel-action)]">
-                <textarea
-                  ref={input}
-                  aria-label="Mensagem para IA Vendas"
-                  value={text}
-                  maxLength={8000}
-                  rows={2}
-                  onChange={(e) => setText(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (
-                      e.key === "Enter" &&
-                      !e.shiftKey &&
-                      !e.nativeEvent.isComposing
-                    ) {
-                      e.preventDefault();
-                      void send();
-                    }
-                  }}
-                  placeholder="O que podemos melhorar no seu restaurante?"
-                  style={{ outline: "none" }}
-                  className="w-full resize-none bg-transparent px-2 py-1 text-sm"
+                <input
+                  ref={file}
+                  type="file"
+                  multiple
+                  accept="image/jpeg,image/png,image/webp,application/pdf,.txt,.csv,.md"
+                  onChange={(e) => void upload(e.target.files)}
+                  className="hidden"
                 />
-                <div className="flex items-center justify-between">
-                  <input
-                    ref={file}
-                    type="file"
-                    multiple
-                    accept="image/jpeg,image/png,image/webp,application/pdf,.txt,.csv,.md"
-                    onChange={(e) => void upload(e.target.files)}
-                    className="hidden"
-                  />
+                <div className="flex items-end gap-1">
                   <button
                     aria-label="Anexar arquivo"
                     disabled={uploading || disabled || attachments.length >= 3}
                     onClick={() => file.current?.click()}
-                    className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-[8px] text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-[8px] text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <Paperclip size={19} />
                   </button>
+                  <textarea
+                    ref={input}
+                    aria-label="Mensagem para IA Vendas"
+                    value={text}
+                    maxLength={8000}
+                    rows={1}
+                    onChange={(e) => setText(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (
+                        e.key === "Enter" &&
+                        !e.shiftKey &&
+                        !e.nativeEvent.isComposing
+                      ) {
+                        e.preventDefault();
+                        void send();
+                      }
+                    }}
+                    placeholder="O que podemos melhorar no seu restaurante?"
+                    style={{ outline: "none" }}
+                    className="max-h-40 min-h-10 min-w-0 flex-1 resize-none overflow-y-auto bg-transparent px-2 py-2.5 text-sm"
+                  />
                   <Button
                     aria-label="Enviar mensagem"
                     disabled={!text.trim() || disabled || uploading}
                     onClick={() => void send()}
+                    className="h-10 min-h-10 w-10 shrink-0 !px-0 !py-0"
                   >
                     <Send size={17} />
                   </Button>
