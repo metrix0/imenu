@@ -36,7 +36,7 @@ const QR_TABLE_PAYMENT_PRODUCT = {
     cardNotice:
         "Ao pagar, você autoriza a cobrança recorrente mensal de R$ 5,00 até o cancelamento.",
     pixConfirmationDescription:
-        "Assim que o PayZu confirmar o pagamento, o QR Code Mesa será liberado automaticamente.",
+        "Assim que o pagamento for confirmado, o QR Code Mesa será liberado automaticamente.",
     cardConfirmationDescription:
         "Estamos aguardando a confirmação do Asaas. Não feche esta janela.",
 } as const;

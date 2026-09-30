@@ -1,4 +1,6 @@
-import { randomUUID } from "node:crypto";
+import { createMercadoPagoPixCharge, getMercadoPagoPixPayment, isMercadoPagoPixFailureStatus, MercadoPagoPixApiError } from "@/lib/mercadoPagoPix";
+import { activateMercadoPagoQrTablePrepaid, saveMercadoPagoQrTablePayment, setMercadoPagoQrTablePending } from "@/lib/qr-table/mercadoPagoBilling";
+import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 
 import {
@@ -11,7 +13,6 @@ import {
     type CreditCardPaymentData,
 } from "@/lib/payments/types";
 import {
-    createPayZuPixCharge,
     getPayZuPixCharge,
     PayZuApiError,
     type PayZuTransaction,
@@ -25,10 +26,9 @@ import {
     activatePayZuQrTablePrepaid,
     QR_TABLE_PRICE_CENTS,
     savePayZuQrTablePayment,
-    setPayZuQrTablePending,
 } from "@/lib/qr-table/payzuBilling";
 import type { QrTableAddon, QrTableSource } from "@/lib/qr-table/types";
-import { hasQrTableAccess } from "@/lib/qr-table/types";
+import { hasQrTableAccess, isQrTablePrepaid } from "@/lib/qr-table/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -298,14 +298,12 @@ export async function POST(request: Request) {
             }
         }
 
-        await requireRestaurantOwner(request, restaurantId);
+        const owner = await requireRestaurantOwner(request, restaurantId);
         const addon = await prepareAddon(restaurantId, source);
         const hasAccess = hasQrTableAccess(addon);
         const prepaidAccess =
             hasAccess &&
-            addon.payment_provider === "payzu" &&
-            addon.payzu_payment_method?.toUpperCase() === "PIX" &&
-            !addon.payzu_recurrence_id;
+            isQrTablePrepaid(addon);
 
         if (hasAccess && (!renew || !prepaidAccess)) {
             return NextResponse.json(
@@ -323,55 +321,45 @@ export async function POST(request: Request) {
             const reusedPayment = await existingPayZuPix(addon, {
                 reuseCompleted: !renew,
             });
-            const payment =
-                reusedPayment ||
-                ((await createPayZuPixCharge({
-                    amount: QR_TABLE_PRICE_CENTS / 100,
-                    callbackUrl: `${origin}/api/webhooks/payzu`,
-                    clientReference: `qr-table:${addon.id}:${randomUUID().slice(0, 8)}`,
-                })) as PayZuPixWithPaidAt);
-
-            if (!payment.id) {
-                throw new Error("O PayZu não retornou a cobrança Pix.");
+            // Existing PayZu charges remain payable/reconcilable; new charges use MP.
+            if (reusedPayment) {
+                const active = String(reusedPayment.status).toUpperCase() === "COMPLETED";
+                await savePayZuQrTablePayment({ addonId: addon.id, paymentId: reusedPayment.id, status: reusedPayment.status, paidAt: reusedPayment.paidAt });
+                if (active) await activatePayZuQrTablePrepaid({ addonId: addon.id, paymentId: reusedPayment.id, status: reusedPayment.status, paidAt: reusedPayment.paidAt });
+                return NextResponse.json({ active, recurring: false, paymentMethod, paymentStatus: reusedPayment.status, transactionId: reusedPayment.id, qrCodeText: reusedPayment.qrCodeText, qrCodeBase64: reusedPayment.qrCodeBase64, qrCodeUrl: reusedPayment.qrCodeUrl });
             }
 
-            const paymentStatus = String(payment.status || "PENDING");
-            await setPayZuQrTablePending({
-                addonId: addon.id,
-                paymentId: payment.id,
-                status:
-                    paymentStatus.toUpperCase() === "COMPLETED"
-                        ? "PENDING"
-                        : paymentStatus,
-                preserveAccess,
-            });
-            await savePayZuQrTablePayment({
-                addonId: addon.id,
-                paymentId: payment.id,
-                status: paymentStatus,
-                paidAt: payment.paidAt || null,
-            });
-
-            const active = paymentStatus.toUpperCase() === "COMPLETED";
-            if (active) {
-                await activatePayZuQrTablePrepaid({
-                    addonId: addon.id,
-                    paymentId: payment.id,
-                    status: paymentStatus,
-                    paidAt: payment.paidAt || null,
+            let payment = addon.payment_provider === "mercadopago" && addon.mercadopago_order_id
+                ? await getMercadoPagoPixPayment({ id: addon.mercadopago_order_id }) : null;
+            if (payment && (isMercadoPagoPixFailureStatus(payment.status) ||
+                (payment.status === "approved" && addon.mercadopago_order_status === "APPROVED"))) payment = null;
+            if (!payment) {
+                // Retrying the same billing cycle must recover the same charge,
+                // including when the API succeeded but saving its ID failed.
+                const cycle = createHash("sha256").update(`${addon.id}:${addon.mercadopago_order_id || addon.payzu_payment_id || "initial"}`).digest("hex").slice(0, 16);
+                const reference = `qr-table:${addon.id}:${cycle}`;
+                payment = await createMercadoPagoPixCharge({
+                    amount: QR_TABLE_PRICE_CENTS / 100,
+                    notificationUrl: `${origin}/api/webhooks/mercadopago`,
+                    externalReference: reference,
+                    idempotencyKey: reference,
+                    payerEmail:
+                        owner.user.email?.trim() ||
+                        `qr_table_${addon.id}@fake.com`,
+                    payerName: owner.restaurant.name,
                 });
             }
-
-            return NextResponse.json({
-                active,
-                recurring: false,
-                paymentMethod,
-                paymentStatus,
-                transactionId: payment.id,
-                qrCodeText: payment.qrCodeText || null,
-                qrCodeBase64: payment.qrCodeBase64 || null,
-                qrCodeUrl: payment.qrCodeUrl || null,
-            });
+            if (payment.paymentMethodId !== "pix" || Math.round(payment.amount * 100) !== QR_TABLE_PRICE_CENTS ||
+                !payment.externalReference?.startsWith(`qr-table:${addon.id}:`)) {
+                throw new Error("Cobrança Mercado Pago divergente do pagamento solicitado.");
+            }
+            await setMercadoPagoQrTablePending({ addonId: addon.id, paymentId: payment.id,
+                status: payment.status === "approved" ? "PENDING" : payment.status, preserveAccess });
+            await saveMercadoPagoQrTablePayment({ addonId: addon.id, paymentId: payment.id, status: payment.status, paidAt: payment.paidAt });
+            const active = payment.status === "approved";
+            if (active) await activateMercadoPagoQrTablePrepaid({ addonId: addon.id, paymentId: payment.id, status: payment.status, paidAt: payment.paidAt });
+            return NextResponse.json({ active, recurring: false, paymentMethod, paymentStatus: payment.status,
+                transactionId: payment.id, qrCodeText: payment.qrCodeText, qrCodeBase64: payment.qrCodeBase64, qrCodeUrl: payment.qrCodeUrl });
         }
 
         const card = body.card as CreditCardPaymentData;
@@ -469,6 +457,7 @@ export async function POST(request: Request) {
         if (
             error instanceof RestaurantOwnerAuthError ||
             error instanceof PayZuApiError ||
+            error instanceof MercadoPagoPixApiError ||
             error instanceof AsaasApiError
         ) {
             return NextResponse.json(

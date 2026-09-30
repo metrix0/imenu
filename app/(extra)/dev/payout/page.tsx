@@ -707,7 +707,7 @@ export default function DevPayoutPage() {
             <Card>
                 <h2 className="text-lg font-bold text-gray-900">Histórico da automação diária</h2>
                 <p className="mt-1 text-sm text-gray-500">
-                    Executa todos os dias às 12h. Após solicitar a transferência da PayZu, aguarda o saldo necessário aparecer no Asaas antes de enviar os repasses.
+                    Executa todos os dias às 12h. O Mercado Pago envia o valor que falta para os repasses ao Asaas. A transferência e o saldo são confirmados antes de pagar os restaurantes.
                 </p>
 
                 <div className="mt-5 overflow-x-auto">
@@ -720,7 +720,7 @@ export default function DevPayoutPage() {
                                 <th className="px-3 py-3">Comparação</th>
                                 <th className="px-3 py-3">Enviar p/ todos</th>
                                 <th className="px-3 py-3 text-right">Bruto</th>
-                                <th className="px-3 py-3 text-right">PayZu</th>
+                                <th className="px-3 py-3 text-right">Gateway</th>
                                 <th className="px-3 py-3 text-right">Desconto</th>
                                 <th className="px-3 py-3 text-right">Lucro líquido</th>
                                 <th className="px-3 py-3">Erro</th>
@@ -762,7 +762,7 @@ export default function DevPayoutPage() {
                                                 </div>
                                             )}
                                             {run.payzu_transaction_status && (
-                                                <div className="mt-1 text-xs text-gray-500">PayZu: {run.payzu_transaction_status}</div>
+                                                <div className="mt-1 text-xs text-gray-500">Gateway: {run.payzu_transaction_status}</div>
                                             )}
                                         </td>
                                         <td className="px-3 py-4 align-top">
@@ -903,7 +903,7 @@ export default function DevPayoutPage() {
                 <MetricCard
                     label="Total que devo aos restaurantes"
                     value={money(netOwedCents)}
-                    detail={`${money(grossOwedCents)} bruto · PayZu ${money(payzuOwedCents)} · Desconto ${money(owedDiscountCents)} · ${onePercentNet ? "1%" : `${numericDiscount.toLocaleString("pt-BR", { maximumFractionDigits: 4 })}%`} total`}
+                    detail={`${money(grossOwedCents)} bruto · Gateway ${money(payzuOwedCents)} · Desconto ${money(owedDiscountCents)} · ${onePercentNet ? "1%" : `${numericDiscount.toLocaleString("pt-BR", { maximumFractionDigits: 4 })}%`} total`}
                 />
                 <MetricCard
                     label="Restaurantes com valor a receber"
@@ -915,7 +915,7 @@ export default function DevPayoutPage() {
             <Card>
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                        <h2 className="text-lg font-bold text-gray-900">PayZu → Asaas</h2>
+                        <h2 className="text-lg font-bold text-gray-900">Saldo legado PayZu → Asaas</h2>
                         <p className="mt-1 text-sm text-gray-500">
                             Transfere todo o saldo disponível da PayZu para o Asaas, deixando R$ 1,00 de reserva.
                         </p>
@@ -1039,7 +1039,7 @@ export default function DevPayoutPage() {
                                 <th className="px-3 py-3">Telefone</th>
                                 <th className="px-3 py-3">PIX</th>
                                 <th className="px-3 py-3 text-right">Bruto</th>
-                                <th className="px-3 py-3 text-right">PayZu</th>
+                                <th className="px-3 py-3 text-right">Gateway</th>
                                 <th className="px-3 py-3 text-right">Desconto</th>
                                 <th className="px-3 py-3 text-right">Enviar</th>
                                 <th className="px-3 py-3 text-right">Ação</th>
@@ -1174,7 +1174,7 @@ export default function DevPayoutPage() {
                                 <th className="w-36 px-3 py-3">Telefone</th>
                                 <th className="w-56 px-3 py-3">PIX atual</th>
                                 <th className="w-28 px-3 py-3 text-right">Bruto</th>
-                                <th className="w-28 px-3 py-3 text-right">PayZu</th>
+                                <th className="w-28 px-3 py-3 text-right">Gateway</th>
                                 <th className="w-28 px-3 py-3 text-right">Desconto</th>
                                 <th className="w-28 px-3 py-3 text-right">Valor</th>
                                 <th className="w-36 px-3 py-3 text-right">Ação</th>
@@ -1272,7 +1272,7 @@ export default function DevPayoutPage() {
                                 <th className="w-36 px-3 py-3">Telefone</th>
                                 <th className="w-56 px-3 py-3">PIX</th>
                                 <th className="w-28 px-3 py-3 text-right">Bruto</th>
-                                <th className="w-28 px-3 py-3 text-right">PayZu</th>
+                                <th className="w-28 px-3 py-3 text-right">Gateway</th>
                                 <th className="w-28 px-3 py-3 text-right">Desconto</th>
                                 <th className="w-28 px-3 py-3 text-right">Enviado</th>
                                 <th className="w-28 px-3 py-3">Status</th>
@@ -1430,8 +1430,8 @@ export default function DevPayoutPage() {
                     <h2 className="text-xl font-bold text-gray-900">Confirmar envio</h2>
                     <p className="mt-2 text-sm text-gray-500">
                         {onePercentNet
-                            ? `Serão enviados ${money(confirmNetSendableCents)} para ${confirmSendable.length} restaurante(s). PayZu + Desconto totalizam exatamente 1% do bruto de cada restaurante; valores editados manualmente são respeitados.`
-                            : `Serão enviados ${money(confirmNetSendableCents)} para ${confirmSendable.length} restaurante(s). PayZu + Desconto totalizam ${numericDiscount.toLocaleString("pt-BR", { maximumFractionDigits: 4 })}% do bruto; valores editados manualmente são respeitados.`}
+                            ? `Serão enviados ${money(confirmNetSendableCents)} para ${confirmSendable.length} restaurante(s). Gateway + Desconto totalizam exatamente 1% do bruto de cada restaurante; valores editados manualmente são respeitados.`
+                            : `Serão enviados ${money(confirmNetSendableCents)} para ${confirmSendable.length} restaurante(s). Gateway + Desconto totalizam ${numericDiscount.toLocaleString("pt-BR", { maximumFractionDigits: 4 })}% do bruto; valores editados manualmente são respeitados.`}
                     </p>
 
                     <div className="mt-5 max-h-64 space-y-2 overflow-y-auto rounded-lg border border-gray-100 p-3">

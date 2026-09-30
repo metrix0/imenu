@@ -1,8 +1,8 @@
 import { POST } from "./route";
 import { query, withTransaction } from "@/lib/database/sql";
-import { createPayZuPixCharge } from "@/lib/payzu";
+import { createMercadoPagoPixCharge } from "@/lib/mercadoPagoPix";
 jest.mock("@/lib/database/sql", () => ({ query: jest.fn(), withTransaction: jest.fn() }));
-jest.mock("@/lib/payzu", () => ({ createPayZuPixCharge: jest.fn() }));
+jest.mock("@/lib/mercadoPagoPix", () => ({ createMercadoPagoPixCharge: jest.fn() }));
 const restaurant = "30000000-0000-4000-8000-000000000001";
 const a = "10000000-0000-4000-8000-000000000001", b = "10000000-0000-4000-8000-000000000002";
 const table = "40000000-0000-4000-8000-000000000001";
@@ -17,7 +17,7 @@ beforeEach(() => {
     writes = []; rollback = false; secondaryStock = 5;
     jest.spyOn(console, "error").mockImplementation(() => undefined);
     (query as jest.Mock).mockResolvedValue({ rows: [] });
-    (createPayZuPixCharge as jest.Mock).mockResolvedValue({ id: "test", qrCodeText: "test" });
+    (createMercadoPagoPixCharge as jest.Mock).mockResolvedValue({ id: "test", qrCodeText: "test" });
     const client = { query: jest.fn(async (sql: string, values: any[]) => {
         if (/INSERT|UPDATE/.test(sql) && !sql.includes("FOR UPDATE")) writes.push({ sql, values });
         if (sql.includes("SELECT url_slug")) return { rows: [{ url_slug: "test", automatic_promotions: [], pizza_settings: settings }] };
@@ -57,8 +57,8 @@ it("rejects tampered pizza prices before any order or stock mutation", async () 
     expect(writes).toHaveLength(0);
 });
 it("charges the calculated amount and restores both flavors if PIX fails", async () => {
-    (createPayZuPixCharge as jest.Mock).mockRejectedValueOnce(new Error("offline"));
+    (createMercadoPagoPixCharge as jest.Mock).mockRejectedValueOnce(new Error("offline"));
     await send({ paymentMethod: "pix" });
-    expect(createPayZuPixCharge).toHaveBeenCalledWith(expect.objectContaining({ amount: 118 }));
+    expect(createMercadoPagoPixCharge).toHaveBeenCalledWith(expect.objectContaining({ amount: 118 }));
     expect(writes.filter(w => w.sql.includes("stock_quantity + $1")).map(w => w.values)).toEqual([[2, a], [2, b]]);
 });

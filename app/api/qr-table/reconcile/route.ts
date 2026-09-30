@@ -1,3 +1,6 @@
+import { getMercadoPagoPixPayment, isMercadoPagoPixFailureStatus, MercadoPagoPixApiError } from "@/lib/mercadoPagoPix";
+import { activateMercadoPagoQrTablePrepaid, saveMercadoPagoQrTablePayment, markMercadoPagoQrTablePaymentFailure } from "@/lib/qr-table/mercadoPagoBilling";
+import { QR_TABLE_PRICE_CENTS } from "@/lib/qr-table/payzuBilling";
 import { NextResponse } from "next/server";
 
 import {
@@ -208,6 +211,30 @@ async function reconcilePayZuPix(addon: QrTableAddon) {
     };
 }
 
+async function reconcileMercadoPagoPix(addon: QrTableAddon) {
+    const payment = addon.mercadopago_order_id
+        ? await getMercadoPagoPixPayment({ id: addon.mercadopago_order_id }) : null;
+    if (!payment) return { active: hasQrTableAccess(addon), activatedNow: false, status: addon.status, paymentStatus: addon.mercadopago_order_status };
+    if (payment.id !== addon.mercadopago_order_id || payment.paymentMethodId !== "pix" ||
+        Math.round(payment.amount * 100) !== QR_TABLE_PRICE_CENTS || !payment.externalReference?.startsWith(`qr-table:${addon.id}:`)) {
+        throw new Error("Cobrança Mercado Pago divergente do adicional.");
+    }
+    const input = { addonId: addon.id, paymentId: payment.id, status: payment.status, paidAt: payment.paidAt };
+    await saveMercadoPagoQrTablePayment(input);
+    if (payment.status === "approved") await activateMercadoPagoQrTablePrepaid(input);
+    else if (isMercadoPagoPixFailureStatus(payment.status)) {
+        const failureStatus = String(payment.status || "").toLowerCase();
+        await markMercadoPagoQrTablePaymentFailure({
+            ...input,
+            expireAccess: ["refunded", "cancelled", "canceled", "charged_back"].includes(
+                failureStatus
+            ),
+        });
+    }
+    const refreshed = await query<QrTableAddon>("SELECT * FROM public.restaurant_addons WHERE id = $1", [addon.id]);
+    return { active: hasQrTableAccess(refreshed.rows[0]), activatedNow: payment.status === "approved" && addon.mercadopago_order_status !== "APPROVED", status: refreshed.rows[0]?.status || addon.status, paymentStatus: payment.status };
+}
+
 async function reconcileAsaasPayments(
     addon: QrTableAddon,
     parameter: "subscription" | "checkoutSession",
@@ -301,6 +328,10 @@ export async function POST(request: Request) {
                 },
                 { headers: { "Cache-Control": "no-store" } }
             );
+        }
+
+        if (addon.payment_provider === "mercadopago") {
+            return NextResponse.json(await reconcileMercadoPagoPix(addon), { headers: { "Cache-Control": "no-store" } });
         }
 
         if (renew) {
@@ -409,6 +440,7 @@ export async function POST(request: Request) {
         if (
             error instanceof RestaurantOwnerAuthError ||
             error instanceof AsaasApiError ||
+            error instanceof MercadoPagoPixApiError ||
             error instanceof PayZuApiError
         ) {
             return NextResponse.json(

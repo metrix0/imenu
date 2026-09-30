@@ -5,7 +5,7 @@ import {
     query,
     withTransaction,
 } from "@/lib/database/sql";
-import { createPayZuPixCharge } from "@/lib/payzu";
+import { createMercadoPagoPixCharge } from "@/lib/mercadoPagoPix";
 import { automaticOrderPricing, PromotionPricingError } from "@/lib/promotions/orderPricing";
 import { pricePizzaOrderItems } from "@/lib/pizza/orderPricing";
 import { PizzaPricingError, pizzaStockItemIds } from "@/lib/pizza/pricing";
@@ -1152,13 +1152,16 @@ export async function POST(request: Request) {
         let payment;
 
         try {
-            payment = await createPayZuPixCharge({
+            payment = await createMercadoPagoPixCharge({
                 amount: total / 100,
-                callbackUrl: new URL(
-                    "/api/webhooks/payzu",
+                notificationUrl: new URL(
+                    "/api/webhooks/mercadopago",
                     request.url
                 ).toString(),
-                clientReference: orderId.toString(),
+                externalReference: orderId.toString(),
+                payerName: customer_name ?? null,
+                payerEmail: `cliente_${orderId}@fake.com`,
+                idempotencyKey: orderId.toString(),
             });
         } catch (paymentError) {
             try {

@@ -29,6 +29,8 @@ export type QrTableAddon = {
     payzu_payment_id: string | null;
     payzu_recurrence_id: string | null;
     payzu_payment_status: string | null;
+    mercadopago_order_id: string | null;
+    mercadopago_order_status: string | null;
     current_period_ends_at: string | null;
     activated_at: string | null;
     canceled_at: string | null;
@@ -60,5 +62,17 @@ export function hasQrTableAccess(
         (addon.status === "canceled" || addon.status === "past_due") &&
         Number.isFinite(periodEnd) &&
         periodEnd > now
+    );
+}
+
+export function isQrTablePrepaid(addon: {
+    payment_provider: string | null;
+    payzu_payment_method: string | null;
+    payzu_recurrence_id: string | null;
+} | null): boolean {
+    return addon?.payment_provider === "mercadopago" || Boolean(
+        addon?.payment_provider === "payzu" &&
+        addon.payzu_payment_method?.toUpperCase() === "PIX" &&
+        !addon.payzu_recurrence_id
     );
 }

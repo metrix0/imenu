@@ -6,9 +6,10 @@ export function getMaxPayoutDifferenceCents(totalCents: number): number {
 
 export function calculateOnePercentPayout(
     grossCents: number,
-    orderCount: number
+    providerFeeCents: number
 ) {
-    const payzuFeeCents = orderCount * 10;
+    // Legacy column/property name retained for historical payout compatibility.
+    const payzuFeeCents = providerFeeCents;
     const totalDiscountCents = Math.round(grossCents * 0.01);
     const discountCents = totalDiscountCents - payzuFeeCents;
     const netCents = Math.max(

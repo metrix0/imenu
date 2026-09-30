@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
-import * as https from "node:https";
-import { HttpsProxyAgent } from "https-proxy-agent";
+import { transferMercadoPagoToAsaas } from "@/lib/services/mercadoPagoPayout";
 
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
@@ -12,15 +11,9 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const ALLOWED_DEV_EMAIL = "joaovralmeida@hotmail.com";
-const PAYZU_BASE_URL = "https://api.payzu.processamento.com/v1";
-const PAYZU_REQUEST_TIMEOUT_MS = 10_000;
-const PAYZU_TEST_AMOUNT_CENTS = 100;
-const PAYZU_RESERVE_CENTS = 100;
-const MAX_CREATE_ATTEMPTS = 4;
 const RESTAURANT_TEST_AMOUNT_CENTS = 100;
 
 type PixKeyType = "CPF" | "CNPJ" | "EMAIL" | "PHONE" | "EVP";
-type PayZuPixType = "cpf" | "cnpj" | "phone" | "email" | "evp";
 
 type RestaurantRow = {
     id: string;
@@ -34,32 +27,6 @@ type AsaasTransfer = {
     status?: string;
     failReason?: string | null;
 };
-
-type PayZuBalance = {
-    balanceAvailable?: number | string;
-};
-
-type PayZuWithdrawal = {
-    id?: string;
-    status?: string;
-    clientReference?: string | null;
-};
-
-class PayZuRequestError extends Error {
-    status: number;
-    requestId?: string;
-
-    constructor(message: string, status: number, requestId?: string) {
-        super(message);
-        this.name = "PayZuRequestError";
-        this.status = status;
-        this.requestId = requestId;
-    }
-}
-
-function sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 function getBearerToken(request: Request): string | null {
     const authorization = request.headers.get("authorization")?.trim();
@@ -160,247 +127,6 @@ async function getAsaasBalanceCents(): Promise<number> {
     return Math.round(balance * 100);
 }
 
-function getPayZuToken(): string {
-    const token = process.env.PAYZU_TOKEN?.trim();
-    if (!token) throw new Error("PAYZU_TOKEN não configurado.");
-    return token;
-}
-
-function getFixieUrl(): string {
-    const fixieUrl = process.env.FIXIE_URL?.trim();
-    if (!fixieUrl) throw new Error("FIXIE_URL não configurado para o saque PayZu de teste.");
-    return fixieUrl;
-}
-
-function getPayZuDestination(): { pixKey: string; pixType: PayZuPixType } {
-    const pixKey = process.env.ASAAS_PIX_KEY?.trim();
-    const rawType = process.env.ASAAS_PIX_KEY_TYPE?.trim().toLowerCase();
-
-    if (!pixKey) throw new Error("ASAAS_PIX_KEY não configurada.");
-
-    if (
-        rawType !== "cpf" &&
-        rawType !== "cnpj" &&
-        rawType !== "phone" &&
-        rawType !== "email" &&
-        rawType !== "evp"
-    ) {
-        throw new Error("ASAAS_PIX_KEY_TYPE inválido.");
-    }
-
-    return { pixKey, pixType: rawType };
-}
-
-async function parseJson(response: Response): Promise<any> {
-    const text = await response.text();
-    if (!text) return null;
-
-    try {
-        return JSON.parse(text);
-    } catch {
-        return { message: text };
-    }
-}
-
-function parseJsonText(text: string): any {
-    if (!text) return null;
-
-    try {
-        return JSON.parse(text);
-    } catch {
-        return { message: text };
-    }
-}
-
-async function payzuRequest<T>(
-    path: string,
-    init: RequestInit = {}
-): Promise<T> {
-    const controller = new AbortController();
-    const timeout = setTimeout(
-        () => controller.abort(),
-        PAYZU_REQUEST_TIMEOUT_MS
-    );
-
-    try {
-        const response = await fetch(`${PAYZU_BASE_URL}${path}`, {
-            ...init,
-            headers: {
-                Authorization: `Bearer ${getPayZuToken()}`,
-                Accept: "application/json",
-                ...(init.body ? { "Content-Type": "application/json" } : {}),
-                ...(init.headers || {}),
-            },
-            cache: "no-store",
-            signal: controller.signal,
-        });
-
-        const data = await parseJson(response);
-        if (!response.ok) {
-            const requestId = data?.requestId
-                ? String(data.requestId)
-                : undefined;
-            const message =
-                typeof data?.message === "string" && data.message.trim()
-                    ? data.message
-                    : `PayZu respondeu com HTTP ${response.status}.`;
-            throw new PayZuRequestError(message, response.status, requestId);
-        }
-
-        return data as T;
-    } finally {
-        clearTimeout(timeout);
-    }
-}
-
-async function payzuRequestThroughFixie<T>(
-    path: string,
-    init: { method: "GET" | "POST"; body?: string }
-): Promise<T> {
-    const target = new URL(`${PAYZU_BASE_URL}${path}`);
-    const agent = new HttpsProxyAgent(getFixieUrl());
-
-    return new Promise((resolve, reject) => {
-        const request = https.request(
-            target,
-            {
-                method: init.method,
-                agent,
-                headers: {
-                    Authorization: `Bearer ${getPayZuToken()}`,
-                    Accept: "application/json",
-                    ...(init.body
-                        ? {
-                              "Content-Type": "application/json",
-                              "Content-Length": Buffer.byteLength(init.body),
-                          }
-                        : {}),
-                },
-                timeout: PAYZU_REQUEST_TIMEOUT_MS,
-            },
-            (response) => {
-                const chunks: Buffer[] = [];
-
-                response.on("data", (chunk) => {
-                    chunks.push(
-                        Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
-                    );
-                });
-                response.on("error", reject);
-                response.on("end", () => {
-                    const status = response.statusCode ?? 500;
-                    const data = parseJsonText(
-                        Buffer.concat(chunks).toString("utf8")
-                    );
-
-                    if (status < 200 || status >= 300) {
-                        const requestId = data?.requestId
-                            ? String(data.requestId)
-                            : undefined;
-                        const message =
-                            typeof data?.message === "string" && data.message.trim()
-                                ? data.message
-                                : `PayZu respondeu com HTTP ${status}.`;
-                        reject(new PayZuRequestError(message, status, requestId));
-                        return;
-                    }
-
-                    resolve(data as T);
-                });
-            }
-        );
-
-        request.on("timeout", () => {
-            request.destroy(new Error("Tempo limite excedido ao chamar PayZu."));
-        });
-        request.on("error", reject);
-        if (init.body) request.write(init.body);
-        request.end();
-    });
-}
-
-async function getExistingWithdrawal(
-    clientReference: string
-): Promise<PayZuWithdrawal | null> {
-    try {
-        return await payzuRequestThroughFixie<PayZuWithdrawal>(
-            `/withdraw?clientReference=${encodeURIComponent(clientReference)}`,
-            { method: "GET" }
-        );
-    } catch (error) {
-        if (error instanceof PayZuRequestError && error.status === 404) {
-            return null;
-        }
-        throw error;
-    }
-}
-
-async function getPayZuAvailableBalanceCents(): Promise<number> {
-    const balance = await payzuRequest<PayZuBalance>("/user/balance", {
-        method: "GET",
-    });
-    const available = Number(balance.balanceAvailable);
-
-    if (!Number.isFinite(available) || available < 0) {
-        throw new Error("Saldo disponível inválido retornado pela PayZu.");
-    }
-
-    return Math.round(available * 100);
-}
-
-async function createPayZuTestWithdrawal(input: {
-    pixKey: string;
-    pixType: PayZuPixType;
-    clientReference: string;
-}): Promise<PayZuWithdrawal> {
-    const payload = {
-        amount: PAYZU_TEST_AMOUNT_CENTS / 100,
-        pixKey: input.pixKey,
-        pixType: input.pixType,
-        clientReference: input.clientReference,
-        description: "Teste PayZu para Asaas - iMenu",
-    };
-
-    let lastError: unknown = null;
-
-    for (let attempt = 0; attempt < MAX_CREATE_ATTEMPTS; attempt += 1) {
-        try {
-            const existing = await getExistingWithdrawal(input.clientReference);
-            if (existing) return existing;
-
-            return await payzuRequestThroughFixie<PayZuWithdrawal>("/withdraw", {
-                method: "POST",
-                body: JSON.stringify(payload),
-            });
-        } catch (error) {
-            lastError = error;
-
-            if (
-                error instanceof PayZuRequestError &&
-                error.status !== 409 &&
-                error.status !== 429 &&
-                error.status < 500
-            ) {
-                throw error;
-            }
-
-            try {
-                const existing = await getExistingWithdrawal(input.clientReference);
-                if (existing) return existing;
-            } catch {
-                // Best-effort reconciliation before retrying the same reference.
-            }
-        }
-
-        if (attempt < MAX_CREATE_ATTEMPTS - 1) {
-            await sleep(500 * 2 ** attempt);
-        }
-    }
-
-    if (lastError instanceof Error) throw lastError;
-    throw new Error("Não foi possível criar a transferência de teste PayZu.");
-}
-
 export async function GET(request: Request) {
     const denied = await authorize(request);
     if (denied) return denied;
@@ -444,54 +170,12 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "JSON inválido." }, { status: 400 });
     }
 
-    if (body.action === "payzu_to_asaas") {
-        const clientReference = `imenu-test-payzu-asaas-${randomUUID()}`;
-
+    if (body.action === "mercadopago_to_asaas") {
         try {
-            const balanceBeforeCents = await getPayZuAvailableBalanceCents();
-            if (
-                balanceBeforeCents <
-                PAYZU_TEST_AMOUNT_CENTS + PAYZU_RESERVE_CENTS
-            ) {
-                return NextResponse.json(
-                    {
-                        error: "Saldo PayZu insuficiente para enviar R$ 1,00 e manter R$ 1,00 de reserva.",
-                        balanceBeforeCents,
-                    },
-                    { status: 409 }
-                );
-            }
-
-            const destination = getPayZuDestination();
-            await payzuRequest(
-                `/user/dict?key=${encodeURIComponent(destination.pixKey)}`,
-                { method: "GET" }
-            );
-
-            const withdrawal = await createPayZuTestWithdrawal({
-                pixKey: destination.pixKey,
-                pixType: destination.pixType,
-                clientReference,
-            });
-
-            return NextResponse.json({
-                success: true,
-                action: "payzu_to_asaas",
-                amountCents: PAYZU_TEST_AMOUNT_CENTS,
-                balanceBeforeCents,
-                transactionId: withdrawal.id || null,
-                transactionStatus: withdrawal.status || null,
-            });
+            const transfer = await transferMercadoPagoToAsaas({ amountCents: 100, clientReference: `imenu-mp-test-${randomUUID()}` });
+            return NextResponse.json({ success: true, action: "mercadopago_to_asaas", ...transfer });
         } catch (error) {
-            const requestId =
-                error instanceof PayZuRequestError ? error.requestId : undefined;
-            return NextResponse.json(
-                {
-                    error: error instanceof Error ? error.message : "Erro interno.",
-                    ...(requestId ? { requestId } : {}),
-                },
-                { status: 500 }
-            );
+            return NextResponse.json({ error: error instanceof Error ? error.message : "Erro interno." }, { status: 500 });
         }
     }
 
