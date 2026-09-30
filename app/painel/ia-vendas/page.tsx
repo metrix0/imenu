@@ -539,7 +539,7 @@ export default function SalesPage() {
                   ))}
                 </div>
               )}
-              <div className="rounded-[8px] border border-[var(--panel-border)] bg-[var(--panel-surface)] p-2 transition-[border-color] focus-within:border-[var(--panel-action)]">
+              <div className="rounded-[8px] bg-[var(--panel-surface)] p-2">
                 <input
                   ref={file}
                   type="file"
