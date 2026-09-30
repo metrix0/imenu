@@ -124,7 +124,7 @@ export default function SalesPage() {
   };
   return (
     <div className="p-4 md:p-0">
-      <div className="flex h-[calc(100dvh-120px)] min-h-[520px] overflow-hidden rounded-[10px] border border-[#e2e5e9] bg-white md:h-[calc(100dvh-90px)]">
+      <div className="flex h-[calc(100dvh-96px)] min-h-[520px] overflow-hidden rounded-[10px] border border-[#e2e5e9] bg-white md:h-[calc(100dvh-64px)]">
         <aside className="hidden w-56 shrink-0 flex-col border-r border-gray-200 bg-gray-50/60 p-3 lg:flex">
           <Button
             variant="secondary"
@@ -190,9 +190,6 @@ export default function SalesPage() {
               </div>
             ))}
           </nav>
-          <p className="px-2 pt-4 text-xs leading-5 text-gray-400">
-            Você aprova cada mudança antes de publicar.
-          </p>
         </aside>
         <section className="flex min-w-0 flex-1 flex-col">
           <div className="flex items-center justify-between gap-2 border-b border-gray-100 px-4 py-3">
@@ -491,7 +488,7 @@ export default function SalesPage() {
                     }
                   }}
                   placeholder="O que podemos melhorar no seu restaurante?"
-                  className="w-full resize-none bg-transparent px-2 py-1 text-sm outline-none focus-visible:outline-none"
+                  className="w-full resize-none bg-transparent px-2 py-1 text-sm outline-none focus-visible:!outline-none"
                 />
                 <div className="flex items-center justify-between">
                   <input

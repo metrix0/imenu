@@ -268,6 +268,9 @@ export default function PainelLayout({
 
     useEffect(() => {
         setMobileMenuOpen(false);
+        if (pathname?.startsWith("/painel/ia-vendas")) {
+            setExpanded(false);
+        }
     }, [pathname]);
 
     useEffect(() => {
