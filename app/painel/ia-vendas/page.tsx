@@ -348,7 +348,7 @@ export default function SalesPage() {
                     <div
                       className={
                         m.role === "user"
-                          ? "rounded-[10px] bg-[var(--panel-soft)] px-4 py-3"
+                          ? "rounded-[10px] bg-[var(--panel-tint)] px-4 py-3"
                           : "flex items-start gap-3"
                       }
                     >
@@ -361,15 +361,11 @@ export default function SalesPage() {
                         </div>
                       )}
                       <div className="min-w-0 flex-1">
-                        <p
-                          className={
-                            m.role === "user"
-                              ? "mb-2 text-[11px] font-medium text-[var(--panel-muted)]"
-                              : "mb-2 text-xs font-medium text-[var(--panel-accent-text)]"
-                          }
-                        >
-                          {m.role === "user" ? "Você" : "iMenu IA Vendas"}
-                        </p>
+                        {m.role === "assistant" && (
+                          <p className="mb-2 text-xs font-medium text-[var(--panel-accent-text)]">
+                            iMenu IA Vendas
+                          </p>
+                        )}
                     {parts.map((part, i) => {
                       if (part.type === "text")
                         return (
