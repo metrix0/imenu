@@ -11,12 +11,21 @@ export function imageUrl(path: string | null, bucket = "menu-images") {
     .data.publicUrl;
 }
 export async function readData(restaurant: string, entity: string, offset = 0) {
-  const cols = [...new Set([key(entity), ...Object.keys(fields(entity))])];
+  const cols = [...new Set([key(entity), ...Object.keys(fields(entity))])],
+    order =
+      {
+        categories: "t.position,t.id",
+        items:
+          "(SELECT c.position FROM public.categories c WHERE c.id=t.category_id),t.position,t.id",
+        item_subcategories: "t.item_id,t.position,t.id",
+        subitems: "t.item_subcategory_id,t.position,t.id",
+        upsell: "t.position,t.id",
+      }[entity] || `t.${key(entity)}`;
   if (!Number.isInteger(offset) || offset < 0 || offset > 10000)
     throw new SalesError("Página inválida.");
   const rows = (
     await query(
-      `SELECT ${cols.map((k) => `t.${k}`).join(",")} FROM public.${entity} t WHERE ${scope(entity)} ORDER BY t.${key(entity)} LIMIT 51 OFFSET $2`,
+      `SELECT ${cols.map((k) => `t.${k}`).join(",")} FROM public.${entity} t WHERE ${scope(entity)} ORDER BY ${order} LIMIT 51 OFFSET $2`,
       [restaurant, offset],
     )
   ).rows;
