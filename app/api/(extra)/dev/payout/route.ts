@@ -1,13 +1,20 @@
+import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
 import { query } from "@/lib/database/sql";
 import {
+    createPayoutPlan,
+    getAsaasBalance,
     getPayoutDashboardData,
     PayoutValidationError,
     retryFailedPayout,
     sendPayouts,
 } from "@/lib/services/payouts";
+import {
+    assertMercadoPagoPayoutConfigured,
+    transferMercadoPagoToAsaas,
+} from "@/lib/services/mercadoPagoPayout";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -129,6 +136,7 @@ export async function POST(request: Request) {
     if (denied) return denied;
 
     let body: {
+        action?: unknown;
         discountPercent?: unknown;
         adjustToOnePercent?: unknown;
         amounts?: unknown;
@@ -161,6 +169,61 @@ export async function POST(request: Request) {
             : null;
 
     try {
+        if (body.action === "fund_asaas") {
+            const cutoffAt = new Date();
+            const plan = await createPayoutPlan({
+                cutoffAt,
+                discountPercent: 1,
+                adjustToOnePercent: true,
+            });
+            const asaasBalanceCents = await getAsaasBalance();
+            const shortfallCents = Math.max(
+                0,
+                plan.totalNetCents - asaasBalanceCents
+            );
+
+            if (shortfallCents === 0) {
+                return NextResponse.json({
+                    success: true,
+                    skipped: true,
+                    amountCents: 0,
+                    requiredCents: plan.totalNetCents,
+                    asaasBalanceBeforeCents: asaasBalanceCents,
+                    transactionStatus: null,
+                });
+            }
+
+            const amountCents = Math.max(100, shortfallCents);
+            assertMercadoPagoPayoutConfigured();
+            const paymentFingerprint = createHash("sha256")
+                .update(
+                    plan.sendable
+                        .flatMap((item) =>
+                            item.row.payments.map((payment) => payment.id)
+                        )
+                        .sort()
+                        .join("|")
+                )
+                .digest("hex")
+                .slice(0, 16);
+            const clientReference =
+                `imenu-mp-manual-${paymentFingerprint}-${amountCents}`;
+
+            const transfer = await transferMercadoPagoToAsaas({
+                amountCents,
+                clientReference,
+            });
+
+            return NextResponse.json({
+                success: true,
+                skipped: false,
+                amountCents,
+                requiredCents: plan.totalNetCents,
+                asaasBalanceBeforeCents: asaasBalanceCents,
+                transactionStatus: transfer?.transactionStatus || null,
+            });
+        }
+
         if (retryPayoutId) {
             return NextResponse.json(await retryFailedPayout(retryPayoutId));
         }

@@ -94,13 +94,12 @@ type SendResult = {
     }>;
 };
 
-type PayzuTransferResult = {
+type MercadoPagoFundingResult = {
     success: boolean;
     skipped: boolean;
-    reason?: string;
     amountCents?: number;
-    reserveCents: number;
-    balanceBeforeCents: number;
+    requiredCents?: number;
+    asaasBalanceBeforeCents?: number;
     transactionStatus?: string | null;
     error?: string;
 };
@@ -249,7 +248,7 @@ export default function DevPayoutPage() {
     const [automationHistoryPage, setAutomationHistoryPage] = useState(1);
     const [lastResult, setLastResult] = useState<SendResult | null>(null);
     const [lastPayzuTransfer, setLastPayzuTransfer] =
-        useState<PayzuTransferResult | null>(null);
+        useState<MercadoPagoFundingResult | null>(null);
 
     const numericDiscount = useMemo(() => {
         const value = Number(discountPercent.replace(",", "."));
@@ -517,15 +516,17 @@ export default function DevPayoutPage() {
                 return;
             }
 
-            const response = await fetch("/api/cron/payzu-to-asaas", {
+            const response = await fetch("/api/dev/payout", {
                 method: "POST",
                 headers: {
                     Authorization: `Bearer ${session.access_token}`,
+                    "Content-Type": "application/json",
                 },
+                body: JSON.stringify({ action: "fund_asaas" }),
             });
-            const payload = (await response.json()) as PayzuTransferResult;
+            const payload = (await response.json()) as MercadoPagoFundingResult;
             if (!response.ok) {
-                throw new Error(payload.error || "Falha ao transferir saldo PayZu.");
+                throw new Error(payload.error || "Falha ao transferir saldo Mercado Pago.");
             }
 
             setLastPayzuTransfer(payload);
@@ -534,7 +535,7 @@ export default function DevPayoutPage() {
             setError(
                 caught instanceof Error
                     ? caught.message
-                    : "Falha ao transferir saldo PayZu."
+                    : "Falha ao transferir saldo Mercado Pago."
             );
         } finally {
             setTransferringPayzu(false);
@@ -699,8 +700,8 @@ export default function DevPayoutPage() {
             {lastPayzuTransfer && (
                 <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-900">
                     {lastPayzuTransfer.skipped
-                        ? `Saldo PayZu: ${money(lastPayzuTransfer.balanceBeforeCents)}. Nada para transferir além da reserva de ${money(lastPayzuTransfer.reserveCents)}.`
-                        : `Transferidos ${money(lastPayzuTransfer.amountCents || 0)} da PayZu para o Asaas. Reserva mantida: ${money(lastPayzuTransfer.reserveCents)}.`}
+                        ? "O saldo atual do Asaas já cobre os repasses pendentes."
+                        : `Transferidos ${money(lastPayzuTransfer.amountCents || 0)} do Mercado Pago para o Asaas${lastPayzuTransfer.transactionStatus ? ` · ${lastPayzuTransfer.transactionStatus}` : ""}.`}
                 </div>
             )}
 
@@ -915,9 +916,9 @@ export default function DevPayoutPage() {
             <Card>
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                        <h2 className="text-lg font-bold text-gray-900">Saldo legado PayZu → Asaas</h2>
+                        <h2 className="text-lg font-bold text-gray-900">Saldo Mercado Pago → Asaas</h2>
                         <p className="mt-1 text-sm text-gray-500">
-                            Transfere todo o saldo disponível da PayZu para o Asaas, deixando R$ 1,00 de reserva.
+                            Transfere do Mercado Pago para o Asaas o valor necessário para cobrir os repasses pendentes (mínimo de R$ 1,00).
                         </p>
                     </div>
                     <Button
