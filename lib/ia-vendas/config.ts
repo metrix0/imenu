@@ -1,7 +1,10 @@
 // Server-only budgets. The addon remains free while being tested; no billing or trial.
+export const DEEP_ANALYSIS_MODEL =
+  process.env.IA_VENDAS_ANALYSIS_MODEL || "gpt-5.6-terra";
+
 export const MODELS = {
   chat: process.env.IA_VENDAS_CHAT_MODEL || "gpt-5.6-luna",
-  analysis: process.env.IA_VENDAS_ANALYSIS_MODEL || "gpt-5.6-sol",
+  analysis: DEEP_ANALYSIS_MODEL,
   image: process.env.IA_VENDAS_IMAGE_MODEL || "gpt-image-1.5",
 };
 export const LIMITS = {
