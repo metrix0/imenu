@@ -496,7 +496,7 @@ export default function SalesPage() {
               </button>
             </div>
           )}
-          <div className="bg-[var(--panel-surface)] p-4 md:px-8">
+          <div className="bg-[var(--panel-surface)] px-4 pt-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] md:px-8 md:pb-4">
             <div className="mx-auto max-w-3xl">
               {deep && (
                 <div className="mb-2 flex items-center justify-between rounded-[8px] bg-[var(--panel-tint)] px-3 py-2 text-xs text-[var(--panel-accent-text)]">
