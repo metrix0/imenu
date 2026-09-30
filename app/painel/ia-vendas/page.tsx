@@ -153,7 +153,7 @@ export default function SalesPage() {
   return (
     <div className="h-full min-h-0">
       <div className="flex h-full min-h-0 overflow-hidden">
-        <aside className="hidden min-h-0 w-56 shrink-0 flex-col border-r border-gray-200 bg-gray-50/60 p-3 lg:flex">
+        <aside className="hidden min-h-0 w-56 shrink-0 flex-col border-r border-[var(--panel-border)] bg-[var(--panel-background)] p-3 lg:flex">
           <Button
             variant="secondary"
             disabled={disabled}
@@ -169,10 +169,11 @@ export default function SalesPage() {
             {sales.conversations.map((c) => (
               <div
                 key={c.id}
-                className={`group flex items-center rounded-lg ${c.id === sales.conversation_id ? "bg-orange-50 text-[#D93D00]" : "text-gray-600 hover:bg-gray-100"}`}
+                className={`group flex items-center rounded-[8px] ${c.id === sales.conversation_id ? "bg-[var(--panel-tint)] text-[var(--panel-accent-text)]" : "text-gray-600 hover:bg-gray-100"}`}
               >
                 <button
                   disabled={disabled}
+                  aria-current={c.id === sales.conversation_id ? "page" : undefined}
                   onClick={() => void sales.load(restaurant, c.id)}
                   className="min-w-0 flex-1 cursor-pointer truncate p-3 text-left text-sm disabled:cursor-not-allowed"
                 >
@@ -196,7 +197,7 @@ export default function SalesPage() {
                             title,
                           });
                       }}
-                      className="cursor-pointer p-1 disabled:cursor-not-allowed"
+                      className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-[8px] text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       <Pencil size={12} />
                     </button>
@@ -209,7 +210,7 @@ export default function SalesPage() {
                           conversation_id: c.id,
                         })
                       }
-                      className="cursor-pointer p-1 disabled:cursor-not-allowed"
+                      className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-[8px] text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       <Archive size={12} />
                     </button>
@@ -220,7 +221,7 @@ export default function SalesPage() {
           </nav>
         </aside>
         <section className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <div className="flex items-center justify-between gap-2 border-b border-gray-100 px-4 py-3">
+          <div className="flex items-center justify-between gap-2 border-b border-[var(--panel-border)] bg-[var(--panel-surface)] px-4 py-3">
             <div className="min-w-0">
               <h2 className="hidden truncate text-sm font-medium lg:block">
                 {conversation?.title || "Carregando…"}
@@ -230,7 +231,7 @@ export default function SalesPage() {
                 value={sales.conversation_id || ""}
                 disabled={disabled}
                 onChange={(e) => void sales.load(restaurant, e.target.value)}
-                className="max-w-[170px] cursor-pointer rounded-lg border border-gray-200 p-2 text-sm outline-none focus-visible:border-[#d93d00] disabled:cursor-not-allowed lg:hidden"
+                className="max-w-[170px] cursor-pointer rounded-[8px] border border-[var(--panel-border)] bg-[var(--panel-surface)] p-2 text-sm outline-none focus-visible:border-[var(--panel-action)] disabled:cursor-not-allowed lg:hidden"
               >
                 {sales.conversations.map((c) => (
                   <option key={c.id} value={c.id}>
@@ -280,7 +281,7 @@ export default function SalesPage() {
             )}
             {!sales.messages.length && !sales.loading && (
               <div className="mx-auto flex max-w-lg flex-col items-center py-10 text-center">
-                <div className="mb-5 rounded-2xl bg-orange-50 p-4 text-[#D93D00]">
+                <div className="mb-5 rounded-[10px] bg-[var(--panel-tint)] p-4 text-[var(--panel-accent-text)]">
                   <Sparkles size={32} />
                 </div>
                 <h2 className="text-xl font-semibold">
@@ -335,16 +336,35 @@ export default function SalesPage() {
                     }
                     className={
                       m.role === "user"
-                        ? "ml-auto max-w-[90%] rounded-[10px] bg-gray-100 px-4 py-3"
+                        ? "ml-auto max-w-[82%]"
                         : "min-w-0"
                     }
                   >
-                    {m.role === "assistant" && (
-                      <p className="mb-3 flex items-center gap-2 text-xs font-semibold text-[#D93D00]">
-                        <Sparkles size={14} />
-                        iMenu IA Vendas
-                      </p>
-                    )}
+                    <div
+                      className={
+                        m.role === "user"
+                          ? "rounded-[10px] bg-[var(--panel-soft)] px-4 py-3"
+                          : "flex items-start gap-3"
+                      }
+                    >
+                      {m.role === "assistant" && (
+                        <div
+                          aria-hidden="true"
+                          className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] bg-[var(--panel-tint)] text-[var(--panel-accent-text)]"
+                        >
+                          <Sparkles size={16} />
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p
+                          className={
+                            m.role === "user"
+                              ? "mb-2 text-[11px] font-medium text-[var(--panel-muted)]"
+                              : "mb-2 text-xs font-medium text-[var(--panel-accent-text)]"
+                          }
+                        >
+                          {m.role === "user" ? "Você" : "iMenu IA Vendas"}
+                        </p>
                     {parts.map((part, i) => {
                       if (part.type === "text")
                         return (
@@ -420,6 +440,8 @@ export default function SalesPage() {
                         <DataCard key={i} card={card} />
                       ) : null;
                     })}
+                      </div>
+                    </div>
                   </article>
                 );
               })}
@@ -463,7 +485,7 @@ export default function SalesPage() {
               <span>{localError || sales.error}</span>
               <button
                 aria-label="Fechar aviso"
-                className="cursor-pointer"
+                className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-[8px] transition-colors hover:bg-red-100"
                 onClick={() => {
                   setLocalError("");
                   sales.clearError();
@@ -473,16 +495,16 @@ export default function SalesPage() {
               </button>
             </div>
           )}
-          <div className="border-t border-gray-100 p-4 md:px-8">
+          <div className="border-t border-[var(--panel-border)] bg-[var(--panel-surface)] p-4 md:px-8">
             <div className="mx-auto max-w-3xl">
               {deep && (
-                <div className="mb-2 flex items-center justify-between rounded-lg bg-orange-50 px-3 py-2 text-xs text-[#D93D00]">
+                <div className="mb-2 flex items-center justify-between rounded-[8px] bg-[var(--panel-tint)] px-3 py-2 text-xs text-[var(--panel-accent-text)]">
                   <span>
                     Análise completa · pedidos, cardápio e oportunidades
                   </span>
                   <button
                     aria-label="Cancelar análise completa"
-                    className="cursor-pointer"
+                    className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-[8px] transition-colors hover:bg-black/5"
                     onClick={() => setDeep(false)}
                   >
                     <X size={14} />
@@ -499,7 +521,7 @@ export default function SalesPage() {
                       {a.name}
                       <button
                         aria-label={`Remover ${a.name}`}
-                        className="cursor-pointer"
+                        className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-[8px] text-gray-500 transition-colors hover:bg-gray-200 hover:text-gray-900"
                         onClick={() =>
                           setAttachments(
                             attachments.filter((x) => x.id !== a.id),
@@ -512,7 +534,7 @@ export default function SalesPage() {
                   ))}
                 </div>
               )}
-              <div className="rounded-[8px] border border-[#e2e5e9] p-2 transition-[border-color] focus-within:border-[#d93d00]">
+              <div className="rounded-[8px] border border-[var(--panel-border)] bg-[var(--panel-surface)] p-2 transition-[border-color] focus-within:border-[var(--panel-action)]">
                 <textarea
                   ref={input}
                   aria-label="Mensagem para IA Vendas"
@@ -547,7 +569,7 @@ export default function SalesPage() {
                     aria-label="Anexar arquivo"
                     disabled={uploading || disabled || attachments.length >= 3}
                     onClick={() => file.current?.click()}
-                    className="cursor-pointer rounded-lg p-2 text-gray-500 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-[8px] text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <Paperclip size={19} />
                   </button>
