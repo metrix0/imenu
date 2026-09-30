@@ -53,7 +53,7 @@ export async function GET(request: Request) {
         [restaurant],
       ),
       query(
-        "SELECT id,name FROM public.items WHERE restaurant_id=$1 UNION ALL SELECT id,name FROM public.categories WHERE restaurant_id=$1 UNION ALL SELECT g.id,g.name FROM public.item_subcategories g JOIN public.items i ON i.id=g.item_id WHERE i.restaurant_id=$1 UNION ALL SELECT s.id,s.name FROM public.subitems s JOIN public.item_subcategories g ON g.id=s.item_subcategory_id JOIN public.items i ON i.id=g.item_id WHERE i.restaurant_id=$1",
+        "SELECT id,name FROM public.items WHERE restaurant_id=$1 UNION ALL SELECT id,name FROM public.categories WHERE restaurant_id=$1 UNION ALL SELECT g.id,g.name FROM public.item_subcategories g JOIN public.items i ON i.id=g.item_id WHERE i.restaurant_id=$1 UNION ALL SELECT s.id,s.name FROM public.subitems s JOIN public.item_subcategories g ON g.id=s.item_subcategory_id JOIN public.items i ON i.id=g.item_id WHERE i.restaurant_id=$1 UNION ALL SELECT u.id,i.name FROM public.upsell u JOIN public.items i ON i.id=u.item_id WHERE u.restaurant_id=$1 UNION ALL SELECT p.id,i.name FROM public.promotions p JOIN public.items i ON i.id=p.item_id WHERE p.restaurant_id=$1",
         [restaurant],
       ),
     ]);

@@ -1,7 +1,8 @@
 "use client";
 import Image from "next/image";
+import type { ReactNode } from "react";
 import Button from "@/components/ui/Button";
-import type { Action, Data } from "@/lib/ia-vendas/types";
+import type { Action, Data, Operation } from "@/lib/ia-vendas/types";
 const labels: Record<string, string> = {
   name: "Nome",
   description: "Descrição",
@@ -90,6 +91,21 @@ const labels: Record<string, string> = {
   aliases: "Nomes alternativos",
   comparison: "Comparação",
 };
+const entities: Record<string, string> = {
+  restaurants: "Configuração da loja",
+  categories: "Categoria",
+  items: "Produto",
+  item_subcategories: "Grupo de complementos",
+  subitems: "Complemento",
+  upsell: "Upsell",
+  promotions: "Promoção",
+  coupons: "Cupom",
+  loyalty_programs: "Fidelidade",
+  restaurant_tables: "Mesa",
+  tracking_integrations: "Rastreamento",
+  whatsapp_bot_settings: "WhatsApp",
+  menu: "Cardápio",
+};
 const values: Record<string, string> = {
   percent: "Percentual",
   fixed: "Valor fixo",
@@ -120,6 +136,7 @@ function display(
   if (v == null || v === "") return "Não definido";
   if (typeof v === "boolean") return v ? "Sim" : "Não";
   if (typeof v === "number") {
+    if (k === "position") return `${v + 1}°`;
     if (
       k.includes("cents") ||
       k === "cents" ||
@@ -144,6 +161,162 @@ function display(
       .join("\n");
   return refs[v] || values[v] || String(v);
 }
+
+function subject(op: Operation, refs: Record<string, string>) {
+  const merged = { ...(op.before || {}), ...op.values };
+  const relatedItem =
+    ["upsell", "promotions"].includes(op.entity) && merged.item_id
+      ? refs[merged.item_id]
+      : null;
+  return String(
+    relatedItem ||
+      refs[op.id] ||
+      merged.name ||
+      merged.code ||
+      (op.label !== op.entity ? op.label : "") ||
+      entities[op.entity] ||
+      op.label,
+  );
+}
+
+function strong(text: string): ReactNode {
+  return <strong className="font-semibold text-gray-900">{text}</strong>;
+}
+
+function operationCopy(
+  op: Operation,
+  refs: Record<string, string>,
+): { heading: string; summary: ReactNode; hideDetails: boolean } {
+  const name = subject(op, refs);
+  const heading =
+    op.kind === "create"
+      ? `Adicionar ${entities[op.entity] || op.label}`
+      : `${op.kind === "delete" ? "Excluir" : "Editar"} · ${name}`;
+
+  if (op.entity === "upsell") {
+    if (op.kind === "delete")
+      return {
+        heading,
+        summary: <>Remover {strong(name)} das sugestões do carrinho.</>,
+        hideDetails: true,
+      };
+    const position = op.values.position ?? op.before?.position;
+    return {
+      heading,
+      summary: (
+        <>
+          Sugerir {strong(name)} como complemento no carrinho
+          {Number.isFinite(Number(position)) ? (
+            <span className="text-gray-500">
+              {" "}
+              (Posição: {Number(position) + 1}°)
+            </span>
+          ) : null}
+          .
+        </>
+      ),
+      hideDetails: true,
+    };
+  }
+
+  if (op.kind === "delete")
+    return {
+      heading,
+      summary: <>Excluir {strong(name)}.</>,
+      hideDetails: true,
+    };
+
+  if (op.kind === "create")
+    return {
+      heading,
+      summary: (
+        <>
+          Criar {(entities[op.entity] || "registro").toLowerCase()}{" "}
+          {strong(name)}.
+        </>
+      ),
+      hideDetails: false,
+    };
+
+  const entries = Object.entries(op.values);
+  if (entries.length !== 1)
+    return {
+      heading,
+      summary: <>Atualizar {strong(name)}.</>,
+      hideDetails: false,
+    };
+
+  const [field, next] = entries[0];
+  const previous = op.before?.[field];
+
+  if (field === "name")
+    return {
+      heading,
+      summary: (
+        <>
+          Renomear {strong(name)} para {strong(String(next))}.
+        </>
+      ),
+      hideDetails: true,
+    };
+  if (field === "price_cents")
+    return {
+      heading,
+      summary: (
+        <>
+          Alterar o preço de {strong(name)} de{" "}
+          {display(field, previous, refs, op)} para{" "}
+          {display(field, next, refs, op)}.
+        </>
+      ),
+      hideDetails: true,
+    };
+  if (field === "position")
+    return {
+      heading,
+      summary: (
+        <>
+          Mover {strong(name)} para a posição {display(field, next, refs, op)}.
+        </>
+      ),
+      hideDetails: true,
+    };
+  if (field === "category_id") {
+    const category = refs[String(next)] || display(field, next, refs, op);
+    return {
+      heading,
+      summary: (
+        <>
+          Mover {strong(name)} para a categoria {strong(category)}.
+        </>
+      ),
+      hideDetails: true,
+    };
+  }
+  if (field === "description")
+    return {
+      heading,
+      summary: <>Atualizar a descrição de {strong(name)}.</>,
+      hideDetails: false,
+    };
+  if (field === "is_available")
+    return {
+      heading,
+      summary: (
+        <>
+          Marcar {strong(name)} como {next ? "disponível" : "indisponível"}.
+        </>
+      ),
+      hideDetails: true,
+    };
+
+  return {
+    heading,
+    summary: <>Atualizar {strong(name)}.</>,
+    hideDetails: false,
+  };
+}
+
 export function ActionPreview({
   action,
   refs = {},
@@ -195,69 +368,73 @@ export function ActionPreview({
           <p className="mt-1 whitespace-pre-wrap text-gray-600">{job.prompt}</p>
         </div>
       ))}
-      {action.operations.map((op, i) => (
-        <div
-          key={i}
-          className="overflow-hidden rounded-lg border border-gray-200"
-        >
-          <div className="bg-gray-50 px-3 py-2 text-sm font-medium">
-            {op.kind === "create"
-              ? `Adicionar ${refs[op.id] || (op.entity === "upsell" ? "Upsell" : op.label)}`
-              : `${op.kind === "delete" ? "Excluir" : "Editar"} · ${refs[op.id] || op.label}`}
-          </div>
-          {op.kind === "delete" ? (
-            <p className="p-3 text-sm">
-              Excluir este registro. O histórico será preservado; registros em
-              uso não podem ser excluídos.
-            </p>
-          ) : (
-            <dl className="divide-y divide-gray-100 text-xs">
-              {Object.entries(op.values)
-                .filter(
-                  ([k]) =>
-                    !action.image ||
-                    !["image_path", "logo_url", "banner_url"].includes(k),
-                )
-                .map(([k, v]) => (
-                  <div
-                    key={k}
-                    className={
-                      op.kind === "create"
-                        ? "grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-start gap-3 px-3 py-2"
-                        : "grid grid-cols-[1fr_1fr] gap-2 px-3 py-2"
-                    }
-                  >
-                    <dt
+      {action.operations.map((op, i) => {
+        const copy = operationCopy(op, refs);
+        return (
+          <div
+            key={i}
+            className="overflow-hidden rounded-lg border border-gray-200"
+          >
+            <div className="bg-gray-50 px-3 py-2 text-sm font-medium">
+              {copy.heading}
+            </div>
+            <p className="px-3 pt-3 text-sm text-gray-700">{copy.summary}</p>
+            {op.kind === "delete" ? (
+              <p className="px-3 pb-3 pt-1 text-xs text-gray-500">
+                O histórico será preservado; registros em uso não podem ser
+                excluídos.
+              </p>
+            ) : !copy.hideDetails ? (
+              <dl className="mt-2 divide-y divide-gray-100 text-xs">
+                {Object.entries(op.values)
+                  .filter(
+                    ([k]) =>
+                      !action.image ||
+                      !["image_path", "logo_url", "banner_url"].includes(k),
+                  )
+                  .map(([k, v]) => (
+                    <div
+                      key={k}
                       className={
                         op.kind === "create"
-                          ? "font-medium text-gray-700"
-                          : "col-span-2 font-medium text-gray-700"
+                          ? "grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-start gap-3 px-3 py-2"
+                          : "grid grid-cols-[1fr_1fr] gap-2 px-3 py-2"
                       }
                     >
-                      {labels[k] || k}
-                    </dt>
-                    {op.kind === "create" ? (
-                      <dd className="whitespace-pre-wrap break-words text-gray-900">
-                        {display(k, v, refs, op)}
-                      </dd>
-                    ) : (
-                      <>
-                        <dd className="whitespace-pre-wrap break-words text-gray-500">
-                          <span className="sr-only">Antes: </span>
-                          {display(k, op.before?.[k], refs, op)}
-                        </dd>
+                      <dt
+                        className={
+                          op.kind === "create"
+                            ? "font-medium text-gray-700"
+                            : "col-span-2 font-medium text-gray-700"
+                        }
+                      >
+                        {labels[k] || k}
+                      </dt>
+                      {op.kind === "create" ? (
                         <dd className="whitespace-pre-wrap break-words text-gray-900">
-                          <span className="sr-only">Depois: </span>
                           {display(k, v, refs, op)}
                         </dd>
-                      </>
-                    )}
-                  </div>
-                ))}
-            </dl>
-          )}
-        </div>
-      ))}
+                      ) : (
+                        <>
+                          <dd className="whitespace-pre-wrap break-words text-gray-500">
+                            <span className="sr-only">Antes: </span>
+                            {display(k, op.before?.[k], refs, op)}
+                          </dd>
+                          <dd className="whitespace-pre-wrap break-words text-gray-900">
+                            <span className="sr-only">Depois: </span>
+                            {display(k, v, refs, op)}
+                          </dd>
+                        </>
+                      )}
+                    </div>
+                  ))}
+              </dl>
+            ) : (
+              <div className="h-3" aria-hidden="true" />
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
