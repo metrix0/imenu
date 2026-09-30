@@ -124,7 +124,7 @@ export default function SalesPage() {
   };
   return (
     <div className="p-4 md:p-0">
-      <div className="flex h-[calc(100dvh-96px)] min-h-[520px] overflow-hidden rounded-[10px] border border-[#e2e5e9] bg-white md:h-[calc(100dvh-64px)]">
+      <div className="flex h-[calc(100dvh-96px)] min-h-[520px] overflow-hidden md:h-[calc(100dvh-64px)]">
         <aside className="hidden w-56 shrink-0 flex-col border-r border-gray-200 bg-gray-50/60 p-3 lg:flex">
           <Button
             variant="secondary"
