@@ -500,7 +500,7 @@ export default function SalesPage() {
               </button>
             </div>
           )}
-          <div className="border-t border-[var(--panel-border)] bg-[var(--panel-surface)] p-4 md:px-8">
+          <div className="bg-[var(--panel-surface)] p-4 md:px-8">
             <div className="mx-auto max-w-3xl">
               {deep && (
                 <div className="mb-2 flex items-center justify-between rounded-[8px] bg-[var(--panel-tint)] px-3 py-2 text-xs text-[var(--panel-accent-text)]">
@@ -539,7 +539,7 @@ export default function SalesPage() {
                   ))}
                 </div>
               )}
-              <div className="rounded-[8px] bg-[var(--panel-surface)] p-2">
+              <div className="rounded-[8px] border border-[var(--panel-border)] bg-[var(--panel-surface)] p-2 transition-[border-color] focus-within:border-[var(--panel-action)]">
                 <input
                   ref={file}
                   type="file"
