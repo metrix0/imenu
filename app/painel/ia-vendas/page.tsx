@@ -107,39 +107,7 @@ export default function SalesPage() {
   };
   return (
     <div className="p-4 md:p-0">
-      <header className="mb-5 flex items-center justify-between gap-3">
-        <div>
-          <h1 className="flex items-center gap-2 text-2xl font-semibold text-gray-900">
-            <Sparkles className="text-[#D93D00]" size={25} />
-            IA Vendas
-          </h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Seu cardápio pode vender mais. Vamos descobrir como.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button
-            variant="secondary"
-            aria-label="Histórico de ações"
-            title="Histórico de ações"
-            onClick={() => setModal("history")}
-          >
-            <History size={18} />
-          </Button>
-          <Button
-            variant="secondary"
-            aria-label="Contexto do restaurante"
-            title="Contexto do restaurante"
-            onClick={() => {
-              setInstructions(sales.instructions);
-              setModal("instructions");
-            }}
-          >
-            <Settings2 size={18} />
-          </Button>
-        </div>
-      </header>
-      <div className="flex h-[calc(100dvh-190px)] min-h-[520px] overflow-hidden rounded-[10px] border border-[#e2e5e9] bg-white md:h-[calc(100dvh-160px)]">
+      <div className="flex h-[calc(100dvh-120px)] min-h-[520px] overflow-hidden rounded-[10px] border border-[#e2e5e9] bg-white md:h-[calc(100dvh-90px)]">
         <aside className="hidden w-56 shrink-0 flex-col border-r border-gray-200 bg-gray-50/60 p-3 lg:flex">
           <Button
             variant="secondary"
@@ -161,7 +129,7 @@ export default function SalesPage() {
                 <button
                   disabled={disabled}
                   onClick={() => void sales.load(restaurant, c.id)}
-                  className="min-w-0 flex-1 truncate p-3 text-left text-sm"
+                  className="min-w-0 flex-1 cursor-pointer truncate p-3 text-left text-sm disabled:cursor-not-allowed"
                 >
                   {c.kind === "analysis" ? "✦ " : ""}
                   {c.title}
@@ -183,7 +151,7 @@ export default function SalesPage() {
                             title,
                           });
                       }}
-                      className="p-1"
+                      className="cursor-pointer p-1 disabled:cursor-not-allowed"
                     >
                       <Pencil size={12} />
                     </button>
@@ -196,7 +164,7 @@ export default function SalesPage() {
                           conversation_id: c.id,
                         })
                       }
-                      className="p-1"
+                      className="cursor-pointer p-1 disabled:cursor-not-allowed"
                     >
                       <Archive size={12} />
                     </button>
@@ -220,7 +188,7 @@ export default function SalesPage() {
                 value={sales.conversation_id || ""}
                 disabled={disabled}
                 onChange={(e) => void sales.load(restaurant, e.target.value)}
-                className="max-w-[170px] rounded-lg border border-gray-200 p-2 text-sm lg:hidden"
+                className="max-w-[170px] cursor-pointer rounded-lg border border-gray-200 p-2 text-sm outline-none focus-visible:border-[#d93d00] disabled:cursor-not-allowed lg:hidden"
               >
                 {sales.conversations.map((c) => (
                   <option key={c.id} value={c.id}>
@@ -248,11 +216,30 @@ export default function SalesPage() {
                   Nova análise
                 </Button>
               )}
+              <Button
+                variant="secondary"
+                aria-label="Histórico de ações"
+                title="Histórico de ações"
+                onClick={() => setModal("history")}
+              >
+                <History size={18} />
+              </Button>
+              <Button
+                variant="secondary"
+                aria-label="Contexto do restaurante"
+                title="Contexto do restaurante"
+                onClick={() => {
+                  setInstructions(sales.instructions);
+                  setModal("instructions");
+                }}
+              >
+                <Settings2 size={18} />
+              </Button>
               <button
                 aria-label="Atualizar conversa"
                 disabled={sales.busy || sales.acting}
                 onClick={() => void sales.load(restaurant)}
-                className="p-2 text-gray-400"
+                className="cursor-pointer p-2 text-gray-400 disabled:cursor-not-allowed"
               >
                 <RefreshCw size={16} />
               </button>
@@ -414,6 +401,7 @@ export default function SalesPage() {
               <span>{localError || sales.error}</span>
               <button
                 aria-label="Fechar aviso"
+                className="cursor-pointer"
                 onClick={() => {
                   setLocalError("");
                   sales.clearError();
@@ -432,6 +420,7 @@ export default function SalesPage() {
                   </span>
                   <button
                     aria-label="Cancelar análise completa"
+                    className="cursor-pointer"
                     onClick={() => setDeep(false)}
                   >
                     <X size={14} />
@@ -448,6 +437,7 @@ export default function SalesPage() {
                       {a.name}
                       <button
                         aria-label={`Remover ${a.name}`}
+                        className="cursor-pointer"
                         onClick={() =>
                           setAttachments(
                             attachments.filter((x) => x.id !== a.id),
@@ -460,7 +450,7 @@ export default function SalesPage() {
                   ))}
                 </div>
               )}
-              <div className="rounded-[10px] border border-gray-200 p-2 focus-within:border-[#D93D00]">
+              <div className="rounded-[8px] border border-[#e2e5e9] p-2 transition-[border-color] focus-within:border-[#d93d00]">
                 <textarea
                   ref={input}
                   aria-label="Mensagem para IA Vendas"
@@ -479,7 +469,7 @@ export default function SalesPage() {
                     }
                   }}
                   placeholder="O que podemos melhorar no seu restaurante?"
-                  className="w-full resize-none bg-transparent px-2 py-1 text-sm outline-none"
+                  className="w-full resize-none bg-transparent px-2 py-1 text-sm outline-none focus-visible:outline-none"
                 />
                 <div className="flex items-center justify-between">
                   <input
@@ -494,7 +484,7 @@ export default function SalesPage() {
                     aria-label="Anexar arquivo"
                     disabled={uploading || disabled || attachments.length >= 3}
                     onClick={() => file.current?.click()}
-                    className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 disabled:opacity-40"
+                    className="cursor-pointer rounded-lg p-2 text-gray-500 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <Paperclip size={19} />
                   </button>
@@ -602,7 +592,7 @@ export default function SalesPage() {
                 maxLength={12000}
                 value={instructions}
                 onChange={(e) => setInstructions(e.target.value)}
-                className="w-full rounded-lg border border-gray-200 p-3 text-sm outline-[#D93D00]"
+                className="w-full rounded-[8px] border border-[#e2e5e9] p-3 text-sm outline-none focus-visible:border-[#d93d00] focus-visible:outline-none"
               />
               <Button
                 className="mt-4"
