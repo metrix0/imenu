@@ -202,11 +202,8 @@ export function ActionPreview({
         >
           <div className="bg-gray-50 px-3 py-2 text-sm font-medium">
             {op.kind === "create"
-              ? "Adicionar"
-              : op.kind === "delete"
-                ? "Excluir"
-                : "Editar"}{" "}
-            · {refs[op.id] || op.label}
+              ? `Adicionar ${refs[op.id] || (op.entity === "upsell" ? "Upsell" : op.label)}`
+              : `${op.kind === "delete" ? "Excluir" : "Editar"} · ${refs[op.id] || op.label}`}
           </div>
           {op.kind === "delete" ? (
             <p className="p-3 text-sm">
@@ -224,19 +221,37 @@ export function ActionPreview({
                 .map(([k, v]) => (
                   <div
                     key={k}
-                    className="grid grid-cols-[1fr_1fr] gap-2 px-3 py-2"
+                    className={
+                      op.kind === "create"
+                        ? "grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-start gap-3 px-3 py-2"
+                        : "grid grid-cols-[1fr_1fr] gap-2 px-3 py-2"
+                    }
                   >
-                    <dt className="col-span-2 font-medium text-gray-700">
+                    <dt
+                      className={
+                        op.kind === "create"
+                          ? "font-medium text-gray-700"
+                          : "col-span-2 font-medium text-gray-700"
+                      }
+                    >
                       {labels[k] || k}
                     </dt>
-                    <dd className="whitespace-pre-wrap break-words text-gray-500">
-                      <span className="sr-only">Antes: </span>
-                      {display(k, op.before?.[k], refs, op)}
-                    </dd>
-                    <dd className="whitespace-pre-wrap break-words text-gray-900">
-                      <span className="sr-only">Depois: </span>
-                      {display(k, v, refs, op)}
-                    </dd>
+                    {op.kind === "create" ? (
+                      <dd className="whitespace-pre-wrap break-words text-gray-900">
+                        {display(k, v, refs, op)}
+                      </dd>
+                    ) : (
+                      <>
+                        <dd className="whitespace-pre-wrap break-words text-gray-500">
+                          <span className="sr-only">Antes: </span>
+                          {display(k, op.before?.[k], refs, op)}
+                        </dd>
+                        <dd className="whitespace-pre-wrap break-words text-gray-900">
+                          <span className="sr-only">Depois: </span>
+                          {display(k, v, refs, op)}
+                        </dd>
+                      </>
+                    )}
                   </div>
                 ))}
             </dl>
@@ -296,7 +311,7 @@ export function ActionCard({
               disabled={disabled}
               onClick={() => onAction("apply", [action.id])}
             >
-              {retry ? "TENTAR NOVAMENTE" : "APLICAR"}
+              {retry ? "Tentar novamente" : "Aplicar"}
             </Button>
             <Button
               variant="secondary"

@@ -39,14 +39,31 @@ export default function SalesPage() {
     [instructions, setInstructions] = useState(""),
     [batchIds, setBatchIds] = useState<string[]>([]);
   const end = useRef<HTMLDivElement>(null),
+    lastMessage = useRef<HTMLElement>(null),
+    previousMessages = useRef({ conversationId: "", count: 0 }),
     file = useRef<HTMLInputElement>(null),
     input = useRef<HTMLTextAreaElement>(null);
   useEffect(() => {
     void useSalesStore.getState().load(restaurant);
   }, [restaurant]);
   useEffect(() => {
-    end.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [sales.messages.length, sales.busy]);
+    const previous = previousMessages.current;
+    const conversationId = sales.conversation_id || "";
+    const sameConversation = previous.conversationId === conversationId;
+    const appended = sameConversation && sales.messages.length > previous.count;
+    const last = sales.messages[sales.messages.length - 1];
+
+    if (appended && last?.role === "assistant") {
+      lastMessage.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    } else if (!sameConversation || appended) {
+      end.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    }
+
+    previousMessages.current = {
+      conversationId,
+      count: sales.messages.length,
+    };
+  }, [sales.messages.length, sales.conversation_id]);
   useEffect(() => {
     setText("");
     setAttachments([]);
@@ -308,6 +325,11 @@ export default function SalesPage() {
               {sales.messages.map((m) => (
                 <article
                   key={m.id}
+                  ref={
+                    m.id === sales.messages[sales.messages.length - 1]?.id
+                      ? lastMessage
+                      : undefined
+                  }
                   className={
                     m.role === "user"
                       ? "ml-auto max-w-[90%] rounded-[10px] bg-gray-100 px-4 py-3"
@@ -543,7 +565,7 @@ export default function SalesPage() {
                   setModal(null);
                 }}
               >
-                APLICAR TODOS ({batchIds.length})
+                Aplicar todos ({batchIds.length})
               </Button>
             </>
           )}
