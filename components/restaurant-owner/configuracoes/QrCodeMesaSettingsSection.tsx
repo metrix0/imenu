@@ -57,6 +57,7 @@ type BillingPayload = {
 const PAYMENT_STATUS: Record<string, string> = {
     CONFIRMED: "Confirmado",
     COMPLETED: "Confirmado",
+    APPROVED: "Confirmado",
     RECEIVED: "Recebido",
     PENDING: "Pendente",
     OVERDUE: "Vencido",
@@ -83,9 +84,9 @@ function formatDate(value: string | null): string {
     }).format(new Date(value));
 }
 
-function isPayZuPrepaid(addon: Addon | null): boolean {
+function isPrepaid(addon: Addon | null): boolean {
     return Boolean(
-        addon?.payment_provider === "payzu" &&
+        addon?.payment_provider === "mercadopago" || addon?.payment_provider === "payzu" &&
             addon.payzu_payment_method?.toUpperCase() === "PIX" &&
             !addon.payzu_recurrence_id
     );
@@ -102,7 +103,7 @@ function addonProductName(productKey: string): string {
 }
 
 function addonStatus(addon: Addon | null, active: boolean): string {
-    if (active && isPayZuPrepaid(addon)) {
+    if (active && isPrepaid(addon)) {
         return `Ativo — acesso até ${formatDate(
             addon?.current_period_ends_at || null
         )}`;
@@ -113,7 +114,7 @@ function addonStatus(addon: Addon | null, active: boolean): string {
         )}`;
     }
     if (active) return "Ativo";
-    if (isPayZuPrepaid(addon) && addon?.current_period_ends_at) {
+    if (isPrepaid(addon) && addon?.current_period_ends_at) {
         return "Expirado";
     }
     if (addon?.status === "pending") return "Aguardando pagamento";
@@ -125,7 +126,7 @@ function addonStatus(addon: Addon | null, active: boolean): string {
 function planLabel(addon: Addon | null): string {
     if (!addon) return "—";
 
-    if (isPayZuPrepaid(addon)) {
+    if (isPrepaid(addon)) {
         return `Pix • ${formatMoney(addon.price_cents)} por período`;
     }
 
@@ -375,7 +376,7 @@ export default function QrCodeMesaSettingsSection({
                             const isQrCodeMesa =
                                 itemAddon.product_key === "qr_code_mesa";
                             const itemCanRenew =
-                                isQrCodeMesa && isPayZuPrepaid(itemAddon);
+                                isQrCodeMesa && isPrepaid(itemAddon);
                             const itemCanCancel =
                                 itemActive &&
                                 itemAddon.status !== "canceled" &&

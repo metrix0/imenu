@@ -9,10 +9,7 @@ import {
     reconcileProcessingPayouts,
     sendPayouts,
 } from "@/lib/services/payouts";
-import {
-    PayZuRequestError,
-    transferPayzuToAsaas,
-} from "@/lib/services/payzuPayout";
+import { transferMercadoPagoToAsaas, isMercadoPagoPayoutComplete, reconcileMercadoPagoFunding, assertMercadoPagoPayoutConfigured, MercadoPagoPayoutError } from "@/lib/services/mercadoPagoPayout";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -163,7 +160,7 @@ export async function GET(request: Request) {
 
     const startedAt = new Date();
     const runDate = getBusinessDate(startedAt);
-    const clientReference = `imenu-daily-payout-${runDate}`;
+    const clientReference = `imenu-mp-daily-payout-${runDate}`;
     const inserted = await query<{ id: string }>(
         `
         INSERT INTO public.payout_automation_runs (
@@ -238,31 +235,6 @@ export async function GET(request: Request) {
         currentStep = "payzu";
         await reconcileProcessingPayouts();
 
-        const payzuTransfer = await transferPayzuToAsaas(clientReference);
-        await query(
-            `
-            UPDATE public.payout_automation_runs
-            SET
-                payzu_step_status = $2,
-                payzu_balance_before_cents = $3,
-                payzu_reserve_cents = $4,
-                transferred_cents = $5,
-                payzu_transaction_id = $6,
-                payzu_transaction_status = $7,
-                updated_at = NOW()
-            WHERE id = $1
-            `,
-            [
-                runId,
-                payzuTransfer.skipped ? "skipped" : "processing",
-                payzuTransfer.balanceBeforeCents,
-                payzuTransfer.reserveCents,
-                payzuTransfer.amountCents || 0,
-                payzuTransfer.transactionId || null,
-                payzuTransfer.transactionStatus || null,
-            ]
-        );
-
         currentStep = "adjustment";
         const plan = await createPayoutPlan({
             cutoffAt: startedAt,
@@ -321,8 +293,37 @@ export async function GET(request: Request) {
             ]
         );
 
+        currentStep = "payzu"; // Existing DB column stores the funding step for either provider.
+        await reconcileMercadoPagoFunding(runId);
+        const asaasBeforeCents = await getAsaasBalance();
+        const shortfallCents = Math.max(0, plan.totalNetCents - asaasBeforeCents);
+        const fundingCents = shortfallCents > 0 ? Math.max(100, shortfallCents) : 0;
+        if (fundingCents > 0) assertMercadoPagoPayoutConfigured();
+        // Persist intent before submitting. A timeout must never lead to a new transfer key.
+        await query(`UPDATE public.payout_automation_runs SET transferred_cents = $2, payzu_step_status = $3, updated_at = NOW() WHERE id = $1`,
+            [runId, fundingCents, fundingCents ? "running" : "skipped"]);
+        let fundingAccepted = false;
+        const funding = await transferMercadoPagoToAsaas({ amountCents: fundingCents, clientReference,
+            onCreated: async transfer => {
+                fundingAccepted = true;
+                await query(`UPDATE public.payout_automation_runs SET payzu_step_status = 'processing', payzu_transaction_id = $2, payzu_transaction_status = $3, updated_at = NOW() WHERE id = $1`,
+                    [runId, `${transfer.payoutId}/${transfer.transactionId}`, transfer.transactionStatus]);
+            }
+        }).catch(async error => {
+            if (!fundingAccepted && error instanceof MercadoPagoPayoutError && [400, 401, 403].includes(error.status)) {
+                await query("UPDATE public.payout_automation_runs SET transferred_cents = 0 WHERE id = $1", [runId]);
+            }
+            throw error;
+        });
+        if (funding) {
+            const completed = isMercadoPagoPayoutComplete(funding.transactionStatus, funding.statusDetail || "");
+            await query(`UPDATE public.payout_automation_runs SET payzu_step_status = $2, payzu_transaction_status = $3, updated_at = NOW() WHERE id = $1`,
+                [runId, completed ? "completed" : "processing", `${funding.transactionStatus}:${funding.statusDetail || ""}`]);
+            if (!completed) throw new Error("Transferência Mercado Pago ainda não confirmada. Nenhum repasse foi enviado; consulte o payout registrado antes de tentar novamente.");
+        }
+
         currentStep = "comparison";
-        const transferredCents = payzuTransfer.amountCents || 0;
+        const transferredCents = funding?.amountCents || 0;
         const asaasBalanceCents = await waitForAsaasBalance(plan.totalNetCents);
         const differenceCents = asaasBalanceCents - plan.totalNetCents;
 
@@ -344,7 +345,7 @@ export async function GET(request: Request) {
 
         if (asaasBalanceCents < plan.totalNetCents) {
             const message =
-                `Saldo Asaas insuficiente após aguardar a transferência PayZu: ${asaasBalanceCents} centavos disponíveis; ` +
+                `Saldo Asaas insuficiente após aguardar a transferência Mercado Pago: ${asaasBalanceCents} centavos disponíveis; ` +
                 `${plan.totalNetCents} centavos necessários. Nenhum repasse foi enviado.`;
             await query(
                 `
@@ -476,8 +477,7 @@ export async function GET(request: Request) {
             runDate,
             step: currentStep,
             message,
-            requestId:
-                error instanceof PayZuRequestError ? error.requestId : undefined,
+
         });
 
         return NextResponse.json(

@@ -792,7 +792,6 @@ export default function CartModal({
             : DEFAULT_ALLOWED_PAYMENT_METHODS;
 
     const availablePaymentOptions = PAYMENT_OPTIONS.filter((option) =>
-        option.value !== "pix" &&
         allowedPaymentMethods.includes(option.value) &&
         !(isPickup && option.value === "pix-entrega")
     );
@@ -1474,7 +1473,6 @@ export default function CartModal({
                         </div>
 
                         {pagamento === "pix" &&
-                            availablePaymentOptions.some((option) => option.value === "pix") &&
                             Math.max(
                                 items.reduce((acc, i) => acc + (promotionPrice(i) || i.total_cents), 0) +
                                 (effectiveDeliveryFeeCents ?? 0) -

@@ -1,13 +1,13 @@
 import { POST } from "./route";
 import { query, withTransaction } from "@/lib/database/sql";
-import { createPayZuPixCharge } from "@/lib/payzu";
+import { createMercadoPagoPixCharge } from "@/lib/mercadoPagoPix";
 import type { AutomaticPromotion } from "@/lib/promotions/automatic";
 
 jest.mock("@/lib/database/sql", () => ({
   query: jest.fn(),
   withTransaction: jest.fn(),
 }));
-jest.mock("@/lib/payzu", () => ({ createPayZuPixCharge: jest.fn() }));
+jest.mock("@/lib/mercadoPagoPix", () => ({ createMercadoPagoPixCharge: jest.fn() }));
 
 const restaurantId = "30000000-0000-4000-8000-000000000001";
 const itemId = "10000000-0000-4000-8000-000000000001";
@@ -57,7 +57,7 @@ beforeEach(() => {
   transactions = [];
   jest.spyOn(console, "error").mockImplementation(() => undefined);
   (query as jest.Mock).mockResolvedValue({ rows: [], rowCount: 1 });
-  (createPayZuPixCharge as jest.Mock).mockResolvedValue({
+  (createMercadoPagoPixCharge as jest.Mock).mockResolvedValue({
     id: "payment-test",
     qrCodeBase64: null,
     qrCodeText: "test",
@@ -153,7 +153,7 @@ it("preserves orders with no automatic promotion", async () => {
   expect(saved()[15]).toBeNull();
   expect(saved()[18]).toBeNull();
   expect(transactions).toEqual(["commit"]);
-  expect(createPayZuPixCharge).not.toHaveBeenCalled();
+  expect(createMercadoPagoPixCharge).not.toHaveBeenCalled();
 });
 
 it("stores the total discount in the printer-compatible field and preserves the breakdown", async () => {
@@ -177,8 +177,8 @@ it("charges PIX using the final server total", async () => {
   const response = await send({ paymentMethod: "pix" });
   expect(response.status).toBe(200);
   expect(saved()[1]).toBe("pending_online_payment");
-  expect(createPayZuPixCharge).toHaveBeenCalledWith(
-    expect.objectContaining({ amount: 45, clientReference: orderId }),
+  expect(createMercadoPagoPixCharge).toHaveBeenCalledWith(
+    expect.objectContaining({ amount: 45, externalReference: orderId }),
   );
 });
 
@@ -204,7 +204,7 @@ it("accepts an applied everyday delivery promotion with a zero fee and preserves
     id: offer.id,
     discount_cents: 0,
   });
-  expect(createPayZuPixCharge).toHaveBeenCalledWith(
+  expect(createMercadoPagoPixCharge).toHaveBeenCalledWith(
     expect.objectContaining({ amount: 50 }),
   );
 });
@@ -219,7 +219,7 @@ it("does not create a PIX charge for a fully free order", async () => {
   expect((await send({ paymentMethod: "pix" })).status).toBe(200);
   expect(saved()[4]).toBe(0);
   expect(saved()[1]).toBe("pending_physical_payment");
-  expect(createPayZuPixCharge).not.toHaveBeenCalled();
+  expect(createMercadoPagoPixCharge).not.toHaveBeenCalled();
 });
 
 it("handles Mesa independently without delivery, coupon or PIX", async () => {
@@ -236,7 +236,7 @@ it("handles Mesa independently without delivery, coupon or PIX", async () => {
   expect(saved()[15]).toBe(500);
   expect(saved()[16]).toBe(tableId);
   expect(saved()[17]).toBe("Mesa 1");
-  expect(createPayZuPixCharge).not.toHaveBeenCalled();
+  expect(createMercadoPagoPixCharge).not.toHaveBeenCalled();
 });
 
 it("keeps only the winning discount and does not consume the replaced coupon", async () => {
@@ -286,7 +286,7 @@ it("rejects a stale promotion before order, stock, coupon or payment writes", as
   expect(insert).toBeNull();
   expect(writes).toEqual([]);
   expect(transactions).toEqual(["rollback"]);
-  expect(createPayZuPixCharge).not.toHaveBeenCalled();
+  expect(createMercadoPagoPixCharge).not.toHaveBeenCalled();
 });
 
 it("still rejects insufficient stock", async () => {
@@ -297,7 +297,7 @@ it("still rejects insufficient stock", async () => {
 });
 
 it("retains unpaid PIX compensation and restores stock on provider failure", async () => {
-  (createPayZuPixCharge as jest.Mock).mockRejectedValue(
+  (createMercadoPagoPixCharge as jest.Mock).mockRejectedValue(
     new Error("provider failed"),
   );
   expect((await send({ paymentMethod: "pix" })).status).toBe(500);
