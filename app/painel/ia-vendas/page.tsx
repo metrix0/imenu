@@ -7,11 +7,9 @@ import {
   Send,
   Paperclip,
   History,
-  Settings2,
   X,
   Pencil,
   Archive,
-  RefreshCw,
 } from "lucide-react";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
@@ -221,15 +219,6 @@ export default function SalesPage() {
               >
                 <Plus size={16} />
               </Button>
-              {conversation?.kind === "analysis" && (
-                <Button
-                  variant="secondary"
-                  disabled={disabled}
-                  onClick={newAnalysis}
-                >
-                  Nova análise
-                </Button>
-              )}
               <Button
                 variant="secondary"
                 aria-label="Histórico de ações"
@@ -238,25 +227,6 @@ export default function SalesPage() {
               >
                 <History size={18} />
               </Button>
-              <Button
-                variant="secondary"
-                aria-label="Contexto do restaurante"
-                title="Contexto do restaurante"
-                onClick={() => {
-                  setInstructions(sales.instructions);
-                  setModal("instructions");
-                }}
-              >
-                <Settings2 size={18} />
-              </Button>
-              <button
-                aria-label="Atualizar conversa"
-                disabled={sales.busy || sales.acting}
-                onClick={() => void sales.load(restaurant)}
-                className="cursor-pointer p-2 text-gray-400 disabled:cursor-not-allowed"
-              >
-                <RefreshCw size={16} />
-              </button>
             </div>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 md:px-8">
