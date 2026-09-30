@@ -81,7 +81,7 @@ export default function PixOnlineTemporaryNotice() {
                 </h2>
 
                 <p className="mt-3 text-sm leading-6 text-gray-600">
-                    De volta a partir de 30/09 às 15:00. Seus clientes poderão pagar normalmente pelo Pix Online, com confirmação automática do pagamento.
+                    Seus clientes já podem pagar normalmente pelo Pix Online, com confirmação automática do pagamento.
                 </p>
 
                 <Button
