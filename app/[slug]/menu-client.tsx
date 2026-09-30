@@ -800,11 +800,10 @@ export default function MenuClientPage({
         return Array.isArray(slots) ? slots : [];
     })();
 
-    const infoPaymentMethods = (
+    const infoPaymentMethods =
         Array.isArray(restaurant.allowed_payment_methods) && restaurant.allowed_payment_methods.length > 0
             ? restaurant.allowed_payment_methods
-            : ["pix", "dinheiro", "trazer-maquininha"]
-    ).filter((method) => method !== "pix");
+            : ["pix", "dinheiro", "trazer-maquininha"];
 
     console.log(nextOpening, closedForToday)
 

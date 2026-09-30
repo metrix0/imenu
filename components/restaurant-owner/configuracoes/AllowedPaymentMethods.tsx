@@ -85,7 +85,7 @@ export default function AllowedPaymentMethods({
                             icon={<FontAwesomeIcon icon={option.icon} />}
                             badge={
                                 option.recommended ? (
-                                    <RecommendedBadge infoText="Pix Online está temporariamente desativado para todos os usuários. Estamos trabalhando para resolver a situação de imediato." />
+                                    <RecommendedBadge infoText="Pagamentos são confirmados automaticamente e 34% dos usuários preferem pagar com Pix." />
                                 ) : undefined
                             }
                         />
