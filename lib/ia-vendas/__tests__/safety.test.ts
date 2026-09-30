@@ -113,8 +113,21 @@ describe("grounded projections", () => {
         adoption_rate: 0.25,
         extra_cents: 1000,
         assumptions: "25 conversions",
+        days: 28,
       }).cents,
     ).toBe(15000));
+  test("calculates weekly gain and revenue percentage", () => {
+    const result = potential(sales, {
+      eligible_orders: 100,
+      adoption_rate: 0.25,
+      extra_cents: 1000,
+      assumptions: "25 conversions",
+      days: 7,
+    });
+    expect(result.cents).toBe(3750);
+    expect(result.days).toBe(7);
+    expect(result.percent).toBeCloseTo(0.15);
+  });
   test.each([
     { eligible_orders: 101, adoption_rate: 0.1, extra_cents: 100 },
     { eligible_orders: 100, adoption_rate: 0.8, extra_cents: 100 },

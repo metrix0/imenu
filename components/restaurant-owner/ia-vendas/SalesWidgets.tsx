@@ -550,12 +550,19 @@ export function DataCard({ card }: { card: Data }) {
         {card.available ? (
           <>
             <p className="text-sm text-gray-600">
-              Potencial nas próximas 4 semanas
+              {Number(card.days) === 7
+                ? "Potencial na próxima semana"
+                : "Potencial nas próximas 4 semanas"}
             </p>
             <p className="my-2 text-3xl font-semibold text-[#D93D00]">
               +{money(card.cents)}
             </p>
-            <details className="text-xs text-gray-600">
+            {Number.isFinite(Number(card.percent)) && (
+              <p className="text-sm font-medium text-[#D93D00]">
+                +{(Number(card.percent) * 100).toFixed(1)}% de receita estimada
+              </p>
+            )}
+            <details className="mt-2 text-xs text-gray-600">
               <summary className="cursor-pointer">Como estimamos</summary>
               <p className="mt-2">{card.formula}</p>
               <p className="mt-2">{card.assumptions}</p>

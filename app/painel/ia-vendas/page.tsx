@@ -23,6 +23,36 @@ import {
   DataCard,
 } from "@/components/restaurant-owner/ia-vendas/SalesWidgets";
 import type { Data } from "@/lib/ia-vendas/types";
+
+type MessagePart =
+  | { type: "text"; content: string }
+  | { type: "action"; id: string }
+  | { type: "card"; cardType: "benchmark" | "measurement" | "potential" };
+
+function splitMessageParts(content: string): MessagePart[] {
+  return content
+    .split(
+      /(\[\[action:[0-9a-f-]{36}\]\]|\[\[card:(?:benchmark|measurement|potential)\]\])/gi,
+    )
+    .filter((part) => part.trim())
+    .map((part) => {
+      const action = /^\[\[action:([0-9a-f-]{36})\]\]$/i.exec(part);
+      if (action) return { type: "action", id: action[1] };
+      const card = /^\[\[card:(benchmark|measurement|potential)\]\]$/i.exec(
+        part,
+      );
+      if (card)
+        return {
+          type: "card",
+          cardType: card[1].toLowerCase() as
+            | "benchmark"
+            | "measurement"
+            | "potential",
+        };
+      return { type: "text", content: part };
+    });
+}
+
 export default function SalesPage() {
   const sales = useSalesStore(),
     restaurant = useCreationStore((s) => s.restaurantId),
@@ -289,67 +319,110 @@ export default function SalesPage() {
               </div>
             )}
             <div className="mx-auto max-w-3xl space-y-6">
-              {sales.messages.map((m) => (
-                <article
-                  key={m.id}
-                  ref={
-                    m.id === sales.messages[sales.messages.length - 1]?.id
-                      ? lastMessage
-                      : undefined
-                  }
-                  className={
-                    m.role === "user"
-                      ? "ml-auto max-w-[90%] rounded-[10px] bg-gray-100 px-4 py-3"
-                      : "min-w-0"
-                  }
-                >
-                  {m.role === "assistant" && (
-                    <p className="mb-3 flex items-center gap-2 text-xs font-semibold text-[#D93D00]">
-                      <Sparkles size={14} />
-                      iMenu IA Vendas
-                    </p>
-                  )}
-                  <SalesMarkdown content={m.content} />
-                  {m.attachments?.map((a) => (
-                    <a
-                      key={a.id}
-                      href={a.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="mt-2 flex items-center gap-2 text-xs underline"
-                    >
-                      {a.mime.startsWith("image/") && (
-                        <Image
-                          src={a.url}
-                          alt={a.name}
-                          width={56}
-                          height={56}
-                          unoptimized
-                          className="rounded-lg"
+              {sales.messages.map((m) => {
+                const parts =
+                    m.role === "assistant"
+                      ? splitMessageParts(m.content)
+                      : [{ type: "text" as const, content: m.content }],
+                  placed = new Set<string>();
+                return (
+                  <article
+                    key={m.id}
+                    ref={
+                      m.id === sales.messages[sales.messages.length - 1]?.id
+                        ? lastMessage
+                        : undefined
+                    }
+                    className={
+                      m.role === "user"
+                        ? "ml-auto max-w-[90%] rounded-[10px] bg-gray-100 px-4 py-3"
+                        : "min-w-0"
+                    }
+                  >
+                    {m.role === "assistant" && (
+                      <p className="mb-3 flex items-center gap-2 text-xs font-semibold text-[#D93D00]">
+                        <Sparkles size={14} />
+                        iMenu IA Vendas
+                      </p>
+                    )}
+                    {parts.map((part, i) => {
+                      if (part.type === "text")
+                        return (
+                          <SalesMarkdown key={`text-${i}`} content={part.content} />
+                        );
+                      if (part.type === "action") {
+                        const actionCard = m.cards.find(
+                            (card) =>
+                              card.type === "action" && card.id === part.id,
+                          ),
+                          action = actionCard
+                            ? sales.actions.find((a) => a.id === part.id)
+                            : null,
+                          marker = `action:${part.id}`;
+                        if (!action || placed.has(marker)) return null;
+                        placed.add(marker);
+                        return (
+                          <ActionCard
+                            key={marker}
+                            action={action}
+                            refs={sales.references}
+                            disabled={disabled}
+                            onAction={onAction}
+                          />
+                        );
+                      }
+                      const marker = `card:${part.cardType}`,
+                        card = m.cards.find((c) => c.type === part.cardType);
+                      if (!card || placed.has(marker)) return null;
+                      placed.add(marker);
+                      return <DataCard key={marker} card={card} />;
+                    })}
+                    {m.attachments?.map((a) => (
+                      <a
+                        key={a.id}
+                        href={a.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-2 flex items-center gap-2 text-xs underline"
+                      >
+                        {a.mime.startsWith("image/") && (
+                          <Image
+                            src={a.url}
+                            alt={a.name}
+                            width={56}
+                            height={56}
+                            unoptimized
+                            className="rounded-lg"
+                          />
+                        )}
+                        {a.name}
+                      </a>
+                    ))}
+                    {m.cards.map((card, i) => {
+                      const marker =
+                        card.type === "action"
+                          ? `action:${card.id}`
+                          : `card:${card.type}`;
+                      if (placed.has(marker)) return null;
+                      const action =
+                        card.type === "action"
+                          ? sales.actions.find((a) => a.id === card.id)
+                          : null;
+                      return action ? (
+                        <ActionCard
+                          key={i}
+                          action={action}
+                          refs={sales.references}
+                          disabled={disabled}
+                          onAction={onAction}
                         />
-                      )}
-                      {a.name}
-                    </a>
-                  ))}
-                  {m.cards.map((card, i) => {
-                    const action =
-                      card.type === "action"
-                        ? sales.actions.find((a) => a.id === card.id)
-                        : null;
-                    return action ? (
-                      <ActionCard
-                        key={i}
-                        action={action}
-                        refs={sales.references}
-                        disabled={disabled}
-                        onAction={onAction}
-                      />
-                    ) : card.type !== "action" ? (
-                      <DataCard key={i} card={card} />
-                    ) : null;
-                  })}
-                </article>
-              ))}
+                      ) : card.type !== "action" ? (
+                        <DataCard key={i} card={card} />
+                      ) : null;
+                    })}
+                  </article>
+                );
+              })}
               {unlinked.map((a) => (
                 <ActionCard
                   key={a.id}

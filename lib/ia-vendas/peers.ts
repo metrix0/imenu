@@ -86,7 +86,7 @@ export async function benchmark(restaurant: string, ai: OpenAI) {
     return {
       available: false,
       reason:
-        "Não há pelo menos cinco restaurantes suficientemente semelhantes para um benchmark anônimo.",
+        "Não encontramos pelo menos cinco restaurantes parecidos o suficiente para uma comparação útil.",
     };
   const data: Data[] = [];
   for (const peer of peers) data.push(await metrics(peer.id, w.start, w.end));
@@ -94,7 +94,7 @@ export async function benchmark(restaurant: string, ai: OpenAI) {
     available: true,
     count: peers.length,
     method:
-      "Semelhança semântica do cardápio/nicho (60%), volume (20%), mix entrega/retirada/mesa (15%) e região (5%). Ticket não seleciona pares. Amostra de até 100 restaurantes ativos; medianas anônimas.",
+      "Comparação com restaurantes do iMenu que vendem produtos parecidos e têm volume e tipo de atendimento semelhantes ao seu. Quando possível, consideramos também a região. Os números mostram o valor típico desse grupo.",
     medians: Object.fromEntries(
       [
         "beverage_rate",
@@ -116,13 +116,16 @@ export async function benchmark(restaurant: string, ai: OpenAI) {
 export function potential(sales: Data, input: Data) {
   const affected = Number(input.eligible_orders),
     adoption = Number(input.adoption_rate),
-    lift = Number(input.extra_cents);
+    lift = Number(input.extra_cents),
+    days = input.days === undefined ? 28 : Number(input.days);
   if (sales.orders < 30)
     return {
       available: false,
       reason:
         "Ainda não há pedidos suficientes para uma estimativa responsável.",
     };
+  if (!Number.isInteger(days) || ![7, 28].includes(days))
+    throw new SalesError("Use uma projeção de 7 ou 28 dias.");
   if (
     ![affected, adoption, lift].every(Number.isFinite) ||
     affected < 0 ||
@@ -135,17 +138,21 @@ export function potential(sales: Data, input: Data) {
     throw new SalesError(
       "Use hipóteses conservadoras: pedidos elegíveis observados, adesão até 25% e acréscimo até o ticket atual.",
     );
-  const cents = Math.round(
-    Math.min(
-      (affected * adoption * lift * 28) / sales.days,
-      (sales.revenue_cents * 0.15 * 28) / sales.days,
+  const baselineCents = (sales.revenue_cents * days) / sales.days,
+    cents = Math.round(
+      Math.min(
+        (affected * adoption * lift * days) / sales.days,
+        baselineCents * 0.15,
+      ),
     ),
-  );
+    percent = baselineCents > 0 ? cents / baselineCents : 0;
   return {
     available: true,
     cents,
-    formula: `${affected} pedidos elegíveis × ${(adoption * 100).toFixed(1)}% de adesão × R$ ${(lift / 100).toFixed(2)} adicionais × 28/${sales.days.toFixed(1)} dias. Teto de 15% da receita.`,
+    days,
+    percent,
+    formula: `Consideramos ${affected} pedidos em que a mudança pode ajudar, ${(adoption * 100).toFixed(1)}% deles aderindo e R$ ${(lift / 100).toFixed(2)} extras por adesão, projetados para ${days} dias. Para ser conservador, limitamos o cenário a 15% da receita atual.`,
     assumptions: String(input.assumptions || "").slice(0, 2000),
-    note: "Cenário estimado, sem garantia. Uma projeção conjunta para evitar dupla contagem; lucro depende dos custos informados.",
+    note: "É uma estimativa, não uma garantia. O lucro depende dos custos do restaurante.",
   };
 }
