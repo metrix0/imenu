@@ -324,6 +324,12 @@ export function ActionPreview({
   action: Action;
   refs?: Record<string, string>;
 }) {
+  const groupedUpsells =
+    action.operations.length > 1 &&
+    action.operations.every(
+      (op) => op.entity === "upsell" && op.kind === "create",
+    );
+
   return (
     <div className="space-y-3">
       {action.image && (
@@ -368,7 +374,22 @@ export function ActionPreview({
           <p className="mt-1 whitespace-pre-wrap text-gray-600">{job.prompt}</p>
         </div>
       ))}
-      {action.operations.map((op, i) => {
+      {groupedUpsells && (
+        <div className="overflow-hidden rounded-lg border border-gray-200">
+          <div className="bg-gray-50 px-3 py-2 text-sm font-medium">
+            Adicionar Upsell ({action.operations.length})
+          </div>
+          <div className="divide-y divide-gray-100">
+            {action.operations.map((op, i) => (
+              <p key={i} className="px-3 py-3 text-sm text-gray-700">
+                {operationCopy(op, refs).summary}
+              </p>
+            ))}
+          </div>
+        </div>
+      )}
+      {!groupedUpsells &&
+        action.operations.map((op, i) => {
         const copy = operationCopy(op, refs);
         return (
           <div
