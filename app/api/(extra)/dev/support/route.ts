@@ -356,7 +356,7 @@ export async function POST(request: Request) {
                     WHERE regexp_replace(COALESCE(u.raw_user_meta_data->>'phone', ''), '[^0-9]', '', 'g') = ANY($1::text[])
                        OR regexp_replace(COALESCE(r.phone, ''), '[^0-9]', '', 'g') = ANY($1::text[])
                        OR regexp_replace(COALESCE(r.store_whatsapp, ''), '[^0-9]', '', 'g') = ANY($1::text[])
-                    LIMIT 2
+                    ORDER BY r.id
                 `,
                 [[phone, localPhone]]
             );
@@ -365,13 +365,6 @@ export async function POST(request: Request) {
                 return NextResponse.json(
                     { error: "Número não encontrado em nenhum restaurante." },
                     { status: 404 }
-                );
-            }
-
-            if (recipients.rows.length > 1) {
-                return NextResponse.json(
-                    { error: "Número vinculado a mais de um restaurante." },
-                    { status: 409 }
                 );
             }
 
@@ -386,20 +379,23 @@ export async function POST(request: Request) {
                 );
             }
 
-            const restaurantId = recipients.rows[0].restaurant_id;
+            const restaurantIds = recipients.rows.map(
+                (recipient) => recipient.restaurant_id
+            );
+            const restaurantId = restaurantIds[0];
 
             if (skipRecent) {
                 const recentlySent = await query(
                     `
                         SELECT 1
                         FROM whatsapp_outbound_messages
-                        WHERE restaurant_id = $1
+                        WHERE restaurant_id = ANY($1::uuid[])
                           AND dedupe_key LIKE 'support:bulk:%'
                           AND status = 'sent'
                           AND updated_at >= NOW() - INTERVAL '7 days'
                         LIMIT 1
                     `,
-                    [restaurantId]
+                    [restaurantIds]
                 );
 
                 if (recentlySent.rowCount > 0) {
