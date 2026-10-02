@@ -348,7 +348,7 @@ export default function SalesPage() {
                     <div
                       className={
                         m.role === "user"
-                          ? "rounded-[10px] bg-[var(--panel-action)] px-4 py-3 text-white [&_.text-brand]:!text-white [&_.text-gray-700]:!text-white [&_.text-gray-950]:!text-white"
+                          ? "rounded-[10px] bg-[var(--panel-accent-text)] px-4 py-3 text-white [&_.text-brand]:!text-white [&_.text-gray-700]:!text-white [&_.text-gray-950]:!text-white"
                           : "flex items-start gap-3"
                       }
                     >
