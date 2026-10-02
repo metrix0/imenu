@@ -550,7 +550,7 @@ export function ActionCard({
     </article>
   );
 }
-export function DataCard({ card }: { card: Data }) {
+export function DataCard({ card, expanded = false }: { card: Data; expanded?: boolean }) {
   if (card.type === "item")
     return (
       <div className="my-3 flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-3">
@@ -603,7 +603,7 @@ export function DataCard({ card }: { card: Data }) {
     );
   if (card.type === "benchmark")
     return (
-      <details className="my-3 rounded-lg border border-gray-200 bg-white p-3 text-sm">
+      <details open={expanded} className="my-3 rounded-lg border border-gray-200 bg-white p-3 text-sm">
         <summary className="cursor-pointer font-medium">
           Restaurantes semelhantes{" "}
           {card.available ? `· ${card.count} na comparação` : ""}
@@ -659,7 +659,7 @@ export function DataCard({ card }: { card: Data }) {
     );
   if (card.type === "measurement" && card.results?.length)
     return (
-      <details className="my-3 rounded-lg border border-gray-200 p-3 text-sm">
+      <details open={expanded} className="my-3 rounded-lg border border-gray-200 p-3 text-sm">
         <summary className="cursor-pointer font-medium">
           Resultados das mudanças
         </summary>

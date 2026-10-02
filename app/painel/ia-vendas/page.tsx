@@ -10,6 +10,8 @@ import {
   X,
   Pencil,
   Archive,
+  MessageSquare,
+  ArrowUpRight,
 } from "lucide-react";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
@@ -57,6 +59,9 @@ export default function SalesPage() {
     restaurant = useCreationStore((s) => s.restaurantId),
     [selectedReportId, setSelectedReportId] = useState(""),
     [opportunity, setOpportunity] = useState<Data | null>(null),
+    [analysisChatOpen, setAnalysisChatOpen] = useState(false),
+    [wideAnalysis, setWideAnalysis] = useState(false),
+    [startingAnalysis, setStartingAnalysis] = useState(false),
     [text, setText] = useState(""),
     [attachments, setAttachments] = useState<Data[]>([]),
     [uploading, setUploading] = useState(false),
@@ -74,7 +79,34 @@ export default function SalesPage() {
     previousMessages = useRef({ conversationId: "", count: 0 }),
     emptyThreadStart = useRef(Date.now()),
     file = useRef<HTMLInputElement>(null),
-    input = useRef<HTMLTextAreaElement>(null);
+    input = useRef<HTMLTextAreaElement>(null),
+    chatTrigger = useRef<HTMLButtonElement>(null),
+    focusChat = useRef(false);
+  useEffect(() => {
+    const media = window.matchMedia("(min-width: 1280px)");
+    const update = () => {
+      setWideAnalysis(media.matches);
+      setAnalysisChatOpen(false);
+    };
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+  useEffect(() => {
+    if (!focusChat.current || (!wideAnalysis && !analysisChatOpen)) return;
+    let frame = 0;
+    const focusComposer = () => {
+      // The mobile Modal mounts its portal after opening.
+      if (!input.current) {
+        frame = requestAnimationFrame(focusComposer);
+        return;
+      }
+      input.current.focus();
+      focusChat.current = false;
+    };
+    frame = requestAnimationFrame(focusComposer);
+    return () => cancelAnimationFrame(frame);
+  }, [analysisChatOpen, wideAnalysis, opportunity?.id]);
   useEffect(() => {
     void useSalesStore.getState().load(restaurant);
   }, [restaurant]);
@@ -112,12 +144,13 @@ export default function SalesPage() {
     setDeep(false);
     setSelectedReportId("");
     setOpportunity(null);
+    setAnalysisChatOpen(false);
   }, [sales.conversation_id]);
   useEffect(() => {
     if (!input.current) return;
     input.current.style.height = "auto";
     input.current.style.height = `${input.current.scrollHeight}px`;
-  }, [text]);
+  }, [text, wideAnalysis, analysisChatOpen]);
   useEffect(() => {
     if (!sales.running || sales.busy) return;
     const timer = setInterval(
@@ -134,12 +167,14 @@ export default function SalesPage() {
     ),
     disabled = sales.busy || sales.acting || !!sales.running,
     isAnalysis = conversation?.kind === "analysis",
+    analysisRunning = isAnalysis && (startingAnalysis || !!(sales.running && sales.analyses.some((a) => a.id === sales.running?.id))),
     selectedReport =
       sales.analyses.find((a) => a.id === selectedReportId) ||
       sales.analyses.find((a) => a.result?.report),
     threadMessages = isAnalysis
       ? sales.messages.filter(
           (m) =>
+            (!analysisRunning || !!m.report_id) &&
             (!m.report_id || m.report_id === selectedReport?.id) &&
             (!opportunity || m.opportunity_id === opportunity.id) &&
             (selectedReport ?
@@ -183,89 +218,28 @@ export default function SalesPage() {
   }
   const onAction = (command: string, ids: string[]) =>
     void sales.command(command, { ids });
-  const newAnalysis = () => {
+  const openAnalysisChat = () => {
+    focusChat.current = true;
+    setAnalysisChatOpen(true);
+  };
+  const closeAnalysisChat = () => {
+    focusChat.current = false;
+    setAnalysisChatOpen(false);
+    requestAnimationFrame(() => chatTrigger.current?.focus());
+  };
+  const newAnalysis = async () => {
+    if (disabled || !isAnalysis) return;
     setOpportunity(null);
     setSelectedReportId("");
-    setDeep(true);
-    setText("Faça uma análise das oportunidades de vendas do meu restaurante.");
-    input.current?.focus();
+    setDeep(false);
+    setStartingAnalysis(true);
+    try {
+      await sales.send("Faça uma análise das oportunidades de vendas do meu restaurante.", [], true);
+    } finally {
+      setStartingAnalysis(false);
+    }
   };
-  return (
-    <div className="h-full min-h-0">
-      <div className="flex h-full min-h-0 overflow-hidden">
-        <aside className="hidden min-h-0 w-56 shrink-0 flex-col border-r border-[var(--panel-border)] bg-[var(--panel-background)] p-3 lg:flex">
-          <Button
-            variant="secondary"
-            disabled={disabled}
-            onClick={() => void sales.command("create_conversation")}
-          >
-            <Plus size={16} className="mr-2" />
-            Nova conversa
-          </Button>
-          <nav
-            aria-label="Conversas"
-            className="mt-4 flex-1 space-y-1 overflow-y-auto"
-          >
-            {sales.conversations.map((c) => (
-              <div
-                key={c.id}
-                className={`group flex items-center rounded-[8px] ${c.id === sales.conversation_id ? "bg-[var(--panel-tint)] text-[var(--panel-accent-text)]" : "text-gray-600 hover:bg-[var(--panel-tint)] hover:text-[var(--panel-accent-text)]"}`}
-              >
-                <button
-                  disabled={disabled}
-                  aria-current={
-                    c.id === sales.conversation_id ? "page" : undefined
-                  }
-                  onClick={() => {
-                    setSelectedReportId("");
-                    setOpportunity(null);
-                    void sales.load(restaurant, c.id);
-                  }}
-                  className="min-w-0 flex-1 cursor-pointer truncate p-3 text-left text-sm disabled:cursor-not-allowed"
-                >
-                  {c.kind === "analysis" ? "✦ " : ""}
-                  {c.title}
-                </button>
-                {c.kind === "chat" && (
-                  <div className="hidden pr-2 group-hover:flex">
-                    <button
-                      title="Renomear"
-                      aria-label={`Renomear ${c.title}`}
-                      disabled={disabled}
-                      onClick={() => {
-                        setRenameConversationId(c.id);
-                        setRenameTitle(c.title);
-                        setModal("rename");
-                      }}
-                      className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-[8px] text-gray-500 transition-colors hover:bg-black/5 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      <Pencil size={12} />
-                    </button>
-                    <button
-                      title="Arquivar"
-                      aria-label={`Arquivar ${c.title}`}
-                      disabled={disabled}
-                      onClick={() =>
-                        void sales.command("archive_conversation", {
-                          conversation_id: c.id,
-                        })
-                      }
-                      className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-[8px] text-gray-500 transition-colors hover:bg-black/5 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      <Archive size={12} />
-                    </button>
-                  </div>
-                )}
-              </div>
-            ))}
-          </nav>
-        </aside>
-        <section className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <div className="flex items-center justify-between gap-2 border-b border-[var(--panel-border)] bg-[var(--panel-surface)] px-4 py-3">
-            <div className="min-w-0">
-              <h2 className="hidden truncate text-sm font-medium lg:block">
-                {conversation?.title || "Carregando…"}
-              </h2>
+  const conversationPicker = (
               <select
                 aria-label="Conversa"
                 value={sales.conversation_id || ""}
@@ -283,151 +257,9 @@ export default function SalesPage() {
                   </option>
                 ))}
               </select>
-            </div>
-            <div className="flex gap-2">
-              <Button
-                variant="secondary"
-                className="lg:hidden"
-                aria-label="Nova conversa"
-                disabled={disabled}
-                onClick={() => void sales.command("create_conversation")}
-              >
-                <Plus size={16} />
-              </Button>
-              <Button
-                variant="secondary"
-                aria-label="Histórico de ações"
-                title="Histórico de ações"
-                onClick={() => setModal("history")}
-              >
-                <History size={18} />
-              </Button>
-            </div>
-          </div>
-          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 md:px-8">
-            {sales.loading && !sales.messages.length ? <Loader /> : null}
-            {!isAnalysis && sales.has_more && (
-              <div className="mb-5 text-center">
-                <Button
-                  variant="secondary"
-                  disabled={sales.loading}
-                  onClick={() =>
-                    void sales.load(
-                      restaurant,
-                      sales.conversation_id || undefined,
-                      true,
-                    )
-                  }
-                >
-                  Mensagens anteriores
-                </Button>
-              </div>
-            )}
-            {!isAnalysis && !sales.messages.length && !sales.loading && (
-              <div className="mx-auto flex max-w-lg flex-col items-center py-10 text-center">
-                <div className="mb-5 rounded-[10px] bg-[var(--panel-tint)] p-4 text-[var(--panel-accent-text)]">
-                  <Sparkles size={32} />
-                </div>
-                <h2 className="text-xl font-semibold">
-                  O próximo passo para vender mais
-                </h2>
-                <p className="mt-3 text-sm leading-6 text-gray-500">
-                  Encontre oportunidades nos seus pedidos, melhore seu cardápio
-                  e aprove as mudanças com um clique.
-                </p>
-                <div className="mt-6 grid w-full gap-2 sm:grid-cols-2">
-                  {(conversation?.kind === "analysis"
-                    ? ["Analisar minhas vendas", "Como funciona a análise?"]
-                    : [
-                        "Melhorar descrições",
-                        "Criar uma imagem realista",
-                        "Revisar preços e promoções",
-                        "Configurar upsells",
-                      ]
-                  ).map((label, i) => (
-                    <Button
-                      key={label}
-                      variant="secondary"
-                      onClick={() => {
-                        if (conversation?.kind === "analysis" && i === 0)
-                          newAnalysis();
-                        else {
-                          setText(label);
-                          input.current?.focus();
-                        }
-                      }}
-                    >
-                      {label}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-            )}
-            {isAnalysis && (
-              <AnalysisReport
-                analyses={sales.analyses}
-                selected={selectedReport}
-                actions={sales.actions}
-                refs={sales.references}
-                disabled={disabled}
-                availableAt={sales.analysis_available_at}
-                onSelect={(id) => {
-                  setSelectedReportId(id);
-                  setOpportunity(null);
-                  setText("");
-                }}
-                onAnalyze={newAnalysis}
-                onAction={onAction}
-                onBatch={(ids) => {
-                  setBatchIds(ids);
-                  setModal("batch");
-                }}
-                onDiscuss={(item) => {
-                  setOpportunity(item);
-                  setDeep(false);
-                  end.current?.scrollIntoView({
-                    behavior: "smooth",
-                    block: "end",
-                  });
-                  input.current?.focus();
-                }}
-              />
-            )}
-            <div className="mx-auto max-w-3xl space-y-8">
-              {isAnalysis && (
-                <div className="mt-8 border-t border-[var(--panel-border)] pt-5">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <h3 className="text-sm font-medium">
-                      {opportunity
-                        ? opportunity.title
-                        : "Converse sobre esta análise"}
-                    </h3>
-                    {opportunity && (
-                      <Button
-                        variant="secondary"
-                        onClick={() => setOpportunity(null)}
-                      >
-                        Voltar ao relatório
-                      </Button>
-                    )}
-                  </div>
-                  {sales.has_more && (
-                    <Button
-                      variant="secondary"
-                      disabled={sales.loading}
-                      onClick={() =>
-                        void sales.load(
-                          restaurant,
-                          sales.conversation_id || undefined,
-                          true,
-                        )
-                      }
-                    >
-                      Conversas anteriores
-                    </Button>
-                  )}
-                </div>
-              )}
+  );
+  const messageList = (
+    <>
               {threadMessages.map((m) => {
                 const parts =
                     m.role === "assistant"
@@ -569,7 +401,7 @@ export default function SalesPage() {
                   </article>
                 );
               })}
-              {(sales.busy || sales.acting || sales.running) && (
+              {(sales.busy || sales.acting || sales.running) && !analysisRunning && (
                 <div role="status" className="flex justify-center py-3">
                   <div className="rounded-[10px] bg-[var(--panel-tint)] p-3">
                     <Loader />
@@ -577,8 +409,10 @@ export default function SalesPage() {
                 </div>
               )}
               <div ref={end} />
-            </div>
-          </div>
+    </>
+  );
+  const notice = (
+    <>
           {(sales.error || localError) && (
             <div
               role="alert"
@@ -597,7 +431,11 @@ export default function SalesPage() {
               </button>
             </div>
           )}
-          <div className="bg-[var(--panel-surface)] px-4 pt-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] md:px-8 md:pb-4">
+
+    </>
+  );
+  const composer = (
+          <div className={isAnalysis ? "border-t border-[var(--panel-border)] bg-[var(--panel-surface)] p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]" : "bg-[var(--panel-surface)] px-4 pt-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] md:px-8 md:pb-4"}>
             <div className="mx-auto max-w-3xl">
               {isAnalysis && opportunity && (
                 <div className="mb-2 flex items-center justify-between gap-2 rounded-[8px] bg-[var(--panel-tint)] px-3 py-2 text-xs text-[var(--panel-accent-text)]">
@@ -708,6 +546,259 @@ export default function SalesPage() {
               )}
             </div>
           </div>
+  );
+  const contextualChat = (
+    <div className="flex h-full min-h-0 flex-col" aria-label="Conversa sobre a análise">
+      <header className="shrink-0 border-b border-[var(--panel-border)] p-4 pr-12">
+        <div className="flex items-center gap-2 text-sm font-medium"><Sparkles size={16} className="text-[var(--panel-action)]" />Assistente da análise</div>
+        <p className="mt-1 text-xs leading-5 text-[var(--panel-muted)]">Pergunte, entenda os dados e decida o próximo passo.</p>
+        {opportunity && <div className="mt-3 rounded-[8px] bg-[var(--panel-tint)] p-3 text-xs text-[var(--panel-accent-text)]">
+          <p className="font-medium">Sobre: {opportunity.title}</p>
+          <button className="mt-2 cursor-pointer underline" onClick={() => setOpportunity(null)}>Ver toda a análise</button>
+        </div>}
+      </header>
+      <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-4" aria-label="Respostas contextuais">
+        {sales.has_more && <Button variant="secondary" disabled={sales.loading} onClick={() => void sales.load(restaurant, sales.conversation_id || undefined, true)}>Conversas anteriores</Button>}
+        {!threadMessages.length && <div className="py-6">
+          <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-[10px] bg-[var(--panel-tint)] text-[var(--panel-accent-text)]"><MessageSquare size={20} /></div>
+          <h3 className="!text-sm">{opportunity ? "Vamos entender esta oportunidade" : "Converse sobre seu relatório"}</h3>
+          <p className="mt-2 text-sm leading-6 text-[var(--panel-muted)]">{opportunity ? "Tire dúvidas sobre as evidências ou as mudanças propostas." : "As respostas ficam aqui, junto da análise que você está consultando."}</p>
+          <div className="mt-4 flex flex-col items-start gap-2">
+            {(opportunity ? ["Por que priorizar isso?", "Como aplicar essa mudança?"] : selectedReport ? ["Qual é a prioridade?", "Explique a estimativa"] : ["Como funciona a análise?", "O que será analisado?"]).map((question) => <Button key={question} variant="secondary" className="text-left" disabled={disabled} onClick={() => {
+              setText(question);
+              openAnalysisChat();
+              input.current?.focus();
+            }}>{question}<ArrowUpRight size={14} className="ml-2 shrink-0" /></Button>)}
+          </div>
+        </div>}
+        {messageList}
+      </div>
+      {notice}
+      {composer}
+    </div>
+  );
+  return (
+    <div className="h-full min-h-0">
+      <div className="flex h-full min-h-0 overflow-hidden">
+        <aside className="hidden min-h-0 w-56 shrink-0 flex-col border-r border-[var(--panel-border)] bg-[var(--panel-background)] p-3 lg:flex">
+          <Button
+            variant="secondary"
+            disabled={disabled}
+            onClick={() => void sales.command("create_conversation")}
+          >
+            <Plus size={16} className="mr-2" />
+            Nova conversa
+          </Button>
+          <nav
+            aria-label="Conversas"
+            className="mt-4 flex-1 space-y-1 overflow-y-auto"
+          >
+            {sales.conversations.map((c) => (
+              <div
+                key={c.id}
+                className={`group flex items-center rounded-[8px] ${c.id === sales.conversation_id ? "bg-[var(--panel-tint)] text-[var(--panel-accent-text)]" : "text-gray-600 hover:bg-[var(--panel-tint)] hover:text-[var(--panel-accent-text)]"}`}
+              >
+                <button
+                  disabled={disabled}
+                  aria-current={
+                    c.id === sales.conversation_id ? "page" : undefined
+                  }
+                  onClick={() => {
+                    setSelectedReportId("");
+                    setOpportunity(null);
+                    void sales.load(restaurant, c.id);
+                  }}
+                  className="min-w-0 flex-1 cursor-pointer truncate p-3 text-left text-sm disabled:cursor-not-allowed"
+                >
+                  {c.kind === "analysis" ? "✦ " : ""}
+                  {c.title}
+                </button>
+                {c.kind === "chat" && (
+                  <div className="hidden pr-2 group-hover:flex">
+                    <button
+                      title="Renomear"
+                      aria-label={`Renomear ${c.title}`}
+                      disabled={disabled}
+                      onClick={() => {
+                        setRenameConversationId(c.id);
+                        setRenameTitle(c.title);
+                        setModal("rename");
+                      }}
+                      className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-[8px] text-gray-500 transition-colors hover:bg-black/5 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <Pencil size={12} />
+                    </button>
+                    <button
+                      title="Arquivar"
+                      aria-label={`Arquivar ${c.title}`}
+                      disabled={disabled}
+                      onClick={() =>
+                        void sales.command("archive_conversation", {
+                          conversation_id: c.id,
+                        })
+                      }
+                      className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-[8px] text-gray-500 transition-colors hover:bg-black/5 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <Archive size={12} />
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </nav>
+        </aside>
+        <section className="flex min-h-0 min-w-0 flex-1 flex-col">
+          {isAnalysis ? (
+            <div className="flex min-h-0 flex-1" data-analysis-workspace>
+              <div className="flex min-h-0 min-w-0 flex-1 flex-col" inert={analysisChatOpen && !wideAnalysis}>
+                <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[var(--panel-border)] bg-[var(--panel-surface)] px-4 py-2 lg:hidden">
+                  {conversationPicker}
+                  <Button variant="secondary" aria-label="Nova conversa" disabled={disabled} onClick={() => void sales.command("create_conversation")}><Plus size={16} /></Button>
+                </div>
+                <div className="min-h-0 flex-1 overflow-y-auto bg-[var(--panel-background)] p-4 md:p-6" aria-label="Relatório de análise">
+                  {!wideAnalysis && !analysisChatOpen && notice}
+                  <AnalysisReport
+                    analyses={sales.analyses}
+                    selected={selectedReport}
+                    actions={sales.actions}
+                    refs={sales.references}
+                    disabled={disabled}
+                    availableAt={sales.analysis_available_at}
+                    loading={sales.loading && !sales.analyses.length}
+                    generating={analysisRunning}
+                    status={sales.status}
+                    activeOpportunityId={opportunity?.id}
+                    onHistory={() => setModal("history")}
+                    onSelect={(id) => {
+                      setSelectedReportId(id);
+                      setOpportunity(null);
+                      setText("");
+                    }}
+                    onAnalyze={() => void newAnalysis()}
+                    onAction={onAction}
+                    onBatch={(ids) => {
+                      setBatchIds(ids);
+                      setModal("batch");
+                    }}
+                    onDiscuss={(item) => {
+                      setOpportunity(item);
+                      setDeep(false);
+                      openAnalysisChat();
+                    }}
+                  />
+                </div>
+                {!wideAnalysis && <div className="shrink-0 border-t border-[var(--panel-border)] bg-[var(--panel-surface)] p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+                  <button ref={chatTrigger} type="button" aria-label="Pergunte sobre esta análise" aria-haspopup="dialog" aria-expanded={analysisChatOpen}
+                    onClick={openAnalysisChat}
+                    className="flex min-h-12 w-full cursor-pointer items-center gap-3 rounded-[16px] border border-[var(--panel-border)] px-4 py-3 text-left text-sm text-[var(--panel-muted)] hover:bg-[var(--panel-background)] focus-visible:outline-2 focus-visible:outline-[var(--panel-action)]">
+                    <MessageSquare size={18} className="shrink-0 text-[var(--panel-action)]" />
+                    <span className="min-w-0 flex-1 truncate">{opportunity ? "Conversar sobre: " + opportunity.title : "Pergunte sobre esta análise…"}</span>
+                    <ArrowUpRight size={17} className="shrink-0" />
+                  </button>
+                </div>}
+              </div>
+              {wideAnalysis && <aside className="flex min-h-0 w-[340px] shrink-0 flex-col border-l border-[var(--panel-border)] bg-[var(--panel-surface)] 2xl:w-[360px]">{contextualChat}</aside>}
+              {!wideAnalysis && <Modal open={analysisChatOpen} onClose={closeAnalysisChat} height="85dvh" fixedHeight showCloseButton className="[&>.panel-modal-body]:!flex [&>.panel-modal-body]:!min-h-0 [&>.panel-modal-body]:!flex-1 [&>.panel-modal-body]:!p-0">
+                {contextualChat}
+              </Modal>}
+            </div>
+          ) : (
+            <>
+          <div className="flex items-center justify-between gap-2 border-b border-[var(--panel-border)] bg-[var(--panel-surface)] px-4 py-3">
+            <div className="min-w-0">
+              <h2 className="hidden truncate text-sm font-medium lg:block">
+                {conversation?.title || "Carregando…"}
+              </h2>
+              {conversationPicker}
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="secondary"
+                className="lg:hidden"
+                aria-label="Nova conversa"
+                disabled={disabled}
+                onClick={() => void sales.command("create_conversation")}
+              >
+                <Plus size={16} />
+              </Button>
+              <Button
+                variant="secondary"
+                aria-label="Histórico de ações"
+                title="Histórico de ações"
+                onClick={() => setModal("history")}
+              >
+                <History size={18} />
+              </Button>
+            </div>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 md:px-8">
+            {sales.loading && !sales.messages.length ? <Loader /> : null}
+            {!isAnalysis && sales.has_more && (
+              <div className="mb-5 text-center">
+                <Button
+                  variant="secondary"
+                  disabled={sales.loading}
+                  onClick={() =>
+                    void sales.load(
+                      restaurant,
+                      sales.conversation_id || undefined,
+                      true,
+                    )
+                  }
+                >
+                  Mensagens anteriores
+                </Button>
+              </div>
+            )}
+            {!isAnalysis && !sales.messages.length && !sales.loading && (
+              <div className="mx-auto flex max-w-lg flex-col items-center py-10 text-center">
+                <div className="mb-5 rounded-[10px] bg-[var(--panel-tint)] p-4 text-[var(--panel-accent-text)]">
+                  <Sparkles size={32} />
+                </div>
+                <h2 className="text-xl font-semibold">
+                  O próximo passo para vender mais
+                </h2>
+                <p className="mt-3 text-sm leading-6 text-gray-500">
+                  Encontre oportunidades nos seus pedidos, melhore seu cardápio
+                  e aprove as mudanças com um clique.
+                </p>
+                <div className="mt-6 grid w-full gap-2 sm:grid-cols-2">
+                  {(conversation?.kind === "analysis"
+                    ? ["Analisar minhas vendas", "Como funciona a análise?"]
+                    : [
+                        "Melhorar descrições",
+                        "Criar uma imagem realista",
+                        "Revisar preços e promoções",
+                        "Configurar upsells",
+                      ]
+                  ).map((label, i) => (
+                    <Button
+                      key={label}
+                      variant="secondary"
+                      onClick={() => {
+                        if (conversation?.kind === "analysis" && i === 0)
+                          newAnalysis();
+                        else {
+                          setText(label);
+                          input.current?.focus();
+                        }
+                      }}
+                    >
+                      {label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div className="mx-auto max-w-3xl space-y-8">
+              {messageList}
+            </div>
+          </div>
+          {notice}
+          {composer}
+            </>
+          )}
+
         </section>
       </div>
       <Modal
