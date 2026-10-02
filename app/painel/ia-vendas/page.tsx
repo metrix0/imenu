@@ -8,6 +8,7 @@ import {
   Paperclip,
   History,
   X,
+  Pencil,
   Archive,
 } from "lucide-react";
 import Button from "@/components/ui/Button";
@@ -224,7 +225,26 @@ export default function SalesPage() {
                   {c.title}
                 </button>
                 {c.kind === "chat" && (
-                  <div className="flex pr-2">
+                  <div className="invisible flex pr-2 group-hover:visible">
+                    <button
+                      title="Renomear"
+                      aria-label={`Renomear ${c.title}`}
+                      disabled={disabled}
+                      onClick={() => {
+                        const title = window.prompt(
+                          "Nome da conversa",
+                          c.title,
+                        );
+                        if (title?.trim())
+                          void sales.command("rename_conversation", {
+                            conversation_id: c.id,
+                            title,
+                          });
+                      }}
+                      className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-[8px] text-gray-500 transition-colors hover:bg-[var(--panel-tint)] hover:text-[var(--panel-accent-text)] disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <Pencil size={12} />
+                    </button>
                     <button
                       title="Arquivar"
                       aria-label={`Arquivar ${c.title}`}
