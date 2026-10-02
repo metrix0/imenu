@@ -7,7 +7,6 @@ import type { Action, Data } from "@/lib/ia-vendas/types";
 
 const levels: Record<string, string> = { high: "alto", medium: "médio", low: "baixo" };
 const confidenceLevels: Record<string, string> = { high: "alta", medium: "média", low: "baixa" };
-const money = (cents: number) => (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const surface = "rounded-[10px] border border-[var(--panel-border)] bg-[var(--panel-surface)]";
 
 export default function AnalysisReport({
@@ -35,7 +34,6 @@ export default function AnalysisReport({
   const month = new Date(generatedAt || Date.now()).toLocaleDateString("pt-BR", {
     month: "long", year: "numeric", timeZone: "America/Sao_Paulo",
   });
-  const sales = report?.sales_snapshot;
   const renderActions = (entry: Data) => withGenerated(entry.action_ids).map((id) => {
     const action = actions.find((a) => a.id === id);
     return action ? <ActionCard key={id} action={action} refs={refs} disabled={disabled} onAction={onAction} /> : null;
@@ -97,8 +95,7 @@ export default function AnalysisReport({
         Esta análise não foi concluída. As propostas preparadas estão disponíveis para revisão.
       </div>}
 
-      {!legacy && <div className="grid gap-4 2xl:grid-cols-3">
-        <section aria-label="Resumo da IA" className={surface + " p-5 2xl:col-span-2"}>
+      {!legacy && <section aria-label="Resumo da IA" className={surface + " p-5"}>
           <div className="mb-4 flex items-center gap-2 text-xs font-medium text-[var(--panel-accent-text)]"><Sparkles size={16} aria-hidden="true" />Resumo da IA</div>
           <h2 className="mb-3">{report?.headline || (waiting ? "Encontrando oportunidades para vender mais" : "Seu próximo passo para vender mais")}</h2>
           {report ? <SalesMarkdown content={report.summary} /> : <p className="text-sm leading-6 text-[var(--panel-muted)]">
@@ -108,20 +105,7 @@ export default function AnalysisReport({
             <span className="flex items-center gap-1.5"><Target size={14} aria-hidden="true" />{report ? opportunities.length + " oportunidades priorizadas" : "Prioridades com evidências"}</span>
             <span className="flex items-center gap-1.5"><Check size={14} aria-hidden="true" />{report ? pending.length + " propostas para revisar" : "Você aprova cada mudança"}</span>
           </div>
-        </section>
-        <section aria-label="Potencial estimado" className={surface + " overflow-hidden !bg-[var(--panel-tint)] p-5 [&>div]:!m-0 [&>div]:!border-0 [&>div]:!bg-transparent [&>div]:!p-0"}>
-          <p className="mb-4 flex items-center gap-2 text-xs font-medium text-[var(--panel-accent-text)]"><TrendingUp size={16} aria-hidden="true" />Potencial de vendas</p>
-          {report ? <DataCard card={{...report.potential_estimate, type: "potential"}} /> : <>
-            <p className="text-2xl font-semibold text-[var(--panel-text)]">{waiting ? "Calculando…" : "A descobrir"}</p>
-            <p className="mt-3 text-sm leading-6 text-[var(--panel-muted)]">Uma estimativa conjunta baseada nas oportunidades e nos pedidos do seu restaurante.</p>
-          </>}
-        </section>
-      </div>}
-      {sales && <dl aria-label="Vendas no período" className="grid gap-3 sm:grid-cols-3">
-        {[["Receita no período", money(sales.revenue_cents)], ["Pedidos concluídos", sales.orders.toLocaleString("pt-BR")], ["Ticket médio", money(sales.ticket_cents)]].map(([label, value]) => (
-          <div key={label} className={surface + " p-4"}><dt className="text-xs text-[var(--panel-muted)]">{label}</dt><dd className="mt-1 text-lg font-semibold tabular-nums">{value}</dd></div>
-        ))}
-      </dl>}
+      </section>}
 
       {!legacy && <section aria-label="Oportunidades prioritárias" className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -147,7 +131,7 @@ export default function AnalysisReport({
             <span className="rounded-full bg-[var(--panel-soft)] px-2.5 py-1">Esforço {levels[o.effort]}</span>
             <span className="rounded-full bg-[var(--panel-soft)] px-2.5 py-1">Risco {levels[o.risk]}</span>
           </div>
-          {renderEvidence(o)}{renderActions(o)}
+          {renderActions(o)}{renderEvidence(o)}
           <div className="mt-4 flex justify-end border-t border-[var(--panel-border)] pt-4"><Button variant="secondary" disabled={disabled} aria-pressed={activeOpportunityId === o.id} onClick={() => onDiscuss(o)}><MessageSquare size={15} className="mr-2" />Conversar sobre isso</Button></div>
         </article>)}
       </section>}
@@ -174,10 +158,19 @@ export default function AnalysisReport({
         <p className="mt-3 text-xs text-[var(--panel-muted)]">Decisões e configurações que precisam da sua atenção.</p>
         <div className="mt-4 space-y-5">{reviewItems.map((o) => <article key={o.id} className="border-t border-[var(--panel-border)] pt-4">
           <h4 className="text-sm font-medium">{o.title}</h4><p className="mt-2 text-sm leading-6 text-[var(--panel-muted)]">{o.explanation}</p>
-          {renderEvidence(o)}{renderActions(o)}
+          {renderActions(o)}{renderEvidence(o)}
           <Button variant="secondary" className="mt-3" disabled={disabled} onClick={() => onDiscuss(o)}><MessageSquare size={15} className="mr-2" />Conversar sobre isso</Button>
         </article>)}</div>
       </details>}
+      {!legacy && <section aria-label="Potencial estimado" className={surface + " overflow-hidden !bg-[var(--panel-tint)] p-5 [&>div]:!m-0 [&>div]:!border-0 [&>div]:!bg-transparent [&>div]:!p-0"}>
+        <h3 className="mb-4 flex items-center gap-2"><TrendingUp size={16} aria-hidden="true" />{Number(report?.potential_estimate?.days) === 7
+          ? "O que seu restaurante pode ganhar na próxima semana com essas mudanças"
+          : "O que seu restaurante pode ganhar com essas mudanças"}</h3>
+        {report ? <DataCard card={{...report.potential_estimate, type: "potential"}} /> : <>
+          <p className="text-2xl font-semibold text-[var(--panel-text)]">{waiting ? "Calculando…" : "A descobrir"}</p>
+          <p className="mt-3 text-sm leading-6 text-[var(--panel-muted)]">Uma estimativa conjunta baseada nas oportunidades e nos pedidos do seu restaurante.</p>
+        </>}
+      </section>}
       {report?.period?.start && <p className="text-xs text-[var(--panel-muted)]">Período analisado: {new Date(report.period.start).toLocaleDateString("pt-BR")} a {new Date(report.period.end).toLocaleDateString("pt-BR")}.</p>}
       {legacy && <section className={surface + " space-y-4 p-5"}>
         <p className="text-xs text-[var(--panel-muted)]">Relatório anterior ao formato estruturado.</p>

@@ -164,7 +164,7 @@ export async function measure(restaurant: string) {
   }
   return {
     results,
-    note: "Comparação observacional em janelas iguais. Não é teste A/B nem atribuição causal; tráfego, sazonalidade e mudanças simultâneas influenciam os resultados.",
+    note: "Comparamos períodos de mesma duração antes e depois. Outras mudanças, visitas e épocas do ano também podem afetar as vendas.",
   };
 }
 
