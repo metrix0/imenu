@@ -123,11 +123,40 @@ export function potential(sales: Data, input: Data) {
     };
   if (!Number.isInteger(days) || ![7, 28].includes(days))
     throw new SalesError("Use uma projeção de 7 ou 28 dias.");
-  if (
-    !Array.isArray(input.opportunities) ||
-    !input.opportunities.length ||
-    input.opportunities.length > 5
-  )
+  if (!Array.isArray(input.opportunities)) {
+    const affected = Number(input.eligible_orders),
+      adoption = Number(input.adoption_rate),
+      lift = Number(input.extra_cents);
+    if (
+      ![affected, adoption, lift].every(Number.isFinite) ||
+      affected < 0 ||
+      affected > sales.orders ||
+      adoption < 0 ||
+      adoption > 0.25 ||
+      lift < 0 ||
+      lift > sales.ticket_cents
+    )
+      throw new SalesError(
+        "Use hipóteses conservadoras: pedidos elegíveis observados, adesão até 25% e acréscimo até o ticket atual.",
+      );
+    const baselineCents = (sales.revenue_cents * days) / sales.days,
+      cents = Math.round(
+        Math.min(
+          (affected * adoption * lift * days) / sales.days,
+          baselineCents * 0.15,
+        ),
+      );
+    return {
+      available: true,
+      cents,
+      days,
+      percent: baselineCents > 0 ? cents / baselineCents : 0,
+      formula: `Consideramos ${affected} pedidos em que a mudança pode ajudar, ${(adoption * 100).toFixed(1)}% deles aderindo e R$ ${(lift / 100).toFixed(2)} extras por adesão, projetados para ${days} dias. Para ser conservador, limitamos o cenário a 15% da receita atual.`,
+      assumptions: String(input.assumptions || "").slice(0, 2000),
+      note: "É uma estimativa, não uma garantia. O lucro depende dos custos do restaurante.",
+    };
+  }
+  if (!input.opportunities.length || input.opportunities.length > 5)
     throw new SalesError("Inclua de uma a cinco oportunidades na estimativa.");
 
   const profiles: Record<
@@ -232,6 +261,8 @@ export function potential(sales: Data, input: Data) {
     max_cents: maxCents,
     min_percent: minPercent,
     max_percent: maxPercent,
+    cents: minCents,
+    percent: minPercent,
     days,
     breakdown,
     formula:
