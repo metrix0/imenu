@@ -70,6 +70,7 @@ const MAX_WAHA_MEDIA_BYTES = 12 * 1024 * 1024;
 const WAHA_TYPING_TIMEOUT_MS = 1_000;
 
 export const SUPPORT_WAHA_SESSION_NAME = "imenu-support";
+export const BLAST_WAHA_SESSION_NAME = "imenu-blast";
 
 class WahaHttpError extends Error {
     status: number;
@@ -271,6 +272,22 @@ export async function ensureWahaSupportSession(
         sessionConfig({ support: "true" }, getSupportPublicUrl())
     );
 }
+
+export async function ensureWahaBlastSession(
+    sessionName = BLAST_WAHA_SESSION_NAME
+): Promise<WahaSession> {
+    return ensureWahaSessionWithConfig(sessionName, {
+        metadata: { blast: "true" },
+        ignore: {
+            status: true,
+            groups: true,
+            channels: true,
+            broadcast: true,
+        },
+        webhooks: [],
+    });
+}
+
 export async function startWahaSession(
     sessionName: string
 ): Promise<WahaSession> {
