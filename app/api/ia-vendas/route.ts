@@ -52,7 +52,7 @@ export async function GET(request: Request) {
           [restaurant],
         ),
         query(
-          "SELECT finished_at FROM public.ia_vendas_runs WHERE restaurant_id=$1 AND kind='analysis' AND status='completed' ORDER BY finished_at DESC LIMIT 1",
+          "SELECT finished_at FROM public.ia_vendas_runs WHERE restaurant_id=$1 AND kind='analysis' AND result->>'detached_at' IS NULL AND status='completed' ORDER BY finished_at DESC LIMIT 1",
           [restaurant],
         ),
         query(
@@ -65,7 +65,7 @@ export async function GET(request: Request) {
         ),
         analysisConversation
           ? query(
-              "SELECT id,status,result,created_at,finished_at FROM public.ia_vendas_runs WHERE restaurant_id=$1 AND conversation_id=$2 AND kind='analysis' AND result IS NOT NULL ORDER BY created_at DESC",
+              "SELECT id,status,result,created_at,finished_at FROM public.ia_vendas_runs WHERE restaurant_id=$1 AND conversation_id=$2 AND kind='analysis' AND result->>'detached_at' IS NULL AND result IS NOT NULL ORDER BY created_at DESC",
               [restaurant, id],
             )
           : Promise.resolve({ rows: [] }),
@@ -178,7 +178,7 @@ export async function POST(request: Request) {
       throw new SalesError("Ação inválida.");
     const selected = (
       await query<Action>(
-        "SELECT * FROM public.ia_vendas_actions WHERE restaurant_id=$1 AND id=ANY($2::uuid[])",
+        "SELECT * FROM public.ia_vendas_actions WHERE restaurant_id=$1 AND id=ANY($2::uuid[]) AND NOT EXISTS(SELECT 1 FROM public.ia_vendas_runs r WHERE r.restaurant_id=$1 AND r.id=ia_vendas_actions.run_id AND r.result->>'detached_at' IS NOT NULL)",
         [restaurant, body.ids],
       )
     ).rows;

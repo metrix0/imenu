@@ -35,7 +35,7 @@ export async function beginRun(
     if (kind === "analysis") {
       const last = (
         await c.query(
-          "SELECT finished_at FROM public.ia_vendas_runs WHERE restaurant_id=$1 AND kind='analysis' AND status='completed' AND finished_at>now()-interval '14 days' ORDER BY finished_at DESC LIMIT 1",
+          "SELECT finished_at FROM public.ia_vendas_runs WHERE restaurant_id=$1 AND kind='analysis' AND result->>'detached_at' IS NULL AND status='completed' AND finished_at>now()-interval '14 days' ORDER BY finished_at DESC LIMIT 1",
           [restaurant],
         )
       ).rows[0];
@@ -48,7 +48,7 @@ export async function beginRun(
     if (kind === "analysis") {
       const monthly = (
         await c.query(
-          "SELECT count(*)::int n FROM public.ia_vendas_runs WHERE restaurant_id=$1 AND kind='analysis' AND status='completed' AND finished_at>=date_trunc('month',now())",
+          "SELECT count(*)::int n FROM public.ia_vendas_runs WHERE restaurant_id=$1 AND kind='analysis' AND result->>'detached_at' IS NULL AND status='completed' AND finished_at>=date_trunc('month',now())",
           [restaurant],
         )
       ).rows[0];

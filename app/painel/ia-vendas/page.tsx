@@ -70,6 +70,7 @@ export default function SalesPage() {
   const end = useRef<HTMLDivElement>(null),
     lastMessage = useRef<HTMLElement>(null),
     previousMessages = useRef({ conversationId: "", count: 0 }),
+    emptyThreadStart = useRef(Date.now()),
     file = useRef<HTMLInputElement>(null),
     input = useRef<HTMLTextAreaElement>(null);
   useEffect(() => {
@@ -103,6 +104,7 @@ export default function SalesPage() {
     };
   }, [sales.messages.length, sales.conversation_id]);
   useEffect(() => {
+    emptyThreadStart.current = Date.now();
     setText("");
     setAttachments([]);
     setDeep(false);
@@ -132,18 +134,18 @@ export default function SalesPage() {
     isAnalysis = conversation?.kind === "analysis",
     selectedReport =
       sales.analyses.find((a) => a.id === selectedReportId) ||
-      sales.analyses[0],
+      sales.analyses.find((a) => a.result?.report),
     threadMessages = isAnalysis
       ? sales.messages.filter(
           (m) =>
             (!m.report_id || m.report_id === selectedReport?.id) &&
             (!opportunity || m.opportunity_id === opportunity.id) &&
-            (!selectedReport ||
+            (selectedReport ?
               m.report_id ||
               Date.parse(m.created_at) >
                 Date.parse(
                   selectedReport.finished_at || selectedReport.created_at,
-                )),
+                ) : Date.parse(m.created_at) >= emptyThreadStart.current),
         )
       : sales.messages;
   async function send() {
@@ -212,7 +214,11 @@ export default function SalesPage() {
                   aria-current={
                     c.id === sales.conversation_id ? "page" : undefined
                   }
-                  onClick={() => void sales.load(restaurant, c.id)}
+                  onClick={() => {
+                    setSelectedReportId("");
+                    setOpportunity(null);
+                    void sales.load(restaurant, c.id);
+                  }}
                   className="min-w-0 flex-1 cursor-pointer truncate p-3 text-left text-sm disabled:cursor-not-allowed"
                 >
                   {c.kind === "analysis" ? "✦ " : ""}
@@ -268,7 +274,11 @@ export default function SalesPage() {
                 aria-label="Conversa"
                 value={sales.conversation_id || ""}
                 disabled={disabled}
-                onChange={(e) => void sales.load(restaurant, e.target.value)}
+                onChange={(e) => {
+                  setSelectedReportId("");
+                  setOpportunity(null);
+                  void sales.load(restaurant, e.target.value);
+                }}
                 className="max-w-[170px] cursor-pointer rounded-[8px] border border-[var(--panel-border)] bg-[var(--panel-surface)] p-2 text-sm outline-none focus-visible:border-[var(--panel-action)] disabled:cursor-not-allowed lg:hidden"
               >
                 {sales.conversations.map((c) => (

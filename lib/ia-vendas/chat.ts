@@ -178,7 +178,7 @@ export async function runChat(args: {
     if (!deep && conv.kind === "analysis") {
       const selected = (
         await query(
-          "SELECT id,result->'report' report FROM public.ia_vendas_runs WHERE restaurant_id=$1 AND conversation_id=$2 AND kind='analysis' AND result->'report' IS NOT NULL AND ($3::uuid IS NULL OR id=$3) ORDER BY created_at DESC LIMIT 1",
+          "SELECT id,result->'report' report FROM public.ia_vendas_runs WHERE restaurant_id=$1 AND conversation_id=$2 AND kind='analysis' AND result->>'detached_at' IS NULL AND result->'report' IS NOT NULL AND ($3::uuid IS NULL OR id=$3) ORDER BY created_at DESC LIMIT 1",
           [restaurant, conversation, args.report_id || null],
         )
       ).rows[0];
@@ -242,7 +242,7 @@ export async function runChat(args: {
       ? []
       : (
           await query(
-            "SELECT title,summary FROM public.ia_vendas_conversations WHERE restaurant_id=$1 AND id<>$2 AND summary<>'' ORDER BY updated_at DESC LIMIT 5",
+            "SELECT title,summary FROM public.ia_vendas_conversations WHERE restaurant_id=$1 AND id<>$2 AND summary<>'' AND NOT EXISTS(SELECT 1 FROM public.ia_vendas_runs r WHERE r.restaurant_id=$1 AND r.conversation_id=ia_vendas_conversations.id AND r.result->>'detached_at' IS NOT NULL) ORDER BY updated_at DESC LIMIT 5",
             [restaurant, conversation],
           )
         ).rows;

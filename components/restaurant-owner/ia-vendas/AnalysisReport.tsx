@@ -117,6 +117,7 @@ export default function AnalysisReport({
               onChange={(e) => onSelect(e.target.value)}
               className="max-w-full rounded-[8px] border border-[var(--panel-border)] bg-[var(--panel-surface)] p-2 text-sm text-gray-700"
             >
+              <option value="">Visão atual</option>
               {analyses.map((a, i) => (
                 <option key={a.id} value={a.id}>
                   {i === 0 ? "Mais recente · " : ""}
@@ -129,10 +130,26 @@ export default function AnalysisReport({
         )}
       </header>
       {!selected && (
-        <p className="text-sm leading-6 text-gray-500">
-          A IA examina seu cardápio, suas vendas e suas configurações para
-          priorizar melhorias com impacto. Você revisa e aprova cada mudança.
-        </p>
+        <>
+          <p className="text-sm leading-6 text-gray-500">
+            A IA examina seu cardápio, suas vendas e suas configurações para
+            priorizar melhorias com impacto. Você revisa e aprova cada mudança.
+          </p>
+          <section aria-label="Oportunidades prioritárias" className="rounded-[10px] border border-[var(--panel-border)] bg-[var(--panel-surface)] p-4">
+            <h3 className="font-semibold">Oportunidades prioritárias</h3>
+            <p className="mt-2 text-sm leading-6 text-gray-500">
+              Inicie uma análise para ver as melhorias mais relevantes e revisar
+              as mudanças propostas antes de aplicar.
+            </p>
+          </section>
+          <section aria-label="Potencial e resultados" className="rounded-[10px] border border-[var(--panel-border)] bg-[var(--panel-surface)] p-4">
+            <h3 className="font-semibold">Potencial e resultados</h3>
+            <p className="mt-2 text-sm leading-6 text-gray-500">
+              A comparação com restaurantes parecidos, os resultados de mudanças
+              e o potencial estimado aparecerão aqui após a análise.
+            </p>
+          </section>
+        </>
       )}
       {report && (
         <>
