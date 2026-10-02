@@ -180,3 +180,16 @@ test("failed synthesis persists a partial report and proposals rather than losin
   expect(finished[2].report.review_items[0].action_ids).toEqual(["proposal"]);
   expect(finished[3]).toBeTruthy();
 });
+
+test("requesting analysis in contextual chat stays a normal chat run", async () => {
+  create.mockResolvedValue({
+    status: "completed",
+    output: [],
+    output_text: JSON.stringify({ reply: "Vamos conversar sobre o relatório.", summary: "" }),
+    usage: { input_tokens: 100, output_tokens: 20 },
+  });
+  await runChat({ ...args, deep: false });
+  expect(beginRun).toHaveBeenCalledWith("owner", "conversation", "run", "chat");
+  expect(context).toHaveBeenCalledWith("owner", false);
+  expect(create.mock.calls[0][0].text.format).toEqual({ type: "json_object" });
+});

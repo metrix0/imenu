@@ -9,6 +9,8 @@ export async function POST(request: Request) {
   try {
     const b = await request.json(),
       restaurant = await authorize(request, b.restaurant_id);
+    if (b.deep === true)
+      throw new SalesError("As análises são geradas manualmente.", 403);
     if (
       !isUuid(b.conversation_id) ||
       !isUuid(b.run_id) ||
@@ -47,7 +49,7 @@ export async function POST(request: Request) {
           run: b.run_id,
           text: b.text.trim(),
           attachments: b.attachments,
-          deep: b.deep === true,
+          deep: false,
           report_id: b.report_id,
           opportunity_id: b.opportunity_id,
           send,

@@ -33,7 +33,7 @@ export async function GET(request: Request) {
     const before = url.searchParams.get("before");
     if (before && !Number.isFinite(Date.parse(before)))
       throw new SalesError("Cursor inválido.");
-    const [messages, actions, memory, last, running, refs, analyses] =
+    const [messages, actions, memory, running, refs, analyses] =
       await Promise.all([
         query(
           analysisConversation
@@ -49,10 +49,6 @@ export async function GET(request: Request) {
         ),
         query(
           "SELECT instructions FROM public.ia_vendas_memory WHERE restaurant_id=$1",
-          [restaurant],
-        ),
-        query(
-          "SELECT finished_at FROM public.ia_vendas_runs WHERE restaurant_id=$1 AND kind='analysis' AND result->>'detached_at' IS NULL AND status='completed' ORDER BY finished_at DESC LIMIT 1",
           [restaurant],
         ),
         query(
@@ -107,11 +103,7 @@ export async function GET(request: Request) {
         analyses: analysisConversation ? analyses.rows : [],
         actions: hydratedActions,
         instructions: memory.rows[0]?.instructions || "",
-        analysis_available_at: last.rows[0]
-          ? new Date(
-              Date.parse(last.rows[0].finished_at) + 14 * 86400000,
-            ).toISOString()
-          : null,
+        analysis_available_at: null,
         running: running.rows[0] || null,
         has_more: messages.rows.length > 50,
         references: Object.fromEntries(refs.rows.map((r) => [r.id, r.name])),

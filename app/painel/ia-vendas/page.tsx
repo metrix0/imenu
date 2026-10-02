@@ -61,12 +61,10 @@ export default function SalesPage() {
     [opportunity, setOpportunity] = useState<Data | null>(null),
     [analysisChatOpen, setAnalysisChatOpen] = useState(false),
     [wideAnalysis, setWideAnalysis] = useState(false),
-    [startingAnalysis, setStartingAnalysis] = useState(false),
     [text, setText] = useState(""),
     [attachments, setAttachments] = useState<Data[]>([]),
     [uploading, setUploading] = useState(false),
     [localError, setLocalError] = useState(""),
-    [deep, setDeep] = useState(false),
     [modal, setModal] = useState<
       "batch" | "history" | "instructions" | "rename" | null
     >(null),
@@ -141,7 +139,6 @@ export default function SalesPage() {
     emptyThreadStart.current = Date.now();
     setText("");
     setAttachments([]);
-    setDeep(false);
     setSelectedReportId("");
     setOpportunity(null);
     setAnalysisChatOpen(false);
@@ -167,7 +164,7 @@ export default function SalesPage() {
     ),
     disabled = sales.busy || sales.acting || !!sales.running,
     isAnalysis = conversation?.kind === "analysis",
-    analysisRunning = isAnalysis && (startingAnalysis || !!(sales.running && sales.analyses.some((a) => a.id === sales.running?.id))),
+    analysisRunning = isAnalysis && !!(sales.running && sales.analyses.some((a) => a.id === sales.running?.id)),
     selectedReport =
       sales.analyses.find((a) => a.id === selectedReportId) ||
       sales.analyses.find((a) => a.result?.report),
@@ -190,12 +187,11 @@ export default function SalesPage() {
     const draft = text.trim();
     setText("");
     setAttachments([]);
-    setDeep(false);
     await sales.send(
       draft,
       attachments,
-      deep,
-      isAnalysis && selectedReport && !deep
+      false,
+      isAnalysis && selectedReport
         ? { report_id: selectedReport.id, opportunity_id: opportunity?.id }
         : {},
     );
@@ -226,18 +222,6 @@ export default function SalesPage() {
     focusChat.current = false;
     setAnalysisChatOpen(false);
     requestAnimationFrame(() => chatTrigger.current?.focus());
-  };
-  const newAnalysis = async () => {
-    if (disabled || !isAnalysis) return;
-    setOpportunity(null);
-    setSelectedReportId("");
-    setDeep(false);
-    setStartingAnalysis(true);
-    try {
-      await sales.send("Faça uma análise das oportunidades de vendas do meu restaurante.", [], true);
-    } finally {
-      setStartingAnalysis(false);
-    }
   };
   const conversationPicker = (
               <select
@@ -449,20 +433,6 @@ export default function SalesPage() {
                   </button>
                 </div>
               )}
-              {deep && (
-                <div className="mb-2 flex items-center justify-between rounded-[8px] bg-[var(--panel-tint)] px-3 py-2 text-xs text-[var(--panel-accent-text)]">
-                  <span>
-                    Análise completa · pedidos, cardápio e oportunidades
-                  </span>
-                  <button
-                    aria-label="Cancelar análise completa"
-                    className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-[8px] transition-colors hover:bg-black/5"
-                    onClick={() => setDeep(false)}
-                  >
-                    <X size={14} />
-                  </button>
-                </div>
-              )}
               {attachments.length > 0 && (
                 <div className="mb-2 flex flex-wrap gap-2">
                   {attachments.map((a) => (
@@ -663,7 +633,6 @@ export default function SalesPage() {
                     actions={sales.actions}
                     refs={sales.references}
                     disabled={disabled}
-                    availableAt={sales.analysis_available_at}
                     loading={sales.loading && !sales.analyses.length}
                     generating={analysisRunning}
                     status={sales.status}
@@ -674,7 +643,6 @@ export default function SalesPage() {
                       setOpportunity(null);
                       setText("");
                     }}
-                    onAnalyze={() => void newAnalysis()}
                     onAction={onAction}
                     onBatch={(ids) => {
                       setBatchIds(ids);
@@ -682,7 +650,6 @@ export default function SalesPage() {
                     }}
                     onDiscuss={(item) => {
                       setOpportunity(item);
-                      setDeep(false);
                       openAnalysisChat();
                     }}
                   />
@@ -763,25 +730,18 @@ export default function SalesPage() {
                   e aprove as mudanças com um clique.
                 </p>
                 <div className="mt-6 grid w-full gap-2 sm:grid-cols-2">
-                  {(conversation?.kind === "analysis"
-                    ? ["Analisar minhas vendas", "Como funciona a análise?"]
-                    : [
-                        "Melhorar descrições",
-                        "Criar uma imagem realista",
-                        "Revisar preços e promoções",
-                        "Configurar upsells",
-                      ]
-                  ).map((label, i) => (
+                  {[
+                    "Melhorar descrições",
+                    "Criar uma imagem realista",
+                    "Revisar preços e promoções",
+                    "Configurar upsells",
+                  ].map((label) => (
                     <Button
                       key={label}
                       variant="secondary"
                       onClick={() => {
-                        if (conversation?.kind === "analysis" && i === 0)
-                          newAnalysis();
-                        else {
-                          setText(label);
-                          input.current?.focus();
-                        }
+                        setText(label);
+                        input.current?.focus();
                       }}
                     >
                       {label}

@@ -1,6 +1,7 @@
 "use client";
-import { ArrowUpRight, CalendarDays, Check, CircleHelp, ClipboardList, History, LoaderCircle, MessageSquare, Sparkles, Target, TrendingUp } from "lucide-react";
+import { Check, CircleHelp, ClipboardList, History, LoaderCircle, MessageSquare, Sparkles, Target, TrendingUp } from "lucide-react";
 import Button from "@/components/ui/Button";
+import Dropdown from "@/components/ui/Dropdown";
 import SalesMarkdown from "./SalesMarkdown";
 import { ActionCard, DataCard } from "./SalesWidgets";
 import type { Action, Data } from "@/lib/ia-vendas/types";
@@ -10,13 +11,13 @@ const confidenceLevels: Record<string, string> = { high: "alta", medium: "média
 const surface = "rounded-[10px] border border-[var(--panel-border)] bg-[var(--panel-surface)]";
 
 export default function AnalysisReport({
-  analyses, selected, actions, refs, disabled, availableAt, loading, generating,
-  status, activeOpportunityId, onSelect, onAnalyze, onDiscuss, onHistory, onAction, onBatch,
+  analyses, selected, actions, refs, disabled, loading, generating,
+  status, activeOpportunityId, onSelect, onDiscuss, onHistory, onAction, onBatch,
 }: {
   analyses: Data[]; selected?: Data; actions: Action[]; refs: Record<string, string>;
-  disabled: boolean; availableAt: string | null; loading: boolean; generating: boolean;
+  disabled: boolean; loading: boolean; generating: boolean;
   status: string; activeOpportunityId?: string;
-  onSelect: (id: string) => void; onAnalyze: () => void; onDiscuss: (item: Data) => void;
+  onSelect: (id: string) => void; onDiscuss: (item: Data) => void;
   onHistory: () => void; onAction: (command: string, ids: string[]) => void; onBatch: (ids: string[]) => void;
 }) {
   const report = selected?.result?.report, legacy = selected && !report;
@@ -28,12 +29,6 @@ export default function AnalysisReport({
     ...new Set(ids.flatMap((id) => [id, ...(actions.find((a) => a.id === id)?.generated_actions || [])])),
   ];
   const pending = withGenerated(ids).filter((id) => actions.some((a) => a.id === id && a.status === "pending"));
-  const cooldown = !!availableAt && Date.parse(availableAt) > Date.now();
-  const latest = analyses.find((a) => a.result?.report)?.id === selected?.id;
-  const generatedAt = report?.generated_at || selected?.created_at;
-  const month = new Date(generatedAt || Date.now()).toLocaleDateString("pt-BR", {
-    month: "long", year: "numeric", timeZone: "America/Sao_Paulo",
-  });
   const renderActions = (entry: Data) => withGenerated(entry.action_ids).map((id) => {
     const action = actions.find((a) => a.id === id);
     return action ? <ActionCard key={id} action={action} refs={refs} disabled={disabled} onAction={onAction} /> : null;
@@ -51,38 +46,27 @@ export default function AnalysisReport({
       <header className="space-y-4">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <div className="mb-2 flex flex-wrap items-center gap-2 text-xs text-[var(--panel-muted)]">
-              <CalendarDays size={14} aria-hidden="true" /><span className="capitalize">{month}</span>
-              {selected && <span className="rounded-full bg-[var(--panel-soft)] px-2 py-1">{latest ? "Análise mais recente" : "Histórico"}</span>}
-            </div>
             <h1>Análise de vendas</h1>
             <p className="mt-2 text-sm text-[var(--panel-muted)]">As melhores oportunidades do seu restaurante, em um só lugar.</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Button variant="secondary" aria-label="Histórico de ações" title="Histórico de ações" onClick={onHistory}><History size={16} /></Button>
-            <Button disabled={disabled || cooldown || loading} onClick={onAnalyze}>
-              {generating ? <LoaderCircle size={16} className="mr-2 animate-spin motion-reduce:animate-none" /> : <Sparkles size={16} className="mr-2" />}
-              {generating ? "Analisando…" : selected ? "Nova análise" : "Analisar meu restaurante"}
-            </Button>
           </div>
         </div>
-        <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-[var(--panel-muted)]">
-          <p>{generatedAt ? "Gerada em " + new Date(generatedAt).toLocaleString("pt-BR") : "Seu relatório estará disponível após a primeira análise."}</p>
-          {analyses.length > 0 && <label className="flex items-center gap-2">
-            <History size={14} aria-hidden="true" /><span className="sr-only">Histórico de análises</span>
-            <select aria-label="Histórico de análises" value={selected?.id || ""} disabled={disabled}
+        {analyses.length > 0 && <div className="flex justify-end">
+          <div className="w-full max-w-sm">
+            <Dropdown aria-label="Histórico de análises" value={selected?.id || ""} disabled={disabled}
               onChange={(e) => onSelect(e.target.value)}
-              className="max-w-full cursor-pointer rounded-[8px] border border-[var(--panel-border)] bg-[var(--panel-surface)] p-2 text-xs text-[var(--panel-text)]">
-              <option value="">Visão atual</option>
-              {analyses.map((a, i) => <option key={a.id} value={a.id}>
-                {i === 0 ? "Mais recente · " : ""}{new Date(a.created_at).toLocaleString("pt-BR")}{a.status !== "completed" ? " · Não concluída" : ""}
-              </option>)}
-            </select>
-          </label>}
-        </div>
-        {cooldown && !generating && <p className="text-xs text-[var(--panel-muted)]">
-          Próxima análise disponível em {new Date(availableAt!).toLocaleDateString("pt-BR")}. Você pode continuar discutindo e aplicando as oportunidades.
-        </p>}
+              options={[
+                { value: "", label: "Visão atual" },
+                ...analyses.map((a, i) => ({
+                  value: a.id,
+                  label: (i === 0 ? "Mais recente · " : "") + new Date(a.created_at).toLocaleString("pt-BR") + (a.status !== "completed" ? " · Não concluída" : ""),
+                })),
+              ]}
+            />
+          </div>
+        </div>}
       </header>
 
       {waiting && <div role="status" className={surface + " flex items-center gap-3 p-4"}>
@@ -114,11 +98,10 @@ export default function AnalysisReport({
         </div>
         {!opportunities.length && <div className={surface + " flex flex-col items-center px-5 py-8 text-center"}>
           <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-[10px] bg-[var(--panel-tint)] text-[var(--panel-accent-text)]"><Target size={24} aria-hidden="true" /></div>
-          <h4 className="text-base font-medium">{waiting ? "Avaliando as melhores oportunidades" : report ? "Nenhuma oportunidade priorizada" : "Sua primeira análise começa aqui"}</h4>
+          <h4 className="text-base font-medium">{waiting ? "Avaliando as melhores oportunidades" : report ? "Nenhuma oportunidade priorizada" : "Sua análise estará disponível aqui"}</h4>
           <p className="mt-2 max-w-md text-sm leading-6 text-[var(--panel-muted)]">
-            {waiting ? "O relatório aparecerá aqui assim que a análise terminar." : report ? (report.status === "partial" ? "A priorização ainda não foi concluída. Veja as propostas preservadas nos pontos para revisão." : "Não encontramos mudanças de alto impacto sustentadas pelos dados atuais.") : "Analise seu cardápio, suas vendas e suas configurações para descobrir o que vale melhorar primeiro."}
+            {waiting ? "O relatório aparecerá aqui assim que a análise terminar." : report ? (report.status === "partial" ? "A priorização ainda não foi concluída. Veja as propostas preservadas nos pontos para revisão." : "Não encontramos mudanças de alto impacto sustentadas pelos dados atuais.") : "As oportunidades aparecerão aqui quando seu relatório estiver disponível."}
           </p>
-          {!report && !waiting && <Button className="mt-5" disabled={disabled || cooldown} onClick={onAnalyze}>Analisar meu restaurante<ArrowUpRight size={16} className="ml-2" /></Button>}
         </div>}
         {opportunities.map((o, i) => <article key={o.id} className={surface + " p-5 " + (activeOpportunityId === o.id ? "!border-[var(--panel-action)]" : "")}>
           <div className="flex items-start gap-3">
@@ -180,3 +163,4 @@ export default function AnalysisReport({
     </div>
   );
 }
+

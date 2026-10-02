@@ -193,7 +193,7 @@ export async function runChat(args: {
     ).rows[0];
     if (!conv) throw new SalesError("Conversa não encontrada.", 404);
     const deep =
-      conv.kind === "analysis" && (args.deep || asksForAnalysis(message));
+      conv.kind === "analysis" && args.deep;
     isDeep = deep;
     let scopedReport: Data | null = null;
     if (!deep && conv.kind === "analysis") {

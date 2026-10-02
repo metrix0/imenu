@@ -32,32 +32,6 @@ export async function beginRun(
       ).rowCount
     )
       throw new SalesError("Aguarde a resposta em andamento.", 409);
-    if (kind === "analysis") {
-      const last = (
-        await c.query(
-          "SELECT finished_at FROM public.ia_vendas_runs WHERE restaurant_id=$1 AND kind='analysis' AND result->>'detached_at' IS NULL AND status='completed' AND finished_at>now()-interval '14 days' ORDER BY finished_at DESC LIMIT 1",
-          [restaurant],
-        )
-      ).rows[0];
-      if (last)
-        throw new SalesError(
-          `Vamos observar os resultados por duas semanas. Nova análise disponível em ${new Date(Date.parse(last.finished_at) + 14 * 86400000).toLocaleDateString("pt-BR")}. Você pode conversar sobre as recomendações e aplicá-las enquanto isso.`,
-          429,
-        );
-    }
-    if (kind === "analysis") {
-      const monthly = (
-        await c.query(
-          "SELECT count(*)::int n FROM public.ia_vendas_runs WHERE restaurant_id=$1 AND kind='analysis' AND result->>'detached_at' IS NULL AND status='completed' AND finished_at>=date_trunc('month',now())",
-          [restaurant],
-        )
-      ).rows[0];
-      if (Number(monthly?.n) >= 2)
-        throw new SalesError(
-          "As duas análises deste mês já foram realizadas. Continue conversando sobre as recomendações; uma nova análise estará disponível no próximo mês, respeitando o intervalo de duas semanas.",
-          429,
-        );
-    }
     const usage = (
       await c.query(
         "SELECT coalesce(sum(greatest(input_tokens,reserved_input)) FILTER (WHERE kind=$2),0)::float input,coalesce(sum(greatest(output_tokens,reserved_output)) FILTER (WHERE kind=$2),0)::float output,count(*) FILTER(WHERE created_at>now()-interval '1 minute')::int recent FROM public.ia_vendas_runs WHERE restaurant_id=$1 AND created_at>=date_trunc('month',now())",
@@ -67,10 +41,10 @@ export async function beginRun(
     const output =
       kind === "analysis" ? LIMITS.analysisOutput : LIMITS.chatOutput;
     if (
-      usage.recent >= 5 ||
-      (kind !== "analysis" &&
-        (usage.input + (kind === "image" ? 0 : LIMITS.runInput) > 1500000 ||
-          usage.output + (kind === "image" ? 0 : output) > 120000))
+      kind !== "analysis" &&
+      (usage.recent >= 5 ||
+        usage.input + (kind === "image" ? 0 : LIMITS.runInput) > 1500000 ||
+        usage.output + (kind === "image" ? 0 : output) > 120000)
     )
       throw new SalesError(
         "A IA atingiu a capacidade disponível. Tente novamente mais tarde.",
