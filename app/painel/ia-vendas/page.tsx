@@ -548,8 +548,8 @@ export default function SalesPage() {
     </div>
   );
   return (
-    <div className="h-full min-h-0">
-      <div className="flex h-full min-h-0 overflow-hidden">
+    <div className="h-full max-h-full min-h-0 overflow-hidden">
+      <div className="flex h-full max-h-full min-h-0 overflow-hidden">
         <aside className="hidden min-h-0 w-56 shrink-0 flex-col border-r border-[var(--panel-border)] bg-[var(--panel-background)] p-3 lg:flex">
           <div>
             <p className="px-3 text-xs font-medium text-gray-500">Análises</p>
@@ -645,15 +645,15 @@ export default function SalesPage() {
             </nav>
           </div>
         </aside>
-        <section className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <section className="flex h-full max-h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           {isAnalysis ? (
-            <div className="flex min-h-0 flex-1" data-analysis-workspace>
-              <div className="flex min-h-0 min-w-0 flex-1 flex-col" inert={analysisChatOpen && !wideAnalysis}>
+            <div className="flex min-h-0 flex-1 overflow-hidden" data-analysis-workspace>
+              <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden" inert={analysisChatOpen && !wideAnalysis}>
                 <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[var(--panel-border)] bg-[var(--panel-surface)] px-4 py-2 lg:hidden">
                   {conversationPicker}
                   <Button variant="secondary" aria-label="Nova conversa" disabled={disabled} onClick={() => void sales.command("create_conversation")}><Plus size={16} /></Button>
                 </div>
-                <div className="min-h-0 flex-1 overflow-y-auto bg-[var(--panel-background)] p-4 md:p-6" aria-label="Relatório de análise">
+                <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain bg-[var(--panel-background)] p-4 md:p-6" aria-label="Relatório de análise">
                   {!wideAnalysis && !analysisChatOpen && notice}
                   <AnalysisReport
                     analyses={sales.analyses}
