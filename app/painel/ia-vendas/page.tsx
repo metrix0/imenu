@@ -317,7 +317,7 @@ export default function SalesPage() {
                 </div>
               </div>
             )}
-            <div className="mx-auto max-w-3xl space-y-6">
+            <div className="mx-auto max-w-3xl space-y-8">
               {sales.messages.map((m) => {
                 const parts =
                     m.role === "assistant"
@@ -342,23 +342,23 @@ export default function SalesPage() {
                     }
                     className={
                       m.role === "user"
-                        ? "ml-auto max-w-[82%]"
+                        ? "ml-auto max-w-[85%] md:max-w-[75%]"
                         : "min-w-0"
                     }
                   >
                     <div
                       className={
                         m.role === "user"
-                          ? "rounded-[10px] bg-[var(--panel-accent-text)] px-4 py-3 text-white [&_.text-brand]:!text-white [&_.text-gray-700]:!text-white [&_.text-gray-950]:!text-white"
+                          ? "rounded-[18px] bg-[var(--panel-soft)] px-4 py-2.5"
                           : "flex items-start gap-3"
                       }
                     >
                       {m.role === "assistant" && (
                         <div
                           aria-hidden="true"
-                          className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--panel-tint)] text-[var(--panel-accent-text)]"
+                          className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--panel-tint)] text-[var(--panel-accent-text)]"
                         >
-                          <Sparkles size={16} />
+                          <Sparkles size={14} />
                         </div>
                       )}
                       <div className="min-w-0 flex-1">
@@ -522,7 +522,7 @@ export default function SalesPage() {
                   ))}
                 </div>
               )}
-              <div className="rounded-[8px] border border-[var(--panel-border)] bg-[var(--panel-surface)] p-2 transition-[border-color] focus-within:border-[var(--panel-action)]">
+              <div className="rounded-[16px] border border-[var(--panel-border)] bg-[var(--panel-surface)] p-2 transition-[border-color] focus-within:border-[var(--panel-action)]">
                 <input
                   ref={file}
                   type="file"
