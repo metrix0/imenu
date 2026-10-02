@@ -958,7 +958,7 @@ export default function PanelItemConfiguratorModal({
                                     Boolean(pizzaError)
                                 }
                                 loading={loadingFlavors}
-                                className="min-w-0 flex-1"
+                                className="min-w-0 flex-1 md:w-64 md:flex-none"
                             >
                                 <span className="flex w-full items-center justify-between gap-3">
                                     <span>

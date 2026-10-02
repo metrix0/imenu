@@ -4,7 +4,7 @@ import { LegacyModalClose } from "@/components/ui/ModalCloseButton";
 import Textarea from "@/components/ui/Textarea";
 import Input from "@/components/ui/Input";
 import Dropdown from "@/components/ui/Dropdown";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { supabase } from "@/lib/database/supabaseClient";
 import Button from "@/components/ui/Button";
 import HybridModal from "@/components/ui/HybridModal";
@@ -40,7 +40,34 @@ type Subitem = PanelOrderSubcategory["subitems"][number];
 type SelectedSubitem = PanelOrderSelectedSubitem;
 type SelectedItem = PanelOrderConfiguredItem;
 
+function ModalFlowStep({
+    children,
+    reverse = false,
+}: {
+    children: ReactNode;
+    reverse?: boolean;
+}) {
+    const [visible, setVisible] = useState(false);
 
+    useEffect(() => {
+        const frame = window.requestAnimationFrame(() => setVisible(true));
+        return () => window.cancelAnimationFrame(frame);
+    }, []);
+
+    const hiddenTransform = reverse ? "-translate-x-2" : "translate-x-2";
+
+    return (
+        <div
+            className={`h-full min-h-0 transition-[opacity,transform] duration-200 ease-out motion-reduce:transition-none ${
+                visible
+                    ? "translate-x-0 opacity-100"
+                    : `${hiddenTransform} opacity-0`
+            }`}
+        >
+            {children}
+        </div>
+    );
+}
 
 export default function CreatePanelOrderModal({
                                                   isOpen,
@@ -547,7 +574,8 @@ export default function CreatePanelOrderModal({
             className="md:!h-[88dvh] md:!max-h-[900px] md:!max-w-7xl md:!overflow-hidden"
         >
             {configuringItem ? (
-                <PanelItemConfiguratorModal
+                <ModalFlowStep key={`config-${configuringItem.id}`}>
+                    <PanelItemConfiguratorModal
                     restaurantId={restaurantId}
                     item={configuringItem}
                     subcategories={configuringSubcategories}
@@ -555,8 +583,10 @@ export default function CreatePanelOrderModal({
                     pizzaSettings={pizzaSettings}
                     onClose={closeItemConfigurator}
                     onAdd={handleConfiguredItemAdd}
-                />
+                    />
+                </ModalFlowStep>
             ) : (
+                <ModalFlowStep key="order" reverse>
             <div className="panel-create-order flex h-full min-h-0 flex-col bg-white">
                 <div className="shrink-0 border-b border-gray-100 bg-white px-4 pb-4 pt-4 md:px-6 md:py-5">
                     <div className="flex items-center justify-between gap-4">
@@ -1093,6 +1123,7 @@ export default function CreatePanelOrderModal({
                     </section>
                 </div>
             </div>
+                </ModalFlowStep>
             )}
             {toast && (
                 <Toast
