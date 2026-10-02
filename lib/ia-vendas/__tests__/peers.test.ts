@@ -43,9 +43,9 @@ describe("potential", () => {
       max_percent: 0.0208,
     });
     expect(result.breakdown).toHaveLength(3);
-    expect(result.breakdown[0].basis).toContain("10%–20%");
-    expect(result.breakdown[1].basis).toContain("2%–5%");
-    expect(result.breakdown[2].basis).toContain("3%–8%");
+    expect(result.breakdown?.[0]?.basis).toContain("10%–20%");
+    expect(result.breakdown?.[1]?.basis).toContain("2%–5%");
+    expect(result.breakdown?.[2]?.basis).toContain("3%–8%");
   });
 
   test("keeps the combined upside inside the existing 15% revenue cap", () => {
