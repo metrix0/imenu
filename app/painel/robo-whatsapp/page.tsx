@@ -1014,7 +1014,7 @@ export default function RoboWhatsAppPage() {
                             {
                                 icon: faUser,
                                 title: "Atendimento humano",
-                                text: "Para de responder quando o cliente pede uma pessoa ou quando o dono entra na conversa.",
+                                text: "Para de responder quando o cliente pede uma pessoa ou quando você entra na conversa. Ao responder manualmente, o robô pausa por 30 minutos; cada nova mensagem sua reinicia esse prazo.",
                             },
                             {
                                 icon: faCircleCheck,
