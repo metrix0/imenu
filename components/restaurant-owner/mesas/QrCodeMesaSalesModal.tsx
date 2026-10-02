@@ -30,16 +30,33 @@ type QrCodeMesaSalesModalProps = {
 function ModalFlowStep({
     children,
     reverse = false,
+    animate = true,
 }: {
     children: ReactNode;
     reverse?: boolean;
+    animate?: boolean;
 }) {
-    const [visible, setVisible] = useState(false);
+    const [visible, setVisible] = useState(!animate);
+    const [settled, setSettled] = useState(!animate);
 
     useEffect(() => {
-        const frame = window.requestAnimationFrame(() => setVisible(true));
-        return () => window.cancelAnimationFrame(frame);
-    }, []);
+        if (!animate) return;
+
+        let settleTimer = 0;
+        const frame = window.requestAnimationFrame(() => {
+            setVisible(true);
+            settleTimer = window.setTimeout(() => setSettled(true), 300);
+        });
+
+        return () => {
+            window.cancelAnimationFrame(frame);
+            if (settleTimer) window.clearTimeout(settleTimer);
+        };
+    }, [animate]);
+
+    if (settled) {
+        return <div className="flex h-full min-h-0 flex-col">{children}</div>;
+    }
 
     const hiddenTransform = reverse ? "-translate-x-full" : "translate-x-full";
 
@@ -87,15 +104,23 @@ export default function QrCodeMesaSalesModal({
     onPaid,
 }: QrCodeMesaSalesModalProps) {
     const [checkoutOpen, setCheckoutOpen] = useState(false);
+    const [hasNavigatedToCheckout, setHasNavigatedToCheckout] = useState(false);
 
     useEffect(() => {
         if (!open || active) {
             setCheckoutOpen(false);
+            setHasNavigatedToCheckout(false);
         }
     }, [open, active]);
 
+    const openCheckout = () => {
+        setHasNavigatedToCheckout(true);
+        setCheckoutOpen(true);
+    };
+
     const close = () => {
         setCheckoutOpen(false);
+        setHasNavigatedToCheckout(false);
         onClose();
     };
 
@@ -107,7 +132,7 @@ export default function QrCodeMesaSalesModal({
             className="max-w-4xl"
             showCloseButton
         >
-            <div className="flex min-h-0 flex-1 flex-col overflow-x-hidden">
+            <div className="flex h-full min-h-0 flex-1 flex-col overflow-x-hidden">
                 {checkoutOpen ? (
                     <ModalFlowStep key="checkout">
                         <QrCodeMesaCheckoutModal
@@ -121,8 +146,12 @@ export default function QrCodeMesaSalesModal({
                         />
                     </ModalFlowStep>
                 ) : (
-                    <ModalFlowStep key="sales" reverse>
-                        <div className="min-h-0">
+                    <ModalFlowStep
+                        key="sales"
+                        reverse
+                        animate={hasNavigatedToCheckout}
+                    >
+                        <div className="flex h-full min-h-0 flex-col overflow-y-auto">
             <div className="grid shrink-0 overflow-hidden md:grid-cols-[minmax(0,1fr)_300px]">
                 <div className="px-6 pb-1 pt-5 sm:px-8 sm:py-8">
                     <div className="relative h-12 w-56 max-w-full">
@@ -233,7 +262,7 @@ export default function QrCodeMesaSalesModal({
                 )}
             </div>
 
-            <div className="sticky bottom-0 z-20 flex shrink-0 flex-col gap-3 border-t border-gray-100 bg-white px-6 py-4 sm:flex-row sm:items-center sm:px-8 sm:py-5">
+            <div className="sticky bottom-0 z-20 mt-auto flex shrink-0 flex-col gap-3 border-t border-gray-100 bg-white px-6 py-4 sm:flex-row sm:items-center sm:px-8 sm:py-5">
                 <a
                     href={SUPPORT_URL}
                     target="_blank"
@@ -253,7 +282,7 @@ export default function QrCodeMesaSalesModal({
                     <Button
                         type="button"
                         variant="primary"
-                        onClick={() => setCheckoutOpen(true)}
+                        onClick={openCheckout}
                         className="w-full sm:w-auto sm:min-w-64"
                     >
                         Continuar
