@@ -151,7 +151,7 @@ export function potential(sales: Data, input: Data) {
       cents,
       days,
       percent: baselineCents > 0 ? cents / baselineCents : 0,
-      formula: `Consideramos ${affected} pedidos em que a mudança pode ajudar, ${(adoption * 100).toFixed(1)}% deles aderindo e R$ ${(lift / 100).toFixed(2)} extras por adesão, projetados para ${days} dias. Para ser conservador, limitamos o cenário a 15% da receita atual.`,
+      formula: `Consideramos ${affected} pedidos em que a mudança pode ajudar, ${adoption.toLocaleString("pt-BR", { style: "percent", maximumFractionDigits: 1 })} deles aderindo e ${(lift / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} extras por adesão, projetados para ${days} dias. Para ser conservador, limitamos o cenário a 15% da receita atual.`,
       assumptions: String(input.assumptions || "").slice(0, 2000),
       note: "É uma estimativa, não uma garantia. O lucro depende dos custos do restaurante.",
     };
@@ -214,7 +214,7 @@ export function potential(sales: Data, input: Data) {
         );
       min = eligibleOrders * profile.low * extraCents * scale;
       max = eligibleOrders * profile.high * extraCents * scale;
-      basis = `${eligibleOrders} pedidos elegíveis × ${(profile.low * 100).toFixed(0)}%–${(profile.high * 100).toFixed(0)}% de adesão × R$ ${(extraCents / 100).toFixed(2)} por pedido.`;
+      basis = `${eligibleOrders} pedidos em que a mudança pode ajudar, com ${(profile.low * 100).toFixed(0)}%–${(profile.high * 100).toFixed(0)}% deles acrescentando ${(extraCents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} por pedido.`;
     } else {
       const eligibleRevenue = Number(opportunity.eligible_revenue_cents);
       if (
@@ -227,7 +227,7 @@ export function potential(sales: Data, input: Data) {
         );
       min = eligibleRevenue * profile.low * scale;
       max = eligibleRevenue * profile.high * scale;
-      basis = `R$ ${(eligibleRevenue / 100).toFixed(2)} em vendas afetadas × ${(profile.low * 100).toFixed(0)}%–${(profile.high * 100).toFixed(0)}% de melhora estimada.`;
+      basis = `${(eligibleRevenue / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} em vendas dos produtos envolvidos, supondo ${(profile.low * 100).toFixed(0)}%–${(profile.high * 100).toFixed(0)}% de melhora.`;
     }
 
     breakdown.push({

@@ -1,5 +1,5 @@
 "use client";
-import { Check, CircleHelp, ClipboardList, History, LoaderCircle, MessageSquare, Sparkles, Target, TrendingUp } from "lucide-react";
+import { CircleHelp, ClipboardList, History, LoaderCircle, MessageSquare, Sparkles, Target, TrendingUp } from "lucide-react";
 import Button from "@/components/ui/Button";
 import Dropdown from "@/components/ui/Dropdown";
 import SalesMarkdown from "./SalesMarkdown";
@@ -31,14 +31,20 @@ export default function AnalysisReport({
   const pending = withGenerated(ids).filter((id) => actions.some((a) => a.id === id && a.status === "pending"));
   const renderActions = (entry: Data) => withGenerated(entry.action_ids).map((id) => {
     const action = actions.find((a) => a.id === id);
-    return action ? <ActionCard key={id} action={action} refs={refs} disabled={disabled} onAction={onAction} /> : null;
+    return action ? <ActionCard key={id} action={action} refs={refs} disabled={disabled} onAction={onAction} compact /> : null;
   });
-  const renderEvidence = (entry: Data) => entry.evidence?.length ? (
+  const renderEvidence = (entry: Data, assessment = false) => entry.evidence?.length || assessment ? (
     <details className="mt-4 text-xs text-[var(--panel-muted)]">
-      <summary className="cursor-pointer font-medium">Ver evidências ({entry.evidence.length})</summary>
-      <ul className="mt-2 list-disc space-y-2 pl-4">
+      <summary className="cursor-pointer font-medium">{assessment ? "Ver detalhes e evidências" : `Ver evidências (${entry.evidence.length})`}</summary>
+      {assessment && <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div><dt>Impacto esperado</dt><dd>{levels[entry.impact]}</dd></div>
+        <div><dt>Confiança</dt><dd>{confidenceLevels[entry.confidence]}</dd></div>
+        <div><dt>Esforço</dt><dd>{levels[entry.effort]}</dd></div>
+        <div><dt>Risco</dt><dd>{levels[entry.risk]}</dd></div>
+      </dl>}
+      {!!entry.evidence?.length && <ul className="mt-3 list-disc space-y-2 pl-4">
         {entry.evidence.map((e: Data, i: number) => <li key={i}>{e.detail}</li>)}
-      </ul>
+      </ul>}
     </details>
   ) : null;
   return (
@@ -85,15 +91,20 @@ export default function AnalysisReport({
           {report ? <SalesMarkdown content={report.summary} /> : <p className="text-sm leading-6 text-[var(--panel-muted)]">
             A análise reúne os dados do seu restaurante e prioriza mudanças com impacto nas vendas. Cada oportunidade traz evidências e propostas para você revisar.
           </p>}
-          <div className="mt-5 flex flex-wrap gap-4 border-t border-[var(--panel-border)] pt-4 text-xs text-[var(--panel-muted)]">
-            <span className="flex items-center gap-1.5"><Target size={14} aria-hidden="true" />{report ? opportunities.length + " oportunidades priorizadas" : "Prioridades com evidências"}</span>
-            <span className="flex items-center gap-1.5"><Check size={14} aria-hidden="true" />{report ? pending.length + " propostas para revisar" : "Você aprova cada mudança"}</span>
-          </div>
+      </section>}
+
+      {!legacy && <section aria-label="Potencial estimado" className={surface + " overflow-hidden !bg-[var(--panel-tint)] p-5 [&>div]:!m-0 [&>div]:!border-0 [&>div]:!bg-transparent [&>div]:!p-0"}>
+        <h3 className="mb-4 flex items-center gap-2"><TrendingUp size={16} aria-hidden="true" />O que seu restaurante pode ganhar com essas mudanças</h3>
+        {report ? <DataCard card={{...report.potential_estimate, type: "potential"}} /> : <>
+          <p className="text-2xl font-semibold text-[var(--panel-text)]">{waiting ? "Calculando…" : "A descobrir"}</p>
+          <p className="mt-3 text-sm leading-6 text-[var(--panel-muted)]">Uma estimativa baseada nas oportunidades e nos pedidos do seu restaurante.</p>
+        </>}
+        {report?.period?.start && <p className="mt-4 text-xs text-[var(--panel-muted)]">Período analisado: {new Date(report.period.start).toLocaleDateString("pt-BR")} a {new Date(report.period.end).toLocaleDateString("pt-BR")}.</p>}
       </section>}
 
       {!legacy && <section aria-label="Oportunidades prioritárias" className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div><h3>Oportunidades prioritárias</h3><p className="mt-1 text-xs text-[var(--panel-muted)]">Comece pelas mudanças com maior impacto e menor esforço.</p></div>
+          <h3>Oportunidades prioritárias{report ? ` (${opportunities.length})` : ""}</h3>
           {pending.length > 1 && <Button variant="secondary" disabled={disabled} onClick={() => onBatch(pending)}>Revisar e aplicar todos ({pending.length})</Button>}
         </div>
         {!opportunities.length && <div className={surface + " flex flex-col items-center px-5 py-8 text-center"}>
@@ -108,19 +119,25 @@ export default function AnalysisReport({
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] bg-[var(--panel-tint)] text-sm font-medium text-[var(--panel-accent-text)]">{i + 1}</span>
             <div className="min-w-0 flex-1"><h4 className="text-base font-semibold">{o.title}</h4><p className="mt-2 text-sm leading-6 text-[var(--panel-muted)]">{o.explanation}</p></div>
           </div>
-          <div className="mt-4 flex flex-wrap gap-2 text-xs text-[var(--panel-muted)]">
-            <span className={"rounded-full px-2.5 py-1 " + (o.impact === "high" ? "bg-[var(--panel-tint)] text-[var(--panel-accent-text)]" : "bg-[var(--panel-soft)]")}>Impacto {levels[o.impact]}</span>
-            <span className="rounded-full bg-[var(--panel-soft)] px-2.5 py-1">Confiança {confidenceLevels[o.confidence]}</span>
-            <span className="rounded-full bg-[var(--panel-soft)] px-2.5 py-1">Esforço {levels[o.effort]}</span>
-            <span className="rounded-full bg-[var(--panel-soft)] px-2.5 py-1">Risco {levels[o.risk]}</span>
-          </div>
-          {renderActions(o)}{renderEvidence(o)}
+          {renderActions(o)}{renderEvidence(o, true)}
           <div className="mt-4 flex justify-end border-t border-[var(--panel-border)] pt-4"><Button variant="secondary" disabled={disabled} aria-pressed={activeOpportunityId === o.id} onClick={() => onDiscuss(o)}><MessageSquare size={15} className="mr-2" />Conversar sobre isso</Button></div>
         </article>)}
       </section>}
 
+      {!!reviewItems.length && <details className={surface + " p-5"}>
+        <summary className="flex cursor-pointer items-start gap-2 text-sm font-medium">
+          <CircleHelp size={16} className="mt-0.5 shrink-0 text-[var(--panel-muted)]" />
+          <span>Pontos para revisão ({reviewItems.length})<span className="mt-1 block text-xs font-normal text-[var(--panel-muted)]">{reviewItems[0].title}</span></span>
+        </summary>
+        <div className="mt-4 space-y-5">{reviewItems.map((o) => <article key={o.id} className="border-t border-[var(--panel-border)] pt-4">
+          <h4 className="text-sm font-medium">{o.title}</h4><p className="mt-2 text-sm leading-6 text-[var(--panel-muted)]">{o.explanation}</p>
+          {renderActions(o)}{renderEvidence(o)}
+          <Button variant="secondary" className="mt-3" disabled={disabled} onClick={() => onDiscuss(o)}><MessageSquare size={15} className="mr-2" />Conversar sobre isso</Button>
+        </article>)}</div>
+      </details>}
+
       {!legacy && <section aria-label="Potencial e resultados" className="space-y-4">
-        <div><h3>Comparações e resultados</h3><p className="mt-1 text-xs text-[var(--panel-muted)]">Contexto para decidir e acompanhar o que mudou.</p></div>
+        <h3>Comparações e resultados</h3>
         <div className="grid gap-4 2xl:grid-cols-2">
           <div className={surface + " min-w-0 p-5 [&>details]:!m-0 [&>details]:!border-0 [&>details]:!p-0"}>
             {report ? <DataCard card={{...report.benchmark_snapshot, reason: report.benchmark_snapshot?.reason || "Ainda não há dados suficientes para uma comparação útil.", type:"benchmark"}} expanded /> : <>
@@ -129,32 +146,13 @@ export default function AnalysisReport({
             </>}
           </div>
           <div className={surface + " min-w-0 p-5 [&>details]:!m-0 [&>details]:!border-0 [&>details]:!p-0"}>
-            {report?.measurement_snapshot?.results?.length ? <DataCard card={{...report.measurement_snapshot, type:"measurement"}} expanded /> : <>
+            {report?.measurement_snapshot?.results?.some((r: Data) => r.before.orders || r.after.orders) ? <DataCard card={{...report.measurement_snapshot, type:"measurement"}} expanded /> : <>
               <div className="mb-3 flex items-center gap-2"><ClipboardList size={16} className="text-[var(--panel-muted)]" /><h4 className="text-sm font-medium">Resultados das mudanças</h4></div>
-              <p className="text-sm leading-6 text-[var(--panel-muted)]">{report?.measurement_snapshot?.reason || "Após aplicar mudanças, acompanhe aqui a comparação dos resultados antes e depois."}</p>
+              <p className="text-sm leading-6 text-[var(--panel-muted)]">{report?.measurement_snapshot?.reason || report?.measurement_snapshot?.note || "Ainda não há vendas suficientes após as mudanças para comparar os resultados."}</p>
             </>}
           </div>
         </div>
       </section>}
-      {!!reviewItems.length && <details className={surface + " p-5"}>
-        <summary className="flex cursor-pointer items-center gap-2 text-sm font-medium"><CircleHelp size={16} className="text-[var(--panel-muted)]" />Pontos para revisão ({reviewItems.length})</summary>
-        <p className="mt-3 text-xs text-[var(--panel-muted)]">Decisões e configurações que precisam da sua atenção.</p>
-        <div className="mt-4 space-y-5">{reviewItems.map((o) => <article key={o.id} className="border-t border-[var(--panel-border)] pt-4">
-          <h4 className="text-sm font-medium">{o.title}</h4><p className="mt-2 text-sm leading-6 text-[var(--panel-muted)]">{o.explanation}</p>
-          {renderActions(o)}{renderEvidence(o)}
-          <Button variant="secondary" className="mt-3" disabled={disabled} onClick={() => onDiscuss(o)}><MessageSquare size={15} className="mr-2" />Conversar sobre isso</Button>
-        </article>)}</div>
-      </details>}
-      {!legacy && <section aria-label="Potencial estimado" className={surface + " overflow-hidden !bg-[var(--panel-tint)] p-5 [&>div]:!m-0 [&>div]:!border-0 [&>div]:!bg-transparent [&>div]:!p-0"}>
-        <h3 className="mb-4 flex items-center gap-2"><TrendingUp size={16} aria-hidden="true" />{Number(report?.potential_estimate?.days) === 7
-          ? "O que seu restaurante pode ganhar na próxima semana com essas mudanças"
-          : "O que seu restaurante pode ganhar com essas mudanças"}</h3>
-        {report ? <DataCard card={{...report.potential_estimate, type: "potential"}} /> : <>
-          <p className="text-2xl font-semibold text-[var(--panel-text)]">{waiting ? "Calculando…" : "A descobrir"}</p>
-          <p className="mt-3 text-sm leading-6 text-[var(--panel-muted)]">Uma estimativa conjunta baseada nas oportunidades e nos pedidos do seu restaurante.</p>
-        </>}
-      </section>}
-      {report?.period?.start && <p className="text-xs text-[var(--panel-muted)]">Período analisado: {new Date(report.period.start).toLocaleDateString("pt-BR")} a {new Date(report.period.end).toLocaleDateString("pt-BR")}.</p>}
       {legacy && <section className={surface + " space-y-4 p-5"}>
         <p className="text-xs text-[var(--panel-muted)]">Relatório anterior ao formato estruturado.</p>
         <SalesMarkdown content={String(selected.result.reply || "").replace(/\[\[(?:action:[^\]]+|card:[^\]]+)\]\]/g, "")} />
@@ -163,4 +161,3 @@ export default function AnalysisReport({
     </div>
   );
 }
-

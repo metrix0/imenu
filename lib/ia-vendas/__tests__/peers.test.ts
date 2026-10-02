@@ -78,4 +78,15 @@ describe("potential", () => {
     expect(result.max_cents).toBe(150_000);
     expect(result.max_percent).toBe(0.15);
   });
+
+  test("formats scenario assumptions in Brazilian Portuguese without changing the calculation", () => {
+    const result = potential(sales, {
+      days: 28, eligible_orders: 48, adoption_rate: 0.1,
+      extra_cents: 600, assumptions: "",
+    });
+    expect(result.cents).toBe(2880);
+    expect(result.formula).toContain("10%");
+    expect(result.formula?.replace(/\s/g, " ")).toContain("R$ 6,00");
+    expect(result.formula).not.toContain("10.0%");
+  });
 });

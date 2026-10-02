@@ -319,9 +319,11 @@ function operationCopy(
 export function ActionPreview({
   action,
   refs = {},
+  showAllDetails = false,
 }: {
   action: Action;
   refs?: Record<string, string>;
+  showAllDetails?: boolean;
 }) {
   const groupedUpsells =
     action.operations.length > 1 &&
@@ -376,7 +378,7 @@ export function ActionPreview({
       {groupedUpsells && (
         <div className="overflow-hidden rounded-lg border border-gray-100 bg-white">
           <div className="bg-gray-50 px-3 py-2 text-sm font-medium">
-            Adicionar Upsell ({action.operations.length})
+            {showAllDetails ? "Adicionar ofertas no carrinho" : "Adicionar Upsell"} ({action.operations.length})
           </div>
           <div className="divide-y divide-gray-100">
             {action.operations.map((op, i) => (
@@ -403,7 +405,7 @@ export function ActionPreview({
             className="overflow-hidden rounded-lg border border-gray-100 bg-white"
           >
             <div className="bg-gray-50 px-3 py-2 text-sm font-medium">
-              {copy.heading}
+              {showAllDetails ? copy.heading.replace("Upsell", "oferta no carrinho") : copy.heading}
             </div>
             <p className="px-3 pt-3 text-sm text-gray-700">{copy.summary}</p>
             {op.kind === "delete" ? (
@@ -411,7 +413,7 @@ export function ActionPreview({
                 O histórico será preservado; registros em uso não podem ser
                 excluídos.
               </p>
-            ) : !copy.hideDetails ? (
+            ) : showAllDetails || !copy.hideDetails ? (
               <dl className="mt-2 divide-y divide-gray-100 text-xs">
                 {Object.entries(op.values)
                   .filter(
@@ -479,11 +481,13 @@ export function ActionCard({
   refs,
   disabled,
   onAction,
+  compact = false,
 }: {
   action: Action;
   refs: Record<string, string>;
   disabled: boolean;
   onAction: (command: string, ids: string[]) => void;
+  compact?: boolean;
 }) {
   const retry =
     action.attempts < 2 &&
@@ -494,15 +498,26 @@ export function ActionCard({
   return (
     <article className="my-4 rounded-[12px] border border-[var(--panel-border)] bg-[var(--panel-background)] p-3">
       <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
-        <h3 className="font-semibold text-gray-900">{action.title}</h3>
+        {compact
+          ? <p className="text-sm font-medium text-[var(--panel-text)]">{action.image_jobs?.length ? `${action.image_jobs.length} imagens para revisar` : `${action.operations.length} ${action.operations.length === 1 ? "alteração proposta" : "alterações propostas"}`}</p>
+          : <h3 className="font-semibold text-gray-900">{action.title}</h3>}
         <span
           className={`rounded-full px-2 py-1 text-[11px] ${action.status === "applied" ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-600"}`}
         >
           {states[action.status] || action.status}
         </span>
       </div>
-      <p className="mb-2 text-sm text-gray-600">{action.reason}</p>
-      <ActionPreview action={action} refs={refs} />
+      {compact ? <details className="text-sm">
+        <summary className="cursor-pointer font-medium text-[var(--panel-muted)]">Ver alterações</summary>
+        <div className="mt-3 space-y-2">
+          <h4 className="font-medium text-[var(--panel-text)]">{action.title}</h4>
+          <p className="text-sm text-[var(--panel-muted)]">{action.reason}</p>
+          <ActionPreview action={action} refs={refs} showAllDetails />
+        </div>
+      </details> : <>
+        <p className="mb-2 text-sm text-gray-600">{action.reason}</p>
+        <ActionPreview action={action} refs={refs} />
+      </>}
       {action.error && (
         <p role="status" className="mt-3 text-xs text-red-700">
           {action.error}
@@ -595,9 +610,9 @@ export function DataCard({ card, expanded = false }: { card: Data; expanded?: bo
             </p>
             {Number.isFinite(minPercent) && Number.isFinite(maxPercent) && (
               <p className="text-sm font-medium text-[#D93D00]">
-                +{(minPercent * 100).toFixed(1)}%
+                +{minPercent.toLocaleString("pt-BR", { style: "percent", minimumFractionDigits: 1, maximumFractionDigits: 1 })}
                 {maxPercent > minPercent
-                  ? ` – +${(maxPercent * 100).toFixed(1)}%`
+                  ? ` – +${maxPercent.toLocaleString("pt-BR", { style: "percent", minimumFractionDigits: 1, maximumFractionDigits: 1 })}`
                   : ""}{" "}
                 de receita estimada
               </p>
@@ -613,9 +628,7 @@ export function DataCard({ card, expanded = false }: { card: Data; expanded?: bo
                   ))}
                 </ul>
               )}
-              <p className="mt-2">{card.formula}</p>
-              <p className="mt-2">{card.assumptions}</p>
-              <p className="mt-2">{card.note}</p>
+              <p className="mt-2">{[card.assumptions || card.formula, card.note].filter(Boolean).join(" ")}</p>
             </details>
           </>
         ) : (
@@ -632,7 +645,7 @@ export function DataCard({ card, expanded = false }: { card: Data; expanded?: bo
           {card.available ? `· ${card.count} na comparação` : ""}
         </summary>
         <p className="mt-2 text-xs text-gray-500">
-          {card.method || card.reason}
+          {card.available ? card.method : card.reason || card.method}
         </p>
         {card.available && (
           <>
@@ -654,8 +667,8 @@ export function DataCard({ card, expanded = false }: { card: Data; expanded?: bo
                     {k === "ticket_cents"
                       ? money(Number(v))
                       : k === "units_per_order"
-                        ? Number(v).toFixed(2)
-                        : `${(Number(v) * 100).toFixed(1)}%`}
+                        ? Number(v).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                        : Number(v).toLocaleString("pt-BR", { style: "percent", minimumFractionDigits: 1, maximumFractionDigits: 1 })}
                   </dd>
                 </div>
               ))}
@@ -687,7 +700,7 @@ export function DataCard({ card, expanded = false }: { card: Data; expanded?: bo
           Resultados das mudanças
         </summary>
         <p className="my-2 text-xs text-gray-500">{card.note}</p>
-        {card.results.map((r: Data) => (
+        {card.results.filter((r: Data) => r.before.orders || r.after.orders).map((r: Data) => (
           <div key={r.id} className="border-t border-gray-100 py-2">
             <strong className="text-xs">{r.title}</strong>
             <p className="text-xs">
@@ -696,7 +709,7 @@ export function DataCard({ card, expanded = false }: { card: Data; expanded?: bo
               {r.after.orders}
             </p>
             <p className="text-xs text-gray-500">
-              {r.after.days.toFixed(1)} dias em cada janela.
+              {Number(r.after.days).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} dias em cada período.
             </p>
           </div>
         ))}
