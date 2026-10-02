@@ -5,7 +5,7 @@ export const DEEP_ANALYSIS_MODEL =
 export const MODELS = {
   chat: process.env.IA_VENDAS_CHAT_MODEL || "gpt-5.6-luna",
   analysis: DEEP_ANALYSIS_MODEL,
-  image: process.env.IA_VENDAS_IMAGE_MODEL || "gpt-image-1.5",
+  image: process.env.IA_VENDAS_IMAGE_MODEL || "gpt-image-2",
 };
 export const LIMITS = {
   input: 1_850_000,

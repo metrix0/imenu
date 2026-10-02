@@ -4,7 +4,12 @@ import { randomUUID } from "crypto";
 import { query } from "@/lib/database/sql";
 import { createSupabaseServerClient } from "@/lib/database/supabaseServerClient";
 import { imageUrl } from "./data";
-import { saveFile, download, signedAttachment } from "./files";
+import {
+  saveFile,
+  download,
+  signedAttachment,
+  type GeneratedImageProfile,
+} from "./files";
 import { beginRun, finishRun, reserveImage } from "./runs";
 import { propose, claim } from "./actions";
 import { MODELS, LIMITS } from "./config";
@@ -18,7 +23,8 @@ async function target(restaurant: string, input: Data) {
     !input.prompt.trim()
   )
     throw new SalesError("Informe o alvo e a descrição da imagem.");
-  const item = input.target === "item";
+  const profile = input.target as GeneratedImageProfile,
+    item = profile === "item";
   if (item && !isUuid(input.item_id)) throw new SalesError("Produto inválido.");
   const row = (
     await query(
@@ -31,15 +37,21 @@ async function target(restaurant: string, input: Data) {
   if (!row) throw new SalesError("Alvo não encontrado.");
   const field = item
       ? "image_path"
-      : input.target === "logo"
+      : profile === "logo"
         ? "logo_url"
         : "banner_url",
     bucket = item
       ? "menu-images"
-      : input.target === "logo"
+      : profile === "logo"
         ? "restaurant-logos"
         : "menu-banners";
-  return { row, field, bucket, entity: item ? "items" : "restaurants" };
+  return {
+    row,
+    field,
+    bucket,
+    profile,
+    entity: item ? "items" : "restaurants",
+  };
 }
 export async function previewImage(
   restaurant: string,
@@ -73,20 +85,34 @@ export async function previewImage(
   }
   await reserveImage(restaurant, run);
   const prompt = `Crie uma imagem comercial realista para ${t.row.name}. ${input.target === "item" ? "Fotografia gastronômica. Preserve exatamente ingredientes, porção, quantidade e apresentação do produto de referência. Não invente acompanhamentos ou ingredientes. Sem texto sobreposto." : "Preserve a identidade da marca."} Pedido do proprietário: ${input.prompt}`;
-  const args = {
-    model: MODELS.image,
-    prompt,
-    n: 1,
-    quality: "medium" as const,
-    size:
-      input.target === "banner"
-        ? ("1536x1024" as const)
-        : ("1024x1024" as const),
-  };
+  const generationSize =
+      t.profile === "banner" ? "1536x1024" : "816x816",
+    args = {
+      model: MODELS.image,
+      prompt,
+      n: 1,
+      quality: "medium" as const,
+      // gpt-image-2 accepts custom dimensions; 816px is the smallest valid
+      // square that still exceeds the final 500/640px product/logo sizes.
+      size: generationSize as never,
+    };
   const result = reference
     ? await ai.images.edit({
         ...args,
-        image: await toFile(await sharp(reference, {limitInputPixels: 40000000}).rotate().resize({width:1600,height:1600,fit:"inside",withoutEnlargement:true}).png().toBuffer(), "reference.png", {type:"image/png"}),
+        image: await toFile(
+          await sharp(reference, { limitInputPixels: 40_000_000 })
+            .rotate()
+            .resize({
+              width: t.profile === "banner" ? 1536 : 816,
+              height: t.profile === "banner" ? 1536 : 816,
+              fit: "inside",
+              withoutEnlargement: true,
+            })
+            .png()
+            .toBuffer(),
+          "reference.png",
+          { type: "image/png" },
+        ),
       })
     : await ai.images.generate(args);
   if (!result.data?.[0]?.b64_json)
@@ -97,6 +123,7 @@ export async function previewImage(
     "image/png",
     Buffer.from(result.data[0].b64_json, "base64"),
     "generated",
+    t.profile,
   );
   const after = `${restaurant}/ia-vendas/${saved.id}.webp`,
     before = t.row[t.field] || null;
