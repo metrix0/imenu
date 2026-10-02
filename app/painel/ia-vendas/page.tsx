@@ -570,36 +570,35 @@ export default function SalesPage() {
     <div className="h-full max-h-full min-h-0 overflow-hidden">
       <div className="flex h-full max-h-full min-h-0 overflow-hidden">
         <aside className="hidden min-h-0 w-56 shrink-0 flex-col border-r border-[var(--panel-border)] bg-[var(--panel-background)] p-3 lg:flex">
-          <div>
-            <p className="px-3 text-xs font-medium text-gray-500">Análises</p>
-            <nav aria-label="Análises" className="mt-1 space-y-1">
-              {sales.conversations
-                .filter((c) => c.kind === "analysis")
-                .map((c) => (
-                  <button
-                    key={c.id}
-                    disabled={disabled}
-                    aria-current={
-                      c.id === sales.conversation_id ? "page" : undefined
-                    }
-                    onClick={() => {
-                      setSelectedReportId("");
-                      setOpportunity(null);
-                      void sales.load(restaurant, c.id);
-                    }}
-                    className={`w-full cursor-pointer truncate rounded-[8px] p-3 text-left text-sm disabled:cursor-not-allowed ${c.id === sales.conversation_id ? "bg-[var(--panel-tint)] text-[var(--panel-accent-text)]" : "text-gray-600 hover:bg-[var(--panel-tint)] hover:text-[var(--panel-accent-text)]"}`}
-                  >
-                    ✦ Análise de vendas
-                  </button>
-                ))}
-            </nav>
-          </div>
+          <nav
+            aria-label="Análise de vendas"
+            className="border-b border-[var(--panel-border)] pb-3"
+          >
+            {sales.conversations
+              .filter((c) => c.kind === "analysis")
+              .map((c) => (
+                <button
+                  key={c.id}
+                  disabled={disabled}
+                  aria-current={
+                    c.id === sales.conversation_id ? "page" : undefined
+                  }
+                  onClick={() => {
+                    setSelectedReportId("");
+                    setOpportunity(null);
+                    void sales.load(restaurant, c.id);
+                  }}
+                  className={`flex w-full cursor-pointer items-center gap-2.5 rounded-[8px] px-3 py-2.5 text-left text-sm font-medium disabled:cursor-not-allowed ${c.id === sales.conversation_id ? "bg-[var(--panel-tint)] text-[var(--panel-accent-text)]" : "text-gray-700 hover:bg-[var(--panel-tint)] hover:text-[var(--panel-accent-text)]"}`}
+                >
+                  <Sparkles size={16} className="shrink-0" />
+                  <span className="truncate">Análise de vendas</span>
+                </button>
+              ))}
+          </nav>
 
-          <div className="mt-4 flex min-h-0 flex-1 flex-col">
-            <p className="px-3 text-xs font-medium text-gray-500">Conversas</p>
+          <div className="mt-3 flex min-h-0 flex-1 flex-col">
             <Button
               variant="secondary"
-              className="mt-2"
               disabled={disabled}
               onClick={() => void sales.command("create_conversation")}
             >
