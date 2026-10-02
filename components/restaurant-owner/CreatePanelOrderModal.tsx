@@ -253,11 +253,20 @@ export default function CreatePanelOrderModal({
         setIsLoadingItemConfigurator(false);
     };
 
-    const handleConfiguredItemAdd = (configuredItem: SelectedItem) => {
-        setSelectedItems((previous) => [...previous, configuredItem]);
+    const closeItemConfigurator = () => {
         setConfiguringItem(null);
         setConfiguringSubcategories([]);
         setIsLoadingItemConfigurator(false);
+    };
+
+    const handleConfiguredItemAdd = (configuredItem: SelectedItem) => {
+        setSelectedItems((previous) => [...previous, configuredItem]);
+        closeItemConfigurator();
+    };
+
+    const handleModalClose = () => {
+        closeItemConfigurator();
+        onClose();
     };
 
     const changeSelectedItemQty = (id: string, nextQty: number) => {
@@ -529,15 +538,25 @@ export default function CreatePanelOrderModal({
     };
 
     return (
-        <>
         <HybridModal
             open={isOpen}
-            onClose={onClose}
+            onClose={handleModalClose}
             height={0.96}
             xPadding={false}
             contentClassName="!overflow-hidden !pb-0"
             className="md:!h-[88dvh] md:!max-h-[900px] md:!max-w-7xl md:!overflow-hidden"
         >
+            {configuringItem ? (
+                <PanelItemConfiguratorModal
+                    restaurantId={restaurantId}
+                    item={configuringItem}
+                    subcategories={configuringSubcategories}
+                    loading={isLoadingItemConfigurator}
+                    pizzaSettings={pizzaSettings}
+                    onClose={closeItemConfigurator}
+                    onAdd={handleConfiguredItemAdd}
+                />
+            ) : (
             <div className="panel-create-order flex h-full min-h-0 flex-col bg-white">
                 <div className="shrink-0 border-b border-gray-100 bg-white px-4 pb-4 pt-4 md:px-6 md:py-5">
                     <div className="flex items-center justify-between gap-4">
@@ -551,7 +570,7 @@ export default function CreatePanelOrderModal({
                         </div>
                         <LegacyModalClose><button
                             type="button"
-                            onClick={onClose}
+                            onClick={handleModalClose}
                             aria-label="Fechar"
                             className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
                         >
@@ -1074,6 +1093,7 @@ export default function CreatePanelOrderModal({
                     </section>
                 </div>
             </div>
+            )}
             {toast && (
                 <Toast
                     message={toast.message}
@@ -1083,21 +1103,5 @@ export default function CreatePanelOrderModal({
             )}
         </HybridModal>
 
-        {configuringItem && (
-            <PanelItemConfiguratorModal
-                restaurantId={restaurantId}
-                item={configuringItem}
-                subcategories={configuringSubcategories}
-                loading={isLoadingItemConfigurator}
-                pizzaSettings={pizzaSettings}
-                onClose={() => {
-                    setConfiguringItem(null);
-                    setConfiguringSubcategories([]);
-                    setIsLoadingItemConfigurator(false);
-                }}
-                onAdd={handleConfiguredItemAdd}
-            />
-        )}
-        </>
     );
 }

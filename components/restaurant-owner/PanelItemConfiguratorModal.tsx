@@ -2,20 +2,22 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import SearchModal from "@/app/[slug]/SearchModal";
 import Button from "@/components/ui/Button";
-import HybridModal from "@/components/ui/HybridModal";
+import Input from "@/components/ui/Input";
 import Loader from "@/components/ui/Loader";
 import Textarea from "@/components/ui/Textarea";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import type {
-    Category,
-    ItemsByCategory,
     PizzaCatalogItem,
     PizzaSelection,
     Subcategory,
 } from "@/lib/types/types";
-import { isPizzaItem, parsePizzaSettings, pricePizza } from "@/lib/pizza/pricing";
+import {
+    isPizzaItem,
+    parsePizzaSettings,
+    pricePizza,
+    SAME_CATEGORY_PIZZA_ERROR,
+} from "@/lib/pizza/pricing";
 import { formatPrice } from "@/lib/utils/formatPrice";
 import { icons } from "@/lib/utils/fontawesome";
 
@@ -124,6 +126,7 @@ export default function PanelItemConfiguratorModal({
     const [flavorCount, setFlavorCount] = useState(1);
     const [extraFlavors, setExtraFlavors] = useState<PizzaCatalogItem[]>([]);
     const [flavorSearch, setFlavorSearch] = useState(false);
+    const [flavorSearchText, setFlavorSearchText] = useState("");
     const [catalog, setCatalog] = useState<PizzaCatalogItem[]>([]);
     const [loadingFlavors, setLoadingFlavors] = useState(false);
     const [pizzaError, setPizzaError] = useState("");
@@ -139,6 +142,7 @@ export default function PanelItemConfiguratorModal({
         setFlavorCount(1);
         setExtraFlavors([]);
         setFlavorSearch(false);
+        setFlavorSearchText("");
         setCatalog([]);
         setLoadingFlavors(false);
         setPizzaError("");
@@ -425,19 +429,160 @@ export default function PanelItemConfiguratorModal({
         });
     };
 
+
+    if (flavorSearch) {
+        const query = flavorSearchText.trim().toLocaleLowerCase("pt-BR");
+        const candidates = catalog
+            .filter((candidate) =>
+                !query ||
+                `${candidate.name} ${candidate.description || ""}`
+                    .toLocaleLowerCase("pt-BR")
+                    .includes(query)
+            )
+            .map((candidate) => {
+                try {
+                    return {
+                        candidate,
+                        price: pricePizza(
+                            [...flavors, candidate],
+                            selectedSubitems,
+                            pizzaSettings.pricing_rule
+                        ).unit_price_cents,
+                        error: "",
+                    };
+                } catch (error) {
+                    return {
+                        candidate,
+                        price: undefined,
+                        error:
+                            error instanceof Error
+                                ? error.message
+                                : "Combinação indisponível.",
+                    };
+                }
+            })
+            .filter(({ error }) => error !== SAME_CATEGORY_PIZZA_ERROR);
+
+        return (
+            <div className="flex h-full min-h-0 flex-col bg-white">
+                <div className="shrink-0 border-b border-gray-100 px-4 py-4 md:px-6">
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setFlavorSearch(false);
+                            setFlavorSearchText("");
+                        }}
+                        className="flex cursor-pointer items-center gap-2 text-sm font-medium text-gray-500 transition hover:text-gray-800"
+                    >
+                        <FontAwesomeIcon icon={icons.faChevronLeft} />
+                        Voltar
+                    </button>
+
+                    <div className="mt-3">
+                        <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
+                            Pizza
+                        </p>
+                        <h2 className="mt-1 text-xl font-bold text-gray-900">
+                            Escolha o sabor {flavors.length + 1} de {flavorCount}
+                        </h2>
+                        <p className="mt-1 text-sm text-gray-500">
+                            O preço final considera os sabores escolhidos e os complementos do primeiro sabor.
+                        </p>
+                    </div>
+
+                    <div className="relative mt-4">
+                        <FontAwesomeIcon
+                            icon={icons.faMagnifyingGlass}
+                            className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-gray-400"
+                        />
+                        <Input
+                            inline
+                            value={flavorSearchText}
+                            onChange={(event) =>
+                                setFlavorSearchText(event.target.value)
+                            }
+                            placeholder="Buscar sabores..."
+                            className="w-full rounded-xl border border-gray-200 bg-gray-50/60 py-3 pl-10 pr-4 text-sm outline-none transition focus:border-brand focus:bg-white focus:ring-2 focus:ring-brand/10"
+                        />
+                    </div>
+                </div>
+
+                <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 md:px-6">
+                    {candidates.length === 0 ? (
+                        <div className="flex min-h-40 items-center justify-center text-sm text-gray-500">
+                            Nenhum sabor disponível.
+                        </div>
+                    ) : (
+                        <div className="divide-y divide-gray-100">
+                            {candidates.map(({ candidate, price, error }) => (
+                                <button
+                                    key={candidate.id}
+                                    type="button"
+                                    disabled={Boolean(error)}
+                                    onClick={() => {
+                                        if (error) return;
+                                        setExtraFlavors((previous) => [
+                                            ...previous,
+                                            candidate,
+                                        ]);
+                                        setFlavorSearch(false);
+                                        setFlavorSearchText("");
+                                    }}
+                                    className="flex w-full cursor-pointer items-center gap-3 py-3 text-left transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
+                                >
+                                    <img
+                                        src={candidate.image_public_url || "/placeholders/item.png"}
+                                        alt=""
+                                        className="h-14 w-14 shrink-0 rounded-lg object-cover"
+                                        loading="lazy"
+                                    />
+                                    <div className="min-w-0 flex-1">
+                                        <p className="font-semibold text-gray-900">
+                                            {candidate.name}
+                                        </p>
+                                        {candidate.category?.name && (
+                                            <p className="mt-0.5 text-xs text-gray-500">
+                                                {candidate.category.name}
+                                            </p>
+                                        )}
+                                        {error && (
+                                            <p className="mt-1 text-xs text-gray-500">
+                                                {error}
+                                            </p>
+                                        )}
+                                    </div>
+                                    {!error && (
+                                        <div className="shrink-0 text-right">
+                                            <p className="text-xs text-gray-500">
+                                                Preço final
+                                            </p>
+                                            <p className="font-semibold text-gray-900">
+                                                {formatPrice(price ?? candidate.price_cents)}
+                                            </p>
+                                        </div>
+                                    )}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
+    }
+
     return (
-        <>
-            <HybridModal
-                open
-                onClose={onClose}
-                height={0.9}
-                handle={false}
-                xPadding={false}
-                contentClassName="!overflow-hidden !pb-0"
-                className="md:!max-w-2xl"
-            >
-                <div className="flex h-full min-h-0 flex-col bg-white">
+        <div className="flex h-full min-h-0 flex-col bg-white">
                     <div className="shrink-0 border-b border-gray-100 px-4 py-4 md:px-6">
+                        <div className="mb-3">
+                            <button
+                                type="button"
+                                onClick={onClose}
+                                className="flex cursor-pointer items-center gap-2 text-sm font-medium text-gray-500 transition hover:text-gray-800"
+                            >
+                                <FontAwesomeIcon icon={icons.faChevronLeft} />
+                                Voltar
+                            </button>
+                        </div>
                         <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
                             Configurar item
                         </p>
@@ -848,58 +993,5 @@ export default function PanelItemConfiguratorModal({
                         </div>
                     </div>
                 </div>
-            </HybridModal>
-
-            {flavorSearch && (
-                <SearchModal
-                    categories={catalogCategories}
-                    itemsByCategory={catalogByCategory}
-                    flavorStep={{
-                        current: flavors.length + 1,
-                        total: flavorCount,
-                    }}
-                    onClose={() => setFlavorSearch(false)}
-                    getFinalPrice={(candidate) => {
-                        try {
-                            const next = catalog.find(
-                                (catalogItem) =>
-                                    catalogItem.id === candidate.id
-                            );
-                            if (!next) {
-                                throw new Error(
-                                    "Sabor não está mais disponível."
-                                );
-                            }
-
-                            return {
-                                price: pricePizza(
-                                    [...flavors, next],
-                                    selectedSubitems,
-                                    pizzaSettings.pricing_rule
-                                ).unit_price_cents,
-                            };
-                        } catch (error) {
-                            return {
-                                error:
-                                    error instanceof Error
-                                        ? error.message
-                                        : "Combinação indisponível.",
-                            };
-                        }
-                    }}
-                    onSelect={(candidate) => {
-                        const next = catalog.find(
-                            (catalogItem) => catalogItem.id === candidate.id
-                        );
-                        if (!next) return;
-                        setExtraFlavors((previous) => [
-                            ...previous,
-                            next,
-                        ]);
-                        setFlavorSearch(false);
-                    }}
-                />
-            )}
-        </>
     );
 }
