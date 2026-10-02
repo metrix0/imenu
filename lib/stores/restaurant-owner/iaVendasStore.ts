@@ -214,14 +214,19 @@ export const useSalesStore = create<State>((set, get) => ({
           command,
           ...extra,
         });
-      await get().load(
-        current.restaurant_id,
+      const nextConversation =
         command === "create_conversation"
           ? data.id
           : command === "archive_conversation"
-            ? current.conversations.find((c) => c.kind === "analysis")?.id
-            : current.conversation_id || undefined,
-      );
+            ? extra.conversation_id === current.conversation_id
+              ? current.conversations.find(
+                  (c) =>
+                    c.kind === "chat" && c.id !== extra.conversation_id,
+                )?.id ||
+                current.conversations.find((c) => c.kind === "analysis")?.id
+              : current.conversation_id || undefined
+            : current.conversation_id || undefined;
+      await get().load(current.restaurant_id, nextConversation);
       const failed = data.results?.filter((r: Data) => !r.ok);
       if (failed?.length)
         set({ error: failed.map((r: Data) => r.error).join(" ") });

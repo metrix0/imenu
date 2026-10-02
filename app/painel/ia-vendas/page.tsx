@@ -8,7 +8,6 @@ import {
   Paperclip,
   History,
   X,
-  Pencil,
   Archive,
 } from "lucide-react";
 import Button from "@/components/ui/Button";
@@ -207,7 +206,7 @@ export default function SalesPage() {
             {sales.conversations.map((c) => (
               <div
                 key={c.id}
-                className={`group flex items-center rounded-[8px] ${c.id === sales.conversation_id ? "bg-[var(--panel-tint)] text-[var(--panel-accent-text)]" : "text-gray-600 hover:bg-gray-100"}`}
+                className={`group flex items-center rounded-[8px] ${c.id === sales.conversation_id ? "bg-[var(--panel-tint)] text-[var(--panel-accent-text)]" : "text-gray-600 hover:bg-[var(--panel-tint)] hover:text-[var(--panel-accent-text)]"}`}
               >
                 <button
                   disabled={disabled}
@@ -227,25 +226,6 @@ export default function SalesPage() {
                 {c.kind === "chat" && (
                   <div className="flex pr-2">
                     <button
-                      title="Renomear"
-                      aria-label={`Renomear ${c.title}`}
-                      disabled={disabled}
-                      onClick={() => {
-                        const title = window.prompt(
-                          "Nome da conversa",
-                          c.title,
-                        );
-                        if (title?.trim())
-                          void sales.command("rename_conversation", {
-                            conversation_id: c.id,
-                            title,
-                          });
-                      }}
-                      className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-[8px] text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      <Pencil size={12} />
-                    </button>
-                    <button
                       title="Arquivar"
                       aria-label={`Arquivar ${c.title}`}
                       disabled={disabled}
@@ -254,7 +234,7 @@ export default function SalesPage() {
                           conversation_id: c.id,
                         })
                       }
-                      className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-[8px] text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40"
+                      className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-[8px] text-gray-500 transition-colors hover:bg-[var(--panel-tint)] hover:text-[var(--panel-accent-text)] disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       <Archive size={12} />
                     </button>
