@@ -188,10 +188,9 @@ function operationCopy(
   refs: Record<string, string>,
 ): { heading: string; summary: ReactNode; hideDetails: boolean } {
   const name = subject(op, refs);
-  const heading =
-    op.kind === "create"
-      ? `Adicionar ${entities[op.entity] || op.label}`
-      : `${op.kind === "delete" ? "Excluir" : "Editar"} · ${name}`;
+  const headingEntity =
+    op.entity === "items" ? "Item" : entities[op.entity] || op.label;
+  const heading = `${op.kind === "create" ? "Adicionar" : op.kind === "delete" ? "Excluir" : "Editar"} ${headingEntity}`;
 
   if (op.entity === "upsell") {
     if (op.kind === "delete")
