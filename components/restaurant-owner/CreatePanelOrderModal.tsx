@@ -571,6 +571,7 @@ export default function CreatePanelOrderModal({
             contentClassName="!overflow-hidden !pb-0"
             className="md:!h-[88dvh] md:!max-h-[900px] md:!max-w-7xl md:!overflow-hidden"
         >
+            <div className="h-full min-h-0 overflow-x-hidden">
             {configuringItem ? (
                 <ModalFlowStep key={`config-${configuringItem.id}`}>
                     <PanelItemConfiguratorModal
@@ -1123,6 +1124,7 @@ export default function CreatePanelOrderModal({
             </div>
                 </ModalFlowStep>
             )}
+            </div>
             {toast && (
                 <Toast
                     message={toast.message}
