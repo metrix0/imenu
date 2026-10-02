@@ -182,6 +182,25 @@ export default function SalesPage() {
                 ) : Date.parse(m.created_at) >= emptyThreadStart.current),
         )
       : sales.messages;
+  useEffect(() => {
+    if (!isAnalysis) return;
+    const html = document.documentElement,
+      body = document.body,
+      previousHtmlOverflow = html.style.overflow,
+      previousHtmlOverscroll = html.style.overscrollBehaviorY,
+      previousBodyOverflow = body.style.overflow,
+      previousBodyOverscroll = body.style.overscrollBehaviorY;
+    html.style.overflow = "hidden";
+    html.style.overscrollBehaviorY = "none";
+    body.style.overflow = "hidden";
+    body.style.overscrollBehaviorY = "none";
+    return () => {
+      html.style.overflow = previousHtmlOverflow;
+      html.style.overscrollBehaviorY = previousHtmlOverscroll;
+      body.style.overflow = previousBodyOverflow;
+      body.style.overscrollBehaviorY = previousBodyOverscroll;
+    };
+  }, [isAnalysis]);
   async function send() {
     if (!text.trim() || disabled || uploading) return;
     const draft = text.trim();
