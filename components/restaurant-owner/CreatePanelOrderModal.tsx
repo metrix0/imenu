@@ -585,7 +585,7 @@ export default function CreatePanelOrderModal({
                     </div>
                 </div>
 
-                <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1.12fr)_minmax(390px,0.88fr)]">
+                <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-2">
                     <section
                         className={`${
                             mobileView === "menu" ? "flex" : "hidden"
