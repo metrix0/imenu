@@ -551,71 +551,99 @@ export default function SalesPage() {
     <div className="h-full min-h-0">
       <div className="flex h-full min-h-0 overflow-hidden">
         <aside className="hidden min-h-0 w-56 shrink-0 flex-col border-r border-[var(--panel-border)] bg-[var(--panel-background)] p-3 lg:flex">
-          <Button
-            variant="secondary"
-            disabled={disabled}
-            onClick={() => void sales.command("create_conversation")}
-          >
-            <Plus size={16} className="mr-2" />
-            Nova conversa
-          </Button>
-          <nav
-            aria-label="Conversas"
-            className="mt-4 flex-1 space-y-1 overflow-y-auto"
-          >
-            {sales.conversations.map((c) => (
-              <div
-                key={c.id}
-                className={`group flex items-center rounded-[8px] ${c.id === sales.conversation_id ? "bg-[var(--panel-tint)] text-[var(--panel-accent-text)]" : "text-gray-600 hover:bg-[var(--panel-tint)] hover:text-[var(--panel-accent-text)]"}`}
-              >
-                <button
-                  disabled={disabled}
-                  aria-current={
-                    c.id === sales.conversation_id ? "page" : undefined
-                  }
-                  onClick={() => {
-                    setSelectedReportId("");
-                    setOpportunity(null);
-                    void sales.load(restaurant, c.id);
-                  }}
-                  className="min-w-0 flex-1 cursor-pointer truncate p-3 text-left text-sm disabled:cursor-not-allowed"
-                >
-                  {c.kind === "analysis" ? "✦ " : ""}
-                  {c.title}
-                </button>
-                {c.kind === "chat" && (
-                  <div className="hidden pr-2 group-hover:flex">
+          <div>
+            <p className="px-3 text-xs font-medium text-gray-500">Análises</p>
+            <nav aria-label="Análises" className="mt-1 space-y-1">
+              {sales.conversations
+                .filter((c) => c.kind === "analysis")
+                .map((c) => (
+                  <button
+                    key={c.id}
+                    disabled={disabled}
+                    aria-current={
+                      c.id === sales.conversation_id ? "page" : undefined
+                    }
+                    onClick={() => {
+                      setSelectedReportId("");
+                      setOpportunity(null);
+                      void sales.load(restaurant, c.id);
+                    }}
+                    className={`w-full cursor-pointer truncate rounded-[8px] p-3 text-left text-sm disabled:cursor-not-allowed ${c.id === sales.conversation_id ? "bg-[var(--panel-tint)] text-[var(--panel-accent-text)]" : "text-gray-600 hover:bg-[var(--panel-tint)] hover:text-[var(--panel-accent-text)]"}`}
+                  >
+                    ✦ Análise de vendas
+                  </button>
+                ))}
+            </nav>
+          </div>
+
+          <div className="mt-4 flex min-h-0 flex-1 flex-col">
+            <p className="px-3 text-xs font-medium text-gray-500">Conversas</p>
+            <Button
+              variant="secondary"
+              className="mt-2"
+              disabled={disabled}
+              onClick={() => void sales.command("create_conversation")}
+            >
+              <Plus size={16} className="mr-2" />
+              Nova conversa
+            </Button>
+            <nav
+              aria-label="Conversas"
+              className="mt-2 flex-1 space-y-1 overflow-y-auto"
+            >
+              {sales.conversations
+                .filter((c) => c.kind === "chat")
+                .map((c) => (
+                  <div
+                    key={c.id}
+                    className={`group flex items-center rounded-[8px] ${c.id === sales.conversation_id ? "bg-[var(--panel-tint)] text-[var(--panel-accent-text)]" : "text-gray-600 hover:bg-[var(--panel-tint)] hover:text-[var(--panel-accent-text)]"}`}
+                  >
                     <button
-                      title="Renomear"
-                      aria-label={`Renomear ${c.title}`}
                       disabled={disabled}
-                      onClick={() => {
-                        setRenameConversationId(c.id);
-                        setRenameTitle(c.title);
-                        setModal("rename");
-                      }}
-                      className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-[8px] text-gray-500 transition-colors hover:bg-black/5 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      <Pencil size={12} />
-                    </button>
-                    <button
-                      title="Arquivar"
-                      aria-label={`Arquivar ${c.title}`}
-                      disabled={disabled}
-                      onClick={() =>
-                        void sales.command("archive_conversation", {
-                          conversation_id: c.id,
-                        })
+                      aria-current={
+                        c.id === sales.conversation_id ? "page" : undefined
                       }
-                      className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-[8px] text-gray-500 transition-colors hover:bg-black/5 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40"
+                      onClick={() => {
+                        setSelectedReportId("");
+                        setOpportunity(null);
+                        void sales.load(restaurant, c.id);
+                      }}
+                      className="min-w-0 flex-1 cursor-pointer truncate p-3 text-left text-sm disabled:cursor-not-allowed"
                     >
-                      <Archive size={12} />
+                      {c.title}
                     </button>
+                    <div className="hidden pr-2 group-hover:flex">
+                      <button
+                        title="Renomear"
+                        aria-label={`Renomear ${c.title}`}
+                        disabled={disabled}
+                        onClick={() => {
+                          setRenameConversationId(c.id);
+                          setRenameTitle(c.title);
+                          setModal("rename");
+                        }}
+                        className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-[8px] text-gray-500 transition-colors hover:bg-black/5 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        <Pencil size={12} />
+                      </button>
+                      <button
+                        title="Arquivar"
+                        aria-label={`Arquivar ${c.title}`}
+                        disabled={disabled}
+                        onClick={() =>
+                          void sales.command("archive_conversation", {
+                            conversation_id: c.id,
+                          })
+                        }
+                        className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-[8px] text-gray-500 transition-colors hover:bg-black/5 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        <Archive size={12} />
+                      </button>
+                    </div>
                   </div>
-                )}
-              </div>
-            ))}
-          </nav>
+                ))}
+            </nav>
+          </div>
         </aside>
         <section className="flex min-h-0 min-w-0 flex-1 flex-col">
           {isAnalysis ? (
