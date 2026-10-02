@@ -574,13 +574,11 @@ export default function SalesPage() {
                 );
               })}
               {(sales.busy || sales.acting || sales.running) && (
-                <p
-                  role="status"
-                  className="flex items-center gap-2 py-3 text-sm text-gray-500"
-                >
-                  <Sparkles size={16} className="animate-pulse" />
-                  {sales.status || "Processamento em andamento…"}
-                </p>
+                <div role="status" className="flex justify-center py-3">
+                  <div className="rounded-[10px] bg-[var(--panel-tint)] p-3">
+                    <Loader />
+                  </div>
+                </div>
               )}
               <div ref={end} />
             </div>
