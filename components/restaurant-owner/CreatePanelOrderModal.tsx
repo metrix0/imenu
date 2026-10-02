@@ -54,14 +54,12 @@ function ModalFlowStep({
         return () => window.cancelAnimationFrame(frame);
     }, []);
 
-    const hiddenTransform = reverse ? "-translate-x-2" : "translate-x-2";
+    const hiddenTransform = reverse ? "-translate-x-full" : "translate-x-full";
 
     return (
         <div
-            className={`h-full min-h-0 transition-[opacity,transform] duration-200 ease-out motion-reduce:transition-none ${
-                visible
-                    ? "translate-x-0 opacity-100"
-                    : `${hiddenTransform} opacity-0`
+            className={`h-full min-h-0 will-change-transform transition-transform duration-300 ease-out motion-reduce:transition-none ${
+                visible ? "translate-x-0" : hiddenTransform
             }`}
         >
             {children}
