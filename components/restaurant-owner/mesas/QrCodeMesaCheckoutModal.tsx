@@ -3,6 +3,7 @@
 import { useCallback } from "react";
 import { faQrcode } from "@fortawesome/free-solid-svg-icons";
 
+import PaymentCheckout from "@/components/payments/PaymentCheckout";
 import PaymentCheckoutModal from "@/components/payments/PaymentCheckoutModal";
 import { supabase } from "@/lib/database/supabaseClient";
 import type { OnlinePaymentMethod } from "@/lib/payments/types";
@@ -19,6 +20,7 @@ type QrCodeMesaCheckoutModalProps = {
     restaurantId: string;
     source: QrTableSource;
     renewal?: boolean;
+    embedded?: boolean;
     onBack?: () => void;
     onPaid?: () => void | Promise<void>;
 };
@@ -77,6 +79,7 @@ export default function QrCodeMesaCheckoutModal({
     restaurantId,
     source,
     renewal = false,
+    embedded = false,
     onBack,
     onPaid,
 }: QrCodeMesaCheckoutModalProps) {
@@ -140,18 +143,22 @@ export default function QrCodeMesaCheckoutModal({
         [restaurantId, source]
     );
 
-    return (
-        <PaymentCheckoutModal
-            open={open}
-            onClose={onClose}
-            product={QR_TABLE_PAYMENT_PRODUCT}
-            onBack={onBack}
-            startPayment={startPayment}
-            reconcilePayment={reconcilePayment}
-            loadCardPrefill={loadCardPrefill}
-            onPaymentStarted={trackPaymentStarted}
-            successEventName="imenu:qr-table-activated"
-            onPaid={onPaid}
-        />
-    );
+    const checkoutProps = {
+        onClose,
+        product: QR_TABLE_PAYMENT_PRODUCT,
+        onBack,
+        startPayment,
+        reconcilePayment,
+        loadCardPrefill,
+        onPaymentStarted: trackPaymentStarted,
+        successEventName: "imenu:qr-table-activated",
+        onPaid,
+    };
+
+    if (embedded) {
+        if (!open) return null;
+        return <PaymentCheckout {...checkoutProps} />;
+    }
+
+    return <PaymentCheckoutModal open={open} {...checkoutProps} />;
 }

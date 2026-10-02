@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import {
     faArrowRotateLeft,
@@ -26,6 +26,33 @@ type QrCodeMesaSalesModalProps = {
     active?: boolean;
     onPaid?: () => void | Promise<void>;
 };
+
+function ModalFlowStep({
+    children,
+    reverse = false,
+}: {
+    children: ReactNode;
+    reverse?: boolean;
+}) {
+    const [visible, setVisible] = useState(false);
+
+    useEffect(() => {
+        const frame = window.requestAnimationFrame(() => setVisible(true));
+        return () => window.cancelAnimationFrame(frame);
+    }, []);
+
+    const hiddenTransform = reverse ? "-translate-x-full" : "translate-x-full";
+
+    return (
+        <div
+            className={`flex h-full min-h-0 flex-col will-change-transform transition-transform duration-300 ease-out motion-reduce:transition-none ${
+                visible ? "translate-x-0" : hiddenTransform
+            }`}
+        >
+            {children}
+        </div>
+    );
+}
 
 const BENEFITS = [
     {
@@ -60,73 +87,42 @@ export default function QrCodeMesaSalesModal({
     onPaid,
 }: QrCodeMesaSalesModalProps) {
     const [checkoutOpen, setCheckoutOpen] = useState(false);
-    const [switching, setSwitching] = useState(false);
-    const transitionTimerRef = useRef<number | null>(null);
 
     useEffect(() => {
         if (!open || active) {
-            if (transitionTimerRef.current !== null) {
-                window.clearTimeout(transitionTimerRef.current);
-                transitionTimerRef.current = null;
-            }
             setCheckoutOpen(false);
-            setSwitching(false);
         }
-
-        return () => {
-            if (transitionTimerRef.current !== null) {
-                window.clearTimeout(transitionTimerRef.current);
-                transitionTimerRef.current = null;
-            }
-        };
     }, [open, active]);
 
-    const transitionTo = (checkout: boolean) => {
-        if (transitionTimerRef.current !== null) {
-            window.clearTimeout(transitionTimerRef.current);
-        }
-
-        setSwitching(true);
-        transitionTimerRef.current = window.setTimeout(() => {
-            setCheckoutOpen(checkout);
-            transitionTimerRef.current = null;
-            window.requestAnimationFrame(() => setSwitching(false));
-        }, 140);
-    };
-
     const close = () => {
-        if (transitionTimerRef.current !== null) {
-            window.clearTimeout(transitionTimerRef.current);
-            transitionTimerRef.current = null;
-        }
-        setSwitching(false);
+        setCheckoutOpen(false);
         onClose();
     };
 
     return (
-        <>
-            <QrCodeMesaCheckoutModal
-                open={open && checkoutOpen}
-                onClose={close}
-                restaurantId={restaurantId}
-                source={source}
-                onBack={() => setCheckoutOpen(false)}
-                onPaid={onPaid}
-            />
-            <Modal
-            height={700}
-            open={open && !checkoutOpen}
+        <Modal
+            height={checkoutOpen ? 760 : 700}
+            open={open}
             onClose={close}
             className="max-w-4xl"
             showCloseButton
         >
-            <div
-                className={`transition-[opacity,transform] duration-150 ease-out ${
-                    switching
-                        ? "translate-y-1 opacity-0"
-                        : "translate-y-0 opacity-100"
-                }`}
-            >
+            <div className="flex min-h-0 flex-1 flex-col overflow-x-hidden">
+                {checkoutOpen ? (
+                    <ModalFlowStep key="checkout">
+                        <QrCodeMesaCheckoutModal
+                            open
+                            embedded
+                            onClose={close}
+                            restaurantId={restaurantId}
+                            source={source}
+                            onBack={() => setCheckoutOpen(false)}
+                            onPaid={onPaid}
+                        />
+                    </ModalFlowStep>
+                ) : (
+                    <ModalFlowStep key="sales" reverse>
+                        <div className="min-h-0">
             <div className="grid shrink-0 overflow-hidden md:grid-cols-[minmax(0,1fr)_300px]">
                 <div className="px-6 pb-1 pt-5 sm:px-8 sm:py-8">
                     <div className="relative h-12 w-56 max-w-full">
@@ -257,15 +253,17 @@ export default function QrCodeMesaSalesModal({
                     <Button
                         type="button"
                         variant="primary"
-                        onClick={() => transitionTo(true)}
+                        onClick={() => setCheckoutOpen(true)}
                         className="w-full sm:w-auto sm:min-w-64"
                     >
                         Continuar
                     </Button>
                 )}
             </div>
+                        </div>
+                    </ModalFlowStep>
+                )}
             </div>
-            </Modal>
-        </>
+        </Modal>
     );
 }
