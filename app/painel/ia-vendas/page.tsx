@@ -355,17 +355,12 @@ export default function SalesPage() {
                       {m.role === "assistant" && (
                         <div
                           aria-hidden="true"
-                          className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] bg-[var(--panel-tint)] text-[var(--panel-accent-text)]"
+                          className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--panel-tint)] text-[var(--panel-accent-text)]"
                         >
                           <Sparkles size={16} />
                         </div>
                       )}
                       <div className="min-w-0 flex-1">
-                        {m.role === "assistant" && (
-                          <p className="mb-2 text-xs font-medium text-[var(--panel-accent-text)]">
-                            iMenu IA Vendas
-                          </p>
-                        )}
                     {parts.map((part, i) => {
                       if (part.type === "text")
                         return (
