@@ -337,27 +337,6 @@ export default function PanelItemConfiguratorModal({
         pizzaQuote?.unit_price_cents ?? item.price_cents + extrasTotal;
     const total = unitPrice * qty;
 
-    const catalogCategories = Array.from(
-        new Map(
-            catalog
-                .filter((candidate) => candidate.category)
-                .map((candidate) => [
-                    candidate.category!.id,
-                    candidate.category!,
-                ])
-        ).values()
-    ) as Category[];
-
-    const catalogByCategory = catalog.reduce<ItemsByCategory>(
-        (result, candidate) => {
-            const categoryId =
-                candidate.category_id || candidate.category?.id || "";
-            (result[categoryId] ||= []).push(candidate);
-            return result;
-        },
-        {}
-    );
-
     const showFlavorSearch = async () => {
         setPizzaError("");
 
