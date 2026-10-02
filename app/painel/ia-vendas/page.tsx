@@ -33,11 +33,11 @@ type MessagePart =
 function splitMessageParts(content: string): MessagePart[] {
   return content
     .split(
-      /(\[\[action:[0-9a-f-]{36}\]\]|\[\[card:(?:benchmark|measurement|potential)\]\])/gi,
+      /(\[\[(?:action|image):[0-9a-f-]{36}\]\]|\[\[card:(?:benchmark|measurement|potential)\]\])/gi,
     )
     .filter((part) => part.trim())
     .map((part) => {
-      const action = /^\[\[action:([0-9a-f-]{36})\]\]$/i.exec(part);
+      const action = /^\[\[(?:action|image):([0-9a-f-]{36})\]\]$/i.exec(part);
       if (action) return { type: "action", id: action[1] };
       const card = /^\[\[card:(benchmark|measurement|potential)\]\]$/i.exec(
         part,
