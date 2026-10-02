@@ -114,10 +114,7 @@ export async function benchmark(restaurant: string, ai: OpenAI) {
   };
 }
 export function potential(sales: Data, input: Data) {
-  const affected = Number(input.eligible_orders),
-    adoption = Number(input.adoption_rate),
-    lift = Number(input.extra_cents),
-    days = input.days === undefined ? 28 : Number(input.days);
+  const days = input.days === undefined ? 28 : Number(input.days);
   if (sales.orders < 30)
     return {
       available: false,
@@ -127,31 +124,118 @@ export function potential(sales: Data, input: Data) {
   if (!Number.isInteger(days) || ![7, 28].includes(days))
     throw new SalesError("Use uma projeção de 7 ou 28 dias.");
   if (
-    ![affected, adoption, lift].every(Number.isFinite) ||
-    affected < 0 ||
-    affected > sales.orders ||
-    adoption < 0 ||
-    adoption > 0.25 ||
-    lift < 0 ||
-    lift > sales.ticket_cents
+    !Array.isArray(input.opportunities) ||
+    !input.opportunities.length ||
+    input.opportunities.length > 5
   )
-    throw new SalesError(
-      "Use hipóteses conservadoras: pedidos elegíveis observados, adesão até 25% e acréscimo até o ticket atual.",
-    );
-  const baselineCents = (sales.revenue_cents * days) / sales.days,
-    cents = Math.round(
-      Math.min(
-        (affected * adoption * lift * days) / sales.days,
-        baselineCents * 0.15,
+    throw new SalesError("Inclua de uma a cinco oportunidades na estimativa.");
+
+  const profiles: Record<
+      string,
+      { low: number; high: number; basis: "orders" | "revenue" }
+    > = {
+      cart_addon: { low: 0.1, high: 0.2, basis: "orders" },
+      menu_clarity: { low: 0.02, high: 0.05, basis: "revenue" },
+      proven_combo_visibility: {
+        low: 0.03,
+        high: 0.08,
+        basis: "revenue",
+      },
+    },
+    scale = days / Number(sales.days || 0),
+    baselineCents = Number(sales.revenue_cents) * scale;
+
+  if (!Number.isFinite(scale) || scale <= 0 || !Number.isFinite(baselineCents))
+    throw new SalesError("Os dados do período não permitem estimar o potencial.");
+
+  const groups = new Map<string, { min: number; max: number }>(),
+    breakdown: Data[] = [];
+
+  for (const [index, raw] of input.opportunities.entries()) {
+    const opportunity = raw as Data,
+      label = String(opportunity.label || `Oportunidade ${index + 1}`).slice(
+        0,
+        120,
       ),
-    ),
-    percent = baselineCents > 0 ? cents / baselineCents : 0;
+      kind = String(opportunity.kind || ""),
+      profile = profiles[kind],
+      overlapGroup = String(
+        opportunity.overlap_group || `opportunity-${index}`,
+      ).slice(0, 80);
+
+    if (!profile)
+      throw new SalesError("Tipo de oportunidade inválido para estimativa.");
+
+    let min = 0,
+      max = 0,
+      basis = "";
+
+    if (profile.basis === "orders") {
+      const eligibleOrders = Number(opportunity.eligible_orders),
+        extraCents = Number(opportunity.extra_cents);
+      if (
+        ![eligibleOrders, extraCents].every(Number.isFinite) ||
+        eligibleOrders < 0 ||
+        eligibleOrders > sales.orders ||
+        extraCents < 0 ||
+        extraCents > sales.ticket_cents
+      )
+        throw new SalesError(
+          "Use somente pedidos elegíveis e valores observados no restaurante.",
+        );
+      min = eligibleOrders * profile.low * extraCents * scale;
+      max = eligibleOrders * profile.high * extraCents * scale;
+      basis = `${eligibleOrders} pedidos elegíveis × ${(profile.low * 100).toFixed(0)}%–${(profile.high * 100).toFixed(0)}% de adesão × R$ ${(extraCents / 100).toFixed(2)} por pedido.`;
+    } else {
+      const eligibleRevenue = Number(opportunity.eligible_revenue_cents);
+      if (
+        !Number.isFinite(eligibleRevenue) ||
+        eligibleRevenue < 0 ||
+        eligibleRevenue > sales.revenue_cents
+      )
+        throw new SalesError(
+          "Use somente a receita observada dos produtos afetados.",
+        );
+      min = eligibleRevenue * profile.low * scale;
+      max = eligibleRevenue * profile.high * scale;
+      basis = `R$ ${(eligibleRevenue / 100).toFixed(2)} em vendas afetadas × ${(profile.low * 100).toFixed(0)}%–${(profile.high * 100).toFixed(0)}% de melhora estimada.`;
+    }
+
+    breakdown.push({
+      label,
+      kind,
+      min_cents: Math.round(min),
+      max_cents: Math.round(max),
+      basis,
+    });
+
+    const current = groups.get(overlapGroup);
+    groups.set(
+      overlapGroup,
+      current
+        ? { min: Math.max(current.min, min), max: Math.max(current.max, max) }
+        : { min, max },
+    );
+  }
+
+  const rawMin = [...groups.values()].reduce((sum, group) => sum + group.min, 0),
+    rawMax = [...groups.values()].reduce((sum, group) => sum + group.max, 0),
+    cap = baselineCents * 0.15,
+    minCents = Math.round(Math.min(rawMin, cap)),
+    maxCents = Math.round(Math.min(Math.max(rawMax, rawMin), cap)),
+    minPercent = baselineCents > 0 ? minCents / baselineCents : 0,
+    maxPercent = baselineCents > 0 ? maxCents / baselineCents : 0;
+
   return {
     available: true,
-    cents,
+    min_cents: minCents,
+    max_cents: maxCents,
+    min_percent: minPercent,
+    max_percent: maxPercent,
     days,
-    percent,
-    formula: `Consideramos ${affected} pedidos em que a mudança pode ajudar, ${(adoption * 100).toFixed(1)}% deles aderindo e R$ ${(lift / 100).toFixed(2)} extras por adesão, projetados para ${days} dias. Para ser conservador, limitamos o cenário a 15% da receita atual.`,
+    breakdown,
+    formula:
+      "A faixa combina cenários conservador e de maior adesão para cada mudança. O mesmo grupo de pedidos não é somado duas vezes e o total fica limitado a 15% da receita atual.",
     assumptions: String(input.assumptions || "").slice(0, 2000),
     note: "É uma estimativa, não uma garantia. O lucro depende dos custos do restaurante.",
   };

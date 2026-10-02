@@ -571,7 +571,15 @@ export function DataCard({ card, expanded = false }: { card: Data; expanded?: bo
         </div>
       </div>
     );
-  if (card.type === "potential")
+  if (card.type === "potential") {
+    const minCents = Number(card.min_cents ?? card.cents),
+      maxCents = Number(card.max_cents ?? card.cents),
+      minPercent = Number(card.min_percent ?? card.percent),
+      maxPercent = Number(card.max_percent ?? card.percent),
+      hasRange =
+        Number.isFinite(minCents) &&
+        Number.isFinite(maxCents) &&
+        maxCents > minCents;
     return (
       <div className="my-4 rounded-[10px] border border-gray-200 bg-white p-4">
         {card.available ? (
@@ -582,15 +590,29 @@ export function DataCard({ card, expanded = false }: { card: Data; expanded?: bo
                 : "Potencial nas próximas 4 semanas"}
             </p>
             <p className="my-2 text-3xl font-semibold text-[#D93D00]">
-              +{money(card.cents)}
+              +{money(minCents)}
+              {hasRange ? ` – +${money(maxCents)}` : ""}
             </p>
-            {Number.isFinite(Number(card.percent)) && (
+            {Number.isFinite(minPercent) && Number.isFinite(maxPercent) && (
               <p className="text-sm font-medium text-[#D93D00]">
-                +{(Number(card.percent) * 100).toFixed(1)}% de receita estimada
+                +{(minPercent * 100).toFixed(1)}%
+                {maxPercent > minPercent
+                  ? ` – +${(maxPercent * 100).toFixed(1)}%`
+                  : ""}{" "}
+                de receita estimada
               </p>
             )}
             <details className="mt-2 text-xs text-gray-600">
               <summary className="cursor-pointer">Como estimamos</summary>
+              {Array.isArray(card.breakdown) && card.breakdown.length > 0 && (
+                <ul className="mt-2 space-y-1">
+                  {card.breakdown.map((item: Data, i: number) => (
+                    <li key={i}>
+                      <strong>{item.label}:</strong> {item.basis}
+                    </li>
+                  ))}
+                </ul>
+              )}
               <p className="mt-2">{card.formula}</p>
               <p className="mt-2">{card.assumptions}</p>
               <p className="mt-2">{card.note}</p>
@@ -601,6 +623,7 @@ export function DataCard({ card, expanded = false }: { card: Data; expanded?: bo
         )}
       </div>
     );
+  }
   if (card.type === "benchmark")
     return (
       <details open={expanded} className="my-3 rounded-lg border border-gray-200 bg-white p-3 text-sm">
