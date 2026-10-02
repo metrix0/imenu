@@ -349,7 +349,7 @@ export default function SalesPage() {
                     <div
                       className={
                         m.role === "user"
-                          ? "rounded-[18px] bg-[var(--panel-soft)] px-4 py-2.5"
+                          ? "rounded-[18px] bg-[#e9e9e9] px-4 py-2.5"
                           : "flex items-start gap-3"
                       }
                     >
@@ -522,7 +522,7 @@ export default function SalesPage() {
                   ))}
                 </div>
               )}
-              <div className="rounded-[16px] border border-[var(--panel-border)] bg-[var(--panel-surface)] p-2 transition-[border-color] focus-within:border-[var(--panel-action)]">
+              <div className="rounded-[16px] border border-[var(--panel-border)] bg-[var(--panel-surface)] p-2">
                 <input
                   ref={file}
                   type="file"
