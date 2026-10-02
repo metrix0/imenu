@@ -19,6 +19,7 @@ import {
     faPowerOff,
     faQrcode,
     faRotate,
+    faTriangleExclamation,
     faTruck,
     faUser,
     faUtensils,
@@ -29,6 +30,7 @@ import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Loader from "@/components/ui/Loader";
 import Toast from "@/components/ui/Toast";
+import WarningBox from "@/components/ui/WarningBox";
 import { supabase } from "@/lib/database/supabaseClient";
 import type {
     WhatsAppMessageTemplates,
@@ -863,6 +865,9 @@ export default function RoboWhatsAppPage() {
                                         <li>Toque em <b>Conectar um aparelho</b>.</li>
                                         <li>Aponte a câmera para este QR Code.</li>
                                     </ol>
+                                    <WarningBox icon={faTriangleExclamation} className="mt-4">
+                                        Depois de conectar, mensagens enviadas manualmente ao cliente irão pausar o robô naquela conversa por 30 minutos, para não interromper a conversa com atendentes humanos.
+                                    </WarningBox>
                                     <p className="mt-4 text-xs text-gray-500">
                                         O código muda automaticamente quando expira. Esta tela é atualizada em tempo real, sem precisar recarregar a página.
                                     </p>

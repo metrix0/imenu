@@ -4,7 +4,7 @@ import { LegacyModalClose } from "@/components/ui/ModalCloseButton";
 import Textarea from "@/components/ui/Textarea";
 import Input from "@/components/ui/Input";
 import Dropdown from "@/components/ui/Dropdown";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { supabase } from "@/lib/database/supabaseClient";
 import Button from "@/components/ui/Button";
 import HybridModal from "@/components/ui/HybridModal";
@@ -14,6 +14,12 @@ import { formatPrice } from "@/lib/utils/formatPrice";
 import PromotionSummary from "@/components/costumer/PromotionSummary";
 import { evaluateAutomaticPromotions, parseAutomaticPromotions, type AutomaticPromotion } from "@/lib/promotions/automatic";
 import Toast from "@/components/ui/Toast";
+import PanelItemConfiguratorModal, {
+    type PanelOrderConfiguredItem,
+    type PanelOrderMenuItem,
+    type PanelOrderSelectedSubitem,
+    type PanelOrderSubcategory,
+} from "@/components/restaurant-owner/PanelItemConfiguratorModal";
 
 type Category = {
     id: string;
@@ -28,55 +34,38 @@ type RestaurantTable = {
     position?: number | null;
 };
 
-type Item = {
-    id: string;
-    category_id: string;
-    name: string;
-    description?: string | null;
-    price_cents: number;
-    image_path?: string | null;
-    is_available: boolean;
-    position?: number | null;
-    stock_enabled?: boolean | null;
-    stock_quantity?: number | null;
-};
+type Item = PanelOrderMenuItem;
+type Subcategory = PanelOrderSubcategory;
+type Subitem = PanelOrderSubcategory["subitems"][number];
+type SelectedSubitem = PanelOrderSelectedSubitem;
+type SelectedItem = PanelOrderConfiguredItem;
 
-type Subitem = {
-    id: string;
-    name: string;
-    price_cents: number;
-    position?: number | null;
-};
+function ModalFlowStep({
+    children,
+    reverse = false,
+}: {
+    children: ReactNode;
+    reverse?: boolean;
+}) {
+    const [visible, setVisible] = useState(false);
 
-type Subcategory = {
-    id: string;
-    name: string;
-    min_select: number;
-    max_select: number;
-    position?: number | null;
-    subitems: Subitem[];
-};
+    useEffect(() => {
+        const frame = window.requestAnimationFrame(() => setVisible(true));
+        return () => window.cancelAnimationFrame(frame);
+    }, []);
 
-type SelectedSubitem = {
-    subcategoryId: string;
-    subcategoryName: string;
-    subitemId: string;
-    subitemName: string;
-    price_cents: number;
-};
+    const hiddenTransform = reverse ? "-translate-x-full" : "translate-x-full";
 
-type SelectedItem = {
-    id: string;
-    base_item_id: string;
-    category_id: string;
-    name: string;
-    qty: number;
-    unit_price_cents: number;
-    total_cents: number;
-    observation: string | null;
-    selectedSubitems: SelectedSubitem[];
-};
-
+    return (
+        <div
+            className={`h-full min-h-0 will-change-transform transition-transform duration-300 ease-out motion-reduce:transition-none ${
+                visible ? "translate-x-0" : hiddenTransform
+            }`}
+        >
+            {children}
+        </div>
+    );
+}
 
 export default function CreatePanelOrderModal({
                                                   isOpen,
@@ -95,6 +84,7 @@ export default function CreatePanelOrderModal({
     const [isLoadingMenu, setIsLoadingMenu] = useState(false);
 
     const [automaticPromotions, setAutomaticPromotions] = useState<AutomaticPromotion[]>([]);
+    const [pizzaSettings, setPizzaSettings] = useState<unknown>(null);
     const [promotionLoadError, setPromotionLoadError] = useState(false);
     const [promotionNow, setPromotionNow] = useState(new Date());
     const [menuVersion, setMenuVersion] = useState(0);
@@ -107,6 +97,9 @@ export default function CreatePanelOrderModal({
     const [subcategoriesByItemId, setSubcategoriesByItemId] = useState<Record<string, Subcategory[]>>({});
     const [loadingSubcategoriesByItemId, setLoadingSubcategoriesByItemId] = useState<Record<string, boolean>>({});
     const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
+    const [configuringItem, setConfiguringItem] = useState<Item | null>(null);
+    const [configuringSubcategories, setConfiguringSubcategories] = useState<Subcategory[]>([]);
+    const [isLoadingItemConfigurator, setIsLoadingItemConfigurator] = useState(false);
 
     const [customerName, setCustomerName] = useState("");
     const [customerPhone, setCustomerPhone] = useState("");
@@ -152,7 +145,7 @@ export default function CreatePanelOrderModal({
                     .eq("restaurant_id", restaurantId)
                     .eq("is_active", true)
                     .order("position", { ascending: true }),
-                supabase.from("restaurants").select("automatic_promotions").eq("id", restaurantId).single(),
+                supabase.from("restaurants").select("automatic_promotions, pizza_settings").eq("id", restaurantId).single(),
             ]);
 
             if (categoriesError) {
@@ -183,6 +176,7 @@ export default function CreatePanelOrderModal({
 
             setPromotionLoadError(Boolean(promotionError));
             setAutomaticPromotions(parseAutomaticPromotions(promotionData?.automatic_promotions));
+            setPizzaSettings(promotionData?.pizza_settings ?? null);
             setPromotionNow(new Date());
             setIsLoadingMenu(false);
         };
@@ -251,7 +245,10 @@ export default function CreatePanelOrderModal({
             return sourceItem?.price_cents ?? item.unit_price_cents;
         })();
 
-        const extrasTotal = nextSelectedSubitems.reduce((sum, sub) => sum + sub.price_cents, 0);
+        const extrasTotal = nextSelectedSubitems.reduce(
+            (sum, sub) => sum + sub.price_cents * (sub.quantity ?? 1),
+            0
+        );
         const unit = basePrice + extrasTotal;
         const qty = nextQty ?? item.qty;
 
@@ -265,53 +262,38 @@ export default function CreatePanelOrderModal({
     };
 
     const handleAddItem = async (item: Item) => {
-        const existing = selectedItems.find((x) => x.base_item_id === item.id);
+        setConfiguringItem(item);
+        const cached = subcategoriesByItemId[item.id];
 
-        // if item already exists → increase quantity
-        if (existing) {
-            setSelectedItems((prev) =>
-                prev.map((x) =>
-                    x.base_item_id === item.id
-                        ? {
-                            ...x,
-                            qty: x.qty + 1,
-                            total_cents: x.unit_price_cents * (x.qty + 1),
-                        }
-                        : x
-                )
-            );
+        if (cached) {
+            setConfiguringSubcategories(cached);
+            setIsLoadingItemConfigurator(false);
             return;
         }
 
-        // otherwise create new item
+        setConfiguringSubcategories([]);
+        setIsLoadingItemConfigurator(true);
         const subcategories = await fetchSubcategoriesForItem(item.id);
-
-        const newId = crypto.randomUUID();
-
-        setSelectedItems((prev) => [
-            ...prev,
-            {
-                id: newId,
-                base_item_id: item.id,
-                category_id: item.category_id,
-                name: item.name,
-                qty: 1,
-                unit_price_cents: item.price_cents,
-                total_cents: item.price_cents,
-                observation: null,
-                selectedSubitems: [],
-            },
-        ]);
-
-        const hasSubitems = (subcategories || []).some(
-            (sc) => sc.subitems && sc.subitems.length > 0
-        );
-
-        setExpandedItems((prev) => ({
-            ...prev,
-            [newId]: hasSubitems,
-        }));
+        setConfiguringSubcategories(subcategories);
+        setIsLoadingItemConfigurator(false);
     };
+
+    const closeItemConfigurator = () => {
+        setConfiguringItem(null);
+        setConfiguringSubcategories([]);
+        setIsLoadingItemConfigurator(false);
+    };
+
+    const handleConfiguredItemAdd = (configuredItem: SelectedItem) => {
+        setSelectedItems((previous) => [...previous, configuredItem]);
+        closeItemConfigurator();
+    };
+
+    const handleModalClose = () => {
+        closeItemConfigurator();
+        onClose();
+    };
+
     const changeSelectedItemQty = (id: string, nextQty: number) => {
         if (nextQty <= 0) {
             setSelectedItems((prev) => prev.filter((x) => x.id !== id));
@@ -430,7 +412,9 @@ export default function CreatePanelOrderModal({
 
         return subcategories.some((sc) => {
             if (sc.min_select <= 0) return false;
-            const count = item.selectedSubitems.filter((sub) => sub.subcategoryId === sc.id).length;
+            const count = item.selectedSubitems
+                .filter((sub) => sub.subcategoryId === sc.id)
+                .reduce((sum, sub) => sum + (sub.quantity ?? 1), 0);
             return count < sc.min_select;
         });
     };
@@ -539,6 +523,7 @@ export default function CreatePanelOrderModal({
                     total_cents: item.total_cents,
                     observation: item.observation,
                     selectedSubitems: item.selectedSubitems,
+                    pizza: item.pizza,
                 })),
             };
 
@@ -580,12 +565,27 @@ export default function CreatePanelOrderModal({
     return (
         <HybridModal
             open={isOpen}
-            onClose={onClose}
+            onClose={handleModalClose}
             height={0.96}
             xPadding={false}
             contentClassName="!overflow-hidden !pb-0"
             className="md:!h-[88dvh] md:!max-h-[900px] md:!max-w-7xl md:!overflow-hidden"
         >
+            <div className="h-full min-h-0 overflow-x-hidden">
+            {configuringItem ? (
+                <ModalFlowStep key={`config-${configuringItem.id}`}>
+                    <PanelItemConfiguratorModal
+                    restaurantId={restaurantId}
+                    item={configuringItem}
+                    subcategories={configuringSubcategories}
+                    loading={isLoadingItemConfigurator}
+                    pizzaSettings={pizzaSettings}
+                    onClose={closeItemConfigurator}
+                    onAdd={handleConfiguredItemAdd}
+                    />
+                </ModalFlowStep>
+            ) : (
+                <ModalFlowStep key="order" reverse>
             <div className="panel-create-order flex h-full min-h-0 flex-col bg-white">
                 <div className="shrink-0 border-b border-gray-100 bg-white px-4 pb-4 pt-4 md:px-6 md:py-5">
                     <div className="flex items-center justify-between gap-4">
@@ -599,7 +599,7 @@ export default function CreatePanelOrderModal({
                         </div>
                         <LegacyModalClose><button
                             type="button"
-                            onClick={onClose}
+                            onClick={handleModalClose}
                             aria-label="Fechar"
                             className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
                         >
@@ -633,7 +633,7 @@ export default function CreatePanelOrderModal({
                     </div>
                 </div>
 
-                <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1.12fr)_minmax(390px,0.88fr)]">
+                <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-2">
                     <section
                         className={`${
                             mobileView === "menu" ? "flex" : "hidden"
@@ -723,12 +723,14 @@ export default function CreatePanelOrderModal({
                                                                 <div className="panel-quantity" onClick={event => event.stopPropagation()}>
                                                                     {selectedQty > 0 && <>
                                                                         <button type="button" aria-label={`Remover uma unidade de ${item.name}`} onClick={() => {
-                                                                            const selected = selectedItems.find(value => value.base_item_id === item.id);
+                                                                            const selected = [...selectedItems]
+                                                                                .reverse()
+                                                                                .find(value => value.base_item_id === item.id);
                                                                             if (selected) changeSelectedItemQty(selected.id, selected.qty - 1);
-                                                                        }}><FontAwesomeIcon icon={selectedQty === 1 ? icons.faTrash : icons.faMinus} /></button>
+                                                                        }} className="cursor-pointer"><FontAwesomeIcon icon={selectedQty === 1 ? icons.faTrash : icons.faMinus} /></button>
                                                                         <span aria-live="polite">{selectedQty}</span>
                                                                     </>}
-                                                                    <button type="button" aria-label={`Adicionar uma unidade de ${item.name}`} onClick={() => void handleAddItem(item)}><FontAwesomeIcon icon={icons.faPlus} /></button>
+                                                                    <button type="button" aria-label={`Adicionar uma unidade de ${item.name}`} onClick={() => void handleAddItem(item)} className="cursor-pointer"><FontAwesomeIcon icon={icons.faPlus} /></button>
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -940,13 +942,15 @@ export default function CreatePanelOrderModal({
                                                         )}
                                                     </div>
 
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => void toggleExpanded(item.id, item.base_item_id)}
-                                                        className="cursor-pointer whitespace-nowrap text-sm font-medium text-brand"
-                                                    >
-                                                        {isExpanded ? "Fechar" : "Opções"}
-                                                    </button>
+                                                    {!item.pizza && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => void toggleExpanded(item.id, item.base_item_id)}
+                                                            className="cursor-pointer whitespace-nowrap text-sm font-medium text-brand"
+                                                        >
+                                                            {isExpanded ? "Fechar" : "Opções"}
+                                                        </button>
+                                                    )}
                                                 </div>
 
                                                 <div className="mt-3 flex items-center justify-between gap-3 border-t border-gray-100 pt-3">
@@ -983,7 +987,7 @@ export default function CreatePanelOrderModal({
                                                     </div>
                                                 </div>
 
-                                                {isExpanded && (
+                                                {!item.pizza && isExpanded && (
                                                     <div className="mt-4 border-t border-gray-100 pt-4">
                                                         {isLoadingSubcategories ? (
                                                             <div className="mb-4 text-sm text-gray-500">
@@ -1118,6 +1122,9 @@ export default function CreatePanelOrderModal({
                     </section>
                 </div>
             </div>
+                </ModalFlowStep>
+            )}
+            </div>
             {toast && (
                 <Toast
                     message={toast.message}
@@ -1126,5 +1133,6 @@ export default function CreatePanelOrderModal({
                 />
             )}
         </HybridModal>
+
     );
 }
