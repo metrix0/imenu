@@ -16,6 +16,7 @@ import {
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import Loader from "@/components/ui/Loader";
+import Tabs from "@/components/ui/Tabs";
 import { useSalesStore } from "@/lib/stores/restaurant-owner/iaVendasStore";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 import AnalysisReport from "@/components/restaurant-owner/ia-vendas/AnalysisReport";
@@ -79,7 +80,8 @@ export default function SalesPage() {
     file = useRef<HTMLInputElement>(null),
     input = useRef<HTMLTextAreaElement>(null),
     chatTrigger = useRef<HTMLButtonElement>(null),
-    focusChat = useRef(false);
+    focusChat = useRef(false),
+    lastChatConversationId = useRef("");
   useEffect(() => {
     const media = window.matchMedia("(min-width: 1280px)");
     const update = () => {
@@ -143,6 +145,13 @@ export default function SalesPage() {
     setOpportunity(null);
     setAnalysisChatOpen(false);
   }, [sales.conversation_id]);
+  useEffect(() => {
+    const activeConversation = sales.conversations.find(
+      (c) => c.id === sales.conversation_id,
+    );
+    if (activeConversation?.kind === "chat")
+      lastChatConversationId.current = activeConversation.id;
+  }, [sales.conversation_id, sales.conversations]);
   useEffect(() => {
     if (!input.current) return;
     input.current.style.height = "auto";
@@ -242,6 +251,40 @@ export default function SalesPage() {
     setAnalysisChatOpen(false);
     requestAnimationFrame(() => chatTrigger.current?.focus());
   };
+  const changeMode = (mode: "Conversas" | "Análise IA") => {
+    if (disabled) return;
+    if (mode === "Análise IA") {
+      const analysisConversation = sales.conversations.find(
+        (c) => c.kind === "analysis",
+      );
+      if (
+        analysisConversation &&
+        analysisConversation.id !== sales.conversation_id
+      ) {
+        setSelectedReportId("");
+        setOpportunity(null);
+        void sales.load(restaurant, analysisConversation.id);
+      }
+      return;
+    }
+
+    const chatConversation =
+      sales.conversations.find(
+        (c) =>
+          c.kind === "chat" && c.id === lastChatConversationId.current,
+      ) || sales.conversations.find((c) => c.kind === "chat");
+
+    if (chatConversation) {
+      if (chatConversation.id !== sales.conversation_id) {
+        setSelectedReportId("");
+        setOpportunity(null);
+        void sales.load(restaurant, chatConversation.id);
+      }
+      return;
+    }
+
+    void sales.command("create_conversation");
+  };
   const conversationPicker = (
               <select
                 aria-label="Conversa"
@@ -254,11 +297,13 @@ export default function SalesPage() {
                 }}
                 className="max-w-[170px] cursor-pointer rounded-[8px] border border-[var(--panel-border)] bg-[var(--panel-surface)] p-2 text-sm outline-none focus-visible:border-[var(--panel-action)] disabled:cursor-not-allowed lg:hidden"
               >
-                {sales.conversations.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.title}
-                  </option>
-                ))}
+                {sales.conversations
+                  .filter((c) => c.kind === "chat")
+                  .map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.title}
+                    </option>
+                  ))}
               </select>
   );
   const messageList = (
@@ -567,36 +612,21 @@ export default function SalesPage() {
     </div>
   );
   return (
-    <div className="h-full max-h-full min-h-0 overflow-hidden">
-      <div className="flex h-full max-h-full min-h-0 overflow-hidden">
-        <aside className="hidden min-h-0 w-56 shrink-0 flex-col border-r border-[var(--panel-border)] bg-[var(--panel-background)] p-3 lg:flex">
-          <nav
-            aria-label="Análise de vendas"
-            className="border-b border-[var(--panel-border)] pb-3"
-          >
-            {sales.conversations
-              .filter((c) => c.kind === "analysis")
-              .map((c) => (
-                <button
-                  key={c.id}
-                  disabled={disabled}
-                  aria-current={
-                    c.id === sales.conversation_id ? "page" : undefined
-                  }
-                  onClick={() => {
-                    setSelectedReportId("");
-                    setOpportunity(null);
-                    void sales.load(restaurant, c.id);
-                  }}
-                  className={`flex w-full cursor-pointer items-center gap-2.5 rounded-[8px] px-3 py-2.5 text-left text-sm font-medium disabled:cursor-not-allowed ${c.id === sales.conversation_id ? "bg-[var(--panel-tint)] text-[var(--panel-accent-text)]" : "text-gray-700 hover:bg-[var(--panel-tint)] hover:text-[var(--panel-accent-text)]"}`}
-                >
-                  <Sparkles size={16} className="shrink-0" />
-                  <span className="truncate">Análise de vendas</span>
-                </button>
-              ))}
-          </nav>
-
-          <div className="mt-3 flex min-h-0 flex-1 flex-col">
+    <div className="flex h-full max-h-full min-h-0 flex-col overflow-hidden">
+      <header className="shrink-0 bg-[var(--panel-surface)] px-4 pt-3 md:px-6">
+        <h1 className="text-base font-semibold text-[var(--panel-text)]">
+          IA Vendas
+        </h1>
+        <Tabs
+          tabs={["Conversas", "Análise IA"]}
+          active={isAnalysis ? "Análise IA" : "Conversas"}
+          onChange={changeMode}
+          className={`mt-1 ${disabled ? "pointer-events-none opacity-60" : ""}`}
+        />
+      </header>
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        {!isAnalysis && (
+          <aside className="hidden min-h-0 w-56 shrink-0 flex-col border-r border-[var(--panel-border)] bg-[var(--panel-background)] p-3 lg:flex">
             <Button
               variant="secondary"
               disabled={disabled}
@@ -661,16 +691,12 @@ export default function SalesPage() {
                   </div>
                 ))}
             </nav>
-          </div>
-        </aside>
-        <section className="flex h-full max-h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          </aside>
+        )}
+        <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           {isAnalysis ? (
             <div className="flex min-h-0 flex-1 overflow-hidden" data-analysis-workspace>
               <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden" inert={analysisChatOpen && !wideAnalysis}>
-                <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[var(--panel-border)] bg-[var(--panel-surface)] px-4 py-2 lg:hidden">
-                  {conversationPicker}
-                  <Button variant="secondary" aria-label="Nova conversa" disabled={disabled} onClick={() => void sales.command("create_conversation")}><Plus size={16} /></Button>
-                </div>
                 <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain bg-[var(--panel-background)] p-4 md:p-6" aria-label="Relatório de análise">
                   {!wideAnalysis && !analysisChatOpen && notice}
                   <AnalysisReport
