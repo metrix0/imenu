@@ -863,6 +863,9 @@ export default function RoboWhatsAppPage() {
                                         <li>Toque em <b>Conectar um aparelho</b>.</li>
                                         <li>Aponte a câmera para este QR Code.</li>
                                     </ol>
+                                    <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                                        <b>Importante:</b> depois de conectar, evite responder manualmente pelo celular. Quando você envia uma mensagem, o robô pausa essa conversa por 30 minutos; cada nova mensagem sua reinicia esse prazo.
+                                    </div>
                                     <p className="mt-4 text-xs text-gray-500">
                                         O código muda automaticamente quando expira. Esta tela é atualizada em tempo real, sem precisar recarregar a página.
                                     </p>
