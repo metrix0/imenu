@@ -16,6 +16,7 @@ import Modal from "@/components/ui/Modal";
 import Loader from "@/components/ui/Loader";
 import { useSalesStore } from "@/lib/stores/restaurant-owner/iaVendasStore";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
+import AnalysisReport from "@/components/restaurant-owner/ia-vendas/AnalysisReport";
 import SalesMarkdown from "@/components/restaurant-owner/ia-vendas/SalesMarkdown";
 import {
   ActionCard,
@@ -45,9 +46,7 @@ function splitMessageParts(content: string): MessagePart[] {
         return {
           type: "card",
           cardType: card[1].toLowerCase() as
-            | "benchmark"
-            | "measurement"
-            | "potential",
+            "benchmark" | "measurement" | "potential",
         };
       return { type: "text", content: part };
     });
@@ -56,6 +55,8 @@ function splitMessageParts(content: string): MessagePart[] {
 export default function SalesPage() {
   const sales = useSalesStore(),
     restaurant = useCreationStore((s) => s.restaurantId),
+    [selectedReportId, setSelectedReportId] = useState(""),
+    [opportunity, setOpportunity] = useState<Data | null>(null),
     [text, setText] = useState(""),
     [attachments, setAttachments] = useState<Data[]>([]),
     [uploading, setUploading] = useState(false),
@@ -81,8 +82,17 @@ export default function SalesPage() {
     const appended = sameConversation && sales.messages.length > previous.count;
     const last = sales.messages[sales.messages.length - 1];
 
-    if (appended && last?.role === "assistant") {
-      lastMessage.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (
+      sales.conversations.find((c) => c.id === sales.conversation_id)?.kind ===
+      "analysis"
+    ) {
+      if (appended && last?.report_id)
+        end.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    } else if (appended && last?.role === "assistant") {
+      lastMessage.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
     } else if (!sameConversation || appended) {
       end.current?.scrollIntoView({ behavior: "smooth", block: "end" });
     }
@@ -96,6 +106,8 @@ export default function SalesPage() {
     setText("");
     setAttachments([]);
     setDeep(false);
+    setSelectedReportId("");
+    setOpportunity(null);
   }, [sales.conversation_id]);
   useEffect(() => {
     if (!input.current) return;
@@ -116,14 +128,38 @@ export default function SalesPage() {
   const conversation = sales.conversations.find(
       (c) => c.id === sales.conversation_id,
     ),
-    disabled = sales.busy || sales.acting || !!sales.running;
+    disabled = sales.busy || sales.acting || !!sales.running,
+    isAnalysis = conversation?.kind === "analysis",
+    selectedReport =
+      sales.analyses.find((a) => a.id === selectedReportId) ||
+      sales.analyses[0],
+    threadMessages = isAnalysis
+      ? sales.messages.filter(
+          (m) =>
+            (!m.report_id || m.report_id === selectedReport?.id) &&
+            (!opportunity || m.opportunity_id === opportunity.id) &&
+            (!selectedReport ||
+              m.report_id ||
+              Date.parse(m.created_at) >
+                Date.parse(
+                  selectedReport.finished_at || selectedReport.created_at,
+                )),
+        )
+      : sales.messages;
   async function send() {
     if (!text.trim() || disabled || uploading) return;
     const draft = text.trim();
     setText("");
     setAttachments([]);
     setDeep(false);
-    await sales.send(draft, attachments, deep);
+    await sales.send(
+      draft,
+      attachments,
+      deep,
+      isAnalysis && selectedReport && !deep
+        ? { report_id: selectedReport.id, opportunity_id: opportunity?.id }
+        : {},
+    );
   }
   async function upload(files: FileList | null) {
     if (!files) return;
@@ -144,6 +180,8 @@ export default function SalesPage() {
   const onAction = (command: string, ids: string[]) =>
     void sales.command(command, { ids });
   const newAnalysis = () => {
+    setOpportunity(null);
+    setSelectedReportId("");
     setDeep(true);
     setText("Faça uma análise das oportunidades de vendas do meu restaurante.");
     input.current?.focus();
@@ -171,7 +209,9 @@ export default function SalesPage() {
               >
                 <button
                   disabled={disabled}
-                  aria-current={c.id === sales.conversation_id ? "page" : undefined}
+                  aria-current={
+                    c.id === sales.conversation_id ? "page" : undefined
+                  }
                   onClick={() => void sales.load(restaurant, c.id)}
                   className="min-w-0 flex-1 cursor-pointer truncate p-3 text-left text-sm disabled:cursor-not-allowed"
                 >
@@ -260,7 +300,7 @@ export default function SalesPage() {
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 md:px-8">
             {sales.loading && !sales.messages.length ? <Loader /> : null}
-            {sales.has_more && (
+            {!isAnalysis && sales.has_more && (
               <div className="mb-5 text-center">
                 <Button
                   variant="secondary"
@@ -277,7 +317,7 @@ export default function SalesPage() {
                 </Button>
               </div>
             )}
-            {!sales.messages.length && !sales.loading && (
+            {!isAnalysis && !sales.messages.length && !sales.loading && (
               <div className="mx-auto flex max-w-lg flex-col items-center py-10 text-center">
                 <div className="mb-5 rounded-[10px] bg-[var(--panel-tint)] p-4 text-[var(--panel-accent-text)]">
                   <Sparkles size={32} />
@@ -317,8 +357,72 @@ export default function SalesPage() {
                 </div>
               </div>
             )}
+            {isAnalysis && (
+              <AnalysisReport
+                analyses={sales.analyses}
+                selected={selectedReport}
+                actions={sales.actions}
+                refs={sales.references}
+                disabled={disabled}
+                availableAt={sales.analysis_available_at}
+                onSelect={(id) => {
+                  setSelectedReportId(id);
+                  setOpportunity(null);
+                  setText("");
+                }}
+                onAnalyze={newAnalysis}
+                onAction={onAction}
+                onBatch={(ids) => {
+                  setBatchIds(ids);
+                  setModal("batch");
+                }}
+                onDiscuss={(item) => {
+                  setOpportunity(item);
+                  setDeep(false);
+                  end.current?.scrollIntoView({
+                    behavior: "smooth",
+                    block: "end",
+                  });
+                  input.current?.focus();
+                }}
+              />
+            )}
             <div className="mx-auto max-w-3xl space-y-8">
-              {sales.messages.map((m) => {
+              {isAnalysis && (
+                <div className="mt-8 border-t border-[var(--panel-border)] pt-5">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h3 className="text-sm font-medium">
+                      {opportunity
+                        ? opportunity.title
+                        : "Converse sobre esta análise"}
+                    </h3>
+                    {opportunity && (
+                      <Button
+                        variant="secondary"
+                        onClick={() => setOpportunity(null)}
+                      >
+                        Voltar ao relatório
+                      </Button>
+                    )}
+                  </div>
+                  {sales.has_more && (
+                    <Button
+                      variant="secondary"
+                      disabled={sales.loading}
+                      onClick={() =>
+                        void sales.load(
+                          restaurant,
+                          sales.conversation_id || undefined,
+                          true,
+                        )
+                      }
+                    >
+                      Conversas anteriores
+                    </Button>
+                  )}
+                </div>
+              )}
+              {threadMessages.map((m) => {
                 const parts =
                     m.role === "assistant"
                       ? splitMessageParts(m.content)
@@ -329,7 +433,8 @@ export default function SalesPage() {
                     .map((card) => card.id)
                     .filter((id) =>
                       sales.actions.some(
-                        (action) => action.id === id && action.status === "pending",
+                        (action) =>
+                          action.id === id && action.status === "pending",
                       ),
                     );
                 return (
@@ -365,7 +470,10 @@ export default function SalesPage() {
                     {parts.map((part, i) => {
                       if (part.type === "text")
                         return (
-                          <SalesMarkdown key={`text-${i}`} content={part.content} />
+                              <SalesMarkdown
+                                key={`text-${i}`}
+                                content={part.content}
+                              />
                         );
                       if (part.type === "action") {
                         const actionCard = m.cards.find(
@@ -389,7 +497,9 @@ export default function SalesPage() {
                         );
                       }
                       const marker = `card:${part.cardType}`,
-                        card = m.cards.find((c) => c.type === part.cardType);
+                            card = m.cards.find(
+                              (c) => c.type === part.cardType,
+                            );
                       if (!card || placed.has(marker)) return null;
                       placed.add(marker);
                       return <DataCard key={marker} card={card} />;
@@ -485,6 +595,18 @@ export default function SalesPage() {
           )}
           <div className="bg-[var(--panel-surface)] px-4 pt-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] md:px-8 md:pb-4">
             <div className="mx-auto max-w-3xl">
+              {isAnalysis && opportunity && (
+                <div className="mb-2 flex items-center justify-between gap-2 rounded-[8px] bg-[var(--panel-tint)] px-3 py-2 text-xs text-[var(--panel-accent-text)]">
+                  <span className="truncate">Sobre: {opportunity.title}</span>
+                  <button
+                    aria-label="Remover contexto da oportunidade"
+                    onClick={() => setOpportunity(null)}
+                    className="p-1"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              )}
               {deep && (
                 <div className="mb-2 flex items-center justify-between rounded-[8px] bg-[var(--panel-tint)] px-3 py-2 text-xs text-[var(--panel-accent-text)]">
                   <span>
@@ -557,7 +679,11 @@ export default function SalesPage() {
                         void send();
                       }
                     }}
-                    placeholder="O que podemos melhorar no seu restaurante?"
+                    placeholder={
+                      isAnalysis
+                        ? "Pergunte sobre esta análise…"
+                        : "O que podemos melhorar no seu restaurante?"
+                    }
                     style={{ outline: "none" }}
                     className="max-h-40 min-h-10 min-w-0 flex-1 resize-none overflow-y-auto bg-transparent px-2 py-2.5 text-sm"
                   />

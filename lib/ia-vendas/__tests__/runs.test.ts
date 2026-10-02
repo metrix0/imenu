@@ -68,3 +68,29 @@ test("two completed calendar-month analyses cap new analysis", async () => {
     beginRun("restaurant", "conversation", "run", "analysis"),
   ).rejects.toThrow("duas análises");
 });
+
+test("deep analysis ignores monthly token totals while chat keeps its quota", async () => {
+  c.query.mockImplementation(async (sql: string) => ({
+    rows: sql.includes("sum(greatest")
+      ? [{ input: 9000000, output: 900000, recent: 0 }]
+      : [],
+    rowCount: 0,
+  }));
+  await expect(
+    beginRun("restaurant", "conversation", "run", "analysis"),
+  ).resolves.toBeNull();
+  await expect(
+    beginRun("restaurant", "conversation", "chat-run", "chat"),
+  ).rejects.toThrow("capacidade");
+});
+test("analysis still rejects request storms regardless of removed monthly quotas", async () => {
+  c.query.mockImplementation(async (sql: string) => ({
+    rows: sql.includes("sum(greatest")
+      ? [{ input: 0, output: 0, recent: 5 }]
+      : [],
+    rowCount: 0,
+  }));
+  await expect(
+    beginRun("restaurant", "conversation", "run", "analysis"),
+  ).rejects.toThrow("capacidade");
+});

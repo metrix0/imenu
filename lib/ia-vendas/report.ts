@@ -1,0 +1,193 @@
+import { SalesError, type Data } from "./types";
+
+export const DIMENSIONS = [
+  "ordering_visibility",
+  "images",
+  "names_spelling",
+  "descriptions",
+  "pricing",
+  "duplicates",
+  "upsells_combos",
+  "promotions",
+  "loyalty",
+  "configuration",
+  "sales",
+  "traffic",
+  "benchmark",
+  "past_actions",
+] as const;
+const string = { type: "string" };
+const array = (items: Data) => ({ type: "array", items });
+const object = (properties: Data) => ({
+  type: "object",
+  properties,
+  required: Object.keys(properties),
+  additionalProperties: false,
+});
+const level = { type: "string", enum: ["high", "medium", "low"] };
+const inspection = object({
+  status: { type: "string", enum: ["inspected", "unavailable"] },
+  note: string,
+});
+const evidence = object({
+  source: string,
+  detail: string,
+  entity_ids: array(string),
+});
+export const REPORT_FORMAT = {
+  type: "json_schema" as const,
+  name: "sales_analysis",
+  strict: true,
+  schema: object({
+    headline: string,
+    summary: string,
+    inspection: object(
+      Object.fromEntries(DIMENSIONS.map((d) => [d, inspection])),
+    ),
+    opportunities: array(
+      object({
+        title: string,
+        explanation: string,
+        impact: level,
+        confidence: level,
+        effort: level,
+        risk: level,
+        evidence: array(evidence),
+        action_ids: array(string),
+      }),
+    ),
+    review_items: array(
+      object({
+        title: string,
+        explanation: string,
+        evidence: array(evidence),
+        action_ids: array(string),
+      }),
+    ),
+  }),
+};
+export const REPORT_INSTRUCTIONS = `
+Para análise profunda, substitua o formato reply/summary, os marcadores de widgets e a seção final Markdown pelo schema sales_analysis.
+Inspecione CADA dimensão obrigatória e TODOS os registros fornecidos, não apenas os produtos mais vendidos. Registre inspection para todas as dimensões: inspected quando realmente avaliou; unavailable se faltam dados (explique). Imagens: avalie presença e adequação com os dados disponíveis; não afirme ter visto fotos que não foram abertas.
+Inspeção não é recomendação. opportunities contém somente achados de alta alavancagem, priorizados por impacto e confiança, depois menor esforço e risco. Inclua evidências verificáveis e os IDs exatos de propose_action/propose_images. Não invente IDs nem números. Reutilize propostas válidas pendentes quando apropriado e considere ações aplicadas, rejeitadas, desfeitas e resultados anteriores. review_items guarda apenas questões relevantes que dependem de decisão do dono. Não registre pensamentos nem correções cosméticas deliberadamente descartadas.
+Todos os dados comerciais já foram carregados integralmente em entities: não é necessário paginar. Measurement contém as comparações reais antes/depois. Prior_analyses contém relatórios estruturados anteriores, não uma conversa a repetir. Headline e summary devem ser curtos. Cada explicação tem no máximo duas frases. Projeção monetária vem somente de estimate_revenue; o servidor preservará os snapshots de cobertura, período, comparação, medição e potencial.
+`;
+
+function validate(value: any, schema: Data): boolean {
+  if (schema.type === "string")
+    return (
+      typeof value === "string" && (!schema.enum || schema.enum.includes(value))
+    );
+  if (schema.type === "array")
+    return (
+      Array.isArray(value) && value.every((v) => validate(v, schema.items))
+    );
+  return (
+    !!value &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    Object.keys(value).every((k) => k in schema.properties) &&
+    schema.required.every((k: string) =>
+      validate(value[k], schema.properties[k]),
+    )
+  );
+}
+export function makeReport(
+  ctx: Data,
+  cards: Data[],
+  actions: Data[],
+  run: string,
+  value?: Data,
+): Data {
+  if (value && !validate(value, REPORT_FORMAT.schema))
+    throw new SalesError("O formato da análise não foi concluído.");
+  const allowed = new Set(actions.map((a) => a.id));
+  const linked = new Set<string>();
+  const link = (entry: Data, index: number) => ({
+    ...entry,
+    id: `${run}:${index}`,
+    action_ids: entry.action_ids.filter((id: string) => {
+      if (!allowed.has(id) || linked.has(id)) return false;
+      linked.add(id);
+      return true;
+    }),
+  });
+  const priority: Record<string, number> = { high: 3, medium: 2, low: 1 };
+  const opportunities = (value?.opportunities || [])
+    .map(link)
+    .sort(
+      (a: Data, b: Data) =>
+        priority[b.impact] - priority[a.impact] ||
+        priority[b.confidence] - priority[a.confidence] ||
+        priority[a.effort] - priority[b.effort] ||
+        priority[a.risk] - priority[b.risk],
+    );
+  const reviewItems = (value?.review_items || []).map((v: Data, i: number) =>
+    link(v, opportunities.length + i),
+  );
+  // Preserve every proposal made in this run even if synthesis was interrupted or omitted its ID.
+  for (const a of actions.filter(
+    (a) => a.run_id === run && !linked.has(a.id),
+  )) {
+    reviewItems.push({
+      id: `${run}:action:${a.id}`,
+      title: a.title,
+      explanation: a.reason,
+      evidence: [],
+      action_ids: [a.id],
+    });
+  }
+  const inspected = value?.inspection
+    ? { ...value.inspection }
+    : Object.fromEntries(
+        DIMENSIONS.map((d) => [
+          d,
+          {
+            status: "not_inspected",
+            note: "Síntese não concluída; inspeção não confirmada.",
+          },
+        ]),
+      );
+  if (value) {
+    for (const [dimension, source] of [
+      ["traffic", ctx.traffic],
+      ["benchmark", ctx.peers],
+      ["past_actions", ctx.measurement],
+    ] as const) {
+      if (source?.available === false)
+        inspected[dimension] = {
+          status: "unavailable",
+          note: source.reason || "Dados indisponíveis nesta análise.",
+        };
+    }
+  }
+  const snapshot = (type: string, fallback: Data) =>
+    cards.filter((c) => c.type === type).at(-1) || fallback;
+  return {
+    version: 1,
+    status: value ? "complete" : "partial",
+    headline: value?.headline || "Análise interrompida",
+    summary:
+      value?.summary ||
+      "O relatório não foi concluído. As propostas preparadas foram preservadas para revisão. Você pode tentar uma nova análise.",
+    inspection: inspected,
+    opportunities,
+    review_items: reviewItems,
+    coverage: {
+      ...ctx.coverage,
+      dimensions: Object.fromEntries(
+        DIMENSIONS.map((d) => [d, inspected[d].status]),
+      ),
+    },
+    benchmark_snapshot: snapshot("benchmark", { available: false }),
+    measurement_snapshot: snapshot("measurement", { available: false }),
+    potential_estimate: snapshot("potential", {
+      available: false,
+      reason: "Não foi calculada uma projeção nesta análise.",
+    }),
+    traffic_snapshot: ctx.traffic || { available: false },
+    sales_snapshot: ctx.sales || null,
+    period: { start: ctx.sales?.start || null, end: ctx.sales?.end || null },
+    generated_at: new Date().toISOString(),
+  };
+}

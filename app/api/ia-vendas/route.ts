@@ -28,35 +28,48 @@ export async function GET(request: Request) {
     const id = url.searchParams.get("conversation_id") || conversations[0].id;
     if (!isUuid(id) || !conversations.some((c) => c.id === id))
       throw new SalesError("Conversa não encontrada.", 404);
+    const analysisConversation =
+      conversations.find((c) => c.id === id)?.kind === "analysis";
     const before = url.searchParams.get("before");
     if (before && !Number.isFinite(Date.parse(before)))
       throw new SalesError("Cursor inválido.");
-    const [messages, actions, memory, last, running, refs] = await Promise.all([
-      query(
-        "SELECT * FROM public.ia_vendas_messages WHERE restaurant_id=$1 AND conversation_id=$2 AND ($3::timestamptz IS NULL OR created_at<$3) ORDER BY created_at DESC LIMIT 51",
-        [restaurant, id, before],
-      ),
-      query<Action>(
-        "SELECT * FROM public.ia_vendas_actions WHERE restaurant_id=$1 AND conversation_id=$2 ORDER BY created_at DESC LIMIT 300",
-        [restaurant, id],
-      ),
-      query(
-        "SELECT instructions FROM public.ia_vendas_memory WHERE restaurant_id=$1",
-        [restaurant],
-      ),
-      query(
-        "SELECT finished_at FROM public.ia_vendas_runs WHERE restaurant_id=$1 AND kind='analysis' AND status='completed' ORDER BY finished_at DESC LIMIT 1",
-        [restaurant],
-      ),
-      query(
-        "SELECT id,conversation_id,created_at FROM public.ia_vendas_runs WHERE restaurant_id=$1 AND status='running' AND created_at>now()-interval '6 minutes'",
-        [restaurant],
-      ),
-      query(
-        "SELECT id,name FROM public.items WHERE restaurant_id=$1 UNION ALL SELECT id,name FROM public.categories WHERE restaurant_id=$1 UNION ALL SELECT g.id,g.name FROM public.item_subcategories g JOIN public.items i ON i.id=g.item_id WHERE i.restaurant_id=$1 UNION ALL SELECT s.id,s.name FROM public.subitems s JOIN public.item_subcategories g ON g.id=s.item_subcategory_id JOIN public.items i ON i.id=g.item_id WHERE i.restaurant_id=$1 UNION ALL SELECT u.id,i.name FROM public.upsell u JOIN public.items i ON i.id=u.item_id WHERE u.restaurant_id=$1 UNION ALL SELECT p.id,i.name FROM public.promotions p JOIN public.items i ON i.id=p.item_id WHERE p.restaurant_id=$1",
-        [restaurant],
-      ),
-    ]);
+    const [messages, actions, memory, last, running, refs, analyses] =
+      await Promise.all([
+        query(
+          analysisConversation
+            ? "SELECT m.*, (SELECT r.result->>'report_id' FROM public.ia_vendas_runs r WHERE r.restaurant_id=$1 AND (r.result->>'message_id'=m.id::text OR r.result->>'user_message_id'=m.id::text) LIMIT 1) report_id, (SELECT r.result->>'opportunity_id' FROM public.ia_vendas_runs r WHERE r.restaurant_id=$1 AND (r.result->>'message_id'=m.id::text OR r.result->>'user_message_id'=m.id::text) LIMIT 1) opportunity_id FROM public.ia_vendas_messages m WHERE restaurant_id=$1 AND conversation_id=$2 AND ($3::timestamptz IS NULL OR created_at<$3) AND ($4::boolean=false OR NOT EXISTS(SELECT 1 FROM public.ia_vendas_runs r WHERE r.restaurant_id=$1 AND r.kind='analysis' AND (r.result->>'message_id'=m.id::text OR r.result->>'user_message_id'=m.id::text))) ORDER BY created_at DESC LIMIT 51"
+            : "SELECT * FROM public.ia_vendas_messages WHERE restaurant_id=$1 AND conversation_id=$2 AND ($3::timestamptz IS NULL OR created_at<$3) ORDER BY created_at DESC LIMIT 51",
+          analysisConversation
+            ? [restaurant, id, before, true]
+            : [restaurant, id, before],
+        ),
+        query<Action>(
+          `SELECT * FROM public.ia_vendas_actions WHERE restaurant_id=$1 AND conversation_id=$2 ORDER BY created_at DESC ${analysisConversation ? "" : "LIMIT 300"}`,
+          [restaurant, id],
+        ),
+        query(
+          "SELECT instructions FROM public.ia_vendas_memory WHERE restaurant_id=$1",
+          [restaurant],
+        ),
+        query(
+          "SELECT finished_at FROM public.ia_vendas_runs WHERE restaurant_id=$1 AND kind='analysis' AND status='completed' ORDER BY finished_at DESC LIMIT 1",
+          [restaurant],
+        ),
+        query(
+          "SELECT id,conversation_id,created_at FROM public.ia_vendas_runs WHERE restaurant_id=$1 AND status='running' AND created_at>now()-interval '6 minutes'",
+          [restaurant],
+        ),
+        query(
+          "SELECT id,name FROM public.items WHERE restaurant_id=$1 UNION ALL SELECT id,name FROM public.categories WHERE restaurant_id=$1 UNION ALL SELECT g.id,g.name FROM public.item_subcategories g JOIN public.items i ON i.id=g.item_id WHERE i.restaurant_id=$1 UNION ALL SELECT s.id,s.name FROM public.subitems s JOIN public.item_subcategories g ON g.id=s.item_subcategory_id JOIN public.items i ON i.id=g.item_id WHERE i.restaurant_id=$1 UNION ALL SELECT u.id,i.name FROM public.upsell u JOIN public.items i ON i.id=u.item_id WHERE u.restaurant_id=$1 UNION ALL SELECT p.id,i.name FROM public.promotions p JOIN public.items i ON i.id=p.item_id WHERE p.restaurant_id=$1",
+          [restaurant],
+        ),
+        analysisConversation
+          ? query(
+              "SELECT id,status,result,created_at,finished_at FROM public.ia_vendas_runs WHERE restaurant_id=$1 AND conversation_id=$2 AND kind='analysis' AND result IS NOT NULL ORDER BY created_at DESC",
+              [restaurant, id],
+            )
+          : Promise.resolve({ rows: [] }),
+      ]);
     const hydrated = await Promise.all(
       messages.rows
         .slice(0, 50)
@@ -91,6 +104,7 @@ export async function GET(request: Request) {
         conversation_id: id,
         conversations,
         messages: hydrated,
+        analyses: analysisConversation ? analyses.rows : [],
         actions: hydratedActions,
         instructions: memory.rows[0]?.instructions || "",
         analysis_available_at: last.rows[0]

@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - preview
+      - preview-iavendas
 
 concurrency:
   group: validate-build-${{ github.ref }}
@@ -37,6 +38,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: IA Vendas regression tests
+        run: npx jest lib/ia-vendas/__tests__ --runInBand
 
       - name: Typecheck
         run: npx tsc --noEmit

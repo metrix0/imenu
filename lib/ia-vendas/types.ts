@@ -12,6 +12,7 @@ export type Action = {
   id: string;
   restaurant_id: string;
   conversation_id: string;
+  run_id?: string;
   message_id?: string;
   title: string;
   reason: string;
@@ -29,6 +30,8 @@ export type Action = {
   baseline?: Data;
 };
 export type Message = {
+  report_id?: string;
+  opportunity_id?: string;
   id: string;
   role: string;
   content: string;

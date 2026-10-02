@@ -1,6 +1,7 @@
 import type { PoolClient } from "pg";
-import { query } from "@/lib/database/sql";
+import { query, withTransaction } from "@/lib/database/sql";
 import { createSupabaseServerClient } from "@/lib/database/supabaseServerClient";
+import { FIELDS } from "./fields";
 import { fields, key, scope } from "./catalog";
 import { SalesError, type Data } from "./types";
 export function imageUrl(path: string | null, bucket = "menu-images") {
@@ -10,7 +11,13 @@ export function imageUrl(path: string | null, bucket = "menu-images") {
   return createSupabaseServerClient().storage.from(bucket).getPublicUrl(path)
     .data.publicUrl;
 }
-export async function readData(restaurant: string, entity: string, offset = 0) {
+export async function readData(
+  restaurant: string,
+  entity: string,
+  offset = 0,
+  complete = false,
+  client?: PoolClient,
+) {
   const cols = [...new Set([key(entity), ...Object.keys(fields(entity))])],
     order =
       {
@@ -23,19 +30,22 @@ export async function readData(restaurant: string, entity: string, offset = 0) {
       }[entity] || `t.${key(entity)}`;
   if (!Number.isInteger(offset) || offset < 0 || offset > 10000)
     throw new SalesError("Página inválida.");
+  const execute = client
+    ? (sql: string, params: any[]) => client.query(sql, params)
+    : query;
   const rows = (
-    await query(
-      `SELECT ${cols.map((k) => `t.${k}`).join(",")} FROM public.${entity} t WHERE ${scope(entity)} ORDER BY ${order} LIMIT 51 OFFSET $2`,
-      [restaurant, offset],
+    await execute(
+      `SELECT ${cols.map((k) => `t.${k}`).join(",")} FROM public.${entity} t WHERE ${scope(entity)} ORDER BY ${order} ${complete ? "" : "LIMIT 51 OFFSET $2"}`,
+      complete ? [restaurant] : [restaurant, offset],
     )
   ).rows;
   return {
     rows: rows
-      .slice(0, 50)
+      .slice(0, complete ? rows.length : 50)
       .map((r) =>
         entity === "items" ? { ...r, image_url: imageUrl(r.image_path) } : r,
       ),
-    has_more: rows.length > 50,
+    has_more: !complete && rows.length > 50,
     next_offset: offset + 50,
   };
 }
@@ -48,6 +58,7 @@ export async function metrics(
   start: string,
   end: string,
   client?: PoolClient,
+  complete = false,
 ): Promise<Data> {
   const days = (Date.parse(end) - Date.parse(start)) / 86400000;
   if (!Number.isFinite(days) || days <= 0 || days > 366)
@@ -72,7 +83,7 @@ export async function metrics(
     (SELECT count(*)::int FROM customers WHERE n>=2) repeat_customers,
     (SELECT count(*)::int FROM selected WHERE table_id IS NOT NULL) table_orders,
     (SELECT count(*)::int FROM selected WHERE table_id IS NULL AND lower(coalesce(is_delivery,'')) IN ('entrega','delivery','true')) delivery_orders,
-    (SELECT coalesce(jsonb_agg(p),'[]'::jsonb) FROM (SELECT item_id,max(name) name,sum(quantity)::int units,count(DISTINCT order_id)::int orders,sum(total_cents)::float gross_cents,count(DISTINCT order_id) FILTER(WHERE order_id IN (SELECT order_id FROM lines WHERE beverage))::int with_beverage FROM lines GROUP BY item_id ORDER BY sum(total_cents) DESC LIMIT 100) p) products`,
+    (SELECT coalesce(jsonb_agg(p),'[]'::jsonb) FROM (SELECT item_id,max(name) name,sum(quantity)::int units,count(DISTINCT order_id)::int orders,sum(total_cents)::float gross_cents,count(DISTINCT order_id) FILTER(WHERE order_id IN (SELECT order_id FROM lines WHERE beverage))::int with_beverage FROM lines GROUP BY item_id ORDER BY sum(total_cents) DESC ${complete ? "" : "LIMIT 100"}) p) products`,
     [restaurant, start, end],
   );
   const r = result.rows[0];
@@ -92,7 +103,8 @@ export async function metrics(
       "Pedidos concluídos; receita líquida de entrega após descontos. Produtos: receita bruta. Bebidas/combos classificados por nomes; conferir ambiguidades. Retenção entre clientes identificados no período.",
   };
 }
-export async function context(restaurant: string) {
+export async function context(restaurant: string, deep = false) {
+  if (deep) return analysisContext(restaurant);
   const w = window28();
   const [r, items, categories, sales, memory, actions, last] =
     await Promise.all([
@@ -154,4 +166,48 @@ export async function measure(restaurant: string) {
     results,
     note: "Comparação observacional em janelas iguais. Não é teste A/B nem atribuição causal; tráfego, sazonalidade e mudanças simultâneas influenciam os resultados.",
   };
+}
+
+/** One consistent, tenant-scoped snapshot; no model-driven pagination or row caps. */
+async function analysisContext(restaurant: string): Promise<Data> {
+  return withTransaction(async (c) => {
+    await c.query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY");
+    const entities: Data = {},
+      coverage: Data = {};
+    for (const entity of Object.keys(FIELDS)) {
+      const data = await readData(restaurant, entity, 0, true, c);
+      entities[entity] = data;
+      coverage[entity] = {
+        loaded: data.rows.length,
+        total: data.rows.length,
+        complete: true,
+      };
+    }
+    const w = window28();
+    const sales = await metrics(restaurant, w.start, w.end, c, true);
+    const memory = await c.query(
+      "SELECT instructions FROM public.ia_vendas_memory WHERE restaurant_id=$1",
+      [restaurant],
+    );
+    const actions = await c.query(
+      "SELECT id,title,reason,status,operations,applied_at,undone_at FROM public.ia_vendas_actions WHERE restaurant_id=$1 ORDER BY created_at DESC",
+      [restaurant],
+    );
+    const prior = await c.query(
+      "SELECT id,result->'report' report,finished_at FROM public.ia_vendas_runs WHERE restaurant_id=$1 AND kind='analysis' AND result->'report' IS NOT NULL ORDER BY created_at DESC LIMIT 3",
+      [restaurant],
+    );
+    return {
+      restaurant: entities.restaurants.rows[0],
+      items: entities.items,
+      categories: entities.categories,
+      entities,
+      coverage,
+      sales,
+      instructions: memory.rows[0]?.instructions || "",
+      actions: actions.rows,
+      prior_analyses: prior.rows,
+      last_analysis: null,
+    };
+  });
 }

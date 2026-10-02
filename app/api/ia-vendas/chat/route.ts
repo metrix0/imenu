@@ -17,7 +17,10 @@ export async function POST(request: Request) {
       b.text.length > 8000 ||
       !Array.isArray(b.attachments) ||
       b.attachments.length > 3 ||
-      !b.attachments.every(isUuid)
+      !b.attachments.every(isUuid) ||
+      (b.report_id != null && !isUuid(b.report_id)) ||
+      (b.opportunity_id != null &&
+        (typeof b.opportunity_id !== "string" || b.opportunity_id.length > 120))
     )
       throw new SalesError("Mensagem inválida.");
     const encoder = new TextEncoder();
@@ -45,6 +48,8 @@ export async function POST(request: Request) {
           text: b.text.trim(),
           attachments: b.attachments,
           deep: b.deep === true,
+          report_id: b.report_id,
+          opportunity_id: b.opportunity_id,
           send,
         }).finally(() => {
           clearInterval(heartbeat);

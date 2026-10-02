@@ -1,3 +1,4 @@
+import type { PoolClient } from "pg";
 import { query, withTransaction } from "@/lib/database/sql";
 import { LIMITS, MODELS } from "./config";
 import { SalesError } from "./types";
@@ -67,10 +68,9 @@ export async function beginRun(
       kind === "analysis" ? LIMITS.analysisOutput : LIMITS.chatOutput;
     if (
       usage.recent >= 5 ||
-      usage.input + (kind === "image" ? 0 : LIMITS.runInput) >
-        (kind === "analysis" ? 350000 : 1500000) ||
-      usage.output + (kind === "image" ? 0 : output) >
-        (kind === "analysis" ? 36000 : 120000)
+      (kind !== "analysis" &&
+        (usage.input + (kind === "image" ? 0 : LIMITS.runInput) > 1500000 ||
+          usage.output + (kind === "image" ? 0 : output) > 120000))
     )
       throw new SalesError(
         "A IA atingiu a capacidade disponível. Tente novamente mais tarde.",
@@ -96,10 +96,11 @@ export async function recordTokens(
   id: string,
   input: number,
   output: number,
+  cycle?: Record<string, unknown>,
 ) {
   await query(
-    "UPDATE public.ia_vendas_runs SET input_tokens=input_tokens+$3,output_tokens=output_tokens+$4 WHERE restaurant_id=$1 AND id=$2 AND status='running'",
-    [restaurant, id, input, output],
+    "UPDATE public.ia_vendas_runs SET input_tokens=input_tokens+$3,output_tokens=output_tokens+$4,result=CASE WHEN $5::jsonb IS NULL THEN result ELSE coalesce(result,'{}'::jsonb)||jsonb_build_object('cycles',coalesce(result->'cycles','[]'::jsonb)||$5::jsonb) END WHERE restaurant_id=$1 AND id=$2 AND status='running'",
+    [restaurant, id, input, output, cycle ? JSON.stringify([cycle]) : null],
   );
 }
 export async function reserveImage(restaurant: string, run: string) {
@@ -136,9 +137,13 @@ export async function finishRun(
   id: string,
   result: any,
   error?: string,
+  client?: PoolClient,
 ) {
-  await query(
-    "UPDATE public.ia_vendas_runs SET status=$3,result=$4::jsonb,error=$5,finished_at=now(),reserved_input=CASE WHEN $3='completed' THEN 0 ELSE reserved_input END,reserved_output=CASE WHEN $3='completed' THEN 0 ELSE reserved_output END WHERE restaurant_id=$1 AND id=$2 AND status='running'",
+  const execute = client
+    ? (sql: string, params: any[]) => client.query(sql, params)
+    : query;
+  await execute(
+    "UPDATE public.ia_vendas_runs SET status=$3,result=coalesce(result,'{}'::jsonb)||coalesce($4::jsonb,'{}'::jsonb),error=$5,finished_at=now(),reserved_input=CASE WHEN $3='completed' THEN 0 ELSE reserved_input END,reserved_output=CASE WHEN $3='completed' THEN 0 ELSE reserved_output END WHERE restaurant_id=$1 AND id=$2 AND status='running'",
     [
       restaurant,
       id,

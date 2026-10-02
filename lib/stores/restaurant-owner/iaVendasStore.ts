@@ -26,6 +26,7 @@ type State = {
   conversation_id: string | null;
   conversations: Data[];
   messages: Message[];
+  analyses: Data[];
   actions: Action[];
   instructions: string;
   analysis_available_at: string | null;
@@ -42,7 +43,12 @@ type State = {
     conversation?: string,
     older?: boolean,
   ) => Promise<void>;
-  send: (text: string, attachments: Data[], deep: boolean) => Promise<void>;
+  send: (
+    text: string,
+    attachments: Data[],
+    deep: boolean,
+    scope?: { report_id?: string; opportunity_id?: string },
+  ) => Promise<void>;
   command: (command: string, extra?: Data) => Promise<any>;
   upload: (file: File) => Promise<Data>;
   clearError: () => void;
@@ -52,6 +58,7 @@ export const useSalesStore = create<State>((set, get) => ({
   conversation_id: null,
   conversations: [],
   messages: [],
+  analyses: [],
   actions: [],
   instructions: "",
   analysis_available_at: null,
@@ -73,6 +80,7 @@ export const useSalesStore = create<State>((set, get) => ({
       ...(restaurant && restaurant !== previous.restaurant_id
         ? {
             messages: [],
+            analyses: [],
             actions: [],
             conversations: [],
             instructions: "",
@@ -106,7 +114,7 @@ export const useSalesStore = create<State>((set, get) => ({
         set({ loading: false, error: (e as Error).message });
     }
   },
-  send: async (text, attachments, deep) => {
+  send: async (text, attachments, deep, scope = {}) => {
     const current = get();
     if (current.busy || !current.conversation_id) return;
     const conversation = current.conversation_id;
@@ -123,6 +131,7 @@ export const useSalesStore = create<State>((set, get) => ({
           role: "user",
           content: text,
           cards: [],
+          ...scope,
           attachments,
           created_at: new Date().toISOString(),
         },
@@ -140,6 +149,7 @@ export const useSalesStore = create<State>((set, get) => ({
           text,
           attachments: attachments.map((a) => a.id),
           deep,
+          ...scope,
         }),
       });
       if (!response.ok) {
