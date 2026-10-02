@@ -367,6 +367,8 @@ export default function DevSupportPage() {
             return;
         }
 
+        window.alert("Deixe em janela aberta");
+
         const token = await getAccessToken();
         if (!token) {
             setAccessState("signed-out");
