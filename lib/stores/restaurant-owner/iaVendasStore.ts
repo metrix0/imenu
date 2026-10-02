@@ -110,7 +110,9 @@ export const useSalesStore = create<State>((set, get) => ({
     const current = get();
     if (current.busy || !current.conversation_id) return;
     const conversation = current.conversation_id;
+    version += 1;
     set({
+      loading: false,
       busy: true,
       error: null,
       status: "Preparando…",

@@ -117,13 +117,6 @@ export default function SalesPage() {
       (c) => c.id === sales.conversation_id,
     ),
     disabled = sales.busy || sales.acting || !!sales.running;
-  const pending = sales.actions.filter((a) => a.status === "pending"),
-    linked = new Set(
-      sales.messages.flatMap((m) =>
-        m.cards.filter((c) => c.type === "action").map((c) => c.id),
-      ),
-    ),
-    unlinked = sales.actions.filter((a) => !linked.has(a.id) && !a.message_id);
   async function send() {
     if (!text.trim() || disabled || uploading) return;
     const draft = text.trim();
@@ -330,7 +323,15 @@ export default function SalesPage() {
                     m.role === "assistant"
                       ? splitMessageParts(m.content)
                       : [{ type: "text" as const, content: m.content }],
-                  placed = new Set<string>();
+                  placed = new Set<string>(),
+                  pendingIds = m.cards
+                    .filter((card) => card.type === "action")
+                    .map((card) => card.id)
+                    .filter((id) =>
+                      sales.actions.some(
+                        (action) => action.id === id && action.status === "pending",
+                      ),
+                    );
                 return (
                   <article
                     key={m.id}
@@ -436,31 +437,22 @@ export default function SalesPage() {
                         <DataCard key={i} card={card} />
                       ) : null;
                     })}
+                    {pendingIds.length > 1 && (
+                      <Button
+                        disabled={disabled}
+                        onClick={() => {
+                          setBatchIds(pendingIds);
+                          setModal("batch");
+                        }}
+                      >
+                        Revisar e aplicar todos ({pendingIds.length})
+                      </Button>
+                    )}
                       </div>
                     </div>
                   </article>
                 );
               })}
-              {unlinked.map((a) => (
-                <ActionCard
-                  key={a.id}
-                  action={a}
-                  refs={sales.references}
-                  disabled={disabled}
-                  onAction={onAction}
-                />
-              ))}
-              {pending.length > 1 && (
-                <Button
-                  disabled={disabled}
-                  onClick={() => {
-                    setBatchIds(pending.map((a) => a.id));
-                    setModal("batch");
-                  }}
-                >
-                  Revisar e aplicar todos ({pending.length})
-                </Button>
-              )}
               {(sales.busy || sales.acting || sales.running) && (
                 <p
                   role="status"
