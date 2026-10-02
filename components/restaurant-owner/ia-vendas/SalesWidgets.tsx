@@ -389,6 +389,13 @@ export function ActionPreview({
       )}
       {!groupedUpsells &&
         action.operations.map((op, i) => {
+        const fields = Object.keys(op.values);
+        if (
+          action.image &&
+          fields.length === 1 &&
+          ["image_path", "logo_url", "banner_url"].includes(fields[0])
+        )
+          return null;
         const copy = operationCopy(op, refs);
         return (
           <div
