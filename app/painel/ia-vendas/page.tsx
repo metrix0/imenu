@@ -62,9 +62,11 @@ export default function SalesPage() {
     [uploading, setUploading] = useState(false),
     [localError, setLocalError] = useState(""),
     [deep, setDeep] = useState(false),
-    [modal, setModal] = useState<"batch" | "history" | "instructions" | null>(
-      null,
-    ),
+    [modal, setModal] = useState<
+      "batch" | "history" | "instructions" | "rename" | null
+    >(null),
+    [renameConversationId, setRenameConversationId] = useState(""),
+    [renameTitle, setRenameTitle] = useState(""),
     [instructions, setInstructions] = useState(""),
     [batchIds, setBatchIds] = useState<string[]>([]);
   const end = useRef<HTMLDivElement>(null),
@@ -225,23 +227,17 @@ export default function SalesPage() {
                   {c.title}
                 </button>
                 {c.kind === "chat" && (
-                  <div className="invisible flex pr-2 group-hover:visible">
+                  <div className="hidden pr-2 group-hover:flex">
                     <button
                       title="Renomear"
                       aria-label={`Renomear ${c.title}`}
                       disabled={disabled}
                       onClick={() => {
-                        const title = window.prompt(
-                          "Nome da conversa",
-                          c.title,
-                        );
-                        if (title?.trim())
-                          void sales.command("rename_conversation", {
-                            conversation_id: c.id,
-                            title,
-                          });
+                        setRenameConversationId(c.id);
+                        setRenameTitle(c.title);
+                        setModal("rename");
                       }}
-                      className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-[8px] text-gray-500 transition-colors hover:bg-[var(--panel-tint)] hover:text-[var(--panel-accent-text)] disabled:cursor-not-allowed disabled:opacity-40"
+                      className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-[8px] text-gray-500 transition-colors hover:bg-black/5 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       <Pencil size={12} />
                     </button>
@@ -254,7 +250,7 @@ export default function SalesPage() {
                           conversation_id: c.id,
                         })
                       }
-                      className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-[8px] text-gray-500 transition-colors hover:bg-[var(--panel-tint)] hover:text-[var(--panel-accent-text)] disabled:cursor-not-allowed disabled:opacity-40"
+                      className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-[8px] text-gray-500 transition-colors hover:bg-black/5 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       <Archive size={12} />
                     </button>
@@ -719,10 +715,56 @@ export default function SalesPage() {
         onClose={() => {
           if (!sales.acting) setModal(null);
         }}
-        height="80dvh"
+        height={modal === "rename" ? 260 : "80dvh"}
+        className={modal === "rename" ? "!max-w-md" : ""}
         showCloseButton
       >
         <div className="p-5 md:p-6">
+          {modal === "rename" && (
+            <>
+              <h2 className="text-xl font-semibold">Renomear conversa</h2>
+              <form
+                className="mt-4"
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  if (!renameTitle.trim()) return;
+                  if (
+                    await sales.command("rename_conversation", {
+                      conversation_id: renameConversationId,
+                      title: renameTitle.trim(),
+                    })
+                  )
+                    setModal(null);
+                }}
+              >
+                <input
+                  autoFocus
+                  aria-label="Nome da conversa"
+                  maxLength={80}
+                  value={renameTitle}
+                  onChange={(e) => setRenameTitle(e.target.value)}
+                  className="w-full rounded-[8px] border border-[var(--panel-border)] bg-[var(--panel-surface)] px-3 py-2.5 text-sm outline-none focus-visible:border-[var(--panel-action)]"
+                />
+                <div className="mt-4 flex justify-end gap-2">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    disabled={sales.acting}
+                    onClick={() => setModal(null)}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    type="submit"
+                    loading={sales.acting}
+                    disabled={!renameTitle.trim()}
+                  >
+                    Salvar
+                  </Button>
+                </div>
+              </form>
+            </>
+          )}
           {modal === "batch" && (
             <>
               <h2 className="text-xl font-semibold">
