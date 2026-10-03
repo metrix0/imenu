@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
+import { usePathname } from "next/navigation";
 import {
   Sparkles,
   Plus,
@@ -16,7 +17,6 @@ import {
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import Loader from "@/components/ui/Loader";
-import Tabs from "@/components/ui/Tabs";
 import { useSalesStore } from "@/lib/stores/restaurant-owner/iaVendasStore";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 import AnalysisReport from "@/components/restaurant-owner/ia-vendas/AnalysisReport";
@@ -57,6 +57,8 @@ function splitMessageParts(content: string): MessagePart[] {
 
 export default function SalesPage() {
   const sales = useSalesStore(),
+    pathname = usePathname(),
+    isAnalysisRoute = pathname === "/painel/ia-vendas/analise",
     restaurant = useCreationStore((s) => s.restaurantId),
     [selectedReportId, setSelectedReportId] = useState(""),
     [opportunity, setOpportunity] = useState<Data | null>(null),
@@ -80,8 +82,7 @@ export default function SalesPage() {
     file = useRef<HTMLInputElement>(null),
     input = useRef<HTMLTextAreaElement>(null),
     chatTrigger = useRef<HTMLButtonElement>(null),
-    focusChat = useRef(false),
-    lastChatConversationId = useRef("");
+    focusChat = useRef(false);
   useEffect(() => {
     const media = window.matchMedia("(min-width: 1280px)");
     const update = () => {
@@ -110,6 +111,34 @@ export default function SalesPage() {
   useEffect(() => {
     void useSalesStore.getState().load(restaurant);
   }, [restaurant]);
+  useEffect(() => {
+    if (!sales.conversations.length || sales.loading) return;
+
+    const desiredKind = isAnalysisRoute ? "analysis" : "chat",
+      current = sales.conversations.find(
+        (conversation) => conversation.id === sales.conversation_id,
+      );
+
+    if (current?.kind === desiredKind) return;
+
+    const target = sales.conversations.find(
+      (conversation) => conversation.kind === desiredKind,
+    );
+    if (target) {
+      void sales.load(restaurant, target.id);
+      return;
+    }
+
+    if (!isAnalysisRoute && !sales.acting)
+      void sales.command("create_conversation");
+  }, [
+    isAnalysisRoute,
+    restaurant,
+    sales.acting,
+    sales.conversation_id,
+    sales.conversations,
+    sales.loading,
+  ]);
   useEffect(() => {
     const previous = previousMessages.current;
     const conversationId = sales.conversation_id || "";
@@ -146,13 +175,6 @@ export default function SalesPage() {
     setAnalysisChatOpen(false);
   }, [sales.conversation_id]);
   useEffect(() => {
-    const activeConversation = sales.conversations.find(
-      (c) => c.id === sales.conversation_id,
-    );
-    if (activeConversation?.kind === "chat")
-      lastChatConversationId.current = activeConversation.id;
-  }, [sales.conversation_id, sales.conversations]);
-  useEffect(() => {
     if (!input.current) return;
     input.current.style.height = "auto";
     input.current.style.height = `${input.current.scrollHeight}px`;
@@ -171,14 +193,19 @@ export default function SalesPage() {
   const conversation = sales.conversations.find(
       (c) => c.id === sales.conversation_id,
     ),
-    disabled = sales.busy || sales.acting || !!sales.running,
-    isAnalysis = conversation?.kind === "analysis",
+    isAnalysis = isAnalysisRoute,
+    modeReady =
+      conversation?.kind === (isAnalysis ? "analysis" : "chat"),
+    disabled =
+      sales.busy || sales.acting || !!sales.running || !modeReady,
     analysisRunning = isAnalysis && !!(sales.running && sales.analyses.some((a) => a.id === sales.running?.id)),
     selectedReport =
       sales.analyses.find((a) => a.id === selectedReportId) ||
       sales.analyses.find((a) => a.result?.report),
-    threadMessages = isAnalysis
-      ? sales.messages.filter(
+    threadMessages = !modeReady
+      ? []
+      : isAnalysis
+        ? sales.messages.filter(
           (m) =>
             (!analysisRunning || !!m.report_id) &&
             (!m.report_id || m.report_id === selectedReport?.id) &&
@@ -189,8 +216,8 @@ export default function SalesPage() {
                 Date.parse(
                   selectedReport.finished_at || selectedReport.created_at,
                 ) : Date.parse(m.created_at) >= emptyThreadStart.current),
-        )
-      : sales.messages;
+          )
+        : sales.messages;
   useEffect(() => {
     if (!isAnalysis) return;
     const html = document.documentElement,
@@ -251,41 +278,6 @@ export default function SalesPage() {
     setAnalysisChatOpen(false);
     requestAnimationFrame(() => chatTrigger.current?.focus());
   };
-  const changeMode = (mode: "IA Vendas" | "Análise IA") => {
-    if (disabled) return;
-
-    if (mode === "Análise IA") {
-      const analysisConversation = sales.conversations.find(
-        (c) => c.kind === "analysis",
-      );
-      if (
-        analysisConversation &&
-        analysisConversation.id !== sales.conversation_id
-      ) {
-        setSelectedReportId("");
-        setOpportunity(null);
-        void sales.load(restaurant, analysisConversation.id);
-      }
-      return;
-    }
-
-    const chatConversation =
-      sales.conversations.find(
-        (c) =>
-          c.kind === "chat" && c.id === lastChatConversationId.current,
-      ) || sales.conversations.find((c) => c.kind === "chat");
-
-    if (chatConversation) {
-      if (chatConversation.id !== sales.conversation_id) {
-        setSelectedReportId("");
-        setOpportunity(null);
-        void sales.load(restaurant, chatConversation.id);
-      }
-      return;
-    }
-
-    void sales.command("create_conversation");
-  };
   const conversationPicker = (
               <select
                 aria-label="Conversa"
@@ -298,11 +290,13 @@ export default function SalesPage() {
                 }}
                 className="max-w-[170px] cursor-pointer rounded-[8px] border border-[var(--panel-border)] bg-[var(--panel-surface)] p-2 text-sm outline-none focus-visible:border-[var(--panel-action)] disabled:cursor-not-allowed lg:hidden"
               >
-                {sales.conversations.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.title}
-                  </option>
-                ))}
+                {sales.conversations
+                  .filter((c) => c.kind === "chat")
+                  .map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.title}
+                    </option>
+                  ))}
               </select>
   );
   const messageList = (
@@ -613,16 +607,9 @@ export default function SalesPage() {
   return (
     <div className="h-full max-h-full min-h-0 overflow-hidden">
       <div className="flex h-full max-h-full min-h-0 overflow-hidden">
-        <aside className="hidden min-h-0 w-56 shrink-0 flex-col border-r border-[var(--panel-border)] bg-[var(--panel-background)] p-3 lg:flex">
-          <Tabs
-            tabs={["IA Vendas", "Análise IA"]}
-            active={isAnalysis ? "Análise IA" : "IA Vendas"}
-            onChange={changeMode}
-            className={disabled ? "pointer-events-none opacity-60" : ""}
-          />
-
-          {!isAnalysis && (
-            <div className="mt-3 flex min-h-0 flex-1 flex-col">
+        {!isAnalysis && (
+          <aside className="hidden min-h-0 w-56 shrink-0 flex-col border-r border-[var(--panel-border)] bg-[var(--panel-background)] p-3 lg:flex">
+            <div className="flex min-h-0 flex-1 flex-col">
               <Button
                 variant="secondary"
                 disabled={disabled}
@@ -688,16 +675,12 @@ export default function SalesPage() {
                   ))}
               </nav>
             </div>
-          )}
-        </aside>
+          </aside>
+        )}
         <section className="flex h-full max-h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           {isAnalysis ? (
             <div className="flex min-h-0 flex-1 overflow-hidden" data-analysis-workspace>
               <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden" inert={analysisChatOpen && !wideAnalysis}>
-                <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[var(--panel-border)] bg-[var(--panel-surface)] px-4 py-2 lg:hidden">
-                  {conversationPicker}
-                  <Button variant="secondary" aria-label="Nova conversa" disabled={disabled} onClick={() => void sales.command("create_conversation")}><Plus size={16} /></Button>
-                </div>
                 <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain bg-[var(--panel-background)] p-4 md:p-6" aria-label="Relatório de análise">
                   {!wideAnalysis && !analysisChatOpen && notice}
                   <AnalysisReport
@@ -772,8 +755,8 @@ export default function SalesPage() {
             </div>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 md:px-8">
-            {sales.loading && !sales.messages.length ? <Loader /> : null}
-            {!isAnalysis && sales.has_more && (
+            {!modeReady || (sales.loading && !sales.messages.length) ? <Loader /> : null}
+            {modeReady && !isAnalysis && sales.has_more && (
               <div className="mb-5 text-center">
                 <Button
                   variant="secondary"
@@ -790,7 +773,7 @@ export default function SalesPage() {
                 </Button>
               </div>
             )}
-            {!isAnalysis && !sales.messages.length && !sales.loading && (
+            {modeReady && !isAnalysis && !sales.messages.length && !sales.loading && (
               <div className="mx-auto flex max-w-lg flex-col items-center py-10 text-center">
                 <div className="mb-5 rounded-[10px] bg-[var(--panel-tint)] p-4 text-[var(--panel-accent-text)]">
                   <Sparkles size={32} />
