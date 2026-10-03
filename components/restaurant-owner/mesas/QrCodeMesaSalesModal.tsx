@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import {
     faArrowRotateLeft,
@@ -16,6 +16,7 @@ import Link from "next/link";
 import QrCodeMesaCheckoutModal from "@/components/restaurant-owner/mesas/QrCodeMesaCheckoutModal";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
+import ModalFlowStep from "@/components/ui/ModalFlowStep";
 import type { QrTableSource } from "@/lib/qr-table/types";
 
 type QrCodeMesaSalesModalProps = {
@@ -26,50 +27,6 @@ type QrCodeMesaSalesModalProps = {
     active?: boolean;
     onPaid?: () => void | Promise<void>;
 };
-
-function ModalFlowStep({
-    children,
-    reverse = false,
-    animate = true,
-}: {
-    children: ReactNode;
-    reverse?: boolean;
-    animate?: boolean;
-}) {
-    const [visible, setVisible] = useState(!animate);
-    const [settled, setSettled] = useState(!animate);
-
-    useEffect(() => {
-        if (!animate) return;
-
-        let settleTimer = 0;
-        const frame = window.requestAnimationFrame(() => {
-            setVisible(true);
-            settleTimer = window.setTimeout(() => setSettled(true), 300);
-        });
-
-        return () => {
-            window.cancelAnimationFrame(frame);
-            if (settleTimer) window.clearTimeout(settleTimer);
-        };
-    }, [animate]);
-
-    if (settled) {
-        return <div className="flex h-full min-h-0 flex-col">{children}</div>;
-    }
-
-    const hiddenTransform = reverse ? "-translate-x-full" : "translate-x-full";
-
-    return (
-        <div
-            className={`flex h-full min-h-0 flex-col will-change-transform transition-transform duration-300 ease-out motion-reduce:transition-none ${
-                visible ? "translate-x-0" : hiddenTransform
-            }`}
-        >
-            {children}
-        </div>
-    );
-}
 
 const BENEFITS = [
     {
@@ -126,15 +83,17 @@ export default function QrCodeMesaSalesModal({
 
     return (
         <Modal
+            fixedHeight
+            bodyClassName="flex flex-1 flex-col !overflow-hidden"
             height={checkoutOpen ? 760 : 700}
             open={open}
             onClose={close}
             className="max-w-4xl"
             showCloseButton
         >
-            <div className="flex h-full min-h-0 flex-1 flex-col overflow-x-hidden">
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
                 {checkoutOpen ? (
-                    <ModalFlowStep key="checkout">
+                    <ModalFlowStep key="checkout" animate>
                         <QrCodeMesaCheckoutModal
                             open
                             embedded
@@ -146,12 +105,14 @@ export default function QrCodeMesaSalesModal({
                         />
                     </ModalFlowStep>
                 ) : (
+                    <>
+                    <div className="min-h-0 flex-1 overflow-hidden">
                     <ModalFlowStep
                         key="sales"
                         reverse
                         animate={hasNavigatedToCheckout}
                     >
-                        <div className="flex h-full min-h-0 flex-col overflow-y-auto">
+            <div className="min-h-0 flex-1 overflow-y-auto">
             <div className="grid shrink-0 overflow-hidden md:grid-cols-[minmax(0,1fr)_300px]">
                 <div className="px-6 pb-1 pt-5 sm:px-8 sm:py-8">
                     <div className="relative h-12 w-56 max-w-full">
@@ -261,8 +222,12 @@ export default function QrCodeMesaSalesModal({
                     </p>
                 )}
             </div>
+            </div>
+                    </ModalFlowStep>
+                    </div>
 
-            <div className="sticky bottom-0 z-20 mt-auto flex shrink-0 flex-col gap-3 border-t border-gray-100 bg-white px-6 py-4 sm:flex-row sm:items-center sm:px-8 sm:py-5">
+            {/* Keep actions outside both the scrolling content and the slide transform. */}
+            <div className="z-20 flex shrink-0 flex-col gap-3 border-t border-gray-100 bg-white px-6 py-4 sm:flex-row sm:items-center sm:px-8 sm:py-5">
                 <a
                     href={SUPPORT_URL}
                     target="_blank"
@@ -289,8 +254,7 @@ export default function QrCodeMesaSalesModal({
                     </Button>
                 )}
             </div>
-                        </div>
-                    </ModalFlowStep>
+                    </>
                 )}
             </div>
         </Modal>

@@ -4,7 +4,7 @@ export default function TermosPage() {
     return (
         <div className="max-w-3xl mx-auto p-8">
             <h1 className="text-3xl font-bold mb-4">Termos de Uso – iMenu</h1>
-            <p>Última atualização: {new Date().toLocaleDateString("pt-BR")}</p>
+            <p>Última atualização: 3 de outubro de 2026</p>
 
             <h2 className="text-2xl font-semibold mt-6 mb-2">1. Sobre o Serviço</h2>
             <p>
@@ -35,9 +35,37 @@ export default function TermosPage() {
                 4. Pedidos e Pagamentos
             </h2>
             <p>
-                Pagamentos realizados via Mercado Pago são processados diretamente por
-                eles. O iMenu não armazena dados de cartão e não é responsável por
-                reembolsos, disputas ou valores retidos.
+                Os pagamentos online podem ser processados por provedores de pagamento
+                parceiros, incluindo o Mercado Pago. O iMenu não armazena dados
+                completos de cartão.
+            </p>
+            <p className="mt-3">
+                No Pix Online, o pagamento é recebido pela estrutura operacional de
+                pagamentos utilizada pelo iMenu e posteriormente repassado à chave Pix
+                cadastrada pelo restaurante. Por esse motivo, o banco ou aplicativo do
+                pagador poderá exibir o nome do titular da conta operacional utilizada
+                no processamento, que pode ser diferente do nome comercial do
+                restaurante.
+            </p>
+            <p className="mt-3">
+                Os repasses de pagamentos confirmados via Pix Online são processados
+                diariamente às 12:00 para a chave Pix cadastrada pelo restaurante.
+                Pagamentos confirmados após o horário de processamento entram no ciclo
+                seguinte. Em situações raras de erro operacional, indisponibilidade ou
+                falha de terceiros, o repasse poderá levar até 2 dias adicionais para
+                ser concluído.
+            </p>
+            <p className="mt-3">
+                Somente pagamentos online efetivamente confirmados são elegíveis para
+                repasse. Pagamentos pendentes, recusados, expirados, cancelados,
+                estornados ou não confirmados não são considerados valores recebidos
+                para repasse.
+            </p>
+            <p className="mt-3">
+                Pagamentos escolhidos como dinheiro, cartão na entrega ou maquininha
+                são realizados diretamente entre o cliente e o restaurante e não são
+                recebidos nem repassados pelo iMenu. O restaurante é responsável por
+                manter sua chave Pix de repasse correta e atualizada no painel.
             </p>
 
             <h2 className="text-2xl font-semibold mt-6 mb-2">
