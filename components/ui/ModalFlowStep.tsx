@@ -28,7 +28,7 @@ export default function ModalFlowStep({
         let settleTimer = 0;
         const frame = window.requestAnimationFrame(() => {
             setVisible(true);
-            settleTimer = window.setTimeout(() => setSettled(true), 220);
+            settleTimer = window.setTimeout(() => setSettled(true), 300);
         });
 
         return () => {
@@ -39,7 +39,7 @@ export default function ModalFlowStep({
 
     const hiddenTransform = reverse ? "-translate-x-full" : "translate-x-full";
     const transition = animate && !settled
-        ? `will-change-transform transition-transform duration-[220ms] ease-out motion-reduce:transition-none ${visible ? "translate-x-0" : hiddenTransform}`
+        ? `will-change-transform transition-transform duration-[300ms] ease-out motion-reduce:transition-none ${visible ? "translate-x-0" : hiddenTransform}`
         : "";
 
     return (
