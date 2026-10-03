@@ -19,7 +19,7 @@ function AnimatedModalFlowStep({
         let settleTimer = 0;
         const frame = window.requestAnimationFrame(() => {
             setVisible(true);
-            settleTimer = window.setTimeout(() => setSettled(true), 300);
+            settleTimer = window.setTimeout(() => setSettled(true), 220);
         });
 
         return () => {
@@ -36,7 +36,7 @@ function AnimatedModalFlowStep({
 
     return (
         <div
-            className={`flex h-full min-h-0 flex-col will-change-transform transition-transform duration-300 ease-out motion-reduce:transition-none ${
+            className={`flex h-full min-h-0 flex-col will-change-transform transition-transform duration-[220ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${
                 visible ? "translate-x-0" : hiddenTransform
             }`}
         >
