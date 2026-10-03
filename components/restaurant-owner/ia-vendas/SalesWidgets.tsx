@@ -511,13 +511,17 @@ export function ActionPreview({
   );
 }
 function ActionPeek({ action, refs }: { action: Action; refs: Record<string, string> }) {
-  const operations = action.operations.filter((op) => !action.image || !Object.keys(op.values).every((key) => ["image_path", "logo_url", "banner_url"].includes(key)));
+  const operations = action.operations.filter((op) => !action.image || !Object.keys(op.values).every((key) => ["image_path", "logo_url", "banner_url"].includes(key))),
+    imageLabel = action.operations[0]?.label || action.title.replace(/^Atualizar imagem:\s*/, "");
   const previewValue = (field: string, value: unknown, op: Operation) => {
     const text = display(field, value, refs, op);
     return text.length > 180 ? `${text.slice(0, 177)}…` : text;
   };
   return <div className={styles.previewList}>
-    {action.image && <ActionPreview action={{ ...action, operations: [] }} refs={refs} />}
+    {action.image && <div>
+      <p className={styles.previewSubject}>{imageLabel}</p>
+      <div className="mt-2"><ActionPreview action={{ ...action, operations: [] }} refs={refs} /></div>
+    </div>}
     {action.image_jobs?.slice(0, 2).map((job, index) => <div key={index}>
       <p className={styles.previewSubject}>{job.label}</p><p className={styles.previewSentence}>Gerar uma nova prévia para você revisar.</p>
     </div>)}
@@ -544,25 +548,63 @@ const states: Record<string, string> = {
   conflict: "Requer revisão",
   failed: "Não concluído",
 };
+
+function actionState(action: Action) {
+  if (action.image_jobs?.length) {
+    if (action.status === "pending") return "Aguardando geração";
+    if (action.status === "applying") return "Gerando…";
+    if (action.status === "applied") return "Prévias geradas";
+    if (action.status === "undone") return "Prévias descartadas";
+  }
+  if (action.image) {
+    if (action.status === "pending") return "Aguardando publicação";
+    if (action.status === "applying") return "Publicando…";
+    if (action.status === "applied") return "Publicado";
+    if (action.status === "undone") return "Publicação desfeita";
+  }
+  return states[action.status] || action.status;
+}
 export function ActionCard({
   action,
   refs,
   disabled,
   onAction,
   compact = false,
+  generatedActions = [],
 }: {
   action: Action;
   refs: Record<string, string>;
   disabled: boolean;
   onAction: (command: string, ids: string[]) => void;
   compact?: boolean;
+  generatedActions?: Action[];
 }) {
   const retry =
-    action.attempts < 2 &&
-    (action.status === "failed" ||
-      (action.status === "applying" &&
-        !!action.claimed_at &&
-        Date.parse(action.claimed_at) < Date.now() - 360000));
+      action.attempts < 2 &&
+      (action.status === "failed" ||
+        (action.status === "applying" &&
+          !!action.claimed_at &&
+          Date.parse(action.claimed_at) < Date.now() - 360000)),
+    imageBatch = !!action.image_jobs?.length,
+    imagePreview = !!action.image,
+    generatedCount = generatedActions.length,
+    pendingImageJobs = imageBatch
+      ? action.image_jobs!.slice(generatedCount)
+      : [],
+    hasDiscardablePreviews = generatedActions.some((generated) =>
+      ["pending", "failed", "conflict"].includes(generated.status),
+    ),
+    countLabel = imageBatch
+      ? action.status === "applied"
+        ? `${generatedCount || action.generated_actions?.length || action.image_jobs!.length} ${(generatedCount || action.generated_actions?.length || action.image_jobs!.length) === 1 ? "imagem gerada" : "imagens geradas"}`
+        : generatedCount
+          ? `${generatedCount} de ${action.image_jobs!.length} imagens geradas`
+          : `${action.image_jobs!.length} ${action.image_jobs!.length === 1 ? "imagem para gerar" : "imagens para gerar"}`
+      : imagePreview
+        ? action.status === "applied"
+          ? "Imagem publicada"
+          : "Prévia pronta para revisar"
+        : `${action.operations.length} ${action.operations.length === 1 ? "alteração proposta" : "alterações propostas"}`;
   const actionButtons = (
       <div className={compact ? styles.actionButtons : "mt-3 flex flex-wrap gap-2"}>
         {(action.status === "pending" || retry) && (
@@ -571,7 +613,17 @@ export function ActionCard({
               disabled={disabled}
               onClick={() => onAction("apply", [action.id])}
             >
-              {retry ? "Tentar novamente" : "Aplicar"}
+              {retry
+                ? imageBatch
+                  ? "Tentar gerar novamente"
+                  : imagePreview
+                    ? "Tentar publicar novamente"
+                    : "Tentar novamente"
+                : imageBatch
+                  ? `Gerar imagens (${action.image_jobs!.length})`
+                  : imagePreview
+                    ? "Publicar imagem"
+                    : "Aplicar"}
             </Button>
             <Button
               variant="secondary"
@@ -582,13 +634,13 @@ export function ActionCard({
             </Button>
           </>
         )}
-        {action.status === "applied" && (
+        {action.status === "applied" && (!imageBatch || hasDiscardablePreviews) && (
           <Button
             variant="secondary"
             disabled={disabled}
             onClick={() => onAction("undo", [action.id])}
           >
-            {action.image_jobs ? "Descartar prévias pendentes" : "Desfazer"}
+            {imageBatch ? "Descartar prévias pendentes" : "Desfazer"}
           </Button>
         )}
         {action.status === "conflict" && (
@@ -601,21 +653,41 @@ export function ActionCard({
   if (compact) return (
     <article className={styles.action} aria-label={action.title}>
       <div className={styles.actionHeader}>
-        <span className={`${styles.actionState} ml-auto ${action.status === "applied" ? styles.applied : ["conflict", "failed"].includes(action.status) ? styles.needsReview : ""}`}>{states[action.status] || action.status}</span>
+        <span className={`${styles.actionState} ml-auto ${action.status === "applied" ? styles.applied : ["conflict", "failed"].includes(action.status) ? styles.needsReview : ""}`}>{actionState(action)}</span>
       </div>
-      <p className={styles.actionCount}>{action.image_jobs?.length ? `${action.image_jobs.length} imagens para revisar` : `${action.operations.length} ${action.operations.length === 1 ? "alteração proposta" : "alterações propostas"}`}</p>
-      <ActionPeek action={action} refs={refs} />
-      <details className={styles.disclosure}>
-        <summary>{action.operations.length > 2 ? `Ver todas as ${action.operations.length} alterações` : "Ver alterações"}<ChevronDown size={13} aria-hidden="true" /></summary>
-        <div className={styles.fullPreview}>
-          <h4 className="text-sm font-medium">{action.title}</h4>
-          <p>{action.reason}</p>
-          <ActionPreview action={action} refs={refs} showAllDetails flat />
+      <p className={styles.actionCount}>{countLabel}</p>
+      {(!imageBatch || !generatedCount) && <ActionPeek action={action} refs={refs} />}
+      {imageBatch && generatedCount > 0 && pendingImageJobs.length > 0 && (
+        <ActionPeek action={{ ...action, image_jobs: pendingImageJobs, operations: [] }} refs={refs} />
+      )}
+      {!imagePreview && (
+        <details className={styles.disclosure}>
+          <summary>{imageBatch ? "Ver detalhes" : action.operations.length > 2 ? `Ver todas as ${action.operations.length} alterações` : "Ver alterações"}<ChevronDown size={13} aria-hidden="true" /></summary>
+          <div className={styles.fullPreview}>
+            <h4 className="text-sm font-medium">{action.title}</h4>
+            <p>{action.reason}</p>
+            <ActionPreview action={action} refs={refs} showAllDetails flat />
+          </div>
+        </details>
+      )}
+      {imageBatch && generatedCount > 0 && (
+        <div className="mt-4 grid gap-3 border-t border-[var(--panel-border)] pt-4">
+          <p className="text-xs font-medium text-[var(--panel-muted)]">Revisar imagens</p>
+          {generatedActions.map((generated) => (
+            <ActionCard
+              key={generated.id}
+              action={generated}
+              refs={refs}
+              disabled={disabled}
+              onAction={onAction}
+              compact
+            />
+          ))}
         </div>
-      </details>
+      )}
       {action.error && <p role="status" className="mt-3 text-xs text-red-700">{action.error}</p>}
       {actionButtons}
-      {action.image_jobs && <p className="mt-2 text-xs text-[var(--panel-muted)]">Gerar não publica. Você também aprova a publicação de cada imagem.</p>}
+      {action.image_jobs && <p className="mt-2 text-xs text-[var(--panel-muted)]">{generatedCount ? "Revise cada prévia e publique apenas as imagens que quiser usar." : "As imagens serão geradas para revisão antes de serem publicadas."}</p>}
     </article>
   );
   return (
@@ -625,7 +697,7 @@ export function ActionCard({
         <span
           className={`rounded-full px-2 py-1 text-[11px] ${action.status === "applied" ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-600"}`}
         >
-          {states[action.status] || action.status}
+          {actionState(action)}
         </span>
       </div>
       <p className="mb-2 text-sm text-gray-600">{action.reason}</p>

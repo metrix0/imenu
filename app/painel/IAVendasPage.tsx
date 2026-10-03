@@ -249,7 +249,27 @@ export default function SalesPage() {
     }
   }
   const onAction = (command: string, ids: string[]) =>
-    void sales.command(command, { ids });
+      void sales.command(command, { ids }),
+    selectedBatchActions = sales.actions.filter((action) =>
+      selectedBatchIds.includes(action.id),
+    ),
+    batchIsImagePreviews =
+      selectedBatchActions.length > 0 &&
+      selectedBatchActions.every((action) => !!action.image),
+    batchIsImageGeneration =
+      selectedBatchActions.length > 0 &&
+      selectedBatchActions.every((action) => !!action.image_jobs?.length),
+    batchActionLabel = batchIsImagePreviews
+      ? "Publicar selecionadas"
+      : batchIsImageGeneration
+        ? "Gerar imagens"
+        : "Aplicar selecionadas",
+    batchActionCount = batchIsImageGeneration
+      ? selectedBatchActions.reduce(
+          (total, action) => total + (action.image_jobs?.length || 0),
+          0,
+        )
+      : selectedBatchIds.length;
   const openAnalysisChat = () => {
     focusChat.current = true;
     setAnalysisChatOpen(true);
@@ -920,8 +940,11 @@ export default function SalesPage() {
                 Revisar todas as mudanças
               </h2>
               <p className="my-3 text-sm text-gray-500">
-                Cada grupo será aplicado separadamente. Se um falhar, as
-                mudanças concluídas serão preservadas.
+                {batchIsImagePreviews
+                  ? "Escolha quais imagens deseja publicar. As demais continuarão pendentes."
+                  : batchIsImageGeneration
+                    ? "As imagens serão geradas para revisão antes de serem publicadas."
+                    : "Cada grupo será aplicado separadamente. Se um falhar, as mudanças concluídas serão preservadas."}
               </p>
               <div className="space-y-5">
                 {batchIds
@@ -944,7 +967,7 @@ export default function SalesPage() {
                           className="h-4 w-4 shrink-0 cursor-pointer disabled:cursor-not-allowed"
                           style={{ accentColor: "var(--panel-action)" }}
                         />
-                        <span>{a!.title}</span>
+                        <span>{a!.image ? a!.operations[0]?.label || a!.title : a!.title}</span>
                       </label>
                       <ActionPreview action={a!} refs={sales.references} showAllDetails={isAnalysis} flat={isAnalysis} />
                     </section>
@@ -959,7 +982,7 @@ export default function SalesPage() {
                   setModal(null);
                 }}
               >
-                Aplicar selecionadas ({selectedBatchIds.length})
+                {batchActionLabel} ({batchActionCount})
               </Button>
             </>
           )}

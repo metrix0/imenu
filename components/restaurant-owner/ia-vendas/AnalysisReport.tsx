@@ -30,10 +30,32 @@ export default function AnalysisReport({
   const ids: string[] = report ? [...opportunities, ...reviewItems].flatMap((o) => o.action_ids || [])
     : actions.filter((a) => a.run_id === selected?.id).map((a) => a.id);
   const pending = withGenerated(ids).filter((id) => actionById.get(id)?.status === "pending");
-  const renderActions = (entry: Data) => withGenerated(entry.action_ids).map((id) => {
-    const action = actionById.get(id);
-    return action ? <ActionCard key={id} action={action} refs={refs} disabled={disabled} onAction={onAction} compact /> : null;
-  });
+  const renderActions = (entry: Data) => {
+    const entryIds = [...new Set<string>(entry.action_ids || [])],
+      nestedGenerated = new Set(
+        entryIds.flatMap((id) => actionById.get(id)?.generated_actions || []),
+      );
+    return entryIds
+      .filter((id) => !nestedGenerated.has(id))
+      .map((id) => {
+        const action = actionById.get(id);
+        if (!action) return null;
+        const generatedActions = (action.generated_actions || [])
+          .map((generatedId) => actionById.get(generatedId))
+          .filter((generated): generated is Action => !!generated);
+        return (
+          <ActionCard
+            key={id}
+            action={action}
+            generatedActions={generatedActions}
+            refs={refs}
+            disabled={disabled}
+            onAction={onAction}
+            compact
+          />
+        );
+      });
+  };
   const renderEvidence = (entry: Data, assessment = false) => entry.evidence?.length || assessment ? (
     <details className={styles.disclosure}>
       <summary>Ver evidências<ChevronDown size={13} aria-hidden="true" /></summary>
@@ -146,7 +168,7 @@ export default function AnalysisReport({
         {legacy && <section className={styles.legacy}>
           <p className={styles.eyebrow}>Relatório anterior ao formato estruturado.</p>
           <SalesMarkdown content={String(selected.result.reply || "").replace(/\[\[(?:action:[^\]]+|card:[^\]]+)\]\]/g, "")} />
-          {actions.filter((action) => action.run_id === selected.id).map((action) => <ActionCard key={action.id} action={action} refs={refs} disabled={disabled} onAction={onAction} />)}
+          {actions.filter((action) => action.run_id === selected.id).map((action) => <ActionCard key={action.id} action={action} generatedActions={(action.generated_actions || []).map((id) => actionById.get(id)).filter((generated): generated is Action => !!generated)} refs={refs} disabled={disabled} onAction={onAction} />)}
         </section>}
       </div>
     </div>

@@ -93,6 +93,93 @@ test("analysis proposals preview changes, keep Apply visible and retain a collap
   expect(normal).toContain(action.reason);
 });
 
+
+test("image batches use generation and publication language and keep generated previews grouped", () => {
+  const generated = (id: string, label: string): Action => ({
+    ...action,
+    id,
+    title: `Atualizar imagem: ${label}`,
+    status: "pending",
+    image: { before: "https://example.com/before.webp", after: "https://example.com/after.webp" },
+    operations: [{
+      entity: "items",
+      kind: "update",
+      id: `item-${id}`,
+      label,
+      before: { image_path: "before.webp" },
+      values: { image_path: "after.webp" },
+    }],
+  });
+  const first = generated("image-1", "Cheddar Burger GRANDE"),
+    second = generated("image-2", "Kids Burger"),
+    batch: Action = {
+      ...action,
+      id: "image-batch",
+      title: "Gerar prévias de imagens",
+      status: "pending",
+      operations: [],
+      image_jobs: [
+        { label: "Cheddar Burger GRANDE", target: "item", prompt: "Foto nova" },
+        { label: "Kids Burger", target: "item", prompt: "Foto nova" },
+      ],
+      generated_actions: [],
+    };
+
+  const beforeGeneration = renderToStaticMarkup(
+    <ActionCard action={batch} refs={{}} disabled={false} onAction={jest.fn()} compact />,
+  );
+  expect(beforeGeneration).toContain("Aguardando geração");
+  expect(beforeGeneration).toContain("2 imagens para gerar");
+  expect(beforeGeneration).toContain("Gerar imagens (2)");
+  expect(beforeGeneration).toContain("As imagens serão geradas para revisão antes de serem publicadas.");
+  expect(beforeGeneration).not.toContain(">Aplicar<");
+
+  const afterGeneration = renderToStaticMarkup(
+    <ActionCard
+      action={{ ...batch, status: "applied", generated_actions: [first.id, second.id] }}
+      generatedActions={[first, second]}
+      refs={{}}
+      disabled={false}
+      onAction={jest.fn()}
+      compact
+    />,
+  );
+  expect(afterGeneration).toContain("Prévias geradas");
+  expect(afterGeneration).toContain("2 imagens geradas");
+  expect(afterGeneration).toContain("Revisar imagens");
+  expect(afterGeneration).toContain("Cheddar Burger GRANDE");
+  expect(afterGeneration).toContain("Kids Burger");
+  expect(afterGeneration.match(/Publicar imagem/g)).toHaveLength(2);
+  expect(afterGeneration).not.toContain(">Aplicar<");
+  expect(afterGeneration).not.toContain("Gerar não publica");
+});
+
+test("generated image previews show one review surface instead of duplicating the diff", () => {
+  const imageAction: Action = {
+    ...action,
+    id: "image-preview",
+    title: "Atualizar imagem: Cheddar Burger GRANDE",
+    status: "pending",
+    image: { before: "https://example.com/before.webp", after: "https://example.com/after.webp" },
+    operations: [{
+      entity: "items",
+      kind: "update",
+      id: "item",
+      label: "Cheddar Burger GRANDE",
+      before: { image_path: "before.webp" },
+      values: { image_path: "after.webp" },
+    }],
+  };
+  const html = renderToStaticMarkup(
+    <ActionCard action={imageAction} refs={{}} disabled={false} onAction={jest.fn()} compact />,
+  );
+  expect(html).toContain("Aguardando publicação");
+  expect(html).toContain("Prévia pronta para revisar");
+  expect(html).toContain("Cheddar Burger GRANDE");
+  expect(html).toContain("Publicar imagem");
+  expect(html).not.toContain("Ver alterações");
+});
+
 test("potential uses Brazilian numbers and one explanation without repeating the formula", () => {
   const html = renderToStaticMarkup(<DataCard card={{ ...potential, type: "potential" }} />);
   expect(html).toContain("+0,6%");
