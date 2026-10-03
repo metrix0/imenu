@@ -129,7 +129,7 @@ async function loadIbge() {
                 { next: { revalidate: 86400 } }
             ),
             fetch(
-                "https://servicodados.ibge.gov.br/api/v3/malhas/estados/PE?intrarregiao=municipio&qualidade=minima",
+                "https://servicodados.ibge.gov.br/api/v3/malhas/estados/PE?intrarregiao=municipio&formato=application/vnd.geo+json&qualidade=minima",
                 {
                     headers: { Accept: "application/vnd.geo+json" },
                     next: { revalidate: 86400 },
