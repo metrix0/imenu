@@ -601,9 +601,9 @@ export function ActionCard({
   if (compact) return (
     <article className={styles.action} aria-label={action.title}>
       <div className={styles.actionHeader}>
+        <p className={styles.actionCount} style={{ marginTop: 0 }}>{action.image_jobs?.length ? `${action.image_jobs.length} imagens para revisar` : `${action.operations.length} ${action.operations.length === 1 ? "alteração proposta" : "alterações propostas"}`}</p>
         <span className={`${styles.actionState} ml-auto ${action.status === "applied" ? styles.applied : ["conflict", "failed"].includes(action.status) ? styles.needsReview : ""}`}>{states[action.status] || action.status}</span>
       </div>
-      <p className={styles.actionCount}>{action.image_jobs?.length ? `${action.image_jobs.length} imagens para revisar` : `${action.operations.length} ${action.operations.length === 1 ? "alteração proposta" : "alterações propostas"}`}</p>
       <ActionPeek action={action} refs={refs} />
       <details className={styles.disclosure}>
         <summary>{action.operations.length > 2 ? `Ver todas as ${action.operations.length} alterações` : "Ver alterações"}<ChevronDown size={13} aria-hidden="true" /></summary>
