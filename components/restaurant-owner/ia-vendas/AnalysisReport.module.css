@@ -19,12 +19,14 @@
 .range { font-size: clamp(30px, 4cqi, 44px); }
 .growth { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 12px; color: var(--panel-muted); font-size: 13px; }
 .growth strong { display: inline-flex; align-items: center; gap: 5px; padding: 4px 8px; border-radius: 6px; background: color-mix(in srgb, var(--green) 10%, transparent); color: var(--green); font-weight: 500; }
-.disclosure { margin-top: 14px; color: var(--panel-muted); font-size: 13px; line-height: 1.6; }
+.disclosure { margin-top: 14px; color: var(--panel-muted); font-size: 13px; line-height: 1.6; interpolate-size: allow-keywords; }
 .disclosure summary { display: flex; width: fit-content; min-height: 28px; align-items: center; gap: 6px; cursor: pointer; list-style: none; }
 .disclosure summary::-webkit-details-marker { display: none; }
 .disclosure summary:hover { color: var(--panel-text); }
-.disclosure summary > svg:last-child { transition: transform 150ms ease; }
+.disclosure summary > svg:last-child { transition: transform 180ms ease; }
 .disclosure[open] > summary > svg:last-child { transform: rotate(180deg); }
+.disclosure::details-content { block-size: 0; overflow: hidden; opacity: 0; transition: block-size 220ms ease, opacity 160ms ease, content-visibility 220ms allow-discrete; }
+.disclosure[open]::details-content { block-size: auto; opacity: 1; }
 .calculation { max-width: 660px; margin-top: 12px; padding-left: 12px; border-left: 2px solid var(--panel-border); }
 .calculation ul { display: grid; gap: 8px; margin-bottom: 8px; }
 .summary { display: grid; gap: 10px; padding: 24px; border-block: 1px solid var(--panel-border); background: var(--panel-background); }
@@ -41,8 +43,9 @@
 .opportunityHeading h3 { font-size: 18px; line-height: 1.4; }
 .number { flex-shrink: 0; color: var(--green); font-size: 18px; line-height: 1.4; font-weight: 500; font-variant-numeric: tabular-nums; }
 .explanation { margin-top: 10px; color: var(--panel-muted); font-size: 14px; line-height: 1.7; }
-.opportunityTools { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 18px; margin-top: 14px; }
-.opportunityTools .disclosure { margin-top: 0; }
+.opportunityTools { display: flex; flex-wrap: nowrap; align-items: flex-start; gap: 8px 18px; margin-top: 14px; }
+.opportunityTools .disclosure { min-width: 0; flex: 1 1 auto; margin-top: 0; }
+.opportunityTools .discuss { flex: 0 0 auto; margin-top: 4px; }
 .evidence { margin-top: 14px; padding-left: 12px; border-left: 2px solid var(--panel-border); }
 .evidence ul { display: grid; gap: 8px; margin-top: 12px; }
 .assessment { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
@@ -110,7 +113,7 @@
 .legacy { padding: 24px; }
 @container (min-width: 960px) {
   .hero { grid-template-columns: minmax(0, 1fr) 300px; align-items: start; gap: 40px; padding: 36px; }
-  .heroActions { align-self: center; }
+  .heroActions { align-self: start; }
   .summary { padding: 24px 36px; }
   .sectionHeader { padding-inline: 36px; }
   .opportunity { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 40px; margin-inline: 36px; padding-block: 32px; }
@@ -141,4 +144,6 @@
   .action { padding: 14px; }
   .secondary { padding-inline: 18px; }
 }
-@media (prefers-reduced-motion: reduce) { .disclosure summary > svg:last-child { transition: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .disclosure summary > svg:last-child, .disclosure::details-content { transition: none; }
+}

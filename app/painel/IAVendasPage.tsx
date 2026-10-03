@@ -81,7 +81,6 @@ export default function SalesPage() {
     emptyThreadStart = useRef(Date.now()),
     file = useRef<HTMLInputElement>(null),
     input = useRef<HTMLTextAreaElement>(null),
-    chatTrigger = useRef<HTMLButtonElement>(null),
     focusChat = useRef(false);
   useEffect(() => {
     const media = window.matchMedia("(min-width: 1280px)");
@@ -276,7 +275,6 @@ export default function SalesPage() {
   const closeAnalysisChat = () => {
     focusChat.current = false;
     setAnalysisChatOpen(false);
-    requestAnimationFrame(() => chatTrigger.current?.focus());
   };
   const conversationPicker = (
               <select
@@ -720,17 +718,11 @@ export default function SalesPage() {
                     }}
                   />
                 </div>
-                <div className="shrink-0 border-t border-[var(--panel-border)] bg-[var(--panel-surface)] p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
-                  <button ref={chatTrigger} type="button" aria-label="Pergunte sobre esta análise" aria-haspopup="dialog" aria-expanded={analysisChatOpen}
-                    onClick={openAnalysisChat}
-                    className="flex min-h-12 w-full cursor-pointer items-center gap-3 rounded-[16px] border border-[var(--panel-border)] px-4 py-3 text-left text-sm text-[var(--panel-muted)] hover:bg-[var(--panel-background)] focus-visible:outline-2 focus-visible:outline-[var(--panel-action)]">
-                    <MessageSquare size={18} className="shrink-0 text-[var(--panel-action)]" />
-                    <span className="min-w-0 flex-1 truncate">{opportunity ? "Conversar sobre: " + opportunity.title : "Pergunte sobre esta análise…"}</span>
-                    <ArrowUpRight size={17} className="shrink-0" />
-                  </button>
-                </div>
               </div>
-              {wideAnalysis && analysisChatOpen && <aside role="dialog" aria-label="Conversa sobre a análise" className="absolute inset-y-0 right-0 z-30 flex min-h-0 w-[360px] flex-col border-l border-[var(--panel-border)] bg-[var(--panel-surface)] shadow-[-8px_0_24px_rgba(29,29,29,0.08)] 2xl:w-[380px]">{contextualChat}</aside>}
+              {wideAnalysis && <aside role="dialog" aria-label="Conversa sobre a análise" aria-hidden={!analysisChatOpen} inert={!analysisChatOpen}
+                className={`absolute inset-y-0 right-0 z-30 flex min-h-0 w-[360px] flex-col border-l border-[var(--panel-border)] bg-[var(--panel-surface)] shadow-[-8px_0_24px_rgba(29,29,29,0.08)] transition-transform duration-300 ease-out motion-reduce:transition-none 2xl:w-[380px] ${analysisChatOpen ? "translate-x-0" : "pointer-events-none translate-x-full"}`}>
+                {contextualChat}
+              </aside>}
               {!wideAnalysis && <Modal open={analysisChatOpen} onClose={closeAnalysisChat} height="85dvh" fixedHeight className="[&>.panel-modal-body]:!flex [&>.panel-modal-body]:!min-h-0 [&>.panel-modal-body]:!flex-1 [&>.panel-modal-body]:!p-0">
                 {contextualChat}
               </Modal>}
