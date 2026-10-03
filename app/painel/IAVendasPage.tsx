@@ -700,6 +700,10 @@ export default function SalesPage() {
                     status={sales.status}
                     activeOpportunityId={opportunity?.id}
                     onHistory={() => setModal("history")}
+                    onChat={() => {
+                      setOpportunity(null);
+                      openAnalysisChat();
+                    }}
                     onSelect={(id) => {
                       setSelectedReportId(id);
                       setOpportunity(null);

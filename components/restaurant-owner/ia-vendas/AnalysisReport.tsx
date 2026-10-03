@@ -14,12 +14,12 @@ const SHOW_MEASUREMENT_HISTORY = false;
 
 export default function AnalysisReport({
   analyses, selected, actions, refs, disabled, loading, generating,
-  status, activeOpportunityId, onSelect, onDiscuss, onHistory, onAction, onBatch,
+  status, activeOpportunityId, onSelect, onDiscuss, onChat, onHistory, onAction, onBatch,
 }: {
   analyses: Data[]; selected?: Data; actions: Action[]; refs: Record<string, string>;
   disabled: boolean; loading: boolean; generating: boolean;
   status: string; activeOpportunityId?: string;
-  onSelect: (id: string) => void; onDiscuss: (item: Data) => void;
+  onSelect: (id: string) => void; onDiscuss: (item: Data) => void; onChat: () => void;
   onHistory: () => void; onAction: (command: string, ids: string[]) => void; onBatch: (ids: string[]) => void;
 }) {
   const report = selected?.result?.report, legacy = selected && !report;
@@ -49,20 +49,16 @@ export default function AnalysisReport({
       </ul>}
     </details>
   ) : null;
+
   return (
-    <div className="mx-auto max-w-5xl space-y-6 pb-2" aria-busy={waiting}>
-      <header className="space-y-4">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h1>Análise de vendas</h1>
-            <p className="mt-2 text-sm text-[var(--panel-muted)]">As melhores oportunidades do seu restaurante, em um só lugar.</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button variant="secondary" aria-label="Histórico de ações" title="Histórico de ações" onClick={onHistory}><History size={16} /></Button>
-          </div>
+    <div className="mx-auto max-w-7xl space-y-8 pb-2" aria-busy={waiting}>
+      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <h1>Análise de vendas</h1>
+          <p className="mt-2 text-sm text-[var(--panel-muted)]">As melhores oportunidades do seu restaurante, em um só lugar.</p>
         </div>
-        {analyses.length > 0 && <div className="flex justify-end">
-          <div className="w-full max-w-sm">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          {analyses.length > 0 && <div className="w-full sm:w-72">
             <Dropdown aria-label="Histórico de análises" value={selected?.id || ""} disabled={disabled}
               onChange={(e) => onSelect(e.target.value)}
               options={[
@@ -73,8 +69,9 @@ export default function AnalysisReport({
                 })),
               ]}
             />
-          </div>
-        </div>}
+          </div>}
+          <Button variant="secondary" aria-label="Histórico de ações" title="Histórico de ações" onClick={onHistory}><History size={16} /></Button>
+        </div>
       </header>
 
       {waiting && <div role="status" className={surface + " flex items-center gap-3 p-4"}>
@@ -87,27 +84,36 @@ export default function AnalysisReport({
         Esta análise não foi concluída. As propostas preparadas estão disponíveis para revisão.
       </div>}
 
-      {!legacy && <section aria-label="Resumo da IA" className={surface + " p-5"}>
-          <div className="mb-4 flex items-center gap-2 text-xs font-medium text-[var(--panel-accent-text)]"><Sparkles size={16} aria-hidden="true" />Resumo da IA</div>
+      {!legacy && <section aria-label="Potencial estimado" className={surface + " overflow-hidden !bg-[var(--panel-tint)] p-5 md:p-6"}>
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+          <div className="min-w-0 [&>div]:!m-0 [&>div]:!border-0 [&>div]:!bg-transparent [&>div]:!p-0">
+            <h2 className="mb-4 flex items-center gap-2 text-xl"><TrendingUp size={18} aria-hidden="true" />O que seu restaurante pode ganhar em 4 semanas</h2>
+            {report ? <DataCard card={{...report.potential_estimate, hide_period_label: true, type: "potential"}} /> : <>
+              <p className="text-3xl font-semibold text-[var(--panel-text)]">{waiting ? "Calculando…" : "A descobrir"}</p>
+              <p className="mt-3 text-sm leading-6 text-[var(--panel-muted)]">Uma estimativa baseada nas oportunidades e nos pedidos do seu restaurante.</p>
+            </>}
+          </div>
+          <div className="flex flex-wrap gap-2 lg:max-w-[420px] lg:justify-end">
+            <Button disabled={disabled || !pending.length} onClick={() => onBatch(pending)}>Revisar e aplicar tudo</Button>
+            <Button variant="secondary" disabled={disabled} onClick={onChat}><MessageSquare size={15} className="mr-2" />Conversar com Assistente de IA</Button>
+          </div>
+        </div>
+      </section>}
+
+      {!legacy && <section aria-label="Resumo da IA" className="grid gap-4 px-1 lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-8">
+        <div>
+          <div className="flex items-center gap-2 text-xs font-medium text-[var(--panel-accent-text)]"><Sparkles size={16} aria-hidden="true" />Resumo da IA</div>
+        </div>
+        <div className="min-w-0">
           <h2 className="mb-3">{report?.headline || (waiting ? "Encontrando oportunidades para vender mais" : "Seu próximo passo para vender mais")}</h2>
           {report ? <SalesMarkdown content={report.summary} /> : <p className="text-sm leading-6 text-[var(--panel-muted)]">
             A análise reúne os dados do seu restaurante e prioriza mudanças com impacto nas vendas. Cada oportunidade traz evidências e propostas para você revisar.
           </p>}
-      </section>}
-
-      {!legacy && <section aria-label="Potencial estimado" className={surface + " overflow-hidden !bg-[var(--panel-tint)] p-5 [&>div]:!m-0 [&>div]:!border-0 [&>div]:!bg-transparent [&>div]:!p-0"}>
-        <h3 className="mb-4 flex items-center gap-2"><TrendingUp size={16} aria-hidden="true" />O que seu restaurante pode ganhar com essas mudanças</h3>
-        {report ? <DataCard card={{...report.potential_estimate, type: "potential"}} /> : <>
-          <p className="text-2xl font-semibold text-[var(--panel-text)]">{waiting ? "Calculando…" : "A descobrir"}</p>
-          <p className="mt-3 text-sm leading-6 text-[var(--panel-muted)]">Uma estimativa baseada nas oportunidades e nos pedidos do seu restaurante.</p>
-        </>}
+        </div>
       </section>}
 
       {!legacy && <section aria-label="Oportunidades prioritárias" className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h3>Oportunidades prioritárias{report ? ` (${opportunities.length})` : ""}</h3>
-          {pending.length > 1 && <Button disabled={disabled} onClick={() => onBatch(pending)}>Revisar e aplicar todos ({pending.length})</Button>}
-        </div>
+        <h3>Oportunidades prioritárias{report ? ` (${opportunities.length})` : ""}</h3>
         {!opportunities.length && <div className={surface + " flex flex-col items-center px-5 py-8 text-center"}>
           <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-[10px] bg-[var(--panel-tint)] text-[var(--panel-accent-text)]"><Target size={24} aria-hidden="true" /></div>
           <h4 className="text-base font-medium">{waiting ? "Avaliando as melhores oportunidades" : report ? "Nenhuma oportunidade priorizada" : "Sua análise estará disponível aqui"}</h4>
@@ -115,14 +121,23 @@ export default function AnalysisReport({
             {waiting ? "O relatório aparecerá aqui assim que a análise terminar." : report ? (report.status === "partial" ? "A priorização ainda não foi concluída. Veja as propostas preservadas nos pontos para revisão." : "Não encontramos mudanças de alto impacto sustentadas pelos dados atuais.") : "As oportunidades aparecerão aqui quando seu relatório estiver disponível."}
           </p>
         </div>}
-        {opportunities.map((o, i) => <article key={o.id} className={surface + " p-5 " + (activeOpportunityId === o.id ? "!border-[var(--panel-action)]" : "")}>
-          <div className="flex items-start gap-3">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] bg-[var(--panel-tint)] text-sm font-medium text-[var(--panel-accent-text)]">{i + 1}</span>
-            <div className="min-w-0 flex-1"><h4 className="text-base font-semibold">{o.title}</h4><p className="mt-2 text-sm leading-6 text-[var(--panel-muted)]">{o.explanation}</p></div>
-          </div>
-          {renderActions(o)}{renderEvidence(o, true)}
-          <div className="mt-4 flex justify-end border-t border-[var(--panel-border)] pt-4"><Button variant="secondary" disabled={disabled} aria-pressed={activeOpportunityId === o.id} onClick={() => onDiscuss(o)}><MessageSquare size={15} className="mr-2" />Conversar sobre isso</Button></div>
-        </article>)}
+        {!!opportunities.length && <div className={surface + " overflow-hidden"}>
+          {opportunities.map((o, i) => <article key={o.id} className={"p-5 md:p-6 " + (i ? "border-t border-[var(--panel-border)] " : "") + (activeOpportunityId === o.id ? "bg-[var(--panel-tint)]" : "")}>
+            <div className="grid gap-5 xl:grid-cols-[minmax(0,0.85fr)_minmax(360px,1.15fr)] xl:gap-8">
+              <div className="min-w-0">
+                <div className="flex items-start gap-3">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] bg-[var(--panel-tint)] text-sm font-medium text-[var(--panel-accent-text)]">{i + 1}</span>
+                  <div className="min-w-0 flex-1"><h4 className="text-base font-semibold">{o.title}</h4><p className="mt-2 text-sm leading-6 text-[var(--panel-muted)]">{o.explanation}</p></div>
+                </div>
+                {renderEvidence(o, true)}
+              </div>
+              <div className="min-w-0 xl:border-l xl:border-[var(--panel-border)] xl:pl-8">
+                {renderActions(o)}
+                <div className="mt-3 flex justify-end"><Button variant="secondary" disabled={disabled} aria-pressed={activeOpportunityId === o.id} onClick={() => onDiscuss(o)}><MessageSquare size={15} className="mr-2" />Conversar sobre isso</Button></div>
+              </div>
+            </div>
+          </article>)}
+        </div>}
       </section>}
 
       {!!reviewItems.length && <details className={surface + " p-5"}>
@@ -140,17 +155,17 @@ export default function AnalysisReport({
       {!legacy && <section aria-label={SHOW_MEASUREMENT_HISTORY ? "Comparações e resultados" : "Comparações"} className="space-y-4">
         <h3>{SHOW_MEASUREMENT_HISTORY ? "Comparações e resultados" : "Comparações"}</h3>
         <div className={`grid gap-4 ${SHOW_MEASUREMENT_HISTORY ? "2xl:grid-cols-2" : ""}`}>
-          <div className={surface + " min-w-0 p-5 [&>details]:!m-0 [&>details]:!border-0 [&>details]:!p-0"}>
-            {report ? <DataCard card={{...report.benchmark_snapshot, reason: report.benchmark_snapshot?.reason || "Ainda não há dados suficientes para uma comparação útil.", type:"benchmark"}} expanded /> : <>
-              <div className="mb-3 flex items-center gap-2"><TrendingUp size={16} className="text-[var(--panel-muted)]" /><h4 className="text-sm font-medium">Restaurantes semelhantes</h4></div>
-              <p className="text-sm leading-6 text-[var(--panel-muted)]">Compare suas vendas com restaurantes parecidos quando houver dados suficientes.</p>
-            </>}
-          </div>
-          {SHOW_MEASUREMENT_HISTORY && <div className={surface + " min-w-0 p-5 [&>details]:!m-0 [&>details]:!border-0 [&>details]:!p-0"}>
-            {report?.measurement_snapshot?.results?.some((r: Data) => r.before.orders || r.after.orders) ? <DataCard card={{...report.measurement_snapshot, type:"measurement"}} expanded /> : <>
+          {report ? <div className="min-w-0 [&>details]:!m-0">
+            <DataCard card={{...report.benchmark_snapshot, reason: report.benchmark_snapshot?.reason || "Ainda não há dados suficientes para uma comparação útil.", type:"benchmark"}} expanded />
+          </div> : <div className={surface + " min-w-0 p-5"}>
+            <div className="mb-3 flex items-center gap-2"><TrendingUp size={16} className="text-[var(--panel-muted)]" /><h4 className="text-sm font-medium">Restaurantes semelhantes</h4></div>
+            <p className="text-sm leading-6 text-[var(--panel-muted)]">Compare suas vendas com restaurantes parecidos quando houver dados suficientes.</p>
+          </div>}
+          {SHOW_MEASUREMENT_HISTORY && <div className="min-w-0 [&>details]:!m-0">
+            {report?.measurement_snapshot?.results?.some((r: Data) => r.before.orders || r.after.orders) ? <DataCard card={{...report.measurement_snapshot, type:"measurement"}} expanded /> : <div className={surface + " p-5"}>
               <div className="mb-3 flex items-center gap-2"><ClipboardList size={16} className="text-[var(--panel-muted)]" /><h4 className="text-sm font-medium">Resultados das mudanças</h4></div>
               <p className="text-sm leading-6 text-[var(--panel-muted)]">{report?.measurement_snapshot?.reason || report?.measurement_snapshot?.note || "Ainda não há vendas suficientes após as mudanças para comparar os resultados."}</p>
-            </>}
+            </div>}
           </div>}
         </div>
       </section>}

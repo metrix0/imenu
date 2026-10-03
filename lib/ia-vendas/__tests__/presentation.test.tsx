@@ -50,14 +50,14 @@ const props = {
     period: { start: "2026-09-04T12:00:00Z", end: "2026-10-02T12:00:00Z" },
   }}},
   actions: [action], refs: {}, disabled: false, loading: false, generating: false,
-  status: "", onSelect: jest.fn(), onDiscuss: jest.fn(), onHistory: jest.fn(),
+  status: "", onSelect: jest.fn(), onDiscuss: jest.fn(), onChat: jest.fn(), onHistory: jest.fn(),
   onAction: jest.fn(), onBatch: jest.fn(),
 };
 
-test("report leads with summary and potential, then opportunities, review and comparison", () => {
+test("report leads with potential actions, then summary, opportunities, review and comparison", () => {
   const html = renderToStaticMarkup(<AnalysisReport {...props} />);
   const positions = [
-    'aria-label="Resumo da IA"', 'aria-label="Potencial estimado"',
+    'aria-label="Potencial estimado"', 'aria-label="Resumo da IA"',
     'aria-label="Oportunidades prioritárias"', "Pontos para revisão",
     'aria-label="Comparações"',
   ].map((label) => html.indexOf(label));
@@ -68,6 +68,10 @@ test("report leads with summary and potential, then opportunities, review and co
   expect(html).not.toContain("Resultados das mudanças");
   expect(html).not.toContain("Ticket:");
   expect(html).not.toContain("oportunidades priorizadas");
+  expect(html).toContain("O que seu restaurante pode ganhar em 4 semanas");
+  expect(html).toContain("Revisar e aplicar tudo");
+  expect(html).toContain("Conversar com Assistente de IA");
+  expect(html).not.toContain("Potencial nas próximas 4 semanas");
 });
 
 test("analysis proposals keep Apply visible and full before/after changes collapsed", () => {

@@ -534,7 +534,7 @@ export function ActionCard({
         !!action.claimed_at &&
         Date.parse(action.claimed_at) < Date.now() - 360000));
   return (
-    <article className="my-4 rounded-[12px] border border-[var(--panel-border)] bg-[var(--panel-background)] p-3">
+    <article className={compact ? "my-3 rounded-[8px] bg-[var(--panel-background)] p-3" : "my-4 rounded-[12px] border border-[var(--panel-border)] bg-[var(--panel-background)] p-3"}>
       <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
         {compact
           ? <p className="text-sm font-medium text-[var(--panel-text)]">{action.image_jobs?.length ? `${action.image_jobs.length} imagens para revisar` : `${action.operations.length} ${action.operations.length === 1 ? "alteração proposta" : "alterações propostas"}`}</p>
@@ -637,11 +637,11 @@ export function DataCard({ card, expanded = false }: { card: Data; expanded?: bo
       <div className="my-4 rounded-[10px] border border-gray-200 bg-white p-4">
         {card.available ? (
           <>
-            <p className="text-sm text-gray-600">
+            {!card.hide_period_label && <p className="text-sm text-gray-600">
               {Number(card.days) === 7
                 ? "Potencial na próxima semana"
                 : "Potencial nas próximas 4 semanas"}
-            </p>
+            </p>}
             <p className="my-2 text-3xl font-semibold text-[#D93D00]">
               +{money(minCents)}
               {hasRange ? ` – +${money(maxCents)}` : ""}

@@ -268,12 +268,7 @@ export default function PainelLayout({
 
     useEffect(() => {
         setMobileMenuOpen(false);
-        if (
-            pathname?.startsWith("/painel/assistente-ia") ||
-            pathname?.startsWith("/painel/vendas-ia")
-        ) {
-            setExpanded(false);
-        }
+        setExpanded(!pathname?.startsWith("/painel/assistente-ia"));
     }, [pathname]);
 
     useEffect(() => {
