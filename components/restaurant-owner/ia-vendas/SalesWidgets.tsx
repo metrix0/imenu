@@ -293,12 +293,6 @@ function operationCopy(
       hideDetails: true,
     };
   }
-  if (field === "description")
-    return {
-      heading,
-      summary: <>Atualizar a descrição de {strong(name)}.</>,
-      hideDetails: false,
-    };
   if (field === "is_available")
     return {
       heading,
@@ -312,7 +306,7 @@ function operationCopy(
 
   return {
     heading,
-    summary: <>Atualizar {strong(name)}.</>,
+    summary: <>{strong(name)}</>,
     hideDetails: false,
   };
 }
@@ -369,7 +363,7 @@ export function ActionPreview({
     const copy = operationCopy(op, refs);
     if (op.kind === "delete" || copy.hideDetails) return null;
     return (
-      <dl className="mt-2 divide-y divide-gray-100 text-xs">
+      <dl className="mt-2 space-y-1.5 text-xs">
         {Object.entries(op.values)
           .filter(
             ([k]) =>
@@ -377,38 +371,24 @@ export function ActionPreview({
               !["image_path", "logo_url", "banner_url"].includes(k),
           )
           .map(([k, v]) => (
-            <div
-              key={k}
-              className={
-                op.kind === "create"
-                  ? "grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-start gap-3 py-2"
-                  : "grid grid-cols-[1fr_1fr] gap-2 py-2"
-              }
-            >
-              <dt
-                className={
-                  op.kind === "create"
-                    ? "font-medium text-gray-700"
-                    : "col-span-2 font-medium text-gray-700"
-                }
-              >
-                {labels[k] || k}
+            <div key={k} className="flex min-w-0 flex-wrap gap-x-1 py-0.5">
+              <dt className="font-medium text-gray-700">
+                {labels[k] || k}:
               </dt>
               {op.kind === "create" ? (
-                <dd className="whitespace-pre-wrap break-words text-gray-900">
+                <dd className="min-w-0 whitespace-pre-wrap break-words text-gray-900">
                   {display(k, v, refs, op)}
                 </dd>
               ) : (
-                <>
-                  <dd className="whitespace-pre-wrap break-words text-gray-500">
-                    <span className="sr-only">Antes: </span>
+                <dd className="min-w-0 whitespace-pre-wrap break-words text-gray-700">
+                  <span className="text-gray-500">
                     {display(k, op.before?.[k], refs, op)}
-                  </dd>
-                  <dd className="whitespace-pre-wrap break-words text-gray-900">
-                    <span className="sr-only">Depois: </span>
+                  </span>
+                  <span aria-hidden="true"> → </span>
+                  <span className="text-gray-900">
                     {display(k, v, refs, op)}
-                  </dd>
-                </>
+                  </span>
+                </dd>
               )}
             </div>
           ))}
