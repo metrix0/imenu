@@ -119,7 +119,7 @@ export async function finishRun(
     ? (sql: string, params: any[]) => client.query(sql, params)
     : query;
   await execute(
-    "UPDATE public.ia_vendas_runs SET status=$3,result=(coalesce(result,'{}'::jsonb)-'batch')||coalesce($4::jsonb,'{}'::jsonb)||CASE WHEN result->'batch'->>'mode'='batch' THEN jsonb_build_object('batch',jsonb_build_object('mode','batch','id',result->'batch'->>'id','round',result->'batch'->'round','status',$3)) ELSE '{}'::jsonb END,error=$5,finished_at=now(),reserved_input=CASE WHEN $3='completed' THEN 0 ELSE reserved_input END,reserved_output=CASE WHEN $3='completed' THEN 0 ELSE reserved_output END WHERE restaurant_id=$1 AND id=$2 AND status='running'",
+    "UPDATE public.ia_vendas_runs SET status=$3,result=(coalesce(result,'{}'::jsonb)-'batch')||coalesce($4::jsonb,'{}'::jsonb)||CASE WHEN result->'batch'->>'mode'='batch' THEN jsonb_build_object('batch',jsonb_build_object('mode','batch','id',result->'batch'->>'id','round',result->'batch'->'round','status',$3::text)) ELSE '{}'::jsonb END,error=$5,finished_at=now(),reserved_input=CASE WHEN $3='completed' THEN 0 ELSE reserved_input END,reserved_output=CASE WHEN $3='completed' THEN 0 ELSE reserved_output END WHERE restaurant_id=$1 AND id=$2 AND status='running'",
     [
       restaurant,
       id,
