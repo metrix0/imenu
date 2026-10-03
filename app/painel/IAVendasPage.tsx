@@ -58,7 +58,7 @@ function splitMessageParts(content: string): MessagePart[] {
 export default function SalesPage() {
   const sales = useSalesStore(),
     pathname = usePathname(),
-    isAnalysisRoute = pathname === "/painel/ia-vendas/analise",
+    isAnalysisRoute = pathname === "/painel/vendas-ia",
     restaurant = useCreationStore((s) => s.restaurantId),
     [selectedReportId, setSelectedReportId] = useState(""),
     [opportunity, setOpportunity] = useState<Data | null>(null),
