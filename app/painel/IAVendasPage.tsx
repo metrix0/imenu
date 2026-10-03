@@ -592,7 +592,7 @@ export default function SalesPage() {
     </div>
   );
   return (
-    <div className="h-[calc(100dvh-112px)] max-h-[calc(100dvh-112px)] min-h-0 overflow-hidden md:h-[calc(100dvh-64px)] md:max-h-[calc(100dvh-64px)]">
+    <div className="h-[calc(100dvh-112px)] max-h-[calc(100dvh-112px)] min-h-0 w-[calc(100%+1rem)] !max-w-none overflow-hidden md:h-[calc(100dvh-64px)] md:max-h-[calc(100dvh-64px)] md:w-[calc(100%+1.75rem)] 2xl:w-[calc(100%+2rem)]">
       <div className="flex h-full max-h-full min-h-0 overflow-hidden">
         {!isAnalysis && (
           <aside className="hidden min-h-0 w-56 shrink-0 flex-col border-r border-[var(--panel-border)] bg-[var(--panel-background)] p-3 lg:flex">
