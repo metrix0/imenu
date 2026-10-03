@@ -56,10 +56,10 @@
 .discuss:disabled { cursor: not-allowed; opacity: .48; }
 .proposalList { min-width: 0; display: grid; align-content: start; gap: 22px; }
 .action { min-width: 0; padding: 8px 18px 18px; border: 1px solid var(--panel-border); border-radius: 8px; background: var(--panel-background); }
-.actionHeader { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.actionHeader { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; }
 .actionLabel { color: var(--panel-text); font-size: 13px; font-weight: 500; }
-.actionCount { margin-top: 4px; color: var(--panel-muted); font-size: 12px; }
-.actionState { display: inline-flex; align-items: center; gap: 6px; color: var(--panel-muted); font-size: 11px; }
+.actionCount { margin: 0; color: var(--panel-muted); font-size: 12px; }
+.actionState { display: inline-flex; flex-shrink: 0; align-items: center; gap: 6px; color: var(--panel-muted); font-size: 11px; }
 .actionState::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 .applied { color: var(--color-green); }
 .needsReview { color: #b45309; }
