@@ -150,8 +150,25 @@ test("image batches use generation and publication language and keep generated p
   expect(afterGeneration).toContain("Cheddar Burger GRANDE");
   expect(afterGeneration).toContain("Kids Burger");
   expect(afterGeneration.match(/Publicar imagem/g)).toHaveLength(2);
+  expect(afterGeneration).toContain("Publicar todas");
+  expect(afterGeneration).toContain("(2)");
+  expect(afterGeneration).toContain("Revise cada prévia ou publique todas de uma vez.");
   expect(afterGeneration).not.toContain(">Aplicar<");
   expect(afterGeneration).not.toContain("Gerar não publica");
+
+  const partiallyPublished = renderToStaticMarkup(
+    <ActionCard
+      action={{ ...batch, status: "applied", generated_actions: [first.id, second.id] }}
+      generatedActions={[{ ...first, status: "applied" }, second]}
+      refs={{}}
+      disabled={false}
+      onAction={jest.fn()}
+      compact
+    />,
+  );
+  expect(partiallyPublished).toContain("Publicar restantes");
+  expect(partiallyPublished).toContain("(1)");
+  expect(partiallyPublished).not.toContain("Publicar todas (2)");
 });
 
 test("generated image previews show one review surface instead of duplicating the diff", () => {
