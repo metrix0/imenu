@@ -57,24 +57,6 @@
     max-width: 100%;
 }
 
-.panel-essencial .panel-mobile-content[data-panel-path^="/painel/assistente-ia"] {
-    height: calc(100dvh - 64px);
-    min-height: 0;
-    overflow: hidden;
-    padding: 0 !important;
-    background: var(--panel-surface);
-}
-.panel-essencial .panel-mobile-content[data-panel-path^="/painel/assistente-ia"] > div {
-    height: 100%;
-    max-width: none !important;
-    margin-inline: 0;
-}
-@media (min-width: 768px) {
-    .panel-essencial .panel-mobile-content[data-panel-path^="/painel/assistente-ia"] {
-        height: 100dvh;
-    }
-}
-
 .panel-essencial .panel-mobile-content[data-panel-path^="/painel/vendas-ia"] {
     height: calc(100dvh - 64px);
     min-height: 0;

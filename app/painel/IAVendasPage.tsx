@@ -616,7 +616,7 @@ export default function SalesPage() {
       className={
         isAnalysis
           ? "h-full max-h-full min-h-0 w-full overflow-hidden"
-          : "h-full max-h-full min-h-0 w-full !max-w-none overflow-hidden"
+          : "absolute inset-x-0 top-0 h-[calc(100dvh-64px)] max-h-[calc(100dvh-64px)] min-h-0 w-full !max-w-none overflow-hidden bg-[var(--panel-surface)] md:h-dvh md:max-h-dvh"
       }
     >
       <div className="flex h-full max-h-full min-h-0 overflow-hidden">

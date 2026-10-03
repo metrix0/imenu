@@ -269,7 +269,9 @@ export default function PainelLayout({
 
     useEffect(() => {
         setMobileMenuOpen(false);
-        if (pathname?.startsWith("/painel/vendas-ia")) {
+        if (pathname?.startsWith("/painel/assistente-ia")) {
+            setExpanded(false);
+        } else if (pathname?.startsWith("/painel/vendas-ia")) {
             setExpanded(true);
         }
     }, [pathname]);
@@ -812,7 +814,7 @@ export default function PainelLayout({
                 <main
                     data-panel-path={pathname || base}
                     data-sidebar-expanded={expanded}
-                    className={`panel-mobile-content min-h-screen min-w-0 bg-gray-50 transition-all duration-300 md:flex-1 md:p-8 ${
+                    className={`panel-mobile-content relative min-h-screen min-w-0 bg-gray-50 transition-all duration-300 md:flex-1 md:p-8 ${
                         expanded
                             ? "md:ml-60 2xl:ml-70"
                             : "md:ml-[4.5rem] 2xl:ml-20"
