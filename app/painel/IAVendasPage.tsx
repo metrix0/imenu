@@ -765,7 +765,11 @@ export default function SalesPage() {
             </div>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 md:px-8">
-            {!modeReady || (sales.loading && !sales.messages.length) ? <Loader /> : null}
+            {!modeReady || (sales.loading && !sales.messages.length) ? (
+              <div className="flex h-full items-center justify-center">
+                <Loader />
+              </div>
+            ) : null}
             {modeReady && !isAnalysis && sales.has_more && (
               <div className="mb-5 text-center">
                 <Button
