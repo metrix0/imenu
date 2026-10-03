@@ -7,6 +7,7 @@ import { useParams, usePathname, useRouter } from "next/navigation";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import {
+    faArrowTrendUp,
     faBars,
     faBox,
     faChair,
@@ -378,7 +379,6 @@ export default function PainelLayout({
         { label: "Histórico", icon: faBox, href: `${base}/historico` },
         { label: "Cardápio", icon: faUtensils, href: cardapioHref },
         { label: "Assistente IA", icon: faWandMagicSparkles, href: `${base}/assistente-ia` },
-        { label: "Vendas IA", icon: faChartLine, href: `${base}/vendas-ia` },
         { label: "Mesas", icon: faChair, href: `${base}/mesas` },
         {
             label: "Repasses",
@@ -392,6 +392,7 @@ export default function PainelLayout({
         },
         { type: "divider" },
         { label: "Loja", icon: faStore, href: `${base}/loja` },
+        { label: "Vendas IA", icon: faArrowTrendUp, href: `${base}/vendas-ia` },
         { label: "Promoções", icon: faPercent, href: `${base}/promocoes` },
         { label: "Horários", icon: faClock, href: `${base}/disponibilidade` },
         { label: "Taxa e Tempo", icon: faTruck, href: `${base}/tempo-e-taxa` },
