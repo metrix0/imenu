@@ -217,25 +217,6 @@ export default function SalesPage() {
                 ) : Date.parse(m.created_at) >= emptyThreadStart.current),
           )
         : sales.messages;
-  useEffect(() => {
-    if (!isAnalysis) return;
-    const html = document.documentElement,
-      body = document.body,
-      previousHtmlOverflow = html.style.overflow,
-      previousHtmlOverscroll = html.style.overscrollBehaviorY,
-      previousBodyOverflow = body.style.overflow,
-      previousBodyOverscroll = body.style.overscrollBehaviorY;
-    html.style.overflow = "hidden";
-    html.style.overscrollBehaviorY = "none";
-    body.style.overflow = "hidden";
-    body.style.overscrollBehaviorY = "none";
-    return () => {
-      html.style.overflow = previousHtmlOverflow;
-      html.style.overscrollBehaviorY = previousHtmlOverscroll;
-      body.style.overflow = previousBodyOverflow;
-      body.style.overscrollBehaviorY = previousBodyOverscroll;
-    };
-  }, [isAnalysis]);
   async function send() {
     if (!text.trim() || disabled || uploading) return;
     const draft = text.trim();
@@ -609,7 +590,7 @@ export default function SalesPage() {
     </div>
   );
   return (
-    <div className="h-full max-h-full min-h-0 overflow-hidden">
+    <div className="h-[calc(100dvh-112px)] max-h-[calc(100dvh-112px)] min-h-0 overflow-hidden md:h-[calc(100dvh-64px)] md:max-h-[calc(100dvh-64px)]">
       <div className="flex h-full max-h-full min-h-0 overflow-hidden">
         {!isAnalysis && (
           <aside className="hidden min-h-0 w-56 shrink-0 flex-col border-r border-[var(--panel-border)] bg-[var(--panel-background)] p-3 lg:flex">
