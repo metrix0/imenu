@@ -5,6 +5,7 @@ on:
     branches:
       - preview
       - preview-iavendas
+      - tmp-vendas-ia-batch-selection-20261003
 
 concurrency:
   group: validate-build-${{ github.ref }}
