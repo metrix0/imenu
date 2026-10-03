@@ -271,8 +271,6 @@ export default function PainelLayout({
         setMobileMenuOpen(false);
         if (pathname?.startsWith("/painel/assistente-ia")) {
             setExpanded(false);
-        } else if (pathname?.startsWith("/painel/vendas-ia")) {
-            setExpanded(true);
         }
     }, [pathname]);
 
