@@ -158,6 +158,29 @@ type DashboardDetailsPayload = {
             monthlyRevenueCents: number;
         }>;
         totalMonthlyRevenueCents: number;
+        billing: {
+            currentPayers: number;
+            currentPixPayers: number;
+            currentCardPayers: number;
+            currentPixValueCents: number;
+            newPayersThisMonth: number;
+            revenueReceivedThisMonthCents: number;
+            churn30d: {
+                pix: { count: number; base: number };
+                card: { count: number; base: number };
+                total: { count: number; base: number };
+            };
+        };
+        pixPayers: Array<{
+            restaurantId: string;
+            restaurantName: string;
+            slug: string | null;
+            productKey: string;
+            amountCents: number;
+            paidAt: string;
+            currentPeriodEndsAt: string | null;
+            active: boolean;
+        }>;
     };
     qrTable: {
         onboarding: {
@@ -692,9 +715,80 @@ export default function DevDashboardPage() {
                             <section>
                                 <SectionHeading
                                     title="Receita mensal"
-                                    description="Receita recorrente mensal dos add-ons com assinatura ativa."
+                                    description="Receita recorrente, pagantes e saúde da cobrança dos add-ons."
                                 />
-                                <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+
+                                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                                    <MetricCard
+                                        title="MRR recorrente"
+                                        value={formatCurrencyFromCents(
+                                            details.monthlyRevenue.totalMonthlyRevenueCents
+                                        )}
+                                        description="Assinaturas mensais ativas com recorrência real."
+                                    />
+                                    <MetricCard
+                                        title="Pagantes atuais"
+                                        value={formatCount(
+                                            details.monthlyRevenue.billing.currentPayers
+                                        )}
+                                        description={`${formatCount(
+                                            details.monthlyRevenue.billing.currentCardPayers
+                                        )} cartão · ${formatCount(
+                                            details.monthlyRevenue.billing.currentPixPayers
+                                        )} Pix`}
+                                    />
+                                    <MetricCard
+                                        title="Recebido este mês"
+                                        value={formatCurrencyFromCents(
+                                            details.monthlyRevenue.billing
+                                                .revenueReceivedThisMonthCents
+                                        )}
+                                        description="Pagamentos de add-ons efetivamente recebidos no mês atual."
+                                    />
+                                    <MetricCard
+                                        title="Novos pagantes este mês"
+                                        value={formatCount(
+                                            details.monthlyRevenue.billing
+                                                .newPayersThisMonth
+                                        )}
+                                        description="Restaurantes cujo primeiro pagamento de add-on ocorreu neste mês."
+                                    />
+                                </div>
+
+                                <div className="mt-4 grid gap-4 sm:grid-cols-3">
+                                    {(
+                                        [
+                                            [
+                                                "Churn Pix · 30 dias",
+                                                details.monthlyRevenue.billing.churn30d.pix,
+                                            ],
+                                            [
+                                                "Churn cartão · 30 dias",
+                                                details.monthlyRevenue.billing.churn30d.card,
+                                            ],
+                                            [
+                                                "Churn total · 30 dias",
+                                                details.monthlyRevenue.billing.churn30d.total,
+                                            ],
+                                        ] as const
+                                    ).map(([title, churn]) => (
+                                        <MetricCard
+                                            key={title}
+                                            title={title}
+                                            value={formatRatio(
+                                                churn.base > 0
+                                                    ? (churn.count / churn.base) * 100
+                                                    : 0
+                                            )}
+                                            description={`${formatCount(
+                                                churn.count
+                                            )} de ${formatCount(churn.base)} pagantes`}
+                                            danger={churn.count > 0}
+                                        />
+                                    ))}
+                                </div>
+
+                                <div className="mt-4 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
                                     {details.monthlyRevenue.addons.map((addon) => (
                                         <div
                                             key={addon.productKey}
@@ -718,7 +812,9 @@ export default function DevDashboardPage() {
                                         </div>
                                     ))}
                                     <div className="flex items-center justify-between gap-6 bg-gray-50 px-5 py-4">
-                                        <span className="font-semibold text-gray-900">Total</span>
+                                        <span className="font-semibold text-gray-900">
+                                            Total recorrente
+                                        </span>
                                         <span className="text-xl font-bold tabular-nums text-gray-950">
                                             {formatCurrencyFromCents(
                                                 details.monthlyRevenue
@@ -727,6 +823,104 @@ export default function DevDashboardPage() {
                                             /mês
                                         </span>
                                     </div>
+                                </div>
+
+                                <div className="mt-4 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+                                    <div className="flex flex-col gap-1 border-b border-gray-200 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+                                        <div>
+                                            <h3 className="font-semibold text-gray-900">
+                                                Restaurantes que pagaram via Pix
+                                            </h3>
+                                            <p className="mt-1 text-xs text-gray-500">
+                                                Somente pagamentos confirmados no histórico de cobrança.
+                                            </p>
+                                        </div>
+                                        <span className="text-sm font-semibold tabular-nums text-gray-700">
+                                            {formatCurrencyFromCents(
+                                                details.monthlyRevenue.billing
+                                                    .currentPixValueCents
+                                            )}{" "}
+                                            em períodos Pix vigentes
+                                        </span>
+                                    </div>
+                                    {details.monthlyRevenue.pixPayers.length ? (
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full min-w-[760px] text-left text-sm">
+                                                <thead className="border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
+                                                    <tr>
+                                                        <th className="px-5 py-3 font-semibold">Restaurante</th>
+                                                        <th className="px-5 py-3 font-semibold">Add-on</th>
+                                                        <th className="px-5 py-3 font-semibold">Pago em</th>
+                                                        <th className="px-5 py-3 font-semibold">Acesso até</th>
+                                                        <th className="px-5 py-3 text-right font-semibold">Valor</th>
+                                                        <th className="px-5 py-3 font-semibold">Situação</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-gray-100">
+                                                    {details.monthlyRevenue.pixPayers.map(
+                                                        (payer) => (
+                                                            <tr
+                                                                key={`${payer.restaurantId}-${payer.productKey}`}
+                                                                className="hover:bg-gray-50/70"
+                                                            >
+                                                                <td className="px-5 py-4 font-medium text-gray-900">
+                                                                    {payer.slug ? (
+                                                                        <a
+                                                                            href={`https://imenuapp.com.br/${payer.slug}`}
+                                                                            target="_blank"
+                                                                            rel="noreferrer"
+                                                                            className="hover:text-brand hover:underline"
+                                                                        >
+                                                                            {payer.restaurantName}
+                                                                        </a>
+                                                                    ) : (
+                                                                        payer.restaurantName
+                                                                    )}
+                                                                </td>
+                                                                <td className="px-5 py-4 text-gray-600">
+                                                                    {addonProductLabel(
+                                                                        payer.productKey
+                                                                    )}
+                                                                </td>
+                                                                <td className="px-5 py-4 text-gray-600">
+                                                                    {formatDateTime(
+                                                                        payer.paidAt
+                                                                    )}
+                                                                </td>
+                                                                <td className="px-5 py-4 text-gray-600">
+                                                                    {formatDateTime(
+                                                                        payer.currentPeriodEndsAt
+                                                                    )}
+                                                                </td>
+                                                                <td className="px-5 py-4 text-right font-semibold tabular-nums text-gray-900">
+                                                                    {formatCurrencyFromCents(
+                                                                        payer.amountCents
+                                                                    )}
+                                                                </td>
+                                                                <td className="px-5 py-4">
+                                                                    <span
+                                                                        className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
+                                                                            payer.active
+                                                                                ? "bg-green-100 text-green-800"
+                                                                                : "bg-gray-100 text-gray-600"
+                                                                        }`}
+                                                                    >
+                                                                        {payer.active
+                                                                            ? "Vigente"
+                                                                            : "Encerrado"}
+                                                                    </span>
+                                                                </td>
+                                                            </tr>
+                                                        )
+                                                    )}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    ) : (
+                                        <div className="px-5 py-8 text-center text-sm text-gray-400">
+                                            Nenhum pagamento Pix confirmado.
+                                        </div>
+                                    )}
                                 </div>
                             </section>
                         )}
