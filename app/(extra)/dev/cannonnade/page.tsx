@@ -436,20 +436,32 @@ export default function CannonnadePage() {
         setSelectedCode(data.referenceCityCode);
     };
 
-    const handleWheel = (event: React.WheelEvent<SVGSVGElement>) => {
-        event.preventDefault();
-        if (!viewBox || !svgRef.current) return;
+    useEffect(() => {
+        const svg = svgRef.current;
+        if (!svg || !viewBox) return;
 
-        const rectangle = svgRef.current.getBoundingClientRect();
-        const x =
-            viewBox.x +
-            ((event.clientX - rectangle.left) / rectangle.width) * viewBox.width;
-        const y =
-            viewBox.y +
-            ((event.clientY - rectangle.top) / rectangle.height) * viewBox.height;
+        const handleWheel = (event: WheelEvent) => {
+            event.preventDefault();
 
-        zoom(event.deltaY > 0 ? 1.18 : 0.84, { x, y });
-    };
+            const rectangle = svg.getBoundingClientRect();
+            const x =
+                viewBox.x +
+                ((event.clientX - rectangle.left) / rectangle.width) *
+                    viewBox.width;
+            const y =
+                viewBox.y +
+                ((event.clientY - rectangle.top) / rectangle.height) *
+                    viewBox.height;
+
+            zoom(event.deltaY > 0 ? 1.18 : 0.84, { x, y });
+        };
+
+        svg.addEventListener("wheel", handleWheel, { passive: false });
+
+        return () => {
+            svg.removeEventListener("wheel", handleWheel);
+        };
+    }, [viewBox, baseViewBox]);
 
     const handlePointerDown = (
         event: React.PointerEvent<SVGSVGElement>
@@ -648,7 +660,6 @@ export default function CannonnadePage() {
                             className="h-full w-full touch-none cursor-grab select-none active:cursor-grabbing"
                             viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.width} ${viewBox.height}`}
                             preserveAspectRatio="xMidYMid meet"
-                            onWheel={handleWheel}
                             onPointerDown={handlePointerDown}
                             onPointerMove={handlePointerMove}
                             onPointerUp={endDrag}
