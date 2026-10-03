@@ -5,6 +5,8 @@ import { context, measure } from "../data";
 import { beginRun, recordTokens, finishRun } from "../runs";
 import { propose } from "../actions";
 import OpenAI from "openai";
+import { batchResponse, readBatch, saveToolResult, BatchPending } from "../batch";
+jest.mock("../batch", () => ({ ...jest.requireActual("../batch"), batchResponse: jest.fn(), readBatch: jest.fn(), saveToolResult: jest.fn() }));
 jest.mock("openai", () => jest.fn());
 jest.mock("@/lib/analytics/posthogConsumer", () => ({
   loadPostHogConsumerMetrics: jest.fn().mockResolvedValue({ available: false }),
@@ -42,6 +44,7 @@ const args = {
   text: "Analisar minhas vendas",
   attachments: [],
   deep: true,
+  immediate: true,
   send: jest.fn(),
 };
 const result = () => ({
@@ -55,6 +58,9 @@ const result = () => ({
 });
 beforeEach(() => {
   create.mockReset();
+  (batchResponse as jest.Mock).mockReset();
+  (readBatch as jest.Mock).mockResolvedValue({});
+  (saveToolResult as jest.Mock).mockResolvedValue(undefined);
   (OpenAI as unknown as jest.Mock).mockImplementation(() => ({
     responses: { create },
   }));
@@ -76,7 +82,7 @@ beforeEach(() => {
           : [],
   }));
   (withTransaction as jest.Mock).mockImplementation((fn) =>
-    fn({ query: jest.fn().mockResolvedValue({ rows: [] }) }),
+    fn({ query: jest.fn().mockResolvedValue({ rows: [{ status: "running", locked: true }] }) }),
   );
   (context as jest.Mock).mockResolvedValue({
     restaurant: { url_slug: "menu" },
@@ -189,7 +195,37 @@ test("requesting analysis in contextual chat stays a normal chat run", async () 
     usage: { input_tokens: 100, output_tokens: 20 },
   });
   await runChat({ ...args, deep: false });
-  expect(beginRun).toHaveBeenCalledWith("owner", "conversation", "run", "chat");
+  expect(beginRun).toHaveBeenCalledWith("owner", "conversation", "run", "chat", undefined);
   expect(context).toHaveBeenCalledWith("owner", false);
   expect(create.mock.calls[0][0].text.format).toEqual({ type: "json_object" });
+});
+
+test("default deep analysis queues Batch and resumes to persist a strict report without reloading context", async () => {
+  (batchResponse as jest.Mock).mockRejectedValueOnce(new BatchPending());
+  await runChat({ ...args, immediate: false });
+  expect(create).not.toHaveBeenCalled();
+  expect(finishRun).not.toHaveBeenCalled();
+  expect(args.send).toHaveBeenCalledWith("queued", expect.objectContaining({ run_id: "run" }));
+  const snapshot = structuredClone((batchResponse as jest.Mock).mock.calls[0][4]);
+  expect(snapshot.ctx.entities.items.rows).toHaveLength(97);
+  (batchResponse as jest.Mock).mockResolvedValueOnce({ id: "response-1", status: "completed", output: [], output_text: JSON.stringify(result()), usage: { input_tokens: 76210, output_tokens: 2914 } });
+  await runChat({ ...args, immediate: false, resume: snapshot });
+  expect(context).toHaveBeenCalledTimes(1);
+  expect(measure).toHaveBeenCalledTimes(1);
+  expect((finishRun as jest.Mock).mock.calls.at(-1)[2].report.status).toBe("complete");
+  expect((recordTokens as jest.Mock).mock.calls.at(-1)[4]).toMatchObject({ transport: "batch", response_id: "response-1" });
+});
+test("Batch tool replay uses saved proposals and full output without creating another action", async () => {
+  (batchResponse as jest.Mock).mockRejectedValueOnce(new BatchPending());
+  await runChat({ ...args, immediate: false });
+  const snapshot = structuredClone((batchResponse as jest.Mock).mock.calls[0][4]);
+  (readBatch as jest.Mock).mockResolvedValue({ tool_results: { call: { result: { id: "proposal", operations: [{ values: { full: "preserved" } }] }, cards: [{ type: "action", id: "proposal" }], example: false, estimated: false } } });
+  (batchResponse as jest.Mock).mockResolvedValueOnce({ id: "response-1", status: "completed", output: [{ type: "function_call", name: "propose_action", arguments: "{}", call_id: "call" }], usage: { input_tokens: 47313, output_tokens: 2367 } }).mockRejectedValueOnce(new BatchPending());
+  await runChat({ ...args, immediate: false, resume: snapshot });
+  expect(propose).not.toHaveBeenCalled();
+  expect(saveToolResult).not.toHaveBeenCalled();
+  const next = (batchResponse as jest.Mock).mock.calls.at(-1)[4];
+  expect(next.cards).toContainEqual({ type: "action", id: "proposal" });
+  expect(next.input.at(-1).output).toContain('"full":"preserved"');
+  expect(next.round).toBe(1);
 });

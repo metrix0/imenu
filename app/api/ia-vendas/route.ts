@@ -52,7 +52,7 @@ export async function GET(request: Request) {
           [restaurant],
         ),
         query(
-          "SELECT id,conversation_id,created_at FROM public.ia_vendas_runs WHERE restaurant_id=$1 AND status='running' AND created_at>now()-interval '6 minutes'",
+          "SELECT id,conversation_id,created_at,kind,result->'batch'->>'mode' mode FROM public.ia_vendas_runs WHERE restaurant_id=$1 AND status='running' AND (created_at>now()-interval '6 minutes' OR result->'batch'->>'mode'='batch') ORDER BY (kind='chat') DESC,created_at DESC",
           [restaurant],
         ),
         query(
@@ -61,7 +61,7 @@ export async function GET(request: Request) {
         ),
         analysisConversation
           ? query(
-              "SELECT id,status,result,created_at,finished_at FROM public.ia_vendas_runs WHERE restaurant_id=$1 AND conversation_id=$2 AND kind='analysis' AND result->>'detached_at' IS NULL AND result IS NOT NULL ORDER BY created_at DESC",
+              "SELECT id,status,(result-'batch')||CASE WHEN result->'batch'->>'mode'='batch' THEN jsonb_build_object('batch',jsonb_build_object('mode','batch','status',result->'batch'->>'status','round',result->'batch'->'round')) ELSE '{}'::jsonb END result,created_at,finished_at FROM public.ia_vendas_runs WHERE restaurant_id=$1 AND conversation_id=$2 AND kind='analysis' AND result->>'detached_at' IS NULL AND result IS NOT NULL ORDER BY created_at DESC",
               [restaurant, id],
             )
           : Promise.resolve({ rows: [] }),

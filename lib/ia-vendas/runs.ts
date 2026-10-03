@@ -7,6 +7,7 @@ export async function beginRun(
   conversation: string,
   id: string,
   kind: "chat" | "analysis" | "image",
+  initialResult?: Record<string, unknown>,
 ) {
   return withTransaction(async (c) => {
     await c.query("SELECT pg_advisory_xact_lock(hashtextextended($1,1))", [
@@ -20,14 +21,14 @@ export async function beginRun(
     ).rows[0];
     if (old) return old;
     await c.query(
-      "UPDATE public.ia_vendas_runs SET status='failed',error='Processamento interrompido.',finished_at=now() WHERE restaurant_id=$1 AND status='running' AND created_at<now()-interval '6 minutes'",
+      "UPDATE public.ia_vendas_runs SET status='failed',error='Processamento interrompido.',finished_at=now() WHERE restaurant_id=$1 AND status='running' AND created_at<now()-interval '6 minutes' AND coalesce(result->'batch'->>'mode','')<>'batch'",
       [restaurant],
     );
     if (
       (
         await c.query(
-          "SELECT 1 FROM public.ia_vendas_runs WHERE restaurant_id=$1 AND status='running'",
-          [restaurant],
+          "SELECT 1 FROM public.ia_vendas_runs WHERE restaurant_id=$1 AND status='running' AND ($2='analysis' OR coalesce(result->'batch'->>'mode','')<>'batch')",
+          [restaurant, kind],
         )
       ).rowCount
     )
@@ -51,7 +52,7 @@ export async function beginRun(
         429,
       );
     await c.query(
-      "INSERT INTO public.ia_vendas_runs (id,restaurant_id,conversation_id,kind,model,reserved_input,reserved_output) VALUES ($1,$2,$3,$4,$5,$6,$7)",
+      "INSERT INTO public.ia_vendas_runs (id,restaurant_id,conversation_id,kind,model,reserved_input,reserved_output,result) VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb)",
       [
         id,
         restaurant,
@@ -60,6 +61,7 @@ export async function beginRun(
         kind === "image" ? MODELS.image : MODELS[kind],
         kind === "image" ? 0 : LIMITS.runInput,
         kind === "image" ? 0 : output,
+        initialResult ? JSON.stringify(initialResult) : null,
       ],
     );
     return null;
@@ -73,8 +75,8 @@ export async function recordTokens(
   cycle?: Record<string, unknown>,
 ) {
   await query(
-    "UPDATE public.ia_vendas_runs SET input_tokens=input_tokens+$3,output_tokens=output_tokens+$4,result=CASE WHEN $5::jsonb IS NULL THEN result ELSE coalesce(result,'{}'::jsonb)||jsonb_build_object('cycles',coalesce(result->'cycles','[]'::jsonb)||$5::jsonb) END WHERE restaurant_id=$1 AND id=$2 AND status='running'",
-    [restaurant, id, input, output, cycle ? JSON.stringify([cycle]) : null],
+    "UPDATE public.ia_vendas_runs SET input_tokens=input_tokens+$3,output_tokens=output_tokens+$4,result=CASE WHEN $5::jsonb IS NULL THEN result ELSE coalesce(result,'{}'::jsonb)||jsonb_build_object('cycles',coalesce(result->'cycles','[]'::jsonb)||$5::jsonb) END WHERE restaurant_id=$1 AND id=$2 AND status='running' AND ($6::text IS NULL OR NOT coalesce(result->'cycles','[]'::jsonb) @> jsonb_build_array(jsonb_build_object('response_id',$6::text)))",
+    [restaurant, id, input, output, cycle ? JSON.stringify([cycle]) : null, cycle?.response_id || null],
   );
 }
 export async function reserveImage(restaurant: string, run: string) {
@@ -117,7 +119,7 @@ export async function finishRun(
     ? (sql: string, params: any[]) => client.query(sql, params)
     : query;
   await execute(
-    "UPDATE public.ia_vendas_runs SET status=$3,result=coalesce(result,'{}'::jsonb)||coalesce($4::jsonb,'{}'::jsonb),error=$5,finished_at=now(),reserved_input=CASE WHEN $3='completed' THEN 0 ELSE reserved_input END,reserved_output=CASE WHEN $3='completed' THEN 0 ELSE reserved_output END WHERE restaurant_id=$1 AND id=$2 AND status='running'",
+    "UPDATE public.ia_vendas_runs SET status=$3,result=(coalesce(result,'{}'::jsonb)-'batch')||coalesce($4::jsonb,'{}'::jsonb)||CASE WHEN result->'batch'->>'mode'='batch' THEN jsonb_build_object('batch',jsonb_build_object('mode','batch','id',result->'batch'->>'id','round',result->'batch'->'round','status',$3)) ELSE '{}'::jsonb END,error=$5,finished_at=now(),reserved_input=CASE WHEN $3='completed' THEN 0 ELSE reserved_input END,reserved_output=CASE WHEN $3='completed' THEN 0 ELSE reserved_output END WHERE restaurant_id=$1 AND id=$2 AND status='running'",
     [
       restaurant,
       id,

@@ -84,3 +84,12 @@ test("manual analysis has no minute quota while chat retains storm protection", 
     beginRun("restaurant", "conversation", "chat-run", "chat"),
   ).rejects.toThrow("capacidade");
 });
+
+test("queued analyses survive the synchronous stale timeout and don't block contextual chat", async () => {
+  await beginRun("restaurant", "conversation", "run", "chat");
+  const cleanup = c.query.mock.calls.find(([sql]) => sql.startsWith("UPDATE public.ia_vendas_runs"));
+  expect(cleanup?.[0]).toContain("coalesce(result->'batch'->>'mode','')<>'batch'");
+  const concurrent = c.query.mock.calls.find(([sql]) => sql.startsWith("SELECT 1 FROM public.ia_vendas_runs"));
+  expect(concurrent?.[0]).toContain("$2='analysis'");
+  expect(concurrent?.[1]).toEqual(["restaurant", "chat"]);
+});

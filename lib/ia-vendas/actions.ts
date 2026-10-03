@@ -163,6 +163,7 @@ export async function propose(
   conversation: string,
   run: string,
   input: unknown,
+  proposalId?: string,
 ): Promise<Action> {
   const draft = object(input);
   if (
@@ -180,6 +181,10 @@ export async function propose(
     await c.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [
       restaurant,
     ]);
+    if (proposalId) {
+      const existing = (await c.query("SELECT * FROM public.ia_vendas_actions WHERE restaurant_id=$1 AND run_id=$2 AND id=$3", [restaurant, run, proposalId])).rows[0];
+      if (existing) return existing;
+    }
     if (
       Number(
         (
@@ -241,7 +246,7 @@ export async function propose(
     }
     return (
       await c.query(
-        "INSERT INTO public.ia_vendas_actions (restaurant_id,conversation_id,run_id,title,reason,operations) VALUES ($1,$2,$3,$4,$5,$6::jsonb) RETURNING *",
+        "INSERT INTO public.ia_vendas_actions (restaurant_id,conversation_id,run_id,title,reason,operations,id) VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7) RETURNING *",
         [
           restaurant,
           conversation,
@@ -249,6 +254,7 @@ export async function propose(
           draft.title,
           draft.reason,
           JSON.stringify(ops),
+          proposalId || randomUUID(),
         ],
       )
     ).rows[0];

@@ -190,10 +190,15 @@ export async function proposeImages(
   conversation: string,
   run: string,
   input: unknown,
+  proposalId?: string,
 ) {
   const data = object(input);
   if (!Array.isArray(data.jobs) || !data.jobs.length || data.jobs.length > 3)
     throw new SalesError("Proponha até três imagens por lote.");
+  if (proposalId) {
+    const existing = (await query("SELECT * FROM public.ia_vendas_actions WHERE restaurant_id=$1 AND run_id=$2 AND id=$3", [restaurant, run, proposalId])).rows[0];
+    if (existing) return existing;
+  }
   const count = Number(
     (
       await query(
@@ -211,7 +216,7 @@ export async function proposeImages(
   }
   return (
     await query(
-      "INSERT INTO public.ia_vendas_actions (restaurant_id,conversation_id,run_id,title,reason,image_jobs) VALUES ($1,$2,$3,$4,$5,$6::jsonb) RETURNING *",
+      "INSERT INTO public.ia_vendas_actions (restaurant_id,conversation_id,run_id,title,reason,image_jobs,id) VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7) ON CONFLICT(id) DO UPDATE SET id=excluded.id RETURNING *",
       [
         restaurant,
         conversation,
@@ -219,6 +224,7 @@ export async function proposeImages(
         "Gerar prévias de imagens",
         "Aprovar gera as prévias; publicar exige nova aprovação.",
         JSON.stringify(jobs),
+        proposalId || randomUUID(),
       ],
     )
   ).rows[0];
