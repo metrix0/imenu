@@ -381,10 +381,12 @@ export function ActionPreview({
                 </dd>
               ) : (
                 <dd className="min-w-0 whitespace-pre-wrap break-words text-gray-700">
+                  <span className="sr-only">Antes: </span>
                   <span className="text-gray-500">
                     {display(k, op.before?.[k], refs, op)}
                   </span>
                   <span aria-hidden="true"> → </span>
+                  <span className="sr-only">Depois: </span>
                   <span className="text-gray-900">
                     {display(k, v, refs, op)}
                   </span>
