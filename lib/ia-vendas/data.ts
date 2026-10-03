@@ -168,6 +168,144 @@ export async function measure(restaurant: string) {
   };
 }
 
+function shortText(value: unknown, max = 180) {
+  const text = typeof value === "string" ? value.trim() : "";
+  return text.length > max ? text.slice(0, max - 1) + "…" : text || null;
+}
+
+export function analysisModelContext(ctx: Data): Data {
+  const entities = ctx.entities || {};
+  const rows = (entity: string): Data[] => entities[entity]?.rows || [];
+  const products: Data[] = ctx.sales?.products || [];
+  const sold = new Map(products.map((p) => [p.item_id, p]));
+  const items = [...rows("items")].sort(
+    (a, b) =>
+      Number(sold.get(b.id)?.gross_cents || 0) -
+        Number(sold.get(a.id)?.gross_cents || 0) ||
+      Number(sold.get(b.id)?.units || 0) - Number(sold.get(a.id)?.units || 0),
+  );
+  const focusItems = [
+    ...items.filter((item) => sold.has(item.id)),
+    ...items.filter((item) => !sold.has(item.id)),
+  ].slice(0, 30);
+  const names = new Map<string, Data[]>();
+  for (const item of items) {
+    const normalized = String(item.name || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, " ");
+    if (!normalized) continue;
+    names.set(normalized, [...(names.get(normalized) || []), item]);
+  }
+  const duplicates = [...names.values()]
+    .filter((group) => group.length > 1)
+    .slice(0, 12)
+    .map((group) => group.map((item) => ({ id: item.id, name: item.name })));
+  const trimRows = (entity: string, limit: number, map?: (row: Data) => Data) => {
+    const source = rows(entity);
+    return {
+      rows: source.slice(0, limit).map((row) => (map ? map(row) : row)),
+      total: source.length,
+      truncated: source.length > limit,
+    };
+  };
+  const compactReport = (entry: Data) => ({
+    id: entry.id,
+    finished_at: entry.finished_at,
+    headline: entry.report?.headline,
+    summary: entry.report?.summary,
+    opportunities: (entry.report?.opportunities || []).slice(0, 5).map((o: Data) => ({
+      title: o.title,
+      explanation: o.explanation,
+      action_ids: o.action_ids,
+    })),
+  });
+  const imageReview = ctx.image_review || {};
+  return {
+    restaurant: ctx.restaurant,
+    coverage: ctx.coverage,
+    sales: { ...ctx.sales, products: products.slice(0, 30) },
+    catalog: {
+      entity_counts: Object.fromEntries(
+        Object.keys(entities).map((entity) => [entity, rows(entity).length]),
+      ),
+      categories: trimRows("categories", 30),
+      focus_items: {
+        total: items.length,
+        rows: focusItems.map((item) => ({
+          id: item.id,
+          category_id: item.category_id,
+          name: item.name,
+          description: shortText(item.description),
+          price_cents: item.price_cents,
+          image: !!item.image_path,
+          is_available: item.is_available,
+          position: item.position,
+          sales: sold.get(item.id) || null,
+        })),
+        truncated: items.length > focusItems.length,
+      },
+      missing_images: items
+        .filter((item) => !item.image_path)
+        .slice(0, 20)
+        .map((item) => ({ id: item.id, name: item.name, sales: sold.get(item.id) || null })),
+      missing_descriptions: items
+        .filter((item) => !shortText(item.description))
+        .slice(0, 20)
+        .map((item) => ({ id: item.id, name: item.name, sales: sold.get(item.id) || null })),
+      duplicate_names: duplicates,
+      selection_rules: trimRows("item_subcategories", 60, (row) => ({
+        id: row.id,
+        item_id: row.item_id,
+        name: row.name,
+        position: row.position,
+        min_select: row.min_select,
+        max_select: row.max_select,
+        allow_multiple_units: row.allow_multiple_units,
+      })),
+      subitems: trimRows("subitems", 60, (row) => ({
+        id: row.id,
+        item_subcategory_id: row.item_subcategory_id,
+        name: row.name,
+        price_cents: row.price_cents,
+        is_available: row.is_available,
+        position: row.position,
+      })),
+      upsells: trimRows("upsell", 20),
+      promotions: trimRows("promotions", 20),
+      coupons: trimRows("coupons", 12),
+      loyalty_programs: trimRows("loyalty_programs", 8),
+      menu: trimRows("menu", 8),
+      restaurant_tables: { total: rows("restaurant_tables").length },
+      tracking_integrations: trimRows("tracking_integrations", 6),
+    },
+    instructions: ctx.instructions,
+    actions: (ctx.actions || []).slice(0, 15).map((action: Data) => ({
+      id: action.id,
+      title: action.title,
+      reason: shortText(action.reason),
+      status: action.status,
+      applied_at: action.applied_at,
+      undone_at: action.undone_at,
+    })),
+    prior_analyses: (ctx.prior_analyses || []).slice(0, 1).map(compactReport),
+    peers: ctx.peers,
+    traffic: ctx.traffic,
+    measurement: ctx.measurement,
+    image_review: {
+      loaded: imageReview.loaded || 0,
+      unavailable: imageReview.unavailable || 0,
+      missing: imageReview.missing || 0,
+      not_reviewed: imageReview.not_reviewed || 0,
+      photos: (imageReview.photos || [])
+        .filter((photo: Data) => photo.status === "loaded" || photo.status === "unavailable")
+        .slice(0, 8),
+    },
+  };
+}
+
 /** One consistent, tenant-scoped snapshot; no model-driven pagination or row caps. */
 async function analysisContext(restaurant: string): Promise<Data> {
   return withTransaction(async (c) => {

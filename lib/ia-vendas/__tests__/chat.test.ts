@@ -17,6 +17,7 @@ jest.mock("@/lib/database/sql", () => ({
   withTransaction: jest.fn(),
 }));
 jest.mock("../data", () => ({
+  ...jest.requireActual("../data"),
   context: jest.fn(),
   measure: jest.fn(),
   readData: jest.fn(),
@@ -107,7 +108,7 @@ beforeEach(() => {
   });
   (propose as jest.Mock).mockResolvedValue({ id: "proposal", operations: [] });
 });
-test("deep analyst sees all 97 items, measurement and structured history without transcript; report persists", async () => {
+test("deep analyst receives compact context while retaining coverage, measurement and structured history; report persists", async () => {
   create.mockResolvedValue({
     status: "completed",
     output: [],
@@ -116,7 +117,9 @@ test("deep analyst sees all 97 items, measurement and structured history without
   });
   await runChat(args);
   const request = create.mock.calls[0][0];
-  expect(request.input[0].content).toContain("item-96");
+  expect(request.input[0].content).toContain("item-0");
+  expect(request.input[0].content).not.toContain("item-96");
+  expect(request.input[0].content).toContain('"loaded":97');
   expect(request.input[0].content).toContain("measured-action");
   expect(request.input[0].content).toContain("previous structured");
   expect(request.input[0].content).not.toContain("OLD TRANSCRIPT");
@@ -135,7 +138,7 @@ test("deep analyst sees all 97 items, measurement and structured history without
     output_tokens: 2914,
   });
 });
-test("tools retain full results and reserve final synthesis when cumulative output approaches budget", async () => {
+test("tools retain full results and reserve final synthesis inside the whole-run budget", async () => {
   create.mockResolvedValueOnce({
     status: "completed",
     output: [
@@ -146,16 +149,18 @@ test("tools retain full results and reserve final synthesis when cumulative outp
         call_id: "call",
       },
     ],
-    usage: { input_tokens: 47313, output_tokens: 6500 },
+    usage: { input_tokens: 45000, output_tokens: 2400 },
   });
   create.mockResolvedValueOnce({
     status: "completed",
     output: [],
     output_text: JSON.stringify(result()),
-    usage: { input_tokens: 55000, output_tokens: 2500 },
+    usage: { input_tokens: 30000, output_tokens: 2500 },
   });
   await runChat(args);
+  expect(create.mock.calls[0][0].max_output_tokens).toBeLessThanOrEqual(2500);
   expect(create.mock.calls[1][0].tool_choice).toBe("none");
+  expect(create.mock.calls[1][0].max_output_tokens).toBeLessThanOrEqual(6000);
   expect(create.mock.calls[1][0].input).toEqual(
     expect.arrayContaining([
       expect.objectContaining({
@@ -180,7 +185,7 @@ test("failed synthesis persists a partial report and proposals rather than losin
         call_id: "call",
       },
     ],
-    usage: { input_tokens: 47313, output_tokens: 6500 },
+    usage: { input_tokens: 47313, output_tokens: 2000 },
   });
   create.mockRejectedValueOnce(new Error("provider failure"));
   await runChat(args);
@@ -188,6 +193,59 @@ test("failed synthesis persists a partial report and proposals rather than losin
   expect(finished[2].report.status).toBe("partial");
   expect(finished[2].report.review_items[0].action_ids).toEqual(["proposal"]);
   expect(finished[3]).toBeTruthy();
+});
+
+test("deep analysis never makes more than three model rounds", async () => {
+  const toolResponse = (call: string) => ({
+    status: "completed",
+    output: [
+      {
+        type: "function_call",
+        name: "propose_action",
+        arguments: "{}",
+        call_id: call,
+      },
+    ],
+    usage: { input_tokens: 5000, output_tokens: 500 },
+  });
+  create
+    .mockResolvedValueOnce(toolResponse("call-1"))
+    .mockResolvedValueOnce(toolResponse("call-2"))
+    .mockResolvedValueOnce({
+      status: "completed",
+      output: [],
+      output_text: JSON.stringify(result()),
+      usage: { input_tokens: 5000, output_tokens: 1000 },
+    });
+  await runChat(args);
+  expect(create).toHaveBeenCalledTimes(3);
+  expect(create.mock.calls[2][0].tool_choice).toBe("none");
+});
+
+test("deep analysis refuses another request once the whole-run input budget is exhausted", async () => {
+  await runChat({
+    ...args,
+    resume: {
+      ctx: {
+        restaurant: { url_slug: "menu" },
+        entities: { items: { rows: [] } },
+        coverage: { items: { loaded: 0, total: 0, complete: true } },
+        sales: { start: "2026-09-01", end: "2026-09-29", products: [] },
+      },
+      input: [{ role: "user", content: "Finalize" }],
+      cards: [],
+      userMessageId: "user",
+      inputTokens: 85_000,
+      outputTokens: 0,
+      example: false,
+      estimated: false,
+      round: 1,
+    },
+  });
+  expect(create).not.toHaveBeenCalled();
+  expect((finishRun as jest.Mock).mock.calls.at(-1)[3]).toContain(
+    "orçamento máximo",
+  );
 });
 
 test("requesting analysis in contextual chat stays a normal chat run", async () => {
@@ -254,6 +312,13 @@ test("Batch tool replay uses saved proposals and full output without creating an
   expect(saveToolResult).not.toHaveBeenCalled();
   const next = (batchResponse as jest.Mock).mock.calls.at(-1)[4];
   expect(next.cards).toContainEqual({ type: "action", id: "proposal" });
-  expect(next.input.at(-1).output).toContain('"full":"preserved"');
+  expect(next.input).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        type: "function_call_output",
+        output: expect.stringContaining('"full":"preserved"'),
+      }),
+    ]),
+  );
   expect(next.round).toBe(1);
 });

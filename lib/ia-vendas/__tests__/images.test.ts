@@ -22,23 +22,33 @@ beforeEach(() => {
 const context = (items: Data[], products: Data[] = []): Data => ({
   entities: { items: { rows: items } }, sales: { products }, coverage: {},
 });
-test("all menu photos become labelled visual inputs, best selling products first without a row cap", async () => {
+test("samples six best-selling menu photos as low-detail visual inputs", async () => {
   const items = Array.from({ length: 97 }, (_, i) => ({ id: `item-${i}`, name: `Produto ${i}`, image_path: `owner/${i}.png` }));
   const ctx = context(items, [
     { item_id: "item-96", units: 20, gross_cents: 20000 },
     { item_id: "item-0", units: 2, gross_cents: 90000 },
   ]);
   const parts = await analysisPhotos(ctx);
-  expect(download).toHaveBeenCalledTimes(97);
-  expect(parts.filter((p) => p.type === "input_image")).toHaveLength(97);
+  expect(download).toHaveBeenCalledTimes(6);
+  expect(parts.filter((p) => p.type === "input_image")).toHaveLength(6);
   expect(parts[0].text).toContain('"item_id":"item-96"');
   expect(parts[2].text).toContain('"item_id":"item-0"');
-  expect(ctx.coverage.image_photos).toMatchObject({ loaded: 97, total: 97, complete: true });
-  expect(ctx.image_review.photos[0]).toMatchObject({ width: 1200, height: 800, status: "loaded", units: 20 });
-  expect(parts[1].detail).toBe("high");
+  expect(ctx.coverage.image_photos).toMatchObject({
+    loaded: 6,
+    total: 97,
+    not_reviewed: 91,
+    complete: false,
+  });
+  expect(ctx.image_review.photos.find((p: Data) => p.item_id === "item-96")).toMatchObject({
+    width: 1200,
+    height: 800,
+    status: "loaded",
+    units: 20,
+  });
+  expect(parts[1].detail).toBe("low");
   const actual = await sharp(Buffer.from(parts[1].image_url.split(",")[1], "base64")).metadata();
-  expect(actual.width).toBe(768);
-  expect(actual.height).toBe(512);
+  expect(actual.width).toBe(640);
+  expect(actual.height).toBe(427);
   expect(items[0].id).toBe("item-0");
 });
 test("missing, unreadable and external photos preserve the rest of the inspection and honest coverage", async () => {
@@ -55,7 +65,7 @@ test("missing, unreadable and external photos preserve the rest of the inspectio
   const parts = await analysisPhotos(ctx);
   expect(download.mock.calls.map(([path]) => path)).toEqual(["owner/broken.png", "owner/good.png"]);
   expect(parts.filter((p) => p.type === "input_image")).toHaveLength(1);
-  expect(ctx.coverage.image_photos).toMatchObject({ loaded: 1, total: 4, missing: 1, unavailable: 3, complete: false });
+  expect(ctx.coverage.image_photos).toMatchObject({ loaded: 1, total: 4, missing: 1, unavailable: 3, not_reviewed: 0, complete: false });
   expect(ctx.image_review.photos.map((p: Data) => p.status)).toEqual(["missing", "unavailable", "unavailable", "unavailable", "loaded"]);
 });
 test("corrupt image bytes are not marked as visually loaded", async () => {

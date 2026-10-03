@@ -68,10 +68,10 @@ export const REPORT_FORMAT = {
 };
 export const REPORT_INSTRUCTIONS = `
 Para análise profunda, substitua o formato reply/summary, os marcadores de widgets e a seção final Markdown pelo schema sales_analysis.
-Inspecione CADA dimensão obrigatória e TODOS os registros fornecidos, não apenas os produtos mais vendidos. Registre inspection para todas as dimensões: inspected quando realmente avaliou; unavailable se faltam dados (explique). Imagens: avalie presença e adequação com os dados disponíveis; não afirme ter visto fotos que não foram abertas.
-As fotos reais do cardápio são fornecidas como imagens, com identificação do produto e quantidade vendida, ordenadas pelos mais vendidos. Avalie todas as fotos carregadas: nitidez, iluminação, enquadramento, fundo, legibilidade do produto e coerência com o nome/descrição, sem inventar ingredientes ou julgar sabor. Dê mais peso comercial aos problemas nos produtos mais vendidos. image_review registra fotos carregadas, ausentes e indisponíveis; nunca afirme ter avaliado visualmente uma foto ausente ou indisponível. As dimensões informadas são da foto original; a imagem recebida foi redimensionada para inspeção. Se uma melhoria visual for relevante, use propose_images com o item_id correto, preservando ingredientes, porção e identidade; gerar e publicar continuam exigindo as aprovações existentes. Uma foto aceitável não precisa de proposta.
+Inspecione CADA dimensão obrigatória usando o resumo determinístico e, quando uma decisão depender de detalhes exatos, use read_data de forma seletiva. O snapshot completo continua no servidor, mas não é despejado integralmente no prompt. Registre inspection para todas as dimensões: inspected quando os dados disponíveis sustentarem a avaliação; unavailable se faltarem dados (explique). Não pagine ou leia tabelas inteiras por rotina: busque apenas os registros que podem mudar uma recomendação de alta alavancagem.
+As fotos reais carregadas são uma amostra dos produtos mais vendidos, escolhida para limitar custo. Avalie todas as fotos realmente carregadas: nitidez, iluminação, enquadramento, fundo, legibilidade do produto e coerência com o nome/descrição, sem inventar ingredientes ou julgar sabor. image_review também informa fotos ausentes, indisponíveis e não revisadas; nunca afirme ter avaliado visualmente uma foto que não foi carregada. Se uma melhoria visual for relevante, use propose_images com o item_id correto, preservando ingredientes, porção e identidade; gerar e publicar continuam exigindo as aprovações existentes. Uma foto aceitável não precisa de proposta.
 Inspeção não é recomendação. opportunities contém somente achados de alta alavancagem, priorizados por impacto e confiança, depois menor esforço e risco. Inclua evidências verificáveis e os IDs exatos de propose_action/propose_images. Não invente IDs nem números. Reutilize propostas válidas pendentes quando apropriado e considere ações aplicadas, rejeitadas, desfeitas e resultados anteriores. review_items guarda apenas questões relevantes que dependem de decisão do dono. Não registre pensamentos nem correções cosméticas deliberadamente descartadas.
-Todos os dados comerciais já foram carregados integralmente em entities: não é necessário paginar. Measurement contém as comparações reais antes/depois. Prior_analyses contém relatórios estruturados anteriores, não uma conversa a repetir. Headline e summary devem ser curtos. Cada explicação tem no máximo duas frases. Projeção monetária vem somente de estimate_revenue; o servidor preservará os snapshots de cobertura, período, comparação, medição e potencial.
+O contexto inicial contém um resumo comercial compacto, contagens de cobertura, principais produtos e sinais de anomalia. Use read_data somente para confirmar o estado exato de itens/configurações que possam virar proposta. Measurement contém as comparações reais antes/depois. Prior_analyses contém um resumo estruturado recente, não uma conversa a repetir. Headline e summary devem ser curtos. Cada explicação tem no máximo duas frases. Projeção monetária vem somente de estimate_revenue; o servidor preservará os snapshots de cobertura, período, comparação, medição e potencial.
 Texto para o dono: summary é uma frase sobre a principal melhoria, sem abrir com quantidade de pedidos, receita, ticket médio ou uma "Base analisada". Cada explanation traz apenas o dado que justifica a decisão e a melhoria sugerida, em até duas frases curtas (cerca de 40 palavras); detalhes adicionais ficam em evidence, sem repetir a mesma conclusão nem descrever todas as operações do cartão Aplicar. Não crie checklist de prioridades ou prazo de execução.
 Use linguagem simples também em evidence.detail, review_items e hipóteses de projeção: nunca exponha nomes de campos, SQL, IDs internos, nomes de ferramentas, "embedding", "mediana anônima", "benchmark" ou "atribuição causal". Traduza configurações para seu efeito no restaurante (por exemplo, "o kit permite escolher só um hambúrguer"). source e entity_ids são referências internas; detail é texto visível ao dono. Comparações devem dizer "restaurantes parecidos no iMenu" e usar apenas números reais que ajudem a decidir. A interface apresenta uma única estimativa em R$ e % no topo, após o resumo, e cada proposta junto da oportunidade; não repita o cálculo no texto.
 Justifique a prioridade pelo efeito comercial esperado, sem confundir certeza sobre um erro com certeza de aumento nas vendas. Uma seleção incompleta de kit é um problema operacional confirmado, mas não implica impacto alto na receita sem evidência. Vendas de combos demonstram demanda, não comprovam que a posição atual reduz vendas: trate a nova posição como uma hipótese. Separe correções independentes, como ocultar uma duplicata, quando elas exigirem decisões distintas.
@@ -155,11 +155,25 @@ export function makeReport(
         ]),
       );
   if (value) {
-    if (ctx.image_review?.unavailable > 0)
+    if (
+      ctx.image_review?.unavailable > 0 ||
+      ctx.image_review?.not_reviewed > 0
+    ) {
+      const loaded = Number(ctx.image_review.loaded || 0),
+        unavailable = Number(ctx.image_review.unavailable || 0),
+        notReviewed = Number(ctx.image_review.not_reviewed || 0),
+        details = [
+          `${loaded} fotos revisadas visualmente`,
+          unavailable ? `${unavailable} não puderam ser abertas` : "",
+          notReviewed ? `${notReviewed} não foram revisadas visualmente` : "",
+        ]
+          .filter(Boolean)
+          .join("; ");
       inspected.images = {
-        status: "unavailable",
-        note: `${ctx.image_review.loaded} fotos carregadas; ${ctx.image_review.unavailable} não puderam ser abertas. ${inspected.images.note}`,
+        status: unavailable > 0 || loaded === 0 ? "unavailable" : "inspected",
+        note: `${details}. ${inspected.images.note}`,
       };
+    }
     for (const [dimension, source] of [
       ["traffic", ctx.traffic],
       ["benchmark", ctx.peers],

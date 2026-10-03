@@ -59,7 +59,11 @@ export async function beginRun(
         conversation,
         kind,
         kind === "image" ? MODELS.image : MODELS[kind],
-        kind === "image" ? 0 : LIMITS.runInput,
+        kind === "image"
+          ? 0
+          : kind === "analysis"
+            ? LIMITS.analysisInput
+            : LIMITS.runInput,
         kind === "image" ? 0 : output,
         initialResult ? JSON.stringify(initialResult) : null,
       ],

@@ -5,7 +5,7 @@ import { randomUUID } from "crypto";
 import { query, withTransaction } from "@/lib/database/sql";
 import { makeReport, REPORT_FORMAT, REPORT_INSTRUCTIONS } from "./report";
 import { FIELDS } from "./fields";
-import { context, readData, metrics, measure } from "./data";
+import { analysisModelContext, context, readData, metrics, measure } from "./data";
 import { propose } from "./actions";
 import { previewImage, proposeImages, analysisPhotos } from "./images";
 import { download } from "./files";
@@ -327,14 +327,8 @@ export async function runChat(args: {
         ctx.peers = cards.find((c) => c.type === "benchmark");
       }
       const photoParts = deep ? await analysisPhotos(ctx) : [];
-      const {
-        restaurant: currentRestaurant,
-        items: currentItems,
-        categories: currentCategories,
-        ...analysisSnapshot
-      } = ctx;
       const compact = deep
-        ? analysisSnapshot
+        ? analysisModelContext(ctx)
         : {
             ...ctx,
             items: {
@@ -407,8 +401,9 @@ export async function runChat(args: {
       summary = "",
       round = args.resume?.round || 0;
     const deadline = batched ? Infinity : deep ? analysisDeadline : Date.now() + 220000,
-      maxOutput = deep ? LIMITS.analysisOutput : LIMITS.chatOutput;
-    while (round++ < 5 && Date.now() < deadline) {
+      maxOutput = deep ? LIMITS.analysisOutput : LIMITS.chatOutput,
+      maxRounds = deep ? LIMITS.analysisRounds : 5;
+    while (round++ < maxRounds && Date.now() < deadline) {
       const estimatedInput =
         Math.ceil(
           JSON.stringify(input).replace(
@@ -416,21 +411,31 @@ export async function runChat(args: {
             "[file]",
           ).length / 2,
         ) +
-        attachments.length * 5000;
-      if (estimatedInput > LIMITS.runInput)
+        attachments.length * 5000 +
+        (deep
+          ? LIMITS.analysisRequestOverhead +
+            Number(ctx.image_review?.loaded || 0) * 2000
+          : 0);
+      if (
+        deep
+          ? inputTokens + estimatedInput > LIMITS.analysisInput
+          : estimatedInput > LIMITS.runInput
+      )
         throw new SalesError(
           deep
-            ? "O contexto completo excedeu a capacidade desta solicitação. A cobertura e as propostas preparadas foram preservadas no relatório parcial."
+            ? "A análise atingiu o orçamento máximo desta execução. As propostas preparadas foram preservadas no relatório parcial."
             : "Esta conversa ficou extensa. Abra uma nova conversa; suas propostas já foram salvas.",
         );
-      if (!deep && outputTokens + 500 > maxOutput)
+      if (outputTokens + 500 > maxOutput)
         throw new SalesError(
           "A resposta atingiu o limite. As propostas prontas foram salvas.",
         );
       const finalRound =
-        round === 5 ||
+        round === maxRounds ||
         (deep &&
-          (Date.now() > deadline - 65000 || outputTokens >= maxOutput - 6000));
+          (Date.now() > deadline - 65000 ||
+            outputTokens >= maxOutput - 5000 ||
+            inputTokens + estimatedInput * 2 + 10000 > LIMITS.analysisInput));
       if (finalRound && deep && !input.some((m) => m.role === "developer" && m.content === "Finalize agora o relatório estruturado com o que foi verificado. Não crie mais ferramentas. Informe dados indisponíveis sem inventar."))
         input.push({
           role: "developer",
@@ -444,10 +449,11 @@ export async function runChat(args: {
           tools,
           tool_choice: finalRound ? "none" : "auto",
           parallel_tool_calls: true,
-          max_output_tokens: Math.min(
-            deep ? 6000 : 2500,
-            deep ? 6000 : maxOutput - outputTokens,
-          ),
+          max_output_tokens: deep
+            ? finalRound
+              ? Math.min(6000, maxOutput - outputTokens)
+              : Math.min(2500, maxOutput - outputTokens - 5000)
+            : Math.min(2500, maxOutput - outputTokens),
           reasoning: { effort: deep ? "medium" : "low" },
           text: { format: deep ? REPORT_FORMAT : { type: "json_object" } },
           store: false,

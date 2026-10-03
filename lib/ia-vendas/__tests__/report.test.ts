@@ -86,6 +86,28 @@ test("failed photo loads cannot be reported as complete visual inspection", () =
   expect(report.inspection.images.note).toContain("1 não puderam ser abertas");
   expect(report.coverage.image_photos.complete).toBe(false);
 });
+test("sampled photo coverage stays explicit without marking unseen photos as reviewed", () => {
+  const photoContext = {
+    ...ctx,
+    image_review: { loaded: 6, unavailable: 0, not_reviewed: 91 },
+    coverage: {
+      ...ctx.coverage,
+      image_photos: {
+        loaded: 6,
+        total: 97,
+        unavailable: 0,
+        not_reviewed: 91,
+        complete: false,
+      },
+    },
+  };
+  const report = makeReport(photoContext, [], [], "run", value());
+  expect(report.inspection.images.status).toBe("inspected");
+  expect(report.inspection.images.note).toContain("6 fotos revisadas visualmente");
+  expect(report.inspection.images.note).toContain("91 não foram revisadas visualmente");
+  expect(report.coverage.image_photos.complete).toBe(false);
+});
+
 test("rejects unstructured or invalid priority values", () => {
   const invalid = value();
   invalid.opportunities[0].confidence = "invented";
