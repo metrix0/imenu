@@ -1,6 +1,7 @@
 import { GET, POST } from "@/app/api/ia-vendas/route";
 import { query } from "@/lib/database/sql";
 import { apply } from "../actions";
+import { IaPlusRequired } from "../access";
 jest.mock("@/lib/database/sql", () => ({ query: jest.fn(), withTransaction: jest.fn() }));
 jest.mock("../http", () => ({ ...jest.requireActual("../http"), authorize: jest.fn().mockResolvedValue("restaurant") }));
 jest.mock("@/lib/auth/restaurantOwner", () => ({ RestaurantOwnerAuthError: class extends Error {} }));
@@ -15,9 +16,10 @@ const report = { headline: "Mais vendas", summary: "Resumo gratuito", opportunit
   { id: "one", title: "Prévia", action_ids: [first] },
   { id: "two", title: "OPORTUNIDADE PRIVADA", action_ids: [second] },
 ], review_items: [{ title: "REVISÃO PRIVADA" }], sales_snapshot: { private: true } };
-let plus = false;
+let plus = false, analysis = true;
 beforeEach(() => {
   plus = false;
+  analysis = true;
   (query as jest.Mock).mockImplementation(async (sql: string) => ({
     rows: sql.includes("restaurant_addons") ? (plus ? [{ status: "active" }] : [])
       : sql.includes("FILTER (WHERE kind='chat')") ? [{ tokens: 0, images: 0 }]
@@ -26,7 +28,7 @@ beforeEach(() => {
       : sql.includes("(result-'batch')") ? [{ id: "run", result: { report, reply: "TRANSCRIÇÃO PRIVADA" } }]
       : sql.startsWith("SELECT m.*") ? [{ id: "msg", content: "CONVERSA PRIVADA", attachment_ids: [], cards: [] }]
       : [],
-    rowCount: sql.startsWith("SELECT 1 FROM public.ia_vendas_conversations") ? 1 : 0,
+    rowCount: sql.startsWith("SELECT 1 FROM public.ia_vendas_conversations") && analysis ? 1 : 0,
   }));
 });
 test("free API response contains a preview and conceals the remaining report, actions and chat", async () => {
@@ -55,4 +57,11 @@ test("Plus can apply a reviewed analysis proposal", async () => {
   const response = await POST(new Request("https://example.test/api/ia-vendas", { method: "POST", body: JSON.stringify({ command: "apply", ids: [first, second] }) }));
   expect(response.status).toBe(200);
   expect(apply).toHaveBeenCalledTimes(2);
+});
+test("Assistant action limits return the upgrade code instead of a generic action error", async () => {
+  analysis = false;
+  (apply as jest.Mock).mockRejectedValueOnce(new IaPlusRequired("Limite de imagens atingido."));
+  const response = await POST(new Request("https://example.test/api/ia-vendas", { method: "POST", body: JSON.stringify({ command: "apply", ids: [first, second] }) }));
+  expect(response.status).toBe(402);
+  expect(await response.json()).toMatchObject({ code: "IA_PLUS_REQUIRED" });
 });

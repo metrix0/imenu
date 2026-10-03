@@ -1,5 +1,5 @@
 import { analysisPreview } from "@/lib/ia-vendas/paywall";
-import { aiAccess, requireIaPlus } from "@/lib/ia-vendas/access";
+import { aiAccess, requireIaPlus, IaPlusRequired } from "@/lib/ia-vendas/access";
 import { query, withTransaction } from "@/lib/database/sql";
 import { authorize, failure } from "@/lib/ia-vendas/http";
 import { SalesError, type Action } from "@/lib/ia-vendas/types";
@@ -235,6 +235,7 @@ export async function POST(request: Request) {
         }
         results.push({ id, ok: true });
       } catch (e) {
+        if (e instanceof IaPlusRequired) throw e;
         results.push({
           id,
           ok: false,
