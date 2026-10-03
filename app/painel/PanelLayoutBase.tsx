@@ -375,8 +375,7 @@ export default function PainelLayout({
         { label: "Pedidos", icon: faHome, href: `${base}/` },
         { label: "Histórico", icon: faBox, href: `${base}/historico` },
         { label: "Cardápio", icon: faUtensils, href: cardapioHref },
-        { label: "Assistente IA", icon: faWandMagicSparkles, href: `${base}/ia-vendas` },
-        { label: "Vendas IA", icon: faChartLine, href: `${base}/ia-vendas/analise` },
+        { label: "IA Vendas", icon: faWandMagicSparkles, href: `${base}/ia-vendas` },
         { label: "Mesas", icon: faChair, href: `${base}/mesas` },
         {
             label: "Repasses",
@@ -431,9 +430,9 @@ export default function PainelLayout({
 
     const isItemActive = (item: Exclude<MenuItem, { type: "divider" }>) => {
         const isHome = item.href === `${base}/`;
-        if (isHome) return pathname === base || pathname === `${base}/`;
-        if (item.href === `${base}/ia-vendas`) return pathname === item.href;
-        return pathname?.startsWith(item.href);
+        return isHome
+            ? pathname === base || pathname === `${base}/`
+            : pathname?.startsWith(item.href);
     };
 
     const storeStatus = isStoreClosed
