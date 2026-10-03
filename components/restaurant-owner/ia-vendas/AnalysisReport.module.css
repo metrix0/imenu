@@ -55,7 +55,7 @@
 .discuss:hover { text-decoration: underline; text-underline-offset: 3px; }
 .discuss:disabled { cursor: not-allowed; opacity: .48; }
 .proposalList { min-width: 0; display: grid; align-content: start; gap: 22px; }
-.action { min-width: 0; padding: 18px; border: 1px solid var(--panel-border); border-radius: 8px; background: var(--panel-background); }
+.action { min-width: 0; padding: 8px 18px 18px; border: 1px solid var(--panel-border); border-radius: 8px; background: var(--panel-background); }
 .actionHeader { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
 .actionLabel { color: var(--panel-text); font-size: 13px; font-weight: 500; }
 .actionCount { margin-top: 4px; color: var(--panel-muted); font-size: 12px; }
