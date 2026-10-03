@@ -1,4 +1,4 @@
-.report { width: calc(100% - 1rem); max-width: 1440px; margin-right: auto; padding-bottom: 12px; color: var(--panel-text); }
+.report { width: 100%; max-width: 1440px; margin-inline: auto; padding-bottom: 12px; color: var(--panel-text); }
 .loading { display: flex; height: 16rem; align-items: center; justify-content: center; }
 .historySelect { width: 260px; }
 .paper { container-type: inline-size; display: grid; gap: 24px; overflow: visible; }
@@ -107,14 +107,6 @@
 .empty h3 { font-size: 17px; }
 .empty p { max-width: 460px; color: var(--panel-muted); font-size: 13px; line-height: 1.7; }
 .legacy { padding: 24px; }
-@media (min-width: 1536px) {
-    }
-@media (min-width: 768px) {
-  .report { width: calc(100% - 1.75rem); }
-}
-@media (min-width: 1536px) {
-  .report { width: calc(100% - 2rem); }
-}
 @container (min-width: 960px) {
   .hero { grid-template-columns: minmax(0, 1fr) 300px; align-items: start; gap: 40px; padding: 36px; }
   .heroActions { align-self: start; }

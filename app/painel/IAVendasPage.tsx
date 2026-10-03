@@ -615,7 +615,7 @@ export default function SalesPage() {
     <div
       className={
         isAnalysis
-          ? "h-[calc(100dvh-112px)] max-h-[calc(100dvh-112px)] min-h-0 w-[calc(100%+1rem)] !max-w-none overflow-hidden md:h-[calc(100dvh-64px)] md:max-h-[calc(100dvh-64px)] md:w-[calc(100%+1.75rem)] 2xl:w-[calc(100%+2rem)]"
+          ? "h-full max-h-full min-h-0 w-full overflow-hidden"
           : "h-full max-h-full min-h-0 w-full !max-w-none overflow-hidden"
       }
     >
@@ -694,7 +694,7 @@ export default function SalesPage() {
           {isAnalysis ? (
             <div className="relative flex min-h-0 flex-1 overflow-hidden" data-analysis-workspace>
               <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden" inert={analysisChatOpen && !wideAnalysis}>
-                <div className="sales-analysis-default-shell min-h-0 flex-1 overflow-y-auto overscroll-y-contain bg-[var(--panel-background)] pb-20" aria-label="Relatório de análise">
+                <div className="sales-analysis-default-shell min-h-0 flex-1 overflow-y-auto overscroll-y-contain bg-[var(--panel-background)] px-7 pb-20 pt-7" aria-label="Relatório de análise">
                   {!analysisChatOpen && notice}
                   <AnalysisReport
                     analyses={sales.analyses}
