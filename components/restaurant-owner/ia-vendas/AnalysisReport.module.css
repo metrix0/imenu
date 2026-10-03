@@ -141,7 +141,7 @@
   .opportunity { margin-inline: 18px; padding-block: 24px; }
   .opportunityHeading h3 { font-size: 16px; }
   .opportunityActive::before { left: -18px; }
-  .action { padding: 14px; }
+  .action { padding: 8px 14px 14px; }
   .secondary { padding-inline: 18px; }
 }
 @media (prefers-reduced-motion: reduce) {
