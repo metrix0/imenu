@@ -594,6 +594,18 @@ export function ActionCard({
     hasDiscardablePreviews = generatedActions.some((generated) =>
       ["pending", "failed", "conflict"].includes(generated.status),
     ),
+    publishableGeneratedActions = generatedActions.filter(
+      (generated) =>
+        generated.status === "pending" ||
+        (generated.attempts < 2 &&
+          (generated.status === "failed" ||
+            (generated.status === "applying" &&
+              !!generated.claimed_at &&
+              Date.parse(generated.claimed_at) < Date.now() - 360000))),
+    ),
+    publishedGeneratedCount = generatedActions.filter(
+      (generated) => generated.status === "applied",
+    ).length,
     countLabel = imageBatch
       ? action.status === "applied"
         ? `${generatedCount || action.generated_actions?.length || action.image_jobs!.length} ${(generatedCount || action.generated_actions?.length || action.image_jobs!.length) === 1 ? "imagem gerada" : "imagens geradas"}`
@@ -634,6 +646,22 @@ export function ActionCard({
             </Button>
           </>
         )}
+        {action.status === "applied" &&
+          imageBatch &&
+          publishableGeneratedActions.length > 0 && (
+            <Button
+              disabled={disabled}
+              onClick={() =>
+                onAction(
+                  "apply",
+                  publishableGeneratedActions.map((generated) => generated.id),
+                )
+              }
+            >
+              {publishedGeneratedCount > 0 ? "Publicar restantes" : "Publicar todas"} (
+              {publishableGeneratedActions.length})
+            </Button>
+          )}
         {action.status === "applied" && (!imageBatch || hasDiscardablePreviews) && (
           <Button
             variant="secondary"
@@ -687,7 +715,7 @@ export function ActionCard({
       )}
       {action.error && <p role="status" className="mt-3 text-xs text-red-700">{action.error}</p>}
       {actionButtons}
-      {action.image_jobs && <p className="mt-2 text-xs text-[var(--panel-muted)]">{generatedCount ? "Revise cada prévia e publique apenas as imagens que quiser usar." : "As imagens serão geradas para revisão antes de serem publicadas."}</p>}
+      {action.image_jobs && <p className="mt-2 text-xs text-[var(--panel-muted)]">{generatedCount ? publishableGeneratedActions.length ? "Revise cada prévia ou publique todas de uma vez." : "Todas as imagens foram revisadas." : "As imagens serão geradas para revisão antes de serem publicadas."}</p>}
     </article>
   );
   return (
