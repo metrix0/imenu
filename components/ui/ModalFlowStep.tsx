@@ -8,14 +8,23 @@ type ModalFlowStepProps = {
     animate?: boolean;
 };
 
-function AnimatedModalFlowStep({
+export default function ModalFlowStep({
     children,
     reverse = false,
-}: Omit<ModalFlowStepProps, "animate">) {
-    const [visible, setVisible] = useState(false);
-    const [settled, setSettled] = useState(false);
+    animate = false,
+}: ModalFlowStepProps) {
+    const [visible, setVisible] = useState(!animate);
+    const [settled, setSettled] = useState(!animate);
 
     useEffect(() => {
+        if (!animate) {
+            setVisible(true);
+            setSettled(true);
+            return;
+        }
+
+        setVisible(false);
+        setSettled(false);
         let settleTimer = 0;
         const frame = window.requestAnimationFrame(() => {
             setVisible(true);
@@ -26,35 +35,18 @@ function AnimatedModalFlowStep({
             window.cancelAnimationFrame(frame);
             if (settleTimer) window.clearTimeout(settleTimer);
         };
-    }, []);
-
-    if (settled) {
-        return <div className="flex h-full min-h-0 flex-col">{children}</div>;
-    }
+    }, [animate]);
 
     const hiddenTransform = reverse ? "-translate-x-full" : "translate-x-full";
+    const transition = animate && !settled
+        ? `will-change-transform transition-transform duration-[220ms] ease-out motion-reduce:transition-none ${visible ? "translate-x-0" : hiddenTransform}`
+        : "";
 
     return (
         <div
-            className={`flex h-full min-h-0 flex-col will-change-transform transition-transform duration-[220ms] ease-out motion-reduce:transition-none ${
-                visible ? "translate-x-0" : hiddenTransform
-            }`}
+            className={`flex h-full min-h-0 flex-col ${transition}`}
         >
             {children}
         </div>
-    );
-}
-
-export default function ModalFlowStep({
-    children,
-    reverse = false,
-    animate = true,
-}: ModalFlowStepProps) {
-    if (!animate) return <>{children}</>;
-
-    return (
-        <AnimatedModalFlowStep reverse={reverse}>
-            {children}
-        </AnimatedModalFlowStep>
     );
 }

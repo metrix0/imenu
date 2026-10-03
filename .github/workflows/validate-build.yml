@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - preview
+      - preview-modal-fixes-validation
 
 concurrency:
   group: validate-build-${{ github.ref }}

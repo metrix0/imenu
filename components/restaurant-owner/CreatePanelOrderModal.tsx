@@ -73,8 +73,18 @@ export default function CreatePanelOrderModal({
     const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
     const [configuringItem, setConfiguringItem] = useState<Item | null>(null);
     const [hasNavigatedToConfigurator, setHasNavigatedToConfigurator] = useState(false);
+    const [wasOpen, setWasOpen] = useState(isOpen);
     const [configuringSubcategories, setConfiguringSubcategories] = useState<Subcategory[]>([]);
     const [isLoadingItemConfigurator, setIsLoadingItemConfigurator] = useState(false);
+
+    // Reset before rendering a new session, including closes initiated by the parent.
+    if (wasOpen !== isOpen) {
+        setWasOpen(isOpen);
+        setConfiguringItem(null);
+        setHasNavigatedToConfigurator(false);
+        setConfiguringSubcategories([]);
+        setIsLoadingItemConfigurator(false);
+    }
 
     const [customerName, setCustomerName] = useState("");
     const [customerPhone, setCustomerPhone] = useState("");
@@ -566,7 +576,7 @@ export default function CreatePanelOrderModal({
         >
             <div className="h-full min-h-0 overflow-x-hidden">
             {configuringItem ? (
-                <ModalFlowStep key={`config-${configuringItem.id}`}>
+                <ModalFlowStep key={`config-${configuringItem.id}`} animate>
                     <PanelItemConfiguratorModal
                     restaurantId={restaurantId}
                     item={configuringItem}
