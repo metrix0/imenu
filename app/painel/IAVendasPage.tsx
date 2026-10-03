@@ -592,7 +592,13 @@ export default function SalesPage() {
     </div>
   );
   return (
-    <div className="h-[calc(100dvh-112px)] max-h-[calc(100dvh-112px)] min-h-0 w-[calc(100%+1rem)] !max-w-none overflow-hidden md:h-[calc(100dvh-64px)] md:max-h-[calc(100dvh-64px)] md:w-[calc(100%+1.75rem)] 2xl:w-[calc(100%+2rem)]">
+    <div
+      className={
+        isAnalysis
+          ? "h-[calc(100dvh-112px)] max-h-[calc(100dvh-112px)] min-h-0 w-full overflow-hidden md:h-[calc(100dvh-64px)] md:max-h-[calc(100dvh-64px)]"
+          : "h-[calc(100dvh-112px)] max-h-[calc(100dvh-112px)] min-h-0 w-[calc(100%+1rem)] !max-w-none overflow-hidden md:h-[calc(100dvh-64px)] md:max-h-[calc(100dvh-64px)] md:w-[calc(100%+1.75rem)] 2xl:w-[calc(100%+2rem)]"
+      }
+    >
       <div className="flex h-full max-h-full min-h-0 overflow-hidden">
         {!isAnalysis && (
           <aside className="hidden min-h-0 w-56 shrink-0 flex-col border-r border-[var(--panel-border)] bg-[var(--panel-background)] p-3 lg:flex">
@@ -668,7 +674,7 @@ export default function SalesPage() {
           {isAnalysis ? (
             <div className="relative flex min-h-0 flex-1 overflow-hidden" data-analysis-workspace>
               <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden" inert={analysisChatOpen && !wideAnalysis}>
-                <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain bg-[var(--panel-background)] p-4 md:p-8 xl:p-10" aria-label="Relatório de análise">
+                <div className="sales-analysis-default-shell min-h-0 flex-1 overflow-y-auto overscroll-y-contain bg-[var(--panel-background)] px-4 pb-20 pt-8 sm:px-6" aria-label="Relatório de análise">
                   {!analysisChatOpen && notice}
                   <AnalysisReport
                     analyses={sales.analyses}
@@ -807,6 +813,52 @@ export default function SalesPage() {
 
         </section>
       </div>
+      {isAnalysis && (
+        <style jsx global>{`
+          .sales-analysis-default-shell [aria-busy="true"] > header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 1rem;
+            margin-bottom: 2rem;
+          }
+
+          .sales-analysis-default-shell
+            [aria-busy="true"]
+            > header
+            > div:first-child {
+            gap: 0;
+          }
+
+          .sales-analysis-default-shell
+            [aria-busy="true"]
+            > header
+            > div:first-child
+            > span {
+            display: none;
+          }
+
+          .sales-analysis-default-shell [aria-busy="true"] > header h1 {
+            color: rgb(17 24 39);
+            font-size: 1.875rem;
+            font-weight: 700;
+            line-height: 2.25rem;
+          }
+
+          @media (min-width: 1280px) {
+            .sales-analysis-default-shell [aria-busy="true"] > header {
+              flex-direction: row;
+              align-items: flex-end;
+            }
+          }
+
+          @media (min-width: 1536px) {
+            .sales-analysis-default-shell [aria-busy="true"] > header h1 {
+              font-size: 2.25rem;
+              line-height: 2.5rem;
+            }
+          }
+        `}</style>
+      )}
       <Modal
         open={modal !== null}
         onClose={() => {
