@@ -251,10 +251,10 @@ export default function SalesPage() {
     setAnalysisChatOpen(false);
     requestAnimationFrame(() => chatTrigger.current?.focus());
   };
-  const changeMode = (mode: "Assistente IA" | "Vendas IA") => {
+  const changeMode = (mode: "IA Vendas" | "Análise IA") => {
     if (disabled) return;
 
-    if (mode === "Vendas IA") {
+    if (mode === "Análise IA") {
       const analysisConversation = sales.conversations.find(
         (c) => c.kind === "analysis",
       );
@@ -615,8 +615,8 @@ export default function SalesPage() {
       <div className="flex h-full max-h-full min-h-0 overflow-hidden">
         <aside className="hidden min-h-0 w-56 shrink-0 flex-col border-r border-[var(--panel-border)] bg-[var(--panel-background)] p-3 lg:flex">
           <Tabs
-            tabs={["Assistente IA", "Vendas IA"]}
-            active={isAnalysis ? "Vendas IA" : "Assistente IA"}
+            tabs={["IA Vendas", "Análise IA"]}
+            active={isAnalysis ? "Análise IA" : "IA Vendas"}
             onChange={changeMode}
             className={disabled ? "pointer-events-none opacity-60" : ""}
           />
