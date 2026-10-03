@@ -27,21 +27,17 @@ type QrCodeMesaSalesModalProps = {
     onPaid?: () => void | Promise<void>;
 };
 
-function ModalFlowStep({
+function AnimatedModalFlowStep({
     children,
     reverse = false,
-    animate = true,
 }: {
     children: ReactNode;
     reverse?: boolean;
-    animate?: boolean;
 }) {
-    const [visible, setVisible] = useState(!animate);
-    const [settled, setSettled] = useState(!animate);
+    const [visible, setVisible] = useState(false);
+    const [settled, setSettled] = useState(false);
 
     useEffect(() => {
-        if (!animate) return;
-
         let settleTimer = 0;
         const frame = window.requestAnimationFrame(() => {
             setVisible(true);
@@ -52,7 +48,7 @@ function ModalFlowStep({
             window.cancelAnimationFrame(frame);
             if (settleTimer) window.clearTimeout(settleTimer);
         };
-    }, [animate]);
+    }, []);
 
     if (settled) {
         return <div className="flex h-full min-h-0 flex-col">{children}</div>;
@@ -68,6 +64,24 @@ function ModalFlowStep({
         >
             {children}
         </div>
+    );
+}
+
+function ModalFlowStep({
+    children,
+    reverse = false,
+    animate = true,
+}: {
+    children: ReactNode;
+    reverse?: boolean;
+    animate?: boolean;
+}) {
+    if (!animate) return <>{children}</>;
+
+    return (
+        <AnimatedModalFlowStep reverse={reverse}>
+            {children}
+        </AnimatedModalFlowStep>
     );
 }
 
@@ -151,7 +165,8 @@ export default function QrCodeMesaSalesModal({
                         reverse
                         animate={hasNavigatedToCheckout}
                     >
-                        <div className="flex h-full min-h-0 flex-col overflow-y-auto">
+                        <div className="flex h-full min-h-0 flex-col">
+            <div className="min-h-0 flex-1 overflow-y-auto">
             <div className="grid shrink-0 overflow-hidden md:grid-cols-[minmax(0,1fr)_300px]">
                 <div className="px-6 pb-1 pt-5 sm:px-8 sm:py-8">
                     <div className="relative h-12 w-56 max-w-full">
@@ -261,8 +276,9 @@ export default function QrCodeMesaSalesModal({
                     </p>
                 )}
             </div>
+            </div>
 
-            <div className="sticky bottom-0 z-20 mt-auto flex shrink-0 flex-col gap-3 border-t border-gray-100 bg-white px-6 py-4 sm:flex-row sm:items-center sm:px-8 sm:py-5">
+            <div className="z-20 flex shrink-0 flex-col gap-3 border-t border-gray-100 bg-white px-6 py-4 sm:flex-row sm:items-center sm:px-8 sm:py-5">
                 <a
                     href={SUPPORT_URL}
                     target="_blank"
