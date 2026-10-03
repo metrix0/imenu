@@ -1,6 +1,8 @@
 "use client";
 import Image from "next/image";
 import type { ReactNode } from "react";
+import { ArrowUpRight, ChevronDown, TrendingUp } from "lucide-react";
+import styles from "./AnalysisReport.module.css";
 import Button from "@/components/ui/Button";
 import type { Action, Data, Operation } from "@/lib/ia-vendas/types";
 const labels: Record<string, string> = {
@@ -315,11 +317,14 @@ export function ActionPreview({
   action,
   refs = {},
   showAllDetails = false,
+  flat = false,
 }: {
   action: Action;
   refs?: Record<string, string>;
   showAllDetails?: boolean;
+  flat?: boolean;
 }) {
+  const GroupHeading = flat ? "h4" : "div";
   const visibleOperations = action.operations.filter((op) => {
       const fields = Object.keys(op.values);
       return !(
@@ -399,7 +404,7 @@ export function ActionPreview({
   };
 
   return (
-    <div className="space-y-2">
+    <div className={flat ? styles.flatOperations : "space-y-2"}>
       {action.image && (
         <div className="grid grid-cols-2 gap-3">
           {[
@@ -450,12 +455,12 @@ export function ActionPreview({
           return (
             <div
               key={`${first.kind}:${first.entity}:${groupIndex}`}
-              className="overflow-hidden rounded-lg border border-gray-100 bg-white"
+              className={flat ? styles.operationGroup : "overflow-hidden rounded-lg border border-gray-100 bg-white"}
             >
-              <div className="bg-gray-50 px-3 py-2 text-sm font-medium">
+              <GroupHeading className={flat ? "" : "bg-gray-50 px-3 py-2 text-sm font-medium"}>
                 {groupHeading(first, operations.length)}
-              </div>
-              <div className="divide-y divide-gray-100">
+              </GroupHeading>
+              <div className={flat ? styles.operationRows : "divide-y divide-gray-100"}>
                 {operations.map((op, i) => {
                   const copy = operationCopy(op, refs);
                   return (
@@ -480,14 +485,14 @@ export function ActionPreview({
         return (
           <div
             key={`${op.kind}:${op.entity}:${groupIndex}`}
-            className="overflow-hidden rounded-lg border border-gray-100 bg-white"
+            className={flat ? styles.operationGroup : "overflow-hidden rounded-lg border border-gray-100 bg-white"}
           >
-            <div className="bg-gray-50 px-3 py-2 text-sm font-medium">
+            <GroupHeading className={flat ? "" : "bg-gray-50 px-3 py-2 text-sm font-medium"}>
               {showAllDetails
                 ? copy.heading.replace("Upsell", "oferta no carrinho")
                 : copy.heading}
-            </div>
-            <div className="px-3 pt-3">
+            </GroupHeading>
+            <div className={flat ? styles.operationRows : "px-3 pt-3"}>
               <p className="text-sm text-gray-700">{copy.summary}</p>
               {details(op)}
             </div>
@@ -505,6 +510,31 @@ export function ActionPreview({
     </div>
   );
 }
+function ActionPeek({ action, refs }: { action: Action; refs: Record<string, string> }) {
+  const operations = action.operations.filter((op) => !action.image || !Object.keys(op.values).every((key) => ["image_path", "logo_url", "banner_url"].includes(key)));
+  const previewValue = (field: string, value: unknown, op: Operation) => {
+    const text = display(field, value, refs, op);
+    return text.length > 180 ? `${text.slice(0, 177)}…` : text;
+  };
+  return <div className={styles.previewList}>
+    {action.image && <ActionPreview action={{ ...action, operations: [] }} refs={refs} />}
+    {action.image_jobs?.slice(0, 2).map((job, index) => <div key={index}>
+      <p className={styles.previewSubject}>{job.label}</p><p className={styles.previewSentence}>Gerar uma nova prévia para você revisar.</p>
+    </div>)}
+    {operations.slice(0, 2).map((op, index) => <div key={index}>
+      <p className={styles.previewSubject}>{subject(op, refs)}</p>
+      {op.kind === "update" ? <dl className={styles.previewFields}>{Object.entries(op.values).slice(0, 2).map(([field, value]) => <div key={field}>
+        <dt>{labels[field] || field}</dt><dd className={styles.changeValues}>
+          <span className="sr-only">Antes: </span><span className={styles.before}>{previewValue(field, op.before?.[field], op)}</span>
+          <span aria-hidden="true">→</span><span className="sr-only">Depois: </span><span className={styles.after}>{previewValue(field, value, op)}</span>
+        </dd>
+      </div>)}</dl> : <p className={styles.previewSentence}>{op.entity === "upsell" && op.kind === "create"
+        ? `Sugestão no carrinho${op.values.position != null ? ` · posição ${Number(op.values.position) + 1}°` : ""}.`
+        : operationCopy(op, refs).summary}</p>}
+    </div>)}
+  </div>;
+}
+
 const states: Record<string, string> = {
   pending: "Aguardando aprovação",
   applying: "Aplicando…",
@@ -533,35 +563,8 @@ export function ActionCard({
       (action.status === "applying" &&
         !!action.claimed_at &&
         Date.parse(action.claimed_at) < Date.now() - 360000));
-  return (
-    <article className={compact ? "my-3 rounded-[8px] bg-[var(--panel-background)] p-3" : "my-4 rounded-[12px] border border-[var(--panel-border)] bg-[var(--panel-background)] p-3"}>
-      <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
-        {compact
-          ? <p className="text-sm font-medium text-[var(--panel-text)]">{action.image_jobs?.length ? `${action.image_jobs.length} imagens para revisar` : `${action.operations.length} ${action.operations.length === 1 ? "alteração proposta" : "alterações propostas"}`}</p>
-          : <h3 className="font-semibold text-gray-900">{action.title}</h3>}
-        <span
-          className={`rounded-full px-2 py-1 text-[11px] ${action.status === "applied" ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-600"}`}
-        >
-          {states[action.status] || action.status}
-        </span>
-      </div>
-      {compact ? <details className="text-sm">
-        <summary className="cursor-pointer font-medium text-[var(--panel-muted)]">Ver alterações</summary>
-        <div className="mt-3 space-y-2">
-          <h4 className="font-medium text-[var(--panel-text)]">{action.title}</h4>
-          <p className="text-sm text-[var(--panel-muted)]">{action.reason}</p>
-          <ActionPreview action={action} refs={refs} showAllDetails />
-        </div>
-      </details> : <>
-        <p className="mb-2 text-sm text-gray-600">{action.reason}</p>
-        <ActionPreview action={action} refs={refs} />
-      </>}
-      {action.error && (
-        <p role="status" className="mt-3 text-xs text-red-700">
-          {action.error}
-        </p>
-      )}
-      <div className="mt-3 flex flex-wrap gap-2">
+  const actionButtons = (
+      <div className={compact ? styles.actionButtons : "mt-3 flex flex-wrap gap-2"}>
         {(action.status === "pending" || retry) && (
           <>
             <Button
@@ -594,6 +597,46 @@ export function ActionCard({
           </p>
         )}
       </div>
+  );
+  if (compact) return (
+    <article className={styles.action} aria-label={action.title}>
+      <div className={styles.actionHeader}>
+        <p className={styles.actionLabel}>O que vai mudar</p>
+        <span className={`${styles.actionState} ${action.status === "applied" ? styles.applied : ["conflict", "failed"].includes(action.status) ? styles.needsReview : ""}`}>{states[action.status] || action.status}</span>
+      </div>
+      <p className={styles.actionCount}>{action.image_jobs?.length ? `${action.image_jobs.length} imagens para revisar` : `${action.operations.length} ${action.operations.length === 1 ? "alteração proposta" : "alterações propostas"}`}</p>
+      <ActionPeek action={action} refs={refs} />
+      <details className={styles.disclosure}>
+        <summary>{action.operations.length > 2 ? `Ver todas as ${action.operations.length} alterações` : "Ver alterações"}<ChevronDown size={13} aria-hidden="true" /></summary>
+        <div className={styles.fullPreview}>
+          <h4 className="text-sm font-medium">{action.title}</h4>
+          <p>{action.reason}</p>
+          <ActionPreview action={action} refs={refs} showAllDetails flat />
+        </div>
+      </details>
+      {action.error && <p role="status" className="mt-3 text-xs text-red-700">{action.error}</p>}
+      {actionButtons}
+      {action.image_jobs && <p className="mt-2 text-xs text-[var(--panel-muted)]">Gerar não publica. Você também aprova a publicação de cada imagem.</p>}
+    </article>
+  );
+  return (
+    <article className="my-4 rounded-[12px] border border-[var(--panel-border)] bg-[var(--panel-background)] p-3">
+      <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
+        <h3 className="font-semibold text-gray-900">{action.title}</h3>
+        <span
+          className={`rounded-full px-2 py-1 text-[11px] ${action.status === "applied" ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-600"}`}
+        >
+          {states[action.status] || action.status}
+        </span>
+      </div>
+      <p className="mb-2 text-sm text-gray-600">{action.reason}</p>
+      <ActionPreview action={action} refs={refs} />
+      {action.error && (
+        <p role="status" className="mt-3 text-xs text-red-700">
+          {action.error}
+        </p>
+      )}
+      {actionButtons}
       {action.image_jobs && (
         <p className="mt-2 text-xs text-gray-500">
           Gerar não publica. Imagens já publicadas devem ser desfeitas no cartão
@@ -603,7 +646,7 @@ export function ActionCard({
     </article>
   );
 }
-export function DataCard({ card, expanded = false }: { card: Data; expanded?: boolean }) {
+export function DataCard({ card, expanded = false, presentation = "chat" }: { card: Data; expanded?: boolean; presentation?: "chat" | "report" }) {
   if (card.type === "item")
     return (
       <div className="my-3 flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-3">
@@ -633,6 +676,23 @@ export function DataCard({ card, expanded = false }: { card: Data; expanded?: bo
         Number.isFinite(minCents) &&
         Number.isFinite(maxCents) &&
         maxCents > minCents;
+    if (presentation === "report") return (
+      <div className={styles.potential}>
+        {card.available ? <>
+          <p className={`${styles.gain} ${hasRange ? styles.range : ""}`}><span>+{money(minCents)}</span>{hasRange && <span className={styles.rangeEnd}><span className={styles.rangeSeparator}>–</span><span>+{money(maxCents)}</span></span>}</p>
+          {Number.isFinite(minPercent) && Number.isFinite(maxPercent) && <p className={styles.growth}>
+            <strong><TrendingUp size={14} aria-hidden="true" />+{minPercent.toLocaleString("pt-BR", { style: "percent", minimumFractionDigits: 1, maximumFractionDigits: 1 })}{maxPercent > minPercent ? ` – +${maxPercent.toLocaleString("pt-BR", { style: "percent", minimumFractionDigits: 1, maximumFractionDigits: 1 })}` : ""}</strong><span>de receita estimada</span>
+          </p>}
+          <details className={styles.disclosure}>
+            <summary>Como estimamos<ChevronDown size={13} aria-hidden="true" /></summary>
+            <div className={styles.calculation}>
+              {!!card.breakdown?.length && <ul>{card.breakdown.map((item: Data, index: number) => <li key={index}><strong>{item.label}:</strong> {item.basis}</li>)}</ul>}
+              <p>{[card.assumptions || card.formula, card.note].filter(Boolean).join(" ")}</p>
+            </div>
+          </details>
+        </> : <><p className={styles.gain}>Ainda sem estimativa</p><p className={styles.comparisonNote}>{card.reason || "Faltam dados para estimar o ganho com segurança."}</p></>}
+      </div>
+    );
     return (
       <div className="my-4 rounded-[10px] border border-gray-200 bg-white p-4">
         {card.available ? (
@@ -675,6 +735,17 @@ export function DataCard({ card, expanded = false }: { card: Data; expanded?: bo
       </div>
     );
   }
+  if (card.type === "benchmark" && presentation === "report") return <>
+    <h3><TrendingUp size={17} aria-hidden="true" />Restaurantes parecidos no iMenu</h3>
+    <p className={styles.comparisonNote}>{card.available ? card.method : card.reason || card.method}</p>
+    {card.available && <>
+      <dl className={styles.comparisonMetrics}>{Object.entries(card.medians || {}).map(([key, value]) => <div key={key}>
+        <dt>{{ beverage_rate: "Pedidos com bebida", combo_rate: "Pedidos com combo", units_per_order: "Itens por pedido", retention: "Recompra", ticket_cents: "Ticket médio" }[key] || key}</dt>
+        <dd>{key === "ticket_cents" ? money(Number(value)) : key === "units_per_order" ? Number(value).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : Number(value).toLocaleString("pt-BR", { style: "percent", minimumFractionDigits: 1, maximumFractionDigits: 1 })}</dd>
+      </div>)}</dl>
+      {!!card.public_menus?.length && <div className={styles.menuLinks}><span>Cardápios para referência</span>{card.public_menus.map((menu: Data) => <a key={menu.url} href={menu.url} target="_blank" rel="noreferrer">{menu.name}<ArrowUpRight size={13} aria-hidden="true" /></a>)}</div>}
+    </>}
+  </>;
   if (card.type === "benchmark")
     return (
       <details open={expanded} className="my-3 rounded-lg border border-gray-200 bg-white p-3 text-sm">

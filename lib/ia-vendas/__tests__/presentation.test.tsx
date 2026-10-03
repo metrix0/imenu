@@ -3,6 +3,10 @@ import AnalysisReport from "@/components/restaurant-owner/ia-vendas/AnalysisRepo
 import { ActionCard, DataCard } from "@/components/restaurant-owner/ia-vendas/SalesWidgets";
 import type { Action } from "../types";
 
+jest.mock("@/components/restaurant-owner/ia-vendas/AnalysisReport.module.css", () => ({
+  __esModule: true, default: new Proxy({}, { get: (_target, key) => String(key) }),
+}));
+
 jest.mock("next/navigation", () => ({
   useParams: () => ({}),
   usePathname: () => "/painel/ia-vendas",
@@ -74,10 +78,12 @@ test("report leads with potential actions, then summary, opportunities, review a
   expect(html).not.toContain("Potencial nas próximas 4 semanas");
 });
 
-test("analysis proposals keep Apply visible and full before/after changes collapsed", () => {
+test("analysis proposals preview changes, keep Apply visible and retain a collapsed full diff", () => {
   const html = renderToStaticMarkup(<ActionCard action={action} refs={{}} disabled={false} onAction={jest.fn()} compact />);
-  expect(html).toMatch(/<details[^>]*><summary[^>]*>Ver alterações<\/summary>/);
+  expect(html).toMatch(/<details[^>]*><summary[^>]*>Ver alterações/);
   expect(html).not.toMatch(/<details[^>]*open/);
+  expect(html).toContain("O que vai mudar");
+  expect(html).toContain("Seleção mínima");
   expect(html).toContain("Antes:");
   expect(html).toContain("Depois:");
   expect(html.indexOf(">Aplicar<")).toBeGreaterThan(html.indexOf("</details>"));
@@ -95,4 +101,20 @@ test("potential uses Brazilian numbers and one explanation without repeating the
   expect(html).toContain(potential.assumptions);
   expect(html).not.toContain(potential.formula);
   expect(html).not.toMatch(/<details[^>]*open/);
+});
+
+test("proposal states preserve undo and prevent applying discarded or conflicting actions", () => {
+  const render = (status: Action["status"]) => renderToStaticMarkup(<ActionCard action={{ ...action, status }} refs={{}} disabled={false} onAction={jest.fn()} compact />);
+  expect(render("applied")).toContain(">Desfazer<");
+  expect(render("applied")).not.toContain(">Aplicar<");
+  expect(render("rejected")).not.toContain(">Aplicar<");
+  expect(render("conflict")).not.toContain(">Aplicar<");
+  expect(render("conflict")).toContain("proposta atualizada");
+});
+
+test("report handles unavailable estimates and never invents a gain", () => {
+  const html = renderToStaticMarkup(<DataCard presentation="report" card={{ type: "potential", available: false, reason: "Sem dados suficientes." }} />);
+  expect(html).toContain("Ainda sem estimativa");
+  expect(html).toContain("Sem dados suficientes.");
+  expect(html).not.toContain("R$");
 });

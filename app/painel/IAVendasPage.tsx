@@ -687,7 +687,7 @@ export default function SalesPage() {
           {isAnalysis ? (
             <div className="relative flex min-h-0 flex-1 overflow-hidden" data-analysis-workspace>
               <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden" inert={analysisChatOpen && !wideAnalysis}>
-                <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain bg-[var(--panel-background)] p-4 md:p-6" aria-label="Relatório de análise">
+                <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain bg-[var(--panel-background)] p-4 md:p-8 xl:p-10" aria-label="Relatório de análise">
                   {!analysisChatOpen && notice}
                   <AnalysisReport
                     analyses={sales.analyses}
@@ -902,7 +902,7 @@ export default function SalesPage() {
                   .map((a) => (
                     <section key={a!.id}>
                       <h3 className="mb-2 font-medium">{a!.title}</h3>
-                      <ActionPreview action={a!} refs={sales.references} />
+                      <ActionPreview action={a!} refs={sales.references} showAllDetails={isAnalysis} flat={isAnalysis} />
                     </section>
                   ))}
               </div>
