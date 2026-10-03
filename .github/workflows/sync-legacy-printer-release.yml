@@ -60,6 +60,11 @@ jobs:
 
           curl --fail --location --retry 5 --retry-delay 3 "$RELEASE_URL" -o "public/downloads/$FILE_NAME"
 
+          find public/downloads -maxdepth 1 -type f \
+            -name 'iMenu Impressora Legacy Setup *.exe' \
+            ! -name "$FILE_NAME" \
+            -delete
+
           SIZE="$(stat -c%s "public/downloads/$FILE_NAME")"
           if [ "$SIZE" -lt 1000000 ]; then
             echo "Downloaded legacy installer is unexpectedly small: $SIZE bytes"
@@ -95,7 +100,7 @@ jobs:
           git config http.version HTTP/1.1
           git config http.postBuffer 524288000
 
-          git add "public/downloads/$FILE_NAME" public/downloads/imenu-printer-legacy.json
+          git add -A -- public/downloads
 
           if git diff --cached --quiet; then
             exit 0

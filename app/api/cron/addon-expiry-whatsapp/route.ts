@@ -109,7 +109,7 @@ export async function GET(request: Request) {
     }
 
     const expiring = await query<ExpiringAddonRow>(
-        "SELECT ra.restaurant_id, ra.product_key, u.raw_user_meta_data->>'phone' AS owner_phone, r.phone AS restaurant_phone FROM public.restaurant_addons ra JOIN public.restaurants r ON r.id = ra.restaurant_id LEFT JOIN auth.users u ON u.id = r.user_id WHERE ra.payment_provider = 'payzu' AND UPPER(COALESCE(ra.payzu_payment_method, '')) = 'PIX' AND ra.payzu_recurrence_id IS NULL AND ra.current_period_ends_at IS NOT NULL AND ra.status IN ('active', 'canceled', 'past_due') AND (ra.current_period_ends_at AT TIME ZONE 'America/Sao_Paulo')::date = (NOW() AT TIME ZONE 'America/Sao_Paulo')::date ORDER BY ra.restaurant_id, ra.product_key"
+        "SELECT ra.restaurant_id, ra.product_key, u.raw_user_meta_data->>'phone' AS owner_phone, r.phone AS restaurant_phone FROM public.restaurant_addons ra JOIN public.restaurants r ON r.id = ra.restaurant_id LEFT JOIN auth.users u ON u.id = r.user_id WHERE (ra.payment_provider = 'mercadopago' OR (ra.payment_provider = 'payzu' AND UPPER(COALESCE(ra.payzu_payment_method, '')) = 'PIX' AND ra.payzu_recurrence_id IS NULL)) AND ra.current_period_ends_at IS NOT NULL AND ra.status IN ('active', 'canceled', 'past_due') AND (ra.current_period_ends_at AT TIME ZONE 'America/Sao_Paulo')::date = (NOW() AT TIME ZONE 'America/Sao_Paulo')::date ORDER BY ra.restaurant_id, ra.product_key"
     );
 
     const grouped = new Map<

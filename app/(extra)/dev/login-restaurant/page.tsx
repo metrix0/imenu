@@ -8,13 +8,17 @@ import { supabase } from "@/lib/database/supabaseClient";
 const ALLOWED_DEV_EMAIL = "joaovralmeida@hotmail.com";
 const PREVIEW_ORIGIN = "https://preview.imenuapp.com.br";
 const PRODUCTION_ORIGIN = "https://imenuapp.com.br";
+const WWW_PRODUCTION_ORIGIN = "https://www.imenuapp.com.br";
 
 function getRestaurantLoginOrigin(): string {
     if (window.location.origin === PREVIEW_ORIGIN) {
         return PRODUCTION_ORIGIN;
     }
 
-    if (window.location.origin === PRODUCTION_ORIGIN) {
+    if (
+        window.location.origin === PRODUCTION_ORIGIN ||
+        window.location.origin === WWW_PRODUCTION_ORIGIN
+    ) {
         return PREVIEW_ORIGIN;
     }
 

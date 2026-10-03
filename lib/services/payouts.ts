@@ -1,3 +1,4 @@
+import { getMercadoPagoPixPayment } from "@/lib/mercadoPagoPix";
 import * as https from "node:https";
 import { HttpsProxyAgent } from "https-proxy-agent";
 
@@ -19,6 +20,9 @@ type PayableRestaurant = {
     payment_info_type: PixKeyType | null;
     gross_cents: number | string;
     pix_order_count: number | string;
+    provider_fee_cents: number;
+    payments: Array<{ id: string; payment_ref: string; total_cents: number }>;
+
 };
 
 type AsaasTransfer = {
@@ -220,7 +224,8 @@ async function getPayables(cutoffAt: Date): Promise<PayableRestaurant[]> {
             r.payment_info,
             r.payment_info_type,
             COALESCE(SUM(o.total_cents), 0)::bigint AS gross_cents,
-            COUNT(*)::bigint AS pix_order_count
+            COUNT(*)::bigint AS pix_order_count,
+            jsonb_agg(jsonb_build_object('id', o.id, 'payment_ref', o.payment_ref, 'total_cents', o.total_cents)) AS payments
         FROM public.restaurants r
         LEFT JOIN last_payout lp ON lp.restaurant_id = r.id
         JOIN public.orders o
@@ -236,6 +241,25 @@ async function getPayables(cutoffAt: Date): Promise<PayableRestaurant[]> {
         `,
         [cutoffAt.toISOString()]
     );
+
+    // Fees come from the account's actual payment response, never a guessed tariff.
+    for (const row of rows) {
+        row.provider_fee_cents = 0;
+        for (let offset = 0; offset < row.payments.length; offset += 5) {
+            const fees = await Promise.all(row.payments.slice(offset, offset + 5).map(async order => {
+                if (/^(PAYZU|PIX)/i.test(order.payment_ref)) return 10;
+                if (!/^\d+$/.test(order.payment_ref)) throw new Error("Provedor de pagamento desconhecido no repasse.");
+                const payment = await getMercadoPagoPixPayment({ id: order.payment_ref });
+                if (!payment || payment.id !== order.payment_ref || payment.externalReference !== order.id ||
+                    payment.paymentMethodId !== "pix" || payment.status !== "approved" ||
+                    Math.round(payment.amount * 100) !== Number(order.total_cents) || payment.feeCents === null) {
+                    throw new Error(`Não foi possível confirmar a taxa do pagamento Mercado Pago ${order.payment_ref}.`);
+                }
+                return payment.feeCents;
+            }));
+            row.provider_fee_cents += fees.reduce((sum, fee) => sum + fee, 0);
+        }
+    }
 
     return rows;
 }
@@ -357,6 +381,37 @@ async function notifyReconciledUnsuccessfulRun(run: {
     }
 }
 
+export type FailedRecentPendingPayout = {
+    id: string;
+    restaurant_id: string;
+    restaurant_name: string;
+    amount_cents: number | string;
+    created_at: string | Date;
+};
+
+export async function failRecentPendingPayouts(): Promise<
+    FailedRecentPendingPayout[]
+> {
+    const { rows } = await query<FailedRecentPendingPayout>(
+        `
+        UPDATE public.payouts p
+        SET status = 'failed'
+        FROM public.restaurants r
+        WHERE p.restaurant_id = r.id
+          AND p.status = 'pending'
+          AND p.created_at >= NOW() - INTERVAL '3 days'
+        RETURNING
+            p.id,
+            p.restaurant_id,
+            COALESCE(r.name, 'Restaurante') AS restaurant_name,
+            p.amount_cents,
+            p.created_at
+        `
+    );
+
+    return rows;
+}
+
 export async function reconcileProcessingPayouts(): Promise<void> {
     if (!getAsaasApiKey()) return;
 
@@ -454,7 +509,7 @@ export async function createPayoutPlan(input: {
             const orderCount = Number(row.pix_order_count) || 0;
             const onePercentValues = calculateOnePercentPayout(
                 grossCents,
-                orderCount
+                row.provider_fee_cents
             );
             const payzuFeeCents = onePercentValues.payzuFeeCents;
             const discountCents = input.adjustToOnePercent
@@ -959,7 +1014,7 @@ export async function getPayoutDashboardData() {
             restaurantId: row.restaurant_id,
             restaurantName: row.restaurant_name,
             grossCents: Number(row.gross_cents) || 0,
-            payzuFeeCents: (Number(row.pix_order_count) || 0) * 10,
+            payzuFeeCents: row.provider_fee_cents,
             pixKey: row.payment_info,
             pixKeyType: resolvePixKeyType(row),
             pixKeyTypeStored: row.payment_info_type,

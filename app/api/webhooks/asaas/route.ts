@@ -193,7 +193,13 @@ async function processEvent(payload: AsaasWebhook): Promise<void> {
     let payment = payload.payment || null;
     let addon = await findAddon(checkoutId, payment);
 
-    if (!addon || addon.payment_provider === "payzu") return;
+    if (
+        !addon ||
+        addon.payment_provider === "payzu" ||
+        addon.payment_provider === "mercadopago"
+    ) {
+        return;
+    }
 
     if (event === "CHECKOUT_PAID" && checkoutId) {
         try {

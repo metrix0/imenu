@@ -14,6 +14,7 @@ import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
 
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
+import Dropdown from "@/components/ui/Dropdown";
 import Input from "@/components/ui/Input";
 import Loader from "@/components/ui/Loader";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
@@ -39,6 +40,19 @@ function parseBulkPhones(value: string): string[] {
 }
 
 type AccessState = "checking" | "allowed" | "forbidden" | "signed-out";
+
+type BulkRecipientStatus =
+    | "pending"
+    | "sending"
+    | "sent"
+    | "skipped_recent"
+    | "failed";
+
+type BulkRecipientResult = {
+    phone: string;
+    status: BulkRecipientStatus;
+    error?: string;
+};
 
 type Connection = {
     session_name: string;
@@ -82,6 +96,7 @@ type Conversation = {
 
 type DashboardData = {
     connection: Connection;
+    blastConnection: Connection;
     stats: Stats;
     knowledge: KnowledgeEntry[];
     conversations: Conversation[];
@@ -179,6 +194,12 @@ export default function DevSupportPage() {
     const [bulkSent, setBulkSent] = useState(0);
     const [bulkTotal, setBulkTotal] = useState(0);
     const [bulkStatus, setBulkStatus] = useState("");
+    const [bulkSkipRecent, setBulkSkipRecent] = useState(true);
+    const [bulkSender, setBulkSender] = useState<"blast" | "support">("blast");
+    const [bulkRecipients, setBulkRecipients] = useState<BulkRecipientResult[]>([]);
+    const [bulkFailures, setBulkFailures] = useState<
+        Array<{ phone: string; error: string }>
+    >([]);
     const bulkStopRef = useRef(false);
 
     const getAccessToken = useCallback(async () => {
@@ -267,21 +288,21 @@ export default function DevSupportPage() {
     }, [loadDashboard]);
 
     useEffect(() => {
-        if (
-            accessState !== "allowed" ||
-            !data?.connection ||
-            data.connection.desired_state !== "connected" ||
-            data.connection.status === "WORKING"
-        ) {
-            return;
-        }
+        const connections = [data?.connection, data?.blastConnection];
+        const hasConnectingSession = connections.some(
+            (connection) =>
+                connection?.desired_state === "connected" &&
+                connection.status !== "WORKING"
+        );
+
+        if (accessState !== "allowed" || !hasConnectingSession) return;
 
         const timer = window.setInterval(() => {
             void loadDashboard().catch(() => undefined);
         }, 4000);
 
         return () => window.clearInterval(timer);
-    }, [accessState, data?.connection, loadDashboard]);
+    }, [accessState, data?.connection, data?.blastConnection, loadDashboard]);
 
     useEffect(() => {
         if (accessState !== "allowed" || !data?.handedOff.length) return;
@@ -297,7 +318,11 @@ export default function DevSupportPage() {
         nextAction: string,
         extra: Record<string, unknown> = {}
     ) => {
-        setAction(nextAction);
+        const actionKey =
+            typeof extra.connection === "string"
+                ? nextAction + ":" + extra.connection
+                : nextAction;
+        setAction(actionKey);
         setError("");
 
         try {
@@ -342,6 +367,8 @@ export default function DevSupportPage() {
             return;
         }
 
+        window.alert("Deixe em janela aberta");
+
         const token = await getAccessToken();
         if (!token) {
             setAccessState("signed-out");
@@ -349,17 +376,34 @@ export default function DevSupportPage() {
         }
 
         const batchId = crypto.randomUUID();
+        const skippedErrors: string[] = [];
+        let sentCount = 0;
         bulkStopRef.current = false;
         setBulkSending(true);
         setBulkSent(0);
         setBulkTotal(recipients.length);
         setBulkStatus("");
+        setBulkPhones("");
+        setBulkFailures([]);
+        setBulkRecipients(
+            recipients.map((phone) => ({
+                phone,
+                status: "pending",
+            }))
+        );
 
         try {
             for (let index = 0; index < recipients.length; index += 1) {
                 if (bulkStopRef.current) break;
 
                 const phone = recipients[index];
+                setBulkRecipients((current) =>
+                    current.map((recipient) =>
+                        recipient.phone === phone
+                            ? { ...recipient, status: "sending", error: undefined }
+                            : recipient
+                    )
+                );
                 setBulkStatus(
                     "Enviando " + (index + 1) + " de " + recipients.length + "..."
                 );
@@ -375,19 +419,64 @@ export default function DevSupportPage() {
                         batchId,
                         phone,
                         message,
+                        skipRecent: bulkSkipRecent,
+                        sender: bulkSender,
                     }),
                 });
                 const payload = (await response.json()) as {
                     error?: string;
+                    skippedRecent?: boolean;
                 };
 
                 if (!response.ok) {
-                    throw new Error(
-                        phone + ": " + (payload.error || "Falha ao enviar.")
+                    const error = payload.error || "Falha ao enviar.";
+                    const errorMessage = phone + ": " + error;
+
+                    skippedErrors.push(errorMessage);
+                    setBulkRecipients((current) =>
+                        current.map((recipient) =>
+                            recipient.phone === phone
+                                ? {
+                                      ...recipient,
+                                      status: "failed",
+                                      error,
+                                  }
+                                : recipient
+                        )
                     );
+                    setBulkFailures((current) => [
+                        ...current,
+                        { phone, error },
+                    ]);
+                    setBulkStatus("Ignorado: " + errorMessage);
+                    continue;
                 }
 
-                setBulkSent(index + 1);
+                if (payload.skippedRecent) {
+                    setBulkRecipients((current) =>
+                        current.map((recipient) =>
+                            recipient.phone === phone
+                                ? { ...recipient, status: "skipped_recent" }
+                                : recipient
+                        )
+                    );
+                    setBulkStatus(
+                        "Ignorado: " +
+                            phone +
+                            " já recebeu envio em massa nos últimos 7 dias."
+                    );
+                    continue;
+                }
+
+                sentCount += 1;
+                setBulkSent(sentCount);
+                setBulkRecipients((current) =>
+                    current.map((recipient) =>
+                        recipient.phone === phone
+                            ? { ...recipient, status: "sent" }
+                            : recipient
+                    )
+                );
 
                 if (index < recipients.length - 1 && !bulkStopRef.current) {
                     const delaySeconds =
@@ -400,7 +489,7 @@ export default function DevSupportPage() {
 
                     setBulkStatus(
                         "Enviado " +
-                            (index + 1) +
+                            sentCount +
                             " de " +
                             recipients.length +
                             ". Próximo envio em " +
@@ -420,10 +509,13 @@ export default function DevSupportPage() {
                 }
             }
 
+            const skippedSuffix = skippedErrors.length
+                ? " Erros: " + skippedErrors.join(" | ")
+                : "";
             setBulkStatus(
-                bulkStopRef.current
+                (bulkStopRef.current
                     ? "Envio interrompido."
-                    : "Envio concluído."
+                    : "Envio concluído.") + skippedSuffix
             );
         } catch (caught) {
             setBulkStatus(
@@ -496,10 +588,17 @@ export default function DevSupportPage() {
     }
 
     const connection = data?.connection || null;
+    const blastConnection = data?.blastConnection || null;
     const status = statusPresentation(connection);
+    const blastStatus = statusPresentation(blastConnection);
     const showQr =
         connection?.desired_state === "connected" &&
         connection.status === "SCAN_QR_CODE";
+    const showBlastQr =
+        blastConnection?.desired_state === "connected" &&
+        blastConnection.status === "SCAN_QR_CODE";
+    const selectedBulkConnection =
+        bulkSender === "blast" ? blastConnection : connection;
 
     return (
         <main className="min-h-screen bg-gray-50 px-4 py-8 sm:px-6">
@@ -654,8 +753,12 @@ export default function DevSupportPage() {
                             {!connection ||
                             connection.desired_state === "disconnected" ? (
                                 <Button
-                                    onClick={() => void runAction("connect")}
-                                    loading={action === "connect"}
+                                    onClick={() =>
+                                        void runAction("connect", {
+                                            connection: "support",
+                                        })
+                                    }
+                                    loading={action === "connect:support"}
                                 >
                                     <FontAwesomeIcon
                                         icon={faQrcode}
@@ -668,9 +771,11 @@ export default function DevSupportPage() {
                                     {connection.status !== "WORKING" && (
                                         <Button
                                             onClick={() =>
-                                                void runAction("reconnect")
+                                                void runAction("reconnect", {
+                                                    connection: "support",
+                                                })
                                             }
-                                            loading={action === "reconnect"}
+                                            loading={action === "reconnect:support"}
                                         >
                                             <FontAwesomeIcon
                                                 icon={faRotate}
@@ -683,9 +788,11 @@ export default function DevSupportPage() {
                                         <Button
                                             variant="secondary"
                                             onClick={() =>
-                                                void runAction("refresh_qr")
+                                                void runAction("refresh_qr", {
+                                                    connection: "support",
+                                                })
                                             }
-                                            loading={action === "refresh_qr"}
+                                            loading={action === "refresh_qr:support"}
                                         >
                                             Novo QR
                                         </Button>
@@ -693,9 +800,11 @@ export default function DevSupportPage() {
                                     <Button
                                         variant="secondary"
                                         onClick={() =>
-                                            void runAction("disconnect")
+                                            void runAction("disconnect", {
+                                                connection: "support",
+                                            })
                                         }
-                                        loading={action === "disconnect"}
+                                        loading={action === "disconnect:support"}
                                     >
                                         <FontAwesomeIcon
                                             icon={faPowerOff}
@@ -762,12 +871,176 @@ export default function DevSupportPage() {
                 </Card>
 
                 <Card>
+                    <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="flex items-start gap-4">
+                            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-50 text-xl text-green-600">
+                                <FontAwesomeIcon icon={faWhatsapp} />
+                            </div>
+                            <div>
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <h2 className="text-lg font-semibold text-gray-900">
+                                        WhatsApp Blast
+                                    </h2>
+                                    <span
+                                        className={
+                                            "rounded-full px-2.5 py-1 text-xs font-medium " +
+                                            blastStatus.className
+                                        }
+                                    >
+                                        {blastStatus.label}
+                                    </span>
+                                </div>
+                                <p className="mt-1 text-sm text-gray-500">
+                                    Sessão: {blastConnection?.session_name || "imenu-blast"}
+                                </p>
+                                {blastConnection?.phone && (
+                                    <p className="mt-1 text-sm font-medium text-gray-800">
+                                        {blastConnection.push_name || "Blast iMenu"} ·{" "}
+                                        {formatPhone(blastConnection.phone)}
+                                    </p>
+                                )}
+                                {blastConnection?.last_error && (
+                                    <p className="mt-2 text-sm text-red-600">
+                                        {blastConnection.last_error}
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2">
+                            {!blastConnection ||
+                            blastConnection.desired_state === "disconnected" ? (
+                                <Button
+                                    onClick={() =>
+                                        void runAction("connect", {
+                                            connection: "blast",
+                                        })
+                                    }
+                                    loading={action === "connect:blast"}
+                                >
+                                    <FontAwesomeIcon
+                                        icon={faQrcode}
+                                        className="mr-2"
+                                    />
+                                    Conectar WhatsApp
+                                </Button>
+                            ) : (
+                                <>
+                                    {blastConnection.status !== "WORKING" && (
+                                        <Button
+                                            onClick={() =>
+                                                void runAction("reconnect", {
+                                                    connection: "blast",
+                                                })
+                                            }
+                                            loading={action === "reconnect:blast"}
+                                        >
+                                            <FontAwesomeIcon
+                                                icon={faRotate}
+                                                className="mr-2"
+                                            />
+                                            Reconectar
+                                        </Button>
+                                    )}
+                                    {blastConnection.status !== "WORKING" && (
+                                        <Button
+                                            variant="secondary"
+                                            onClick={() =>
+                                                void runAction("refresh_qr", {
+                                                    connection: "blast",
+                                                })
+                                            }
+                                            loading={action === "refresh_qr:blast"}
+                                        >
+                                            Novo QR
+                                        </Button>
+                                    )}
+                                    <Button
+                                        variant="secondary"
+                                        onClick={() =>
+                                            void runAction("disconnect", {
+                                                connection: "blast",
+                                            })
+                                        }
+                                        loading={action === "disconnect:blast"}
+                                    >
+                                        <FontAwesomeIcon
+                                            icon={faPowerOff}
+                                            className="mr-2"
+                                        />
+                                        Desconectar
+                                    </Button>
+                                </>
+                            )}
+                        </div>
+                    </div>
+
+                    {showBlastQr && (
+                        <div className="mt-6 grid gap-5 rounded-xl border border-blue-100 bg-blue-50/40 p-5 sm:grid-cols-[220px_1fr] sm:items-center">
+                            <div className="flex min-h-[210px] items-center justify-center rounded-xl border border-gray-200 bg-white p-3">
+                                {blastConnection?.qr_code_data ? (
+                                    <img
+                                        src={blastConnection.qr_code_data}
+                                        alt="QR Code do WhatsApp Blast"
+                                        className="h-48 w-48"
+                                    />
+                                ) : (
+                                    <p className="text-sm text-gray-500">
+                                        Preparando QR…
+                                    </p>
+                                )}
+                            </div>
+                            <div>
+                                <h3 className="font-semibold text-gray-900">
+                                    Escaneie com o número secundário
+                                </h3>
+                                <p className="mt-2 text-sm text-gray-600">
+                                    WhatsApp → Aparelhos conectados → Conectar um aparelho.
+                                </p>
+                            </div>
+                        </div>
+                    )}
+                </Card>
+
+                <Card>
                     <h2 className="text-lg font-semibold text-gray-900">
                         Envio em massa
                     </h2>
                     <p className="mt-1 text-sm text-gray-500">
-                        Envia uma mensagem por vez pelo WhatsApp de suporte, com intervalo aleatório entre 15 e 30 segundos.
+                        Envia uma mensagem por vez pelo número selecionado, com intervalo aleatório entre 15 e 30 segundos.
                     </p>
+
+                    <div className="mt-5 max-w-md">
+                        <Dropdown
+                            custom
+                            label="Número de envio"
+                            value={bulkSender}
+                            onChange={(event) =>
+                                setBulkSender(
+                                    event.target.value as "blast" | "support"
+                                )
+                            }
+                            disabled={bulkSending}
+                            options={[
+                                {
+                                    value: "blast",
+                                    label:
+                                        "WhatsApp Blast" +
+                                        (blastConnection?.phone
+                                            ? " · " + formatPhone(blastConnection.phone)
+                                            : " · não conectado"),
+                                },
+                                {
+                                    value: "support",
+                                    label:
+                                        "WhatsApp do suporte" +
+                                        (connection?.phone
+                                            ? " · " + formatPhone(connection.phone)
+                                            : " · não conectado"),
+                                },
+                            ]}
+                        />
+                    </div>
 
                     <div className="mt-5 grid gap-4 md:grid-cols-2">
                         <div>
@@ -806,6 +1079,21 @@ export default function DevSupportPage() {
                         </div>
                     </div>
 
+                    <label className="mt-4 flex cursor-pointer items-center gap-2 text-sm text-gray-700">
+                        <input
+                            type="checkbox"
+                            checked={bulkSkipRecent}
+                            onChange={(event) =>
+                                setBulkSkipRecent(event.target.checked)
+                            }
+                            disabled={bulkSending}
+                            className="h-4 w-4 cursor-pointer accent-brand disabled:cursor-not-allowed"
+                        />
+                        <span>
+                            Não repetir números que já receberam envio em massa nos últimos 7 dias
+                        </span>
+                    </label>
+
                     <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
                         <p>
                             <strong>Atenção:</strong> não é recomendado enviar para mais de 50 destinatários por lote.
@@ -827,7 +1115,7 @@ export default function DevSupportPage() {
                                 bulkSending ||
                                 !bulkMessage.trim() ||
                                 !parseBulkPhones(bulkPhones).length ||
-                                connection?.status !== "WORKING"
+                                selectedBulkConnection?.status !== "WORKING"
                             }
                         >
                             Enviar em massa
@@ -854,6 +1142,89 @@ export default function DevSupportPage() {
                         <p className="mt-3 text-sm text-gray-600">
                             {bulkStatus}
                         </p>
+                    )}
+
+                    {bulkRecipients.length > 0 && (
+                        <div className="mt-4 grid gap-4 md:grid-cols-2">
+                            <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                                <div className="flex items-center justify-between gap-3">
+                                    <h3 className="text-sm font-semibold text-gray-900">
+                                        Números do lote
+                                    </h3>
+                                    <span className="text-xs text-gray-500">
+                                        {bulkRecipients.length}
+                                    </span>
+                                </div>
+                                <div className="mt-3 max-h-64 divide-y divide-gray-200 overflow-y-auto">
+                                    {bulkRecipients.map((recipient) => (
+                                        <div
+                                            key={recipient.phone}
+                                            className="flex items-center justify-between gap-3 py-2 text-sm"
+                                        >
+                                            <span className="text-gray-700">
+                                                {formatPhone(recipient.phone)}
+                                            </span>
+                                            <span
+                                                className={
+                                                    recipient.status === "sent"
+                                                        ? "text-green-700"
+                                                        : recipient.status === "failed"
+                                                          ? "text-red-700"
+                                                          : recipient.status ===
+                                                              "sending"
+                                                            ? "text-amber-700"
+                                                            : "text-gray-500"
+                                                }
+                                            >
+                                                {recipient.status === "sent"
+                                                    ? "Enviado"
+                                                    : recipient.status === "failed"
+                                                      ? "Falhou"
+                                                      : recipient.status ===
+                                                          "skipped_recent"
+                                                        ? "Ignorado (7 dias)"
+                                                        : recipient.status ===
+                                                            "sending"
+                                                          ? "Enviando"
+                                                          : "Pendente"}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="rounded-xl border border-red-200 bg-red-50/50 p-4">
+                                <div className="flex items-center justify-between gap-3">
+                                    <h3 className="text-sm font-semibold text-red-900">
+                                        Falhas
+                                    </h3>
+                                    <span className="text-xs text-red-700">
+                                        {bulkFailures.length}
+                                    </span>
+                                </div>
+                                {bulkFailures.length ? (
+                                    <div className="mt-3 max-h-64 divide-y divide-red-100 overflow-y-auto">
+                                        {bulkFailures.map((failure, index) => (
+                                            <div
+                                                key={failure.phone + ":" + index}
+                                                className="py-2 text-sm"
+                                            >
+                                                <p className="font-medium text-red-900">
+                                                    {formatPhone(failure.phone)}
+                                                </p>
+                                                <p className="mt-0.5 text-xs text-red-700">
+                                                    {failure.error}
+                                                </p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="mt-3 text-sm text-red-700/70">
+                                        Nenhuma falha neste lote.
+                                    </p>
+                                )}
+                            </div>
+                        </div>
                     )}
                 </Card>
 

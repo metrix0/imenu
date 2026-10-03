@@ -4,14 +4,16 @@ import { createClient } from "@supabase/supabase-js";
 import { query } from "@/lib/database/sql";
 import { releaseExpiredSupportHandoffs } from "@/lib/services/supportWhatsApp";
 import {
+    checkWahaPhoneExists,
+    ensureWahaBlastSession,
     ensureWahaSupportSession,
     extractWahaPhone,
     getWahaQrCode,
     getWahaSession,
     logoutWahaSession,
+    isWahaHttpErrorStatus,
     restartWahaSession,
     sendWahaText,
-    SUPPORT_WAHA_SESSION_NAME,
     type WahaSession,
 } from "@/lib/services/wahaClient";
 
@@ -19,6 +21,11 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const ALLOWED_DEV_EMAIL = "joaovralmeida@hotmail.com";
+const BULK_SEND_RETRY_DELAY_MS = 1_000;
+
+function sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 type ConnectionAction =
     | "connect"
@@ -113,58 +120,75 @@ async function authorizeDevRequest(request: Request): Promise<
     return { ok: true };
 }
 
-async function readConnection(): Promise<SupportConnection> {
+async function readConnection(
+    connectionId = "default"
+): Promise<SupportConnection> {
     const result = await query<SupportConnection>(
-        "SELECT * FROM support_whatsapp_connection WHERE id = 'default' LIMIT 1"
+        "SELECT * FROM support_whatsapp_connection WHERE id = $1 LIMIT 1",
+        [connectionId]
     );
     const connection = result.rows[0];
     if (!connection) {
-        throw new Error("Support WhatsApp connection row is missing.");
+        throw new Error("WhatsApp connection row is missing: " + connectionId);
     }
     return connection;
 }
 
 async function updateFromWahaSession(
-    session: WahaSession
+    session: WahaSession,
+    connectionId = "default"
 ): Promise<SupportConnection> {
     const status = session.status || "STARTING";
     const phone = extractWahaPhone(session.me?.id);
     const qrCode =
         status === "SCAN_QR_CODE"
-            ? await getWahaQrCode(SUPPORT_WAHA_SESSION_NAME)
+            ? await getWahaQrCode(session.name)
             : null;
 
     await query(
-        "UPDATE support_whatsapp_connection SET desired_state = 'connected', status = $1, status_data = NULL, phone = COALESCE($2, phone), push_name = COALESCE($3, push_name), qr_code_data = $4, qr_updated_at = CASE WHEN $4::text IS NULL THEN NULL ELSE NOW() END, last_connected_at = CASE WHEN $1 = 'WORKING' THEN NOW() ELSE last_connected_at END, last_disconnected_at = CASE WHEN $1 IN ('FAILED','STOPPED') THEN NOW() ELSE last_disconnected_at END, last_event_at = NOW(), last_error = NULL, updated_at = NOW() WHERE id = 'default'",
+        "UPDATE support_whatsapp_connection SET desired_state = 'connected', status = $1, status_data = NULL, phone = COALESCE($2, phone), push_name = COALESCE($3, push_name), qr_code_data = $4, qr_updated_at = CASE WHEN $4::text IS NULL THEN NULL ELSE NOW() END, last_connected_at = CASE WHEN $1 = 'WORKING' THEN NOW() ELSE last_connected_at END, last_disconnected_at = CASE WHEN $1 IN ('FAILED','STOPPED') THEN NOW() ELSE last_disconnected_at END, last_event_at = NOW(), last_error = NULL, updated_at = NOW() WHERE id = $5",
         [
             status,
             phone,
             session.me?.pushName?.trim() || null,
             qrCode,
+            connectionId,
         ]
     );
 
-    return readConnection();
+    return readConnection(connectionId);
+}
+
+async function refreshConnection(
+    connectionId: "default" | "blast"
+): Promise<SupportConnection> {
+    let connection = await readConnection(connectionId);
+
+    if (connection.desired_state !== "connected") return connection;
+
+    try {
+        const session = await getWahaSession(connection.session_name);
+        if (session) {
+            connection = await updateFromWahaSession(session, connectionId);
+        }
+    } catch (error) {
+        console.warn(
+            "[DEV_SUPPORT] WAHA status check unavailable:",
+            connection.session_name,
+            error
+        );
+    }
+
+    return connection;
 }
 
 async function getDashboardData() {
     await releaseExpiredSupportHandoffs();
 
-    let connection = await readConnection();
-
-    if (connection.desired_state === "connected") {
-        try {
-            const session = await getWahaSession(connection.session_name);
-            if (session) {
-                connection = await updateFromWahaSession(session);
-            }
-        } catch (error) {
-            console.warn(
-                "[DEV_SUPPORT] WAHA status check unavailable:",
-                error
-            );
-        }
-    }
+    const [connection, blastConnection] = await Promise.all([
+        refreshConnection("default"),
+        refreshConnection("blast"),
+    ]);
 
     const [stats, knowledge, conversations, handedOff] = await Promise.all([
         query<{
@@ -214,6 +238,7 @@ async function getDashboardData() {
 
     return {
         connection,
+        blastConnection,
         stats: stats.rows[0],
         knowledge: knowledge.rows,
         conversations: conversations.rows,
@@ -245,6 +270,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
     let action = "";
+    let connectionId: "default" | "blast" = "default";
 
     try {
         const authorization = await authorizeDevRequest(request);
@@ -252,6 +278,10 @@ export async function POST(request: Request) {
 
         const body = (await request.json()) as Record<string, unknown>;
         action = String(body.action || "");
+        const connectionTarget =
+            body.connection === "blast" ? "blast" : "support";
+        connectionId =
+            connectionTarget === "blast" ? "blast" : "default";
 
         if (
             ["connect", "reconnect", "refresh_qr", "disconnect"].includes(
@@ -259,11 +289,12 @@ export async function POST(request: Request) {
             )
         ) {
             const connectionAction = action as ConnectionAction;
-            const current = await readConnection();
+            const current = await readConnection(connectionId);
 
             if (connectionAction === "disconnect") {
                 await query(
-                    "UPDATE support_whatsapp_connection SET desired_state = 'disconnected', status = 'STOPPED', qr_code_data = NULL, qr_updated_at = NULL, last_disconnected_at = NOW(), last_error = NULL, updated_at = NOW() WHERE id = 'default'"
+                    "UPDATE support_whatsapp_connection SET desired_state = 'disconnected', status = 'STOPPED', qr_code_data = NULL, qr_updated_at = NULL, last_disconnected_at = NOW(), last_error = NULL, updated_at = NOW() WHERE id = $1",
+                    [connectionId]
                 );
 
                 try {
@@ -279,8 +310,8 @@ export async function POST(request: Request) {
             }
 
             await query(
-                "UPDATE support_whatsapp_connection SET desired_state = 'connected', status = 'STARTING', qr_code_data = NULL, qr_updated_at = NULL, last_restart_at = CASE WHEN $1 IN ('reconnect','refresh_qr') THEN NOW() ELSE last_restart_at END, last_error = NULL, updated_at = NOW() WHERE id = 'default'",
-                [connectionAction]
+                "UPDATE support_whatsapp_connection SET desired_state = 'connected', status = 'STARTING', qr_code_data = NULL, qr_updated_at = NULL, last_restart_at = CASE WHEN $1 IN ('reconnect','refresh_qr') THEN NOW() ELSE last_restart_at END, last_error = NULL, updated_at = NOW() WHERE id = $2",
+                [connectionAction, connectionId]
             );
 
             if (connectionAction === "refresh_qr") {
@@ -294,16 +325,19 @@ export async function POST(request: Request) {
                 }
             }
 
+            const ensureSession =
+                connectionTarget === "blast"
+                    ? ensureWahaBlastSession
+                    : ensureWahaSupportSession;
+
             let session: WahaSession;
             if (connectionAction === "reconnect") {
                 const existing = await getWahaSession(current.session_name);
                 session = existing
                     ? await restartWahaSession(current.session_name)
-                    : await ensureWahaSupportSession(current.session_name);
+                    : await ensureSession(current.session_name);
             } else {
-                session = await ensureWahaSupportSession(
-                    current.session_name
-                );
+                session = await ensureSession(current.session_name);
             }
 
             if (session.status === "STARTING") {
@@ -312,7 +346,7 @@ export async function POST(request: Request) {
                     (await getWahaSession(current.session_name)) || session;
             }
 
-            await updateFromWahaSession(session);
+            await updateFromWahaSession(session, connectionId);
             return NextResponse.json(await getDashboardData());
         }
 
@@ -320,6 +354,10 @@ export async function POST(request: Request) {
             const batchId = String(body.batchId || "").trim();
             const rawPhone = String(body.phone || "").trim();
             const message = String(body.message || "").trim();
+            const skipRecent = body.skipRecent !== false;
+            const sender = body.sender === "support" ? "support" : "blast";
+            const senderConnectionId =
+                sender === "support" ? "default" : "blast";
             let phone = rawPhone.replace(/\D/g, "");
 
             if (phone.startsWith("0055")) phone = phone.slice(2);
@@ -348,7 +386,7 @@ export async function POST(request: Request) {
                     WHERE regexp_replace(COALESCE(u.raw_user_meta_data->>'phone', ''), '[^0-9]', '', 'g') = ANY($1::text[])
                        OR regexp_replace(COALESCE(r.phone, ''), '[^0-9]', '', 'g') = ANY($1::text[])
                        OR regexp_replace(COALESCE(r.store_whatsapp, ''), '[^0-9]', '', 'g') = ANY($1::text[])
-                    LIMIT 2
+                    ORDER BY r.id
                 `,
                 [[phone, localPhone]]
             );
@@ -360,25 +398,49 @@ export async function POST(request: Request) {
                 );
             }
 
-            if (recipients.rows.length > 1) {
-                return NextResponse.json(
-                    { error: "Número vinculado a mais de um restaurante." },
-                    { status: 409 }
-                );
-            }
-
-            const connection = await readConnection();
+            const connection = await readConnection(senderConnectionId);
             if (
                 connection.desired_state !== "connected" ||
                 connection.status !== "WORKING"
             ) {
                 return NextResponse.json(
-                    { error: "WhatsApp de suporte não está conectado." },
+                    {
+                        error:
+                            sender === "support"
+                                ? "WhatsApp de suporte não está conectado."
+                                : "WhatsApp Blast não está conectado.",
+                    },
                     { status: 503 }
                 );
             }
 
-            const restaurantId = recipients.rows[0].restaurant_id;
+            const restaurantIds = recipients.rows.map(
+                (recipient) => recipient.restaurant_id
+            );
+            const restaurantId = restaurantIds[0];
+
+            if (skipRecent) {
+                const recentlySent = await query(
+                    `
+                        SELECT 1
+                        FROM whatsapp_outbound_messages
+                        WHERE restaurant_id = ANY($1::uuid[])
+                          AND dedupe_key LIKE 'support:bulk:%'
+                          AND status = 'sent'
+                          AND updated_at >= NOW() - INTERVAL '7 days'
+                        LIMIT 1
+                    `,
+                    [restaurantIds]
+                );
+
+                if (recentlySent.rowCount > 0) {
+                    return NextResponse.json({
+                        ok: true,
+                        skippedRecent: true,
+                    });
+                }
+            }
+
             const chatId = phone + "@c.us";
             const dedupeKey =
                 "support:bulk:" + batchId + ":" + restaurantId;
@@ -393,10 +455,46 @@ export async function POST(request: Request) {
             }
 
             try {
-                await sendWahaText(connection.session_name, chatId, message);
+                const contact = await checkWahaPhoneExists(
+                    connection.session_name,
+                    phone
+                );
+
+                if (!contact.numberExists) {
+                    await query(
+                        "UPDATE whatsapp_outbound_messages SET status = 'failed', last_error = 'Número não existe no WhatsApp.', updated_at = NOW() WHERE dedupe_key = $1",
+                        [dedupeKey]
+                    );
+                    return NextResponse.json(
+                        { error: "Número não existe no WhatsApp." },
+                        { status: 404 }
+                    );
+                }
+
+                const resolvedChatId = contact.chatId || chatId;
+
+                try {
+                    await sendWahaText(
+                        connection.session_name,
+                        resolvedChatId,
+                        message
+                    );
+                } catch (firstSendError) {
+                    if (!isWahaHttpErrorStatus(firstSendError, 500)) {
+                        throw firstSendError;
+                    }
+
+                    await sleep(BULK_SEND_RETRY_DELAY_MS);
+                    await sendWahaText(
+                        connection.session_name,
+                        resolvedChatId,
+                        message
+                    );
+                }
+
                 await query(
-                    "UPDATE whatsapp_outbound_messages SET status = 'sent', last_error = NULL, updated_at = NOW() WHERE dedupe_key = $1",
-                    [dedupeKey]
+                    "UPDATE whatsapp_outbound_messages SET chat_id = $2, status = 'sent', last_error = NULL, updated_at = NOW() WHERE dedupe_key = $1",
+                    [dedupeKey, resolvedChatId]
                 );
                 return NextResponse.json({ ok: true });
             } catch (sendError) {
@@ -486,11 +584,12 @@ export async function POST(request: Request) {
         ) {
             try {
                 await query(
-                    "UPDATE support_whatsapp_connection SET status = 'FAILED', last_error = $1, updated_at = NOW() WHERE id = 'default'",
+                    "UPDATE support_whatsapp_connection SET status = 'FAILED', last_error = $1, updated_at = NOW() WHERE id = $2",
                     [
                         error instanceof Error
                             ? error.message.slice(0, 500)
                             : "Falha ao conectar o WhatsApp.",
+                        connectionId,
                     ]
                 );
             } catch {

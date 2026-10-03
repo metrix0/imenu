@@ -33,6 +33,11 @@ type WahaLidResponse = {
     pn?: string | null;
 };
 
+type WahaContactExistsResponse = {
+    numberExists?: boolean;
+    chatId?: string | null;
+};
+
 type WahaMessageMedia = {
     url?: string | null;
     mimetype?: string | null;
@@ -65,6 +70,7 @@ const MAX_WAHA_MEDIA_BYTES = 12 * 1024 * 1024;
 const WAHA_TYPING_TIMEOUT_MS = 1_000;
 
 export const SUPPORT_WAHA_SESSION_NAME = "imenu-support";
+export const BLAST_WAHA_SESSION_NAME = "imenu-blast";
 
 class WahaHttpError extends Error {
     status: number;
@@ -76,6 +82,13 @@ class WahaHttpError extends Error {
         this.status = status;
         this.responseBody = responseBody;
     }
+}
+
+export function isWahaHttpErrorStatus(
+    error: unknown,
+    status: number
+): boolean {
+    return error instanceof WahaHttpError && error.status === status;
 }
 
 function getRequiredEnv(name: string): string {
@@ -259,6 +272,22 @@ export async function ensureWahaSupportSession(
         sessionConfig({ support: "true" }, getSupportPublicUrl())
     );
 }
+
+export async function ensureWahaBlastSession(
+    sessionName = BLAST_WAHA_SESSION_NAME
+): Promise<WahaSession> {
+    return ensureWahaSessionWithConfig(sessionName, {
+        metadata: { blast: "true" },
+        ignore: {
+            status: true,
+            groups: true,
+            channels: true,
+            broadcast: true,
+        },
+        webhooks: [],
+    });
+}
+
 export async function startWahaSession(
     sessionName: string
 ): Promise<WahaSession> {
@@ -470,6 +499,27 @@ export async function getWahaMessageMedia(
             .toLowerCase() || inferWahaMediaMimeType(filename);
 
     return { data, mimetype, filename };
+}
+
+export async function checkWahaPhoneExists(
+    sessionName: string,
+    phone: string
+): Promise<{ numberExists: boolean; chatId: string | null }> {
+    const result = await wahaRequest<WahaContactExistsResponse>(
+        `/api/contacts/check-exists?phone=${encodeURIComponent(
+            phone
+        )}&session=${encodeURIComponent(sessionName)}`,
+        {},
+        WAHA_SEND_TIMEOUT_MS
+    );
+
+    return {
+        numberExists: result?.numberExists === true,
+        chatId:
+            typeof result?.chatId === "string" && result.chatId.trim()
+                ? result.chatId.trim()
+                : null,
+    };
 }
 
 export async function sendWahaText(

@@ -50,9 +50,7 @@ export async function GET(request: Request) {
                 current_period_ends_at
             FROM public.restaurant_addons
             WHERE restaurant_id = $1
-              AND payment_provider = 'payzu'
-              AND UPPER(COALESCE(payzu_payment_method, '')) = 'PIX'
-              AND payzu_recurrence_id IS NULL
+              AND (payment_provider = 'mercadopago' OR (payment_provider = 'payzu' AND UPPER(COALESCE(payzu_payment_method, '')) = 'PIX' AND payzu_recurrence_id IS NULL))
               AND current_period_ends_at IS NOT NULL
               AND status IN ('active', 'canceled', 'past_due')
               AND (

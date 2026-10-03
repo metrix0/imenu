@@ -16,7 +16,7 @@ import {
 } from "@/lib/services/wahaClient";
 
 type ConversationRow = {
-    mode: "bot" | "human";
+    mode: "bot" | "human" | "storm";
     human_until: string | null;
     last_inbound_at: string | null;
     customer_name: string | null;
@@ -38,7 +38,7 @@ type BotFlow =
     | "payment"
     | "handoff";
 
-type ConversationState = "human" | "welcome" | "continue";
+type ConversationState = "human" | "storm" | "welcome" | "continue";
 
 type PreparedConversation = {
     state: ConversationState;
@@ -52,7 +52,7 @@ const RESTAURANT_SEND_LIMIT_PER_5_MINUTES = 100;
 const FALLBACK_COOLDOWN_SECONDS = 30;
 const FALLBACK_SUSPEND_COUNT_5_MINUTES = 3;
 const LIST_FAILURE_LIMIT_5_MINUTES = 3;
-const STORM_SUSPEND_MINUTES = 10;
+const STORM_QUIET_SECONDS = 60;
 
 const MENU_ROWS: WahaListRow[] = [
     { title: "Ver o cardápio", rowId: "menu_link" },
@@ -166,7 +166,11 @@ async function getConversation(
 }
 
 async function canBotRespond(restaurantId: string, chatId: string): Promise<boolean> {
-    return !isConversationWithOwner(await getConversation(restaurantId, chatId));
+    const conversation = await getConversation(restaurantId, chatId);
+    return (
+        conversation?.mode !== "storm" &&
+        !isConversationWithOwner(conversation)
+    );
 }
 
 async function prepareConversation(
@@ -212,6 +216,11 @@ async function prepareConversation(
                             whatsapp_conversations.human_until IS NULL
                             OR whatsapp_conversations.human_until > NOW()
                          ) THEN 'human'
+                        WHEN whatsapp_conversations.mode = 'storm'
+                         AND whatsapp_conversations.last_inbound_at IS NOT NULL
+                         AND whatsapp_conversations.last_inbound_at >
+                             NOW() - ($4 * INTERVAL '1 second')
+                        THEN 'storm'
                         ELSE 'bot'
                     END,
                     human_until = CASE
@@ -225,11 +234,19 @@ async function prepareConversation(
                     updated_at = NOW()
                 RETURNING mode, human_until, last_inbound_at, customer_name
             `,
-            [restaurantId, chatId, customerName]
+            [restaurantId, chatId, customerName, STORM_QUIET_SECONDS]
         );
 
+        const mode = touched.rows[0]?.mode;
         return {
-            state: humanActive ? "human" : shouldWelcome ? "welcome" : "continue",
+            state:
+                mode === "human"
+                    ? "human"
+                    : mode === "storm"
+                      ? "storm"
+                      : shouldWelcome
+                        ? "welcome"
+                        : "continue",
             customerName: touched.rows[0]?.customer_name || previous?.customer_name || null,
         };
     });
@@ -327,12 +344,12 @@ async function claimOutboundMessage({
             ),
             suspend_chat AS (
                 UPDATE whatsapp_conversations
-                SET mode = 'human',
-                    human_until = NOW() + INTERVAL '${STORM_SUSPEND_MINUTES} minutes',
+                SET mode = 'storm',
+                    human_until = NULL,
                     updated_at = NOW()
                 WHERE restaurant_id = $2
                   AND chat_id = $3
-                  AND NOT (mode = 'human' AND human_until IS NULL)
+                  AND mode <> 'human'
                   AND (
                       (SELECT chat_count FROM recent) >= ${CHAT_SEND_LIMIT_PER_MINUTE}
                       OR (
@@ -362,16 +379,20 @@ async function claimOutboundMessage({
                   $4::text <> 'list'
                   OR failed_list_count < ${LIST_FAILURE_LIMIT_5_MINUTES}
               )
-              AND (
-                  $5::boolean
-                  OR NOT EXISTS (
-                      SELECT 1
-                      FROM whatsapp_conversations
-                      WHERE restaurant_id = $2
-                        AND chat_id = $3
-                        AND mode = 'human'
-                        AND (human_until IS NULL OR human_until > NOW())
-                  )
+              AND NOT EXISTS (SELECT 1 FROM suspend_chat)
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM whatsapp_conversations
+                  WHERE restaurant_id = $2
+                    AND chat_id = $3
+                    AND (
+                        mode = 'storm'
+                        OR (
+                            NOT $5::boolean
+                            AND mode = 'human'
+                            AND (human_until IS NULL OR human_until > NOW())
+                        )
+                    )
               )
             ON CONFLICT (dedupe_key) DO NOTHING
             RETURNING dedupe_key
@@ -737,6 +758,13 @@ export async function processIncomingWhatsAppMessage({
 
     if (prepared.state === "human") {
         console.info("[WHATSAPP_AUTOMATION] inbound_suppressed_human", {
+            restaurantId,
+        });
+        return;
+    }
+
+    if (prepared.state === "storm") {
+        console.info("[WHATSAPP_AUTOMATION] inbound_suppressed_storm", {
             restaurantId,
         });
         return;

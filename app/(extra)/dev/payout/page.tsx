@@ -94,13 +94,12 @@ type SendResult = {
     }>;
 };
 
-type PayzuTransferResult = {
+type MercadoPagoFundingResult = {
     success: boolean;
     skipped: boolean;
-    reason?: string;
     amountCents?: number;
-    reserveCents: number;
-    balanceBeforeCents: number;
+    requiredCents?: number;
+    asaasBalanceBeforeCents?: number;
     transactionStatus?: string | null;
     error?: string;
 };
@@ -249,7 +248,7 @@ export default function DevPayoutPage() {
     const [automationHistoryPage, setAutomationHistoryPage] = useState(1);
     const [lastResult, setLastResult] = useState<SendResult | null>(null);
     const [lastPayzuTransfer, setLastPayzuTransfer] =
-        useState<PayzuTransferResult | null>(null);
+        useState<MercadoPagoFundingResult | null>(null);
 
     const numericDiscount = useMemo(() => {
         const value = Number(discountPercent.replace(",", "."));
@@ -446,6 +445,16 @@ export default function DevPayoutPage() {
         setOnePercentNet(true);
     };
 
+    const handleCopyRestaurantWhatsapps = async () => {
+        const numbers = payables
+            .map((item) =>
+                normalizeWhatsappNumber(restaurantPhones[item.restaurantId])
+            )
+            .filter(Boolean);
+
+        await navigator.clipboard.writeText(numbers.join("\n"));
+    };
+
     const handlePixTypeChange = async (
         restaurantId: string,
         pixKeyType: PixKeyType
@@ -507,15 +516,17 @@ export default function DevPayoutPage() {
                 return;
             }
 
-            const response = await fetch("/api/cron/payzu-to-asaas", {
+            const response = await fetch("/api/dev/payout", {
                 method: "POST",
                 headers: {
                     Authorization: `Bearer ${session.access_token}`,
+                    "Content-Type": "application/json",
                 },
+                body: JSON.stringify({ action: "fund_asaas" }),
             });
-            const payload = (await response.json()) as PayzuTransferResult;
+            const payload = (await response.json()) as MercadoPagoFundingResult;
             if (!response.ok) {
-                throw new Error(payload.error || "Falha ao transferir saldo PayZu.");
+                throw new Error(payload.error || "Falha ao transferir saldo Mercado Pago.");
             }
 
             setLastPayzuTransfer(payload);
@@ -524,7 +535,7 @@ export default function DevPayoutPage() {
             setError(
                 caught instanceof Error
                     ? caught.message
-                    : "Falha ao transferir saldo PayZu."
+                    : "Falha ao transferir saldo Mercado Pago."
             );
         } finally {
             setTransferringPayzu(false);
@@ -689,15 +700,15 @@ export default function DevPayoutPage() {
             {lastPayzuTransfer && (
                 <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-900">
                     {lastPayzuTransfer.skipped
-                        ? `Saldo PayZu: ${money(lastPayzuTransfer.balanceBeforeCents)}. Nada para transferir além da reserva de ${money(lastPayzuTransfer.reserveCents)}.`
-                        : `Transferidos ${money(lastPayzuTransfer.amountCents || 0)} da PayZu para o Asaas. Reserva mantida: ${money(lastPayzuTransfer.reserveCents)}.`}
+                        ? "O saldo atual do Asaas já cobre os repasses pendentes."
+                        : `Transferidos ${money(lastPayzuTransfer.amountCents || 0)} do Mercado Pago para o Asaas${lastPayzuTransfer.transactionStatus ? ` · ${lastPayzuTransfer.transactionStatus}` : ""}.`}
                 </div>
             )}
 
             <Card>
                 <h2 className="text-lg font-bold text-gray-900">Histórico da automação diária</h2>
                 <p className="mt-1 text-sm text-gray-500">
-                    Executa todos os dias às 12h. Após solicitar a transferência da PayZu, aguarda o saldo necessário aparecer no Asaas antes de enviar os repasses.
+                    Executa todos os dias às 12h. O Mercado Pago envia o valor que falta para os repasses ao Asaas. A transferência e o saldo são confirmados antes de pagar os restaurantes.
                 </p>
 
                 <div className="mt-5 overflow-x-auto">
@@ -710,7 +721,7 @@ export default function DevPayoutPage() {
                                 <th className="px-3 py-3">Comparação</th>
                                 <th className="px-3 py-3">Enviar p/ todos</th>
                                 <th className="px-3 py-3 text-right">Bruto</th>
-                                <th className="px-3 py-3 text-right">PayZu</th>
+                                <th className="px-3 py-3 text-right">Gateway</th>
                                 <th className="px-3 py-3 text-right">Desconto</th>
                                 <th className="px-3 py-3 text-right">Lucro líquido</th>
                                 <th className="px-3 py-3">Erro</th>
@@ -752,7 +763,7 @@ export default function DevPayoutPage() {
                                                 </div>
                                             )}
                                             {run.payzu_transaction_status && (
-                                                <div className="mt-1 text-xs text-gray-500">PayZu: {run.payzu_transaction_status}</div>
+                                                <div className="mt-1 text-xs text-gray-500">Gateway: {run.payzu_transaction_status}</div>
                                             )}
                                         </td>
                                         <td className="px-3 py-4 align-top">
@@ -893,7 +904,7 @@ export default function DevPayoutPage() {
                 <MetricCard
                     label="Total que devo aos restaurantes"
                     value={money(netOwedCents)}
-                    detail={`${money(grossOwedCents)} bruto · PayZu ${money(payzuOwedCents)} · Desconto ${money(owedDiscountCents)} · ${onePercentNet ? "1%" : `${numericDiscount.toLocaleString("pt-BR", { maximumFractionDigits: 4 })}%`} total`}
+                    detail={`${money(grossOwedCents)} bruto · Gateway ${money(payzuOwedCents)} · Desconto ${money(owedDiscountCents)} · ${onePercentNet ? "1%" : `${numericDiscount.toLocaleString("pt-BR", { maximumFractionDigits: 4 })}%`} total`}
                 />
                 <MetricCard
                     label="Restaurantes com valor a receber"
@@ -905,9 +916,9 @@ export default function DevPayoutPage() {
             <Card>
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                        <h2 className="text-lg font-bold text-gray-900">PayZu → Asaas</h2>
+                        <h2 className="text-lg font-bold text-gray-900">Saldo Mercado Pago → Asaas</h2>
                         <p className="mt-1 text-sm text-gray-500">
-                            Transfere todo o saldo disponível da PayZu para o Asaas, deixando R$ 1,00 de reserva.
+                            Transfere do Mercado Pago para o Asaas o valor necessário para cobrir os repasses pendentes (mínimo de R$ 1,00).
                         </p>
                     </div>
                     <Button
@@ -994,10 +1005,32 @@ export default function DevPayoutPage() {
             </Card>
 
             <Card>
-                <h2 className="text-lg font-bold text-gray-900">Valores por restaurante</h2>
-                <p className="mt-1 text-sm text-gray-500">
-                    Apenas pedidos PIX Online confirmados desde o último repasse registrado são considerados. O valor em Enviar pode ser ajustado manualmente antes da confirmação.
-                </p>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                        <h2 className="text-lg font-bold text-gray-900">Valores por restaurante</h2>
+                        <p className="mt-1 text-sm text-gray-500">
+                            Apenas pedidos PIX Online confirmados desde o último repasse registrado são considerados. O valor em Enviar pode ser ajustado manualmente antes da confirmação.
+                        </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-3">
+                        <span className="text-sm font-medium text-gray-500">
+                            {payables.length} restaurante(s)
+                        </span>
+                        <Button
+                            variant="secondary"
+                            onClick={() => void handleCopyRestaurantWhatsapps()}
+                            disabled={
+                                !payables.some((item) =>
+                                    normalizeWhatsappNumber(
+                                        restaurantPhones[item.restaurantId]
+                                    )
+                                )
+                            }
+                        >
+                            Copiar WhatsApps
+                        </Button>
+                    </div>
+                </div>
 
                 <div className="mt-5 overflow-x-auto">
                     <table className="w-full min-w-[1000px] text-left text-sm">
@@ -1007,7 +1040,7 @@ export default function DevPayoutPage() {
                                 <th className="px-3 py-3">Telefone</th>
                                 <th className="px-3 py-3">PIX</th>
                                 <th className="px-3 py-3 text-right">Bruto</th>
-                                <th className="px-3 py-3 text-right">PayZu</th>
+                                <th className="px-3 py-3 text-right">Gateway</th>
                                 <th className="px-3 py-3 text-right">Desconto</th>
                                 <th className="px-3 py-3 text-right">Enviar</th>
                                 <th className="px-3 py-3 text-right">Ação</th>
@@ -1142,7 +1175,7 @@ export default function DevPayoutPage() {
                                 <th className="w-36 px-3 py-3">Telefone</th>
                                 <th className="w-56 px-3 py-3">PIX atual</th>
                                 <th className="w-28 px-3 py-3 text-right">Bruto</th>
-                                <th className="w-28 px-3 py-3 text-right">PayZu</th>
+                                <th className="w-28 px-3 py-3 text-right">Gateway</th>
                                 <th className="w-28 px-3 py-3 text-right">Desconto</th>
                                 <th className="w-28 px-3 py-3 text-right">Valor</th>
                                 <th className="w-36 px-3 py-3 text-right">Ação</th>
@@ -1240,7 +1273,7 @@ export default function DevPayoutPage() {
                                 <th className="w-36 px-3 py-3">Telefone</th>
                                 <th className="w-56 px-3 py-3">PIX</th>
                                 <th className="w-28 px-3 py-3 text-right">Bruto</th>
-                                <th className="w-28 px-3 py-3 text-right">PayZu</th>
+                                <th className="w-28 px-3 py-3 text-right">Gateway</th>
                                 <th className="w-28 px-3 py-3 text-right">Desconto</th>
                                 <th className="w-28 px-3 py-3 text-right">Enviado</th>
                                 <th className="w-28 px-3 py-3">Status</th>
@@ -1398,8 +1431,8 @@ export default function DevPayoutPage() {
                     <h2 className="text-xl font-bold text-gray-900">Confirmar envio</h2>
                     <p className="mt-2 text-sm text-gray-500">
                         {onePercentNet
-                            ? `Serão enviados ${money(confirmNetSendableCents)} para ${confirmSendable.length} restaurante(s). PayZu + Desconto totalizam exatamente 1% do bruto de cada restaurante; valores editados manualmente são respeitados.`
-                            : `Serão enviados ${money(confirmNetSendableCents)} para ${confirmSendable.length} restaurante(s). PayZu + Desconto totalizam ${numericDiscount.toLocaleString("pt-BR", { maximumFractionDigits: 4 })}% do bruto; valores editados manualmente são respeitados.`}
+                            ? `Serão enviados ${money(confirmNetSendableCents)} para ${confirmSendable.length} restaurante(s). Gateway + Desconto totalizam exatamente 1% do bruto de cada restaurante; valores editados manualmente são respeitados.`
+                            : `Serão enviados ${money(confirmNetSendableCents)} para ${confirmSendable.length} restaurante(s). Gateway + Desconto totalizam ${numericDiscount.toLocaleString("pt-BR", { maximumFractionDigits: 4 })}% do bruto; valores editados manualmente são respeitados.`}
                     </p>
 
                     <div className="mt-5 max-h-64 space-y-2 overflow-y-auto rounded-lg border border-gray-100 p-3">

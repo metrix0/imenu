@@ -19,7 +19,7 @@ type TestRestaurant = {
 
 type TestResponse = {
     success?: boolean;
-    action?: "payzu_to_asaas" | "restaurant";
+    action?: "mercadopago_to_asaas" | "restaurant";
     amountCents?: number;
     restaurantName?: string;
     transactionStatus?: string | null;
@@ -107,7 +107,7 @@ export default function PayoutTestActions() {
     };
 
     const runTest = async (
-        body: { action: "payzu_to_asaas" } | { action: "restaurant"; restaurantId: string }
+        body: { action: "mercadopago_to_asaas" } | { action: "restaurant"; restaurantId: string }
     ) => {
         const accessToken = await getAccessToken();
         const response = await fetch("/api/dev/payout/test", {
@@ -133,15 +133,15 @@ export default function PayoutTestActions() {
         setMessage("");
 
         try {
-            const payload = await runTest({ action: "payzu_to_asaas" });
+            const payload = await runTest({ action: "mercadopago_to_asaas" });
             setMessage(
-                `Teste concluído: ${money(payload.amountCents || 100)} da PayZu para o Asaas${payload.transactionStatus ? ` · ${payload.transactionStatus}` : ""}.`
+                `Transferência solicitada: ${money(payload.amountCents || 100)} do Mercado Pago para o Asaas${payload.transactionStatus ? ` · ${payload.transactionStatus}` : ""}.`
             );
         } catch (caught) {
             setError(
                 caught instanceof Error
                     ? caught.message
-                    : "Falha no teste PayZu → Asaas."
+                    : "Falha no teste Mercado Pago → Asaas."
             );
         } finally {
             setPayzuLoading(false);
@@ -213,7 +213,7 @@ export default function PayoutTestActions() {
                         disabled={payzuLoading || restaurantLoading}
                         onClick={() => void handlePayzuTest()}
                     >
-                        Testar PayZu → Asaas — R$ 1,00
+                        Testar Mercado Pago → Asaas — R$ 1,00
                     </Button>
                     <Button
                         variant="secondary"
