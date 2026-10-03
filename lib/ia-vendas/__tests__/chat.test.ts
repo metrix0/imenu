@@ -4,6 +4,7 @@ import { query, withTransaction } from "@/lib/database/sql";
 import { context, measure } from "../data";
 import { beginRun, recordTokens, finishRun } from "../runs";
 import { propose } from "../actions";
+import { analysisPhotos } from "../images";
 import OpenAI from "openai";
 import { batchResponse, readBatch, saveToolResult, BatchPending } from "../batch";
 jest.mock("../batch", () => ({ ...jest.requireActual("../batch"), batchResponse: jest.fn(), readBatch: jest.fn(), saveToolResult: jest.fn() }));
@@ -30,6 +31,7 @@ jest.mock("../actions", () => ({ propose: jest.fn() }));
 jest.mock("../images", () => ({
   previewImage: jest.fn(),
   proposeImages: jest.fn(),
+  analysisPhotos: jest.fn(),
 }));
 jest.mock("../files", () => ({ download: jest.fn() }));
 jest.mock("../peers", () => ({
@@ -57,6 +59,7 @@ const result = () => ({
   review_items: [],
 });
 beforeEach(() => {
+  (analysisPhotos as jest.Mock).mockReset().mockResolvedValue([]);
   create.mockReset();
   (batchResponse as jest.Mock).mockReset();
   (readBatch as jest.Mock).mockResolvedValue({});
@@ -197,7 +200,32 @@ test("requesting analysis in contextual chat stays a normal chat run", async () 
   await runChat({ ...args, deep: false });
   expect(beginRun).toHaveBeenCalledWith("owner", "conversation", "run", "chat", undefined);
   expect(context).toHaveBeenCalledWith("owner", false);
+  expect(analysisPhotos).not.toHaveBeenCalled();
   expect(create.mock.calls[0][0].text.format).toEqual({ type: "json_object" });
+});
+
+test.each([true, false])("deep photo inputs reach the model and survive Batch resume (immediate=%s)", async (immediate) => {
+  const photo = { type: "input_image", image_url: "data:image/jpeg;base64,cGhvdG8=", detail: "high" };
+  (analysisPhotos as jest.Mock).mockImplementation(async (ctx) => {
+    ctx.coverage.image_photos = { loaded: 1, total: 1, complete: true };
+    ctx.image_review = { loaded: 1, unavailable: 0, missing: 0, photos: [{ item_id: "item-96", status: "loaded" }] };
+    return [{ type: "input_text", text: "Foto do item-96" }, photo];
+  });
+  const response = { status: "completed", output: [], output_text: JSON.stringify(result()), usage: { input_tokens: 1000, output_tokens: 100 } };
+  if (immediate) create.mockResolvedValue(response);
+  else (batchResponse as jest.Mock).mockRejectedValueOnce(new BatchPending());
+  await runChat({ ...args, immediate });
+  const request = immediate ? create.mock.calls[0][0] : (batchResponse as jest.Mock).mock.calls[0][3];
+  expect(request.input.at(-1).content).toContainEqual(photo);
+  expect(request.input[0].content).toContain('"image_review"');
+  if (!immediate) {
+    const checkpoint = structuredClone((batchResponse as jest.Mock).mock.calls[0][4]);
+    expect(checkpoint.input.at(-1).content).toContainEqual(photo);
+    (batchResponse as jest.Mock).mockResolvedValueOnce(response);
+    await runChat({ ...args, immediate, resume: checkpoint });
+    expect(analysisPhotos).toHaveBeenCalledTimes(1);
+  }
+  expect((finishRun as jest.Mock).mock.calls.at(-1)[2].report.coverage.image_photos.loaded).toBe(1);
 });
 
 test("default deep analysis queues Batch and resumes to persist a strict report without reloading context", async () => {

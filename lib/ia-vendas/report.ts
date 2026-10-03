@@ -69,6 +69,7 @@ export const REPORT_FORMAT = {
 export const REPORT_INSTRUCTIONS = `
 Para análise profunda, substitua o formato reply/summary, os marcadores de widgets e a seção final Markdown pelo schema sales_analysis.
 Inspecione CADA dimensão obrigatória e TODOS os registros fornecidos, não apenas os produtos mais vendidos. Registre inspection para todas as dimensões: inspected quando realmente avaliou; unavailable se faltam dados (explique). Imagens: avalie presença e adequação com os dados disponíveis; não afirme ter visto fotos que não foram abertas.
+As fotos reais do cardápio são fornecidas como imagens, com identificação do produto e quantidade vendida, ordenadas pelos mais vendidos. Avalie todas as fotos carregadas: nitidez, iluminação, enquadramento, fundo, legibilidade do produto e coerência com o nome/descrição, sem inventar ingredientes ou julgar sabor. Dê mais peso comercial aos problemas nos produtos mais vendidos. image_review registra fotos carregadas, ausentes e indisponíveis; nunca afirme ter avaliado visualmente uma foto ausente ou indisponível. As dimensões informadas são da foto original; a imagem recebida foi redimensionada para inspeção. Se uma melhoria visual for relevante, use propose_images com o item_id correto, preservando ingredientes, porção e identidade; gerar e publicar continuam exigindo as aprovações existentes. Uma foto aceitável não precisa de proposta.
 Inspeção não é recomendação. opportunities contém somente achados de alta alavancagem, priorizados por impacto e confiança, depois menor esforço e risco. Inclua evidências verificáveis e os IDs exatos de propose_action/propose_images. Não invente IDs nem números. Reutilize propostas válidas pendentes quando apropriado e considere ações aplicadas, rejeitadas, desfeitas e resultados anteriores. review_items guarda apenas questões relevantes que dependem de decisão do dono. Não registre pensamentos nem correções cosméticas deliberadamente descartadas.
 Todos os dados comerciais já foram carregados integralmente em entities: não é necessário paginar. Measurement contém as comparações reais antes/depois. Prior_analyses contém relatórios estruturados anteriores, não uma conversa a repetir. Headline e summary devem ser curtos. Cada explicação tem no máximo duas frases. Projeção monetária vem somente de estimate_revenue; o servidor preservará os snapshots de cobertura, período, comparação, medição e potencial.
 Texto para o dono: summary é uma frase sobre a principal melhoria, sem abrir com quantidade de pedidos, receita, ticket médio ou uma "Base analisada". Cada explanation traz apenas o dado que justifica a decisão e a melhoria sugerida, em até duas frases curtas (cerca de 40 palavras); detalhes adicionais ficam em evidence, sem repetir a mesma conclusão nem descrever todas as operações do cartão Aplicar. Não crie checklist de prioridades ou prazo de execução.
@@ -154,6 +155,11 @@ export function makeReport(
         ]),
       );
   if (value) {
+    if (ctx.image_review?.unavailable > 0)
+      inspected.images = {
+        status: "unavailable",
+        note: `${ctx.image_review.loaded} fotos carregadas; ${ctx.image_review.unavailable} não puderam ser abertas. ${inspected.images.note}`,
+      };
     for (const [dimension, source] of [
       ["traffic", ctx.traffic],
       ["benchmark", ctx.peers],

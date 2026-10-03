@@ -7,7 +7,7 @@ import { makeReport, REPORT_FORMAT, REPORT_INSTRUCTIONS } from "./report";
 import { FIELDS } from "./fields";
 import { context, readData, metrics, measure } from "./data";
 import { propose } from "./actions";
-import { previewImage, proposeImages } from "./images";
+import { previewImage, proposeImages, analysisPhotos } from "./images";
 import { download } from "./files";
 import { benchmark, potential } from "./peers";
 import { beginRun, recordTokens, finishRun } from "./runs";
@@ -326,6 +326,7 @@ export async function runChat(args: {
         cards.push({ type: "measurement", ...ctx.measurement });
         ctx.peers = cards.find((c) => c.type === "benchmark");
       }
+      const photoParts = deep ? await analysisPhotos(ctx) : [];
       const {
         restaurant: currentRestaurant,
         items: currentItems,
@@ -375,7 +376,7 @@ export async function runChat(args: {
         },
         ...(deep ? [{ role: "user", content: message }] : history),
       ];
-      const fileParts: any[] = [];
+      const fileParts: any[] = [...photoParts];
       for (const id of attachments) {
         const { row, bytes } = await download(restaurant, id);
         if (row.mime.startsWith("image/"))

@@ -74,6 +74,18 @@ test("rejects reports missing an inspection dimension", () => {
   delete (invalid.inspection as any).pricing;
   expect(() => makeReport(ctx, [], [], "run", invalid)).toThrow("formato");
 });
+
+test("failed photo loads cannot be reported as complete visual inspection", () => {
+  const photoContext = {
+    ...ctx,
+    image_review: { loaded: 9, unavailable: 1 },
+    coverage: { ...ctx.coverage, image_photos: { loaded: 9, total: 10, complete: false } },
+  };
+  const report = makeReport(photoContext, [], [], "run", value());
+  expect(report.inspection.images.status).toBe("unavailable");
+  expect(report.inspection.images.note).toContain("1 não puderam ser abertas");
+  expect(report.coverage.image_photos.complete).toBe(false);
+});
 test("rejects unstructured or invalid priority values", () => {
   const invalid = value();
   invalid.opportunities[0].confidence = "invented";
