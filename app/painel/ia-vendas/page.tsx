@@ -94,7 +94,7 @@ export default function SalesPage() {
     return () => media.removeEventListener("change", update);
   }, []);
   useEffect(() => {
-    if (!focusChat.current || (!wideAnalysis && !analysisChatOpen)) return;
+    if (!focusChat.current || !analysisChatOpen) return;
     let frame = 0;
     const focusComposer = () => {
       // The mobile Modal mounts its portal after opening.
@@ -575,16 +575,22 @@ export default function SalesPage() {
           </div>
   );
   const contextualChat = (
-    <div className="flex h-full min-h-0 flex-col" aria-label="Conversa sobre a análise">
-      <header className="shrink-0 border-b border-[var(--panel-border)] p-4 pr-12">
-        <div className="flex items-center gap-2 text-sm font-medium"><Sparkles size={16} className="text-[var(--panel-action)]" />Assistente da análise</div>
-        <p className="mt-1 text-xs leading-5 text-[var(--panel-muted)]">Pergunte, entenda os dados e decida o próximo passo.</p>
-        {opportunity && <div className="mt-3 rounded-[8px] bg-[var(--panel-tint)] p-3 text-xs text-[var(--panel-accent-text)]">
+    <div className="relative flex h-full min-h-0 flex-col" aria-label="Conversa sobre a análise">
+      <button
+        type="button"
+        aria-label="Fechar conversa da análise"
+        onClick={closeAnalysisChat}
+        className="absolute right-3 top-3 z-10 flex h-9 w-9 cursor-pointer items-center justify-center rounded-[8px] bg-[var(--panel-surface)] text-[var(--panel-muted)] transition-colors hover:bg-[var(--panel-background)] hover:text-[var(--panel-text)] focus-visible:outline-2 focus-visible:outline-[var(--panel-action)]"
+      >
+        <X size={18} />
+      </button>
+      {opportunity && <div className="shrink-0 border-b border-[var(--panel-border)] p-4 pr-14">
+        <div className="rounded-[8px] bg-[var(--panel-tint)] p-3 text-xs text-[var(--panel-accent-text)]">
           <p className="font-medium">Sobre: {opportunity.title}</p>
           <button className="mt-2 cursor-pointer underline" onClick={() => setOpportunity(null)}>Ver toda a análise</button>
-        </div>}
-      </header>
-      <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-4" aria-label="Respostas contextuais">
+        </div>
+      </div>}
+      <div className={`min-h-0 flex-1 space-y-5 overflow-y-auto p-4 ${opportunity ? "" : "pt-14"}`} aria-label="Respostas contextuais">
         {sales.has_more && <Button variant="secondary" disabled={sales.loading} onClick={() => void sales.load(restaurant, sales.conversation_id || undefined, true)}>Conversas anteriores</Button>}
         {!threadMessages.length && <div className="py-6">
           <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-[10px] bg-[var(--panel-tint)] text-[var(--panel-accent-text)]"><MessageSquare size={20} /></div>
@@ -679,10 +685,10 @@ export default function SalesPage() {
         )}
         <section className="flex h-full max-h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           {isAnalysis ? (
-            <div className="flex min-h-0 flex-1 overflow-hidden" data-analysis-workspace>
+            <div className="relative flex min-h-0 flex-1 overflow-hidden" data-analysis-workspace>
               <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden" inert={analysisChatOpen && !wideAnalysis}>
                 <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain bg-[var(--panel-background)] p-4 md:p-6" aria-label="Relatório de análise">
-                  {!wideAnalysis && !analysisChatOpen && notice}
+                  {!analysisChatOpen && notice}
                   <AnalysisReport
                     analyses={sales.analyses}
                     selected={selectedReport}
@@ -710,7 +716,7 @@ export default function SalesPage() {
                     }}
                   />
                 </div>
-                {!wideAnalysis && <div className="shrink-0 border-t border-[var(--panel-border)] bg-[var(--panel-surface)] p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+                <div className="shrink-0 border-t border-[var(--panel-border)] bg-[var(--panel-surface)] p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
                   <button ref={chatTrigger} type="button" aria-label="Pergunte sobre esta análise" aria-haspopup="dialog" aria-expanded={analysisChatOpen}
                     onClick={openAnalysisChat}
                     className="flex min-h-12 w-full cursor-pointer items-center gap-3 rounded-[16px] border border-[var(--panel-border)] px-4 py-3 text-left text-sm text-[var(--panel-muted)] hover:bg-[var(--panel-background)] focus-visible:outline-2 focus-visible:outline-[var(--panel-action)]">
@@ -718,10 +724,10 @@ export default function SalesPage() {
                     <span className="min-w-0 flex-1 truncate">{opportunity ? "Conversar sobre: " + opportunity.title : "Pergunte sobre esta análise…"}</span>
                     <ArrowUpRight size={17} className="shrink-0" />
                   </button>
-                </div>}
+                </div>
               </div>
-              {wideAnalysis && <aside className="flex min-h-0 w-[340px] shrink-0 flex-col border-l border-[var(--panel-border)] bg-[var(--panel-surface)] 2xl:w-[360px]">{contextualChat}</aside>}
-              {!wideAnalysis && <Modal open={analysisChatOpen} onClose={closeAnalysisChat} height="85dvh" fixedHeight showCloseButton className="[&>.panel-modal-body]:!flex [&>.panel-modal-body]:!min-h-0 [&>.panel-modal-body]:!flex-1 [&>.panel-modal-body]:!p-0">
+              {wideAnalysis && analysisChatOpen && <aside role="dialog" aria-label="Conversa sobre a análise" className="absolute inset-y-0 right-0 z-30 flex min-h-0 w-[360px] flex-col border-l border-[var(--panel-border)] bg-[var(--panel-surface)] shadow-[-8px_0_24px_rgba(29,29,29,0.08)] 2xl:w-[380px]">{contextualChat}</aside>}
+              {!wideAnalysis && <Modal open={analysisChatOpen} onClose={closeAnalysisChat} height="85dvh" fixedHeight className="[&>.panel-modal-body]:!flex [&>.panel-modal-body]:!min-h-0 [&>.panel-modal-body]:!flex-1 [&>.panel-modal-body]:!p-0">
                 {contextualChat}
               </Modal>}
             </div>
