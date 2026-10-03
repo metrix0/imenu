@@ -41,7 +41,7 @@
 .opportunityActive::before { content: ''; position: absolute; inset: 24px auto 24px -24px; width: 3px; border-radius: 0 3px 3px 0; background: var(--panel-brand); }
 .opportunityHeading { display: flex; align-items: baseline; gap: 14px; }
 .opportunityHeading h3 { font-size: 18px; line-height: 1.4; }
-.number { flex-shrink: 0; color: var(--color-green); font-size: 18px; line-height: 1.4; font-weight: 500; font-variant-numeric: tabular-nums; }
+.number { flex-shrink: 0; color: var(--panel-accent-text); font-size: 18px; line-height: 1.4; font-weight: 500; font-variant-numeric: tabular-nums; }
 .explanation { margin-top: 10px; color: var(--panel-muted); font-size: 14px; line-height: 1.7; }
 .opportunityTools { display: flex; flex-wrap: nowrap; align-items: flex-start; gap: 8px 18px; margin-top: 14px; }
 .opportunityTools .disclosure { min-width: 0; flex: 1 1 auto; margin-top: 0; }
