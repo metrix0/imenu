@@ -74,7 +74,8 @@ export default function SalesPage() {
     [renameConversationId, setRenameConversationId] = useState(""),
     [renameTitle, setRenameTitle] = useState(""),
     [instructions, setInstructions] = useState(""),
-    [batchIds, setBatchIds] = useState<string[]>([]);
+    [batchIds, setBatchIds] = useState<string[]>([]),
+    [selectedBatchIds, setSelectedBatchIds] = useState<string[]>([]);
   const end = useRef<HTMLDivElement>(null),
     lastMessage = useRef<HTMLElement>(null),
     previousMessages = useRef({ conversationId: "", count: 0 }),
@@ -410,6 +411,7 @@ export default function SalesPage() {
                         disabled={disabled}
                         onClick={() => {
                           setBatchIds(pendingIds);
+                          setSelectedBatchIds(pendingIds);
                           setModal("batch");
                         }}
                       >
@@ -691,6 +693,7 @@ export default function SalesPage() {
                     onAction={onAction}
                     onBatch={(ids) => {
                       setBatchIds(ids);
+                      setSelectedBatchIds(ids);
                       setModal("batch");
                     }}
                     onDiscuss={(item) => {
@@ -874,7 +877,23 @@ export default function SalesPage() {
                   .filter(Boolean)
                   .map((a) => (
                     <section key={a!.id}>
-                      <h3 className="mb-2 font-medium">{a!.title}</h3>
+                      <label className="mb-2 flex cursor-pointer items-center gap-2 font-medium">
+                        <input
+                          type="checkbox"
+                          checked={selectedBatchIds.includes(a!.id)}
+                          disabled={sales.acting}
+                          onChange={(e) =>
+                            setSelectedBatchIds((ids) =>
+                              e.target.checked
+                                ? [...new Set([...ids, a!.id])]
+                                : ids.filter((id) => id !== a!.id),
+                            )
+                          }
+                          className="h-4 w-4 shrink-0 cursor-pointer disabled:cursor-not-allowed"
+                          style={{ accentColor: "var(--panel-action)" }}
+                        />
+                        <span>{a!.title}</span>
+                      </label>
                       <ActionPreview action={a!} refs={sales.references} showAllDetails={isAnalysis} flat={isAnalysis} />
                     </section>
                   ))}
@@ -882,12 +901,13 @@ export default function SalesPage() {
               <Button
                 className="mt-5 w-full"
                 loading={sales.acting}
+                disabled={!selectedBatchIds.length}
                 onClick={async () => {
-                  await sales.command("apply", { ids: batchIds });
+                  await sales.command("apply", { ids: selectedBatchIds });
                   setModal(null);
                 }}
               >
-                Aplicar todos ({batchIds.length})
+                Aplicar selecionadas ({selectedBatchIds.length})
               </Button>
             </>
           )}
