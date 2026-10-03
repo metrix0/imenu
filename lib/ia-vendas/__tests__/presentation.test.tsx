@@ -82,7 +82,7 @@ test("analysis proposals preview changes, keep Apply visible and retain a collap
   const html = renderToStaticMarkup(<ActionCard action={action} refs={{}} disabled={false} onAction={jest.fn()} compact />);
   expect(html).toMatch(/<details[^>]*><summary[^>]*>Ver alterações/);
   expect(html).not.toMatch(/<details[^>]*open/);
-  expect(html).toContain("O que vai mudar");
+  expect(html).not.toContain("O que vai mudar");
   expect(html).toContain("Seleção mínima");
   expect(html).toContain("Antes:");
   expect(html).toContain("Depois:");
