@@ -99,13 +99,12 @@ export default function AnalysisReport({
           <p className="text-2xl font-semibold text-[var(--panel-text)]">{waiting ? "Calculando…" : "A descobrir"}</p>
           <p className="mt-3 text-sm leading-6 text-[var(--panel-muted)]">Uma estimativa baseada nas oportunidades e nos pedidos do seu restaurante.</p>
         </>}
-        {report?.period?.start && <p className="mt-4 text-xs text-[var(--panel-muted)]">Período analisado: {new Date(report.period.start).toLocaleDateString("pt-BR")} a {new Date(report.period.end).toLocaleDateString("pt-BR")}.</p>}
       </section>}
 
       {!legacy && <section aria-label="Oportunidades prioritárias" className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h3>Oportunidades prioritárias{report ? ` (${opportunities.length})` : ""}</h3>
-          {pending.length > 1 && <Button variant="secondary" disabled={disabled} onClick={() => onBatch(pending)}>Revisar e aplicar todos ({pending.length})</Button>}
+          {pending.length > 1 && <Button disabled={disabled} onClick={() => onBatch(pending)}>Revisar e aplicar todos ({pending.length})</Button>}
         </div>
         {!opportunities.length && <div className={surface + " flex flex-col items-center px-5 py-8 text-center"}>
           <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-[10px] bg-[var(--panel-tint)] text-[var(--panel-accent-text)]"><Target size={24} aria-hidden="true" /></div>
