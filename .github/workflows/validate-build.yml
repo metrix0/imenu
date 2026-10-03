@@ -5,6 +5,7 @@ on:
     branches:
       - preview
       - preview-iavendas
+      - preview-iavendas-sidebar-tabs-validation
 
 concurrency:
   group: validate-build-${{ github.ref }}
