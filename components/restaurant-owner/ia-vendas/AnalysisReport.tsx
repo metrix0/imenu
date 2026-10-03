@@ -80,12 +80,12 @@ export default function AnalysisReport({
 
   return (
     <div className={styles.report}>
-      <header className={styles.pageHeader}>
-        <div className={styles.pageTitle}>
-          <h1>Análise de vendas</h1>
-          <p>Encontre oportunidades para vender mais e revise as mudanças sugeridas pela IA.</p>
+      <header className="panel-page-heading flex flex-col xl:flex-row justify-between items-start xl:items-end gap-4 mb-8">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 2xl:text-4xl">Análise de vendas</h1>
+          <p className="text-gray-500 mt-1 2xl:text-lg 2xl:mt-2">Encontre oportunidades para vender mais e revise as mudanças sugeridas pela IA.</p>
         </div>
-        <div className={styles.headerControls}>
+        <div className="panel-page-actions flex flex-row items-center gap-2 sm:gap-3">
           {analyses.length > 1 && <div className={styles.historySelect}>
             <Dropdown aria-label="Histórico de análises" value={selected?.id || ""} disabled={disabled}
               onChange={(e) => onSelect(e.target.value)} options={[
@@ -109,7 +109,7 @@ export default function AnalysisReport({
             <div>
               <h2>O que seu restaurante pode ganhar em 4 semanas</h2>
               {report ? <DataCard card={{ ...report.potential_estimate, hide_period_label: true, type: "potential" }} presentation="report" /> : <div className={styles.potential}>
-                <p className={styles.gain}>"A descobrir"</p>
+                <p className={styles.gain}>A descobrir</p>
                 <p className={styles.comparisonNote}>Uma estimativa baseada nas oportunidades e nos pedidos do seu restaurante.</p>
               </div>}
             </div>

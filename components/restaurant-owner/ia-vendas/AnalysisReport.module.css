@@ -1,13 +1,8 @@
-.report { width: 100%; max-width: 1440px; margin-inline: auto; padding-bottom: 12px; color: var(--panel-text); }
+.report { width: calc(100% - 1rem); max-width: 1440px; margin-right: auto; padding-bottom: 12px; color: var(--panel-text); }
 .loading { display: flex; height: 16rem; align-items: center; justify-content: center; }
-.pageHeader { display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 32px; }
-.pageTitle h1 { color: #111827; font-size: 30px; font-weight: 700; line-height: 36px; }
-.pageTitle p { margin-top: 4px; color: #6b7280; }
-
-.headerControls { display: flex; align-items: center; gap: 8px; }
 .historySelect { width: 260px; }
-.paper { container-type: inline-size; overflow: hidden; border: 1px solid var(--panel-border); border-radius: 10px; background: var(--panel-surface); }
-.hero { position: relative; display: grid; gap: 28px; padding: 28px 24px; border-top: 3px solid var(--panel-brand); }
+.paper { container-type: inline-size; display: grid; gap: 24px; overflow: visible; }
+.hero { position: relative; display: grid; gap: 28px; padding: 28px 24px; border: 1px solid var(--panel-border); border-top: 3px solid var(--panel-brand); border-radius: 10px; background: var(--panel-surface); }
 .hero h2 { max-width: 620px; font-size: 23px; line-height: 1.35; text-wrap: balance; }
 .heroActions { display: flex; flex-direction: column; justify-content: center; gap: 10px; }
 .heroActions button { width: 100%; min-height: 44px; gap: 8px; }
@@ -30,14 +25,14 @@
 .disclosure[open]::details-content { block-size: auto; opacity: 1; }
 .calculation { max-width: 660px; margin-top: 12px; padding-left: 12px; border-left: 2px solid var(--panel-border); }
 .calculation ul { display: grid; gap: 8px; margin-bottom: 8px; }
-.summary { display: grid; gap: 10px; padding: 24px; border-block: 1px solid var(--panel-border); background: var(--panel-background); }
+.summary { display: grid; gap: 10px; padding: 0; }
 .eyebrow { display: flex; align-items: center; gap: 7px; color: var(--panel-muted); font-size: 12px; font-weight: 500; }
 .summary h2 { font-size: 19px; line-height: 1.4; }
 .summaryCopy { max-width: 1000px; color: var(--panel-muted); font-size: 14px; line-height: 1.7; }
-.sectionHeader { display: flex; align-items: center; gap: 10px; padding: 28px 24px 0; }
+.sectionHeader { display: flex; align-items: center; gap: 10px; padding: 0; }
 .sectionHeader h2 { font-size: 18px; }
 .count { display: inline-grid; min-width: 24px; height: 24px; padding-inline: 6px; place-items: center; border-radius: 6px; background: color-mix(in srgb, var(--color-green) 10%, transparent); color: var(--color-green); font-size: 12px; font-weight: 500; }
-.opportunity { position: relative; display: grid; gap: 22px; margin-inline: 24px; padding-block: 28px; }
+.opportunity { position: relative; display: grid; gap: 22px; padding-block: 28px; }
 .opportunity + .opportunity { border-top: 1px solid var(--panel-border); }
 .opportunityActive::before { content: ''; position: absolute; inset: 24px auto 24px -24px; width: 3px; border-radius: 0 3px 3px 0; background: var(--panel-brand); }
 .opportunityHeading { display: flex; align-items: baseline; gap: 14px; }
@@ -82,7 +77,7 @@
 .operationRows { display: grid; gap: 14px; }
 .operationRows > div { padding-block: 0; }
 .operationRows > div > p { color: var(--panel-text); font-size: 13px; line-height: 1.6; }
-.secondary { display: grid; gap: 0; padding: 0 24px; border-top: 1px solid var(--panel-border); }
+.secondary { display: grid; gap: 0; padding: 0; border-top: 1px solid var(--panel-border); }
 .review { padding-block: 24px; }
 .reviewSummary { display: flex; align-items: center; gap: 12px; cursor: pointer; list-style: none; }
 .reviewSummary::-webkit-details-marker { display: none; }
@@ -112,41 +107,35 @@
 .empty h3 { font-size: 17px; }
 .empty p { max-width: 460px; color: var(--panel-muted); font-size: 13px; line-height: 1.7; }
 .legacy { padding: 24px; }
-@media (min-width: 1280px) {
-  .pageHeader { flex-direction: row; align-items: flex-end; }
+@media (min-width: 1536px) {
+    }
+@media (min-width: 768px) {
+  .report { width: calc(100% - 1.75rem); }
 }
 @media (min-width: 1536px) {
-  .pageTitle h1 { font-size: 36px; line-height: 40px; }
-  .pageTitle p { margin-top: 8px; font-size: 18px; line-height: 28px; }
+  .report { width: calc(100% - 2rem); }
 }
 @container (min-width: 960px) {
   .hero { grid-template-columns: minmax(0, 1fr) 300px; align-items: start; gap: 40px; padding: 36px; }
   .heroActions { align-self: start; }
-  .summary { padding: 24px 36px; }
-  .sectionHeader { padding-inline: 36px; }
-  .opportunity { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 40px; margin-inline: 36px; padding-block: 32px; }
-  .opportunityActive::before { left: -36px; }
+  .opportunity { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 40px; padding-block: 32px; }
+  .opportunityActive::before { left: -12px; }
   .opportunityContent { padding-right: 16px; }
   .opportunity .explanation, .opportunity .opportunityTools { margin-left: 38px; }
-  .secondary { padding-inline: 36px; }
   .reviewEntry { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 40px; }
   .comparisonMetrics { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 }
 @media (max-width: 600px) {
-  .headerControls { flex-wrap: wrap; justify-content: flex-end; }
-  .historySelect { width: 150px; }
+    .historySelect { width: 150px; }
   .hero { padding: 24px 18px; gap: 24px; }
   .hero h2 { font-size: 21px; }
   .gain { font-size: 32px; letter-spacing: -.8px; }
   .range { font-size: 28px; }
-  .summary { padding: 20px 18px; }
-  .sectionHeader { padding: 24px 18px 0; }
   .sectionHeader h2 { font-size: 16px; }
-  .opportunity { margin-inline: 18px; padding-block: 24px; }
+  .opportunity { padding-block: 24px; }
   .opportunityHeading h3 { font-size: 16px; }
-  .opportunityActive::before { left: -18px; }
+  .opportunityActive::before { left: -8px; }
   .action { padding: 14px; }
-  .secondary { padding-inline: 18px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .disclosure summary > svg:last-child, .disclosure::details-content { transition: none; }
