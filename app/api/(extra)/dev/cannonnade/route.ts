@@ -18,7 +18,22 @@ type MerchantRow = {
     gmv_30d_cents: number | string;
 };
 
-type IbgeMunicipality = { id: number; nome: string };
+type Scope = "pe" | "br";
+
+type IbgeMunicipality = {
+    id: number;
+    nome: string;
+    microrregiao?: {
+        mesorregiao?: {
+            UF?: { sigla?: string };
+        };
+    };
+    "regiao-imediata"?: {
+        "regiao-intermediaria"?: {
+            UF?: { sigla?: string };
+        };
+    };
+};
 type GeoGeometry = {
     type: "Polygon" | "MultiPolygon";
     coordinates: number[][][] | number[][][][];
@@ -100,6 +115,84 @@ function normalize(value: string | null | undefined): string {
         .toLowerCase();
 }
 
+const STATE_CODES: Record<string, string> = {
+    ac: "AC",
+    acre: "AC",
+    al: "AL",
+    alagoas: "AL",
+    ap: "AP",
+    amapa: "AP",
+    am: "AM",
+    amazonas: "AM",
+    ba: "BA",
+    bahia: "BA",
+    ce: "CE",
+    ceara: "CE",
+    df: "DF",
+    "distrito federal": "DF",
+    es: "ES",
+    "espirito santo": "ES",
+    go: "GO",
+    goias: "GO",
+    ma: "MA",
+    maranhao: "MA",
+    mt: "MT",
+    "mato grosso": "MT",
+    ms: "MS",
+    "mato grosso do sul": "MS",
+    mg: "MG",
+    "minas gerais": "MG",
+    pa: "PA",
+    para: "PA",
+    pb: "PB",
+    paraiba: "PB",
+    pr: "PR",
+    parana: "PR",
+    pe: "PE",
+    pernambuco: "PE",
+    pi: "PI",
+    piaui: "PI",
+    rj: "RJ",
+    "rio de janeiro": "RJ",
+    rn: "RN",
+    "rio grande do norte": "RN",
+    rs: "RS",
+    "rio grande do sul": "RS",
+    ro: "RO",
+    rondonia: "RO",
+    rr: "RR",
+    roraima: "RR",
+    sc: "SC",
+    "santa catarina": "SC",
+    sp: "SP",
+    "sao paulo": "SP",
+    se: "SE",
+    sergipe: "SE",
+    to: "TO",
+    tocantins: "TO",
+};
+
+function stateCode(value: string | null | undefined): string {
+    return STATE_CODES[normalize(value)] || (value || "").trim().toUpperCase();
+}
+
+function cityKey(city: string | null | undefined, state: string | null | undefined) {
+    return `${normalize(city)}|${stateCode(state)}`;
+}
+
+function municipalityState(municipality: IbgeMunicipality, scope: Scope): string {
+    if (scope === "pe") return "PE";
+    return (
+        municipality.microrregiao?.mesorregiao?.UF?.sigla ||
+        municipality["regiao-imediata"]?.["regiao-intermediaria"]?.UF?.sigla ||
+        ""
+    );
+}
+
+function parseScope(value: string | null): Scope {
+    return value === "br" ? "br" : "pe";
+}
+
 function isPernambuco(value: string | null): boolean {
     const state = normalize(value);
     return state === "pe" || state === "pernambuco";
@@ -121,24 +214,28 @@ function featureCode(feature: GeoFeature): string {
     ).trim();
 }
 
-async function loadIbge() {
+async function loadIbge(scope: Scope) {
+    const municipalitiesUrl =
+        scope === "br"
+            ? "https://servicodados.ibge.gov.br/api/v1/localidades/municipios"
+            : "https://servicodados.ibge.gov.br/api/v1/localidades/estados/26/municipios";
+    const meshUrl =
+        scope === "br"
+            ? "https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?intrarregiao=municipio&formato=application/vnd.geo+json&qualidade=minima"
+            : "https://servicodados.ibge.gov.br/api/v3/malhas/estados/PE?intrarregiao=municipio&formato=application/vnd.geo+json&qualidade=minima";
+    const populationUrl =
+        scope === "br"
+            ? "https://apisidra.ibge.gov.br/values/t/6579/n6/all/v/9324/p/last?formato=json"
+            : "https://apisidra.ibge.gov.br/values/t/6579/n6/in%20n3%2026/v/9324/p/last?formato=json";
+
     const [municipalitiesResponse, meshResponse, populationResponse] =
         await Promise.all([
-            fetch(
-                "https://servicodados.ibge.gov.br/api/v1/localidades/estados/26/municipios",
-                { next: { revalidate: 86400 } }
-            ),
-            fetch(
-                "https://servicodados.ibge.gov.br/api/v3/malhas/estados/PE?intrarregiao=municipio&formato=application/vnd.geo+json&qualidade=minima",
-                {
-                    headers: { Accept: "application/vnd.geo+json" },
-                    next: { revalidate: 86400 },
-                }
-            ),
-            fetch(
-                "https://apisidra.ibge.gov.br/values/t/6579/n6/in%20n3%2026/v/9324/p/last?formato=json",
-                { next: { revalidate: 86400 } }
-            ),
+            fetch(municipalitiesUrl, { next: { revalidate: 86400 } }),
+            fetch(meshUrl, {
+                headers: { Accept: "application/vnd.geo+json" },
+                next: { revalidate: 86400 },
+            }),
+            fetch(populationUrl, { next: { revalidate: 86400 } }),
         ]);
 
     if (
@@ -165,10 +262,10 @@ async function loadIbge() {
         if (!populationYear && row.D3N) populationYear = row.D3N;
     }
 
-    const namesByCode = new Map(
+    const municipalityByCode = new Map(
         municipalities.map((municipality) => [
             String(municipality.id),
-            municipality.nome,
+            municipality,
         ])
     );
 
@@ -180,12 +277,16 @@ async function loadIbge() {
             ...mesh,
             features: mesh.features.map((feature) => {
                 const code = featureCode(feature);
+                const municipality = municipalityByCode.get(code);
                 return {
                     ...feature,
                     properties: {
                         ...(feature.properties || {}),
                         code,
-                        name: namesByCode.get(code) || code,
+                        name: municipality?.nome || code,
+                        state: municipality
+                            ? municipalityState(municipality, scope)
+                            : "",
                     },
                 };
             }),
@@ -197,9 +298,11 @@ export async function GET(request: Request) {
     const unauthorized = await authorize(request);
     if (unauthorized) return unauthorized;
 
+    const scope = parseScope(new URL(request.url).searchParams.get("scope"));
+
     try {
         const [ibge, merchantResult] = await Promise.all([
-            loadIbge(),
+            loadIbge(scope),
             query<MerchantRow>(`
                 WITH order_30d AS (
                     SELECT
@@ -246,9 +349,10 @@ export async function GET(request: Request) {
         >();
 
         for (const merchant of merchantResult.rows) {
-            if (!merchant.city || !isPernambuco(merchant.state)) continue;
-            const key = normalize(merchant.city);
-            if (!key) continue;
+            if (!merchant.city) continue;
+            if (scope === "pe" && !isPernambuco(merchant.state)) continue;
+            const key = cityKey(merchant.city, merchant.state);
+            if (!normalize(merchant.city) || !stateCode(merchant.state)) continue;
 
             const current = statsByCity.get(key) || {
                 restaurants: 0,
@@ -276,7 +380,8 @@ export async function GET(request: Request) {
 
         const cities = ibge.municipalities.map((municipality) => {
             const code = String(municipality.id);
-            const stats = statsByCity.get(normalize(municipality.nome)) || {
+            const state = municipalityState(municipality, scope);
+            const stats = statsByCity.get(cityKey(municipality.nome, state)) || {
                 restaurants: 0,
                 active30d: 0,
                 orders30d: 0,
@@ -288,6 +393,7 @@ export async function GET(request: Request) {
             return {
                 code,
                 name: municipality.nome,
+                state,
                 population,
                 restaurants: stats.restaurants,
                 active30d: stats.active30d,
@@ -311,11 +417,18 @@ export async function GET(request: Request) {
         });
 
         const referenceCity =
-            cities.find((city) => normalize(city.name) === "alianca") || null;
+            cities.find(
+                (city) =>
+                    normalize(city.name) === "alianca" && city.state === "PE"
+            ) || null;
 
         return NextResponse.json(
             {
-                state: { code: "PE", name: "Pernambuco" },
+                scope,
+                state:
+                    scope === "br"
+                        ? { code: "BR", name: "Brasil" }
+                        : { code: "PE", name: "Pernambuco" },
                 metric: {
                     absolute: "Restaurantes iMenu com cadastro concluído",
                     relative: "Restaurantes iMenu por 10 mil habitantes",

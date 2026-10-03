@@ -20,6 +20,7 @@ const ALLOWED_DEV_EMAIL = "joaovralmeida@hotmail.com";
 
 type AccessState = "checking" | "allowed" | "forbidden" | "signed-out";
 type DensityMode = "absolute" | "relative";
+type Scope = "pe" | "br";
 
 type GeoGeometry = {
     type: "Polygon" | "MultiPolygon";
@@ -52,6 +53,7 @@ type Merchant = {
 type City = {
     code: string;
     name: string;
+    state: string;
     population: number;
     restaurants: number;
     active30d: number;
@@ -62,6 +64,7 @@ type City = {
 };
 
 type Payload = {
+    scope: Scope;
     state: { code: string; name: string };
     metric: {
         absolute: string;
@@ -236,8 +239,12 @@ export default function CannonnadePage() {
     const router = useRouter();
     const [accessState, setAccessState] = useState<AccessState>("checking");
     const [data, setData] = useState<Payload | null>(null);
+    const [scope, setScope] = useState<Scope>("pe");
     const [mode, setMode] = useState<DensityMode>("absolute");
     const [selectedCode, setSelectedCode] = useState<string | null>(null);
+    const [selectedMerchantId, setSelectedMerchantId] = useState<string | null>(
+        null
+    );
     const [hover, setHover] = useState<HoverState | null>(null);
     const [error, setError] = useState("");
     const [viewBox, setViewBox] = useState<ViewBox | null>(null);
@@ -259,13 +266,16 @@ export default function CannonnadePage() {
                     return;
                 }
 
-                const response = await fetch("/api/dev/cannonnade", {
+                const response = await fetch(
+                    `/api/dev/cannonnade?scope=${scope}`,
+                    {
                     headers: {
                         Authorization: `Bearer ${session.access_token}`,
                     },
                     cache: "no-store",
                     signal: controller.signal,
-                });
+                    }
+                );
                 const payload = (await response.json()) as Payload & {
                     error?: string;
                 };
@@ -284,6 +294,7 @@ export default function CannonnadePage() {
 
                 setData(payload);
                 setSelectedCode(payload.referenceCityCode);
+                setSelectedMerchantId(null);
                 setAccessState("allowed");
             } catch (loadError) {
                 if (controller.signal.aborted) return;
@@ -298,7 +309,7 @@ export default function CannonnadePage() {
 
         void load();
         return () => controller.abort();
-    }, []);
+    }, [scope]);
 
     const cityByCode = useMemo(
         () => new Map((data?.cities || []).map((city) => [city.code, city])),
@@ -313,6 +324,16 @@ export default function CannonnadePage() {
                     feature,
                 ])
             ),
+        [data]
+    );
+
+    const renderedFeatures = useMemo(
+        () =>
+            (data?.geojson.features || []).map((feature) => ({
+                feature,
+                code: featureCode(feature),
+                path: geometryPath(feature.geometry),
+            })),
         [data]
     );
 
@@ -342,6 +363,15 @@ export default function CannonnadePage() {
             ? cityByCode.get(data.referenceCityCode)
             : undefined) ||
         null;
+
+    const selectedMerchant =
+        selectedCity?.merchants.find(
+            (merchant) => merchant.id === selectedMerchantId
+        ) || null;
+
+    useEffect(() => {
+        setSelectedMerchantId(null);
+    }, [selectedCode]);
 
     const hoveredCity = hover ? cityByCode.get(hover.code) || null : null;
 
@@ -503,12 +533,39 @@ export default function CannonnadePage() {
                             CANNONNADE
                         </h1>
                         <p className="mt-2 max-w-3xl text-sm leading-6 text-[#626973]">
-                            Penetração do iMenu por município em Pernambuco.
+                            Penetração do iMenu por município em{" "}
+                            {scope === "br" ? "todo o Brasil" : "Pernambuco"}.
                             Aliança é a cidade de referência para expansão.
                         </p>
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2">
+                        <div className="flex rounded-[10px] border border-[#e2e5e9] bg-white p-1">
+                            <Button
+                                variant="secondary"
+                                aria-pressed={scope === "pe"}
+                                onClick={() => setScope("pe")}
+                                className={
+                                    scope === "pe"
+                                        ? "!min-h-9 !border-[#1d1d1d] !bg-[#1d1d1d] !px-3 !py-1.5 !text-white"
+                                        : "!min-h-9 !border-transparent !px-3 !py-1.5"
+                                }
+                            >
+                                Pernambuco
+                            </Button>
+                            <Button
+                                variant="secondary"
+                                aria-pressed={scope === "br"}
+                                onClick={() => setScope("br")}
+                                className={
+                                    scope === "br"
+                                        ? "!min-h-9 !border-[#1d1d1d] !bg-[#1d1d1d] !px-3 !py-1.5 !text-white"
+                                        : "!min-h-9 !border-transparent !px-3 !py-1.5"
+                                }
+                            >
+                                Brasil
+                            </Button>
+                        </div>
                         <div className="flex rounded-[10px] border border-[#e2e5e9] bg-white p-1">
                             <Button
                                 variant="secondary"
@@ -597,8 +654,7 @@ export default function CannonnadePage() {
                             onPointerUp={endDrag}
                             onPointerCancel={endDrag}
                         >
-                            {data.geojson.features.map((feature) => {
-                                const code = featureCode(feature);
+                            {renderedFeatures.map(({ feature, code, path }) => {
                                 const city = cityByCode.get(code);
                                 const value = metricValue(city);
                                 const selected = code === selectedCode;
@@ -608,7 +664,7 @@ export default function CannonnadePage() {
                                 return (
                                     <path
                                         key={code}
-                                        d={geometryPath(feature.geometry)}
+                                        d={path}
                                         fill={
                                             value > 0
                                                 ? "var(--color-brand)"
@@ -636,7 +692,7 @@ export default function CannonnadePage() {
                                         vectorEffect="non-scaling-stroke"
                                         fillRule="evenodd"
                                         className="cursor-pointer transition-[fill-opacity] duration-150 hover:fill-opacity-100"
-                                        onPointerMove={(event) => {
+                                        onPointerEnter={(event) => {
                                             if (!city || dragRef.current) return;
                                             const rectangle =
                                                 event.currentTarget.ownerSVGElement?.getBoundingClientRect();
@@ -723,6 +779,7 @@ export default function CannonnadePage() {
                                     )}
                                 </div>
                                 <p className="mt-1 text-xs text-[#626973]">
+{scope === "br" ? `${selectedCity.state} · ` : ""}
                                     {integer(selectedCity.population)} habitantes
                                     {data.populationYear
                                         ? ` · IBGE ${data.populationYear}`
@@ -772,6 +829,31 @@ export default function CannonnadePage() {
                                 </dl>
 
                                 <div className="mt-6 border-t border-[#e2e5e9] pt-5">
+                                    {selectedMerchant && (
+                                        <div className="mb-4 rounded-[8px] border border-green-200 bg-green-50 p-3">
+                                            <p className="text-[11px] font-medium text-green-800">
+                                                Restaurante selecionado
+                                            </p>
+                                            <p className="mt-1 text-sm font-medium text-[#1d1d1d]">
+                                                {selectedMerchant.name}
+                                            </p>
+                                            <p className="mt-1 text-xs text-[#626973]">
+                                                {selectedMerchant.orders30d} pedidos ·{" "}
+                                                {money(selectedMerchant.gmv30dCents)} nos últimos 30 dias
+                                            </p>
+                                            {selectedMerchant.slug && (
+                                                <a
+                                                    href={`https://imenuapp.com.br/${selectedMerchant.slug}`}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-brand hover:underline"
+                                                >
+                                                    Abrir cardápio
+                                                    <ExternalLink size={13} />
+                                                </a>
+                                            )}
+                                        </div>
+                                    )}
                                     <div className="flex items-center justify-between gap-3">
                                         <h3 className="text-sm font-medium">
                                             Restaurantes iMenu
@@ -789,33 +871,40 @@ export default function CannonnadePage() {
                                                 .map((merchant) => (
                                                     <div
                                                         key={merchant.id}
-                                                        className="flex items-center justify-between gap-3 rounded-[8px] border border-[#e2e5e9] px-3 py-2.5"
+                                                        className={`flex items-center gap-2 rounded-[8px] border transition-colors ${
+                                                            selectedMerchantId === merchant.id
+                                                                ? "border-green-200 bg-green-50"
+                                                                : "border-[#e2e5e9] bg-white hover:bg-[#f7f8fa]"
+                                                        }`}
                                                     >
-                                                        <div className="min-w-0">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() =>
+                                                                setSelectedMerchantId(
+                                                                    merchant.id
+                                                                )
+                                                            }
+                                                            className="min-w-0 flex-1 cursor-pointer px-3 py-2.5 text-left"
+                                                        >
                                                             <p className="truncate text-sm font-medium">
                                                                 {merchant.name}
                                                             </p>
                                                             <p className="mt-0.5 text-[11px] text-[#626973]">
-                                                                {
-                                                                    merchant.orders30d
-                                                                }{" "}
-                                                                pedidos ·{" "}
+                                                                {merchant.orders30d} pedidos ·{" "}
                                                                 {money(
                                                                     merchant.gmv30dCents
                                                                 )}
                                                             </p>
-                                                        </div>
+                                                        </button>
                                                         {merchant.slug && (
                                                             <a
                                                                 href={`https://imenuapp.com.br/${merchant.slug}`}
                                                                 target="_blank"
                                                                 rel="noreferrer"
                                                                 aria-label={`Abrir cardápio de ${merchant.name}`}
-                                                                className="grid h-8 w-8 shrink-0 place-items-center rounded-[8px] text-brand transition-colors hover:bg-orange-50"
+                                                                className="mr-2 grid h-8 w-8 shrink-0 place-items-center rounded-[8px] text-brand transition-colors hover:bg-orange-50"
                                                             >
-                                                                <ExternalLink
-                                                                    size={14}
-                                                                />
+                                                                <ExternalLink size={14} />
                                                             </a>
                                                         )}
                                                     </div>
