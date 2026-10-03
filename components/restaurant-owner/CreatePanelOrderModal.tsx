@@ -162,11 +162,24 @@ export default function CreatePanelOrderModal({
     useEffect(() => {
         if (!isOpen) {
             setHasNavigatedToConfigurator(false);
+            setMobileView("menu");
+            setMenuSearch("");
             return;
         }
         setMobileView("menu");
         setMenuSearch("");
     }, [isOpen]);
+
+    useEffect(() => {
+        if (configuringItem || !hasNavigatedToConfigurator) return;
+
+        const timer = window.setTimeout(
+            () => setHasNavigatedToConfigurator(false),
+            220
+        );
+
+        return () => window.clearTimeout(timer);
+    }, [configuringItem, hasNavigatedToConfigurator]);
 
     const fetchSubcategoriesForItem = async (baseItemId: string) => {
         if (subcategoriesByItemId[baseItemId]) return subcategoriesByItemId[baseItemId];
