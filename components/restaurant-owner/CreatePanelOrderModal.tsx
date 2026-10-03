@@ -185,7 +185,7 @@ export default function CreatePanelOrderModal({
 
         const timer = window.setTimeout(
             () => setHasNavigatedToConfigurator(false),
-            220
+            300
         );
 
         return () => window.clearTimeout(timer);
