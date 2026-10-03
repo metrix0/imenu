@@ -12,13 +12,13 @@
 .heroActions button { width: 100%; min-height: 44px; gap: 8px; }
 .approvalNote { margin: 2px 0 0; color: var(--panel-muted); font-size: 12px; line-height: 1.5; text-align: center; }
 .potential { margin-top: 18px; }
-.gain { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; margin: 0; color: var(--panel-accent-text); font-size: clamp(32px, 4.5cqi, 48px); font-weight: 600; line-height: 1.15; letter-spacing: -1.6px; font-variant-numeric: tabular-nums; }
+.gain { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; margin: 0; color: var(--green); font-size: clamp(32px, 4.5cqi, 48px); font-weight: 600; line-height: 1.15; letter-spacing: -1.6px; font-variant-numeric: tabular-nums; }
 .gain > span { white-space: nowrap; }
 .rangeEnd { display: inline-flex; align-items: baseline; gap: 12px; }
 .rangeSeparator { color: var(--panel-muted); font-size: .7em; font-weight: 400; }
 .range { font-size: clamp(30px, 4cqi, 44px); }
 .growth { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 12px; color: var(--panel-muted); font-size: 13px; }
-.growth strong { display: inline-flex; align-items: center; gap: 5px; padding: 4px 8px; border-radius: 6px; background: var(--panel-tint); color: var(--panel-accent-text); font-weight: 500; }
+.growth strong { display: inline-flex; align-items: center; gap: 5px; padding: 4px 8px; border-radius: 6px; background: color-mix(in srgb, var(--green) 10%, transparent); color: var(--green); font-weight: 500; }
 .disclosure { margin-top: 14px; color: var(--panel-muted); font-size: 13px; line-height: 1.6; }
 .disclosure summary { display: flex; width: fit-content; min-height: 28px; align-items: center; gap: 6px; cursor: pointer; list-style: none; }
 .disclosure summary::-webkit-details-marker { display: none; }
@@ -33,13 +33,13 @@
 .summaryCopy { max-width: 1000px; color: var(--panel-muted); font-size: 14px; line-height: 1.7; }
 .sectionHeader { display: flex; align-items: center; gap: 10px; padding: 28px 24px 0; }
 .sectionHeader h2 { font-size: 18px; }
-.count { display: inline-grid; min-width: 24px; height: 24px; padding-inline: 6px; place-items: center; border-radius: 6px; background: var(--panel-soft); color: var(--panel-muted); font-size: 12px; font-weight: 500; }
+.count { display: inline-grid; min-width: 24px; height: 24px; padding-inline: 6px; place-items: center; border-radius: 6px; background: color-mix(in srgb, var(--green) 10%, transparent); color: var(--green); font-size: 12px; font-weight: 500; }
 .opportunity { position: relative; display: grid; gap: 22px; margin-inline: 24px; padding-block: 28px; }
 .opportunity + .opportunity { border-top: 1px solid var(--panel-border); }
 .opportunityActive::before { content: ''; position: absolute; inset: 24px auto 24px -24px; width: 3px; border-radius: 0 3px 3px 0; background: var(--panel-brand); }
 .opportunityHeading { display: flex; align-items: baseline; gap: 14px; }
 .opportunityHeading h3 { font-size: 18px; line-height: 1.4; }
-.number { flex-shrink: 0; color: var(--panel-accent-text); font-size: 18px; line-height: 1.4; font-weight: 500; font-variant-numeric: tabular-nums; }
+.number { flex-shrink: 0; color: var(--green); font-size: 18px; line-height: 1.4; font-weight: 500; font-variant-numeric: tabular-nums; }
 .explanation { margin-top: 10px; color: var(--panel-muted); font-size: 14px; line-height: 1.7; }
 .opportunityTools { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 18px; margin-top: 14px; }
 .opportunityTools .disclosure { margin-top: 0; }
@@ -58,7 +58,7 @@
 .actionCount { margin-top: 4px; color: var(--panel-muted); font-size: 12px; }
 .actionState { display: inline-flex; align-items: center; gap: 6px; color: var(--panel-muted); font-size: 11px; }
 .actionState::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
-.applied { color: #258044; }
+.applied { color: var(--green); }
 .needsReview { color: #b45309; }
 .previewList { display: grid; gap: 14px; margin-top: 18px; }
 .previewSubject { color: var(--panel-text); font-size: 13px; font-weight: 500; overflow-wrap: anywhere; }
