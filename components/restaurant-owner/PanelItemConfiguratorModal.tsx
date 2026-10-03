@@ -919,8 +919,8 @@ export default function PanelItemConfiguratorModal({
                     </div>
 
                     <div className="shrink-0 border-t border-gray-200 bg-white px-4 py-4 md:px-6">
-                        <div className="flex items-center gap-3 md:justify-end">
-                            <div className="flex shrink-0 items-center gap-2 rounded-xl border border-gray-200 p-1">
+                        <div className="flex items-center gap-3">
+                            <div className="flex shrink-0 items-center gap-2 rounded-xl border border-gray-200 p-1 md:ml-auto">
                                 <button
                                     type="button"
                                     onClick={() =>

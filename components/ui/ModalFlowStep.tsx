@@ -36,7 +36,7 @@ function AnimatedModalFlowStep({
 
     return (
         <div
-            className={`flex h-full min-h-0 flex-col will-change-transform transition-transform duration-[220ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${
+            className={`flex h-full min-h-0 flex-col will-change-transform transition-transform duration-[220ms] ease-out motion-reduce:transition-none ${
                 visible ? "translate-x-0" : hiddenTransform
             }`}
         >
