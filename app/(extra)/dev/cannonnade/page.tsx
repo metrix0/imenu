@@ -249,7 +249,14 @@ export default function CannonnadePage() {
     const [error, setError] = useState("");
     const [viewBox, setViewBox] = useState<ViewBox | null>(null);
     const svgRef = useRef<SVGSVGElement>(null);
-    const dragRef = useRef<{ x: number; y: number } | null>(null);
+    const dragRef = useRef<{
+        startX: number;
+        startY: number;
+        lastX: number;
+        lastY: number;
+        moved: boolean;
+        cityCode: string | null;
+    } | null>(null);
 
     useEffect(() => {
         const controller = new AbortController();
@@ -467,7 +474,20 @@ export default function CannonnadePage() {
         event: React.PointerEvent<SVGSVGElement>
     ) => {
         if (event.button !== 0) return;
-        dragRef.current = { x: event.clientX, y: event.clientY };
+
+        const target =
+            event.target instanceof Element
+                ? event.target.closest("[data-city-code]")
+                : null;
+
+        dragRef.current = {
+            startX: event.clientX,
+            startY: event.clientY,
+            lastX: event.clientX,
+            lastY: event.clientY,
+            moved: false,
+            cityCode: target?.getAttribute("data-city-code") || null,
+        };
         event.currentTarget.setPointerCapture(event.pointerId);
     };
 
@@ -476,15 +496,25 @@ export default function CannonnadePage() {
     ) => {
         if (!dragRef.current || !viewBox || !svgRef.current) return;
 
+        const drag = dragRef.current;
         const rectangle = svgRef.current.getBoundingClientRect();
         const dx =
-            ((event.clientX - dragRef.current.x) / rectangle.width) *
-            viewBox.width;
+            ((event.clientX - drag.lastX) / rectangle.width) * viewBox.width;
         const dy =
-            ((event.clientY - dragRef.current.y) / rectangle.height) *
-            viewBox.height;
+            ((event.clientY - drag.lastY) / rectangle.height) * viewBox.height;
+        const moved =
+            drag.moved ||
+            Math.hypot(
+                event.clientX - drag.startX,
+                event.clientY - drag.startY
+            ) > 4;
 
-        dragRef.current = { x: event.clientX, y: event.clientY };
+        dragRef.current = {
+            ...drag,
+            lastX: event.clientX,
+            lastY: event.clientY,
+            moved,
+        };
         setViewBox((current) =>
             current
                 ? {
@@ -496,7 +526,22 @@ export default function CannonnadePage() {
         );
     };
 
-    const endDrag = () => {
+    const handlePointerUp = (
+        event: React.PointerEvent<SVGSVGElement>
+    ) => {
+        const drag = dragRef.current;
+        dragRef.current = null;
+
+        if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+            event.currentTarget.releasePointerCapture(event.pointerId);
+        }
+
+        if (drag && !drag.moved && drag.cityCode) {
+            setSelectedCode(drag.cityCode);
+        }
+    };
+
+    const cancelDrag = () => {
         dragRef.current = null;
     };
 
@@ -662,8 +707,8 @@ export default function CannonnadePage() {
                             preserveAspectRatio="xMidYMid meet"
                             onPointerDown={handlePointerDown}
                             onPointerMove={handlePointerMove}
-                            onPointerUp={endDrag}
-                            onPointerCancel={endDrag}
+                            onPointerUp={handlePointerUp}
+                            onPointerCancel={cancelDrag}
                         >
                             {renderedFeatures.map(({ feature, code, path }) => {
                                 const city = cityByCode.get(code);
@@ -675,6 +720,7 @@ export default function CannonnadePage() {
                                 return (
                                     <path
                                         key={code}
+                                        data-city-code={code}
                                         d={path}
                                         fill={
                                             value > 0
@@ -725,11 +771,6 @@ export default function CannonnadePage() {
                                                     : current
                                             )
                                         }
-                                        onClick={(event) => {
-                                            if (dragRef.current) return;
-                                            event.stopPropagation();
-                                            setSelectedCode(code);
-                                        }}
                                     />
                                 );
                             })}
