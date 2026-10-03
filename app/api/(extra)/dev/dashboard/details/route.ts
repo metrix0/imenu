@@ -59,6 +59,12 @@ type QrTableBuyerRow = {
     table_count: number | string;
 };
 
+type AddonMonthlyRevenueRow = {
+    product_key: string;
+    subscription_count: number | string;
+    monthly_revenue_cents: number | string | null;
+};
+
 function getBearerToken(request: Request): string | null {
     const authorization = request.headers.get("authorization")?.trim();
     const match = authorization?.match(/^Bearer\s+(.+)$/i);
@@ -523,6 +529,7 @@ export async function GET(request: Request) {
             qrTableFunnelSummary,
             qrTablePurchaseSummaryResult,
             qrTableBuyersResult,
+            addonMonthlyRevenueResult,
         ] = await Promise.all([
             query<OrderRow>(
                 `
@@ -621,6 +628,23 @@ export async function GET(request: Request) {
                         addon.activated_at,
                         addon.current_period_ends_at
                     ORDER BY addon.activated_at DESC NULLS LAST
+                `
+            ),
+            query<AddonMonthlyRevenueRow>(
+                `
+                    SELECT
+                        product_key,
+                        COUNT(*) AS subscription_count,
+                        SUM(price_cents) AS monthly_revenue_cents
+                    FROM restaurant_addons
+                    WHERE status = 'active'
+                      AND billing_cycle = 'monthly'
+                      AND (
+                          asaas_subscription_id IS NOT NULL
+                          OR payzu_recurrence_id IS NOT NULL
+                      )
+                    GROUP BY product_key
+                    ORDER BY product_key
                 `
             ),
         ]);
@@ -723,11 +747,25 @@ export async function GET(request: Request) {
             })),
         };
 
+        const monthlyRevenueAddons = addonMonthlyRevenueResult.rows.map((addon) => ({
+            productKey: addon.product_key,
+            subscriptionCount: Number(addon.subscription_count) || 0,
+            monthlyRevenueCents: Number(addon.monthly_revenue_cents) || 0,
+        }));
+        const monthlyRevenue = {
+            addons: monthlyRevenueAddons,
+            totalMonthlyRevenueCents: monthlyRevenueAddons.reduce(
+                (total, addon) => total + addon.monthlyRevenueCents,
+                0
+            ),
+        };
+
         return NextResponse.json(
             {
                 abandonedUsers,
                 trafficSummary,
                 funnelSummary,
+                monthlyRevenue,
                 qrTable,
             },
             { headers: { "Cache-Control": "no-store" } }

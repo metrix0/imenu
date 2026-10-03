@@ -151,6 +151,14 @@ type DashboardDetailsPayload = {
         step4Views: number | null;
         orderedConsumers: number | null;
     };
+    monthlyRevenue: {
+        addons: Array<{
+            productKey: string;
+            subscriptionCount: number;
+            monthlyRevenueCents: number;
+        }>;
+        totalMonthlyRevenueCents: number;
+    };
     qrTable: {
         onboarding: {
             viewed: number | null;
@@ -205,6 +213,11 @@ function formatCurrencyFromCents(value: number): string {
         currency: "BRL",
         maximumFractionDigits: 2,
     }).format(value / 100);
+}
+
+function addonProductLabel(productKey: string): string {
+    if (productKey === "qr_code_mesa") return "QR Code Mesa";
+    return productKey;
 }
 
 function formatCurrency(value: number): string {
@@ -675,6 +688,49 @@ export default function DevDashboardPage() {
                     <DashboardLoading />
                 ) : data ? (
                     <>
+                        {details && (
+                            <section>
+                                <SectionHeading
+                                    title="Receita mensal"
+                                    description="Receita recorrente mensal dos add-ons com assinatura ativa."
+                                />
+                                <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+                                    {details.monthlyRevenue.addons.map((addon) => (
+                                        <div
+                                            key={addon.productKey}
+                                            className="grid gap-1 border-b border-gray-100 px-5 py-4 sm:grid-cols-[1fr_auto_auto] sm:items-center sm:gap-6"
+                                        >
+                                            <span className="font-semibold text-gray-900">
+                                                {addonProductLabel(addon.productKey)}
+                                            </span>
+                                            <span className="text-sm text-gray-500 sm:text-right">
+                                                {formatCount(addon.subscriptionCount)}{" "}
+                                                {addon.subscriptionCount === 1
+                                                    ? "assinatura"
+                                                    : "assinaturas"}
+                                            </span>
+                                            <span className="font-semibold tabular-nums text-gray-900 sm:min-w-32 sm:text-right">
+                                                {formatCurrencyFromCents(
+                                                    addon.monthlyRevenueCents
+                                                )}
+                                                /mês
+                                            </span>
+                                        </div>
+                                    ))}
+                                    <div className="flex items-center justify-between gap-6 bg-gray-50 px-5 py-4">
+                                        <span className="font-semibold text-gray-900">Total</span>
+                                        <span className="text-xl font-bold tabular-nums text-gray-950">
+                                            {formatCurrencyFromCents(
+                                                details.monthlyRevenue
+                                                    .totalMonthlyRevenueCents
+                                            )}
+                                            /mês
+                                        </span>
+                                    </div>
+                                </div>
+                            </section>
+                        )}
+
                         <section>
                             <SectionHeading
                                 title="Indicadores principais"
