@@ -275,7 +275,8 @@ function operationCopy(
       heading,
       summary: (
         <>
-          Mover {strong(name)} para a posição {display(field, next, refs, op)}.
+          Mover {strong(name)} da posição {display(field, previous, refs, op)} para{" "}
+          {display(field, next, refs, op)}.
         </>
       ),
       hideDetails: true,
@@ -325,11 +326,95 @@ export function ActionPreview({
   refs?: Record<string, string>;
   showAllDetails?: boolean;
 }) {
-  const groupedUpsells =
-    action.operations.length > 1 &&
-    action.operations.every(
-      (op) => op.entity === "upsell" && op.kind === "create",
+  const visibleOperations = action.operations.filter((op) => {
+      const fields = Object.keys(op.values);
+      return !(
+        action.image &&
+        fields.length === 1 &&
+        ["image_path", "logo_url", "banner_url"].includes(fields[0])
+      );
+    }),
+    operationGroups = Array.from(
+      visibleOperations
+        .reduce((groups, op) => {
+          const key = `${op.kind}:${op.entity}`,
+            current = groups.get(key);
+          if (current) current.push(op);
+          else groups.set(key, [op]);
+          return groups;
+        }, new Map<string, Operation[]>())
+        .values(),
+    ),
+    groupedEntities: Record<string, string> = {
+      categories: "Categorias",
+      items: "Itens",
+      item_subcategories: "Grupos de complementos",
+      subitems: "Complementos",
+      promotions: "Promoções",
+      coupons: "Cupons",
+      restaurant_tables: "Mesas",
+    };
+
+  const groupHeading = (op: Operation, count: number) => {
+    if (op.entity === "upsell" && op.kind === "create")
+      return `${showAllDetails ? "Adicionar ofertas no carrinho" : "Adicionar Upsell"} (${count})`;
+    const entity = groupedEntities[op.entity];
+    if (!entity) return `${operationCopy(op, refs).heading} (${count})`;
+    const verb =
+      op.kind === "create" ? "Adicionar" : op.kind === "delete" ? "Excluir" : "Editar";
+    return `${verb} ${entity} (${count})`;
+  };
+
+  const details = (op: Operation) => {
+    const copy = operationCopy(op, refs);
+    if (op.kind === "delete" || copy.hideDetails) return null;
+    return (
+      <dl className="mt-2 divide-y divide-gray-100 text-xs">
+        {Object.entries(op.values)
+          .filter(
+            ([k]) =>
+              !action.image ||
+              !["image_path", "logo_url", "banner_url"].includes(k),
+          )
+          .map(([k, v]) => (
+            <div
+              key={k}
+              className={
+                op.kind === "create"
+                  ? "grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-start gap-3 py-2"
+                  : "grid grid-cols-[1fr_1fr] gap-2 py-2"
+              }
+            >
+              <dt
+                className={
+                  op.kind === "create"
+                    ? "font-medium text-gray-700"
+                    : "col-span-2 font-medium text-gray-700"
+                }
+              >
+                {labels[k] || k}
+              </dt>
+              {op.kind === "create" ? (
+                <dd className="whitespace-pre-wrap break-words text-gray-900">
+                  {display(k, v, refs, op)}
+                </dd>
+              ) : (
+                <>
+                  <dd className="whitespace-pre-wrap break-words text-gray-500">
+                    <span className="sr-only">Antes: </span>
+                    {display(k, op.before?.[k], refs, op)}
+                  </dd>
+                  <dd className="whitespace-pre-wrap break-words text-gray-900">
+                    <span className="sr-only">Depois: </span>
+                    {display(k, v, refs, op)}
+                  </dd>
+                </>
+              )}
+            </div>
+          ))}
+      </dl>
     );
+  };
 
   return (
     <div className="space-y-2">
@@ -375,89 +460,60 @@ export function ActionPreview({
           <p className="mt-1 whitespace-pre-wrap text-gray-600">{job.prompt}</p>
         </div>
       ))}
-      {groupedUpsells && (
-        <div className="overflow-hidden rounded-lg border border-gray-100 bg-white">
-          <div className="bg-gray-50 px-3 py-2 text-sm font-medium">
-            {showAllDetails ? "Adicionar ofertas no carrinho" : "Adicionar Upsell"} ({action.operations.length})
-          </div>
-          <div className="divide-y divide-gray-100">
-            {action.operations.map((op, i) => (
-              <p key={i} className="px-3 py-3 text-sm text-gray-700">
-                {operationCopy(op, refs).summary}
-              </p>
-            ))}
-          </div>
-        </div>
-      )}
-      {!groupedUpsells &&
-        action.operations.map((op, i) => {
-        const fields = Object.keys(op.values);
-        if (
-          action.image &&
-          fields.length === 1 &&
-          ["image_path", "logo_url", "banner_url"].includes(fields[0])
-        )
-          return null;
-        const copy = operationCopy(op, refs);
+      {operationGroups.map((operations, groupIndex) => {
+        const first = operations[0],
+          grouped = operations.length > 1;
+
+        if (grouped)
+          return (
+            <div
+              key={`${first.kind}:${first.entity}:${groupIndex}`}
+              className="overflow-hidden rounded-lg border border-gray-100 bg-white"
+            >
+              <div className="bg-gray-50 px-3 py-2 text-sm font-medium">
+                {groupHeading(first, operations.length)}
+              </div>
+              <div className="divide-y divide-gray-100">
+                {operations.map((op, i) => {
+                  const copy = operationCopy(op, refs);
+                  return (
+                    <div key={i} className="px-3 py-3">
+                      <p className="text-sm text-gray-700">{copy.summary}</p>
+                      {details(op)}
+                    </div>
+                  );
+                })}
+              </div>
+              {first.kind === "delete" && (
+                <p className="border-t border-gray-100 px-3 py-2 text-xs text-gray-500">
+                  O histórico será preservado; registros em uso não podem ser
+                  excluídos.
+                </p>
+              )}
+            </div>
+          );
+
+        const op = first,
+          copy = operationCopy(op, refs);
         return (
           <div
-            key={i}
+            key={`${op.kind}:${op.entity}:${groupIndex}`}
             className="overflow-hidden rounded-lg border border-gray-100 bg-white"
           >
             <div className="bg-gray-50 px-3 py-2 text-sm font-medium">
-              {showAllDetails ? copy.heading.replace("Upsell", "oferta no carrinho") : copy.heading}
+              {showAllDetails
+                ? copy.heading.replace("Upsell", "oferta no carrinho")
+                : copy.heading}
             </div>
-            <p className="px-3 pt-3 text-sm text-gray-700">{copy.summary}</p>
+            <div className="px-3 pt-3">
+              <p className="text-sm text-gray-700">{copy.summary}</p>
+              {details(op)}
+            </div>
             {op.kind === "delete" ? (
               <p className="px-3 pb-3 pt-1 text-xs text-gray-500">
                 O histórico será preservado; registros em uso não podem ser
                 excluídos.
               </p>
-            ) : showAllDetails || !copy.hideDetails ? (
-              <dl className="mt-2 divide-y divide-gray-100 text-xs">
-                {Object.entries(op.values)
-                  .filter(
-                    ([k]) =>
-                      !action.image ||
-                      !["image_path", "logo_url", "banner_url"].includes(k),
-                  )
-                  .map(([k, v]) => (
-                    <div
-                      key={k}
-                      className={
-                        op.kind === "create"
-                          ? "grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-start gap-3 px-3 py-2"
-                          : "grid grid-cols-[1fr_1fr] gap-2 px-3 py-2"
-                      }
-                    >
-                      <dt
-                        className={
-                          op.kind === "create"
-                            ? "font-medium text-gray-700"
-                            : "col-span-2 font-medium text-gray-700"
-                        }
-                      >
-                        {labels[k] || k}
-                      </dt>
-                      {op.kind === "create" ? (
-                        <dd className="whitespace-pre-wrap break-words text-gray-900">
-                          {display(k, v, refs, op)}
-                        </dd>
-                      ) : (
-                        <>
-                          <dd className="whitespace-pre-wrap break-words text-gray-500">
-                            <span className="sr-only">Antes: </span>
-                            {display(k, op.before?.[k], refs, op)}
-                          </dd>
-                          <dd className="whitespace-pre-wrap break-words text-gray-900">
-                            <span className="sr-only">Depois: </span>
-                            {display(k, v, refs, op)}
-                          </dd>
-                        </>
-                      )}
-                    </div>
-                  ))}
-              </dl>
             ) : (
               <div className="h-3" aria-hidden="true" />
             )}
