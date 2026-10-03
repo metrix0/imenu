@@ -14,6 +14,7 @@ import type { MouseEvent } from "react";
 import Tooltip from "@/components/ui/Tooltip";
 
 type MenuProductCardsProps = {
+    extraCard?: React.ReactNode;
     qrSelected: boolean;
     qrActive?: boolean;
     onQrToggle?: () => void;
@@ -21,6 +22,7 @@ type MenuProductCardsProps = {
 };
 
 export default function MenuProductCards({
+    extraCard,
     qrSelected,
     qrActive = false,
     onQrToggle,
@@ -48,7 +50,7 @@ export default function MenuProductCards({
     };
 
     return (
-        <div className="panel-product-cards grid gap-5 md:grid-cols-2">
+        <div className={`panel-product-cards grid gap-5 md:grid-cols-2 ${extraCard ? "xl:grid-cols-3" : ""}`}>
             <div className="relative flex min-h-[320px] flex-col overflow-hidden rounded-2xl border border-brand bg-white p-6 shadow-sm ring-2 ring-brand/10">
                 <span className="absolute right-4 top-4 inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-600">
                     <FontAwesomeIcon icon={faLock} />
@@ -240,6 +242,7 @@ export default function MenuProductCards({
                     </div>
                 </div>
             </div>
+            {extraCard}
         </div>
     );
 }

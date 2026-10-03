@@ -62,3 +62,12 @@ it("ignores stale Asaas events for a Mercado Pago-owned QR Mesa addon", async ()
     expect(sql).not.toContain("status = 'active'");
     expect(sql).not.toContain("INSERT INTO public.restaurant_addon_payments");
 });
+
+it.each([49.99, 5])("IA Plus card confirmation validates payment amount %s", async value => {
+    const spy = jest.spyOn(console, "error").mockImplementation(() => undefined);
+    (query as jest.Mock).mockImplementation(async sql => ({ rows: sql.includes("INSERT INTO public.billing_webhook_events") ? [{ event_id: "plus-event" }] : sql.includes("SELECT *") ? [{ id: addonId, product_key: "ia_plus", price_cents: 4999, payment_provider: "asaas" }] : [] }));
+    const response = await POST(new Request("https://example.com/api/webhooks/asaas", { method: "POST", headers: { "asaas-access-token": "test-token" }, body: JSON.stringify({ id: "plus-event", event: "PAYMENT_CONFIRMED", payment: { id: "plus-payment", externalReference: addonId, value, status: "CONFIRMED" } }) }));
+    expect(response.status).toBe(value === 49.99 ? 200 : 500);
+    expect((query as jest.Mock).mock.calls.some(([sql]) => sql.includes("status = 'active'"))).toBe(value === 49.99);
+    spy.mockRestore();
+});

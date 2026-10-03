@@ -1,4 +1,5 @@
 "use client";
+import { IA_PLUS_PRICE_LABEL } from "@/lib/addons/products";
 
 import { useCallback } from "react";
 import { faQrcode } from "@fortawesome/free-solid-svg-icons";
@@ -19,6 +20,7 @@ type QrCodeMesaCheckoutModalProps = {
     onClose: () => void;
     restaurantId: string;
     source: QrTableSource;
+    productKey?: "qr_code_mesa" | "ia_plus";
     renewal?: boolean;
     embedded?: boolean;
     onBack?: () => void;
@@ -78,6 +80,7 @@ export default function QrCodeMesaCheckoutModal({
     onClose,
     restaurantId,
     source,
+    productKey = "qr_code_mesa",
     renewal = false,
     embedded = false,
     onBack,
@@ -120,38 +123,48 @@ export default function QrCodeMesaCheckoutModal({
         (payment: Parameters<typeof startQrTableCheckout>[2]) =>
             startQrTableCheckout(restaurantId, source, payment, {
                 renew: renewal,
+                productKey,
             }),
-        [renewal, restaurantId, source]
+        [renewal, restaurantId, source, productKey]
     );
 
     const reconcilePayment = useCallback(
         () =>
             reconcileQrTableCheckout(restaurantId, {
                 renew: renewal,
+                productKey,
             }),
-        [renewal, restaurantId]
+        [renewal, restaurantId, productKey]
     );
 
     const trackPaymentStarted = useCallback(
         (method: OnlinePaymentMethod) => {
+            if (productKey === "ia_plus") return;
             void captureQrTableEvent("qr_code_mesa_purchase_started", {
                 restaurant_id: restaurantId,
                 source,
                 payment_method: method,
             });
         },
-        [restaurantId, source]
+        [restaurantId, source, productKey]
     );
 
     const checkoutProps = {
         onClose,
-        product: QR_TABLE_PAYMENT_PRODUCT,
+        product: productKey === "ia_plus" ? {
+            ...QR_TABLE_PAYMENT_PRODUCT,
+            name: "iMenu IA Plus",
+            detail: "Assistente IA e análise completa de vendas",
+            priceLabel: IA_PLUS_PRICE_LABEL,
+            cardNotice: `Ao pagar, você autoriza a cobrança recorrente mensal de ${IA_PLUS_PRICE_LABEL} até o cancelamento.`,
+            pixConfirmationDescription: "Assim que o pagamento for confirmado, o iMenu IA Plus será liberado automaticamente.",
+        } : QR_TABLE_PAYMENT_PRODUCT,
         onBack,
         startPayment,
         reconcilePayment,
         loadCardPrefill,
         onPaymentStarted: trackPaymentStarted,
-        successEventName: "imenu:qr-table-activated",
+        successEventName: productKey === "ia_plus" ? "imenu:ia-plus-activated" : "imenu:qr-table-activated",
         onPaid,
     };
 

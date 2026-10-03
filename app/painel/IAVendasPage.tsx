@@ -14,6 +14,7 @@ import {
   MessageSquare,
   ArrowUpRight,
 } from "lucide-react";
+import IaPlusSalesModal, { IaPlusLimitMessage } from "@/components/restaurant-owner/ia-vendas/IaPlusSalesModal";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import Loader from "@/components/ui/Loader";
@@ -64,6 +65,7 @@ export default function SalesPage() {
     [opportunity, setOpportunity] = useState<Data | null>(null),
     [analysisChatOpen, setAnalysisChatOpen] = useState(false),
     [wideAnalysis, setWideAnalysis] = useState(false),
+    [plusModal, setPlusModal] = useState<"sales" | "checkout" | null>(null),
     [text, setText] = useState(""),
     [attachments, setAttachments] = useState<Data[]>([]),
     [uploading, setUploading] = useState(false),
@@ -218,7 +220,16 @@ export default function SalesPage() {
                 ) : Date.parse(m.created_at) >= emptyThreadStart.current),
           )
         : sales.messages;
+  const locked = sales.access?.plus !== true;
+  const freeLimitReached = !isAnalysis && sales.access && !sales.access.plus && (sales.upgradeRequired || Number(sales.access.tokens_remaining) < 500);
+  useEffect(() => {
+    if (sales.upgradeRequired) {
+      if (isAnalysis) setPlusModal("sales");
+      else end.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    }
+  }, [sales.upgradeRequired, isAnalysis]);
   async function send() {
+    if ((isAnalysis && locked) || freeLimitReached) { setPlusModal("checkout"); return; }
     if (!text.trim() || disabled || uploading) return;
     const draft = text.trim();
     setText("");
@@ -248,8 +259,10 @@ export default function SalesPage() {
       if (file.current) file.current.value = "";
     }
   }
-  const onAction = (command: string, ids: string[]) =>
-      void sales.command(command, { ids }),
+  const onAction = (command: string, ids: string[]) => {
+      if (isAnalysis && locked) { setPlusModal("sales"); return; }
+      void sales.command(command, { ids });
+    },
     selectedBatchActions = sales.actions.filter((action) =>
       selectedBatchIds.includes(action.id),
     ),
@@ -271,6 +284,7 @@ export default function SalesPage() {
         )
       : selectedBatchIds.length;
   const openAnalysisChat = () => {
+    if (locked) { setPlusModal("sales"); return; }
     focusChat.current = true;
     setAnalysisChatOpen(true);
   };
@@ -687,6 +701,7 @@ export default function SalesPage() {
                     </div>
                   ))}
               </nav>
+              <Button className="mt-3 shrink-0" variant="secondary" onClick={() => setPlusModal("sales")}><Sparkles size={16} className="mr-2" />iMenu IA Plus</Button>
             </div>
           </aside>
         )}
@@ -697,6 +712,8 @@ export default function SalesPage() {
                 <div className="sales-analysis-default-shell min-h-0 flex-1 overflow-y-auto overscroll-y-contain bg-[var(--panel-background)] px-7 pb-20 pt-7" aria-label="Relatório de análise">
                   {!analysisChatOpen && notice}
                   <AnalysisReport
+                    locked={locked}
+                    onUpgrade={() => setPlusModal("sales")}
                     analyses={sales.analyses}
                     selected={selectedReport}
                     actions={sales.actions}
@@ -717,11 +734,13 @@ export default function SalesPage() {
                     }}
                     onAction={onAction}
                     onBatch={(ids) => {
+                      if (locked) { setPlusModal("sales"); return; }
                       setBatchIds(ids);
                       setSelectedBatchIds(ids);
                       setModal("batch");
                     }}
                     onDiscuss={(item) => {
+                      if (locked) { setPlusModal("sales"); return; }
                       setOpportunity(item);
                       openAnalysisChat();
                     }}
@@ -746,6 +765,7 @@ export default function SalesPage() {
               {conversationPicker}
             </div>
             <div className="flex gap-2">
+              <Button variant="secondary" className="lg:hidden" onClick={() => setPlusModal("sales")}>iMenu IA Plus</Button>
               <Button
                 variant="secondary"
                 className="lg:hidden"
@@ -823,6 +843,7 @@ export default function SalesPage() {
             )}
             <div className="mx-auto max-w-3xl space-y-8">
               {messageList}
+              {freeLimitReached && <IaPlusLimitMessage onCheckout={() => setPlusModal("checkout")} />}
             </div>
           </div>
           {notice}
@@ -832,6 +853,7 @@ export default function SalesPage() {
 
         </section>
       </div>
+      {restaurant && <IaPlusSalesModal active={sales.access?.plus === true} open={plusModal !== null} checkout={plusModal === "checkout"} restaurantId={restaurant} onClose={() => setPlusModal(null)} onPaid={async () => { setPlusModal(null); sales.clearUpgrade(); await sales.load(restaurant, sales.conversation_id || undefined); }} />}
       <Modal
         open={modal !== null}
         onClose={() => {

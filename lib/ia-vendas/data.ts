@@ -103,7 +103,7 @@ export async function metrics(
       "Pedidos concluídos; receita líquida de entrega após descontos. Produtos: receita bruta. Bebidas/combos classificados por nomes; conferir ambiguidades. Retenção entre clientes identificados no período.",
   };
 }
-export async function context(restaurant: string, deep = false) {
+export async function context(restaurant: string, deep = false, includeAnalysis = true) {
   if (deep) return analysisContext(restaurant);
   const w = window28();
   const [r, items, categories, sales, memory, actions, last] =
@@ -117,12 +117,12 @@ export async function context(restaurant: string, deep = false) {
         [restaurant],
       ),
       query(
-        "SELECT id,title,reason,status,operations,applied_at,undone_at FROM public.ia_vendas_actions WHERE restaurant_id=$1 AND NOT EXISTS(SELECT 1 FROM public.ia_vendas_runs r WHERE r.restaurant_id=$1 AND r.id=ia_vendas_actions.run_id AND r.result->>'detached_at' IS NOT NULL) ORDER BY created_at DESC LIMIT 25",
-        [restaurant],
+        "SELECT id,title,reason,status,operations,applied_at,undone_at FROM public.ia_vendas_actions WHERE restaurant_id=$1 AND ($2::boolean OR EXISTS(SELECT 1 FROM public.ia_vendas_conversations c WHERE c.id=ia_vendas_actions.conversation_id AND c.restaurant_id=$1 AND c.kind='chat')) AND NOT EXISTS(SELECT 1 FROM public.ia_vendas_runs r WHERE r.restaurant_id=$1 AND r.id=ia_vendas_actions.run_id AND r.result->>'detached_at' IS NOT NULL) ORDER BY created_at DESC LIMIT 25",
+        [restaurant, includeAnalysis],
       ),
       query(
-        "SELECT result,finished_at FROM public.ia_vendas_runs WHERE restaurant_id=$1 AND kind='analysis' AND result->>'detached_at' IS NULL AND status='completed' ORDER BY finished_at DESC LIMIT 1",
-        [restaurant],
+        "SELECT result,finished_at FROM public.ia_vendas_runs WHERE restaurant_id=$1 AND $2::boolean AND kind='analysis' AND result->>'detached_at' IS NULL AND status='completed' ORDER BY finished_at DESC LIMIT 1",
+        [restaurant, includeAnalysis],
       ),
     ]);
   return {

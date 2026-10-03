@@ -1,5 +1,7 @@
 "use client";
 import { ChevronDown, CircleHelp, ClipboardList, History, MessageSquare, Sparkles, Target } from "lucide-react";
+import Tooltip from "@/components/ui/Tooltip";
+import { IA_PLUS_FEATURE_MESSAGE } from "@/lib/addons/products";
 import Button from "@/components/ui/Button";
 import Loader from "@/components/ui/Loader";
 import Dropdown from "@/components/ui/Dropdown";
@@ -14,9 +16,10 @@ const confidenceLevels: Record<string, string> = { high: "alta", medium: "média
 const SHOW_MEASUREMENT_HISTORY = false;
 
 export default function AnalysisReport({
-  analyses, selected, actions, refs, disabled, loading, generating,
+  analyses, selected, actions, refs, disabled, loading, generating, locked = false, onUpgrade,
   activeOpportunityId, onSelect, onDiscuss, onChat, onHistory, onAction, onBatch,
 }: {
+  locked?: boolean; onUpgrade?: () => void;
   analyses: Data[]; selected?: Data; actions: Action[]; refs: Record<string, string>;
   disabled: boolean; loading: boolean; generating: boolean;
   activeOpportunityId?: string;
@@ -33,6 +36,7 @@ export default function AnalysisReport({
   const ids: string[] = report ? [...opportunities, ...reviewItems].flatMap((o) => o.action_ids || [])
     : actions.filter((a) => a.run_id === selected?.id).map((a) => a.id);
   const pending = withGenerated(ids).filter((id) => actionById.get(id)?.status === "pending");
+  const gate = (content: React.ReactNode) => locked ? <div data-ia-plus-action><Tooltip text={IA_PLUS_FEATURE_MESSAGE} parentClassName="!block">{content}</Tooltip></div> : content;
   const renderActions = (entry: Data) => {
     const entryIds = [...new Set<string>(entry.action_ids || [])],
       nestedGenerated = new Set(
@@ -47,7 +51,7 @@ export default function AnalysisReport({
           .map((generatedId) => actionById.get(generatedId))
           .filter((generated): generated is Action => !!generated);
         return (
-          <ActionCard
+          <div key={id}>{gate(<ActionCard
             key={id}
             action={action}
             generatedActions={generatedActions}
@@ -55,7 +59,7 @@ export default function AnalysisReport({
             disabled={disabled}
             onAction={onAction}
             compact
-          />
+          />)}</div>
         );
       });
   };
@@ -73,13 +77,13 @@ export default function AnalysisReport({
       </div>
     </details>
   ) : null;
-  const discuss = (entry: Data) => <button type="button" className={styles.discuss} disabled={disabled}
+  const discuss = (entry: Data) => gate(<button type="button" className={styles.discuss} disabled={!locked && disabled}
     aria-pressed={activeOpportunityId === entry.id} onClick={() => onDiscuss(entry)}>
     <MessageSquare size={14} aria-hidden="true" />Conversar sobre isso
-  </button>;
+  </button>);
 
   return (
-    <div className={styles.report}>
+    <div className={styles.report} onClickCapture={locked ? event => { if ((event.target as HTMLElement).closest("[data-ia-plus-action] button")) { event.preventDefault(); event.stopPropagation(); onUpgrade?.(); } } : undefined}>
       <header className="panel-page-heading flex flex-col xl:flex-row justify-between items-start xl:items-end gap-4 mb-8">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 2xl:text-4xl">Análise de vendas</h1>
@@ -95,7 +99,7 @@ export default function AnalysisReport({
                 })),
               ]} />
           </div>}
-          <Button variant="secondary" aria-label="Histórico de ações" title="Histórico de ações" onClick={onHistory}><History size={16} /></Button>
+          {gate(<Button variant="secondary" aria-label="Histórico de ações" title="Histórico de ações" onClick={onHistory}><History size={16} /></Button>)}
         </div>
       </header>
 
@@ -114,8 +118,8 @@ export default function AnalysisReport({
               </div>}
             </div>
             <div className={styles.heroActions}>
-              <Button disabled={disabled || !pending.length} onClick={() => onBatch(pending)}>Revisar e aplicar tudo</Button>
-              <Button variant="secondary" disabled={disabled} onClick={onChat}><MessageSquare size={15} aria-hidden="true" />Conversar com Assistente de IA</Button>
+              {gate(<Button disabled={!locked && (disabled || !pending.length)} onClick={() => onBatch(pending)}>Revisar e aplicar tudo</Button>)}
+              {gate(<Button variant="secondary" disabled={!locked && disabled} onClick={onChat}><MessageSquare size={15} aria-hidden="true" />Conversar com Assistente de IA</Button>)}
               <p className={styles.approvalNote}>Você revisa cada mudança antes de confirmar.</p>
             </div>
           </section>
@@ -126,8 +130,9 @@ export default function AnalysisReport({
             <div className={styles.summaryCopy}>{report ? <SalesMarkdown content={report.summary} /> : <p>A análise prioriza melhorias nas vendas e traz mudanças prontas para você revisar.</p>}</div>
           </section>
 
+          <div className={locked && report ? styles.preview : undefined}>
           <section aria-label="Oportunidades prioritárias">
-            <div className={styles.sectionHeader}><h2>Oportunidades prioritárias</h2>{!!opportunities.length && <span className={styles.count}>{opportunities.length}</span>}</div>
+            <div className={styles.sectionHeader}><h2>Oportunidades prioritárias</h2>{!!opportunities.length && <span className={styles.count}>{report?.opportunity_count ?? opportunities.length}</span>}</div>
             {!opportunities.length && <div className={styles.empty}>
               <Target size={28} aria-hidden="true" />
               <h3>{report ? "Nenhuma oportunidade priorizada" : "Sua análise estará disponível aqui"}</h3>
@@ -156,7 +161,7 @@ export default function AnalysisReport({
                 <div className={styles.proposalList}>{renderActions(entry)}</div>
               </article>)}</div>
             </details>}
-            <section aria-label={SHOW_MEASUREMENT_HISTORY ? "Comparações e resultados" : "Comparações"} className={styles.comparison}>
+            <section hidden={locked} aria-label={SHOW_MEASUREMENT_HISTORY ? "Comparações e resultados" : "Comparações"} className={styles.comparison}>
               <DataCard card={{ ...report?.benchmark_snapshot, reason: report?.benchmark_snapshot?.reason || "Ainda não há dados suficientes para uma comparação útil.", type: "benchmark" }} presentation="report" />
               {SHOW_MEASUREMENT_HISTORY && <div className="mt-6">
                 {report?.measurement_snapshot?.results?.some((r: Data) => r.before.orders || r.after.orders) ? <DataCard card={{ ...report.measurement_snapshot, type: "measurement" }} expanded /> : <>
@@ -166,12 +171,14 @@ export default function AnalysisReport({
               </div>}
             </section>
           </div>
+          {locked && report && <div className={styles.paywall}><Sparkles size={24} aria-hidden="true" /><h3>Coloque essas oportunidades em prática</h3><p>Veja a análise completa, converse com a IA e revise e aplique as melhorias com o iMenu IA Plus.</p><Button onClick={onUpgrade}>Conhecer iMenu IA Plus</Button></div>}
+          </div>
         </>}
-        {legacy && <section className={styles.legacy}>
+        {legacy && <div className={locked ? styles.preview : undefined}><section className={styles.legacy}>
           <p className={styles.eyebrow}>Relatório anterior ao formato estruturado.</p>
           <SalesMarkdown content={String(selected.result.reply || "").replace(/\[\[(?:action:[^\]]+|card:[^\]]+)\]\]/g, "")} />
           {actions.filter((action) => action.run_id === selected.id).map((action) => <ActionCard key={action.id} action={action} generatedActions={(action.generated_actions || []).map((id) => actionById.get(id)).filter((generated): generated is Action => !!generated)} refs={refs} disabled={disabled} onAction={onAction} />)}
-        </section>}
+        </section>{locked && <div className={styles.paywall}><Sparkles size={24} aria-hidden="true" /><h3>Veja a análise completa</h3><p>Converse com a IA e revise e aplique as melhorias com o iMenu IA Plus.</p><Button onClick={onUpgrade}>Conhecer iMenu IA Plus</Button></div>}</div>}
       </div>
     </div>
   );

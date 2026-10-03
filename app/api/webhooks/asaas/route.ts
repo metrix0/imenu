@@ -70,7 +70,7 @@ async function findAddon(
         `
             SELECT *
             FROM public.restaurant_addons
-            WHERE product_key = 'qr_code_mesa'
+            WHERE product_key IN ('qr_code_mesa', 'ia_plus')
               AND (
                     ($1 <> '' AND id::text = $1)
                  OR ($2 <> '' AND asaas_subscription_id = $2)
@@ -233,6 +233,9 @@ async function processEvent(payload: AsaasWebhook): Promise<void> {
             }
         }
 
+        if (addon.product_key === "ia_plus" && (!payment || Math.round(Number(payment.value) * 100) !== addon.price_cents)) {
+            throw new Error("Cobrança Asaas divergente do iMenu IA Plus.");
+        }
         await activateAddon(addon.id, payment, subscriptionId);
         if (payment) await savePayment(addon.id, payment, event);
         return;
@@ -262,6 +265,9 @@ async function processEvent(payload: AsaasWebhook): Promise<void> {
     await savePayment(addon.id, payment, event);
 
     if (event === "PAYMENT_CONFIRMED" || event === "PAYMENT_RECEIVED") {
+        if (addon.product_key === "ia_plus" && Math.round(Number(payment.value) * 100) !== addon.price_cents) {
+            throw new Error("Cobrança Asaas divergente do iMenu IA Plus.");
+        }
         await activateAddon(addon.id, payment);
         return;
     }

@@ -102,3 +102,14 @@ it("keeps the QR Mesa creation race retryable until the payment reference is sav
     expect((await send()).status).toBe(500);
     expect(activateMercadoPagoQrTablePrepaid).not.toHaveBeenCalled();
 });
+
+it.each([
+    [49.99, "ia-plus", true],
+    [5, "ia-plus", false],
+    [49.99, "qr-table", false],
+])("IA Plus Pix validates amount %s and reference %s before granting access", async (amount, prefix, activates) => {
+    (getMercadoPagoPixPayment as jest.Mock).mockResolvedValue({ ...payment, amount, externalReference: `${prefix}:${id}:cycle` });
+    (query as jest.Mock).mockResolvedValue({ rows: [{ id, product_key: "ia_plus", payment_provider: "mercadopago", mercadopago_order_id: "123" }] });
+    expect((await send()).status).toBe(200);
+    expect(activateMercadoPagoQrTablePrepaid).toHaveBeenCalledTimes(activates ? 1 : 0);
+});

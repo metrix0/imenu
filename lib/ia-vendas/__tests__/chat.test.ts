@@ -1,4 +1,6 @@
 import { runChat } from "../chat";
+import { aiAccess, requireIaPlus, IaPlusRequired } from "../access";
+jest.mock("../access", () => ({ ...jest.requireActual("../access"), aiAccess: jest.fn().mockResolvedValue({ plus: true }), requireIaPlus: jest.fn() }));
 import { DIMENSIONS } from "../report";
 import { query, withTransaction } from "@/lib/database/sql";
 import { context, measure } from "../data";
@@ -321,4 +323,13 @@ test("Batch tool replay uses saved proposals and full output without creating an
     ]),
   );
   expect(next.round).toBe(1);
+});
+
+
+test("free users cannot discuss analysis through a direct chat request", async () => {
+  (requireIaPlus as jest.Mock).mockRejectedValueOnce(new IaPlusRequired());
+  await runChat({ ...args, deep: false });
+  expect(create).not.toHaveBeenCalled();
+  expect(beginRun).not.toHaveBeenCalled();
+  expect(args.send).toHaveBeenCalledWith("error", expect.objectContaining({ code: "IA_PLUS_REQUIRED" }));
 });

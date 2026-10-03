@@ -1,4 +1,4 @@
-// Server-only budgets. The addon remains free while being tested; no billing or trial.
+// Server-only capacity budgets; free Assistant allowances are defined in access.ts.
 export const DEEP_ANALYSIS_MODEL =
   process.env.IA_VENDAS_ANALYSIS_MODEL || "gpt-5.6-terra";
 

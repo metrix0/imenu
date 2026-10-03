@@ -1,3 +1,5 @@
+import { analysisPreview } from "@/lib/ia-vendas/paywall";
+import { aiAccess, requireIaPlus } from "@/lib/ia-vendas/access";
 import { query, withTransaction } from "@/lib/database/sql";
 import { authorize, failure } from "@/lib/ia-vendas/http";
 import { SalesError, type Action } from "@/lib/ia-vendas/types";
@@ -94,14 +96,18 @@ export async function GET(request: Request) {
           : undefined,
       })),
     );
+    const access = await aiAccess(restaurant);
+    const visibleAnalyses = access.plus ? analyses.rows : analyses.rows.map(analysisPreview);
+    const visibleIds = new Set(visibleAnalyses.flatMap(a => [...(a.result?.report?.opportunities || []), ...(a.result?.report?.review_items || [])].flatMap(o => o.action_ids || [])));
     return Response.json(
       {
+        access,
         restaurant_id: restaurant,
         conversation_id: id,
         conversations,
-        messages: hydrated,
-        analyses: analysisConversation ? analyses.rows : [],
-        actions: hydratedActions,
+        messages: analysisConversation && !access.plus ? [] : hydrated,
+        analyses: analysisConversation ? visibleAnalyses : [],
+        actions: analysisConversation && !access.plus ? hydratedActions.filter(a => visibleIds.has(a.id)) : hydratedActions,
         instructions: memory.rows[0]?.instructions || "",
         analysis_available_at: null,
         running: running.rows[0] || null,
@@ -174,6 +180,7 @@ export async function POST(request: Request) {
         [restaurant, body.ids],
       )
     ).rows;
+    if (selected.length && (await query("SELECT 1 FROM public.ia_vendas_conversations WHERE restaurant_id=$1 AND kind='analysis' AND id=ANY($2::uuid[]) LIMIT 1", [restaurant, selected.map(a => a.conversation_id)])).rowCount) await requireIaPlus(restaurant);
     if (selected.length !== new Set(body.ids).size)
       throw new SalesError("Proposta não encontrada.", 404);
     if (

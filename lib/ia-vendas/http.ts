@@ -1,3 +1,4 @@
+import { IaPlusRequired } from "./access";
 import {
   getAuthenticatedUser,
   requireRestaurantOwner,
@@ -25,6 +26,7 @@ export async function authorize(request: Request, requested?: string | null) {
 export function failure(e: unknown) {
   return Response.json(
     {
+      ...(e instanceof IaPlusRequired ? { code: e.code } : {}),
       error:
         e instanceof SalesError || e instanceof RestaurantOwnerAuthError
           ? e.message

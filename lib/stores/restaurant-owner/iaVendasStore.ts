@@ -17,11 +17,14 @@ async function api(path: string, body?: Data) {
     ...(body ? { body: JSON.stringify(body) } : {}),
   });
   const data = await r.json();
-  if (!r.ok) throw new Error(data.error || "Não foi possível concluir.");
+  if (!r.ok) throw Object.assign(new Error(data.error || "Não foi possível concluir."), { code: data.code });
   return data;
 }
 let version = 0;
 type State = {
+  access: { plus: boolean; tokens_remaining: number | null; images_remaining: number | null } | null;
+  upgradeRequired: boolean;
+  clearUpgrade: () => void;
   restaurant_id: string | null;
   conversation_id: string | null;
   conversations: Data[];
@@ -54,6 +57,9 @@ type State = {
   clearError: () => void;
 };
 export const useSalesStore = create<State>((set, get) => ({
+  access: null,
+  upgradeRequired: false,
+  clearUpgrade: () => set({ upgradeRequired: false }),
   restaurant_id: null,
   conversation_id: null,
   conversations: [],
@@ -79,6 +85,8 @@ export const useSalesStore = create<State>((set, get) => ({
       error: null,
       ...(restaurant && restaurant !== previous.restaurant_id
         ? {
+            access: null,
+            upgradeRequired: false,
             messages: [],
             analyses: [],
             actions: [],
@@ -154,6 +162,7 @@ export const useSalesStore = create<State>((set, get) => ({
       });
       if (!response.ok) {
         const d = await response.json();
+        if (d.code === "IA_PLUS_REQUIRED") { set({ upgradeRequired: true }); return; }
         throw new Error(d.error);
       }
       if (!response.body) throw new Error("Conexão interrompida.");
@@ -175,7 +184,8 @@ export const useSalesStore = create<State>((set, get) => ({
           const data = JSON.parse(raw);
           if (event === "status") set({ status: data.message });
           if (event === "error") {
-            error = data.message;
+            if (data.code === "IA_PLUS_REQUIRED") set({ upgradeRequired: true });
+            else error = data.message;
             done = true;
           }
           if (event === "done") done = true;
@@ -232,7 +242,10 @@ export const useSalesStore = create<State>((set, get) => ({
         set({ error: failed.map((r: Data) => r.error).join(" ") });
       return data;
     } catch (e) {
-      set({ error: (e as Error).message });
+      if ((e as Error & { code?: string }).code === "IA_PLUS_REQUIRED") {
+        await get().load(current.restaurant_id, current.conversation_id || undefined);
+        set({ upgradeRequired: true, error: null });
+      } else set({ error: (e as Error).message });
       return null;
     } finally {
       set({ acting: false, status: "" });

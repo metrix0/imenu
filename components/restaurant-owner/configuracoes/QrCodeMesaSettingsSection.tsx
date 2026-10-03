@@ -8,6 +8,8 @@ import {
     faExternalLinkAlt,
 } from "@fortawesome/free-solid-svg-icons";
 
+import IaPlusSalesModal from "@/components/restaurant-owner/ia-vendas/IaPlusSalesModal";
+import IaPlusProductCard from "@/components/restaurant-owner/ia-vendas/IaPlusProductCard";
 import MenuProductCards from "@/components/restaurant-owner/mesas/MenuProductCards";
 import QrCodeMesaCheckoutModal from "@/components/restaurant-owner/mesas/QrCodeMesaCheckoutModal";
 import QrCodeMesaSalesModal from "@/components/restaurant-owner/mesas/QrCodeMesaSalesModal";
@@ -93,6 +95,7 @@ function isPrepaid(addon: Addon | null): boolean {
 }
 
 function addonProductName(productKey: string): string {
+    if (productKey === "ia_plus") return "iMenu IA Plus";
     if (productKey === "qr_code_mesa") return "iMenu QR Code Mesa";
 
     return productKey
@@ -147,6 +150,8 @@ export default function QrCodeMesaSettingsSection({
     const [billing, setBilling] = useState<BillingPayload | null>(null);
     const [loading, setLoading] = useState(true);
     const [salesOpen, setSalesOpen] = useState(false);
+    const [iaPlusOpen, setIaPlusOpen] = useState(false);
+    const [renewalProduct, setRenewalProduct] = useState<"qr_code_mesa" | "ia_plus">("qr_code_mesa");
     const [renewalOpen, setRenewalOpen] = useState(false);
     const [cancelAddonId, setCancelAddonId] = useState<string | null>(null);
     const [canceling, setCanceling] = useState(false);
@@ -300,6 +305,7 @@ export default function QrCodeMesaSettingsSection({
             />
 
             <QrCodeMesaCheckoutModal
+                productKey={renewalProduct}
                 open={renewalOpen}
                 onClose={() => setRenewalOpen(false)}
                 restaurantId={restaurantId}
@@ -314,6 +320,8 @@ export default function QrCodeMesaSettingsSection({
                     await loadBilling();
                 }}
             />
+
+            <IaPlusSalesModal open={iaPlusOpen} onClose={() => setIaPlusOpen(false)} restaurantId={restaurantId} onPaid={async () => { setIaPlusOpen(false); await loadBilling(); }} />
 
             <ConfirmModal
                 open={Boolean(cancelAddonId)}
@@ -353,6 +361,7 @@ export default function QrCodeMesaSettingsSection({
                         qrSelected={active}
                         qrActive={active}
                         onLearnMore={openSales}
+                        extraCard={<IaPlusProductCard active={billing?.addons.some(item => item.addon.product_key === "ia_plus" && item.active) === true} onLearnMore={() => setIaPlusOpen(true)} />}
                     />
                 )}
             </Card>
@@ -376,7 +385,7 @@ export default function QrCodeMesaSettingsSection({
                             const isQrCodeMesa =
                                 itemAddon.product_key === "qr_code_mesa";
                             const itemCanRenew =
-                                isQrCodeMesa && isPrepaid(itemAddon);
+                                (isQrCodeMesa || itemAddon.product_key === "ia_plus") && isPrepaid(itemAddon);
                             const itemCanCancel =
                                 itemActive &&
                                 itemAddon.status !== "canceled" &&
@@ -415,7 +424,7 @@ export default function QrCodeMesaSettingsSection({
                                                 <Button
                                                     type="button"
                                                     variant="primary"
-                                                    onClick={openRenewal}
+                                                    onClick={() => { setRenewalProduct(itemAddon.product_key === "ia_plus" ? "ia_plus" : "qr_code_mesa"); openRenewal(); }}
                                                 >
                                                     Renovar
                                                 </Button>

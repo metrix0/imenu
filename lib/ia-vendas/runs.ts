@@ -1,3 +1,4 @@
+import { aiAccess, IaPlusRequired } from "./access";
 import type { PoolClient } from "pg";
 import { query, withTransaction } from "@/lib/database/sql";
 import { LIMITS, MODELS } from "./config";
@@ -39,6 +40,9 @@ export async function beginRun(
         [restaurant, kind],
       )
     ).rows[0];
+    const access = kind === "analysis" ? null : await aiAccess(restaurant, c);
+    const freeBudget = access && !access.plus ? Math.max(0, Number(access.tokens_remaining) - access.reserved_tokens) : null;
+    if (kind === "chat" && freeBudget !== null && freeBudget < 500) throw new IaPlusRequired("Você atingiu o limite gratuito do Assistente IA deste mês.");
     const output =
       kind === "analysis" ? LIMITS.analysisOutput : LIMITS.chatOutput;
     if (
@@ -63,9 +67,9 @@ export async function beginRun(
           ? 0
           : kind === "analysis"
             ? LIMITS.analysisInput
-            : LIMITS.runInput,
-        kind === "image" ? 0 : output,
-        initialResult ? JSON.stringify(initialResult) : null,
+            : freeBudget ?? LIMITS.runInput,
+        kind === "image" || freeBudget !== null ? 0 : output,
+        initialResult || freeBudget !== null ? JSON.stringify({ ...initialResult, ...(freeBudget !== null ? { free_budget: freeBudget } : {}) }) : null,
       ],
     );
     return null;
@@ -96,6 +100,8 @@ export async function reserveImage(restaurant: string, run: string) {
         )
       ).rows[0].n,
     );
+    const access = await aiAccess(restaurant, c);
+    if (!access.plus && Number(access.images_remaining) <= 0) throw new IaPlusRequired("Você atingiu o limite gratuito de imagens deste mês.");
     if (n >= LIMITS.images)
       throw new SalesError(
         "A geração de imagens atingiu a capacidade disponível.",
@@ -123,7 +129,7 @@ export async function finishRun(
     ? (sql: string, params: any[]) => client.query(sql, params)
     : query;
   await execute(
-    "UPDATE public.ia_vendas_runs SET status=$3,result=(coalesce(result,'{}'::jsonb)-'batch')||coalesce($4::jsonb,'{}'::jsonb)||CASE WHEN result->'batch'->>'mode'='batch' THEN jsonb_build_object('batch',jsonb_build_object('mode','batch','id',result->'batch'->>'id','round',result->'batch'->'round','status',$3)) ELSE '{}'::jsonb END,error=$5,finished_at=now(),reserved_input=CASE WHEN $3='completed' THEN 0 ELSE reserved_input END,reserved_output=CASE WHEN $3='completed' THEN 0 ELSE reserved_output END WHERE restaurant_id=$1 AND id=$2 AND status='running'",
+    "UPDATE public.ia_vendas_runs SET status=$3,result=(coalesce(result,'{}'::jsonb)-'batch')||coalesce($4::jsonb,'{}'::jsonb)||CASE WHEN result->'batch'->>'mode'='batch' THEN jsonb_build_object('batch',jsonb_build_object('mode','batch','id',result->'batch'->>'id','round',result->'batch'->'round','status',$3::text)) ELSE '{}'::jsonb END,error=$5,finished_at=now(),reserved_input=0,reserved_output=0 WHERE restaurant_id=$1 AND id=$2 AND status='running'",
     [
       restaurant,
       id,

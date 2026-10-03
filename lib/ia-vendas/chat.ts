@@ -1,3 +1,4 @@
+import { aiAccess, requireIaPlus, IaPlusRequired } from "./access";
 import { loadPostHogConsumerMetrics } from "@/lib/analytics/posthogConsumer";
 import OpenAI from "openai";
 import { BatchPending, batchResponse, readBatch, saveToolResult, actionId, type BatchSnapshot, type AnalysisRequest } from "./batch";
@@ -208,6 +209,7 @@ export async function runChat(args: {
       conv.kind === "analysis" && args.deep;
     isDeep = deep;
     let scopedReport: Data | null = null;
+    if (!deep && (conv.kind === "analysis" || args.report_id)) await requireIaPlus(restaurant);
     if (!deep && conv.kind === "analysis") {
       const selected = (
         await query(
@@ -260,7 +262,8 @@ export async function runChat(args: {
           ? "Analisando pedidos e cardápio…"
           : "Consultando seu restaurante…",
       });
-      ctx = await context(restaurant, deep);
+      const freeAssistant = !deep && !(await aiAccess(restaurant)).plus;
+      ctx = freeAssistant ? await context(restaurant, false, false) : await context(restaurant, deep);
       reportContext = deep ? ctx : null;
       if (deep) {
         report = makeReport(ctx, cards, [], run);
@@ -285,8 +288,8 @@ export async function runChat(args: {
         ? []
         : (
             await query(
-              "SELECT title,summary FROM public.ia_vendas_conversations WHERE restaurant_id=$1 AND id<>$2 AND summary<>'' AND NOT EXISTS(SELECT 1 FROM public.ia_vendas_runs r WHERE r.restaurant_id=$1 AND r.conversation_id=ia_vendas_conversations.id AND r.result->>'detached_at' IS NOT NULL) ORDER BY updated_at DESC LIMIT 5",
-              [restaurant, conversation],
+              "SELECT title,summary FROM public.ia_vendas_conversations WHERE restaurant_id=$1 AND id<>$2 AND summary<>'' AND ($3::boolean OR kind='chat') AND NOT EXISTS(SELECT 1 FROM public.ia_vendas_runs r WHERE r.restaurant_id=$1 AND r.conversation_id=ia_vendas_conversations.id AND r.result->>'detached_at' IS NOT NULL) ORDER BY updated_at DESC LIMIT 5",
+              [restaurant, conversation, !freeAssistant],
             )
           ).rows;
       if (deep) {
@@ -393,6 +396,8 @@ export async function runChat(args: {
       }
       if (fileParts.length) input.push({ role: "user", content: fileParts });
     }
+    const budgetRow = !isDeep ? (await query("SELECT result->>'free_budget' free_budget FROM public.ia_vendas_runs WHERE restaurant_id=$1 AND id=$2", [restaurant, run])).rows[0] : null;
+    const freeBudget = budgetRow?.free_budget != null ? Number(budgetRow.free_budget) : null;
     let inputTokens = args.resume?.inputTokens || 0,
       outputTokens = args.resume?.outputTokens || 0,
       example = args.resume?.example || false,
@@ -430,6 +435,7 @@ export async function runChat(args: {
         throw new SalesError(
           "A resposta atingiu o limite. As propostas prontas foram salvas.",
         );
+      if (freeBudget !== null && inputTokens + outputTokens + estimatedInput + 500 > freeBudget) throw new IaPlusRequired("Você atingiu o limite gratuito do Assistente IA deste mês.");
       const finalRound =
         round === maxRounds ||
         (deep &&
@@ -453,7 +459,7 @@ export async function runChat(args: {
             ? finalRound
               ? Math.min(6000, maxOutput - outputTokens)
               : Math.min(2500, maxOutput - outputTokens - 5000)
-            : Math.min(2500, maxOutput - outputTokens),
+            : Math.min(2500, maxOutput - outputTokens, freeBudget === null ? Infinity : freeBudget - inputTokens - outputTokens - estimatedInput),
           reasoning: { effort: deep ? "medium" : "low" },
           text: { format: deep ? REPORT_FORMAT : { type: "json_object" } },
           store: false,
@@ -608,6 +614,7 @@ export async function runChat(args: {
                 throw new SalesError("Ferramenta desconhecida.");
             }
           } catch (e) {
+            if (e instanceof IaPlusRequired) throw e;
             result = {
               error:
                 e instanceof SalesError
@@ -712,6 +719,6 @@ export async function runChat(args: {
         error,
       );
     }
-    send("error", { message: error });
+    send("error", { message: error, ...(e instanceof IaPlusRequired ? { code: e.code } : {}) });
   }
 }
