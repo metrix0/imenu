@@ -9,6 +9,8 @@ import type { Action, Data } from "@/lib/ia-vendas/types";
 const levels: Record<string, string> = { high: "alto", medium: "médio", low: "baixo" };
 const confidenceLevels: Record<string, string> = { high: "alta", medium: "média", low: "baixa" };
 const surface = "rounded-[10px] border border-[var(--panel-border)] bg-[var(--panel-surface)]";
+// Historical before/after results are intentionally hidden for now; keep the implementation for future use.
+const SHOW_MEASUREMENT_HISTORY = false;
 
 export default function AnalysisReport({
   analyses, selected, actions, refs, disabled, loading, generating,
@@ -135,21 +137,21 @@ export default function AnalysisReport({
         </article>)}</div>
       </details>}
 
-      {!legacy && <section aria-label="Potencial e resultados" className="space-y-4">
-        <h3>Comparações e resultados</h3>
-        <div className="grid gap-4 2xl:grid-cols-2">
+      {!legacy && <section aria-label={SHOW_MEASUREMENT_HISTORY ? "Comparações e resultados" : "Comparações"} className="space-y-4">
+        <h3>{SHOW_MEASUREMENT_HISTORY ? "Comparações e resultados" : "Comparações"}</h3>
+        <div className={`grid gap-4 ${SHOW_MEASUREMENT_HISTORY ? "2xl:grid-cols-2" : ""}`}>
           <div className={surface + " min-w-0 p-5 [&>details]:!m-0 [&>details]:!border-0 [&>details]:!p-0"}>
             {report ? <DataCard card={{...report.benchmark_snapshot, reason: report.benchmark_snapshot?.reason || "Ainda não há dados suficientes para uma comparação útil.", type:"benchmark"}} expanded /> : <>
               <div className="mb-3 flex items-center gap-2"><TrendingUp size={16} className="text-[var(--panel-muted)]" /><h4 className="text-sm font-medium">Restaurantes semelhantes</h4></div>
               <p className="text-sm leading-6 text-[var(--panel-muted)]">Compare suas vendas com restaurantes parecidos quando houver dados suficientes.</p>
             </>}
           </div>
-          <div className={surface + " min-w-0 p-5 [&>details]:!m-0 [&>details]:!border-0 [&>details]:!p-0"}>
+          {SHOW_MEASUREMENT_HISTORY && <div className={surface + " min-w-0 p-5 [&>details]:!m-0 [&>details]:!border-0 [&>details]:!p-0"}>
             {report?.measurement_snapshot?.results?.some((r: Data) => r.before.orders || r.after.orders) ? <DataCard card={{...report.measurement_snapshot, type:"measurement"}} expanded /> : <>
               <div className="mb-3 flex items-center gap-2"><ClipboardList size={16} className="text-[var(--panel-muted)]" /><h4 className="text-sm font-medium">Resultados das mudanças</h4></div>
               <p className="text-sm leading-6 text-[var(--panel-muted)]">{report?.measurement_snapshot?.reason || report?.measurement_snapshot?.note || "Ainda não há vendas suficientes após as mudanças para comparar os resultados."}</p>
             </>}
-          </div>
+          </div>}
         </div>
       </section>}
       {legacy && <section className={surface + " space-y-4 p-5"}>

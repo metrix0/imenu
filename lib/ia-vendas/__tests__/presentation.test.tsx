@@ -59,12 +59,13 @@ test("report leads with summary and potential, then opportunities, review and co
   const positions = [
     'aria-label="Resumo da IA"', 'aria-label="Potencial estimado"',
     'aria-label="Oportunidades prioritárias"', "Pontos para revisão",
-    'aria-label="Potencial e resultados"',
+    'aria-label="Comparações"',
   ].map((label) => html.indexOf(label));
   expect(positions.every((position) => position >= 0)).toBe(true);
   expect(positions).toEqual([...positions].sort((a, b) => a - b));
   expect(html).toContain("Ainda não há restaurantes suficientes.");
-  expect(html).toContain("Ainda não há vendas para comparar.");
+  expect(html).not.toContain("Ainda não há vendas para comparar.");
+  expect(html).not.toContain("Resultados das mudanças");
   expect(html).not.toContain("Ticket:");
   expect(html).not.toContain("oportunidades priorizadas");
 });
