@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import {
     faArrowRotateLeft,
@@ -16,6 +16,7 @@ import Link from "next/link";
 import QrCodeMesaCheckoutModal from "@/components/restaurant-owner/mesas/QrCodeMesaCheckoutModal";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
+import ModalFlowStep from "@/components/ui/ModalFlowStep";
 import type { QrTableSource } from "@/lib/qr-table/types";
 
 type QrCodeMesaSalesModalProps = {
@@ -26,64 +27,6 @@ type QrCodeMesaSalesModalProps = {
     active?: boolean;
     onPaid?: () => void | Promise<void>;
 };
-
-function AnimatedModalFlowStep({
-    children,
-    reverse = false,
-}: {
-    children: ReactNode;
-    reverse?: boolean;
-}) {
-    const [visible, setVisible] = useState(false);
-    const [settled, setSettled] = useState(false);
-
-    useEffect(() => {
-        let settleTimer = 0;
-        const frame = window.requestAnimationFrame(() => {
-            setVisible(true);
-            settleTimer = window.setTimeout(() => setSettled(true), 300);
-        });
-
-        return () => {
-            window.cancelAnimationFrame(frame);
-            if (settleTimer) window.clearTimeout(settleTimer);
-        };
-    }, []);
-
-    if (settled) {
-        return <div className="flex h-full min-h-0 flex-col">{children}</div>;
-    }
-
-    const hiddenTransform = reverse ? "-translate-x-full" : "translate-x-full";
-
-    return (
-        <div
-            className={`flex h-full min-h-0 flex-col will-change-transform transition-transform duration-300 ease-out motion-reduce:transition-none ${
-                visible ? "translate-x-0" : hiddenTransform
-            }`}
-        >
-            {children}
-        </div>
-    );
-}
-
-function ModalFlowStep({
-    children,
-    reverse = false,
-    animate = true,
-}: {
-    children: ReactNode;
-    reverse?: boolean;
-    animate?: boolean;
-}) {
-    if (!animate) return <>{children}</>;
-
-    return (
-        <AnimatedModalFlowStep reverse={reverse}>
-            {children}
-        </AnimatedModalFlowStep>
-    );
-}
 
 const BENEFITS = [
     {
@@ -140,6 +83,8 @@ export default function QrCodeMesaSalesModal({
 
     return (
         <Modal
+            fixedHeight
+            bodyClassName="!overflow-hidden"
             height={checkoutOpen ? 760 : 700}
             open={open}
             onClose={close}

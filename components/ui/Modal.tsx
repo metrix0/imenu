@@ -20,6 +20,7 @@ interface ModalProps {
     onClose: () => void;
     children: ReactNode;
     className?: string;
+    bodyClassName?: string;
     showCloseButton?: boolean;
     fixedHeight?: boolean;
     /** Required per usage. Do not add a shared/default modal height. */
@@ -31,6 +32,7 @@ export default function Modal({
     onClose,
     children,
     className = "",
+    bodyClassName = "",
     showCloseButton = false,
     fixedHeight = false,
     height,
@@ -195,7 +197,7 @@ export default function Modal({
                         />
                     </button>
                 )}
-                {panel ? <div className="panel-modal-body [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1">{children}</div> : children}
+                {panel ? <div className={`panel-modal-body [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1 ${bodyClassName}`}>{children}</div> : children}
             </div>
         </div>,
         document.body

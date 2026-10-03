@@ -4,10 +4,11 @@ import { LegacyModalClose } from "@/components/ui/ModalCloseButton";
 import Textarea from "@/components/ui/Textarea";
 import Input from "@/components/ui/Input";
 import Dropdown from "@/components/ui/Dropdown";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/database/supabaseClient";
 import Button from "@/components/ui/Button";
 import HybridModal from "@/components/ui/HybridModal";
+import ModalFlowStep from "@/components/ui/ModalFlowStep";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { icons } from "@/lib/utils/fontawesome";
 import { formatPrice } from "@/lib/utils/formatPrice";
@@ -40,33 +41,6 @@ type Subitem = PanelOrderSubcategory["subitems"][number];
 type SelectedSubitem = PanelOrderSelectedSubitem;
 type SelectedItem = PanelOrderConfiguredItem;
 
-function ModalFlowStep({
-    children,
-    reverse = false,
-}: {
-    children: ReactNode;
-    reverse?: boolean;
-}) {
-    const [visible, setVisible] = useState(false);
-
-    useEffect(() => {
-        const frame = window.requestAnimationFrame(() => setVisible(true));
-        return () => window.cancelAnimationFrame(frame);
-    }, []);
-
-    const hiddenTransform = reverse ? "-translate-x-full" : "translate-x-full";
-
-    return (
-        <div
-            className={`h-full min-h-0 will-change-transform transition-transform duration-300 ease-out motion-reduce:transition-none ${
-                visible ? "translate-x-0" : hiddenTransform
-            }`}
-        >
-            {children}
-        </div>
-    );
-}
-
 export default function CreatePanelOrderModal({
                                                   isOpen,
                                                   onClose,
@@ -98,6 +72,7 @@ export default function CreatePanelOrderModal({
     const [loadingSubcategoriesByItemId, setLoadingSubcategoriesByItemId] = useState<Record<string, boolean>>({});
     const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
     const [configuringItem, setConfiguringItem] = useState<Item | null>(null);
+    const [hasNavigatedToConfigurator, setHasNavigatedToConfigurator] = useState(false);
     const [configuringSubcategories, setConfiguringSubcategories] = useState<Subcategory[]>([]);
     const [isLoadingItemConfigurator, setIsLoadingItemConfigurator] = useState(false);
 
@@ -185,7 +160,10 @@ export default function CreatePanelOrderModal({
     }, [isOpen, restaurantId, menuVersion]);
 
     useEffect(() => {
-        if (!isOpen) return;
+        if (!isOpen) {
+            setHasNavigatedToConfigurator(false);
+            return;
+        }
         setMobileView("menu");
         setMenuSearch("");
     }, [isOpen]);
@@ -262,6 +240,7 @@ export default function CreatePanelOrderModal({
     };
 
     const handleAddItem = async (item: Item) => {
+        setHasNavigatedToConfigurator(true);
         setConfiguringItem(item);
         const cached = subcategoriesByItemId[item.id];
 
@@ -291,6 +270,7 @@ export default function CreatePanelOrderModal({
 
     const handleModalClose = () => {
         closeItemConfigurator();
+        setHasNavigatedToConfigurator(false);
         onClose();
     };
 
@@ -585,7 +565,11 @@ export default function CreatePanelOrderModal({
                     />
                 </ModalFlowStep>
             ) : (
-                <ModalFlowStep key="order" reverse>
+                <ModalFlowStep
+                    key="order"
+                    reverse
+                    animate={hasNavigatedToConfigurator}
+                >
             <div className="panel-create-order flex h-full min-h-0 flex-col bg-white">
                 <div className="shrink-0 border-b border-gray-100 bg-white px-4 pb-4 pt-4 md:px-6 md:py-5">
                     <div className="flex items-center justify-between gap-4">
