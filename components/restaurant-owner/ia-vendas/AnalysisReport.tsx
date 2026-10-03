@@ -1,6 +1,7 @@
 "use client";
-import { ChevronDown, CircleHelp, ClipboardList, History, LoaderCircle, MessageSquare, Sparkles, Target } from "lucide-react";
+import { ChevronDown, CircleHelp, ClipboardList, History, MessageSquare, Sparkles, Target } from "lucide-react";
 import Button from "@/components/ui/Button";
+import Loader from "@/components/ui/Loader";
 import Dropdown from "@/components/ui/Dropdown";
 import SalesMarkdown from "./SalesMarkdown";
 import { ActionCard, DataCard } from "./SalesWidgets";
@@ -14,16 +15,18 @@ const SHOW_MEASUREMENT_HISTORY = false;
 
 export default function AnalysisReport({
   analyses, selected, actions, refs, disabled, loading, generating,
-  status, activeOpportunityId, onSelect, onDiscuss, onChat, onHistory, onAction, onBatch,
+  activeOpportunityId, onSelect, onDiscuss, onChat, onHistory, onAction, onBatch,
 }: {
   analyses: Data[]; selected?: Data; actions: Action[]; refs: Record<string, string>;
   disabled: boolean; loading: boolean; generating: boolean;
-  status: string; activeOpportunityId?: string;
+  activeOpportunityId?: string;
   onSelect: (id: string) => void; onDiscuss: (item: Data) => void; onChat: () => void;
   onHistory: () => void; onAction: (command: string, ids: string[]) => void; onBatch: (ids: string[]) => void;
 }) {
   const report = selected?.result?.report, legacy = selected && !report;
-  const waiting = loading || generating;
+  if (loading || generating) {
+    return <div className={styles.loading} role="status" aria-label="Carregando"><Loader /></div>;
+  }
   const opportunities: Data[] = report?.opportunities || [], reviewItems: Data[] = report?.review_items || [];
   const actionById = new Map(actions.map((action) => [action.id, action]));
   const withGenerated = (ids: string[] = []) => [...new Set(ids.flatMap((id) => [id, ...(actionById.get(id)?.generated_actions || [])]))];
@@ -76,9 +79,12 @@ export default function AnalysisReport({
   </button>;
 
   return (
-    <div className={styles.report} aria-busy={waiting}>
+    <div className={styles.report}>
       <header className={styles.pageHeader}>
-        <div className={styles.pageTitle}><span className={styles.reportIcon}><Sparkles size={19} aria-hidden="true" /></span><h1>Análise de vendas</h1></div>
+        <div className={styles.pageTitle}>
+          <h1>Análise de vendas</h1>
+          <p>Encontre oportunidades para vender mais e revise as mudanças sugeridas pela IA.</p>
+        </div>
         <div className={styles.headerControls}>
           {analyses.length > 1 && <div className={styles.historySelect}>
             <Dropdown aria-label="Histórico de análises" value={selected?.id || ""} disabled={disabled}
@@ -93,10 +99,6 @@ export default function AnalysisReport({
         </div>
       </header>
 
-      {waiting && <div role="status" className={styles.notice}>
-        <LoaderCircle size={18} className="animate-spin motion-reduce:animate-none" aria-hidden="true" />
-        <p>{status || (generating ? "Preparando seu relatório. As oportunidades aparecerão assim que a análise terminar." : "Carregando análise…")}</p>
-      </div>}
       {report?.status === "partial" && !generating && <div role="status" className={styles.notice}>
         <CircleHelp size={18} aria-hidden="true" /><p>Esta análise não foi concluída. As propostas preparadas estão disponíveis para revisão.</p>
       </div>}
@@ -107,7 +109,7 @@ export default function AnalysisReport({
             <div>
               <h2>O que seu restaurante pode ganhar em 4 semanas</h2>
               {report ? <DataCard card={{ ...report.potential_estimate, hide_period_label: true, type: "potential" }} presentation="report" /> : <div className={styles.potential}>
-                <p className={styles.gain}>{waiting ? "Calculando…" : "A descobrir"}</p>
+                <p className={styles.gain}>"A descobrir"</p>
                 <p className={styles.comparisonNote}>Uma estimativa baseada nas oportunidades e nos pedidos do seu restaurante.</p>
               </div>}
             </div>
@@ -120,7 +122,7 @@ export default function AnalysisReport({
 
           <section aria-label="Resumo da IA" className={styles.summary}>
             <p className={styles.eyebrow}><Sparkles size={14} aria-hidden="true" />Resumo da IA</p>
-            <h2>{report?.headline || (waiting ? "Encontrando oportunidades para vender mais" : "Seu próximo passo para vender mais")}</h2>
+            <h2>{report?.headline || "Seu próximo passo para vender mais"}</h2>
             <div className={styles.summaryCopy}>{report ? <SalesMarkdown content={report.summary} /> : <p>A análise prioriza melhorias nas vendas e traz mudanças prontas para você revisar.</p>}</div>
           </section>
 
@@ -128,8 +130,8 @@ export default function AnalysisReport({
             <div className={styles.sectionHeader}><h2>Oportunidades prioritárias</h2>{!!opportunities.length && <span className={styles.count}>{opportunities.length}</span>}</div>
             {!opportunities.length && <div className={styles.empty}>
               <Target size={28} aria-hidden="true" />
-              <h3>{waiting ? "Avaliando as melhores oportunidades" : report ? "Nenhuma oportunidade priorizada" : "Sua análise estará disponível aqui"}</h3>
-              <p>{waiting ? "O relatório aparecerá aqui assim que a análise terminar." : report ? (report.status === "partial" ? "A priorização ainda não foi concluída. Veja as propostas preservadas nos pontos para revisão." : "Não encontramos mudanças de alto impacto sustentadas pelos dados atuais.") : "As oportunidades aparecerão aqui quando seu relatório estiver disponível."}</p>
+              <h3>{report ? "Nenhuma oportunidade priorizada" : "Sua análise estará disponível aqui"}</h3>
+              <p>{report ? (report.status === "partial" ? "A priorização ainda não foi concluída. Veja as propostas preservadas nos pontos para revisão." : "Não encontramos mudanças de alto impacto sustentadas pelos dados atuais.") : "As oportunidades aparecerão aqui quando seu relatório estiver disponível."}</p>
             </div>}
             {opportunities.map((entry, index) => <article key={entry.id} aria-label={entry.title}
               className={`${styles.opportunity} ${activeOpportunityId === entry.id ? styles.opportunityActive : ""}`}>

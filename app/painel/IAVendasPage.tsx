@@ -615,7 +615,7 @@ export default function SalesPage() {
     <div
       className={
         isAnalysis
-          ? "h-[calc(100dvh-112px)] max-h-[calc(100dvh-112px)] min-h-0 w-full overflow-hidden md:h-[calc(100dvh-64px)] md:max-h-[calc(100dvh-64px)]"
+          ? "h-[calc(100dvh-112px)] max-h-[calc(100dvh-112px)] min-h-0 w-[calc(100%+1rem)] !max-w-none overflow-hidden md:h-[calc(100dvh-64px)] md:max-h-[calc(100dvh-64px)] md:w-[calc(100%+1.75rem)] 2xl:w-[calc(100%+2rem)]"
           : "h-full max-h-full min-h-0 w-full !max-w-none overflow-hidden"
       }
     >
@@ -704,7 +704,6 @@ export default function SalesPage() {
                     disabled={disabled}
                     loading={sales.loading && !sales.analyses.length}
                     generating={analysisRunning}
-                    status={sales.status}
                     activeOpportunityId={opportunity?.id}
                     onHistory={() => setModal("history")}
                     onChat={() => {
@@ -833,52 +832,6 @@ export default function SalesPage() {
 
         </section>
       </div>
-      {isAnalysis && (
-        <style jsx global>{`
-          .sales-analysis-default-shell [aria-busy="true"] > header {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 1rem;
-            margin-bottom: 2rem;
-          }
-
-          .sales-analysis-default-shell
-            [aria-busy="true"]
-            > header
-            > div:first-child {
-            gap: 0;
-          }
-
-          .sales-analysis-default-shell
-            [aria-busy="true"]
-            > header
-            > div:first-child
-            > span {
-            display: none;
-          }
-
-          .sales-analysis-default-shell [aria-busy="true"] > header h1 {
-            color: rgb(17 24 39);
-            font-size: 1.875rem;
-            font-weight: 700;
-            line-height: 2.25rem;
-          }
-
-          @media (min-width: 1280px) {
-            .sales-analysis-default-shell [aria-busy="true"] > header {
-              flex-direction: row;
-              align-items: flex-end;
-            }
-          }
-
-          @media (min-width: 1536px) {
-            .sales-analysis-default-shell [aria-busy="true"] > header h1 {
-              font-size: 2.25rem;
-              line-height: 2.5rem;
-            }
-          }
-        `}</style>
-      )}
       <Modal
         open={modal !== null}
         onClose={() => {
