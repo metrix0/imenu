@@ -3,15 +3,14 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
+import { faArrowTrendUp, faWandMagicSparkles } from "@fortawesome/free-solid-svg-icons";
 import {
   ArrowRight,
   Check,
   CreditCard,
   Image as ImageIcon,
-  MessageSquare,
   RefreshCw,
   Sparkles,
-  WandSparkles,
 } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 import ModalFlowStep from "@/components/ui/ModalFlowStep";
@@ -19,7 +18,6 @@ import Button from "@/components/ui/Button";
 import QrCodeMesaCheckoutModal from "@/components/restaurant-owner/mesas/QrCodeMesaCheckoutModal";
 import { IA_PLUS_BENEFITS, IA_PLUS_PRICE_LABEL } from "@/lib/addons/products";
 
-const BENEFIT_ICONS = [MessageSquare, ImageIcon, WandSparkles] as const;
 const SUPPORT_URL =
   "https://wa.me/5519997235394?text=Ol%C3%A1%2C%20tenho%20uma%20d%C3%BAvida%20sobre%20o%20iMenu%20IA%20Plus.";
 
@@ -92,13 +90,10 @@ export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout
 
               <div className="mt-7 inline-flex items-center gap-2 rounded-full border border-brand/15 bg-brand/5 px-3 py-1.5 text-xs font-semibold text-brand">
                 <Sparkles size={14} aria-hidden="true" />
-                Mais capacidade para executar
+                IA que analisa e aplica melhorias automaticamente.
               </div>
 
-              <h2 className="mt-4 max-w-xl text-2xl font-bold leading-tight text-gray-900 sm:text-[30px]">
-                Transforme análise em mudanças que vendem mais.
-              </h2>
-              <p className="mt-3 max-w-xl text-sm leading-6 text-gray-600 sm:text-base">
+              <p className="mt-4 max-w-xl text-sm leading-6 text-gray-600 sm:text-base">
                 Use o Assistente IA com mais capacidade, gere imagens e coloque em prática as oportunidades da sua Análise de Vendas com IA.
               </p>
 
@@ -136,10 +131,15 @@ export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout
           <div className="px-6 py-6 sm:px-8">
             <div className="grid gap-3 md:grid-cols-3">
               {IA_PLUS_BENEFITS.map((benefit, index) => {
-                const BenefitIcon = BENEFIT_ICONS[index] || Sparkles;
                 return <div key={benefit.title} className="rounded-xl border border-orange-100 bg-gradient-to-br from-white to-orange-50/70 p-4">
                   <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand/10 text-brand">
-                    <BenefitIcon size={17} aria-hidden="true" />
+                    {index === 0 ? (
+                      <FontAwesomeIcon icon={faWandMagicSparkles} className="text-[17px]" />
+                    ) : index === 2 ? (
+                      <FontAwesomeIcon icon={faArrowTrendUp} className="text-[17px]" />
+                    ) : (
+                      <ImageIcon size={17} aria-hidden="true" />
+                    )}
                   </span>
                   <p className="mt-3 text-sm font-semibold text-gray-900">{benefit.title}</p>
                   <p className="mt-1 text-sm leading-6 text-gray-500">{benefit.description}</p>

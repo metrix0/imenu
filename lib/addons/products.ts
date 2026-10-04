@@ -6,7 +6,7 @@ export type AddonProduct = (typeof ADDON_PRODUCTS)[keyof typeof ADDON_PRODUCTS];
 export const IA_PLUS = ADDON_PRODUCTS.ia_plus;
 export const IA_PLUS_FEATURE_MESSAGE = "Essa é uma função do plano iMenu IA Plus";
 export const IA_PLUS_BENEFITS = [
-  { title: "Mais ajuda do Assistente IA", description: "Converse com a IA para melhorar seu cardápio, descrições, preços e configurações, com uma capacidade maior de uso." },
+  { title: "Assistente IA Automático", description: "A IA segue seus comandos e pode aplicar mudanças no seu cardápio. Todas melhorias, descrições, preços e configurações, com uma capacidade maior de uso." },
   { title: "Imagens para seus produtos", description: "Gere e revise novas imagens de produtos, logo e banner antes de publicar." },
   { title: "Coloque sua análise em prática", description: "Veja a análise completa, converse sobre as oportunidades e revise e aplique as mudanças sugeridas." },
 ] as const;
