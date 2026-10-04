@@ -239,8 +239,7 @@ export default function AnalysisReport({
           <div className={styles.secondary}>
             {!!reviewItems.length && <section aria-label="Pontos rápidos para revisão" className={styles.review}>
               <div className={styles.reviewSummary}>
-                <CircleHelp size={20} aria-hidden="true" />
-                <div><strong>Pontos rápidos para revisão <span className={styles.count}>{reviewItems.length}</span></strong></div>
+                <h2>Pontos rápidos para revisão <span className={styles.count}>{reviewItems.length}</span></h2>
               </div>
               <div className={styles.reviewEntries}>{reviewItems.map((entry) => <article key={entry.id} className={styles.reviewEntry}>
                 <div><h3>{entry.title}</h3><p className={styles.explanation}>{entry.explanation}</p><div className={styles.opportunityTools}>{renderEvidence(entry)}{discuss(entry)}</div></div>

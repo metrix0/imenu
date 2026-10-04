@@ -108,11 +108,11 @@
 .operationRows { display: grid; gap: 14px; }
 .operationRows > div { padding-block: 0; }
 .operationRows > div > p { color: var(--panel-text); font-size: 13px; line-height: 1.6; }
-.secondary { display: grid; gap: 0; padding: 0; border-top: 1px solid var(--panel-border); }
+.secondary { display: grid; gap: 0; padding: 0; }
 .review { padding: 24px; border: 1px solid var(--panel-border); border-radius: 10px; background: var(--panel-surface); }
 .reviewSummary { display: flex; align-items: center; gap: 12px; }
 .reviewSummary > svg { color: var(--panel-muted); flex-shrink: 0; }
-.reviewSummary strong { display: flex; align-items: center; gap: 10px; font-size: 19px; font-weight: 500; }
+.reviewSummary h2 { display: flex; align-items: center; gap: 10px; font-size: 22px; font-weight: 500; }
 .reviewSummary p { margin-top: 4px; color: var(--panel-muted); font-size: 12px; line-height: 1.5; }
 .reviewEntries { display: grid; gap: 24px; margin-top: 24px; }
 .reviewEntry { display: grid; gap: 18px; padding-top: 20px; border-top: 1px solid var(--panel-border); }
@@ -170,7 +170,7 @@
   .sectionHeader h2 { font-size: 20px; }
   .opportunity { padding-block: 24px; }
   .opportunityHeading h3 { font-size: 16px; }
-  .reviewSummary strong { font-size: 17px; }
+  .reviewSummary h2 { font-size: 20px; }
   .opportunityActive::before { left: -8px; }
   .action { padding: 14px; }
 }
