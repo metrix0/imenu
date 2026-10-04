@@ -51,7 +51,7 @@ export default function AnaliseDeVendasComIaPage() {
         >
             <figure className="overflow-hidden rounded-3xl border border-orange-100 bg-orange-50/40 shadow-sm">
                 <img src="/logos/IAPlusCombinationMarkLogo_Brand.png" alt="iMenu IA Plus" width={950} height={199} className="mx-auto my-6 h-auto w-56 max-w-[80%]" />
-                <img src="/images/IAPlus.png" alt="Representação dos recursos de IA do iMenu com uma proposta de mudança no cardápio aguardando aprovação" width={1602} height={1823} className="mx-auto block h-auto w-full max-w-lg" />
+                <img src="/images/IAPlus.png" alt="Representação dos recursos de IA do iMenu com uma proposta de mudança no cardápio aguardando aprovação" width={1602} height={1823} className="mx-auto block h-auto w-full max-w-xs rounded-2xl" />
                 <figcaption className="px-6 py-4 text-center text-sm text-gray-500">Com IA Plus, as oportunidades da análise podem virar mudanças aplicadas após sua aprovação. Imagem ilustrativa do Assistente.</figcaption>
             </figure>
             <BlogSection id="dados-viram-acoes" title="Seu cardápio vende todos os dias. O que ele está deixando passar?">

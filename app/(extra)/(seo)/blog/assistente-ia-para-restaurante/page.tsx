@@ -49,7 +49,7 @@ export default function AssistenteIaParaRestaurantePage() {
         >
             <figure className="overflow-hidden rounded-3xl border border-orange-100 bg-orange-50/40 shadow-sm">
                 <img src="/logos/IAPlusCombinationMarkLogo_Brand.png" alt="iMenu IA Plus" width={950} height={199} className="mx-auto my-6 h-auto w-56 max-w-[80%]" />
-                <img src="/images/IAPlus.png" alt="Representação do Assistente IA preparando uma descrição e uma imagem de hambúrguer para aprovação" width={1602} height={1823} className="mx-auto block h-auto w-full max-w-lg" />
+                <img src="/images/IAPlus.png" alt="Representação do Assistente IA preparando uma descrição e uma imagem de hambúrguer para aprovação" width={1602} height={1823} className="mx-auto block h-auto w-full max-w-xs rounded-2xl" />
                 <figcaption className="px-6 py-4 text-center text-sm text-gray-500">Imagem ilustrativa do fluxo: conversar, revisar a proposta e aprovar a aplicação.</figcaption>
             </figure>
             <BlogSection id="do-pedido-a-mudanca" title="Seu próximo ajuste no cardápio pode começar com uma mensagem">

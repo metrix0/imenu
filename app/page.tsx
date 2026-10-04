@@ -549,12 +549,12 @@ export default function LandingPage() {
                             )}
                             {[
                                 ["Totalmente grátis, para sempre", "check", "Mensalidade e taxas"],
-                                ["Assistente IA", "Grátis, com limites de conversa e imagens; mais capacidade com IA Plus", "Varia por sistema"],
-                                ["Vendas IA (Análise de vendas)", "Análise grátis por liberação; aplicação automática após aprovação e acesso mais rápido com IA Plus", "Varia por sistema"],
                                 ["Pedidos ilimitados", "check", "Cada vez mais caro"],
                                 ["Robô WhatsApp", "check", "Taxas adicionais"],
                                 ["Aplicativo para celular", "check", "Não"],
                                 ["Converte o cliente", "check", "Baixa Conversão"],
+                                ["Assistente IA", "check", "Não"],
+                                ["Vendas IA (Análise)", "check", "Não"],
                                 ["Gestor de pedidos (balcão)", "check", "Limitado"],
                                 ["Suporte humanizado", "Todos os dias", "Robô, fila ou e-mail"],
                                 ["Impressão dos pedidos", "check", "Não"],
@@ -581,6 +581,7 @@ export default function LandingPage() {
                                 ["App para garçom", "check", "Pago"],
                                 ["Agendamento de pedido", "check", "Não"],
                                 ["Dividir Pizza em vários sabores", "check", "Não tem ou máximo 2"],
+                                ["Relatórios e Analytics", "check", "Limitado"],
                                 ["Sem bugs", "Correção garantida em 2 dias úteis", "Correção leva meses"],
                                 ["Notificar pedido", "Notificações no WhatsApp do restaurante e do cliente", "Não"],
                             ].map(([feature, imenu, competitor]) => (
