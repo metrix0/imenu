@@ -561,7 +561,7 @@ export default function LandingPage() {
                                 ["Seu domínio customizado", "check", "Não"],
                                 ["SEO", "check", "Não otimizado"],
                                 ["Acompanhamento do pedido", "Acompanhamento em tempo real via Página e Whatsapp", "Clientes ficam perdidos"],
-                                ["Taxa por Transação", "0.99% *apenas para PIX Online*", "5%, 15%, 30%"],
+                                ["Taxa por Transação", "SEM TAXAS. Apenas Pix Online: 0.99% por pedido.", "5%, 15%, 30%"],
                                 ["Scan de Cardápio com IA", "Pronto em segundos", "Manual"],
                                 ["Dados para análise", "Clicks, Visualizações do Cardápio, $ médio do Carrinho, Clicks por Plataforma, etc", "Limitado"],
                                 ["Calcular Taxa de Entrega", "Pelo Raio (KM) ou Bairro", "Configurações confusas"],
