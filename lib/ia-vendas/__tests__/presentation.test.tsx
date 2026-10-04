@@ -81,7 +81,7 @@ test("report leads with potential actions, then summary, opportunities, review a
 test("locked analysis uses the IA Plus sales-flow image and paywall viewport class", () => {
   const html = renderToStaticMarkup(<AnalysisReport {...props} locked />);
   expect(html).toContain('class="report reportLocked"');
-  expect(html).toContain("IAPlus.png");
+  expect(html).toContain("IAPlusCombinationMarkLogo_Brand.png");
   expect(html).toContain("Coloque essas oportunidades em prática");
   expect(html).toContain("Conhecer iMenu IA Plus");
 });

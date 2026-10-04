@@ -88,7 +88,7 @@ export default function AnalysisReport({
       <header className="panel-page-heading flex flex-col xl:flex-row justify-between items-start xl:items-end gap-4 mb-8">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 2xl:text-4xl">Análise de vendas</h1>
-          <p className="text-gray-500 mt-1 2xl:text-lg 2xl:mt-2">Encontre oportunidades para vender mais e revise as mudanças sugeridas pela IA.</p>
+          <p className="text-gray-500 mt-1 2xl:text-lg 2xl:mt-2">Encontre oportunidades para vender e aplique automaticamente com IA.</p>
         </div>
         <div className="panel-page-actions flex flex-row items-center gap-2 sm:gap-3">
           {analyses.length > 1 && <div className={styles.historySelect}>
@@ -172,7 +172,7 @@ export default function AnalysisReport({
               </div>}
             </section>
           </div>
-          {locked && report && <div className={styles.paywall}><div className={styles.paywallImage}><Image src="/images/IAPlus.png" alt="" fill sizes="80px" className="object-contain" /></div><h3>Coloque essas oportunidades em prática</h3><p>Veja a análise completa, converse com a IA e revise e aplique as melhorias com o iMenu IA Plus.</p><Button onClick={onUpgrade}>Conhecer iMenu IA Plus</Button></div>}
+          {locked && report && <div className={styles.paywall}><div className={styles.paywallImage}><Image src="/logos/IAPlusCombinationMarkLogo_Brand.png" alt="" fill sizes="80px" className="object-contain" /></div><h3>Coloque essas oportunidades em prática</h3><p>Veja a análise completa, converse com a IA e revise e aplique as melhorias com o iMenu IA Plus.</p><Button onClick={onUpgrade}>Conhecer iMenu IA Plus</Button></div>}
           </div>
         </>}
         {legacy && <div className={locked ? styles.preview : undefined}><section className={styles.legacy}>
