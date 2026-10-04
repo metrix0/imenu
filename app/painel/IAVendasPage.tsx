@@ -4,7 +4,6 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   Sparkles,
-  Plus,
   SquarePen,
   Send,
   Paperclip,
@@ -345,7 +344,7 @@ export default function SalesPage() {
   };
   const conversationPicker = (
     <>
-      <div className="md:hidden">
+      <div className="w-full min-w-0 md:hidden">
         <Dropdown
           custom
           aria-label="Conversa"
@@ -353,6 +352,7 @@ export default function SalesPage() {
           disabled={disabled}
           options={chatConversations.map((c) => ({ value: c.id, label: c.title }))}
           onChange={(e) => changeConversation(e.target.value)}
+          className="w-full min-w-0"
         />
       </div>
       <select
@@ -733,7 +733,7 @@ export default function SalesPage() {
                 disabled={disabled}
                 onClick={() => void sales.command("create_conversation")}
               >
-                <Plus size={16} className="mr-2" />
+                <SquarePen size={16} className="mr-2" />
                 Nova conversa
               </Button>
               <nav
@@ -848,15 +848,17 @@ export default function SalesPage() {
             </div>
           ) : (
             <>
-          <div className="flex items-center justify-between gap-2 border-b border-[var(--panel-border)] bg-[var(--panel-surface)] px-4 py-3">
-            <div className="min-w-0 flex-1 md:flex-none">
+          <div className="flex min-w-0 items-center gap-2 overflow-x-auto border-b border-[var(--panel-border)] bg-[var(--panel-surface)] px-4 py-3 md:overflow-visible">
+            <div className="min-w-[130px] flex-1 md:flex-none">
               <h2 className="hidden truncate text-sm font-medium lg:block">
                 {conversation?.title || "Carregando…"}
               </h2>
               {conversationPicker}
             </div>
-            <div className="flex gap-2">
-              <Button variant="secondary" className="hidden md:inline-flex lg:hidden" onClick={() => setPlusModal("sales")}>iMenu IA Plus</Button>
+            <div className="flex shrink-0 gap-2">
+              <span className="hidden md:inline-flex lg:hidden">
+                <Button variant="secondary" onClick={() => setPlusModal("sales")}>iMenu IA Plus</Button>
+              </span>
               <Button
                 variant="secondary"
                 className="lg:hidden"
@@ -864,8 +866,7 @@ export default function SalesPage() {
                 disabled={disabled}
                 onClick={() => void sales.command("create_conversation")}
               >
-                <SquarePen size={17} className="md:hidden" />
-                <Plus size={16} className="hidden md:block" />
+                <SquarePen size={17} />
               </Button>
               <Button
                 variant="secondary"
