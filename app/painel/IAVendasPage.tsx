@@ -45,12 +45,9 @@ function ErrorNoticeContent({ message }: { message: string }) {
 
   const main = message.slice(0, -IA_CAPACITY_SUPPORT_SUFFIX.length).trim();
   return (
-    <span className="flex min-w-0 flex-col gap-2">
-      <span>{main}</span>
-      <span className="flex flex-wrap items-center gap-2">
-        <span>{IA_CAPACITY_SUPPORT_SUFFIX}</span>
-        <SupportWhatsappBadge />
-      </span>
+    <span>
+      {main} {IA_CAPACITY_SUPPORT_SUFFIX}{" "}
+      <SupportWhatsappBadge />
     </span>
   );
 }
