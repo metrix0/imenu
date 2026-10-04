@@ -123,7 +123,7 @@ export default function AnalysisReport({
                 <div>
                   <span className={styles.upgradeEyebrow}>Sem esperar pela seleção gratuita</span>
                   <h3>Comece sua análise agora</h3>
-                  <p>Com o iMenu IA Plus, sua análise começa automaticamente, sem esperar pela seleção gratuita. A análise profunda pode levar até 1 hora para ser concluída.</p>
+                  <p>Com o iMenu IA Plus, sua análise começa automaticamente, sem esperar pela seleção gratuita. A análise profunda pode levar até 1 hora para ser concluída após ativar o plano.</p>
                 </div>
                 <ul className={styles.upgradeBenefits}>
                   <li>Análise iniciada automaticamente</li>
@@ -142,7 +142,7 @@ export default function AnalysisReport({
           <section className={styles.noAnalysisState} role="status" aria-live="polite" aria-busy={generating}>
             <div className={styles.preparingIcon}><Loader /></div>
             <h2>Preparando sua análise</h2>
-            <p>A IA está analisando seus pedidos, cardápio e oportunidades de venda. A análise profunda pode levar até 1 hora para ser concluída. Seu relatório aparecerá aqui assim que estiver pronto.</p>
+            <p>A IA está analisando seus pedidos, cardápio e oportunidades de venda. A análise profunda pode levar até 1 hora para ser concluída após ativar o plano. Seu relatório aparecerá aqui assim que estiver pronto.</p>
           </section>
         )}
       </div>
