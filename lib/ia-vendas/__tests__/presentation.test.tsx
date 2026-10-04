@@ -1,5 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import AnalysisReport from "@/components/restaurant-owner/ia-vendas/AnalysisReport";
+import SalesMarkdown from "@/components/restaurant-owner/ia-vendas/SalesMarkdown";
 import { ActionCard, DataCard } from "@/components/restaurant-owner/ia-vendas/SalesWidgets";
 import type { Action } from "../types";
 
@@ -10,6 +11,7 @@ jest.mock("@/components/restaurant-owner/ia-vendas/AnalysisReport.module.css", (
 jest.mock("next/navigation", () => ({
   useParams: () => ({}),
   usePathname: () => "/painel/ia-vendas",
+  useRouter: () => ({ push: jest.fn() }),
 }));
 
 const action: Action = {
@@ -251,4 +253,23 @@ test("report handles unavailable estimates and never invents a gain", () => {
   expect(html).toContain("Ainda sem estimativa");
   expect(html).toContain("Sem dados suficientes.");
   expect(html).not.toContain("R$");
+});
+
+
+test("panel tab shortcuts render inline inside assistant text", () => {
+  const html = renderToStaticMarkup(
+    <SalesMarkdown
+      content="Acesse [[tab:horarios]] para configurar o funcionamento."
+      panelTabs={["horarios"]}
+    />,
+  );
+
+  expect(html).toContain("Acesse ");
+  expect(html).toContain(">Horários<");
+  expect(html).toContain(" para configurar o funcionamento.");
+  expect(html).not.toContain("[[tab:horarios]]");
+  expect(html.indexOf("Acesse ")).toBeLessThan(html.indexOf("Horários"));
+  expect(html.indexOf("Horários")).toBeLessThan(
+    html.indexOf(" para configurar o funcionamento."),
+  );
 });

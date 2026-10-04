@@ -34,23 +34,17 @@ import { isPanelTabKey, type PanelTabKey } from "@/lib/ia-vendas/panelTabs";
 type MessagePart =
   | { type: "text"; content: string }
   | { type: "action"; id: string }
-  | { type: "tab"; tab: PanelTabKey }
   | { type: "card"; cardType: "benchmark" | "measurement" | "potential" };
 
 function splitMessageParts(content: string): MessagePart[] {
   return content
     .split(
-      /(\[\[(?:action|image):[0-9a-f-]{36}\]\]|\[\[card:(?:benchmark|measurement|potential)\]\]|\[\[tab:[a-z0-9-]+\]\])/gi,
+      /(\[\[(?:action|image):[0-9a-f-]{36}\]\]|\[\[card:(?:benchmark|measurement|potential)\]\])/gi,
     )
     .filter((part) => part.trim())
     .map((part) => {
       const action = /^\[\[(?:action|image):([0-9a-f-]{36})\]\]$/i.exec(part);
       if (action) return { type: "action", id: action[1] };
-      const tab = /^\[\[tab:([a-z0-9-]+)\]\]$/i.exec(part);
-      if (tab) {
-        const key = tab[1].toLowerCase();
-        if (isPanelTabKey(key)) return { type: "tab", tab: key };
-      }
       const card = /^\[\[card:(benchmark|measurement|potential)\]\]$/i.exec(
         part,
       );
@@ -359,7 +353,19 @@ export default function SalesPage() {
                     m.role === "assistant"
                       ? splitMessageParts(m.content)
                       : [{ type: "text" as const, content: m.content }],
-                  placed = new Set<string>(),
+                  panelTabs = m.cards
+                    .filter(
+                      (card) =>
+                        card.type === "panel_tab" && isPanelTabKey(card.tab),
+                    )
+                    .map((card) => card.tab as PanelTabKey),
+                  placed = new Set<string>(
+                    panelTabs
+                      .filter((tab) =>
+                        m.content.toLowerCase().includes(`[[tab:${tab}]]`),
+                      )
+                      .map((tab) => `tab:${tab}`),
+                  ),
                   pendingIds = m.cards
                     .filter((card) => card.type === "action")
                     .map((card) => card.id)
@@ -405,6 +411,7 @@ export default function SalesPage() {
                               <SalesMarkdown
                                 key={`text-${i}`}
                                 content={part.content}
+                                panelTabs={panelTabs}
                               />
                         );
                       if (part.type === "action") {
@@ -427,17 +434,6 @@ export default function SalesPage() {
                             onAction={onAction}
                           />
                         );
-                      }
-                      if (part.type === "tab") {
-                        const marker = `tab:${part.tab}`,
-                          card = m.cards.find(
-                            (candidate) =>
-                              candidate.type === "panel_tab" &&
-                              candidate.tab === part.tab,
-                          );
-                        if (!card || placed.has(marker)) return null;
-                        placed.add(marker);
-                        return <PanelTabCard key={marker} tab={part.tab} />;
                       }
                       const marker = `card:${part.cardType}`,
                             card = m.cards.find(

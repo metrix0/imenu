@@ -3,15 +3,26 @@
 
 import type { ReactNode } from "react";
 
-export default function SalesMarkdown({ content }: { content: string }) {
+import PanelTabCard from "@/components/restaurant-owner/ia-vendas/PanelTabCard";
+import { isPanelTabKey, type PanelTabKey } from "@/lib/ia-vendas/panelTabs";
+
+export default function SalesMarkdown({
+  content,
+  panelTabs = [],
+}: {
+  content: string;
+  panelTabs?: PanelTabKey[];
+}) {
+  const allowedPanelTabs = new Set(panelTabs);
+
   return (
     <div className="space-y-4 text-sm leading-7 text-gray-700">
-      {parseBlocks(content)}
+      {parseBlocks(content, allowedPanelTabs)}
     </div>
   );
 }
 
-function parseBlocks(source: string) {
+function parseBlocks(source: string, panelTabs: ReadonlySet<PanelTabKey>) {
   const lines = repairRepeatedBoldLabels(source)
     .replace(/\r\n?/g, "\n")
     .split("\n");
@@ -70,15 +81,15 @@ function parseBlocks(source: string) {
       output.push(
         level === 1 ? (
           <h2 key={`heading-${output.length}`} className={className}>
-            {renderInline(text)}
+            {renderInline(text, "inline", panelTabs)}
           </h2>
         ) : level === 2 ? (
           <h3 key={`heading-${output.length}`} className={className}>
-            {renderInline(text)}
+            {renderInline(text, "inline", panelTabs)}
           </h3>
         ) : (
           <h4 key={`heading-${output.length}`} className={className}>
-            {renderInline(text)}
+            {renderInline(text, "inline", panelTabs)}
           </h4>
         ),
       );
@@ -106,7 +117,7 @@ function parseBlocks(source: string) {
           key={`quote-${output.length}`}
           className="rounded-r-xl border-l-4 border-brand/35 bg-brand-soft/35 px-4 py-3 text-gray-600"
         >
-          {renderInlineLines(quote)}
+          {renderInlineLines(quote, panelTabs)}
         </blockquote>,
       );
       continue;
@@ -125,7 +136,7 @@ function parseBlocks(source: string) {
         index += 1;
       }
 
-      output.push(renderTable(tableLines, output.length));
+      output.push(renderTable(tableLines, output.length, panelTabs));
       continue;
     }
 
@@ -144,7 +155,7 @@ function parseBlocks(source: string) {
           className="list-disc space-y-1.5 pl-5 marker:text-brand"
         >
           {items.map((item, itemIndex) => (
-            <li key={itemIndex}>{renderInline(item)}</li>
+            <li key={itemIndex}>{renderInline(item, "inline", panelTabs)}</li>
           ))}
         </ul>,
       );
@@ -166,7 +177,7 @@ function parseBlocks(source: string) {
           className="list-decimal space-y-1.5 pl-5 marker:font-bold marker:text-brand"
         >
           {items.map((item, itemIndex) => (
-            <li key={itemIndex}>{renderInline(item)}</li>
+            <li key={itemIndex}>{renderInline(item, "inline", panelTabs)}</li>
           ))}
         </ol>,
       );
@@ -184,7 +195,7 @@ function parseBlocks(source: string) {
 
     output.push(
       <p key={`paragraph-${output.length}`} className="text-gray-700">
-        {renderInlineLines(paragraph)}
+        {renderInlineLines(paragraph, panelTabs)}
       </p>,
     );
   }
@@ -223,7 +234,7 @@ function isTableStart(lines: string[], index: number) {
   );
 }
 
-function renderTable(lines: string[], keyIndex: number) {
+function renderTable(lines: string[], keyIndex: number, panelTabs: ReadonlySet<PanelTabKey>) {
   const header = splitTableRow(lines[0]);
   const rows = lines.slice(2).map(splitTableRow);
 
@@ -240,7 +251,7 @@ function renderTable(lines: string[], keyIndex: number) {
                 key={index}
                 className="border-b border-gray-200 px-3 py-2.5 font-bold"
               >
-                {renderInline(cell)}
+                {renderInline(cell, "inline", panelTabs)}
               </th>
             ))}
           </tr>
@@ -256,7 +267,7 @@ function renderTable(lines: string[], keyIndex: number) {
                   key={cellIndex}
                   className="px-3 py-2.5 align-top text-gray-600"
                 >
-                  {renderInline(row[cellIndex] ?? "")}
+                  {renderInline(row[cellIndex] ?? "", "inline", panelTabs)}
                 </td>
               ))}
             </tr>
@@ -276,16 +287,23 @@ function splitTableRow(line: string) {
     .map((cell) => cell.trim());
 }
 
-function renderInlineLines(lines: string[]) {
+function renderInlineLines(
+  lines: string[],
+  panelTabs: ReadonlySet<PanelTabKey>,
+) {
   return lines.flatMap((line, index) => [
     ...(index > 0 ? [<br key={`break-${index}`} />] : []),
-    ...renderInline(line, `line-${index}`),
+    ...renderInline(line, `line-${index}`, panelTabs),
   ]);
 }
 
-function renderInline(text: string, keyPrefix = "inline") {
+function renderInline(
+  text: string,
+  keyPrefix = "inline",
+  panelTabs: ReadonlySet<PanelTabKey> = new Set(),
+) {
   const tokenPattern =
-    /(\*\*[^*]+\*\*|__[^_]+__|`[^`]+`|\[[^\]]+\]\([^\s)]+\)|\*[^*\n]+\*|_[^_\n]+_)/g;
+    /(\[\[tab:[a-z0-9-]+\]\]|\*\*[^*]+\*\*|__[^_]+__|`[^`]+`|\[[^\]]+\]\([^\s)]+\)|\*[^*\n]+\*|_[^_\n]+_)/gi;
   const nodes: ReactNode[] = [];
   let cursor = 0;
   let match: RegExpExecArray | null;
@@ -296,7 +314,13 @@ function renderInline(text: string, keyPrefix = "inline") {
     const token = match[0];
     const key = `${keyPrefix}-${nodes.length}`;
 
-    if (
+    const panelTab = /^\[\[tab:([a-z0-9-]+)\]\]$/i.exec(token);
+    if (panelTab) {
+      const tab = panelTab[1].toLowerCase();
+      if (isPanelTabKey(tab) && panelTabs.has(tab)) {
+        nodes.push(<PanelTabCard key={key} tab={tab} inline />);
+      }
+    } else if (
       (token.startsWith("**") && token.endsWith("**")) ||
       (token.startsWith("__") && token.endsWith("__"))
     ) {
