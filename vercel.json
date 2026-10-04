@@ -22,7 +22,7 @@
     },
     {
       "path": "/api/cron/ia-vendas-analysis",
-      "schedule": "*/10 * * * *"
+      "schedule": "0 0 * * *"
     }
   ]
 }
