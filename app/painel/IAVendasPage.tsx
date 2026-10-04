@@ -262,7 +262,8 @@ export default function SalesPage() {
     }
   }, [sales.upgradeRequired, isAnalysis]);
   async function send() {
-    if ((isAnalysis && locked) || freeLimitReached) { setPlusModal("checkout"); return; }
+    if (isAnalysis && locked) { setPlusModal("checkout"); return; }
+    if (freeLimitReached) { setPlusModal("sales"); return; }
     if (!text.trim() || disabled || uploading) return;
     const draft = text.trim();
     setText("");
@@ -629,7 +630,7 @@ export default function SalesPage() {
                   />
                   <Button
                     aria-label="Enviar mensagem"
-                    disabled={!text.trim() || disabled || uploading}
+                    disabled={!freeLimitReached && (!text.trim() || disabled || uploading)}
                     onClick={() => void send()}
                     className="h-10 min-h-10 w-10 shrink-0 !px-0 !py-0"
                   >
