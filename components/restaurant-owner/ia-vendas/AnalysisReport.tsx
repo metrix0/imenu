@@ -238,10 +238,10 @@ export default function AnalysisReport({
           </section>
 
           <div className={styles.secondary}>
-            {!!reviewItems.length && <section aria-label="Pontos para revisão" className={styles.review}>
+            {!!reviewItems.length && <section aria-label="Pontos rápidos para revisão" className={styles.review}>
               <div className={styles.reviewSummary}>
                 <CircleHelp size={20} aria-hidden="true" />
-                <div><strong>Pontos para revisão <span className={styles.count}>{reviewItems.length}</span></strong><p>{reviewItems[0].title}</p></div>
+                <div><strong>Pontos rápidos para revisão <span className={styles.count}>{reviewItems.length}</span></strong></div>
               </div>
               <div className={styles.reviewEntries}>{reviewItems.map((entry) => <article key={entry.id} className={styles.reviewEntry}>
                 <div><h3>{entry.title}</h3><p className={styles.explanation}>{entry.explanation}</p><div className={styles.opportunityTools}>{renderEvidence(entry)}{discuss(entry)}</div></div>

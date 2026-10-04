@@ -64,7 +64,7 @@ test("report leads with potential actions, then summary, opportunities, review a
   const html = renderToStaticMarkup(<AnalysisReport {...props} />);
   const positions = [
     'aria-label="Potencial estimado"', 'aria-label="Resumo da IA"',
-    'aria-label="Oportunidades prioritárias"', "Pontos para revisão",
+    'aria-label="Oportunidades prioritárias"', "Pontos rápidos para revisão",
     'aria-label="Comparações"',
   ].map((label) => html.indexOf(label));
   expect(positions.every((position) => position >= 0)).toBe(true);
@@ -78,9 +78,10 @@ test("report leads with potential actions, then summary, opportunities, review a
   expect(html).toContain("Revisar e aplicar tudo");
   expect(html).toContain("Conversar com Assistente de IA");
   expect(html).not.toContain("Potencial nas próximas 4 semanas");
-  expect(html).toContain('aria-label="Pontos para revisão" class="review"');
+  expect(html).toContain('aria-label="Pontos rápidos para revisão" class="review"');
   expect(html).not.toContain('<summary class="reviewSummary">');
   expect(html).toContain("Confirme o frete");
+  expect(html).not.toContain("<p>Confirme o frete</p>");
 });
 
 test("free restaurant without analysis explains the analysis and IA Plus immediate access", () => {
