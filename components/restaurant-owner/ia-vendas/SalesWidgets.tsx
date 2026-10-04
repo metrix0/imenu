@@ -114,6 +114,9 @@ const values: Record<string, string> = {
   delivery: "Entrega",
   retirada: "Retirada",
   autoatendimento: "Mesa",
+  pix: "Pix",
+  dinheiro: "Dinheiro",
+  "trazer-maquininha": "Maquininha",
   radius: "Por raio",
   neighborhood: "Por bairro",
   highest: "Maior valor",
@@ -124,6 +127,16 @@ const values: Record<string, string> = {
   minimum: "Pedido mínimo",
   gte: "Maior ou igual",
   gt: "Maior que",
+};
+const templateLabels: Record<string, string> = {
+  welcome: "Boas-vindas",
+  menu_link: "Link do cardápio",
+  delivery: "Entrega",
+  payment: "Pagamento",
+  order_status_found: "Status do pedido",
+  handoff: "Atendimento humano",
+  order_tracking: "Acompanhamento do pedido",
+  status_notification: "Atualização de status",
 };
 export const money = (cents: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
@@ -154,13 +167,51 @@ function display(
     if (k === "value" && op?.values?.type === "percent") return `${v}%`;
     return String(v);
   }
-  if (Array.isArray(v)) return v.map((x) => display("", x, refs)).join("\n");
-  if (typeof v === "object")
+  if (Array.isArray(v)) {
+    if (k === "available_days")
+      return v.map((day) => weekdayNames[Number(day)] || String(day)).join(", ");
+    if (["allowed_payment_methods", "origins"].includes(k))
+      return v.map((value) => values[String(value)] || String(value)).join(", ");
+    if (["reward_subitem_ids", "category_ids"].includes(k))
+      return v.map((value) => refs[String(value)] || String(value)).join(", ");
+    return v.map((x) => display("", x, refs)).join("\n");
+  }
+  if (typeof v === "object") {
+    if (k === "message_templates")
+      return Object.entries(v)
+        .map(
+          ([key, value]) =>
+            `${templateLabels[key] || key}: ${String(value ?? "Não definido")}`,
+        )
+        .join("\n\n");
     return Object.entries(v)
       .map(
         ([key, value]) => `${labels[key] || key}: ${display(key, value, refs)}`,
       )
       .join("\n");
+  }
+  if (["start_date", "end_date"].includes(k) && /^\d{4}-\d{2}-\d{2}$/.test(String(v))) {
+    const [year, month, day] = String(v).split("-");
+    return `${day}/${month}/${year}`;
+  }
+  if (k === "is_closed") {
+    const match = String(v).match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/);
+    if (match) return `${match[3]}/${match[2]}/${match[1]} ${match[4]}:${match[5]}`;
+  }
+  if (["starts_at", "ends_at"].includes(k)) {
+    const date = new Date(String(v));
+    if (!Number.isNaN(date.getTime()))
+      return new Intl.DateTimeFormat("pt-BR", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: "America/Sao_Paulo",
+      }).format(date);
+  }
+  if (["start_time", "end_time"].includes(k))
+    return String(v).slice(0, 5);
   return refs[v] || values[v] || String(v);
 }
 
@@ -209,6 +260,209 @@ function scheduleSlots(value: unknown, day: number) {
         )
         .map((slot) => `${slot.open}–${slot.close}`)
     : [];
+}
+
+function feeLabel(cents: unknown) {
+  return money(typeof cents === "number" ? cents : 0);
+}
+
+function deliveryRow(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const row = value as Data;
+  if (!Number.isFinite(Number(row.radius_km))) return null;
+  return {
+    key: String(row.radius_km),
+    label: `Até ${Number(row.radius_km).toLocaleString("pt-BR")} km`,
+    value: `${feeLabel(row.fee_cents)} · ${Number(row.time_minutes) || 0} min`,
+  };
+}
+
+function neighborhoodRow(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const row = value as Data;
+  if (!row.neighborhood) return null;
+  const location = [row.neighborhood, row.city, row.state].filter(Boolean).join(" · ");
+  return {
+    key: [row.neighborhood, row.city, row.state].filter(Boolean).join("|"),
+    label: location,
+    value: `${feeLabel(row.fee_cents)} · ${Number(row.time_minutes) || 0} min`,
+  };
+}
+
+function listChangeSummary(
+  previous: unknown,
+  next: unknown,
+  parser: (value: unknown) => { key: string; label: string; value: string } | null,
+): ReactNode {
+  const before = new Map(
+    (Array.isArray(previous) ? previous : [])
+      .map(parser)
+      .filter((row): row is { key: string; label: string; value: string } => !!row)
+      .map((row) => [row.key, row]),
+  );
+  const after = new Map(
+    (Array.isArray(next) ? next : [])
+      .map(parser)
+      .filter((row): row is { key: string; label: string; value: string } => !!row)
+      .map((row) => [row.key, row]),
+  );
+  const keys = [...new Set([...before.keys(), ...after.keys()])];
+  const changes = keys.flatMap((key) => {
+    const oldRow = before.get(key),
+      newRow = after.get(key);
+    if (oldRow?.value === newRow?.value) return [];
+    if (!oldRow && newRow)
+      return [{ key, label: newRow.label, text: `Adicionar ${newRow.value}.` }];
+    if (oldRow && !newRow)
+      return [{ key, label: oldRow.label, text: "Remover." }];
+    return [{
+      key,
+      label: newRow?.label || oldRow?.label || key,
+      text: `${oldRow?.value || "Não definido"} → ${newRow?.value || "Não definido"}.`,
+    }];
+  });
+  if (!changes.length) return <>Nenhuma alteração.</>;
+  return (
+    <span className="space-y-1">
+      {changes.map(({ key, label, text }) => (
+        <span key={key} className="block">
+          {strong(label)}: {text}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+function promotionRule(rule: Data, refs: Record<string, string>) {
+  if (rule.type === "weekdays")
+    return `dias: ${(Array.isArray(rule.days) ? rule.days : [])
+      .map((day: unknown) => weekdayNames[Number(day)] || String(day))
+      .join(", ")}`;
+  if (rule.type === "minimum")
+    return `${rule.comparison === "gt" ? "acima de" : "a partir de"} ${money(Number(rule.cents) || 0)}`;
+  if (rule.type === "product")
+    return `${Number(rule.quantity) || 0}× ${refs[String(rule.item_id)] || "produto"}`;
+  return "regra";
+}
+
+function promotionBenefit(benefit: Data, refs: Record<string, string>) {
+  if (benefit.type === "delivery") return "entrega grátis";
+  if (benefit.type === "percent") return `${Number(benefit.value) || 0}% de desconto`;
+  if (benefit.type === "fixed") return `${money(Number(benefit.cents) || 0)} de desconto`;
+  if (benefit.type === "product")
+    return `${Number(benefit.quantity) || 0}× ${refs[String(benefit.item_id)] || "produto"} grátis`;
+  return "benefício";
+}
+
+function promotionText(value: Data, refs: Record<string, string>) {
+  const channels = [
+    value.delivery ? "Delivery" : "",
+    value.mesa ? "Mesa" : "",
+  ].filter(Boolean);
+  const rules = (Array.isArray(value.rules) ? value.rules : [])
+    .map((rule) => promotionRule(rule as Data, refs))
+    .join("; ");
+  const benefits = (Array.isArray(value.benefits) ? value.benefits : [])
+    .map((benefit) => promotionBenefit(benefit as Data, refs))
+    .join("; ");
+  return [
+    value.active ? "Ativa" : "Inativa",
+    channels.length ? channels.join(" e ") : "Sem canal",
+    value.show_on_menu ? "visível no cardápio" : "oculta no cardápio",
+    value.allow_coupon ? "aceita cupom" : "não aceita cupom",
+    rules ? `Regras: ${rules}` : "Sem regras",
+    benefits ? `Benefícios: ${benefits}` : "Sem benefícios",
+  ].join(" · ");
+}
+
+function promotionsChangeSummary(
+  previous: unknown,
+  next: unknown,
+  refs: Record<string, string>,
+): ReactNode {
+  const rows = (value: unknown) =>
+    new Map(
+      (Array.isArray(value) ? value : [])
+        .filter((row): row is Data => !!row && typeof row === "object" && !Array.isArray(row))
+        .map((row) => [String(row.id || row.name), row]),
+    );
+  const before = rows(previous),
+    after = rows(next),
+    keys = [...new Set([...before.keys(), ...after.keys()])];
+  const changes = keys.flatMap((key) => {
+    const oldRow = before.get(key),
+      newRow = after.get(key);
+    if (oldRow && newRow && JSON.stringify(oldRow) === JSON.stringify(newRow))
+      return [];
+    const label = String(newRow?.name || oldRow?.name || "Promoção");
+    if (!oldRow && newRow)
+      return [{ key, label, text: `Adicionar: ${promotionText(newRow, refs)}.` }];
+    if (oldRow && !newRow)
+      return [{ key, label, text: "Remover promoção." }];
+    return [{
+      key,
+      label,
+      text: `${promotionText(oldRow || {}, refs)} → ${promotionText(newRow || {}, refs)}.`,
+    }];
+  });
+  if (!changes.length) return <>Nenhuma alteração.</>;
+  return (
+    <span className="space-y-1">
+      {changes.map(({ key, label, text }) => (
+        <span key={key} className="block">
+          {strong(label)}: {text}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+function pizzaChangeSummary(
+  previous: unknown,
+  next: unknown,
+  refs: Record<string, string>,
+): ReactNode {
+  const before = previous && typeof previous === "object" && !Array.isArray(previous) ? previous as Data : {};
+  const after = next && typeof next === "object" && !Array.isArray(next) ? next as Data : {};
+  const fields = [
+    ["enabled", "Pizza com vários sabores"],
+    ["max_flavors", "Máximo de sabores"],
+    ["pricing_rule", "Regra de preço"],
+    ["same_category_only", "Somente mesma categoria"],
+    ["category_ids", "Categorias"],
+  ] as const;
+  const changes = fields.flatMap(([field, label]) => {
+    if (JSON.stringify(before[field]) === JSON.stringify(after[field])) return [];
+    return [{
+      field,
+      label,
+      before: display(field, before[field], refs),
+      after: display(field, after[field], refs),
+    }];
+  });
+  if (!changes.length) return <>Nenhuma alteração.</>;
+  return (
+    <span className="space-y-1">
+      {changes.map(({ field, label, before: oldValue, after: newValue }) => (
+        <span key={field} className="block">
+          {strong(label)}: {oldValue} → {newValue}.
+        </span>
+      ))}
+    </span>
+  );
+}
+
+function messageTemplatesChangeSummary(previous: unknown, next: unknown): ReactNode {
+  const before = previous && typeof previous === "object" && !Array.isArray(previous) ? previous as Data : {};
+  const after = next && typeof next === "object" && !Array.isArray(next) ? next as Data : {};
+  const keys = [...new Set([...Object.keys(before), ...Object.keys(after)])];
+  const changes = keys.filter((key) => before[key] !== after[key]);
+  if (!changes.length) return <>Nenhuma alteração.</>;
+  return (
+    <>
+      Atualizar {changes.map((key) => templateLabels[key] || key).join(", ")}.
+    </>
+  );
 }
 
 function scheduleChangeSummary(previous: unknown, next: unknown): ReactNode {
@@ -315,6 +569,36 @@ function operationCopy(
       summary: scheduleChangeSummary(previous, next),
       hideDetails: true,
     };
+  if (field === "delivery_fee_json")
+    return {
+      heading: "Editar Taxas por raio",
+      summary: listChangeSummary(previous, next, deliveryRow),
+      hideDetails: true,
+    };
+  if (field === "delivery_neighborhood_fee_json")
+    return {
+      heading: "Editar Taxas por bairro",
+      summary: listChangeSummary(previous, next, neighborhoodRow),
+      hideDetails: true,
+    };
+  if (field === "automatic_promotions")
+    return {
+      heading: "Editar Promoções automáticas",
+      summary: promotionsChangeSummary(previous, next, refs),
+      hideDetails: true,
+    };
+  if (field === "pizza_settings")
+    return {
+      heading: "Editar Configuração de pizza",
+      summary: pizzaChangeSummary(previous, next, refs),
+      hideDetails: true,
+    };
+  if (field === "message_templates")
+    return {
+      heading: "Editar Mensagens do WhatsApp",
+      summary: messageTemplatesChangeSummary(previous, next),
+      hideDetails: false,
+    };
 
   if (field === "name")
     return {
@@ -373,7 +657,7 @@ function operationCopy(
     };
 
   return {
-    heading,
+    heading: `Editar ${labels[field] || headingEntity}`,
     summary: <>{strong(name)}</>,
     hideDetails: false,
   };
@@ -593,7 +877,7 @@ function ActionPeek({ action, refs }: { action: Action; refs: Record<string, str
     </div>)}
     {operations.slice(0, 2).map((op, index) => <div key={index}>
       <p className={styles.previewSubject}>{subject(op, refs)}</p>
-      {op.kind === "update" && Object.hasOwn(op.values, "availability_json") ? (
+      {op.kind === "update" && ["availability_json", "delivery_fee_json", "delivery_neighborhood_fee_json", "automatic_promotions", "pizza_settings"].some((field) => Object.hasOwn(op.values, field)) ? (
         <p className={styles.previewSentence}>{operationCopy(op, refs).summary}</p>
       ) : op.kind === "update" ? <dl className={styles.previewFields}>{Object.entries(op.values).slice(0, 2).map(([field, value]) => <div key={field}>
         <dt>{labels[field] || field}</dt><dd className={styles.changeValues}>

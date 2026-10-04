@@ -208,6 +208,111 @@ test("schedule proposals use weekday names and show only the actual change", () 
   expect(full).not.toContain("0: Abre");
 });
 
+test("structured mutation previews use restaurant language instead of raw JSON keys", () => {
+  const cases: Array<{ action: Action; contains: string[]; excludes: string[] }> = [
+    {
+      action: {
+        ...action,
+        id: "radius",
+        operations: [{
+          entity: "restaurants",
+          kind: "update",
+          id: "restaurant",
+          label: "Configuração da loja",
+          before: { delivery_fee_json: [{ radius_km: 5, fee_cents: 400, time_minutes: 30 }] },
+          values: { delivery_fee_json: [{ radius_km: 5, fee_cents: 500, time_minutes: 35 }] },
+        }],
+      },
+      contains: ["Editar Taxas por raio", "Até 5 km", "R$ 4,00", "R$ 5,00", "30 min", "35 min"],
+      excludes: ["radius_km", "fee_cents", "time_minutes"],
+    },
+    {
+      action: {
+        ...action,
+        id: "neighborhood",
+        operations: [{
+          entity: "restaurants",
+          kind: "update",
+          id: "restaurant",
+          label: "Configuração da loja",
+          before: { delivery_neighborhood_fee_json: [{ neighborhood: "Centro", city: "Rio Claro", state: "SP", fee_cents: 300, time_minutes: 20 }] },
+          values: { delivery_neighborhood_fee_json: [{ neighborhood: "Centro", city: "Rio Claro", state: "SP", fee_cents: 400, time_minutes: 25 }] },
+        }],
+      },
+      contains: ["Editar Taxas por bairro", "Centro · Rio Claro · SP", "R$ 3,00", "R$ 4,00"],
+      excludes: ["neighborhood:", "fee_cents", "time_minutes"],
+    },
+    {
+      action: {
+        ...action,
+        id: "pizza",
+        operations: [{
+          entity: "restaurants",
+          kind: "update",
+          id: "restaurant",
+          label: "Configuração da loja",
+          before: { pizza_settings: { enabled: true, max_flavors: 2, pricing_rule: "highest", same_category_only: false, category_ids: ["category"] } },
+          values: { pizza_settings: { enabled: true, max_flavors: 4, pricing_rule: "average", same_category_only: true, category_ids: ["category"] } },
+        }],
+      },
+      contains: ["Editar Configuração de pizza", "Máximo de sabores", "2 → 4", "Regra de preço", "Maior valor → Média", "Somente mesma categoria", "Não → Sim"],
+      excludes: ["max_flavors", "pricing_rule", "same_category_only"],
+    },
+  ];
+
+  for (const entry of cases) {
+    const html = renderToStaticMarkup(
+      <ActionCard action={entry.action} refs={{ category: "Pizzas" }} disabled={false} onAction={jest.fn()} />,
+    );
+    entry.contains.forEach((value) => expect(html).toContain(value));
+    entry.excludes.forEach((value) => expect(html).not.toContain(value));
+  }
+});
+
+test("list and message-template fields use readable names in mutation previews", () => {
+  const couponAction: Action = {
+    ...action,
+    id: "coupon",
+    operations: [{
+      entity: "coupons",
+      kind: "update",
+      id: "coupon",
+      label: "BEMVINDO",
+      before: { available_days: [0, 1], origins: ["delivery"] },
+      values: { available_days: [0, 1, 2], origins: ["delivery", "retirada"] },
+    }],
+  };
+  const coupon = renderToStaticMarkup(
+    <ActionCard action={couponAction} refs={{}} disabled={false} onAction={jest.fn()} />,
+  );
+  expect(coupon).toContain("Domingo, Segunda-feira");
+  expect(coupon).toContain("Domingo, Segunda-feira, Terça-feira");
+  expect(coupon).toContain("Entrega");
+  expect(coupon).toContain("Retirada");
+  expect(coupon).not.toContain(">0<");
+
+  const templatesAction: Action = {
+    ...action,
+    id: "templates",
+    operations: [{
+      entity: "whatsapp_bot_settings",
+      kind: "update",
+      id: "restaurant",
+      label: "WhatsApp",
+      before: { message_templates: { welcome: "Olá", payment: "Pague aqui" } },
+      values: { message_templates: { welcome: "Bem-vindo", payment: "Pague aqui" } },
+    }],
+  };
+  const templates = renderToStaticMarkup(
+    <ActionCard action={templatesAction} refs={{}} disabled={false} onAction={jest.fn()} />,
+  );
+  expect(templates).toContain("Editar Mensagens do WhatsApp");
+  expect(templates).toContain("Atualizar Boas-vindas.");
+  expect(templates).toContain("Boas-vindas: Olá");
+  expect(templates).toContain("Boas-vindas: Bem-vindo");
+  expect(templates).not.toContain("welcome:");
+});
+
 test("image batches use generation and publication language and keep generated previews grouped", () => {
   const generated = (id: string, label: string): Action => ({
     ...action,
