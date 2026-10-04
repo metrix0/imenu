@@ -262,6 +262,11 @@ test("requesting analysis in contextual chat stays a normal chat run", async () 
   expect(context).toHaveBeenCalledWith("owner", false);
   expect(analysisPhotos).not.toHaveBeenCalled();
   expect(create.mock.calls[0][0].text.format).toEqual({ type: "json_object" });
+  const scopedQuery = (query as jest.Mock).mock.calls.find(([sql]) =>
+    sql.includes("SELECT id,result->'report' report"),
+  )?.[0];
+  expect(scopedQuery).toContain("status='completed'");
+  expect(scopedQuery).toContain("result->'report'->>'status'='complete'");
 });
 
 test.each([true, false])("deep photo inputs reach the model and survive Batch resume (immediate=%s)", async (immediate) => {

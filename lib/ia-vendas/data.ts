@@ -117,11 +117,11 @@ export async function context(restaurant: string, deep = false, includeAnalysis 
         [restaurant],
       ),
       query(
-        "SELECT id,title,reason,status,operations,applied_at,undone_at FROM public.ia_vendas_actions WHERE restaurant_id=$1 AND ($2::boolean OR EXISTS(SELECT 1 FROM public.ia_vendas_conversations c WHERE c.id=ia_vendas_actions.conversation_id AND c.restaurant_id=$1 AND c.kind='chat')) AND NOT EXISTS(SELECT 1 FROM public.ia_vendas_runs r WHERE r.restaurant_id=$1 AND r.id=ia_vendas_actions.run_id AND r.result->>'detached_at' IS NOT NULL) ORDER BY created_at DESC LIMIT 25",
+        "SELECT id,title,reason,status,operations,applied_at,undone_at FROM public.ia_vendas_actions WHERE restaurant_id=$1 AND ($2::boolean OR EXISTS(SELECT 1 FROM public.ia_vendas_conversations c WHERE c.id=ia_vendas_actions.conversation_id AND c.restaurant_id=$1 AND c.kind='chat')) AND NOT EXISTS(SELECT 1 FROM public.ia_vendas_runs r WHERE r.restaurant_id=$1 AND r.id=ia_vendas_actions.run_id AND r.result->>'detached_at' IS NOT NULL) AND NOT EXISTS(SELECT 1 FROM public.ia_vendas_runs r WHERE r.restaurant_id=$1 AND r.id=ia_vendas_actions.run_id AND r.kind='analysis' AND (r.status<>'completed' OR r.result->'report'->>'status' IS DISTINCT FROM 'complete')) ORDER BY created_at DESC LIMIT 25",
         [restaurant, includeAnalysis],
       ),
       query(
-        "SELECT result,finished_at FROM public.ia_vendas_runs WHERE restaurant_id=$1 AND $2::boolean AND kind='analysis' AND result->>'detached_at' IS NULL AND status='completed' ORDER BY finished_at DESC LIMIT 1",
+        "SELECT result,finished_at FROM public.ia_vendas_runs WHERE restaurant_id=$1 AND $2::boolean AND kind='analysis' AND result->>'detached_at' IS NULL AND status='completed' AND result->'report'->>'status'='complete' ORDER BY finished_at DESC LIMIT 1",
         [restaurant, includeAnalysis],
       ),
     ]);
@@ -328,11 +328,11 @@ async function analysisContext(restaurant: string): Promise<Data> {
       [restaurant],
     );
     const actions = await c.query(
-      "SELECT id,title,reason,status,operations,applied_at,undone_at FROM public.ia_vendas_actions WHERE restaurant_id=$1 AND NOT EXISTS(SELECT 1 FROM public.ia_vendas_runs r WHERE r.restaurant_id=$1 AND r.id=ia_vendas_actions.run_id AND r.result->>'detached_at' IS NOT NULL) ORDER BY created_at DESC",
+      "SELECT id,title,reason,status,operations,applied_at,undone_at FROM public.ia_vendas_actions WHERE restaurant_id=$1 AND NOT EXISTS(SELECT 1 FROM public.ia_vendas_runs r WHERE r.restaurant_id=$1 AND r.id=ia_vendas_actions.run_id AND r.result->>'detached_at' IS NOT NULL) AND NOT EXISTS(SELECT 1 FROM public.ia_vendas_runs r WHERE r.restaurant_id=$1 AND r.id=ia_vendas_actions.run_id AND r.kind='analysis' AND (r.status<>'completed' OR r.result->'report'->>'status' IS DISTINCT FROM 'complete')) ORDER BY created_at DESC",
       [restaurant],
     );
     const prior = await c.query(
-      "SELECT id,result->'report' report,finished_at FROM public.ia_vendas_runs WHERE restaurant_id=$1 AND kind='analysis' AND result->>'detached_at' IS NULL AND result->'report' IS NOT NULL ORDER BY created_at DESC LIMIT 3",
+      "SELECT id,result->'report' report,finished_at FROM public.ia_vendas_runs WHERE restaurant_id=$1 AND kind='analysis' AND status='completed' AND result->>'detached_at' IS NULL AND result->'report'->>'status'='complete' ORDER BY created_at DESC LIMIT 3",
       [restaurant],
     );
     return {

@@ -200,7 +200,10 @@ export default function SalesPage() {
       conversation?.kind === (isAnalysis ? "analysis" : "chat"),
     disabled =
       sales.busy || sales.acting || !!(sales.running && sales.running.mode !== "batch") || !modeReady,
-    analysisRunning = isAnalysis && !!(sales.running && sales.analyses.some((a) => a.id === sales.running?.id)),
+    analysisRunning =
+      isAnalysis &&
+      sales.running?.kind === "analysis" &&
+      sales.running?.conversation_id === sales.conversation_id,
     selectedReport =
       sales.analyses.find((a) => a.id === selectedReportId) ||
       sales.analyses.find((a) => a.result?.report),

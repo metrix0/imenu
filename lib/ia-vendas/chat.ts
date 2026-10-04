@@ -213,7 +213,7 @@ export async function runChat(args: {
     if (!deep && conv.kind === "analysis") {
       const selected = (
         await query(
-          "SELECT id,result->'report' report FROM public.ia_vendas_runs WHERE restaurant_id=$1 AND conversation_id=$2 AND kind='analysis' AND result->>'detached_at' IS NULL AND result->'report' IS NOT NULL AND ($3::uuid IS NULL OR id=$3) ORDER BY created_at DESC LIMIT 1",
+          "SELECT id,result->'report' report FROM public.ia_vendas_runs WHERE restaurant_id=$1 AND conversation_id=$2 AND kind='analysis' AND status='completed' AND result->>'detached_at' IS NULL AND result->'report'->>'status'='complete' AND ($3::uuid IS NULL OR id=$3) ORDER BY created_at DESC LIMIT 1",
           [restaurant, conversation, args.report_id || null],
         )
       ).rows[0];

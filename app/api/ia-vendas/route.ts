@@ -46,7 +46,7 @@ export async function GET(request: Request) {
             : [restaurant, id, before],
         ),
         query<Action>(
-          `SELECT * FROM public.ia_vendas_actions WHERE restaurant_id=$1 AND conversation_id=$2 ORDER BY created_at DESC ${analysisConversation ? "" : "LIMIT 300"}`,
+          `SELECT * FROM public.ia_vendas_actions WHERE restaurant_id=$1 AND conversation_id=$2 AND NOT EXISTS(SELECT 1 FROM public.ia_vendas_runs r WHERE r.restaurant_id=$1 AND r.id=ia_vendas_actions.run_id AND r.kind='analysis' AND (r.status<>'completed' OR r.result->'report'->>'status' IS DISTINCT FROM 'complete')) ORDER BY created_at DESC ${analysisConversation ? "" : "LIMIT 300"}`,
           [restaurant, id],
         ),
         query(
@@ -63,7 +63,7 @@ export async function GET(request: Request) {
         ),
         analysisConversation
           ? query(
-              "SELECT id,status,(result-'batch')||CASE WHEN result->'batch'->>'mode'='batch' THEN jsonb_build_object('batch',jsonb_build_object('mode','batch','status',result->'batch'->>'status','round',result->'batch'->'round')) ELSE '{}'::jsonb END result,created_at,finished_at FROM public.ia_vendas_runs WHERE restaurant_id=$1 AND conversation_id=$2 AND kind='analysis' AND result->>'detached_at' IS NULL AND result IS NOT NULL ORDER BY created_at DESC",
+              "SELECT id,status,(result-'batch')||CASE WHEN result->'batch'->>'mode'='batch' THEN jsonb_build_object('batch',jsonb_build_object('mode','batch','status',result->'batch'->>'status','round',result->'batch'->'round')) ELSE '{}'::jsonb END result,created_at,finished_at FROM public.ia_vendas_runs WHERE restaurant_id=$1 AND conversation_id=$2 AND kind='analysis' AND status='completed' AND result->>'detached_at' IS NULL AND result->'report'->>'status'='complete' ORDER BY created_at DESC",
               [restaurant, id],
             )
           : Promise.resolve({ rows: [] }),
@@ -176,7 +176,7 @@ export async function POST(request: Request) {
       throw new SalesError("Ação inválida.");
     const selected = (
       await query<Action>(
-        "SELECT * FROM public.ia_vendas_actions WHERE restaurant_id=$1 AND id=ANY($2::uuid[]) AND NOT EXISTS(SELECT 1 FROM public.ia_vendas_runs r WHERE r.restaurant_id=$1 AND r.id=ia_vendas_actions.run_id AND r.result->>'detached_at' IS NOT NULL)",
+        "SELECT * FROM public.ia_vendas_actions WHERE restaurant_id=$1 AND id=ANY($2::uuid[]) AND NOT EXISTS(SELECT 1 FROM public.ia_vendas_runs r WHERE r.restaurant_id=$1 AND r.id=ia_vendas_actions.run_id AND r.result->>'detached_at' IS NOT NULL) AND NOT EXISTS(SELECT 1 FROM public.ia_vendas_runs r WHERE r.restaurant_id=$1 AND r.id=ia_vendas_actions.run_id AND r.kind='analysis' AND (r.status<>'completed' OR r.result->'report'->>'status' IS DISTINCT FROM 'complete'))",
         [restaurant, body.ids],
       )
     ).rows;

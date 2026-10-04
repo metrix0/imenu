@@ -53,6 +53,16 @@ test("deep context deterministically reads all commercial entities in a consiste
     c.query.mock.calls.find(([s]) => s.includes("WITH selected"))[0],
   ).not.toContain("LIMIT 100");
   expect(c.query.mock.calls[0][0]).toContain("REPEATABLE READ READ ONLY");
+  const priorQuery = c.query.mock.calls.find(([sql]) =>
+    sql.includes("SELECT id,result->'report' report"),
+  )?.[0];
+  expect(priorQuery).toContain("status='completed'");
+  expect(priorQuery).toContain("result->'report'->>'status'='complete'");
+  const actionQuery = c.query.mock.calls.find(([sql]) =>
+    sql.includes("SELECT id,title,reason,status,operations"),
+  )?.[0];
+  expect(actionQuery).toContain("r.kind='analysis'");
+  expect(actionQuery).toContain("r.status<>'completed'");
 });
 test("normal reads retain 50-row pagination", async () => {
   (query as jest.Mock).mockResolvedValue({
