@@ -100,6 +100,7 @@ test("locked analysis keeps the full report visible under the final-third IA Plu
   expect(html).toContain('class="report reportLocked"');
   expect(html).toContain('class="previewContent"');
   expect(html).toContain("IAPlusCombinationMarkLogo_Brand.png");
+  expect(html).toContain('sizes="224px"');
   expect(html).toContain('aria-label="Comparações"');
   expect(html).not.toContain('hidden="" aria-label="Comparações"');
   expect(html).toContain("Coloque essas oportunidades em prática");
