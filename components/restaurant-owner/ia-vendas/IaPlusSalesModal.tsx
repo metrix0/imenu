@@ -123,8 +123,8 @@ export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout
             <div className="relative hidden min-h-0 md:block">
               <div className="absolute -bottom-4 -left-8 right-10 top-16">
                 <Image
-                  src="/images/IAPlus.png"
-                  alt="Demonstração do iMenu IA Plus"
+                  src="/logos/IAPlusCombinationMarkLogo_Brand.png"
+                  alt="iMenu IA Plus"
                   fill
                   sizes="300px"
                   className="object-contain object-center"
