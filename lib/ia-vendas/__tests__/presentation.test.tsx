@@ -64,7 +64,7 @@ test("report leads with potential actions, then summary, opportunities, review a
   const html = renderToStaticMarkup(<AnalysisReport {...props} />);
   const positions = [
     'aria-label="Potencial estimado"', 'aria-label="Resumo da IA"',
-    'aria-label="Oportunidades prioritárias"', "Pontos rápidos para revisão",
+    'aria-label="Prioridades"', "Pontos rápidos para revisão",
     'aria-label="Comparações"',
   ].map((label) => html.indexOf(label));
   expect(positions.every((position) => position >= 0)).toBe(true);
@@ -75,7 +75,7 @@ test("report leads with potential actions, then summary, opportunities, review a
   expect(html).not.toContain("Ticket:");
   expect(html).not.toContain("oportunidades priorizadas");
   expect(html).toContain("O que seu restaurante pode ganhar em 4 semanas");
-  expect(html).toContain('aria-label="Oportunidades prioritárias" class="opportunitiesCard"');
+  expect(html).toContain('aria-label="Prioridades" class="opportunitiesCard"');
   expect(html).toContain("Revisar e aplicar tudo");
   expect(html).toContain("Conversar com Assistente de IA");
   expect(html).not.toContain("Potencial nas próximas 4 semanas");

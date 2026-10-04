@@ -214,13 +214,12 @@ export default function AnalysisReport({
 
           <section aria-label="Resumo da IA" className={styles.summary}>
             <p className={styles.eyebrow}><Sparkles size={14} aria-hidden="true" />Resumo da IA</p>
-            <h2>{report?.headline || "Seu próximo passo para vender mais"}</h2>
             <div className={styles.summaryCopy}>{report ? <SalesMarkdown content={report.summary} /> : <p>A análise prioriza melhorias nas vendas e traz mudanças prontas para você revisar.</p>}</div>
           </section>
 
           <div>
-          <section aria-label="Oportunidades prioritárias" className={styles.opportunitiesCard}>
-            <div className={styles.sectionHeader}><h2>Oportunidades prioritárias</h2>{!!opportunities.length && <span className={styles.count}>{report?.opportunity_count ?? opportunities.length}</span>}</div>
+          <section aria-label="Prioridades" className={styles.opportunitiesCard}>
+            <div className={styles.sectionHeader}><h2>Prioridades</h2>{!!opportunities.length && <span className={styles.count}>{report?.opportunity_count ?? opportunities.length}</span>}</div>
             {!opportunities.length && <div className={styles.empty}>
               <Target size={28} aria-hidden="true" />
               <h3>{report ? "Nenhuma oportunidade priorizada" : "Sua análise estará disponível aqui"}</h3>
