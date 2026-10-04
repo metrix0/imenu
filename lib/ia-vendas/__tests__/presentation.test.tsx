@@ -78,6 +78,21 @@ test("report leads with potential actions, then summary, opportunities, review a
   expect(html).not.toContain("Potencial nas próximas 4 semanas");
 });
 
+test("free restaurant without analysis explains the analysis and IA Plus immediate access", () => {
+  const html = renderToStaticMarkup(<AnalysisReport {...props} analyses={[]} selected={undefined} locked />);
+  expect(html).toContain("Sua análise ainda não foi liberada");
+  expect(html).toContain("Entende suas vendas");
+  expect(html).toContain("Encontra o que vale priorizar");
+  expect(html).toContain("Prepara melhorias para você revisar");
+  expect(html).toContain("Como funciona o acesso gratuito");
+  expect(html).toContain("Sem esperar pela seleção gratuita");
+  expect(html).toContain("Análise iniciada automaticamente");
+  expect(html).toContain("Acesso completo às oportunidades encontradas");
+  expect(html).toContain("IAPlusCombinationMarkLogo_Brand.png");
+  expect(html).toContain("Receber análise agora");
+  expect(html).toContain("49,99");
+});
+
 test("locked analysis keeps the full report visible under the final-third IA Plus fade", () => {
   const html = renderToStaticMarkup(<AnalysisReport {...props} locked />);
   expect(html).toContain('class="report reportLocked"');

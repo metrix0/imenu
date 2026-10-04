@@ -1,14 +1,35 @@
 .report { width: 100%; max-width: 1440px; margin-inline: auto; padding-bottom: 12px; color: var(--panel-text); }
 .loading { display: flex; height: 16rem; align-items: center; justify-content: center; }
-.noAnalysisState { display: flex; max-width: 760px; margin-inline: auto; flex-direction: column; align-items: center; gap: 12px; padding: 40px 32px; border: 1px solid var(--panel-border); border-radius: 10px; background: var(--panel-surface); text-align: center; }
+.noAnalysisState { display: flex; width: 100%; max-width: 980px; margin-inline: auto; flex-direction: column; align-items: center; gap: 22px; padding: 40px 32px; border: 1px solid var(--panel-border); border-radius: 10px; background: var(--panel-surface); text-align: center; }
 .noAnalysisState > h2 { font-size: 22px; line-height: 1.35; }
 .noAnalysisState > p { max-width: 560px; color: var(--panel-muted); font-size: 14px; line-height: 1.7; }
 .stateIcon, .preparingIcon { display: flex; width: 48px; height: 48px; align-items: center; justify-content: center; border-radius: 10px; background: var(--panel-tint); color: var(--panel-accent-text); }
-.upgradeState { display: flex; width: 100%; margin-top: 10px; align-items: center; justify-content: space-between; gap: 24px; padding: 20px; border-radius: 10px; background: var(--panel-background); text-align: left; }
-.upgradeState strong { display: block; font-size: 15px; }
-.upgradeState p { max-width: 480px; margin-top: 5px; color: var(--panel-muted); font-size: 13px; line-height: 1.6; }
-.upgradeState span { display: block; margin-top: 8px; color: var(--panel-text); font-size: 12px; font-weight: 500; }
-.upgradeState button { flex-shrink: 0; }
+.noAnalysisIntro { display: grid; max-width: 700px; gap: 8px; }
+.noAnalysisIntro h2 { font-size: 22px; line-height: 1.35; }
+.noAnalysisIntro p { color: var(--panel-muted); font-size: 14px; line-height: 1.7; }
+.analysisSteps { display: grid; width: 100%; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; text-align: left; }
+.analysisSteps article { display: flex; min-width: 0; gap: 12px; padding: 16px; border: 1px solid var(--panel-border); border-radius: 10px; background: var(--panel-background); }
+.analysisSteps article > span { display: flex; width: 36px; height: 36px; flex: 0 0 36px; align-items: center; justify-content: center; border-radius: 8px; background: var(--panel-tint); color: var(--panel-accent-text); }
+.analysisSteps strong { display: block; font-size: 13px; line-height: 1.4; }
+.analysisSteps p { margin-top: 5px; color: var(--panel-muted); font-size: 12px; line-height: 1.6; }
+.freeReleaseNote { width: 100%; padding: 16px 18px; border-left: 3px solid var(--panel-brand); border-radius: 8px; background: color-mix(in srgb, var(--panel-brand) 4%, var(--panel-background)); text-align: left; }
+.freeReleaseNote strong { display: block; font-size: 13px; }
+.freeReleaseNote p { margin-top: 5px; color: var(--panel-muted); font-size: 13px; line-height: 1.65; }
+.upgradeState { display: grid; width: 100%; grid-template-columns: minmax(0, 1fr) 220px; align-items: stretch; overflow: hidden; border: 1px solid color-mix(in srgb, var(--panel-brand) 24%, var(--panel-border)); border-radius: 10px; background: color-mix(in srgb, var(--panel-brand) 4%, var(--panel-surface)); text-align: left; }
+.upgradeMain { display: grid; align-content: start; gap: 14px; padding: 22px; }
+.upgradeLogo { position: relative; width: 180px; height: 38px; }
+.upgradeEyebrow { display: inline-block; margin-bottom: 6px; color: var(--panel-accent-text); font-size: 11px; font-weight: 600; }
+.upgradeMain h3 { font-size: 20px; line-height: 1.35; }
+.upgradeMain p { max-width: 610px; margin-top: 6px; color: var(--panel-muted); font-size: 13px; line-height: 1.65; }
+.upgradeBenefits { display: grid; gap: 7px; color: var(--panel-text); font-size: 12px; line-height: 1.5; }
+.upgradeBenefits li { position: relative; padding-left: 18px; }
+.upgradeBenefits li::before { content: "✓"; position: absolute; left: 0; color: var(--color-green); font-weight: 600; }
+.upgradeAction { display: flex; flex-direction: column; align-items: stretch; justify-content: center; gap: 12px; padding: 22px; border-left: 1px solid color-mix(in srgb, var(--panel-brand) 18%, var(--panel-border)); background: color-mix(in srgb, var(--panel-brand) 5%, var(--panel-surface)); text-align: center; }
+.upgradeAction > p { display: flex; align-items: baseline; justify-content: center; gap: 4px; color: var(--panel-text); }
+.upgradeAction > p strong { font-size: 24px; line-height: 1; }
+.upgradeAction > p span { color: var(--panel-muted); font-size: 12px; }
+.upgradeAction button { width: 100%; min-height: 42px; }
+.upgradeAction small { color: var(--panel-muted); font-size: 10px; line-height: 1.5; }
 .historySelect { width: 260px; }
 .paper { container-type: inline-size; display: grid; gap: 24px; overflow: visible; }
 .hero { position: relative; display: grid; gap: 28px; padding: 28px 24px; border: 1px solid var(--panel-border); border-top: 3px solid var(--panel-brand); border-radius: 10px; background: var(--panel-surface); }
@@ -128,9 +149,14 @@
 }
 @media (max-width: 600px) {
     .historySelect { width: 150px; }
-    .noAnalysisState { padding: 32px 18px; }
-    .upgradeState { flex-direction: column; align-items: stretch; gap: 16px; text-align: center; }
-    .upgradeState button { width: 100%; }
+    .noAnalysisState { gap: 18px; padding: 32px 18px; }
+    .analysisSteps { grid-template-columns: 1fr; }
+    .upgradeState { grid-template-columns: 1fr; }
+    .upgradeMain { padding: 20px; }
+    .upgradeLogo { margin-inline: auto; }
+    .upgradeMain > div { text-align: center; }
+    .upgradeBenefits { text-align: left; }
+    .upgradeAction { padding: 20px; border-top: 1px solid color-mix(in srgb, var(--panel-brand) 18%, var(--panel-border)); border-left: 0; }
   .hero { padding: 24px 18px; gap: 24px; }
   .hero h2 { font-size: 21px; }
   .gain { font-size: 32px; letter-spacing: -.8px; }

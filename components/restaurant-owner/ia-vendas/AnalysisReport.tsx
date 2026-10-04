@@ -50,15 +50,67 @@ export default function AnalysisReport({
         {locked ? (
           <section className={styles.noAnalysisState}>
             <div className={styles.stateIcon}><Sparkles size={24} aria-hidden="true" /></div>
-            <h2>Sua análise ainda não foi liberada</h2>
-            <p>Estamos liberando análises gratuitas para alguns restaurantes por vez. Volte em outro dia para ver se o seu restaurante foi selecionado.</p>
+            <div className={styles.noAnalysisIntro}>
+              <h2>Sua análise ainda não foi liberada</h2>
+              <p>A Análise de vendas usa os dados reais do seu restaurante para encontrar oportunidades que podem aumentar suas vendas e transformar os melhores achados em mudanças prontas para revisão.</p>
+            </div>
+
+            <div className={styles.analysisSteps} aria-label="Como funciona a análise">
+              <article>
+                <span><ClipboardList size={18} aria-hidden="true" /></span>
+                <div>
+                  <strong>Entende suas vendas</strong>
+                  <p>Analisa pedidos, desempenho dos produtos, cardápio e configurações do restaurante.</p>
+                </div>
+              </article>
+              <article>
+                <span><Target size={18} aria-hidden="true" /></span>
+                <div>
+                  <strong>Encontra o que vale priorizar</strong>
+                  <p>Destaca oportunidades com evidências e, quando possível, estima o impacto nas próximas 4 semanas.</p>
+                </div>
+              </article>
+              <article>
+                <span><Sparkles size={18} aria-hidden="true" /></span>
+                <div>
+                  <strong>Prepara melhorias para você revisar</strong>
+                  <p>Sugere mudanças no cardápio e você decide o que realmente quer aplicar.</p>
+                </div>
+              </article>
+            </div>
+
+            <div className={styles.freeReleaseNote}>
+              <strong>Como funciona o acesso gratuito</strong>
+              <p>Por enquanto, estamos liberando análises gratuitas para poucos restaurantes por vez. Quando o seu for selecionado, a análise aparecerá automaticamente aqui. Volte em outro dia para conferir.</p>
+            </div>
+
             <div className={styles.upgradeState}>
-              <div>
-                <strong>Quer receber sua análise agora?</strong>
-                <p>Com o iMenu IA Plus, sua análise começa automaticamente, sem esperar pela seleção gratuita.</p>
-                <span>{IA_PLUS_PRICE_LABEL}/mês</span>
+              <div className={styles.upgradeMain}>
+                <div className={styles.upgradeLogo}>
+                  <Image
+                    src="/logos/IAPlusCombinationMarkLogo_Brand.png"
+                    alt="iMenu IA Plus"
+                    fill
+                    sizes="180px"
+                    className="object-contain object-left"
+                  />
+                </div>
+                <div>
+                  <span className={styles.upgradeEyebrow}>Sem esperar pela seleção gratuita</span>
+                  <h3>Receba sua análise agora</h3>
+                  <p>Com o iMenu IA Plus, a análise começa automaticamente e você libera tudo para transformar as oportunidades em melhorias no seu restaurante.</p>
+                </div>
+                <ul className={styles.upgradeBenefits}>
+                  <li>Análise iniciada automaticamente</li>
+                  <li>Acesso completo às oportunidades encontradas</li>
+                  <li>Converse com a IA e revise e aplique as mudanças sugeridas</li>
+                </ul>
               </div>
-              <Button onClick={onUpgrade}>Receber análise agora</Button>
+              <div className={styles.upgradeAction}>
+                <p><strong>{IA_PLUS_PRICE_LABEL}</strong><span>/mês</span></p>
+                <Button onClick={onUpgrade}>Receber análise agora</Button>
+                <small>Cartão ou Pix · cancele quando quiser</small>
+              </div>
             </div>
           </section>
         ) : (
