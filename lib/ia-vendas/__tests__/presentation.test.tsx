@@ -251,7 +251,7 @@ test("potential uses Brazilian numbers and one explanation without repeating the
     min_percent: 0.006,
     max_percent: 0.012,
   }} />);
-  expect(range).toContain("a R$");
+  expect(range).toContain(">a</span><span>R$");
   expect(range).toContain("+0,6% a 1,2%");
   expect(range).not.toContain("–");
 });
