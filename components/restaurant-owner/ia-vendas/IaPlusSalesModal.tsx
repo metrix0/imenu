@@ -9,7 +9,6 @@ import {
   ArrowRight,
   Check,
   CreditCard,
-  Image as ImageIcon,
   RefreshCw,
   Sparkles,
 } from "lucide-react";
@@ -128,22 +127,28 @@ export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout
           </div>
 
           <div className="px-6 py-6 sm:px-8">
-            <div className="grid gap-3 md:grid-cols-3">
-              {IA_PLUS_BENEFITS.map((benefit, index) => {
-                return <div key={benefit.title} className="rounded-xl border border-orange-100 bg-gradient-to-br from-white to-orange-50/70 p-4">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand/10 text-brand">
-                    {index === 0 ? (
-                      <FontAwesomeIcon icon={faWandMagicSparkles} className="text-[17px]" />
-                    ) : index === 2 ? (
-                      <FontAwesomeIcon icon={faArrowTrendUp} className="text-[17px]" />
-                    ) : (
-                      <ImageIcon size={17} aria-hidden="true" />
-                    )}
-                  </span>
-                  <p className="mt-3 text-sm font-semibold text-gray-900">{benefit.title}</p>
-                  <p className="mt-1 text-sm leading-6 text-gray-500">{benefit.description}</p>
-                </div>;
-              })}
+            <div className="grid gap-3 md:grid-cols-2">
+              <section className="overflow-hidden rounded-xl border border-orange-100 bg-white">
+                <div className="flex items-center gap-2 bg-brand/5 px-4 py-3 text-brand">
+                  <FontAwesomeIcon icon={faWandMagicSparkles} className="text-[17px]" />
+                  <h3 className="text-sm font-semibold">Assistente IA</h3>
+                </div>
+                <div className="space-y-3 p-4 text-sm leading-5 text-gray-600">
+                  <p className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0 text-brand" aria-hidden="true" /><span>Mais capacidade para conversar com a IA e realizar tarefas no seu cardápio.</span></p>
+                  <p className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0 text-brand" aria-hidden="true" /><span>Gere imagens para produtos, logo e banner e revise tudo antes de publicar.</span></p>
+                </div>
+              </section>
+
+              <section className="overflow-hidden rounded-xl border border-orange-100 bg-white">
+                <div className="flex items-center gap-2 bg-brand/5 px-4 py-3 text-brand">
+                  <FontAwesomeIcon icon={faArrowTrendUp} className="text-[17px]" />
+                  <h3 className="text-sm font-semibold">Vendas IA</h3>
+                </div>
+                <div className="space-y-3 p-4 text-sm leading-5 text-gray-600">
+                  <p className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0 text-brand" aria-hidden="true" /><span>Veja a análise completa e todas as oportunidades encontradas para o seu restaurante.</span></p>
+                  <p className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0 text-brand" aria-hidden="true" /><span>Converse sobre as oportunidades e revise e aplique as melhorias sugeridas.</span></p>
+                </div>
+              </section>
             </div>
 
             {!active && (
