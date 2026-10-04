@@ -67,7 +67,6 @@ export default function AnaliseDeVendasComIaPage() {
                     <figure className="w-full max-w-xs justify-self-center overflow-hidden rounded-3xl border border-orange-100 bg-orange-50/40 p-4 shadow-sm">
                         <img src="/logos/IAPlusCombinationMarkLogo_Brand.png" alt="iMenu IA Plus" width={950} height={199} className="mx-auto mb-4 h-auto w-40 max-w-full" />
                         <img src="/images/IAPlus.png" alt="Representação dos recursos de IA do iMenu com uma proposta de mudança no cardápio aguardando aprovação" width={1602} height={1823} className="mx-auto block h-auto w-full rounded-2xl" />
-                        <figcaption className="mt-3 text-center text-xs leading-5 text-gray-500">Com IA Plus, as oportunidades da análise podem virar mudanças aplicadas após sua aprovação. Imagem ilustrativa do Assistente.</figcaption>
                     </figure>
                 </div>
                 <BlogCallout title="O diagnóstico pode chegar com a mudança pronta" variant="tip">
