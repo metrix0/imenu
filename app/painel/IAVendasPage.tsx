@@ -681,7 +681,7 @@ export default function SalesPage() {
     <div
       className={
         isAnalysis
-          ? "h-[calc(100dvh-112px)] max-h-[calc(100dvh-112px)] min-h-0 w-full overflow-hidden md:h-[calc(100dvh-64px)] md:max-h-[calc(100dvh-64px)]"
+          ? "h-full max-h-full min-h-0 w-full overflow-hidden"
           : "absolute inset-x-0 top-0 h-[calc(100dvh-64px)] max-h-[calc(100dvh-64px)] min-h-0 w-full !max-w-none overflow-hidden bg-[var(--panel-surface)] md:h-dvh md:max-h-dvh"
       }
     >
