@@ -195,8 +195,7 @@ export default function AnalysisReport({
       </div>}
 
       <div className={styles.paper}>
-        {!legacy && <div className={locked && report ? styles.preview : undefined}>
-          <div className={`${styles.analysisBody} ${locked && report ? styles.previewContent : ""}`}>
+        {!legacy && <>
           <section aria-label="Potencial estimado" className={styles.hero}>
             <div>
               <h2>O que seu restaurante pode ganhar em 4 semanas</h2>
@@ -217,7 +216,8 @@ export default function AnalysisReport({
             <div className={styles.summaryCopy}>{report ? <SalesMarkdown content={report.summary} /> : <p>A análise prioriza melhorias nas vendas e traz mudanças prontas para você revisar.</p>}</div>
           </section>
 
-          <div>
+          <div className={locked && report ? styles.preview : undefined}>
+          <div className={locked && report ? styles.previewContent : undefined}>
           <section aria-label="Prioridades" className={styles.opportunitiesCard}>
             <div className={styles.sectionHeader}><h2>Prioridades</h2>{!!opportunities.length && <span className={styles.count}>{report?.opportunity_count ?? opportunities.length}</span>}</div>
             {!opportunities.length && <div className={styles.empty}>
@@ -256,10 +256,9 @@ export default function AnalysisReport({
               </div>}
             </section>
           </div>
-          </div>
           {locked && report && <div className={styles.paywall}><div className={`${styles.paywallImage} ${styles.paywallLogo}`}><Image src="/logos/IAPlusCombinationMarkLogo_Brand.png" alt="" fill sizes="224px" className="object-contain" /></div><h3>Coloque essas oportunidades em prática</h3><p>Veja a análise completa, converse com a IA e revise e aplique as melhorias com o iMenu IA Plus.</p><Button onClick={onUpgrade}>Conhecer iMenu IA Plus</Button></div>}
           </div>
-        </div>}
+        </>}
         {legacy && <div className={locked ? styles.preview : undefined}><div className={locked ? styles.previewContent : undefined}><section className={styles.legacy}>
           <p className={styles.eyebrow}>Relatório anterior ao formato estruturado.</p>
           <SalesMarkdown content={String(selected.result.reply || "").replace(/\[\[(?:action:[^\]]+|card:[^\]]+)\]\]/g, "")} />

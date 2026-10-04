@@ -102,11 +102,10 @@ test("free restaurant without analysis explains the analysis and IA Plus immedia
   expect(html).toContain("49,99");
 });
 
-test("locked analysis keeps the full report scrollable and fades only its final quarter", () => {
+test("locked analysis keeps the full report visible under the final-third IA Plus fade", () => {
   const html = renderToStaticMarkup(<AnalysisReport {...props} locked />);
   expect(html).toContain('class="report reportLocked"');
-  expect(html).toContain("analysisBody previewContent");
-  expect(html.indexOf("previewContent")).toBeLessThan(html.indexOf('aria-label="Potencial estimado"'));
+  expect(html).toContain('class="previewContent"');
   expect(html).toContain("IAPlusCombinationMarkLogo_Brand.png");
   expect(html).toContain('sizes="224px"');
   expect(html).toContain('aria-label="Comparações"');
