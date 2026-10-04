@@ -23,6 +23,7 @@ import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 import AnalysisReport from "@/components/restaurant-owner/ia-vendas/AnalysisReport";
 import SalesMarkdown from "@/components/restaurant-owner/ia-vendas/SalesMarkdown";
 import PanelTabCard from "@/components/restaurant-owner/ia-vendas/PanelTabCard";
+import SalesAnalysisSuggestionCard from "@/components/restaurant-owner/ia-vendas/SalesAnalysisSuggestionCard";
 import {
   ActionCard,
   ActionPreview,
@@ -491,6 +492,8 @@ export default function SalesPage() {
                         return isPanelTabKey(card.tab) ? (
                           <PanelTabCard key={i} tab={card.tab} />
                         ) : null;
+                      if (card.type === "sales_analysis_cta")
+                        return <SalesAnalysisSuggestionCard key={i} />;
                       return card.type !== "action" ? (
                         <DataCard key={i} card={card} />
                       ) : null;

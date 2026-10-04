@@ -2,6 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import AnalysisReport from "@/components/restaurant-owner/ia-vendas/AnalysisReport";
 import SalesMarkdown from "@/components/restaurant-owner/ia-vendas/SalesMarkdown";
 import { ActionCard, DataCard } from "@/components/restaurant-owner/ia-vendas/SalesWidgets";
+import SalesAnalysisSuggestionCard from "@/components/restaurant-owner/ia-vendas/SalesAnalysisSuggestionCard";
 import type { Action } from "../types";
 import { analysisPreview } from "../paywall";
 
@@ -454,6 +455,13 @@ test("report handles unavailable estimates and never invents a gain", () => {
   expect(html).not.toContain("R$");
 });
 
+
+test("whole-menu suggestion card points to Vendas IA", () => {
+  const html = renderToStaticMarkup(<SalesAnalysisSuggestionCard />);
+  expect(html).toContain("Análise completa do seu cardápio");
+  expect(html).toContain("Vendas IA");
+  expect(html).toContain('aria-label="Abrir aba Vendas IA"');
+});
 
 test("panel tab shortcuts render inline inside assistant text", () => {
   const html = renderToStaticMarkup(

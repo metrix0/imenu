@@ -1,4 +1,4 @@
-import { runChat } from "../chat";
+import { asksAboutWholeMenu, runChat } from "../chat";
 import {
   aiAccess,
   IaImageLimitReached,
@@ -66,6 +66,25 @@ const result = () => ({
   opportunities: [],
   review_items: [],
 });
+test.each([
+  "o que acha do meu cardápio?",
+  "meu cardápio está bom?",
+  "analise meu cardápio",
+  "revise o menu completo",
+  "do u think my menu is nice?",
+  "review my entire menu",
+])("whole-menu evaluation suggests Vendas IA: %s", (message) => {
+  expect(asksAboutWholeMenu(message)).toBe(true);
+});
+
+test.each([
+  "mude o preço deste item do meu cardápio",
+  "adicione uma bebida ao menu",
+  "troque a foto deste produto",
+])("specific menu request does not suggest Vendas IA: %s", (message) => {
+  expect(asksAboutWholeMenu(message)).toBe(false);
+});
+
 beforeEach(() => {
   (analysisPhotos as jest.Mock).mockReset().mockResolvedValue([]);
   create.mockReset();
