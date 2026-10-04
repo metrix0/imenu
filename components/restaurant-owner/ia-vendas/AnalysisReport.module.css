@@ -172,12 +172,13 @@
 }
 
 .reportLocked { position: relative; padding-bottom: 0; }
+.analysisBody { display: grid; gap: 24px; }
 .preview { position: relative; min-height: 0; }
 .previewContent {
-  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 66%, rgb(0 0 0 / .72) 76%, rgb(0 0 0 / .24) 91%, transparent 100%);
-  mask-image: linear-gradient(to bottom, #000 0%, #000 66%, rgb(0 0 0 / .72) 76%, rgb(0 0 0 / .24) 91%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 75%, rgb(0 0 0 / .72) 83%, rgb(0 0 0 / .24) 93%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 0%, #000 75%, rgb(0 0 0 / .72) 83%, rgb(0 0 0 / .24) 93%, transparent 100%);
 }
-.paywall { position: absolute; inset: auto 0 0; z-index: 2; min-height: 430px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 14px; padding: 120px 24px 56px; background: linear-gradient(to bottom, rgb(255 255 255 / 0), #fff 52%); text-align: center; }
+.paywall { position: absolute; inset: 75% 0 0; z-index: 2; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 64px 24px 40px; background: linear-gradient(to bottom, rgb(255 255 255 / 0), #fff 52%); text-align: center; }
 .paywallImage { position: relative; width: 80px; height: 112px; margin-bottom: -4px; }
 .paywallLogo { width: 224px; height: 48px; margin-bottom: 2px; }
 .reportLocked :global([data-ia-plus-action] button)::after {
