@@ -14,10 +14,10 @@ export async function aiAccess(restaurant: string, client?: Pick<PoolClient, "qu
   const addon = (await execute("SELECT status,current_period_ends_at FROM public.restaurant_addons WHERE restaurant_id=$1 AND product_key='ia_plus'", [restaurant])).rows[0] || null;
   const plus = hasQrTableAccess(addon);
   const usage = (await execute(`SELECT
-    coalesce(sum(input_tokens + output_tokens) FILTER (WHERE kind='chat'),0)::int tokens,
+    coalesce(sum(input_tokens + output_tokens) FILTER (WHERE kind='chat' AND created_at>=now()-interval '7 days'),0)::int tokens,
     coalesce(sum(reserved_input + reserved_output) FILTER (WHERE kind='chat' AND status='running' AND created_at>now()-interval '6 minutes'),0)::int reserved,
-    coalesce(sum(image_count),0)::int images
-    FROM public.ia_vendas_runs WHERE restaurant_id=$1 AND created_at>=date_trunc('month',now())`, [restaurant])).rows[0];
+    coalesce(sum(image_count) FILTER (WHERE created_at>=date_trunc('month',now())),0)::int images
+    FROM public.ia_vendas_runs WHERE restaurant_id=$1`, [restaurant])).rows[0];
   return { plus, reserved_tokens: Number(usage?.reserved || 0), tokens_remaining: plus ? null : Math.max(0, FREE_AI_TOKENS - Number(usage?.tokens || 0)), images_remaining: plus ? null : Math.max(0, FREE_AI_IMAGES - Number(usage?.images || 0)) };
 }
 export async function requireIaPlus(restaurant: string) {

@@ -36,7 +36,7 @@ export function IaPlusDetails() {
 }
 export function IaPlusLimitMessage({ onCheckout }: { onCheckout: () => void }) {
   return <article aria-label="Limite gratuito do Assistente IA" className="mx-auto my-5 max-w-2xl rounded-xl border border-brand/20 bg-white p-5">
-    <div className="mb-4 flex items-center gap-2 text-sm font-medium text-brand"><Sparkles size={18} />Seu limite gratuito foi atingido</div>
+    <div className="mb-4 flex items-center gap-2 text-sm font-medium text-brand"><Sparkles size={18} />Seu limite gratuito foi atingido. Seus limites são reiniciados em 7 dias.</div>
     <IaPlusDetails />
     <Button className="mt-5" onClick={onCheckout}>Assinar iMenu IA Plus</Button>
   </article>;

@@ -42,7 +42,7 @@ export async function beginRun(
     ).rows[0];
     const access = kind === "analysis" ? null : await aiAccess(restaurant, c);
     const freeBudget = access && !access.plus ? Math.max(0, Number(access.tokens_remaining) - access.reserved_tokens) : null;
-    if (kind === "chat" && freeBudget !== null && freeBudget < 500) throw new IaPlusRequired("Você atingiu o limite gratuito do Assistente IA deste mês.");
+    if (kind === "chat" && freeBudget !== null && freeBudget < 500) throw new IaPlusRequired("Seu limite gratuito foi atingido. Seus limites são reiniciados em 7 dias.");
     const output =
       kind === "analysis" ? LIMITS.analysisOutput : LIMITS.chatOutput;
     if (

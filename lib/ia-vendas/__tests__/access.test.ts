@@ -10,7 +10,7 @@ beforeEach(() => {
   usage = { tokens: 0, reserved: 0, images: 0 };
   sql.mockImplementation(async (statement: string) => ({
     rows: statement.includes("restaurant_addons") ? (addon ? [addon] : [])
-      : statement.includes("FILTER (WHERE kind='chat')") ? [usage]
+      : statement.includes("sum(input_tokens + output_tokens)") ? [usage]
       : statement.includes("sum(greatest") ? [{ input: 0, output: 0, recent: 0 }]
       : statement.includes("sum(image_count),0) n") ? [{ n: usage.images }] : [],
     rowCount: statement.startsWith("UPDATE public.ia_vendas_runs SET image_count") ? 1 : 0,
@@ -22,6 +22,16 @@ test("a restaurant without Plus starts with 10,000 tokens and one image", async 
   usage = { tokens: 9500, images: 1, reserved: 0 };
   expect(await aiAccess("restaurant")).toMatchObject({ tokens_remaining: 500, images_remaining: 0 });
   await expect(requireIaPlus("restaurant")).rejects.toBeInstanceOf(IaPlusRequired);
+});
+test("free tokens use a rolling seven-day window while images remain monthly", async () => {
+  await aiAccess("restaurant");
+  const usageQuery = sql.mock.calls.find(([statement]) =>
+    statement.includes("sum(input_tokens + output_tokens)"),
+  )?.[0] as string;
+  expect(usageQuery).toContain("kind='chat' AND created_at>=now()-interval '7 days'");
+  expect(usageQuery).toContain(
+    "sum(image_count) FILTER (WHERE created_at>=date_trunc('month',now()))",
+  );
 });
 test.each([
   ["active", null, true],
