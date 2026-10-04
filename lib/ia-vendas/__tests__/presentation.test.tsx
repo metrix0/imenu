@@ -60,12 +60,12 @@ const props = {
   onAction: jest.fn(), onBatch: jest.fn(),
 };
 
-test("report leads with potential actions, then summary, opportunities, review and comparison", () => {
+test("report leads with potential actions, then summary, opportunities, comparison and review", () => {
   const html = renderToStaticMarkup(<AnalysisReport {...props} />);
   const positions = [
     'aria-label="Potencial estimado"', 'aria-label="Resumo da IA"',
-    'aria-label="Prioridades"', "Pontos rápidos para revisão",
-    'aria-label="Comparações"',
+    'aria-label="Prioridades"', 'aria-label="Comparações"',
+    "Pontos rápidos para revisão",
   ].map((label) => html.indexOf(label));
   expect(positions.every((position) => position >= 0)).toBe(true);
   expect(positions).toEqual([...positions].sort((a, b) => a - b));

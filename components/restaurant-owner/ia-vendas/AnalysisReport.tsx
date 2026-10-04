@@ -235,15 +235,6 @@ export default function AnalysisReport({
           </section>
 
           <div className={styles.secondary}>
-            {!!reviewItems.length && <section aria-label="Pontos rápidos para revisão" className={styles.review}>
-              <div className={styles.reviewSummary}>
-                <h2>Pontos rápidos para revisão <span className={styles.count}>{reviewItems.length}</span></h2>
-              </div>
-              <div className={styles.reviewEntries}>{reviewItems.map((entry) => <article key={entry.id} className={styles.reviewEntry}>
-                <div><h3>{entry.title}</h3><p className={styles.explanation}>{entry.explanation}</p><div className={styles.opportunityTools}>{renderEvidence(entry)}{discuss(entry)}</div></div>
-                <div className={styles.proposalList}>{renderActions(entry)}</div>
-              </article>)}</div>
-            </section>}
             <section aria-label={SHOW_MEASUREMENT_HISTORY ? "Comparações e resultados" : "Comparações"} className={styles.comparison}>
               <DataCard card={{ ...report?.benchmark_snapshot, reason: report?.benchmark_snapshot?.reason || "Ainda não há dados suficientes para uma comparação útil.", current: report?.sales_snapshot, type: "benchmark" }} presentation="report" />
               {SHOW_MEASUREMENT_HISTORY && <div className="mt-6">
@@ -253,6 +244,15 @@ export default function AnalysisReport({
                 </>}
               </div>}
             </section>
+            {!!reviewItems.length && <section aria-label="Pontos rápidos para revisão" className={styles.review}>
+              <div className={styles.reviewSummary}>
+                <h2>Pontos rápidos para revisão <span className={styles.count}>{reviewItems.length}</span></h2>
+              </div>
+              <div className={styles.reviewEntries}>{reviewItems.map((entry) => <article key={entry.id} className={styles.reviewEntry}>
+                <div><h3>{entry.title}</h3><p className={styles.explanation}>{entry.explanation}</p><div className={styles.opportunityTools}>{renderEvidence(entry)}{discuss(entry)}</div></div>
+                <div className={styles.proposalList}>{renderActions(entry)}</div>
+              </article>)}</div>
+            </section>}
           </div>
           {locked && report && <div className={`${styles.paywall} ${styles.structuredPaywall}`}><div className={`${styles.paywallImage} ${styles.paywallLogo}`}><Image src="/logos/IAPlusCombinationMarkLogo_Brand.png" alt="" fill sizes="224px" className="object-contain" /></div><h3>Coloque essas oportunidades em prática</h3><p>Veja a análise completa, converse com a IA e revise e aplique as melhorias com o iMenu IA Plus.</p><Button onClick={onUpgrade}>Conhecer iMenu IA Plus</Button></div>}
         </>}
