@@ -16,13 +16,14 @@ type ProductCardContent = {
 };
 type MenuProductCardProps = ProductCardContent & (
     | { variant: "included"; learnMoreLink: { href: string; label: string } }
-    | { variant: "addon"; selected?: boolean; active?: boolean; onToggle?: () => void; onLearnMore: () => void; exclusiveSupport?: boolean }
+    | { variant: "addon"; selected?: boolean; active?: boolean; onToggle?: () => void; onLearnMore: () => void; exclusiveSupport?: boolean; cardClickable?: boolean }
 );
 
 export default function MenuProductCard(props: MenuProductCardProps) {
     const included = props.variant === "included";
     const active = props.variant === "addon" && props.active === true;
     const selected = props.variant === "addon" && (props.selected === true || active);
+    const cardClickable = props.variant === "addon" && props.cardClickable !== false;
     const handleAction = () => {
         if (props.variant !== "addon" || active) return;
         if (props.onToggle) props.onToggle();
@@ -39,15 +40,17 @@ export default function MenuProductCard(props: MenuProductCardProps) {
 
     return (
         <div
-            onClick={included ? undefined : handleAction}
+            onClick={cardClickable ? handleAction : undefined}
             data-selected={included ? undefined : selected}
             className={included
                 ? "relative flex min-h-[320px] flex-col overflow-hidden rounded-2xl border border-brand bg-white p-6 shadow-sm ring-2 ring-brand/10"
                 : `relative flex min-h-[320px] flex-col overflow-hidden rounded-2xl border p-6 shadow-sm transition-all duration-200 ${
                     selected
                         ? "border-brand bg-[#fff1ea] ring-2 ring-brand/10"
-                        : "cursor-pointer border-orange-200 bg-white hover:-translate-y-0.5 hover:border-brand/50 hover:shadow-md"
-                } ${!active && selected ? "cursor-pointer" : ""}`}
+                        : cardClickable
+                            ? "cursor-pointer border-orange-200 bg-white hover:-translate-y-0.5 hover:border-brand/50 hover:shadow-md"
+                            : "border-orange-200 bg-white"
+                } ${cardClickable && !active && selected ? "cursor-pointer" : ""}`}
         >
             {props.variant === "included" ? (
                 <span className="absolute right-4 top-4 inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-semibold text-gray-600">

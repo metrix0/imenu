@@ -7,6 +7,7 @@ export default function IaPlusProductCard({ active, onLearnMore }: { active: boo
     return (
         <MenuProductCard
             variant="addon"
+            cardClickable={false}
             name="iMenu IA Plus"
             logo="/logos/IAPlusCombinationMarkLogo_Brand.png"
             description="Assistente IA liberado e com mais capacidade. Acesso completo às oportunidades da Análise de vendas com IA!"
