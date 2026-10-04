@@ -78,6 +78,9 @@ test("report leads with potential actions, then summary, opportunities, review a
   expect(html).toContain("Revisar e aplicar tudo");
   expect(html).toContain("Conversar com Assistente de IA");
   expect(html).not.toContain("Potencial nas próximas 4 semanas");
+  expect(html).toContain('aria-label="Pontos para revisão" class="review"');
+  expect(html).not.toContain('<summary class="reviewSummary">');
+  expect(html).toContain("Confirme o frete");
 });
 
 test("free restaurant without analysis explains the analysis and IA Plus immediate access", () => {

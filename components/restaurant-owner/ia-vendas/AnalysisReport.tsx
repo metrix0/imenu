@@ -238,17 +238,16 @@ export default function AnalysisReport({
           </section>
 
           <div className={styles.secondary}>
-            {!!reviewItems.length && <details className={styles.review}>
-              <summary className={styles.reviewSummary}>
+            {!!reviewItems.length && <section aria-label="Pontos para revisão" className={styles.review}>
+              <div className={styles.reviewSummary}>
                 <CircleHelp size={20} aria-hidden="true" />
                 <div><strong>Pontos para revisão <span className={styles.count}>{reviewItems.length}</span></strong><p>{reviewItems[0].title}</p></div>
-                <ChevronDown size={16} aria-hidden="true" />
-              </summary>
+              </div>
               <div className={styles.reviewEntries}>{reviewItems.map((entry) => <article key={entry.id} className={styles.reviewEntry}>
                 <div><h3>{entry.title}</h3><p className={styles.explanation}>{entry.explanation}</p><div className={styles.opportunityTools}>{renderEvidence(entry)}{discuss(entry)}</div></div>
                 <div className={styles.proposalList}>{renderActions(entry)}</div>
               </article>)}</div>
-            </details>}
+            </section>}
             <section aria-label={SHOW_MEASUREMENT_HISTORY ? "Comparações e resultados" : "Comparações"} className={styles.comparison}>
               <DataCard card={{ ...report?.benchmark_snapshot, reason: report?.benchmark_snapshot?.reason || "Ainda não há dados suficientes para uma comparação útil.", type: "benchmark" }} presentation="report" />
               {SHOW_MEASUREMENT_HISTORY && <div className="mt-6">
