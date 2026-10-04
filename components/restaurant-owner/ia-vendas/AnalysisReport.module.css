@@ -133,7 +133,9 @@
   .disclosure summary > svg:last-child, .disclosure::details-content { transition: none; }
 }
 
-.preview { position: relative; max-height: 660px; min-height: 400px; overflow: hidden; padding-bottom: 220px; }
-.paywall { position: absolute; inset: auto 0 0; z-index: 2; min-height: 300px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 14px; padding: 100px 24px 28px; background: linear-gradient(to bottom, rgb(255 255 255 / 0), #fff 38%); text-align: center; }
+.reportLocked { position: relative; height: 100%; max-height: 100%; overflow: hidden; padding-bottom: 0; }
+.preview { min-height: 0; }
+.paywall { position: absolute; inset: auto 0 0; z-index: 2; min-height: 430px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 14px; padding: 120px 24px 72px; background: linear-gradient(to bottom, rgb(255 255 255 / 0), #fff 28%); text-align: center; }
+.paywallImage { position: relative; width: 80px; height: 112px; margin-bottom: -4px; }
 .paywall h3 { font-size: 20px; font-weight: 600; }
 .paywall p { max-width: 440px; color: #6b7280; font-size: 14px; line-height: 1.6; }

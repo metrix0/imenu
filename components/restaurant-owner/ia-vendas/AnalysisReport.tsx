@@ -1,4 +1,5 @@
 "use client";
+import Image from "next/image";
 import { ChevronDown, CircleHelp, ClipboardList, History, MessageSquare, Sparkles, Target } from "lucide-react";
 import Tooltip from "@/components/ui/Tooltip";
 import { IA_PLUS_FEATURE_MESSAGE } from "@/lib/addons/products";
@@ -83,7 +84,7 @@ export default function AnalysisReport({
   </button>);
 
   return (
-    <div className={styles.report} onClickCapture={locked ? event => { if ((event.target as HTMLElement).closest("[data-ia-plus-action] button")) { event.preventDefault(); event.stopPropagation(); onUpgrade?.(); } } : undefined}>
+    <div className={`${styles.report} ${locked ? styles.reportLocked : ""}`} onClickCapture={locked ? event => { if ((event.target as HTMLElement).closest("[data-ia-plus-action] button")) { event.preventDefault(); event.stopPropagation(); onUpgrade?.(); } } : undefined}>
       <header className="panel-page-heading flex flex-col xl:flex-row justify-between items-start xl:items-end gap-4 mb-8">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 2xl:text-4xl">Análise de vendas</h1>
@@ -171,14 +172,14 @@ export default function AnalysisReport({
               </div>}
             </section>
           </div>
-          {locked && report && <div className={styles.paywall}><Sparkles size={24} aria-hidden="true" /><h3>Coloque essas oportunidades em prática</h3><p>Veja a análise completa, converse com a IA e revise e aplique as melhorias com o iMenu IA Plus.</p><Button onClick={onUpgrade}>Conhecer iMenu IA Plus</Button></div>}
+          {locked && report && <div className={styles.paywall}><div className={styles.paywallImage}><Image src="/images/IAPlus.png" alt="" fill sizes="80px" className="object-contain" /></div><h3>Coloque essas oportunidades em prática</h3><p>Veja a análise completa, converse com a IA e revise e aplique as melhorias com o iMenu IA Plus.</p><Button onClick={onUpgrade}>Conhecer iMenu IA Plus</Button></div>}
           </div>
         </>}
         {legacy && <div className={locked ? styles.preview : undefined}><section className={styles.legacy}>
           <p className={styles.eyebrow}>Relatório anterior ao formato estruturado.</p>
           <SalesMarkdown content={String(selected.result.reply || "").replace(/\[\[(?:action:[^\]]+|card:[^\]]+)\]\]/g, "")} />
           {actions.filter((action) => action.run_id === selected.id).map((action) => <ActionCard key={action.id} action={action} generatedActions={(action.generated_actions || []).map((id) => actionById.get(id)).filter((generated): generated is Action => !!generated)} refs={refs} disabled={disabled} onAction={onAction} />)}
-        </section>{locked && <div className={styles.paywall}><Sparkles size={24} aria-hidden="true" /><h3>Veja a análise completa</h3><p>Converse com a IA e revise e aplique as melhorias com o iMenu IA Plus.</p><Button onClick={onUpgrade}>Conhecer iMenu IA Plus</Button></div>}</div>}
+        </section>{locked && <div className={styles.paywall}><div className={styles.paywallImage}><Image src="/images/IAPlus.png" alt="" fill sizes="80px" className="object-contain" /></div><h3>Veja a análise completa</h3><p>Converse com a IA e revise e aplique as melhorias com o iMenu IA Plus.</p><Button onClick={onUpgrade}>Conhecer iMenu IA Plus</Button></div>}</div>}
       </div>
     </div>
   );
