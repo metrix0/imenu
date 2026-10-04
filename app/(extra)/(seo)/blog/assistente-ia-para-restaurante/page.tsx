@@ -47,22 +47,26 @@ export default function AssistenteIaParaRestaurantePage() {
             relatedSlugs={["analise-de-vendas-com-ia", "criar-cardapio-com-ia", "como-montar-cardapio-delivery"]}
             ctaTitle="Peça a melhoria. Aprove a proposta. Deixe o iMenu executar."
         >
-            <figure className="overflow-hidden rounded-3xl border border-orange-100 bg-orange-50/40 shadow-sm">
-                <img src="/logos/IAPlusCombinationMarkLogo_Brand.png" alt="iMenu IA Plus" width={950} height={199} className="mx-auto my-6 h-auto w-56 max-w-[80%]" />
-                <img src="/images/IAPlus.png" alt="Representação do Assistente IA preparando uma descrição e uma imagem de hambúrguer para aprovação" width={1602} height={1823} className="mx-auto block h-auto w-full max-w-xs rounded-2xl" />
-                <figcaption className="px-6 py-4 text-center text-sm text-gray-500">Imagem ilustrativa do fluxo: conversar, revisar a proposta e aprovar a aplicação.</figcaption>
-            </figure>
             <BlogSection id="do-pedido-a-mudanca" title="Seu próximo ajuste no cardápio pode começar com uma mensagem">
-                <p>
-                    A cozinha precisa de você, o WhatsApp está chamando e ainda falta arrumar as descrições
-                    dos produtos. Você sabe o que quer mudar. O trabalho é abrir cada item, encontrar o
-                    campo certo, escrever, salvar e repetir. <strong>O Assistente IA do iMenu encurta esse caminho.</strong>
-                </p>
-                <p>
-                    Escreva o que precisa em linguagem normal. A IA consulta os dados disponíveis do
-                    restaurante e pode preparar uma proposta com os ajustes exatos. Você vê o que será
-                    alterado, aprova e <strong>o sistema aplica as mudanças automaticamente no seu cardápio</strong>.
-                </p>
+                <div className="grid items-center gap-8 md:grid-cols-[minmax(0,1fr)_280px]">
+                    <div className="min-w-0 space-y-5">
+                        <p>
+                            A cozinha precisa de você, o WhatsApp está chamando e ainda falta arrumar as descrições
+                            dos produtos. Você sabe o que quer mudar. O trabalho é abrir cada item, encontrar o
+                            campo certo, escrever, salvar e repetir. <strong>O Assistente IA do iMenu encurta esse caminho.</strong>
+                        </p>
+                        <p>
+                            Escreva o que precisa em linguagem normal. A IA consulta os dados disponíveis do
+                            restaurante e pode preparar uma proposta com os ajustes exatos. Você vê o que será
+                            alterado, aprova e <strong>o sistema aplica as mudanças automaticamente no seu cardápio</strong>.
+                        </p>
+                    </div>
+                    <figure className="w-full max-w-xs justify-self-center overflow-hidden rounded-3xl border border-orange-100 bg-orange-50/40 p-4 shadow-sm">
+                        <img src="/logos/IAPlusCombinationMarkLogo_Brand.png" alt="iMenu IA Plus" width={950} height={199} className="mx-auto mb-4 h-auto w-40 max-w-full" />
+                        <img src="/images/IAPlus.png" alt="Representação do Assistente IA preparando uma descrição e uma imagem de hambúrguer para aprovação" width={1602} height={1823} className="mx-auto block h-auto w-full rounded-2xl" />
+                        <figcaption className="mt-3 text-center text-xs leading-5 text-gray-500">Imagem ilustrativa do fluxo: conversar, revisar a proposta e aprovar a aplicação.</figcaption>
+                    </figure>
+                </div>
                 <BlogCallout title="A resposta já pode vir com a execução preparada" variant="tip">
                     Peça: “Melhore a descrição do meu hambúrguer de costela, mantendo os ingredientes”.
                     Quando houver informação suficiente, o Assistente pode apresentar a nova descrição

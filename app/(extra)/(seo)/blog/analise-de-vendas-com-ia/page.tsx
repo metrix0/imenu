@@ -49,23 +49,27 @@ export default function AnaliseDeVendasComIaPage() {
             relatedSlugs={["assistente-ia-para-restaurante", "como-aumentar-ticket-medio-restaurante", "como-criar-combo-no-delivery"]}
             ctaTitle="Descubra a oportunidade. Aprove a mudança. Coloque seu cardápio para trabalhar."
         >
-            <figure className="overflow-hidden rounded-3xl border border-orange-100 bg-orange-50/40 shadow-sm">
-                <img src="/logos/IAPlusCombinationMarkLogo_Brand.png" alt="iMenu IA Plus" width={950} height={199} className="mx-auto my-6 h-auto w-56 max-w-[80%]" />
-                <img src="/images/IAPlus.png" alt="Representação dos recursos de IA do iMenu com uma proposta de mudança no cardápio aguardando aprovação" width={1602} height={1823} className="mx-auto block h-auto w-full max-w-xs rounded-2xl" />
-                <figcaption className="px-6 py-4 text-center text-sm text-gray-500">Com IA Plus, as oportunidades da análise podem virar mudanças aplicadas após sua aprovação. Imagem ilustrativa do Assistente.</figcaption>
-            </figure>
             <BlogSection id="dados-viram-acoes" title="Seu cardápio vende todos os dias. O que ele está deixando passar?">
-                <p>
-                    Um hambúrguer vende bem, mas quase ninguém adiciona bebida. Um combo já tem procura,
-                    mas aparece no fim do cardápio. Um kit anuncia três unidades e permite escolher só
-                    uma. Cada caso pede uma decisão diferente — e o total de vendas, sozinho,
-                    não explica qual ajuste merece sua atenção.
-                </p>
-                <p>
-                    O <strong>Vendas IA do iMenu transforma os dados disponíveis do restaurante em uma
-                    análise de oportunidades</strong>. Ele cruza pedidos, desempenho dos produtos,
-                    apresentação do cardápio e configurações para indicar o que pode melhorar e por quê.
-                </p>
+                <div className="grid items-center gap-8 md:grid-cols-[minmax(0,1fr)_280px]">
+                    <div className="min-w-0 space-y-5">
+                        <p>
+                            Um hambúrguer vende bem, mas quase ninguém adiciona bebida. Um combo já tem procura,
+                            mas aparece no fim do cardápio. Um kit anuncia três unidades e permite escolher só
+                            uma. Cada caso pede uma decisão diferente — e o total de vendas, sozinho,
+                            não explica qual ajuste merece sua atenção.
+                        </p>
+                        <p>
+                            O <strong>Vendas IA do iMenu transforma os dados disponíveis do restaurante em uma
+                            análise de oportunidades</strong>. Ele cruza pedidos, desempenho dos produtos,
+                            apresentação do cardápio e configurações para indicar o que pode melhorar e por quê.
+                        </p>
+                    </div>
+                    <figure className="w-full max-w-xs justify-self-center overflow-hidden rounded-3xl border border-orange-100 bg-orange-50/40 p-4 shadow-sm">
+                        <img src="/logos/IAPlusCombinationMarkLogo_Brand.png" alt="iMenu IA Plus" width={950} height={199} className="mx-auto mb-4 h-auto w-40 max-w-full" />
+                        <img src="/images/IAPlus.png" alt="Representação dos recursos de IA do iMenu com uma proposta de mudança no cardápio aguardando aprovação" width={1602} height={1823} className="mx-auto block h-auto w-full rounded-2xl" />
+                        <figcaption className="mt-3 text-center text-xs leading-5 text-gray-500">Com IA Plus, as oportunidades da análise podem virar mudanças aplicadas após sua aprovação. Imagem ilustrativa do Assistente.</figcaption>
+                    </figure>
+                </div>
                 <BlogCallout title="O diagnóstico pode chegar com a mudança pronta" variant="tip">
                     Com iMenu IA Plus, as recomendações executáveis vêm com propostas para revisão.
                     Depois que você aprova, o sistema aplica as alterações automaticamente.
