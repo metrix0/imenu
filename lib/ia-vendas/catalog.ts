@@ -23,6 +23,313 @@ export function fields(
     throw new SalesError("Esta área não pode ser alterada pela IA.");
   return FIELDS[entity as keyof typeof FIELDS];
 }
+
+const UUID_SCHEMA = {
+  type: "string",
+  pattern:
+    "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$",
+};
+const availabilitySlotSchema = {
+  type: "object",
+  properties: {
+    open: { type: "string", pattern: "^([01]\\d|2[0-3]):[0-5]\\d$" },
+    close: { type: "string", pattern: "^([01]\\d|2[0-3]):[0-5]\\d$" },
+  },
+  required: ["open", "close"],
+  additionalProperties: false,
+};
+const automaticPromotionRuleSchema = {
+  oneOf: [
+    {
+      type: "object",
+      properties: {
+        type: { type: "string", enum: ["weekdays"] },
+        days: {
+          type: "array",
+          minItems: 1,
+          maxItems: 7,
+          items: { type: "integer", minimum: 0, maximum: 6 },
+        },
+      },
+      required: ["type", "days"],
+      additionalProperties: false,
+    },
+    {
+      type: "object",
+      properties: {
+        type: { type: "string", enum: ["minimum"] },
+        cents: { type: "integer", minimum: 1, maximum: 100000000 },
+        comparison: { type: "string", enum: ["gte", "gt"] },
+      },
+      required: ["type", "cents", "comparison"],
+      additionalProperties: false,
+    },
+    {
+      type: "object",
+      properties: {
+        type: { type: "string", enum: ["product"] },
+        item_id: UUID_SCHEMA,
+        quantity: { type: "integer", minimum: 1, maximum: 99 },
+      },
+      required: ["type", "item_id", "quantity"],
+      additionalProperties: false,
+    },
+  ],
+};
+const automaticPromotionBenefitSchema = {
+  oneOf: [
+    {
+      type: "object",
+      properties: { type: { type: "string", enum: ["delivery"] } },
+      required: ["type"],
+      additionalProperties: false,
+    },
+    {
+      type: "object",
+      properties: {
+        type: { type: "string", enum: ["percent"] },
+        value: { type: "number", exclusiveMinimum: 0, maximum: 100 },
+      },
+      required: ["type", "value"],
+      additionalProperties: false,
+    },
+    {
+      type: "object",
+      properties: {
+        type: { type: "string", enum: ["fixed"] },
+        cents: { type: "integer", minimum: 1, maximum: 100000000 },
+      },
+      required: ["type", "cents"],
+      additionalProperties: false,
+    },
+    {
+      type: "object",
+      properties: {
+        type: { type: "string", enum: ["product"] },
+        item_id: UUID_SCHEMA,
+        quantity: { type: "integer", minimum: 1, maximum: 99 },
+      },
+      required: ["type", "item_id", "quantity"],
+      additionalProperties: false,
+    },
+  ],
+};
+const ACTION_SPECIAL_SCHEMAS: Record<string, Data> = {
+  availability_json: {
+    type: "object",
+    description:
+      "Agenda semanal completa. Atualizar substitui a agenda inteira: leia restaurants antes e preserve todos os horários não alterados. Chaves: 0=domingo, 1=segunda, 2=terça, 3=quarta, 4=quinta, 5=sexta, 6=sábado.",
+    properties: Object.fromEntries(
+      Array.from({ length: 7 }, (_, day) => [
+        String(day),
+        { type: "array", items: availabilitySlotSchema },
+      ]),
+    ),
+    required: ["0", "1", "2", "3", "4", "5", "6"],
+    additionalProperties: false,
+  },
+  allowed_payment_methods: {
+    type: "array",
+    items: {
+      type: "string",
+      enum: ["pix", "dinheiro", "trazer-maquininha"],
+    },
+    maxItems: 3,
+  },
+  delivery_fee_mode: {
+    type: "string",
+    enum: ["radius", "neighborhood"],
+  },
+  delivery_fee_json: {
+    type: "array",
+    description:
+      "Tabela completa de entrega por raio. Atualizar substitui a lista inteira; preserve entradas não alteradas.",
+    maxItems: 200,
+    items: {
+      type: "object",
+      properties: {
+        radius_km: { type: "number", exclusiveMinimum: 0, maximum: 500 },
+        time_minutes: { type: "number", minimum: 0, maximum: 1440 },
+        fee_cents: {
+          anyOf: [
+            { type: "integer", minimum: 0 },
+            { type: "null" },
+          ],
+        },
+      },
+      required: ["radius_km", "time_minutes"],
+      additionalProperties: false,
+    },
+  },
+  delivery_neighborhood_fee_json: {
+    type: "array",
+    description:
+      "Tabela completa de entrega por bairro. Atualizar substitui a lista inteira; preserve entradas não alteradas.",
+    maxItems: 200,
+    items: {
+      type: "object",
+      properties: {
+        neighborhood: { type: "string", minLength: 1 },
+        time_minutes: { type: "number", minimum: 0, maximum: 1440 },
+        fee_cents: {
+          anyOf: [
+            { type: "integer", minimum: 0 },
+            { type: "null" },
+          ],
+        },
+      },
+      required: ["neighborhood", "time_minutes"],
+      additionalProperties: false,
+    },
+  },
+  automatic_promotions: {
+    type: "array",
+    description:
+      "Lista completa de promoções automáticas. Atualizar substitui a lista inteira; preserve promoções não alteradas.",
+    maxItems: 30,
+    items: {
+      type: "object",
+      properties: {
+        id: UUID_SCHEMA,
+        name: { type: "string", minLength: 1, maxLength: 80 },
+        active: { type: "boolean" },
+        show_on_menu: { type: "boolean" },
+        delivery: { type: "boolean" },
+        mesa: { type: "boolean" },
+        allow_coupon: { type: "boolean" },
+        rules: {
+          type: "array",
+          maxItems: 20,
+          items: automaticPromotionRuleSchema,
+        },
+        benefits: {
+          type: "array",
+          minItems: 1,
+          maxItems: 20,
+          items: automaticPromotionBenefitSchema,
+        },
+      },
+      required: [
+        "id",
+        "name",
+        "active",
+        "show_on_menu",
+        "delivery",
+        "mesa",
+        "allow_coupon",
+        "rules",
+        "benefits",
+      ],
+      additionalProperties: false,
+    },
+  },
+  pizza_settings: {
+    type: "object",
+    description:
+      "Configuração completa de pizza. Atualizar substitui o objeto inteiro.",
+    properties: {
+      enabled: { type: "boolean" },
+      pricing_rule: { type: "string", enum: ["highest", "average"] },
+      max_flavors: { type: "integer", minimum: 2, maximum: 8 },
+      category_ids: { type: "array", items: UUID_SCHEMA },
+    },
+    required: ["enabled", "pricing_rule", "max_flavors", "category_ids"],
+    additionalProperties: false,
+  },
+  available_days: {
+    type: "array",
+    items: { type: "integer", minimum: 0, maximum: 6 },
+    maxItems: 7,
+  },
+  origins: {
+    type: "array",
+    items: {
+      type: "string",
+      enum: ["delivery", "retirada", "autoatendimento"],
+    },
+    maxItems: 3,
+  },
+  discount_type: {
+    type: "string",
+    enum: ["percent", "fixed", "delivery"],
+  },
+  type: { type: "string", enum: ["percent", "fixed"] },
+  reward_subitem_ids: {
+    type: "array",
+    description:
+      "Lista completa dos complementos da recompensa; todos devem pertencer ao reward_item_id.",
+    items: UUID_SCHEMA,
+    maxItems: 100,
+  },
+  message_templates: {
+    type: "object",
+    description:
+      "Objeto completo de modelos do Robô WhatsApp. Atualizar substitui o objeto inteiro; preserve modelos não alterados.",
+    properties: Object.fromEntries(
+      [
+        "welcome",
+        "menu_link",
+        "delivery",
+        "payment",
+        "order_status_found",
+        "handoff",
+        "order_tracking",
+        "status_notification",
+      ].map((name) => [name, { type: "string", maxLength: 4000 }]),
+    ),
+    additionalProperties: false,
+  },
+};
+
+function actionFieldSchema(
+  name: string,
+  definition: { type: string; nullable: boolean },
+): Data {
+  const special = ACTION_SPECIAL_SCHEMAS[name];
+  let schema: Data;
+  if (special) schema = special;
+  else if (definition.type === "boolean") schema = { type: "boolean" };
+  else if (definition.type === "uuid") schema = UUID_SCHEMA;
+  else if (["integer", "smallint"].includes(definition.type))
+    schema = { type: "integer", minimum: 0, maximum: 100000000 };
+  else if (["real", "numeric"].includes(definition.type))
+    schema = { type: "number", minimum: 0, maximum: 100000000 };
+  else if (definition.type.startsWith("time "))
+    schema = {
+      type: "string",
+      pattern: "^\\d{2}:\\d{2}(:\\d{2})?$",
+    };
+  else if (definition.type === "date")
+    schema = {
+      type: "string",
+      pattern: "^\\d{4}-\\d{2}-\\d{2}$",
+    };
+  else if (definition.type.includes("timestamp"))
+    schema = {
+      type: "string",
+      description: "Data e hora em formato ISO 8601.",
+    };
+  else schema = { type: "string", maxLength: 6000 };
+  return definition.nullable
+    ? { anyOf: [schema, { type: "null" }] }
+    : schema;
+}
+
+export function actionValuesSchema(): Data {
+  const properties: Data = {};
+  for (const entity of Object.keys(FIELDS) as (keyof typeof FIELDS)[])
+    for (const [name, definition] of Object.entries(FIELDS[entity]))
+      if (!properties[name])
+        properties[name] = actionFieldSchema(name, definition);
+  return {
+    type: "object",
+    description:
+      "Use somente campos pertencentes à entidade escolhida em Campos disponíveis. Campos JSON de configuração substituem o valor inteiro; leia o estado atual e preserve tudo que o usuário não pediu para mudar.",
+    properties,
+    additionalProperties: false,
+  };
+}
+
 export const key = (e: string) =>
   e === "whatsapp_bot_settings" ? "restaurant_id" : "id";
 export function scope(entity: string, alias = "t"): string {
@@ -155,6 +462,13 @@ export function validate(entity: string, input: unknown, create = false): Data {
         )
           throw new SalesError("Horário inválido.");
     }
+  if (
+    value.reward_subitem_ids != null &&
+    (!Array.isArray(value.reward_subitem_ids) ||
+      value.reward_subitem_ids.length > 100 ||
+      !value.reward_subitem_ids.every(isUuid))
+  )
+    throw new SalesError("Complementos da recompensa inválidos.");
   if (value.automatic_promotions != null) {
     if (
       !Array.isArray(value.automatic_promotions) ||

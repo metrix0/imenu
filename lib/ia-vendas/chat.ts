@@ -12,6 +12,7 @@ import { randomUUID } from "crypto";
 import { query, withTransaction } from "@/lib/database/sql";
 import { makeReport, REPORT_FORMAT, REPORT_INSTRUCTIONS } from "./report";
 import { FIELDS } from "./fields";
+import { actionValuesSchema } from "./catalog";
 import { analysisModelContext, context, readData, metrics, measure } from "./data";
 import { propose } from "./actions";
 import { previewImage, proposeImages, analysisPhotos } from "./images";
@@ -71,7 +72,7 @@ const tools = [
   ),
   tool(
     "propose_action",
-    "Criar proposta concreta e reversível, sem executar; operações relacionadas atômicas. Título e motivo devem ser curtos e simples.",
+    "Criar proposta concreta e reversível, sem executar; operações relacionadas atômicas. Em update/delete, id é obrigatório e deve vir dos dados lidos. Em create, omita id: o servidor cria. values deve usar somente campos da entidade escolhida; configurações JSON substituem o valor inteiro, então preserve tudo que não foi pedido para mudar. Título e motivo devem ser curtos e simples.",
     {
       title: text,
       reason: text,
@@ -84,7 +85,7 @@ const tools = [
             entity: { type: "string", enum: Object.keys(FIELDS) },
             kind: { type: "string", enum: ["create", "update", "delete"] },
             id: text,
-            values: { type: "object" },
+            values: actionValuesSchema(),
           },
           required: ["entity", "kind"],
         },
