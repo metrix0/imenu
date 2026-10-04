@@ -20,7 +20,7 @@ export async function aiAccess(restaurant: string, client?: Pick<PoolClient, "qu
   const addon = (await execute("SELECT status,current_period_ends_at FROM public.restaurant_addons WHERE restaurant_id=$1 AND product_key='ia_plus'", [restaurant])).rows[0] || null;
   const plus = hasQrTableAccess(addon);
   const usage = (await execute(`SELECT
-    coalesce(sum(input_tokens + output_tokens) FILTER (WHERE kind='chat' AND created_at>=now()-interval '7 days'),0)::int tokens,
+    coalesce(sum(input_tokens + output_tokens) FILTER (WHERE kind='chat' AND status='completed' AND coalesce(result->>'quota_exempt','false')<>'true' AND created_at>=now()-interval '7 days'),0)::int tokens,
     coalesce(sum(reserved_input + reserved_output) FILTER (WHERE kind='chat' AND status='running' AND created_at>now()-interval '6 minutes'),0)::int reserved,
     coalesce(sum(image_count) FILTER (WHERE created_at>=now()-interval '7 days'),0)::int images
     FROM public.ia_vendas_runs WHERE restaurant_id=$1`, [restaurant])).rows[0];

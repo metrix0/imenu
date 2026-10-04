@@ -531,6 +531,55 @@ test("free chat blocks only an oversized user message and persists the explanati
   expect(finished[3]).toBeUndefined();
 });
 
+test("free chat turns an internal response limit into a normal assistant reply without consuming the weekly quota", async () => {
+  (args.send as jest.Mock).mockClear();
+  (aiAccess as jest.Mock).mockResolvedValueOnce({ plus: false });
+  (query as jest.Mock).mockImplementation(async (sql: string) => ({
+    rows: sql.includes("SELECT * FROM public.ia_vendas_conversations")
+      ? [{ kind: "chat", summary: "" }]
+      : sql.includes("RETURNING id")
+        ? [{ id: "user" }]
+        : [],
+  }));
+  (context as jest.Mock).mockResolvedValueOnce({
+    restaurant: { url_slug: "menu" },
+    items: { rows: [] },
+    categories: { rows: [] },
+    sales: { products: [] },
+    instructions: "",
+    actions: [],
+    last_analysis: null,
+  });
+  create.mockResolvedValueOnce({
+    status: "incomplete",
+    output: [],
+    output_text: "",
+    usage: { input_tokens: 58_000, output_tokens: 2_500 },
+  });
+
+  await runChat({
+    ...args,
+    deep: false,
+    text: "Faça uma auditoria detalhada do meu restaurante.",
+  });
+
+  expect(args.send).not.toHaveBeenCalledWith(
+    "error",
+    expect.any(Object),
+  );
+  expect(args.send).toHaveBeenCalledWith("done", expect.any(Object));
+  const finished = (finishRun as jest.Mock).mock.calls.at(-1);
+  expect(finished[2]).toMatchObject({
+    reply:
+      "Não consegui concluir tudo em uma única resposta. Divida o pedido em partes menores para continuar.",
+    quota_exempt: true,
+  });
+  expect(finished[2].reply).not.toContain(
+    "A resposta atingiu o limite. As propostas prontas foram salvas.",
+  );
+  expect(finished[3]).toBeUndefined();
+});
+
 test("weekly image exhaustion stops only image generation and does not trigger the global Plus limit", async () => {
   (args.send as jest.Mock).mockClear();
   (aiAccess as jest.Mock).mockResolvedValueOnce({ plus: false });

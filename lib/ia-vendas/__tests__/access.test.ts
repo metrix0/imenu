@@ -44,7 +44,9 @@ test("free tokens and images use the rolling seven-day window", async () => {
   const usageQuery = sql.mock.calls.find(([statement]) =>
     statement.includes("sum(input_tokens + output_tokens)"),
   )?.[0] as string;
-  expect(usageQuery).toContain("kind='chat' AND created_at>=now()-interval '7 days'");
+  expect(usageQuery).toContain(
+    "kind='chat' AND status='completed' AND coalesce(result->>'quota_exempt','false')<>'true' AND created_at>=now()-interval '7 days'",
+  );
   expect(usageQuery).toContain(
     "sum(image_count) FILTER (WHERE created_at>=now()-interval '7 days')",
   );

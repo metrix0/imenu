@@ -175,7 +175,10 @@ const assistantTools = [
 
 const FREE_MESSAGE_LIMIT_MESSAGE =
   "Esta mensagem ficou grande demais para ser processada de uma vez. Envie o pedido em partes menores para continuar.";
+const FREE_RESPONSE_LIMIT_MESSAGE =
+  "Não consegui concluir tudo em uma única resposta. Divida o pedido em partes menores para continuar.";
 class IaMessageLimitReached extends SalesError {}
+class IaResponseLimitReached extends SalesError {}
 
 const ASSISTANT_ONLY_INSTRUCTIONS =
   `\nNo Assistente IA, você também pode consultar a base de conhecimento oficial do suporte com search_imenu_knowledge para dúvidas factuais sobre o funcionamento, configuração, preços, termos, políticas ou navegação do iMenu. Essa base é somente leitura e não substitui os dados reais do restaurante. Quando uma aba existente do painel for um próximo passo útil, use open_panel_tab e coloque [[tab:CHAVE]] dentro da frase exatamente onde a referência clicável à aba deve aparecer, usando a chave retornada pela ferramenta (exemplo: "Acesse [[tab:horarios]] para configurar o funcionamento."). Não coloque o atalho isolado em outra linha quando ele puder fazer parte do texto. Nunca invente abas ou rotas e nunca diga que abriu a aba pelo usuário. Quando a pergunta for uma avaliação ampla do cardápio como um todo, responda de forma breve com o que o contexto imediato sustenta e não tente fazer uma varredura exaustiva nesta conversa: a interface exibirá automaticamente um cartão da Vendas IA, que é a área dedicada à análise completa. Nesse caso, não chame open_panel_tab para vendas-ia só para repetir esse atalho.`;
@@ -516,9 +519,11 @@ export async function runChat(args: {
             : "Esta conversa ficou extensa. Abra uma nova conversa; suas propostas já foram salvas.",
         );
       if (outputTokens + 500 > maxOutput)
-        throw new SalesError(
-          "A resposta atingiu o limite. As propostas prontas foram salvas.",
-        );
+        throw deep
+          ? new SalesError(
+              "A análise atingiu o limite de resposta desta execução. As propostas preparadas foram preservadas no relatório parcial.",
+            )
+          : new IaResponseLimitReached(FREE_RESPONSE_LIMIT_MESSAGE);
       const finalRound = round === maxRounds;
       if (finalRound && deep && !input.some((m) => m.role === "developer" && m.content === "Finalize agora o relatório estruturado com o que foi verificado. Não crie mais ferramentas. Informe dados indisponíveis sem inventar."))
         input.push({
@@ -592,9 +597,11 @@ export async function runChat(args: {
           continue;
         }
         if (response.status === "incomplete")
-          throw new SalesError(
-            "A resposta atingiu o limite. As propostas prontas foram salvas.",
-          );
+          throw deep
+            ? new SalesError(
+                "A análise atingiu o limite de resposta desta execução. As propostas preparadas foram preservadas no relatório parcial.",
+              )
+            : new IaResponseLimitReached(FREE_RESPONSE_LIMIT_MESSAGE);
         const result = JSON.parse(response.output_text || response.output.filter((o) => o.type === "message").flatMap((o: any) => o.content).filter((c: any) => c.type === "output_text").map((c: any) => c.text).join(""));
         if (deep) {
           const actions = (
@@ -822,13 +829,25 @@ export async function runChat(args: {
       send("queued", { run_id: run, message: "Análise em processamento. O relatório aparecerá aqui quando estiver pronto." });
       return;
     }
-    if (e instanceof IaMessageLimitReached && started && userMessageId) {
-      const id = randomUUID();
+    if (
+      (e instanceof IaMessageLimitReached ||
+        e instanceof IaResponseLimitReached) &&
+      started &&
+      userMessageId
+    ) {
+      const id = randomUUID(),
+        responseLimit = e instanceof IaResponseLimitReached,
+        messageCards = responseLimit ? cards : [];
       await withTransaction(async (c) => {
         await c.query(
-          "INSERT INTO public.ia_vendas_messages (id,restaurant_id,conversation_id,role,content,cards) VALUES ($1,$2,$3,'assistant',$4,'[]'::jsonb)",
-          [id, restaurant, conversation, e.message],
+          "INSERT INTO public.ia_vendas_messages (id,restaurant_id,conversation_id,role,content,cards) VALUES ($1,$2,$3,'assistant',$4,$5::jsonb)",
+          [id, restaurant, conversation, e.message, JSON.stringify(messageCards)],
         );
+        if (responseLimit)
+          await c.query(
+            "UPDATE public.ia_vendas_actions SET message_id=$3 WHERE restaurant_id=$1 AND run_id=$2",
+            [restaurant, run, id],
+          );
         await c.query(
           "UPDATE public.ia_vendas_conversations SET updated_at=now(),title=CASE WHEN kind='chat' AND title='Nova conversa' THEN $3 ELSE title END WHERE restaurant_id=$1 AND id=$2",
           [restaurant, conversation, message.slice(0, 60)],
@@ -842,6 +861,7 @@ export async function runChat(args: {
             user_message_id: userMessageId,
             report_id: args.report_id || null,
             opportunity_id: args.opportunity_id || null,
+            quota_exempt: true,
           },
           undefined,
           c,
