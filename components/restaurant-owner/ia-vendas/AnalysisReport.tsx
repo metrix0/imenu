@@ -211,7 +211,7 @@ export default function AnalysisReport({
                 })),
               ]} />
           </div>}
-          {gate(<Button variant="secondary" aria-label="Histórico de ações" title="Histórico de ações" onClick={onHistory}><History size={16} /></Button>)}
+          <Button variant="secondary" aria-label="Histórico de ações" title="Histórico de ações" onClick={onHistory}><History size={16} /></Button>
         </div>
       </header>
 

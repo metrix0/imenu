@@ -13,10 +13,12 @@ import {
   Archive,
   MessageSquare,
   ArrowUpRight,
+  Lock,
 } from "lucide-react";
 import IaPlusSalesModal, { IaPlusLimitMessage } from "@/components/restaurant-owner/ia-vendas/IaPlusSalesModal";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
+import Tooltip from "@/components/ui/Tooltip";
 import Loader from "@/components/ui/Loader";
 import { useSalesStore } from "@/lib/stores/restaurant-owner/iaVendasStore";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
@@ -30,6 +32,7 @@ import {
   DataCard,
 } from "@/components/restaurant-owner/ia-vendas/SalesWidgets";
 import type { Data } from "@/lib/ia-vendas/types";
+import { IA_PLUS_FEATURE_MESSAGE } from "@/lib/addons/products";
 import { isPanelTabKey, type PanelTabKey } from "@/lib/ia-vendas/panelTabs";
 
 type MessagePart =
@@ -296,6 +299,7 @@ export default function SalesPage() {
   }
   const onAction = (command: string, ids: string[]) => {
       if (isAnalysis && locked) { setPlusModal("sales"); return; }
+      if (!isAnalysis && locked && command === "apply") { setPlusModal("sales"); return; }
       void sales.command(command, { ids });
     },
     selectedBatchActions = sales.actions.filter((action) =>
@@ -434,6 +438,8 @@ export default function SalesPage() {
                             refs={sales.references}
                             disabled={disabled}
                             onAction={onAction}
+                            locked={locked}
+                            onUpgrade={() => setPlusModal("sales")}
                           />
                         );
                       }
@@ -486,6 +492,8 @@ export default function SalesPage() {
                             refs={sales.references}
                             disabled={disabled}
                             onAction={onAction}
+                            locked={locked}
+                            onUpgrade={() => setPlusModal("sales")}
                           />
                         );
                       if (card.type === "panel_tab")
@@ -499,16 +507,26 @@ export default function SalesPage() {
                       ) : null;
                     })}
                     {pendingIds.length > 1 && (
-                      <Button
-                        disabled={disabled}
-                        onClick={() => {
-                          setBatchIds(pendingIds);
-                          setSelectedBatchIds(pendingIds);
-                          setModal("batch");
-                        }}
+                      <Tooltip
+                        text={locked ? IA_PLUS_FEATURE_MESSAGE : ""}
+                        parentClassName="!inline-block"
                       >
-                        Revisar e aplicar todos ({pendingIds.length})
-                      </Button>
+                        <Button
+                          disabled={!locked && disabled}
+                          onClick={() => {
+                            if (locked) {
+                              setPlusModal("sales");
+                              return;
+                            }
+                            setBatchIds(pendingIds);
+                            setSelectedBatchIds(pendingIds);
+                            setModal("batch");
+                          }}
+                        >
+                          Revisar e aplicar todos ({pendingIds.length})
+                          {locked && <Lock size={14} aria-hidden="true" />}
+                        </Button>
+                      </Tooltip>
                     )}
                       </div>
                     </div>
@@ -1002,17 +1020,27 @@ export default function SalesPage() {
                     </section>
                   ))}
               </div>
-              <Button
-                className="mt-5 w-full"
-                loading={sales.acting}
-                disabled={!selectedBatchIds.length}
-                onClick={async () => {
-                  await sales.command("apply", { ids: selectedBatchIds });
-                  setModal(null);
-                }}
+              <Tooltip
+                text={locked ? IA_PLUS_FEATURE_MESSAGE : ""}
+                parentClassName="!block"
               >
-                {batchActionLabel} ({batchActionCount})
-              </Button>
+                <Button
+                  className="mt-5 w-full"
+                  loading={!locked && sales.acting}
+                  disabled={!locked && !selectedBatchIds.length}
+                  onClick={async () => {
+                    if (locked) {
+                      setPlusModal("sales");
+                      return;
+                    }
+                    await sales.command("apply", { ids: selectedBatchIds });
+                    setModal(null);
+                  }}
+                >
+                  {batchActionLabel} ({batchActionCount})
+                  {locked && <Lock size={14} aria-hidden="true" />}
+                </Button>
+              </Tooltip>
             </>
           )}
           {modal === "history" && (
@@ -1037,6 +1065,8 @@ export default function SalesPage() {
                       refs={sales.references}
                       disabled={disabled}
                       onAction={onAction}
+                      locked={locked}
+                      onUpgrade={() => setPlusModal("sales")}
                     />
                   </div>
                 ))

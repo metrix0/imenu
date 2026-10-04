@@ -287,7 +287,16 @@ export async function POST(request: Request) {
         [restaurant, body.ids],
       )
     ).rows;
-    if (selected.length && (await query("SELECT 1 FROM public.ia_vendas_conversations WHERE restaurant_id=$1 AND kind='analysis' AND id=ANY($2::uuid[]) LIMIT 1", [restaurant, selected.map(a => a.conversation_id)])).rowCount) await requireIaPlus(restaurant);
+    if (selected.length) {
+      const analysisAction = (
+        await query(
+          "SELECT 1 FROM public.ia_vendas_conversations WHERE restaurant_id=$1 AND kind='analysis' AND id=ANY($2::uuid[]) LIMIT 1",
+          [restaurant, selected.map((a) => a.conversation_id)],
+        )
+      ).rowCount;
+      if (analysisAction || body.command === "apply")
+        await requireIaPlus(restaurant);
+    }
     if (selected.length !== new Set(body.ids).size)
       throw new SalesError("Proposta não encontrada.", 404);
     if (

@@ -137,6 +137,33 @@ test("locked analysis keeps the full report scrollable and overlays only its fin
   expect(html).toContain("Conhecer iMenu IA Plus");
 });
 
+test("locked assistant proposals show the IA Plus lock only on apply actions", () => {
+  const html = renderToStaticMarkup(
+    <ActionCard
+      action={action}
+      refs={{}}
+      disabled={false}
+      onAction={jest.fn()}
+      locked
+      onUpgrade={jest.fn()}
+      compact
+    />,
+  );
+  expect(html).toContain("Essa é uma função do plano iMenu IA Plus");
+  expect(html).toContain("lucide-lock");
+  expect(html).toContain(">Aplicar<");
+  expect(html).toContain(">Descartar<");
+});
+
+test("locked Vendas IA keeps the action history button unlocked", () => {
+  const html = renderToStaticMarkup(<AnalysisReport {...props} locked />);
+  const history = html.indexOf('aria-label="Histórico de ações"');
+  expect(history).toBeGreaterThan(-1);
+  expect(html.slice(Math.max(0, history - 300), history)).not.toContain(
+    "data-ia-plus-action",
+  );
+});
+
 test("analysis proposals preview changes, keep Apply visible and retain a collapsed full diff", () => {
   const html = renderToStaticMarkup(<ActionCard action={action} refs={{}} disabled={false} onAction={jest.fn()} compact />);
   expect(html).toMatch(/<details[^>]*><summary[^>]*>Ver alterações/);

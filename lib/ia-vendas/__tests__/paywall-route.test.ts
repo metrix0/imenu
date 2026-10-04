@@ -82,6 +82,17 @@ test.each(["apply", "undo", "reject"])("direct %s requests cannot bypass the ana
   expect(await response.json()).toMatchObject({ code: "IA_PLUS_REQUIRED" });
   expect(apply).not.toHaveBeenCalled();
 });
+test("free account cannot apply an Assistente IA proposal", async () => {
+  analysis = false;
+  const response = await POST(new Request("https://example.test/api/ia-vendas", {
+    method: "POST",
+    body: JSON.stringify({ command: "apply", ids: [first, second] }),
+  }));
+  expect(response.status).toBe(402);
+  expect(await response.json()).toMatchObject({ code: "IA_PLUS_REQUIRED" });
+  expect(apply).not.toHaveBeenCalled();
+});
+
 test("Plus can apply a reviewed analysis proposal", async () => {
   plus = true;
   const response = await POST(new Request("https://example.test/api/ia-vendas", { method: "POST", body: JSON.stringify({ command: "apply", ids: [first, second] }) }));

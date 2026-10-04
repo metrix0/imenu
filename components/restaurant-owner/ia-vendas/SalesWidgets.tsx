@@ -1,9 +1,11 @@
 "use client";
 import Image from "next/image";
 import type { ReactNode } from "react";
-import { ArrowUpRight, ChevronDown, TrendingUp } from "lucide-react";
+import { ArrowUpRight, ChevronDown, Lock, TrendingUp } from "lucide-react";
 import styles from "./AnalysisReport.module.css";
 import Button from "@/components/ui/Button";
+import Tooltip from "@/components/ui/Tooltip";
+import { IA_PLUS_FEATURE_MESSAGE } from "@/lib/addons/products";
 import type { Action, Data, Operation } from "@/lib/ia-vendas/types";
 const labels: Record<string, string> = {
   name: "Nome",
@@ -923,6 +925,8 @@ export function ActionCard({
   onAction,
   compact = false,
   generatedActions = [],
+  locked = false,
+  onUpgrade,
 }: {
   action: Action;
   refs: Record<string, string>;
@@ -930,6 +934,8 @@ export function ActionCard({
   onAction: (command: string, ids: string[]) => void;
   compact?: boolean;
   generatedActions?: Action[];
+  locked?: boolean;
+  onUpgrade?: () => void;
 }) {
   const retry =
       action.attempts < 2 &&
@@ -968,27 +974,40 @@ export function ActionCard({
         ? action.status === "applied"
           ? "Imagem publicada"
           : "Prévia pronta para revisar"
-        : `${action.operations.length} ${action.operations.length === 1 ? "alteração proposta" : "alterações propostas"}`;
+        : `${action.operations.length} ${action.operations.length === 1 ? "alteração proposta" : "alterações propostas"}`,
+    gateApply = (content: ReactNode) =>
+      locked ? (
+        <Tooltip text={IA_PLUS_FEATURE_MESSAGE} parentClassName="!inline-block">
+          {content}
+        </Tooltip>
+      ) : (
+        content
+      );
   const actionButtons = (
       <div className={compact ? styles.actionButtons : "mt-3 flex flex-wrap gap-2"}>
         {(action.status === "pending" || retry) && (
           <>
-            <Button
-              disabled={disabled}
-              onClick={() => onAction("apply", [action.id])}
-            >
-              {retry
-                ? imageBatch
-                  ? "Tentar gerar novamente"
-                  : imagePreview
-                    ? "Tentar publicar novamente"
-                    : "Tentar novamente"
-                : imageBatch
-                  ? `Gerar imagens (${action.image_jobs!.length})`
-                  : imagePreview
-                    ? "Publicar imagem"
-                    : "Aplicar"}
-            </Button>
+            {gateApply(
+              <Button
+                disabled={!locked && disabled}
+                onClick={() =>
+                  locked ? onUpgrade?.() : onAction("apply", [action.id])
+                }
+              >
+                {retry
+                  ? imageBatch
+                    ? "Tentar gerar novamente"
+                    : imagePreview
+                      ? "Tentar publicar novamente"
+                      : "Tentar novamente"
+                  : imageBatch
+                    ? `Gerar imagens (${action.image_jobs!.length})`
+                    : imagePreview
+                      ? "Publicar imagem"
+                      : "Aplicar"}
+                {locked && <Lock size={14} aria-hidden="true" />}
+              </Button>,
+            )}
             <Button
               variant="secondary"
               disabled={disabled}
@@ -1000,19 +1019,27 @@ export function ActionCard({
         )}
         {action.status === "applied" &&
           imageBatch &&
-          publishableGeneratedActions.length > 0 && (
+          publishableGeneratedActions.length > 0 &&
+          gateApply(
             <Button
-              disabled={disabled}
+              disabled={!locked && disabled}
               onClick={() =>
-                onAction(
-                  "apply",
-                  publishableGeneratedActions.map((generated) => generated.id),
-                )
+                locked
+                  ? onUpgrade?.()
+                  : onAction(
+                      "apply",
+                      publishableGeneratedActions.map(
+                        (generated) => generated.id,
+                      ),
+                    )
               }
             >
-              {publishedGeneratedCount > 0 ? "Publicar restantes" : "Publicar todas"} (
-              {publishableGeneratedActions.length})
-            </Button>
+              {publishedGeneratedCount > 0
+                ? "Publicar restantes"
+                : "Publicar todas"}{" "}
+              ({publishableGeneratedActions.length})
+              {locked && <Lock size={14} aria-hidden="true" />}
+            </Button>,
           )}
         {action.status === "applied" && (!imageBatch || hasDiscardablePreviews) && (
           <Button
@@ -1060,6 +1087,8 @@ export function ActionCard({
               refs={refs}
               disabled={disabled}
               onAction={onAction}
+              locked={locked}
+              onUpgrade={onUpgrade}
               compact
             />
           ))}
