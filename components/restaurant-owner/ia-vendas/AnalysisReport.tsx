@@ -60,7 +60,7 @@ export default function AnalysisReport({
                 <span><Rocket size={18} aria-hidden="true" /></span>
                 <div>
                   <strong>Aplica melhorias automaticamente</strong>
-                  <p>Você apenas revisa e aceita as mudanças que aumentam seu faturamento..</p>
+                  <p>Você apenas revisa e aceita as mudanças que aumentam seu faturamento.</p>
                 </div>
               </article>
               <article>
