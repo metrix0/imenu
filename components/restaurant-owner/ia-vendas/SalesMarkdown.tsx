@@ -9,9 +9,11 @@ import { isPanelTabKey, type PanelTabKey } from "@/lib/ia-vendas/panelTabs";
 export default function SalesMarkdown({
   content,
   panelTabs = [],
+  mobileCompact = false,
 }: {
   content: string;
   panelTabs?: PanelTabKey[];
+  mobileCompact?: boolean;
 }) {
   const allowedPanelTabs = new Set(panelTabs);
   for (const match of content.matchAll(/\[\[tab:([a-z0-9-]+)\]\]/gi)) {
@@ -20,7 +22,7 @@ export default function SalesMarkdown({
   }
 
   return (
-    <div className="space-y-4 text-sm leading-7 text-gray-700">
+    <div className={mobileCompact ? "space-y-3 text-sm leading-5 text-gray-700 md:space-y-4 md:leading-7" : "space-y-4 text-sm leading-7 text-gray-700"}>
       {parseBlocks(content, allowedPanelTabs)}
     </div>
   );

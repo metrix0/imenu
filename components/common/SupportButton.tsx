@@ -17,10 +17,10 @@ const SUPPORT_PRIMARY_BUTTON = `${SUPPORT_BUTTON_BASE} !border-[#d93d00] !bg-[#d
 const SUPPORT_SECONDARY_BUTTON = `${SUPPORT_BUTTON_BASE} !bg-white !text-[#1d1d1d] hover:!bg-[#f1f3f5] focus:!ring-[#d93d00]`;
 
 export interface SupportButtonRef { open: () => void; }
-type SupportButtonProps = { bottomClassName?: string; showFloating?: boolean };
+type SupportButtonProps = { bottomClassName?: string; showFloating?: boolean; floatingClassName?: string };
 
 const SupportButton = forwardRef<SupportButtonRef, SupportButtonProps>(
-    ({ bottomClassName = "bottom-6", showFloating = true }, ref) => {
+    ({ bottomClassName = "bottom-6", showFloating = true, floatingClassName = "" }, ref) => {
         const [open, setOpen] = useState(false);
         const [copied, setCopied] = useState(false);
         const [qrLoaded, setQrLoaded] = useState(false);
@@ -49,7 +49,7 @@ const SupportButton = forwardRef<SupportButtonRef, SupportButtonProps>(
                     type="button"
                     onClick={openSupport}
                     style={{ right: "calc(1.5rem + var(--modal-scrollbar-width, 0px))" }}
-                    className={`fixed z-[40] md:z-[60] flex h-12 w-12 cursor-pointer items-center justify-center rounded-full bg-[#00A240] text-white shadow-md transition-[filter,box-shadow] duration-200 hover:brightness-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00A240] focus-visible:ring-offset-2 ${bottomClassName}`}
+                    className={`fixed z-[40] md:z-[60] flex h-12 w-12 cursor-pointer items-center justify-center rounded-full bg-[#00A240] text-white shadow-md transition-[filter,box-shadow] duration-200 hover:brightness-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00A240] focus-visible:ring-offset-2 ${bottomClassName} ${floatingClassName}`}
                     aria-label="Suporte via WhatsApp"
                 >
                     <FontAwesomeIcon icon={icons.faWhatsapp} className="!h-6 !w-6" />

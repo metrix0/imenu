@@ -503,6 +503,11 @@ export default function PainelLayout({
                 <SupportButton
                     ref={supportButtonRef}
                     showFloating={!pathname?.startsWith("/painel/ia-vendas")}
+                    floatingClassName={
+                        pathname?.startsWith("/painel/assistente-ia")
+                            ? "hidden md:flex"
+                            : ""
+                    }
                 />
 
                 <header className="panel-mobile-header sticky top-0 z-30 flex h-16 items-center justify-between border-b border-gray-200 bg-white px-4 md:hidden">

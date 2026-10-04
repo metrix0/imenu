@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   Sparkles,
   Plus,
+  SquarePen,
   Send,
   Paperclip,
   History,
@@ -17,6 +18,7 @@ import {
 } from "lucide-react";
 import IaPlusSalesModal, { IaPlusLimitMessage } from "@/components/restaurant-owner/ia-vendas/IaPlusSalesModal";
 import Button from "@/components/ui/Button";
+import Dropdown from "@/components/ui/Dropdown";
 import Modal from "@/components/ui/Modal";
 import Tooltip from "@/components/ui/Tooltip";
 import Loader from "@/components/ui/Loader";
@@ -186,6 +188,10 @@ export default function SalesPage() {
   useEffect(() => {
     if (!input.current) return;
     input.current.style.height = "auto";
+    if (window.matchMedia("(max-width: 767px)").matches && !text.trim()) {
+      input.current.style.height = "40px";
+      return;
+    }
     input.current.style.height = `${input.current.scrollHeight}px`;
   }, [text, wideAnalysis, analysisChatOpen]);
   useEffect(() => {
@@ -331,26 +337,38 @@ export default function SalesPage() {
     focusChat.current = false;
     setAnalysisChatOpen(false);
   };
+  const chatConversations = sales.conversations.filter((c) => c.kind === "chat");
+  const changeConversation = (conversationId: string) => {
+    setSelectedReportId("");
+    setOpportunity(null);
+    void sales.load(restaurant, conversationId);
+  };
   const conversationPicker = (
-              <select
-                aria-label="Conversa"
-                value={sales.conversation_id || ""}
-                disabled={disabled}
-                onChange={(e) => {
-                  setSelectedReportId("");
-                  setOpportunity(null);
-                  void sales.load(restaurant, e.target.value);
-                }}
-                className="max-w-[170px] cursor-pointer rounded-[8px] border border-[var(--panel-border)] bg-[var(--panel-surface)] p-2 text-sm outline-none focus-visible:border-[var(--panel-action)] disabled:cursor-not-allowed lg:hidden"
-              >
-                {sales.conversations
-                  .filter((c) => c.kind === "chat")
-                  .map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.title}
-                    </option>
-                  ))}
-              </select>
+    <>
+      <div className="md:hidden">
+        <Dropdown
+          custom
+          aria-label="Conversa"
+          value={sales.conversation_id || ""}
+          disabled={disabled}
+          options={chatConversations.map((c) => ({ value: c.id, label: c.title }))}
+          onChange={(e) => changeConversation(e.target.value)}
+        />
+      </div>
+      <select
+        aria-label="Conversa"
+        value={sales.conversation_id || ""}
+        disabled={disabled}
+        onChange={(e) => changeConversation(e.target.value)}
+        className="hidden max-w-[170px] cursor-pointer rounded-[8px] border border-[var(--panel-border)] bg-[var(--panel-surface)] p-2 text-sm outline-none focus-visible:border-[var(--panel-action)] disabled:cursor-not-allowed md:block lg:hidden"
+      >
+        {chatConversations.map((c) => (
+          <option key={c.id} value={c.id}>
+            {c.title}
+          </option>
+        ))}
+      </select>
+    </>
   );
   const messageList = (
     <>
@@ -418,6 +436,7 @@ export default function SalesPage() {
                                 key={`text-${i}`}
                                 content={part.content}
                                 panelTabs={panelTabs}
+                                mobileCompact={!isAnalysis}
                               />
                         );
                       if (part.type === "action") {
@@ -830,14 +849,14 @@ export default function SalesPage() {
           ) : (
             <>
           <div className="flex items-center justify-between gap-2 border-b border-[var(--panel-border)] bg-[var(--panel-surface)] px-4 py-3">
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1 md:flex-none">
               <h2 className="hidden truncate text-sm font-medium lg:block">
                 {conversation?.title || "Carregando…"}
               </h2>
               {conversationPicker}
             </div>
             <div className="flex gap-2">
-              <Button variant="secondary" className="lg:hidden" onClick={() => setPlusModal("sales")}>iMenu IA Plus</Button>
+              <Button variant="secondary" className="hidden md:inline-flex lg:hidden" onClick={() => setPlusModal("sales")}>iMenu IA Plus</Button>
               <Button
                 variant="secondary"
                 className="lg:hidden"
@@ -845,7 +864,8 @@ export default function SalesPage() {
                 disabled={disabled}
                 onClick={() => void sales.command("create_conversation")}
               >
-                <Plus size={16} />
+                <SquarePen size={17} className="md:hidden" />
+                <Plus size={16} className="hidden md:block" />
               </Button>
               <Button
                 variant="secondary"
