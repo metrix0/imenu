@@ -242,6 +242,18 @@ test("potential uses Brazilian numbers and one explanation without repeating the
   expect(html).toContain(potential.assumptions);
   expect(html).not.toContain(potential.formula);
   expect(html).not.toMatch(/<details[^>]*open/);
+
+  const range = renderToStaticMarkup(<DataCard presentation="report" card={{
+    ...potential,
+    type: "potential",
+    min_cents: 3120,
+    max_cents: 6240,
+    min_percent: 0.006,
+    max_percent: 0.012,
+  }} />);
+  expect(range).toContain("a R$");
+  expect(range).toContain("+0,6% a 1,2%");
+  expect(range).not.toContain("–");
 });
 
 test("proposal states preserve undo and prevent applying discarded or conflicting actions", () => {

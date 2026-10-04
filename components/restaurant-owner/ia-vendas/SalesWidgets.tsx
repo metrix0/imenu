@@ -778,9 +778,9 @@ export function DataCard({ card, expanded = false, presentation = "chat" }: { ca
     if (presentation === "report") return (
       <div className={styles.potential}>
         {card.available ? <>
-          <p className={`${styles.gain} ${hasRange ? styles.range : ""}`}><span>+{money(minCents)}</span>{hasRange && <span className={styles.rangeEnd}><span className={styles.rangeSeparator}>–</span><span>+{money(maxCents)}</span></span>}</p>
+          <p className={`${styles.gain} ${hasRange ? styles.range : ""}`}><span>+{money(minCents)}</span>{hasRange && <span className={styles.rangeEnd}><span className={styles.rangeSeparator}>a</span><span>{money(maxCents)}</span></span>}</p>
           {Number.isFinite(minPercent) && Number.isFinite(maxPercent) && <p className={styles.growth}>
-            <strong><TrendingUp size={14} aria-hidden="true" />+{minPercent.toLocaleString("pt-BR", { style: "percent", minimumFractionDigits: 1, maximumFractionDigits: 1 })}{maxPercent > minPercent ? ` – +${maxPercent.toLocaleString("pt-BR", { style: "percent", minimumFractionDigits: 1, maximumFractionDigits: 1 })}` : ""}</strong><span>de receita estimada</span>
+            <strong><TrendingUp size={14} aria-hidden="true" />+{minPercent.toLocaleString("pt-BR", { style: "percent", minimumFractionDigits: 1, maximumFractionDigits: 1 })}{maxPercent > minPercent ? ` a ${maxPercent.toLocaleString("pt-BR", { style: "percent", minimumFractionDigits: 1, maximumFractionDigits: 1 })}` : ""}</strong><span>de receita estimada</span>
           </p>}
           <details className={styles.disclosure}>
             <summary>Como estimamos<ChevronDown size={13} aria-hidden="true" /></summary>
@@ -803,7 +803,7 @@ export function DataCard({ card, expanded = false, presentation = "chat" }: { ca
             </p>}
             <p className="my-2 text-3xl font-semibold text-[#D93D00]">
               +{money(minCents)}
-              {hasRange ? ` – +${money(maxCents)}` : ""}
+              {hasRange ? ` a ${money(maxCents)}` : ""}
             </p>
             {Number.isFinite(minPercent) && Number.isFinite(maxPercent) && (
               <p className="text-sm font-medium text-[#D93D00]">
