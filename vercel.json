@@ -23,6 +23,10 @@
     {
       "path": "/api/cron/ia-vendas-analysis",
       "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/cron/ia-plus-analysis-watch",
+      "schedule": "0 * * * *"
     }
   ]
 }
