@@ -274,6 +274,7 @@ export default function QrCodeMesaSettingsSection({
         ) || null;
     const addon = qrBilling?.addon || null;
     const active = qrBilling?.active === true;
+    const iaPlusActive = billing?.addons.some(item => item.addon.product_key === "ia_plus" && item.active) === true;
     const cancelBilling =
         billing?.addons.find((item) => item.addon.id === cancelAddonId) || null;
     const cancelAddon = cancelBilling?.addon || null;
@@ -321,7 +322,7 @@ export default function QrCodeMesaSettingsSection({
                 }}
             />
 
-            <IaPlusSalesModal open={iaPlusOpen} onClose={() => setIaPlusOpen(false)} restaurantId={restaurantId} onPaid={async () => { setIaPlusOpen(false); await loadBilling(); }} />
+            <IaPlusSalesModal active={iaPlusActive} open={iaPlusOpen} onClose={() => setIaPlusOpen(false)} restaurantId={restaurantId} onPaid={async () => { setIaPlusOpen(false); await loadBilling(); }} />
 
             <ConfirmModal
                 open={Boolean(cancelAddonId)}
@@ -361,7 +362,7 @@ export default function QrCodeMesaSettingsSection({
                         qrSelected={active}
                         qrActive={active}
                         onLearnMore={openSales}
-                        extraCard={<IaPlusProductCard active={billing?.addons.some(item => item.addon.product_key === "ia_plus" && item.active) === true} onLearnMore={() => setIaPlusOpen(true)} />}
+                        extraCard={<IaPlusProductCard active={iaPlusActive} onLearnMore={() => setIaPlusOpen(true)} />}
                     />
                 )}
             </Card>
