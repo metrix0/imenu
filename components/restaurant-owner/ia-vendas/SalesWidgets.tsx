@@ -185,6 +185,65 @@ function strong(text: string): ReactNode {
   return <strong className="font-semibold text-gray-900">{text}</strong>;
 }
 
+const weekdayNames = [
+  "Domingo",
+  "Segunda-feira",
+  "Terça-feira",
+  "Quarta-feira",
+  "Quinta-feira",
+  "Sexta-feira",
+  "Sábado",
+];
+
+function scheduleSlots(value: unknown, day: number) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return [];
+  const slots = (value as Record<string, unknown>)[String(day)];
+  return Array.isArray(slots)
+    ? slots
+        .filter(
+          (slot): slot is { open: string; close: string } =>
+            !!slot &&
+            typeof slot === "object" &&
+            typeof (slot as Data).open === "string" &&
+            typeof (slot as Data).close === "string",
+        )
+        .map((slot) => `${slot.open}–${slot.close}`)
+    : [];
+}
+
+function scheduleChangeSummary(previous: unknown, next: unknown): ReactNode {
+  const changes = weekdayNames.flatMap((day, index) => {
+    const before = scheduleSlots(previous, index);
+    const after = scheduleSlots(next, index);
+    if (JSON.stringify(before) === JSON.stringify(after)) return [];
+
+    const added = after.filter((slot) => !before.includes(slot));
+    const removed = before.filter((slot) => !after.includes(slot));
+    let text: string;
+    if (added.length && !removed.length)
+      text = `Adicionar ${added.join(", ")}.`;
+    else if (removed.length && !added.length)
+      text = `Remover ${removed.join(", ")}.`;
+    else if (!after.length)
+      text = "Sem atendimento.";
+    else
+      text = `${before.length ? before.join(", ") : "Sem atendimento"} → ${after.join(", ")}.`;
+
+    return [{ day, text }];
+  });
+
+  if (!changes.length) return <>Nenhuma alteração de horário.</>;
+  return (
+    <span className="space-y-1">
+      {changes.map(({ day, text }) => (
+        <span key={day} className="block">
+          {strong(day)}: {text}
+        </span>
+      ))}
+    </span>
+  );
+}
+
 function operationCopy(
   op: Operation,
   refs: Record<string, string>,
@@ -249,6 +308,13 @@ function operationCopy(
 
   const [field, next] = entries[0];
   const previous = op.before?.[field];
+
+  if (field === "availability_json")
+    return {
+      heading: "Editar Horários",
+      summary: scheduleChangeSummary(previous, next),
+      hideDetails: true,
+    };
 
   if (field === "name")
     return {
@@ -527,7 +593,9 @@ function ActionPeek({ action, refs }: { action: Action; refs: Record<string, str
     </div>)}
     {operations.slice(0, 2).map((op, index) => <div key={index}>
       <p className={styles.previewSubject}>{subject(op, refs)}</p>
-      {op.kind === "update" ? <dl className={styles.previewFields}>{Object.entries(op.values).slice(0, 2).map(([field, value]) => <div key={field}>
+      {op.kind === "update" && Object.hasOwn(op.values, "availability_json") ? (
+        <p className={styles.previewSentence}>{operationCopy(op, refs).summary}</p>
+      ) : op.kind === "update" ? <dl className={styles.previewFields}>{Object.entries(op.values).slice(0, 2).map(([field, value]) => <div key={field}>
         <dt>{labels[field] || field}</dt><dd className={styles.changeValues}>
           <span className="sr-only">Antes: </span><span className={styles.before}>{previewValue(field, op.before?.[field], op)}</span>
           <span aria-hidden="true">→</span><span className="sr-only">Depois: </span><span className={styles.after}>{previewValue(field, value, op)}</span>

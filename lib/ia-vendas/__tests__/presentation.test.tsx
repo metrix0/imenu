@@ -152,6 +152,62 @@ test("analysis proposals preview changes, keep Apply visible and retain a collap
 });
 
 
+test("schedule proposals use weekday names and show only the actual change", () => {
+  const scheduleAction: Action = {
+    ...action,
+    id: "schedule",
+    title: "Adicionar horário",
+    operations: [{
+      entity: "restaurants",
+      kind: "update",
+      id: "restaurant",
+      label: "Configuração da loja",
+      before: {
+        availability_json: {
+          "0": [{ open: "04:30", close: "15:45" }],
+          "1": [{ open: "06:00", close: "16:15" }],
+          "2": [],
+          "3": [],
+          "4": [],
+          "5": [],
+          "6": [],
+        },
+      },
+      values: {
+        availability_json: {
+          "0": [
+            { open: "01:00", close: "03:00" },
+            { open: "04:30", close: "15:45" },
+          ],
+          "1": [{ open: "06:00", close: "16:15" }],
+          "2": [],
+          "3": [],
+          "4": [],
+          "5": [],
+          "6": [],
+        },
+      },
+    }],
+  };
+
+  const compact = renderToStaticMarkup(
+    <ActionCard action={scheduleAction} refs={{}} disabled={false} onAction={jest.fn()} compact />,
+  );
+  expect(compact).toContain("Domingo");
+  expect(compact).toContain("Adicionar 01:00–03:00.");
+  expect(compact).not.toContain("0: Abre");
+  expect(compact).not.toContain("Antes:");
+
+  const full = renderToStaticMarkup(
+    <ActionCard action={scheduleAction} refs={{}} disabled={false} onAction={jest.fn()} />,
+  );
+  expect(full).toContain("Editar Horários");
+  expect(full).toContain("Domingo");
+  expect(full).toContain("Adicionar 01:00–03:00.");
+  expect(full).not.toContain("Editar Configuração da loja");
+  expect(full).not.toContain("0: Abre");
+});
+
 test("image batches use generation and publication language and keep generated previews grouped", () => {
   const generated = (id: string, label: string): Action => ({
     ...action,
