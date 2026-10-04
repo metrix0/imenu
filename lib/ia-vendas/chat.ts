@@ -656,19 +656,20 @@ export async function runChat(args: {
                 break;
               }
               case "open_panel_tab": {
-                if (conv.kind !== "chat" || !isPanelTabKey(p.tab))
+                const tab = String(p.tab || "");
+                if (conv.kind !== "chat" || !isPanelTabKey(tab))
                   throw new SalesError("Aba do painel inválida.");
-                const panelTab = PANEL_TABS[p.tab];
+                const panelTab = PANEL_TABS[tab];
                 if (
                   !cards.some(
                     (card) =>
-                      card.type === "panel_tab" && card.tab === p.tab,
+                      card.type === "panel_tab" && card.tab === tab,
                   )
                 )
-                  cards.push({ type: "panel_tab", tab: p.tab });
+                  cards.push({ type: "panel_tab", tab });
                 result = {
                   shown: true,
-                  tab: p.tab,
+                  tab,
                   label: panelTab.label,
                   href: panelTab.href,
                 };
