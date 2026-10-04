@@ -461,13 +461,7 @@ export async function runChat(args: {
           "A resposta atingiu o limite. As propostas prontas foram salvas.",
         );
       if (freeBudget !== null && inputTokens + outputTokens + estimatedInput + 500 > freeBudget) throw new IaPlusRequired("Você atingiu o limite gratuito do Assistente IA deste mês.");
-      const finalRound =
-        round === maxRounds ||
-        (deep &&
-          round > 1 &&
-          (Date.now() > deadline - 65000 ||
-            outputTokens >= maxOutput - 5000 ||
-            inputTokens + estimatedInput * 2 + 10000 > LIMITS.analysisInput));
+      const finalRound = round === maxRounds;
       if (finalRound && deep && !input.some((m) => m.role === "developer" && m.content === "Finalize agora o relatório estruturado com o que foi verificado. Não crie mais ferramentas. Informe dados indisponíveis sem inventar."))
         input.push({
           role: "developer",

@@ -179,42 +179,39 @@ test("a first-round report without tool verification fails instead of being publ
   expect(finished[2].report.status).toBe("partial");
   expect(finished[3]).toContain("etapa de verificação");
 });
-test("tools retain full results and reserve final synthesis inside the whole-run budget", async () => {
-  create.mockResolvedValueOnce({
-    status: "completed",
-    output: [
-      {
-        type: "function_call",
-        name: "propose_action",
-        arguments: "{}",
-        call_id: "call",
-      },
-    ],
-    usage: { input_tokens: 45000, output_tokens: 2400 },
-  });
-  create.mockResolvedValueOnce({
-    status: "completed",
-    output: [],
-    output_text: JSON.stringify(result()),
-    usage: { input_tokens: 30000, output_tokens: 2500 },
-  });
+test("budget pressure fails instead of publishing an early second-round synthesis", async () => {
+  create
+    .mockResolvedValueOnce({
+      status: "completed",
+      output: [
+        {
+          type: "function_call",
+          name: "propose_action",
+          arguments: "{}",
+          call_id: "call-1",
+        },
+      ],
+      usage: { input_tokens: 45000, output_tokens: 1200 },
+    })
+    .mockResolvedValueOnce({
+      status: "completed",
+      output: [
+        {
+          type: "function_call",
+          name: "measure_actions",
+          arguments: "{}",
+          call_id: "call-2",
+        },
+      ],
+      usage: { input_tokens: 40000, output_tokens: 500 },
+    });
   await runChat(args);
-  expect(create.mock.calls[0][0].max_output_tokens).toBeLessThanOrEqual(2500);
+  expect(create).toHaveBeenCalledTimes(2);
   expect(create.mock.calls[0][0].tool_choice).toBe("required");
-  expect(create.mock.calls[1][0].tool_choice).toBe("none");
-  expect(create.mock.calls[1][0].max_output_tokens).toBeLessThanOrEqual(6000);
-  expect(create.mock.calls[1][0].input).toEqual(
-    expect.arrayContaining([
-      expect.objectContaining({
-        type: "function_call_output",
-        output: expect.stringContaining('"id":"proposal"'),
-      }),
-    ]),
-  );
-  expect(
-    (finishRun as jest.Mock).mock.calls.at(-1)[2].report.review_items[0]
-      .action_ids,
-  ).toEqual(["proposal"]);
+  expect(create.mock.calls[1][0].tool_choice).toBe("required");
+  const finished = (finishRun as jest.Mock).mock.calls.at(-1);
+  expect(finished[2].report.status).toBe("partial");
+  expect(finished[3]).toContain("orçamento máximo");
 });
 test("failed synthesis persists a partial report and proposals rather than losing the run", async () => {
   create.mockResolvedValueOnce({
