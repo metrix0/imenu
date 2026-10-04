@@ -1,4 +1,9 @@
-import { aiAccess, IaPlusRequired } from "./access";
+import {
+  aiAccess,
+  FREE_AI_MESSAGE_TOKENS,
+  IaImageLimitReached,
+  IaPlusRequired,
+} from "./access";
 import type { PoolClient } from "pg";
 import { query, withTransaction } from "@/lib/database/sql";
 import { LIMITS, MODELS } from "./config";
@@ -41,8 +46,15 @@ export async function beginRun(
       )
     ).rows[0];
     const access = kind === "analysis" ? null : await aiAccess(restaurant, c);
-    const freeBudget = access && !access.plus ? Math.max(0, Number(access.tokens_remaining) - access.reserved_tokens) : null;
-    if (kind === "chat" && freeBudget !== null && freeBudget < 500) throw new IaPlusRequired("Seu limite gratuito foi atingido. Seus limites são reiniciados em 7 dias.");
+    const free = !!access && !access.plus;
+    if (
+      (kind === "chat" || kind === "image") &&
+      free &&
+      Number(access.tokens_remaining) <= 0
+    )
+      throw new IaPlusRequired(
+        "Seu limite gratuito foi atingido. Seus limites são reiniciados em 7 dias.",
+      );
     const output =
       kind === "analysis" ? LIMITS.analysisOutput : LIMITS.chatOutput;
     if (
@@ -67,9 +79,11 @@ export async function beginRun(
           ? 0
           : kind === "analysis"
             ? LIMITS.analysisInput
-            : freeBudget ?? LIMITS.runInput,
-        kind === "image" || freeBudget !== null ? 0 : output,
-        initialResult || freeBudget !== null ? JSON.stringify({ ...initialResult, ...(freeBudget !== null ? { free_budget: freeBudget } : {}) }) : null,
+            : free
+              ? FREE_AI_MESSAGE_TOKENS
+              : LIMITS.runInput,
+        kind === "image" || free ? 0 : output,
+        initialResult ? JSON.stringify(initialResult) : null,
       ],
     );
     return null;
@@ -101,7 +115,8 @@ export async function reserveImage(restaurant: string, run: string) {
       ).rows[0].n,
     );
     const access = await aiAccess(restaurant, c);
-    if (!access.plus && Number(access.images_remaining) <= 0) throw new IaPlusRequired("Você atingiu o limite gratuito de imagens deste mês.");
+    if (!access.plus && Number(access.images_remaining) <= 0)
+      throw new IaImageLimitReached();
     if (n >= LIMITS.images)
       throw new SalesError(
         "A geração de imagens atingiu a capacidade disponível.",

@@ -233,7 +233,7 @@ export default function SalesPage() {
           )
         : sales.messages;
   const locked = sales.access?.plus !== true;
-  const freeLimitReached = !isAnalysis && sales.access && !sales.access.plus && (sales.upgradeRequired || Number(sales.access.tokens_remaining) < 500);
+  const freeLimitReached = !isAnalysis && sales.access && !sales.access.plus && (sales.upgradeRequired || Number(sales.access.tokens_remaining) <= 0);
   useEffect(() => {
     if (
       !isAnalysis ||

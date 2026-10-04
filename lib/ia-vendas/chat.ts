@@ -1,4 +1,10 @@
-import { aiAccess, requireIaPlus, IaPlusRequired } from "./access";
+import {
+  aiAccess,
+  FREE_AI_MESSAGE_TOKENS,
+  IaImageLimitReached,
+  requireIaPlus,
+  IaPlusRequired,
+} from "./access";
 import { loadPostHogConsumerMetrics } from "@/lib/analytics/posthogConsumer";
 import OpenAI from "openai";
 import { BatchPending, batchResponse, readBatch, saveToolResult, actionId, type BatchSnapshot, type AnalysisRequest } from "./batch";
@@ -166,6 +172,9 @@ const assistantTools = [
   ),
 ];
 
+const FREE_MESSAGE_LIMIT_MESSAGE =
+  "Esta solicitação ficou grande demais para uma única mensagem. O limite gratuito é de 60 mil tokens por mensagem. Abra uma nova conversa ou divida o pedido em partes menores.";
+
 const ASSISTANT_ONLY_INSTRUCTIONS =
   `\nNo Assistente IA, você também pode consultar a base de conhecimento oficial do suporte com search_imenu_knowledge para dúvidas factuais sobre o funcionamento, configuração, preços, termos, políticas ou navegação do iMenu. Essa base é somente leitura e não substitui os dados reais do restaurante. Quando uma aba existente do painel for um próximo passo útil, use open_panel_tab e coloque [[tab:CHAVE]] em uma linha própria exatamente onde o botão deve aparecer, usando a chave retornada pela ferramenta. Nunca invente abas ou rotas e nunca diga que abriu a aba pelo usuário.`;
 
@@ -256,7 +265,10 @@ export async function runChat(args: {
     if (args.deep && conv.kind !== "analysis")
       throw new SalesError("Use a conversa Análise.");
     const ai = new OpenAI({ maxRetries: 0, timeout: 60000 });
-    let ctx: Data, input: any[], userMessageId: string;
+    let ctx: Data,
+      input: any[],
+      userMessageId: string,
+      freeAssistant = false;
     if (args.resume) {
       started = true;
       ctx = args.resume.ctx;
@@ -286,7 +298,7 @@ export async function runChat(args: {
           ? "Analisando pedidos e cardápio…"
           : "Consultando seu restaurante…",
       });
-      const freeAssistant = !deep && !(await aiAccess(restaurant)).plus;
+      freeAssistant = !deep && !(await aiAccess(restaurant)).plus;
       ctx = freeAssistant ? await context(restaurant, false, false) : await context(restaurant, deep);
       reportContext = deep ? ctx : null;
       if (deep) {
@@ -421,8 +433,6 @@ export async function runChat(args: {
       }
       if (fileParts.length) input.push({ role: "user", content: fileParts });
     }
-    const budgetRow = !isDeep ? (await query("SELECT result->>'free_budget' free_budget FROM public.ia_vendas_runs WHERE restaurant_id=$1 AND id=$2", [restaurant, run])).rows[0] : null;
-    const freeBudget = budgetRow?.free_budget != null ? Number(budgetRow.free_budget) : null;
     let inputTokens = args.resume?.inputTokens || 0,
       outputTokens = args.resume?.outputTokens || 0,
       example = args.resume?.example || false,
@@ -447,6 +457,13 @@ export async function runChat(args: {
             Number(ctx.image_review?.loaded || 0) * 2000
           : 0);
       if (
+        !deep &&
+        freeAssistant &&
+        inputTokens + outputTokens + estimatedInput + 500 >
+          FREE_AI_MESSAGE_TOKENS
+      )
+        throw new SalesError(FREE_MESSAGE_LIMIT_MESSAGE);
+      if (
         deep
           ? inputTokens + estimatedInput > LIMITS.analysisInput
           : estimatedInput > LIMITS.runInput
@@ -460,7 +477,6 @@ export async function runChat(args: {
         throw new SalesError(
           "A resposta atingiu o limite. As propostas prontas foram salvas.",
         );
-      if (freeBudget !== null && inputTokens + outputTokens + estimatedInput + 500 > freeBudget) throw new IaPlusRequired("Você atingiu o limite gratuito do Assistente IA deste mês.");
       const finalRound = round === maxRounds;
       if (finalRound && deep && !input.some((m) => m.role === "developer" && m.content === "Finalize agora o relatório estruturado com o que foi verificado. Não crie mais ferramentas. Informe dados indisponíveis sem inventar."))
         input.push({
@@ -480,7 +496,16 @@ export async function runChat(args: {
             ? finalRound
               ? Math.min(6000, maxOutput - outputTokens)
               : Math.min(2500, maxOutput - outputTokens - 5000)
-            : Math.min(2500, maxOutput - outputTokens, freeBudget === null ? Infinity : freeBudget - inputTokens - outputTokens - estimatedInput),
+            : Math.min(
+                2500,
+                maxOutput - outputTokens,
+                freeAssistant
+                  ? FREE_AI_MESSAGE_TOKENS -
+                      inputTokens -
+                      outputTokens -
+                      estimatedInput
+                  : Infinity,
+              ),
           reasoning: { effort: deep ? "medium" : "low" },
           text: { format: deep ? REPORT_FORMAT : { type: "json_object" } },
           store: false,
@@ -522,6 +547,12 @@ export async function runChat(args: {
           .filter((o) => o.type === "function_call")
           .map((o) => o.name),
       });
+      if (
+        !deep &&
+        freeAssistant &&
+        inputTokens + outputTokens > FREE_AI_MESSAGE_TOKENS
+      )
+        throw new SalesError(FREE_MESSAGE_LIMIT_MESSAGE);
       input.push(...response.output);
       const calls = response.output.filter((o) => o.type === "function_call");
       if (!calls.length) {
@@ -679,7 +710,8 @@ export async function runChat(args: {
                 throw new SalesError("Ferramenta desconhecida.");
             }
           } catch (e) {
-            if (e instanceof IaPlusRequired) throw e;
+            if (e instanceof IaPlusRequired || e instanceof IaImageLimitReached)
+              throw e;
             result = {
               error:
                 e instanceof SalesError

@@ -1,12 +1,17 @@
 import { runChat } from "../chat";
-import { aiAccess, requireIaPlus, IaPlusRequired } from "../access";
+import {
+  aiAccess,
+  IaImageLimitReached,
+  requireIaPlus,
+  IaPlusRequired,
+} from "../access";
 jest.mock("../access", () => ({ ...jest.requireActual("../access"), aiAccess: jest.fn().mockResolvedValue({ plus: true }), requireIaPlus: jest.fn() }));
 import { DIMENSIONS } from "../report";
 import { query, withTransaction } from "@/lib/database/sql";
 import { context, measure } from "../data";
 import { beginRun, recordTokens, finishRun } from "../runs";
 import { propose } from "../actions";
-import { analysisPhotos } from "../images";
+import { analysisPhotos, previewImage } from "../images";
 import OpenAI from "openai";
 import { batchResponse, readBatch, saveToolResult, BatchPending } from "../batch";
 jest.mock("../batch", () => ({ ...jest.requireActual("../batch"), batchResponse: jest.fn(), readBatch: jest.fn(), saveToolResult: jest.fn() }));
@@ -431,3 +436,74 @@ test("free users cannot discuss analysis through a direct chat request", async (
   expect(beginRun).not.toHaveBeenCalled();
   expect(args.send).toHaveBeenCalledWith("error", expect.objectContaining({ code: "IA_PLUS_REQUIRED" }));
 });
+
+test("free chat rejects a request that would exceed the 60k per-message cap before calling the model", async () => {
+  (args.send as jest.Mock).mockClear();
+  (aiAccess as jest.Mock).mockResolvedValueOnce({ plus: false });
+  (query as jest.Mock).mockImplementation(async (sql: string) => ({
+    rows: sql.includes("SELECT * FROM public.ia_vendas_conversations")
+      ? [{ kind: "chat", summary: "" }]
+      : sql.includes("RETURNING id")
+        ? [{ id: "user" }]
+        : [],
+  }));
+  (context as jest.Mock).mockResolvedValueOnce({
+    restaurant: { padding: "x".repeat(130_000) },
+    items: { rows: [] },
+    categories: { rows: [] },
+    sales: { products: [] },
+    instructions: "",
+    actions: [],
+    last_analysis: null,
+  });
+
+  await runChat({ ...args, deep: false });
+
+  expect(create).not.toHaveBeenCalled();
+  expect(args.send).toHaveBeenCalledWith(
+    "error",
+    expect.objectContaining({ message: expect.stringContaining("60 mil tokens") }),
+  );
+  expect((finishRun as jest.Mock).mock.calls.at(-1)[3]).toContain("60 mil tokens");
+});
+
+test("weekly image exhaustion stops only image generation and does not trigger the global Plus limit", async () => {
+  (args.send as jest.Mock).mockClear();
+  (aiAccess as jest.Mock).mockResolvedValueOnce({ plus: false });
+  (query as jest.Mock).mockImplementation(async (sql: string) => ({
+    rows: sql.includes("SELECT * FROM public.ia_vendas_conversations")
+      ? [{ kind: "chat", summary: "" }]
+      : sql.includes("RETURNING id")
+        ? [{ id: "user" }]
+        : [],
+  }));
+  create.mockResolvedValueOnce({
+    status: "completed",
+    output: [
+      {
+        type: "function_call",
+        name: "image_example",
+        arguments: JSON.stringify({
+          target: "item",
+          item_id: "item",
+          prompt: "Melhorar a foto",
+        }),
+        call_id: "image-limit",
+      },
+    ],
+    usage: { input_tokens: 1000, output_tokens: 100 },
+  });
+  (previewImage as jest.Mock).mockRejectedValueOnce(new IaImageLimitReached());
+
+  await runChat({ ...args, deep: false });
+
+  expect(create).toHaveBeenCalledTimes(1);
+  const errorEvent = (args.send as jest.Mock).mock.calls.find(
+    ([event]) => event === "error",
+  )?.[1];
+  expect(errorEvent?.message).toContain(
+    "Seu limite semanal de geração de imagens foi atingido",
+  );
+  expect(errorEvent?.code).toBeUndefined();
+});
+
