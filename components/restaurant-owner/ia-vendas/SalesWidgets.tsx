@@ -681,9 +681,9 @@ export function ActionCard({
   if (compact) return (
     <article className={styles.action} aria-label={action.title}>
       <div className={styles.actionHeader}>
-        <span className={`${styles.actionState} ml-auto ${action.status === "applied" ? styles.applied : ["conflict", "failed"].includes(action.status) ? styles.needsReview : ""}`}>{actionState(action)}</span>
+        <p className={styles.actionCount}>{countLabel}</p>
+        <span className={`${styles.actionState} ${action.status === "applied" ? styles.applied : ["conflict", "failed"].includes(action.status) ? styles.needsReview : ""}`}>{actionState(action)}</span>
       </div>
-      <p className={styles.actionCount}>{countLabel}</p>
       {(!imageBatch || !generatedCount) && <ActionPeek action={action} refs={refs} />}
       {imageBatch && generatedCount > 0 && pendingImageJobs.length > 0 && (
         <ActionPeek action={{ ...action, image_jobs: pendingImageJobs, operations: [] }} refs={refs} />

@@ -599,13 +599,7 @@ export default function SalesPage() {
       >
         <X size={18} />
       </button>
-      {opportunity && <div className="shrink-0 border-b border-[var(--panel-border)] p-4 pr-14">
-        <div className="rounded-[8px] bg-[var(--panel-tint)] p-3 text-xs text-[var(--panel-accent-text)]">
-          <p className="font-medium">Sobre: {opportunity.title}</p>
-          <button className="mt-2 cursor-pointer underline" onClick={() => setOpportunity(null)}>Ver toda a análise</button>
-        </div>
-      </div>}
-      <div className={`min-h-0 flex-1 space-y-5 overflow-y-auto p-4 ${opportunity ? "" : "pt-14"}`} aria-label="Respostas contextuais">
+      <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-4 pt-14" aria-label="Respostas contextuais">
         {sales.has_more && <Button variant="secondary" disabled={sales.loading} onClick={() => void sales.load(restaurant, sales.conversation_id || undefined, true)}>Conversas anteriores</Button>}
         {!threadMessages.length && <div className="py-6">
           <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-[10px] bg-[var(--panel-tint)] text-[var(--panel-accent-text)]"><MessageSquare size={20} /></div>
