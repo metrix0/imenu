@@ -41,7 +41,7 @@ jest.mock("../images", () => ({
   proposeImages: jest.fn(),
   analysisPhotos: jest.fn(),
 }));
-jest.mock("../files", () => ({ download: jest.fn() }));
+jest.mock("../files", () => ({ attachment: jest.fn(), download: jest.fn() }));
 jest.mock("../peers", () => ({
   benchmark: jest.fn().mockResolvedValue({ available: false }),
   potential: jest.fn(),
@@ -437,8 +437,9 @@ test("free users cannot discuss analysis through a direct chat request", async (
   expect(args.send).toHaveBeenCalledWith("error", expect.objectContaining({ code: "IA_PLUS_REQUIRED" }));
 });
 
-test("free chat rejects a request that would exceed the 60k per-message cap before calling the model", async () => {
+test("free chat does not count restaurant context toward the per-message cap", async () => {
   (args.send as jest.Mock).mockClear();
+  (context as jest.Mock).mockClear();
   (aiAccess as jest.Mock).mockResolvedValueOnce({ plus: false });
   (query as jest.Mock).mockImplementation(async (sql: string) => ({
     rows: sql.includes("SELECT * FROM public.ia_vendas_conversations")
@@ -448,7 +449,7 @@ test("free chat rejects a request that would exceed the 60k per-message cap befo
         : [],
   }));
   (context as jest.Mock).mockResolvedValueOnce({
-    restaurant: { padding: "x".repeat(130_000) },
+    restaurant: { padding: "x".repeat(100_000) },
     items: { rows: [] },
     categories: { rows: [] },
     sales: { products: [] },
@@ -456,15 +457,59 @@ test("free chat rejects a request that would exceed the 60k per-message cap befo
     actions: [],
     last_analysis: null,
   });
+  create.mockResolvedValueOnce({
+    status: "completed",
+    output: [],
+    output_text: JSON.stringify({ reply: "Certo.", summary: "" }),
+    usage: { input_tokens: 61_000, output_tokens: 100 },
+  });
 
-  await runChat({ ...args, deep: false });
+  await runChat({
+    ...args,
+    deep: false,
+    text: "adicione um horário para hoje das 01 da manha as 03",
+  });
+
+  expect(create).toHaveBeenCalledTimes(1);
+  expect(args.send).not.toHaveBeenCalledWith(
+    "error",
+    expect.objectContaining({ message: expect.any(String) }),
+  );
+  expect(args.send).toHaveBeenCalledWith("done", expect.any(Object));
+  expect((finishRun as jest.Mock).mock.calls.at(-1)[3]).toBeUndefined();
+});
+
+test("free chat blocks only an oversized user message and persists the explanation as the assistant reply", async () => {
+  (args.send as jest.Mock).mockClear();
+  (context as jest.Mock).mockClear();
+  (aiAccess as jest.Mock).mockResolvedValueOnce({ plus: false });
+  (query as jest.Mock).mockImplementation(async (sql: string) => ({
+    rows: sql.includes("SELECT * FROM public.ia_vendas_conversations")
+      ? [{ kind: "chat", summary: "" }]
+      : sql.includes("RETURNING id")
+        ? [{ id: "user" }]
+        : [],
+  }));
+
+  await runChat({
+    ...args,
+    deep: false,
+    text: "x".repeat(120_001),
+  });
 
   expect(create).not.toHaveBeenCalled();
-  expect(args.send).toHaveBeenCalledWith(
+  expect(context).not.toHaveBeenCalled();
+  expect(args.send).not.toHaveBeenCalledWith(
     "error",
-    expect.objectContaining({ message: expect.stringContaining("60 mil tokens") }),
+    expect.any(Object),
   );
-  expect((finishRun as jest.Mock).mock.calls.at(-1)[3]).toContain("60 mil tokens");
+  expect(args.send).toHaveBeenCalledWith("done", expect.any(Object));
+  const finished = (finishRun as jest.Mock).mock.calls.at(-1);
+  expect(finished[2].reply).toBe(
+    "Esta mensagem ficou grande demais para ser processada de uma vez. Envie o pedido em partes menores para continuar.",
+  );
+  expect(finished[2].reply).not.toMatch(/token|nova conversa/i);
+  expect(finished[3]).toBeUndefined();
 });
 
 test("weekly image exhaustion stops only image generation and does not trigger the global Plus limit", async () => {

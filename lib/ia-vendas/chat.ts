@@ -15,7 +15,7 @@ import { FIELDS } from "./fields";
 import { analysisModelContext, context, readData, metrics, measure } from "./data";
 import { propose } from "./actions";
 import { previewImage, proposeImages, analysisPhotos } from "./images";
-import { download } from "./files";
+import { attachment, download } from "./files";
 import { benchmark, potential } from "./peers";
 import { beginRun, recordTokens, finishRun } from "./runs";
 import { LIMITS, MODELS } from "./config";
@@ -173,7 +173,8 @@ const assistantTools = [
 ];
 
 const FREE_MESSAGE_LIMIT_MESSAGE =
-  "Esta solicitação ficou grande demais para uma única mensagem. O limite gratuito é de 60 mil tokens por mensagem. Abra uma nova conversa ou divida o pedido em partes menores.";
+  "Esta mensagem ficou grande demais para ser processada de uma vez. Envie o pedido em partes menores para continuar.";
+class IaMessageLimitReached extends SalesError {}
 
 const ASSISTANT_ONLY_INSTRUCTIONS =
   `\nNo Assistente IA, você também pode consultar a base de conhecimento oficial do suporte com search_imenu_knowledge para dúvidas factuais sobre o funcionamento, configuração, preços, termos, políticas ou navegação do iMenu. Essa base é somente leitura e não substitui os dados reais do restaurante. Quando uma aba existente do painel for um próximo passo útil, use open_panel_tab e coloque [[tab:CHAVE]] dentro da frase exatamente onde a referência clicável à aba deve aparecer, usando a chave retornada pela ferramenta (exemplo: "Acesse [[tab:horarios]] para configurar o funcionamento."). Não coloque o atalho isolado em outra linha quando ele puder fazer parte do texto. Nunca invente abas ou rotas e nunca diga que abriu a aba pelo usuário.`;
@@ -225,7 +226,8 @@ export async function runChat(args: {
   } = args;
   const analysisDeadline = Date.now() + 240000;
   let started = false,
-    isDeep = false;
+    isDeep = false,
+    userMessageId = "";
   let reportContext: Data | null = null,
     report: Data | null = null;
   const cards: Data[] = args.resume?.cards || [];
@@ -267,7 +269,6 @@ export async function runChat(args: {
     const ai = new OpenAI({ maxRetries: 0, timeout: 60000 });
     let ctx: Data,
       input: any[],
-      userMessageId: string,
       freeAssistant = false;
     if (args.resume) {
       started = true;
@@ -293,12 +294,29 @@ export async function runChat(args: {
         [restaurant, conversation, message, attachments],
       );
       userMessageId = userMessage.rows[0].id;
+      freeAssistant = !deep && !(await aiAccess(restaurant)).plus;
+      if (freeAssistant) {
+        const currentAttachments = await Promise.all(
+          attachments.map((id) => attachment(restaurant, id)),
+        );
+        const estimatedMessageTokens =
+          Math.ceil(message.length / 2) +
+          currentAttachments.reduce(
+            (total, item) =>
+              total +
+              (typeof item.text_content === "string"
+                ? Math.ceil(item.text_content.length / 2)
+                : 5000),
+            0,
+          );
+        if (estimatedMessageTokens > FREE_AI_MESSAGE_TOKENS)
+          throw new IaMessageLimitReached(FREE_MESSAGE_LIMIT_MESSAGE);
+      }
       send("status", {
         message: deep
           ? "Analisando pedidos e cardápio…"
           : "Consultando seu restaurante…",
       });
-      freeAssistant = !deep && !(await aiAccess(restaurant)).plus;
       ctx = freeAssistant ? await context(restaurant, false, false) : await context(restaurant, deep);
       reportContext = deep ? ctx : null;
       if (deep) {
@@ -457,13 +475,6 @@ export async function runChat(args: {
             Number(ctx.image_review?.loaded || 0) * 2000
           : 0);
       if (
-        !deep &&
-        freeAssistant &&
-        inputTokens + outputTokens + estimatedInput + 500 >
-          FREE_AI_MESSAGE_TOKENS
-      )
-        throw new SalesError(FREE_MESSAGE_LIMIT_MESSAGE);
-      if (
         deep
           ? inputTokens + estimatedInput > LIMITS.analysisInput
           : estimatedInput > LIMITS.runInput
@@ -496,16 +507,7 @@ export async function runChat(args: {
             ? finalRound
               ? Math.min(6000, maxOutput - outputTokens)
               : Math.min(2500, maxOutput - outputTokens - 5000)
-            : Math.min(
-                2500,
-                maxOutput - outputTokens,
-                freeAssistant
-                  ? FREE_AI_MESSAGE_TOKENS -
-                      inputTokens -
-                      outputTokens -
-                      estimatedInput
-                  : Infinity,
-              ),
+            : Math.min(2500, maxOutput - outputTokens),
           reasoning: { effort: deep ? "medium" : "low" },
           text: { format: deep ? REPORT_FORMAT : { type: "json_object" } },
           store: false,
@@ -547,12 +549,6 @@ export async function runChat(args: {
           .filter((o) => o.type === "function_call")
           .map((o) => o.name),
       });
-      if (
-        !deep &&
-        freeAssistant &&
-        inputTokens + outputTokens > FREE_AI_MESSAGE_TOKENS
-      )
-        throw new SalesError(FREE_MESSAGE_LIMIT_MESSAGE);
       input.push(...response.output);
       const calls = response.output.filter((o) => o.type === "function_call");
       if (!calls.length) {
@@ -793,6 +789,34 @@ export async function runChat(args: {
   } catch (e) {
     if (e instanceof BatchPending) {
       send("queued", { run_id: run, message: "Análise em processamento. O relatório aparecerá aqui quando estiver pronto." });
+      return;
+    }
+    if (e instanceof IaMessageLimitReached && started && userMessageId) {
+      const id = randomUUID();
+      await withTransaction(async (c) => {
+        await c.query(
+          "INSERT INTO public.ia_vendas_messages (id,restaurant_id,conversation_id,role,content,cards) VALUES ($1,$2,$3,'assistant',$4,'[]'::jsonb)",
+          [id, restaurant, conversation, e.message],
+        );
+        await c.query(
+          "UPDATE public.ia_vendas_conversations SET updated_at=now(),title=CASE WHEN kind='chat' AND title='Nova conversa' THEN $3 ELSE title END WHERE restaurant_id=$1 AND id=$2",
+          [restaurant, conversation, message.slice(0, 60)],
+        );
+        await finishRun(
+          restaurant,
+          run,
+          {
+            reply: e.message,
+            message_id: id,
+            user_message_id: userMessageId,
+            report_id: args.report_id || null,
+            opportunity_id: args.opportunity_id || null,
+          },
+          undefined,
+          c,
+        );
+      });
+      send("done", { id });
       return;
     }
     const error =
