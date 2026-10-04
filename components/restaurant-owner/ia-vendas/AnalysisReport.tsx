@@ -1,6 +1,6 @@
 "use client";
 import Image from "next/image";
-import { ChevronDown, CircleHelp, ClipboardList, History, MessageSquare, Sparkles, Target } from "lucide-react";
+import { ChevronDown, CircleHelp, ClipboardList, History, MessageSquare, Rocket, Sparkles, Target } from "lucide-react";
 import Tooltip from "@/components/ui/Tooltip";
 import { IA_PLUS_FEATURE_MESSAGE, IA_PLUS_PRICE_LABEL } from "@/lib/addons/products";
 import Button from "@/components/ui/Button";
@@ -57,6 +57,13 @@ export default function AnalysisReport({
 
             <div className={styles.analysisSteps} aria-label="Como funciona a análise">
               <article>
+                <span><Rocket size={18} aria-hidden="true" /></span>
+                <div>
+                  <strong>Aplica melhorias automaticamente</strong>
+                  <p>Você apenas revisa e aceita as mudanças que aumentam seu faturamento..</p>
+                </div>
+              </article>
+              <article>
                 <span><ClipboardList size={18} aria-hidden="true" /></span>
                 <div>
                   <strong>Entende suas vendas</strong>
@@ -68,13 +75,6 @@ export default function AnalysisReport({
                 <div>
                   <strong>Encontra o que vale priorizar</strong>
                   <p>Destaca oportunidades com evidências e, quando possível, estima o impacto nas próximas 4 semanas.</p>
-                </div>
-              </article>
-              <article>
-                <span><Sparkles size={18} aria-hidden="true" /></span>
-                <div>
-                  <strong>Prepara melhorias para você revisar</strong>
-                  <p>Sugere mudanças no cardápio e você decide o que realmente quer aplicar.</p>
                 </div>
               </article>
             </div>

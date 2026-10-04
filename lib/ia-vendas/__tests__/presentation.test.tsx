@@ -83,7 +83,9 @@ test("free restaurant without analysis explains the analysis and IA Plus immedia
   expect(html).toContain("Sua análise ainda não foi liberada");
   expect(html).toContain("Entende suas vendas");
   expect(html).toContain("Encontra o que vale priorizar");
-  expect(html).toContain("Prepara melhorias para você revisar");
+  expect(html).toContain("Aplica melhorias automaticamente");
+  expect(html).toContain("Você apenas revisa e aceita as mudanças que aumentam seu faturamento..");
+  expect(html.indexOf("Aplica melhorias automaticamente")).toBeLessThan(html.indexOf("Entende suas vendas"));
   expect(html).toContain("Como funciona o acesso gratuito");
   expect(html).toContain("Sem esperar pela seleção gratuita");
   expect(html).toContain("Análise iniciada automaticamente");
