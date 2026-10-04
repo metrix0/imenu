@@ -311,3 +311,14 @@ test("panel tab shortcuts render inline inside assistant text", () => {
     html.indexOf(" para configurar o funcionamento."),
   );
 });
+
+test("valid inline panel tab markers render even when the saved card is missing", () => {
+  const html = renderToStaticMarkup(
+    <SalesMarkdown content="Você pode adicionar o período manualmente em [[tab:horarios]], incluindo **01:00–03:00 hoje**." />,
+  );
+
+  expect(html).toContain("manualmente em ");
+  expect(html).toContain(">Horários<");
+  expect(html).toContain(", incluindo ");
+  expect(html).not.toContain("[[tab:horarios]]");
+});

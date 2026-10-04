@@ -14,6 +14,10 @@ export default function SalesMarkdown({
   panelTabs?: PanelTabKey[];
 }) {
   const allowedPanelTabs = new Set(panelTabs);
+  for (const match of content.matchAll(/\[\[tab:([a-z0-9-]+)\]\]/gi)) {
+    const tab = match[1]?.toLowerCase();
+    if (isPanelTabKey(tab)) allowedPanelTabs.add(tab);
+  }
 
   return (
     <div className="space-y-4 text-sm leading-7 text-gray-700">
