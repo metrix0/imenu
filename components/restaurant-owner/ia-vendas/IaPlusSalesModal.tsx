@@ -59,7 +59,7 @@ export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout
     onClose={onClose}
     fixedHeight
     height={step ? 760 : 720}
-    className="max-w-4xl [&>[data-ui=modal-close]]:!rounded-full"
+    className="max-w-4xl !border-0 [&>[data-ui=modal-close]]:!rounded-full"
     bodyClassName="flex flex-1 flex-col !overflow-hidden"
     showCloseButton
   >
