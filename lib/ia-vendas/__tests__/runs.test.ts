@@ -68,7 +68,7 @@ test("deep analysis ignores monthly token totals while chat keeps its quota", as
   ).resolves.toBeNull();
   await expect(
     beginRun("restaurant", "conversation", "chat-run", "chat"),
-  ).rejects.toThrow("capacidade");
+  ).rejects.toThrow("Caso precise de mais limite ou ajuda, entre em contato com o suporte.");
 });
 test("manual analysis has no minute quota while chat retains storm protection", async () => {
   c.query.mockImplementation(async (sql: string) => ({
@@ -82,7 +82,7 @@ test("manual analysis has no minute quota while chat retains storm protection", 
   ).resolves.toBeNull();
   await expect(
     beginRun("restaurant", "conversation", "chat-run", "chat"),
-  ).rejects.toThrow("capacidade");
+  ).rejects.toThrow("Caso precise de mais limite ou ajuda, entre em contato com o suporte.");
 });
 
 test("queued analyses survive the synchronous stale timeout and don't block contextual chat", async () => {

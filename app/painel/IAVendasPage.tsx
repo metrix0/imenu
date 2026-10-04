@@ -35,6 +35,25 @@ import {
 import type { Data } from "@/lib/ia-vendas/types";
 import { IA_PLUS_FEATURE_MESSAGE } from "@/lib/addons/products";
 import { isPanelTabKey, type PanelTabKey } from "@/lib/ia-vendas/panelTabs";
+import { SupportWhatsappBadge } from "@/components/common/SupportButton";
+
+const IA_CAPACITY_SUPPORT_SUFFIX =
+  "Caso precise de mais limite ou ajuda, entre em contato com o suporte.";
+
+function ErrorNoticeContent({ message }: { message: string }) {
+  if (!message.endsWith(IA_CAPACITY_SUPPORT_SUFFIX)) return <>{message}</>;
+
+  const main = message.slice(0, -IA_CAPACITY_SUPPORT_SUFFIX.length).trim();
+  return (
+    <span className="flex min-w-0 flex-col gap-2">
+      <span>{main}</span>
+      <span className="flex flex-wrap items-center gap-2">
+        <span>{IA_CAPACITY_SUPPORT_SUFFIX}</span>
+        <SupportWhatsappBadge />
+      </span>
+    </span>
+  );
+}
 
 type MessagePart =
   | { type: "text"; content: string }
@@ -606,7 +625,7 @@ export default function SalesPage() {
               role="alert"
               className="mx-4 mb-2 flex items-start justify-between gap-2 rounded-lg bg-red-50 p-3 text-sm text-red-700"
             >
-              <span>{localError || sales.error}</span>
+              <ErrorNoticeContent message={localError || sales.error || ""} />
               <button
                 aria-label="Fechar aviso"
                 className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-[8px] transition-colors hover:bg-red-100"

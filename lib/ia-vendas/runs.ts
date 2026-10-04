@@ -64,7 +64,7 @@ export async function beginRun(
         usage.output + (kind === "image" ? 0 : output) > 120000)
     )
       throw new SalesError(
-        "A IA atingiu a capacidade disponível. Tente novamente mais tarde.",
+        "A IA atingiu a capacidade disponível. Tente novamente mais tarde. Caso precise de mais limite ou ajuda, entre em contato com o suporte.",
         429,
       );
     await c.query(

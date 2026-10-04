@@ -3,6 +3,7 @@ import AnalysisReport from "@/components/restaurant-owner/ia-vendas/AnalysisRepo
 import SalesMarkdown from "@/components/restaurant-owner/ia-vendas/SalesMarkdown";
 import { ActionCard, DataCard } from "@/components/restaurant-owner/ia-vendas/SalesWidgets";
 import SalesAnalysisSuggestionCard from "@/components/restaurant-owner/ia-vendas/SalesAnalysisSuggestionCard";
+import { SupportWhatsappBadge } from "@/components/common/SupportButton";
 import type { Action } from "../types";
 import { analysisPreview } from "../paywall";
 
@@ -519,4 +520,12 @@ test("valid inline panel tab markers render even when the saved card is missing"
   expect(html).toContain('data-icon="clock"');
   expect(html).toContain(", incluindo ");
   expect(html).not.toContain("[[tab:horarios]]");
+});
+
+
+test("support WhatsApp badge shows the support number and opens WhatsApp", () => {
+  const html = renderToStaticMarkup(<SupportWhatsappBadge />);
+  expect(html).toContain("+55 19 99723-5394");
+  expect(html).toContain("https://wa.me/5519997235394");
+  expect(html).toContain("Abrir WhatsApp do suporte");
 });
