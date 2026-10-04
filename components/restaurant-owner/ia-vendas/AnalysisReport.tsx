@@ -81,7 +81,7 @@ export default function AnalysisReport({
 
             <div className={styles.freeReleaseNote}>
               <strong>Como funciona o acesso gratuito</strong>
-              <p>Por enquanto, estamos liberando análises gratuitas para poucos restaurantes por vez. Quando o seu for selecionado, a análise aparecerá automaticamente aqui. Volte em outro dia para conferir.</p>
+              <p>Por enquanto, estamos liberando análises gratuitas para poucos restaurantes por vez. Quando o seu for selecionado, a análise aparecerá automaticamente aqui. Volte em outro dia para conferir. Aplicar as modificações da análise automaticamente é uma função do Plano IA Plus.</p>
             </div>
 
             <div className={styles.upgradeState}>

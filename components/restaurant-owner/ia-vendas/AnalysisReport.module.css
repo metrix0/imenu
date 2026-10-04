@@ -24,7 +24,7 @@
 .upgradeBenefits { display: grid; gap: 7px; color: var(--panel-text); font-size: 12px; line-height: 1.5; }
 .upgradeBenefits li { position: relative; padding-left: 18px; }
 .upgradeBenefits li::before { content: "✓"; position: absolute; left: 0; color: var(--color-green); font-weight: 600; }
-.upgradeAction { display: flex; flex-direction: column; align-items: stretch; justify-content: center; gap: 12px; padding: 22px; border-left: 1px solid color-mix(in srgb, var(--panel-brand) 18%, var(--panel-border)); background: color-mix(in srgb, var(--panel-brand) 5%, var(--panel-surface)); text-align: center; }
+.upgradeAction { display: flex; flex-direction: column; align-items: stretch; justify-content: center; gap: 12px; padding: 22px; background: color-mix(in srgb, var(--panel-brand) 5%, var(--panel-surface)); text-align: center; }
 .upgradeAction > p { display: flex; align-items: baseline; justify-content: center; gap: 4px; color: var(--panel-text); }
 .upgradeAction > p strong { font-size: 24px; line-height: 1; }
 .upgradeAction > p span { color: var(--panel-muted); font-size: 12px; }
