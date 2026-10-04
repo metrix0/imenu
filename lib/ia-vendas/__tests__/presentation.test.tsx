@@ -319,6 +319,7 @@ test("valid inline panel tab markers render even when the saved card is missing"
 
   expect(html).toContain("manualmente em ");
   expect(html).toContain(">Horários<");
+  expect(html).toContain('data-icon="clock"');
   expect(html).toContain(", incluindo ");
   expect(html).not.toContain("[[tab:horarios]]");
 });
