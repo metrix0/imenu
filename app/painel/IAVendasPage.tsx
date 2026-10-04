@@ -107,7 +107,7 @@ export default function SalesPage() {
         frame = requestAnimationFrame(focusComposer);
         return;
       }
-      input.current.focus();
+      input.current.focus({ preventScroll: wideAnalysis });
       focusChat.current = false;
     };
     frame = requestAnimationFrame(focusComposer);
