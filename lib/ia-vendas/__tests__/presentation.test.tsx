@@ -102,14 +102,17 @@ test("free restaurant without analysis explains the analysis and IA Plus immedia
   expect(html).toContain("49,99");
 });
 
-test("locked analysis keeps the full report visible under the final-third IA Plus fade", () => {
+test("locked analysis keeps the full report scrollable and overlays only its final quarter", () => {
   const html = renderToStaticMarkup(<AnalysisReport {...props} locked />);
   expect(html).toContain('class="report reportLocked"');
-  expect(html).toContain('class="previewContent"');
+  expect(html).toContain("paper paperLocked");
+  expect(html).not.toContain('class="previewContent"><section aria-label="Prioridades"');
   expect(html).toContain("IAPlusCombinationMarkLogo_Brand.png");
   expect(html).toContain('sizes="224px"');
   expect(html).toContain('aria-label="Comparações"');
   expect(html).not.toContain('hidden="" aria-label="Comparações"');
+  expect(html.indexOf('aria-label="Comparações"')).toBeLessThan(html.indexOf("Coloque essas oportunidades em prática"));
+  expect(html).toContain("paywall structuredPaywall");
   expect(html).toContain("Coloque essas oportunidades em prática");
   expect(html).toContain("Conhecer iMenu IA Plus");
 });
