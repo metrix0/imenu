@@ -1,7 +1,6 @@
 "use client";
 
 import { ArrowUpRight } from "lucide-react";
-import { useRouter } from "next/navigation";
 import {
   faArrowTrendUp,
   faBox,
@@ -56,7 +55,6 @@ export default function PanelTabCard({
   tab: PanelTabKey;
   inline?: boolean;
 }) {
-  const router = useRouter();
   const item = PANEL_TABS[tab];
 
   return (
@@ -69,7 +67,7 @@ export default function PanelTabCard({
           : "mt-3 gap-2"
       }
       aria-label={`Abrir aba ${item.label}`}
-      onClick={() => router.push(item.href)}
+      onClick={() => window.open(item.href, "_blank", "noopener,noreferrer")}
     >
       <PanelIcon icon={PANEL_TAB_ICONS[tab]} aria-hidden="true" />
       {item.label}
