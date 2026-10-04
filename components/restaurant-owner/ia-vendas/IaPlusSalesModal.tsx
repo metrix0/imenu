@@ -10,7 +10,6 @@ import {
   Image as ImageIcon,
   MessageSquare,
   RefreshCw,
-  ShieldCheck,
   Sparkles,
   WandSparkles,
 } from "lucide-react";
@@ -79,7 +78,7 @@ export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout
         />
       </ModalFlowStep> : <ModalFlowStep key="sales" reverse animate={navigated}>
         <div className="min-h-0 flex-1 overflow-y-auto">
-          <div className="grid overflow-hidden md:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="grid overflow-hidden md:grid-cols-[minmax(0,1fr)_300px]">
             <div className="px-6 pb-5 pt-6 sm:px-8 sm:pb-7 sm:pt-8">
               <div className="relative h-12 w-56 max-w-full">
                 <Image
@@ -121,60 +120,15 @@ export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout
               </div>
             </div>
 
-            <div className="relative hidden overflow-hidden border-l border-orange-100 bg-gradient-to-br from-orange-50 via-white to-orange-100/70 p-7 md:flex md:items-center">
-              <div className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-brand/10 blur-2xl" />
-              <div className="absolute -bottom-20 -left-12 h-52 w-52 rounded-full bg-orange-200/40 blur-3xl" />
-
-              <div className="relative z-10 w-full">
-                <div className="mb-5 flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase tracking-[0.14em] text-brand">IA em ação</span>
-                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand text-white shadow-sm">
-                    <Sparkles size={17} aria-hidden="true" />
-                  </span>
-                </div>
-
-                <div className="space-y-3">
-                  <div className="rounded-xl border border-orange-100 bg-white/95 p-4 shadow-sm">
-                    <div className="flex items-start gap-3">
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand/10 text-brand">
-                        <WandSparkles size={17} aria-hidden="true" />
-                      </span>
-                      <div>
-                        <p className="text-sm font-semibold text-gray-900">Oportunidade encontrada</p>
-                        <p className="mt-1 text-xs leading-5 text-gray-500">A IA identifica onde seu cardápio pode melhorar.</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="ml-5 rounded-xl border border-orange-100 bg-white/95 p-4 shadow-sm">
-                    <div className="flex items-start gap-3">
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-orange-100 text-brand">
-                        <ImageIcon size={17} aria-hidden="true" />
-                      </span>
-                      <div>
-                        <p className="text-sm font-semibold text-gray-900">Imagem pronta para revisar</p>
-                        <p className="mt-1 text-xs leading-5 text-gray-500">Gere novos visuais sem publicar nada automaticamente.</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl border border-orange-100 bg-white/95 p-4 shadow-sm">
-                    <div className="flex items-start gap-3">
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-green-50 text-green-700">
-                        <Check size={17} aria-hidden="true" />
-                      </span>
-                      <div>
-                        <p className="text-sm font-semibold text-gray-900">Você decide o que aplicar</p>
-                        <p className="mt-1 text-xs leading-5 text-gray-500">Revise cada sugestão antes de mudar seu restaurante.</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-5 flex items-center gap-2 text-xs font-medium text-gray-600">
-                  <ShieldCheck size={15} className="text-brand" aria-hidden="true" />
-                  Nada muda sem sua aprovação
-                </div>
+            <div className="relative hidden min-h-0 md:block">
+              <div className="absolute -bottom-4 -left-8 right-10 top-16">
+                <Image
+                  src="/images/IAPlus.png"
+                  alt="Demonstração do iMenu IA Plus"
+                  fill
+                  sizes="300px"
+                  className="object-contain object-center"
+                />
               </div>
             </div>
           </div>
