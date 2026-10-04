@@ -97,8 +97,8 @@ export default function AnalysisReport({
                 </div>
                 <div>
                   <span className={styles.upgradeEyebrow}>Sem esperar pela seleção gratuita</span>
-                  <h3>Receba sua análise agora</h3>
-                  <p>Com o iMenu IA Plus, a análise começa automaticamente e você libera tudo para transformar as oportunidades em melhorias no seu restaurante.</p>
+                  <h3>Comece sua análise agora</h3>
+                  <p>Com o iMenu IA Plus, sua análise começa automaticamente, sem esperar pela seleção gratuita. A análise profunda pode levar até 24 horas para ser concluída.</p>
                 </div>
                 <ul className={styles.upgradeBenefits}>
                   <li>Análise iniciada automaticamente</li>
@@ -108,7 +108,7 @@ export default function AnalysisReport({
               </div>
               <div className={styles.upgradeAction}>
                 <p><strong>{IA_PLUS_PRICE_LABEL}</strong><span>/mês</span></p>
-                <Button onClick={onUpgrade}>Receber análise agora</Button>
+                <Button onClick={onUpgrade}>Começar análise agora</Button>
                 <small>Cartão ou Pix · cancele quando quiser</small>
               </div>
             </div>
@@ -117,7 +117,7 @@ export default function AnalysisReport({
           <section className={styles.noAnalysisState} role="status" aria-live="polite" aria-busy={generating}>
             <div className={styles.preparingIcon}><Loader /></div>
             <h2>Preparando sua análise</h2>
-            <p>A IA está analisando seus pedidos, cardápio e oportunidades de venda. Seu relatório aparecerá aqui assim que estiver pronto.</p>
+            <p>A IA está analisando seus pedidos, cardápio e oportunidades de venda. A análise profunda pode levar até 24 horas para ser concluída. Seu relatório aparecerá aqui assim que estiver pronto.</p>
           </section>
         )}
       </div>

@@ -99,7 +99,8 @@ test("free restaurant without analysis explains the analysis and IA Plus immedia
   expect(html).toContain("Análise iniciada automaticamente");
   expect(html).toContain("Acesso completo às oportunidades encontradas");
   expect(html).toContain("IAPlusCombinationMarkLogo_Brand.png");
-  expect(html).toContain("Receber análise agora");
+  expect(html).toContain("Começar análise agora");
+  expect(html).toContain("A análise profunda pode levar até 24 horas para ser concluída.");
   expect(html).toContain("49,99");
 });
 
