@@ -78,10 +78,13 @@ test("report leads with potential actions, then summary, opportunities, review a
   expect(html).not.toContain("Potencial nas próximas 4 semanas");
 });
 
-test("locked analysis uses the IA Plus sales-flow image and paywall viewport class", () => {
+test("locked analysis keeps the full report visible under the final-third IA Plus fade", () => {
   const html = renderToStaticMarkup(<AnalysisReport {...props} locked />);
   expect(html).toContain('class="report reportLocked"');
+  expect(html).toContain('class="previewContent"');
   expect(html).toContain("IAPlusCombinationMarkLogo_Brand.png");
+  expect(html).toContain('aria-label="Comparações"');
+  expect(html).not.toContain('hidden="" aria-label="Comparações"');
   expect(html).toContain("Coloque essas oportunidades em prática");
   expect(html).toContain("Conhecer iMenu IA Plus");
 });

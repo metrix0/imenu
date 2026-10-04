@@ -733,7 +733,7 @@ export default function SalesPage() {
           {isAnalysis ? (
             <div className="relative flex min-h-0 flex-1 overflow-hidden" data-analysis-workspace>
               <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden" inert={analysisChatOpen && !wideAnalysis}>
-                <div className={`sales-analysis-default-shell min-h-0 flex-1 ${locked ? "overflow-hidden" : "overflow-y-auto overscroll-y-contain"} bg-[var(--panel-background)] px-7 pb-20 pt-7`} aria-label="Relatório de análise">
+                <div className="sales-analysis-default-shell min-h-0 flex-1 overflow-y-auto overscroll-y-contain bg-[var(--panel-background)] px-7 pb-20 pt-7" aria-label="Relatório de análise">
                   {!analysisChatOpen && notice}
                   <AnalysisReport
                     locked={locked}
