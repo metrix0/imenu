@@ -84,7 +84,8 @@ export default function SalesPage() {
     [renameTitle, setRenameTitle] = useState(""),
     [instructions, setInstructions] = useState(""),
     [batchIds, setBatchIds] = useState<string[]>([]),
-    [selectedBatchIds, setSelectedBatchIds] = useState<string[]>([]);
+    [selectedBatchIds, setSelectedBatchIds] = useState<string[]>([]),
+    [newConversation, setNewConversation] = useState(false);
   const end = useRef<HTMLDivElement>(null),
     lastMessage = useRef<HTMLElement>(null),
     previousMessages = useRef({ conversationId: "", count: 0 }),
@@ -123,6 +124,7 @@ export default function SalesPage() {
   }, [restaurant]);
   useEffect(() => {
     if (!sales.conversations.length || sales.loading) return;
+    if (!isAnalysisRoute && newConversation) return;
 
     const desiredKind = isAnalysisRoute ? "analysis" : "chat",
       current = sales.conversations.find(
@@ -139,12 +141,11 @@ export default function SalesPage() {
       return;
     }
 
-    if (!isAnalysisRoute && !sales.acting)
-      void sales.command("create_conversation");
+    if (!isAnalysisRoute) setNewConversation(true);
   }, [
     isAnalysisRoute,
+    newConversation,
     restaurant,
-    sales.acting,
     sales.conversation_id,
     sales.conversations,
     sales.loading,
@@ -209,6 +210,7 @@ export default function SalesPage() {
     ),
     isAnalysis = isAnalysisRoute,
     modeReady =
+      (!isAnalysis && newConversation) ||
       conversation?.kind === (isAnalysis ? "analysis" : "chat"),
     disabled =
       sales.busy || sales.acting || !!(sales.running && sales.running.mode !== "batch") || !modeReady,
@@ -219,7 +221,7 @@ export default function SalesPage() {
     selectedReport =
       sales.analyses.find((a) => a.id === selectedReportId) ||
       sales.analyses.find((a) => a.result?.report),
-    threadMessages = !modeReady
+    threadMessages = !modeReady || (!isAnalysis && newConversation)
       ? []
       : isAnalysis
         ? sales.messages.filter(
@@ -274,12 +276,26 @@ export default function SalesPage() {
     if (isAnalysis && locked) { setPlusModal("checkout"); return; }
     if (freeLimitReached) { setPlusModal("sales"); return; }
     if (!text.trim() || disabled || uploading) return;
-    const draft = text.trim();
+    const draft = text.trim(),
+      pendingAttachments = attachments;
     setText("");
     setAttachments([]);
+    if (!isAnalysis && newConversation) {
+      const created = await sales.command("create_conversation");
+      if (!created?.id) {
+        setText(draft);
+        setAttachments(pendingAttachments);
+        return;
+      }
+      setNewConversation(false);
+      await useSalesStore
+        .getState()
+        .send(draft, pendingAttachments, false);
+      return;
+    }
     await sales.send(
       draft,
-      attachments,
+      pendingAttachments,
       false,
       isAnalysis && selectedReport
         ? { report_id: selectedReport.id, opportunity_id: opportunity?.id }
@@ -337,7 +353,22 @@ export default function SalesPage() {
     setAnalysisChatOpen(false);
   };
   const chatConversations = sales.conversations.filter((c) => c.kind === "chat");
+  const startNewConversation = () => {
+    setNewConversation(true);
+    setText("");
+    setAttachments([]);
+    setSelectedReportId("");
+    setOpportunity(null);
+    setLocalError("");
+    sales.clearError();
+    input.current?.focus();
+  };
   const changeConversation = (conversationId: string) => {
+    if (!conversationId) {
+      startNewConversation();
+      return;
+    }
+    setNewConversation(false);
     setSelectedReportId("");
     setOpportunity(null);
     void sales.load(restaurant, conversationId);
@@ -348,20 +379,24 @@ export default function SalesPage() {
         <Dropdown
           custom
           aria-label="Conversa"
-          value={sales.conversation_id || ""}
+          value={newConversation ? "" : sales.conversation_id || ""}
           disabled={disabled}
-          options={chatConversations.map((c) => ({ value: c.id, label: c.title }))}
+          options={[
+            ...(newConversation ? [{ value: "", label: "Nova conversa" }] : []),
+            ...chatConversations.map((c) => ({ value: c.id, label: c.title })),
+          ]}
           onChange={(e) => changeConversation(e.target.value)}
           className="w-full min-w-0"
         />
       </div>
       <select
         aria-label="Conversa"
-        value={sales.conversation_id || ""}
+        value={newConversation ? "" : sales.conversation_id || ""}
         disabled={disabled}
         onChange={(e) => changeConversation(e.target.value)}
         className="hidden max-w-[170px] cursor-pointer rounded-[8px] border border-[var(--panel-border)] bg-[var(--panel-surface)] p-2 text-sm outline-none focus-visible:border-[var(--panel-action)] disabled:cursor-not-allowed md:block lg:hidden"
       >
+        {newConversation && <option value="">Nova conversa</option>}
         {chatConversations.map((c) => (
           <option key={c.id} value={c.id}>
             {c.title}
@@ -731,7 +766,7 @@ export default function SalesPage() {
               <Button
                 variant="secondary"
                 disabled={disabled}
-                onClick={() => void sales.command("create_conversation")}
+                onClick={startNewConversation}
               >
                 <SquarePen size={16} className="mr-2" />
                 Nova conversa
@@ -745,18 +780,14 @@ export default function SalesPage() {
                   .map((c) => (
                     <div
                       key={c.id}
-                      className={`group flex items-center rounded-[8px] ${c.id === sales.conversation_id ? "bg-[var(--panel-tint)] text-[var(--panel-accent-text)]" : "text-gray-600 hover:bg-[var(--panel-tint)] hover:text-[var(--panel-accent-text)]"}`}
+                      className={`group flex items-center rounded-[8px] ${!newConversation && c.id === sales.conversation_id ? "bg-[var(--panel-tint)] text-[var(--panel-accent-text)]" : "text-gray-600 hover:bg-[var(--panel-tint)] hover:text-[var(--panel-accent-text)]"}`}
                     >
                       <button
                         disabled={disabled}
                         aria-current={
-                          c.id === sales.conversation_id ? "page" : undefined
+                          !newConversation && c.id === sales.conversation_id ? "page" : undefined
                         }
-                        onClick={() => {
-                          setSelectedReportId("");
-                          setOpportunity(null);
-                          void sales.load(restaurant, c.id);
-                        }}
+                        onClick={() => changeConversation(c.id)}
                         className="min-w-0 flex-1 cursor-pointer truncate p-3 text-left text-sm disabled:cursor-not-allowed"
                       >
                         {c.title}
@@ -851,7 +882,7 @@ export default function SalesPage() {
           <div className="flex min-w-0 items-center gap-2 overflow-x-auto border-b border-[var(--panel-border)] bg-[var(--panel-surface)] px-4 py-3 md:overflow-visible">
             <div className="min-w-[130px] flex-1 md:flex-none">
               <h2 className="hidden truncate text-sm font-medium lg:block">
-                {conversation?.title || "Carregando…"}
+                {newConversation ? "Nova conversa" : conversation?.title || "Carregando…"}
               </h2>
               {conversationPicker}
             </div>
@@ -864,7 +895,7 @@ export default function SalesPage() {
                 className="lg:hidden"
                 aria-label="Nova conversa"
                 disabled={disabled}
-                onClick={() => void sales.command("create_conversation")}
+                onClick={startNewConversation}
               >
                 <SquarePen size={17} />
               </Button>
@@ -884,7 +915,7 @@ export default function SalesPage() {
                 <Loader />
               </div>
             ) : null}
-            {modeReady && !isAnalysis && sales.has_more && (
+            {modeReady && !isAnalysis && !newConversation && sales.has_more && (
               <div className="mb-5 text-center">
                 <Button
                   variant="secondary"
@@ -901,7 +932,7 @@ export default function SalesPage() {
                 </Button>
               </div>
             )}
-            {modeReady && !isAnalysis && !sales.messages.length && !sales.loading && (
+            {modeReady && !isAnalysis && !threadMessages.length && !sales.loading && (
               <div className="mx-auto flex max-w-lg flex-col items-center py-10 text-center">
                 <div className="mb-5 rounded-[10px] bg-[var(--panel-tint)] p-4 text-[var(--panel-accent-text)]">
                   <Sparkles size={32} />
