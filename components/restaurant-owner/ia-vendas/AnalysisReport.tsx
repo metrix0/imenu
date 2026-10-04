@@ -219,7 +219,7 @@ export default function AnalysisReport({
           </section>
 
           <div>
-          <section aria-label="Oportunidades prioritárias">
+          <section aria-label="Oportunidades prioritárias" className={styles.opportunitiesCard}>
             <div className={styles.sectionHeader}><h2>Oportunidades prioritárias</h2>{!!opportunities.length && <span className={styles.count}>{report?.opportunity_count ?? opportunities.length}</span>}</div>
             {!opportunities.length && <div className={styles.empty}>
               <Target size={28} aria-hidden="true" />

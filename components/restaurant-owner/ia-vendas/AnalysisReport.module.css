@@ -59,6 +59,7 @@
 .eyebrow { display: flex; align-items: center; gap: 7px; color: var(--panel-muted); font-size: 12px; font-weight: 500; }
 .summary h2 { font-size: 19px; line-height: 1.4; }
 .summaryCopy { max-width: 1000px; color: var(--panel-muted); font-size: 14px; line-height: 1.7; }
+.opportunitiesCard { margin-bottom: 24px; padding: 24px; border: 1px solid var(--panel-border); border-radius: 10px; background: var(--panel-surface); }
 .sectionHeader { display: flex; align-items: center; gap: 10px; padding: 0; }
 .sectionHeader h2 { font-size: 18px; }
 .count { display: inline-grid; min-width: 24px; height: 24px; padding-inline: 6px; place-items: center; border-radius: 6px; background: color-mix(in srgb, var(--color-green) 10%, transparent); color: var(--color-green); font-size: 12px; font-weight: 500; }
