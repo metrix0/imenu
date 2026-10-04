@@ -59,7 +59,7 @@ export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout
     onClose={onClose}
     fixedHeight
     height={step ? 760 : 720}
-    className="max-w-4xl"
+    className="max-w-4xl [&>[data-ui=modal-close]]:!rounded-full"
     bodyClassName="flex flex-1 flex-col !overflow-hidden"
     showCloseButton
   >
@@ -116,16 +116,14 @@ export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout
               </div>
             </div>
 
-            <div className="relative hidden min-h-0 md:block">
-              <div className="absolute -bottom-4 -left-8 right-10 top-16">
-                <Image
-                  src="/images/IAPlus.png"
-                  alt="Demonstração do iMenu IA Plus"
-                  fill
-                  sizes="300px"
-                  className="object-contain object-center"
-                />
-              </div>
+            <div className="relative hidden min-h-0 overflow-hidden rounded-bl-2xl md:block">
+              <Image
+                src="/images/IAPlus.png"
+                alt="Demonstração do iMenu IA Plus"
+                fill
+                sizes="300px"
+                className="object-cover object-center"
+              />
             </div>
           </div>
 
