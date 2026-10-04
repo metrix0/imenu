@@ -1,4 +1,5 @@
 "use client";
+import { useLayoutEffect, useRef } from "react";
 import Image from "next/image";
 import { ChevronDown, CircleHelp, ClipboardList, History, MessageSquare, Rocket, Sparkles, Target } from "lucide-react";
 import Tooltip from "@/components/ui/Tooltip";
@@ -28,6 +29,30 @@ export default function AnalysisReport({
   onHistory: () => void; onAction: (command: string, ids: string[]) => void; onBatch: (ids: string[]) => void;
 }) {
   const report = selected?.result?.report, legacy = selected && !report;
+  const paperRef = useRef<HTMLDivElement>(null);
+  const structuredContentRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    const paper = paperRef.current;
+    const content = structuredContentRef.current;
+    if (!locked || !report || legacy || !paper || !content) return;
+
+    const update = () => {
+      const cutoff = Math.round(content.scrollHeight * 0.75);
+      paper.style.setProperty("--locked-cutoff", `${cutoff}px`);
+    };
+
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(content);
+    window.addEventListener("resize", update);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", update);
+      paper.style.removeProperty("--locked-cutoff");
+    };
+  }, [locked, report, legacy]);
+
   if (loading) {
     return <div className={styles.loading} role="status" aria-label="Carregando"><Loader /></div>;
   }
@@ -194,8 +219,9 @@ export default function AnalysisReport({
         <CircleHelp size={18} aria-hidden="true" /><p>Esta análise não foi concluída. As propostas preparadas estão disponíveis para revisão.</p>
       </div>}
 
-      <div className={`${styles.paper} ${locked && report && !legacy ? styles.paperLocked : ""}`}>
+      <div ref={paperRef} className={`${styles.paper} ${locked && report && !legacy ? styles.paperLocked : ""}`}>
         {!legacy && <>
+          <div ref={structuredContentRef} className={styles.structuredContent}>
           <section aria-label="Potencial estimado" className={styles.hero}>
             <div>
               <h2>O que seu restaurante pode ganhar em 4 semanas</h2>
@@ -254,7 +280,8 @@ export default function AnalysisReport({
               </article>)}</div>
             </section>}
           </div>
-          {locked && report && <div className={`${styles.paywall} ${styles.structuredPaywall}`}><div className={styles.paywallCard}><div className={`${styles.paywallImage} ${styles.paywallLogo}`}><Image src="/logos/IAPlusCombinationMarkLogo_Brand.png" alt="" fill sizes="240px" className="object-contain" /></div><h3>Coloque essas oportunidades em prática</h3><p>Veja a análise completa, converse com a IA e revise e aplique as melhorias com o iMenu IA Plus.</p><Button onClick={onUpgrade}>Conhecer iMenu IA Plus</Button></div></div>}
+          </div>
+          {locked && report && <div className={`${styles.paywall} ${styles.structuredPaywall}`}><div className={styles.paywallCard}><div className={`${styles.paywallImage} ${styles.paywallLogo}`}><Image src="/logos/IAPlusCombinationMarkLogo_Brand.png" alt="" fill sizes="200px" className="object-contain" /></div><h3>Coloque essas oportunidades em prática</h3><p>Veja a análise completa, converse com a IA e revise e aplique as melhorias com o iMenu IA Plus.</p><Button onClick={onUpgrade}>Conhecer iMenu IA Plus</Button></div></div>}
         </>}
         {legacy && <div className={locked ? styles.preview : undefined}><div className={locked ? styles.previewContent : undefined}><section className={styles.legacy}>
           <p className={styles.eyebrow}>Relatório anterior ao formato estruturado.</p>
