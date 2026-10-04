@@ -22,27 +22,35 @@ import { useSalesStore } from "@/lib/stores/restaurant-owner/iaVendasStore";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 import AnalysisReport from "@/components/restaurant-owner/ia-vendas/AnalysisReport";
 import SalesMarkdown from "@/components/restaurant-owner/ia-vendas/SalesMarkdown";
+import PanelTabCard from "@/components/restaurant-owner/ia-vendas/PanelTabCard";
 import {
   ActionCard,
   ActionPreview,
   DataCard,
 } from "@/components/restaurant-owner/ia-vendas/SalesWidgets";
 import type { Data } from "@/lib/ia-vendas/types";
+import { isPanelTabKey, type PanelTabKey } from "@/lib/ia-vendas/panelTabs";
 
 type MessagePart =
   | { type: "text"; content: string }
   | { type: "action"; id: string }
+  | { type: "tab"; tab: PanelTabKey }
   | { type: "card"; cardType: "benchmark" | "measurement" | "potential" };
 
 function splitMessageParts(content: string): MessagePart[] {
   return content
     .split(
-      /(\[\[(?:action|image):[0-9a-f-]{36}\]\]|\[\[card:(?:benchmark|measurement|potential)\]\])/gi,
+      /(\[\[(?:action|image):[0-9a-f-]{36}\]\]|\[\[card:(?:benchmark|measurement|potential)\]\]|\[\[tab:[a-z0-9-]+\]\])/gi,
     )
     .filter((part) => part.trim())
     .map((part) => {
       const action = /^\[\[(?:action|image):([0-9a-f-]{36})\]\]$/i.exec(part);
       if (action) return { type: "action", id: action[1] };
+      const tab = /^\[\[tab:([a-z0-9-]+)\]\]$/i.exec(part);
+      if (tab) {
+        const key = tab[1].toLowerCase();
+        if (isPanelTabKey(key)) return { type: "tab", tab: key };
+      }
       const card = /^\[\[card:(benchmark|measurement|potential)\]\]$/i.exec(
         part,
       );
@@ -392,6 +400,17 @@ export default function SalesPage() {
                           />
                         );
                       }
+                      if (part.type === "tab") {
+                        const marker = `tab:${part.tab}`,
+                          card = m.cards.find(
+                            (candidate) =>
+                              candidate.type === "panel_tab" &&
+                              candidate.tab === part.tab,
+                          );
+                        if (!card || placed.has(marker)) return null;
+                        placed.add(marker);
+                        return <PanelTabCard key={marker} tab={part.tab} />;
+                      }
                       const marker = `card:${part.cardType}`,
                             card = m.cards.find(
                               (c) => c.type === part.cardType,
@@ -425,21 +444,29 @@ export default function SalesPage() {
                       const marker =
                         card.type === "action"
                           ? `action:${card.id}`
-                          : `card:${card.type}`;
+                          : card.type === "panel_tab"
+                            ? `tab:${card.tab}`
+                            : `card:${card.type}`;
                       if (placed.has(marker)) return null;
                       const action =
                         card.type === "action"
                           ? sales.actions.find((a) => a.id === card.id)
                           : null;
-                      return action ? (
-                        <ActionCard
-                          key={i}
-                          action={action}
-                          refs={sales.references}
-                          disabled={disabled}
-                          onAction={onAction}
-                        />
-                      ) : card.type !== "action" ? (
+                      if (action)
+                        return (
+                          <ActionCard
+                            key={i}
+                            action={action}
+                            refs={sales.references}
+                            disabled={disabled}
+                            onAction={onAction}
+                          />
+                        );
+                      if (card.type === "panel_tab")
+                        return isPanelTabKey(card.tab) ? (
+                          <PanelTabCard key={i} tab={card.tab} />
+                        ) : null;
+                      return card.type !== "action" ? (
                         <DataCard key={i} card={card} />
                       ) : null;
                     })}
