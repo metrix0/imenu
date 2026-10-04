@@ -7,9 +7,8 @@ import { AUTO_POPUP_PRIORITY, useAutoPopup } from "@/components/common/AutoPopup
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
-import { supabase } from "@/lib/database/supabaseClient";
 
-const SHOWN_KEY_PREFIX = "imenu:pix-online-back-shown:v2";
+const SHOWN_KEY = "imenu:pix-online-back-shown:v2";
 const START_DATE = "2026-09-30";
 const END_DATE = "2026-10-04";
 
@@ -27,33 +26,18 @@ function saoPauloDateKey(): string {
 
 export default function PixOnlineTemporaryNotice() {
     const [eligible, setEligible] = useState(false);
-    const [shownKey, setShownKey] = useState<string | null>(null);
 
     useEffect(() => {
         const today = saoPauloDateKey();
         if (today < START_DATE || today > END_DATE) return;
 
-        let active = true;
+        try {
+            if (window.localStorage.getItem(SHOWN_KEY) === "true") return;
+        } catch {
+            // Show normally when storage is unavailable.
+        }
 
-        void supabase.auth.getSession().then(({ data }) => {
-            if (!active || !data.session?.user) return;
-
-            const key = `${SHOWN_KEY_PREFIX}:${data.session.user.id}`;
-
-            try {
-                if (window.localStorage.getItem(key) === "true") return;
-            } catch {
-                // Show normally when storage is unavailable.
-            }
-
-            if (!active) return;
-            setShownKey(key);
-            setEligible(true);
-        });
-
-        return () => {
-            active = false;
-        };
+        setEligible(true);
     }, []);
 
     const popup = useAutoPopup({
@@ -64,13 +48,13 @@ export default function PixOnlineTemporaryNotice() {
     });
 
     useEffect(() => {
-        if (!popup.open || !shownKey) return;
+        if (!popup.open) return;
         try {
-            window.localStorage.setItem(shownKey, "true");
+            window.localStorage.setItem(SHOWN_KEY, "true");
         } catch {
             // Current display still works without persistence.
         }
-    }, [popup.open, shownKey]);
+    }, [popup.open]);
 
     const close = () => {
         popup.dismiss();

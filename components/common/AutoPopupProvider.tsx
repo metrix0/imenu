@@ -11,6 +11,8 @@ import {
     type ReactNode,
 } from "react";
 
+import { supabase } from "@/lib/database/supabaseClient";
+
 const SESSION_FLOOR_KEY = "imenu:auto-popup-priority-floor:v1";
 const INITIAL_ARBITRATION_MS = 500;
 const NON_CRITICAL_SESSION_FLOOR = 79;
@@ -51,10 +53,37 @@ export function AutoPopupProvider({ children }: { children: ReactNode }) {
     const [handledSequence, setHandledSequence] = useState(0);
     const [priorityFloor, setPriorityFloor] = useState(0);
     const [ready, setReady] = useState(false);
+    const [authReady, setAuthReady] = useState(false);
+    const [authenticated, setAuthenticated] = useState(false);
 
     useEffect(() => {
         candidatesRef.current = candidates;
     }, [candidates]);
+
+    useEffect(() => {
+        let active = true;
+
+        const syncSession = (session: { user?: unknown } | null) => {
+            if (!active) return;
+            setAuthenticated(Boolean(session?.user));
+            setAuthReady(true);
+        };
+
+        void supabase.auth.getSession().then(({ data }) => {
+            syncSession(data.session);
+        });
+
+        const {
+            data: { subscription },
+        } = supabase.auth.onAuthStateChange((_event, session) => {
+            syncSession(session);
+        });
+
+        return () => {
+            active = false;
+            subscription.unsubscribe();
+        };
+    }, []);
 
     useEffect(() => {
         try {
@@ -131,7 +160,7 @@ export function AutoPopupProvider({ children }: { children: ReactNode }) {
     }, [unregister]);
 
     const activeId = useMemo(() => {
-        if (!ready) return null;
+        if (!ready || !authReady || !authenticated) return null;
 
         return (
             Object.entries(candidates)
@@ -148,7 +177,14 @@ export function AutoPopupProvider({ children }: { children: ReactNode }) {
                     return left.sequence - right.sequence;
                 })[0]?.[0] || null
         );
-    }, [candidates, handledSequence, priorityFloor, ready]);
+    }, [
+        authenticated,
+        authReady,
+        candidates,
+        handledSequence,
+        priorityFloor,
+        ready,
+    ]);
 
     const value = useMemo(
         () => ({
