@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
 import { faArrowTrendUp, faWandMagicSparkles } from "@fortawesome/free-solid-svg-icons";
@@ -146,6 +147,21 @@ export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout
                 </div>;
               })}
             </div>
+
+            {!active && (
+              <p className="mt-6 text-center text-xs leading-relaxed text-gray-500">
+                Ao continuar, você concorda com os{" "}
+                <Link
+                  href="/restaurante/dados/termos/ia-plus"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline underline-offset-2"
+                >
+                  Termos do iMenu IA Plus
+                </Link>{" "}
+                e a cobrança recorrente só é ativada se você escolher cartão.
+              </p>
+            )}
           </div>
         </div>
 
