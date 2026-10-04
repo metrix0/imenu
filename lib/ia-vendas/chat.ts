@@ -439,6 +439,7 @@ export async function runChat(args: {
       const finalRound =
         round === maxRounds ||
         (deep &&
+          round > 1 &&
           (Date.now() > deadline - 65000 ||
             outputTokens >= maxOutput - 5000 ||
             inputTokens + estimatedInput * 2 + 10000 > LIMITS.analysisInput));
@@ -453,7 +454,8 @@ export async function runChat(args: {
           model: deep ? MODELS.analysis : MODELS.chat,
           input,
           tools,
-          tool_choice: finalRound ? "none" : "auto",
+          tool_choice:
+            deep && !finalRound ? "required" : finalRound ? "none" : "auto",
           parallel_tool_calls: true,
           max_output_tokens: deep
             ? finalRound
@@ -504,6 +506,10 @@ export async function runChat(args: {
       input.push(...response.output);
       const calls = response.output.filter((o) => o.type === "function_call");
       if (!calls.length) {
+        if (deep && !finalRound && response.status !== "incomplete")
+          throw new SalesError(
+            "A análise não concluiu a etapa de verificação. Nenhum relatório parcial foi publicado.",
+          );
         if (deep && response.status === "incomplete" && !finalRound) {
           outputTokens = Math.max(outputTokens, maxOutput - 6000);
           continue;

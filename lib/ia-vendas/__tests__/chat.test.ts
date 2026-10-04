@@ -110,25 +110,41 @@ beforeEach(() => {
   });
   (propose as jest.Mock).mockResolvedValue({ id: "proposal", operations: [] });
 });
-test("deep analyst receives compact context while retaining coverage, measurement and structured history; report persists", async () => {
-  create.mockResolvedValue({
-    status: "completed",
-    output: [],
-    output_text: JSON.stringify(result()),
-    usage: { input_tokens: 76210, output_tokens: 2914 },
-  });
+test("deep analyst requires a research round before final synthesis and persists only the final report", async () => {
+  create
+    .mockResolvedValueOnce({
+      status: "completed",
+      output: [
+        {
+          type: "function_call",
+          name: "measure_actions",
+          arguments: "{}",
+          call_id: "verify",
+        },
+      ],
+      usage: { input_tokens: 25000, output_tokens: 800 },
+    })
+    .mockResolvedValueOnce({
+      status: "completed",
+      output: [],
+      output_text: JSON.stringify(result()),
+      usage: { input_tokens: 30000, output_tokens: 1800 },
+    });
   await runChat(args);
-  const request = create.mock.calls[0][0];
-  expect(request.input[0].content).toContain("item-0");
-  expect(request.input[0].content).not.toContain("item-96");
-  expect(request.input[0].content).toContain('"loaded":97');
-  expect(request.input[0].content).toContain("measured-action");
-  expect(request.input[0].content).toContain("previous structured");
-  expect(request.input[0].content).not.toContain("OLD TRANSCRIPT");
-  expect(request.text.format.strict).toBe(true);
+  const research = create.mock.calls[0][0],
+    synthesis = create.mock.calls[1][0];
+  expect(research.input[0].content).toContain("item-0");
+  expect(research.input[0].content).not.toContain("item-96");
+  expect(research.input[0].content).toContain('"loaded":97');
+  expect(research.input[0].content).toContain("measured-action");
+  expect(research.input[0].content).toContain("previous structured");
+  expect(research.input[0].content).not.toContain("OLD TRANSCRIPT");
+  expect(research.text.format.strict).toBe(true);
+  expect(research.tool_choice).toBe("required");
+  expect(synthesis.tool_choice).toBe("none");
   expect(
     (query as jest.Mock).mock.calls.some(
-      ([s]) => s.includes("LIMIT 18") || s.includes("SELECT title,summary"),
+      ([sql]) => sql.includes("LIMIT 18") || sql.includes("SELECT title,summary"),
     ),
   ).toBe(false);
   expect((finishRun as jest.Mock).mock.calls.at(-1)[2].report.status).toBe(
@@ -136,9 +152,33 @@ test("deep analyst receives compact context while retaining coverage, measuremen
   );
   expect((recordTokens as jest.Mock).mock.calls[0][4]).toMatchObject({
     round: 1,
-    input_tokens: 76210,
-    output_tokens: 2914,
+    input_tokens: 25000,
+    output_tokens: 800,
+    final_synthesis: false,
   });
+  expect(
+    (recordTokens as jest.Mock).mock.calls.find(([, , input]) => input === 30000)?.[4],
+  ).toMatchObject({
+    round: 2,
+    input_tokens: 30000,
+    output_tokens: 1800,
+    final_synthesis: true,
+  });
+});
+
+test("a first-round report without tool verification fails instead of being published", async () => {
+  create.mockResolvedValueOnce({
+    status: "completed",
+    output: [],
+    output_text: JSON.stringify(result()),
+    usage: { input_tokens: 25501, output_tokens: 2352 },
+  });
+  await runChat(args);
+  expect(create).toHaveBeenCalledTimes(1);
+  expect(create.mock.calls[0][0].tool_choice).toBe("required");
+  const finished = (finishRun as jest.Mock).mock.calls.at(-1);
+  expect(finished[2].report.status).toBe("partial");
+  expect(finished[3]).toContain("etapa de verificação");
 });
 test("tools retain full results and reserve final synthesis inside the whole-run budget", async () => {
   create.mockResolvedValueOnce({
@@ -161,6 +201,7 @@ test("tools retain full results and reserve final synthesis inside the whole-run
   });
   await runChat(args);
   expect(create.mock.calls[0][0].max_output_tokens).toBeLessThanOrEqual(2500);
+  expect(create.mock.calls[0][0].tool_choice).toBe("required");
   expect(create.mock.calls[1][0].tool_choice).toBe("none");
   expect(create.mock.calls[1][0].max_output_tokens).toBeLessThanOrEqual(6000);
   expect(create.mock.calls[1][0].input).toEqual(
@@ -276,8 +317,9 @@ test.each([true, false])("deep photo inputs reach the model and survive Batch re
     ctx.image_review = { loaded: 1, unavailable: 0, missing: 0, photos: [{ item_id: "item-96", status: "loaded" }] };
     return [{ type: "input_text", text: "Foto do item-96" }, photo];
   });
+  const research = { status: "completed", output: [{ type: "function_call", name: "measure_actions", arguments: "{}", call_id: "photo-check" }], usage: { input_tokens: 1000, output_tokens: 100 } };
   const response = { status: "completed", output: [], output_text: JSON.stringify(result()), usage: { input_tokens: 1000, output_tokens: 100 } };
-  if (immediate) create.mockResolvedValue(response);
+  if (immediate) create.mockResolvedValueOnce(research).mockResolvedValueOnce(response);
   else (batchResponse as jest.Mock).mockRejectedValueOnce(new BatchPending());
   await runChat({ ...args, immediate });
   const request = immediate ? create.mock.calls[0][0] : (batchResponse as jest.Mock).mock.calls[0][3];
@@ -286,8 +328,11 @@ test.each([true, false])("deep photo inputs reach the model and survive Batch re
   if (!immediate) {
     const checkpoint = structuredClone((batchResponse as jest.Mock).mock.calls[0][4]);
     expect(checkpoint.input.at(-1).content).toContainEqual(photo);
-    (batchResponse as jest.Mock).mockResolvedValueOnce(response);
+    (batchResponse as jest.Mock).mockResolvedValueOnce(research).mockRejectedValueOnce(new BatchPending());
     await runChat({ ...args, immediate, resume: checkpoint });
+    const secondCheckpoint = structuredClone((batchResponse as jest.Mock).mock.calls.at(-1)[4]);
+    (batchResponse as jest.Mock).mockResolvedValueOnce(response);
+    await runChat({ ...args, immediate, resume: secondCheckpoint });
     expect(analysisPhotos).toHaveBeenCalledTimes(1);
   }
   expect((finishRun as jest.Mock).mock.calls.at(-1)[2].report.coverage.image_photos.loaded).toBe(1);
@@ -301,12 +346,17 @@ test("default deep analysis queues Batch and resumes to persist a strict report 
   expect(args.send).toHaveBeenCalledWith("queued", expect.objectContaining({ run_id: "run" }));
   const snapshot = structuredClone((batchResponse as jest.Mock).mock.calls[0][4]);
   expect(snapshot.ctx.entities.items.rows).toHaveLength(97);
-  (batchResponse as jest.Mock).mockResolvedValueOnce({ id: "response-1", status: "completed", output: [], output_text: JSON.stringify(result()), usage: { input_tokens: 76210, output_tokens: 2914 } });
+  (batchResponse as jest.Mock)
+    .mockResolvedValueOnce({ id: "response-1", status: "completed", output: [{ type: "function_call", name: "measure_actions", arguments: "{}", call_id: "verify" }], usage: { input_tokens: 25000, output_tokens: 800 } })
+    .mockRejectedValueOnce(new BatchPending());
   await runChat({ ...args, immediate: false, resume: snapshot });
+  const synthesisSnapshot = structuredClone((batchResponse as jest.Mock).mock.calls.at(-1)[4]);
+  (batchResponse as jest.Mock).mockResolvedValueOnce({ id: "response-2", status: "completed", output: [], output_text: JSON.stringify(result()), usage: { input_tokens: 30000, output_tokens: 1800 } });
+  await runChat({ ...args, immediate: false, resume: synthesisSnapshot });
   expect(context).toHaveBeenCalledTimes(1);
-  expect(measure).toHaveBeenCalledTimes(1);
+  expect(measure).toHaveBeenCalledTimes(2);
   expect((finishRun as jest.Mock).mock.calls.at(-1)[2].report.status).toBe("complete");
-  expect((recordTokens as jest.Mock).mock.calls.at(-1)[4]).toMatchObject({ transport: "batch", response_id: "response-1" });
+  expect((recordTokens as jest.Mock).mock.calls.at(-1)[4]).toMatchObject({ transport: "batch", response_id: "response-2", final_synthesis: true });
 });
 test("Batch tool replay uses saved proposals and full output without creating another action", async () => {
   (batchResponse as jest.Mock).mockRejectedValueOnce(new BatchPending());
