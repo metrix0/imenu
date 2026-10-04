@@ -23,6 +23,7 @@ export default function MenuProductCards({ extraCard, qrSelected, qrActive = fal
                 features={["Robô WhatsApp", "Pedidos delivery", "Gestão de pedidos"]}
                 learnMoreLink={{ href: "/#recursos", label: "Conhecer o Cardápio Digital" }}
             />
+            {extraCard}
             <MenuProductCard
                 variant="addon"
                 name="iMenu QR Code Mesa"
@@ -36,7 +37,6 @@ export default function MenuProductCards({ extraCard, qrSelected, qrActive = fal
                 onLearnMore={onLearnMore}
                 exclusiveSupport
             />
-            {extraCard}
         </div>
     );
 }
