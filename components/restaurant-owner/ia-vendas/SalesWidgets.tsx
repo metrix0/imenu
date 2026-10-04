@@ -1005,7 +1005,7 @@ export function ActionCard({
                     : imagePreview
                       ? "Publicar imagem"
                       : "Aplicar"}
-                {locked && <Lock size={14} aria-hidden="true" />}
+                {locked && <Lock size={14} className="ml-1" aria-hidden="true" />}
               </Button>,
             )}
             <Button
@@ -1038,7 +1038,7 @@ export function ActionCard({
                 ? "Publicar restantes"
                 : "Publicar todas"}{" "}
               ({publishableGeneratedActions.length})
-              {locked && <Lock size={14} aria-hidden="true" />}
+              {locked && <Lock size={14} className="ml-1" aria-hidden="true" />}
             </Button>,
           )}
         {action.status === "applied" && (!imageBatch || hasDiscardablePreviews) && (

@@ -151,6 +151,7 @@ test("locked assistant proposals show the IA Plus lock only on apply actions", (
   );
   expect(html).toContain("Essa é uma função do plano iMenu IA Plus");
   expect(html).toContain("lucide-lock");
+  expect(html).toContain("ml-1");
   expect(html).toContain(">Aplicar<");
   expect(html).toContain(">Descartar<");
 });
