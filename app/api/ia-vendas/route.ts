@@ -1,5 +1,8 @@
+import { randomUUID } from "crypto";
 import { analysisPreview } from "@/lib/ia-vendas/paywall";
 import { aiAccess, requireIaPlus, IaPlusRequired } from "@/lib/ia-vendas/access";
+import { analysisConversation } from "@/lib/ia-vendas/analysis";
+import { runChat } from "@/lib/ia-vendas/chat";
 import { query, withTransaction } from "@/lib/database/sql";
 import { authorize, failure } from "@/lib/ia-vendas/http";
 import { SalesError, type Action } from "@/lib/ia-vendas/types";
@@ -124,6 +127,50 @@ export async function POST(request: Request) {
   try {
     const body = await request.json(),
       restaurant = await authorize(request, body.restaurant_id);
+    if (body.command === "start_analysis") {
+      await requireIaPlus(restaurant);
+      const existing = (
+        await query(
+          "SELECT id FROM public.ia_vendas_runs WHERE restaurant_id=$1 AND kind='analysis' AND status='completed' AND result->>'detached_at' IS NULL AND result->'report'->>'status'='complete' ORDER BY created_at DESC LIMIT 1",
+          [restaurant],
+        )
+      ).rows[0];
+      if (existing)
+        return Response.json({ status: "completed", run_id: existing.id });
+
+      const running = (
+        await query(
+          "SELECT id FROM public.ia_vendas_runs WHERE restaurant_id=$1 AND kind='analysis' AND status='running' ORDER BY created_at DESC LIMIT 1",
+          [restaurant],
+        )
+      ).rows[0];
+      if (running)
+        return Response.json({ status: "running", run_id: running.id });
+
+      const conversation = await analysisConversation(restaurant);
+      const run = randomUUID();
+      let analysisError: string | undefined;
+      let duplicateStatus: string | undefined;
+      await runChat({
+        restaurant,
+        conversation,
+        run,
+        text: "Analise meu restaurante e priorize as melhorias com maior impacto.",
+        attachments: [],
+        deep: true,
+        immediate: true,
+        send: (event, data) => {
+          if (event === "error") analysisError = data.message;
+          if (data.duplicate) duplicateStatus = data.status;
+        },
+      });
+      if (analysisError) throw new SalesError(analysisError, 500);
+      return Response.json({
+        status: duplicateStatus || "completed",
+        run_id: run,
+        conversation_id: conversation,
+      });
+    }
     if (body.command === "create_conversation") {
       const row = (
         await query(

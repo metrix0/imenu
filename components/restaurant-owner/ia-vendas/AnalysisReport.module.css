@@ -1,5 +1,14 @@
 .report { width: 100%; max-width: 1440px; margin-inline: auto; padding-bottom: 12px; color: var(--panel-text); }
 .loading { display: flex; height: 16rem; align-items: center; justify-content: center; }
+.noAnalysisState { display: flex; max-width: 760px; margin-inline: auto; flex-direction: column; align-items: center; gap: 12px; padding: 40px 32px; border: 1px solid var(--panel-border); border-radius: 10px; background: var(--panel-surface); text-align: center; }
+.noAnalysisState > h2 { font-size: 22px; line-height: 1.35; }
+.noAnalysisState > p { max-width: 560px; color: var(--panel-muted); font-size: 14px; line-height: 1.7; }
+.stateIcon, .preparingIcon { display: flex; width: 48px; height: 48px; align-items: center; justify-content: center; border-radius: 10px; background: var(--panel-tint); color: var(--panel-accent-text); }
+.upgradeState { display: flex; width: 100%; margin-top: 10px; align-items: center; justify-content: space-between; gap: 24px; padding: 20px; border-radius: 10px; background: var(--panel-background); text-align: left; }
+.upgradeState strong { display: block; font-size: 15px; }
+.upgradeState p { max-width: 480px; margin-top: 5px; color: var(--panel-muted); font-size: 13px; line-height: 1.6; }
+.upgradeState span { display: block; margin-top: 8px; color: var(--panel-text); font-size: 12px; font-weight: 500; }
+.upgradeState button { flex-shrink: 0; }
 .historySelect { width: 260px; }
 .paper { container-type: inline-size; display: grid; gap: 24px; overflow: visible; }
 .hero { position: relative; display: grid; gap: 28px; padding: 28px 24px; border: 1px solid var(--panel-border); border-top: 3px solid var(--panel-brand); border-radius: 10px; background: var(--panel-surface); }
@@ -119,6 +128,9 @@
 }
 @media (max-width: 600px) {
     .historySelect { width: 150px; }
+    .noAnalysisState { padding: 32px 18px; }
+    .upgradeState { flex-direction: column; align-items: stretch; gap: 16px; text-align: center; }
+    .upgradeState button { width: 100%; }
   .hero { padding: 24px 18px; gap: 24px; }
   .hero h2 { font-size: 21px; }
   .gain { font-size: 32px; letter-spacing: -.8px; }

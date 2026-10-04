@@ -2,7 +2,7 @@
 import Image from "next/image";
 import { ChevronDown, CircleHelp, ClipboardList, History, MessageSquare, Sparkles, Target } from "lucide-react";
 import Tooltip from "@/components/ui/Tooltip";
-import { IA_PLUS_FEATURE_MESSAGE } from "@/lib/addons/products";
+import { IA_PLUS_FEATURE_MESSAGE, IA_PLUS_PRICE_LABEL } from "@/lib/addons/products";
 import Button from "@/components/ui/Button";
 import Loader from "@/components/ui/Loader";
 import Dropdown from "@/components/ui/Dropdown";
@@ -28,7 +28,7 @@ export default function AnalysisReport({
   onHistory: () => void; onAction: (command: string, ids: string[]) => void; onBatch: (ids: string[]) => void;
 }) {
   const report = selected?.result?.report, legacy = selected && !report;
-  if (loading || generating) {
+  if (loading) {
     return <div className={styles.loading} role="status" aria-label="Carregando"><Loader /></div>;
   }
   const opportunities: Data[] = report?.opportunities || [], reviewItems: Data[] = report?.review_items || [];
@@ -38,6 +38,40 @@ export default function AnalysisReport({
     : actions.filter((a) => a.run_id === selected?.id).map((a) => a.id);
   const pending = withGenerated(ids).filter((id) => actionById.get(id)?.status === "pending");
   const gate = (content: React.ReactNode) => locked ? <div data-ia-plus-action><Tooltip text={IA_PLUS_FEATURE_MESSAGE} parentClassName="!block">{content}</Tooltip></div> : content;
+
+  if (!selected) {
+    return (
+      <div className={styles.report}>
+        <header className="panel-page-heading mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 2xl:text-4xl">Análise de vendas</h1>
+          <p className="mt-1 text-gray-500 2xl:mt-2 2xl:text-lg">Encontre oportunidades para vender e aplique automaticamente com IA.</p>
+        </header>
+
+        {locked ? (
+          <section className={styles.noAnalysisState}>
+            <div className={styles.stateIcon}><Sparkles size={24} aria-hidden="true" /></div>
+            <h2>Sua análise ainda não foi liberada</h2>
+            <p>Estamos liberando análises gratuitas para alguns restaurantes por vez. Volte em outro dia para ver se o seu restaurante foi selecionado.</p>
+            <div className={styles.upgradeState}>
+              <div>
+                <strong>Quer receber sua análise agora?</strong>
+                <p>Com o iMenu IA Plus, sua análise começa automaticamente, sem esperar pela seleção gratuita.</p>
+                <span>{IA_PLUS_PRICE_LABEL}/mês</span>
+              </div>
+              <Button onClick={onUpgrade}>Receber análise agora</Button>
+            </div>
+          </section>
+        ) : (
+          <section className={styles.noAnalysisState} role="status" aria-live="polite" aria-busy={generating}>
+            <div className={styles.preparingIcon}><Loader /></div>
+            <h2>Preparando sua análise</h2>
+            <p>A IA está analisando seus pedidos, cardápio e oportunidades de venda. Seu relatório aparecerá aqui assim que estiver pronto.</p>
+          </section>
+        )}
+      </div>
+    );
+  }
+
   const renderActions = (entry: Data) => {
     const entryIds = [...new Set<string>(entry.action_ids || [])],
       nestedGenerated = new Set(

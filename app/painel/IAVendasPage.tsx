@@ -92,7 +92,8 @@ export default function SalesPage() {
     emptyThreadStart = useRef(Date.now()),
     file = useRef<HTMLInputElement>(null),
     input = useRef<HTMLTextAreaElement>(null),
-    focusChat = useRef(false);
+    focusChat = useRef(false),
+    autoAnalysisRestaurant = useRef<string | null>(null);
   useEffect(() => {
     const media = window.matchMedia("(min-width: 1280px)");
     const update = () => {
@@ -233,6 +234,33 @@ export default function SalesPage() {
         : sales.messages;
   const locked = sales.access?.plus !== true;
   const freeLimitReached = !isAnalysis && sales.access && !sales.access.plus && (sales.upgradeRequired || Number(sales.access.tokens_remaining) < 500);
+  useEffect(() => {
+    if (
+      !isAnalysis ||
+      !restaurant ||
+      !modeReady ||
+      sales.loading ||
+      sales.acting ||
+      sales.busy ||
+      sales.access?.plus !== true ||
+      sales.analyses.length ||
+      sales.running ||
+      autoAnalysisRestaurant.current === restaurant
+    )
+      return;
+    autoAnalysisRestaurant.current = restaurant;
+    void useSalesStore.getState().command("start_analysis");
+  }, [
+    isAnalysis,
+    restaurant,
+    modeReady,
+    sales.loading,
+    sales.acting,
+    sales.busy,
+    sales.access?.plus,
+    sales.analyses.length,
+    sales.running,
+  ]);
   useEffect(() => {
     if (sales.upgradeRequired) {
       if (isAnalysis) setPlusModal("sales");
@@ -743,7 +771,7 @@ export default function SalesPage() {
                     actions={sales.actions}
                     refs={sales.references}
                     disabled={disabled}
-                    loading={sales.loading && !sales.analyses.length}
+                    loading={sales.loading && sales.access === null}
                     generating={analysisRunning}
                     activeOpportunityId={opportunity?.id}
                     onHistory={() => setModal("history")}

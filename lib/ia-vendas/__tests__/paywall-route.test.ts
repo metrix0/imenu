@@ -1,6 +1,7 @@
 import { GET, POST } from "@/app/api/ia-vendas/route";
 import { query } from "@/lib/database/sql";
 import { apply } from "../actions";
+import { runChat } from "../chat";
 import { IaPlusRequired } from "../access";
 jest.mock("@/lib/database/sql", () => ({ query: jest.fn(), withTransaction: jest.fn() }));
 jest.mock("../http", () => ({ ...jest.requireActual("../http"), authorize: jest.fn().mockResolvedValue("restaurant") }));
@@ -9,6 +10,8 @@ jest.mock("../files", () => ({ signedAttachment: jest.fn() }));
 jest.mock("../actions", () => ({ apply: jest.fn(), execute: jest.fn() }));
 jest.mock("../images", () => ({ applyImages: jest.fn(), publishImage: jest.fn() }));
 jest.mock("../data", () => ({ imageUrl: jest.fn() }));
+jest.mock("../chat", () => ({ runChat: jest.fn().mockResolvedValue(undefined) }));
+jest.mock("../analysis", () => ({ analysisConversation: jest.fn().mockResolvedValue("11111111-1111-4111-8111-111111111111") }));
 const conversation = "11111111-1111-4111-8111-111111111111";
 const first = "22222222-2222-4222-8222-222222222222";
 const second = "33333333-3333-4333-8333-333333333333";
@@ -18,6 +21,7 @@ const report = { headline: "Mais vendas", summary: "Resumo gratuito", opportunit
 ], review_items: [{ title: "REVISÃO PRIVADA" }], sales_snapshot: { private: true } };
 let plus = false, analysis = true;
 beforeEach(() => {
+  jest.clearAllMocks();
   plus = false;
   analysis = true;
   (query as jest.Mock).mockImplementation(async (sql: string) => ({
@@ -45,6 +49,29 @@ test("Plus returns the complete report and proposals", async () => {
   expect(data.analyses[0].result.report.opportunities).toHaveLength(2);
   expect(data.actions).toHaveLength(2);
   expect(data.messages).toHaveLength(1);
+});
+test("free account cannot start an analysis", async () => {
+  const response = await POST(new Request("https://example.test/api/ia-vendas", {
+    method: "POST",
+    body: JSON.stringify({ command: "start_analysis" }),
+  }));
+  expect(response.status).toBe(402);
+  expect(runChat).not.toHaveBeenCalled();
+});
+test("Plus starts a missing analysis immediately", async () => {
+  plus = true;
+  const response = await POST(new Request("https://example.test/api/ia-vendas", {
+    method: "POST",
+    body: JSON.stringify({ command: "start_analysis" }),
+  }));
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({ status: "completed", conversation_id: conversation });
+  expect(runChat).toHaveBeenCalledWith(expect.objectContaining({
+    restaurant: "restaurant",
+    conversation,
+    deep: true,
+    immediate: true,
+  }));
 });
 test.each(["apply", "undo", "reject"])("direct %s requests cannot bypass the analysis paywall", async command => {
   const response = await POST(new Request("https://example.test/api/ia-vendas", { method: "POST", body: JSON.stringify({ command, ids: [first, second] }) }));
