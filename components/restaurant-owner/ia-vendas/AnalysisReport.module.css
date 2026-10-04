@@ -124,10 +124,18 @@
 .comparisonNote { max-width: 850px; margin-top: 8px; color: var(--panel-muted); font-size: 12px; line-height: 1.7; }
 .comparisonMetrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; margin-top: 24px; }
 .comparisonMetrics dt { margin-bottom: 7px; color: var(--panel-muted); font-size: 12px; }
-.comparisonMetrics dd { font-size: 24px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.comparisonMetrics dd { display: flex; flex-direction: column; align-items: flex-start; gap: 7px; font-size: 24px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.comparisonBadge { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; line-height: 1.35; }
+.comparisonBadgePositive { background: #ecfdf3; color: #15803d; }
+.comparisonBadgeNegative { background: #fef2f2; color: #b91c1c; }
+.comparisonBadgeNeutral { background: #f3f4f6; color: #6b7280; }
 .menuLinks { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 18px; margin-top: 20px; color: var(--panel-muted); font-size: 12px; }
-.menuLinks a { display: inline-flex; align-items: center; gap: 4px; color: var(--panel-accent-text); }
-.menuLinks a:hover { text-decoration: underline; text-underline-offset: 3px; }
+.menuBadges { display: flex; flex-wrap: wrap; gap: 8px; }
+.menuBadge { display: inline-flex; align-items: center; gap: 7px; min-height: 34px; padding: 4px 9px 4px 5px; border: 1px solid var(--panel-border); border-radius: 999px; background: var(--panel-surface); color: var(--panel-text); }
+.menuBadge:hover { background: color-mix(in srgb, var(--panel-text) 4%, var(--panel-surface)); }
+.menuBadgeLogo, .menuBadgeFallback { width: 24px; height: 24px; flex: 0 0 24px; border-radius: 50%; }
+.menuBadgeLogo { object-fit: cover; }
+.menuBadgeFallback { display: inline-flex; align-items: center; justify-content: center; background: var(--panel-tint); color: var(--panel-accent-text); font-size: 10px; font-weight: 700; }
 .notice { display: flex; align-items: center; gap: 10px; padding: 14px 0; color: var(--panel-muted); font-size: 13px; line-height: 1.5; }
 .notice > svg { flex-shrink: 0; color: var(--panel-accent-text); }
 .empty { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 44px 24px; text-align: center; }

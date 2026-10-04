@@ -249,7 +249,7 @@ export default function AnalysisReport({
               </article>)}</div>
             </section>}
             <section aria-label={SHOW_MEASUREMENT_HISTORY ? "Comparações e resultados" : "Comparações"} className={styles.comparison}>
-              <DataCard card={{ ...report?.benchmark_snapshot, reason: report?.benchmark_snapshot?.reason || "Ainda não há dados suficientes para uma comparação útil.", type: "benchmark" }} presentation="report" />
+              <DataCard card={{ ...report?.benchmark_snapshot, reason: report?.benchmark_snapshot?.reason || "Ainda não há dados suficientes para uma comparação útil.", current: report?.sales_snapshot, type: "benchmark" }} presentation="report" />
               {SHOW_MEASUREMENT_HISTORY && <div className="mt-6">
                 {report?.measurement_snapshot?.results?.some((r: Data) => r.before.orders || r.after.orders) ? <DataCard card={{ ...report.measurement_snapshot, type: "measurement" }} expanded /> : <>
                   <h3><ClipboardList size={16} />Resultados das mudanças</h3>

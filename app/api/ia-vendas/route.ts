@@ -99,8 +99,68 @@ export async function GET(request: Request) {
           : undefined,
       })),
     );
+    const benchmarkMenus = analyses.rows.flatMap(
+      (analysis: any) =>
+        analysis.result?.report?.benchmark_snapshot?.public_menus || [],
+    );
+    const benchmarkSlugs = [
+      ...new Set<string>(
+        benchmarkMenus
+          .map((menu: any) => {
+            try {
+              return decodeURIComponent(
+                new URL(String(menu.url)).pathname.split("/").filter(Boolean).join("/"),
+              );
+            } catch {
+              return "";
+            }
+          })
+          .filter(Boolean),
+      ),
+    ];
+    const benchmarkLogoRows = benchmarkSlugs.length
+      ? (
+          await query(
+            "SELECT url_slug,logo_url FROM public.restaurants WHERE url_slug=ANY($1::text[])",
+            [benchmarkSlugs],
+          )
+        ).rows
+      : [];
+    const benchmarkLogos = new Map(
+      benchmarkLogoRows.map((row) => [
+        row.url_slug,
+        imageUrl(row.logo_url, "restaurant-logos"),
+      ]),
+    );
+    const hydratedAnalyses = analyses.rows.map((analysis: any) => {
+      const report = analysis.result?.report,
+        benchmark = report?.benchmark_snapshot;
+      if (!benchmark?.public_menus?.length) return analysis;
+      return {
+        ...analysis,
+        result: {
+          ...analysis.result,
+          report: {
+            ...report,
+            benchmark_snapshot: {
+              ...benchmark,
+              public_menus: benchmark.public_menus.map((menu: any) => {
+                try {
+                  const slug = decodeURIComponent(
+                    new URL(String(menu.url)).pathname.split("/").filter(Boolean).join("/"),
+                  );
+                  return { ...menu, logo_url: benchmarkLogos.get(slug) || null };
+                } catch {
+                  return menu;
+                }
+              }),
+            },
+          },
+        },
+      };
+    });
     const access = await aiAccess(restaurant);
-    const visibleAnalyses = access.plus ? analyses.rows : analyses.rows.map(analysisPreview);
+    const visibleAnalyses = access.plus ? hydratedAnalyses : hydratedAnalyses.map(analysisPreview);
     const visibleIds = new Set(visibleAnalyses.flatMap(a => [...(a.result?.report?.opportunities || []), ...(a.result?.report?.review_items || [])].flatMap(o => o.action_ids || [])));
     return Response.json(
       {

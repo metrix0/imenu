@@ -834,17 +834,38 @@ export function DataCard({ card, expanded = false, presentation = "chat" }: { ca
       </div>
     );
   }
-  if (card.type === "benchmark" && presentation === "report") return <>
-    <h3><TrendingUp size={17} aria-hidden="true" />Restaurantes parecidos no iMenu</h3>
-    <p className={styles.comparisonNote}>{card.available ? card.method : card.reason || card.method}</p>
-    {card.available && <>
-      <dl className={styles.comparisonMetrics}>{Object.entries(card.medians || {}).map(([key, value]) => <div key={key}>
-        <dt>{{ beverage_rate: "Pedidos com bebida", combo_rate: "Pedidos com combo", units_per_order: "Itens por pedido", retention: "Recompra", ticket_cents: "Ticket médio" }[key] || key}</dt>
-        <dd>{key === "ticket_cents" ? money(Number(value)) : key === "units_per_order" ? Number(value).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : Number(value).toLocaleString("pt-BR", { style: "percent", minimumFractionDigits: 1, maximumFractionDigits: 1 })}</dd>
-      </div>)}</dl>
-      {!!card.public_menus?.length && <div className={styles.menuLinks}><span>Cardápios para referência</span>{card.public_menus.map((menu: Data) => <a key={menu.url} href={menu.url} target="_blank" rel="noreferrer">{menu.name}<ArrowUpRight size={13} aria-hidden="true" /></a>)}</div>}
-    </>}
-  </>;
+  if (card.type === "benchmark" && presentation === "report") {
+    const formatMetric = (key: string, value: number) =>
+      key === "ticket_cents"
+        ? money(value)
+        : key === "units_per_order"
+          ? value.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+          : value.toLocaleString("pt-BR", { style: "percent", minimumFractionDigits: 1, maximumFractionDigits: 1 });
+    return <>
+      <h3><TrendingUp size={17} aria-hidden="true" />Restaurantes parecidos no iMenu</h3>
+      <p className={styles.comparisonNote}>{card.available ? card.method : card.reason || card.method}</p>
+      {card.available && <>
+        <dl className={styles.comparisonMetrics}>{Object.entries(card.medians || {}).map(([key, value]) => {
+          const benchmarkValue = Number(value),
+            currentValue = Number(card.current?.[key]),
+            hasCurrent = Number.isFinite(currentValue),
+            comparisonClass = !hasCurrent || currentValue === benchmarkValue
+              ? styles.comparisonBadgeNeutral
+              : currentValue > benchmarkValue
+                ? styles.comparisonBadgePositive
+                : styles.comparisonBadgeNegative;
+          return <div key={key}>
+            <dt>{{ beverage_rate: "Pedidos com bebida", combo_rate: "Pedidos com combo", units_per_order: "Itens por pedido", retention: "Recompra", ticket_cents: "Ticket médio" }[key] || key}</dt>
+            <dd><span>{formatMetric(key, benchmarkValue)}</span>{hasCurrent && <span className={`${styles.comparisonBadge} ${comparisonClass}`}>Você: {formatMetric(key, currentValue)}</span>}</dd>
+          </div>;
+        })}</dl>
+        {!!card.public_menus?.length && <div className={styles.menuLinks}><span>Cardápios para referência</span><div className={styles.menuBadges}>{card.public_menus.map((menu: Data) => <a className={styles.menuBadge} key={menu.url} href={menu.url} target="_blank" rel="noreferrer">
+          {menu.logo_url ? <Image src={menu.logo_url} alt="" width={24} height={24} unoptimized className={styles.menuBadgeLogo} /> : <span className={styles.menuBadgeFallback} aria-hidden="true">{String(menu.name || "?").trim().slice(0, 1).toUpperCase()}</span>}
+          <span>{menu.name}</span><ArrowUpRight size={13} aria-hidden="true" />
+        </a>)}</div></div>}
+      </>}
+    </>;
+  }
   if (card.type === "benchmark")
     return (
       <details open={expanded} className="my-3 rounded-lg border border-gray-200 bg-white p-3 text-sm">
