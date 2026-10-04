@@ -549,7 +549,8 @@ export default function LandingPage() {
                             )}
                             {[
                                 ["Totalmente grátis, para sempre", "check", "Mensalidade e taxas"],
-                                ["Inteligência Artificial", "check", "Não"],
+                                ["Assistente IA", "Grátis, com limites de conversa e imagens; mais capacidade com IA Plus", "Varia por sistema"],
+                                ["Vendas IA (Análise de vendas)", "Análise grátis por liberação; aplicação automática após aprovação e acesso mais rápido com IA Plus", "Varia por sistema"],
                                 ["Pedidos ilimitados", "check", "Cada vez mais caro"],
                                 ["Robô WhatsApp", "check", "Taxas adicionais"],
                                 ["Aplicativo para celular", "check", "Não"],

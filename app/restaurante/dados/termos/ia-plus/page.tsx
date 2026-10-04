@@ -50,6 +50,104 @@ export default function IaPlusTermsPage() {
                             Vendas com IA. As funcionalidades disponíveis podem
                             evoluir ao longo do tempo.
                         </p>
+                        <p className="mt-2">
+                            O Assistente IA possui acesso gratuito com limites
+                            de processamento e imagens. A aba Vendas IA e a
+                            liberação de análises gratuitas também estão
+                            disponíveis sem contratar este adicional, conforme
+                            a seleção de restaurantes e a visualização liberada.
+                            O IA Plus amplia a capacidade do Assistente e libera
+                            o acesso completo, a conversa sobre a análise e a
+                            aplicação de suas propostas após aprovação. O acesso
+                            à análise sem depender da seleção gratuita não
+                            representa garantia de conclusão imediata ou de
+                            prazo fixo de processamento.
+                        </p>
+                    </section>
+
+                    <section>
+                        <h2 className="text-xl font-bold text-gray-900">
+                            2.1. Capacidade, contagem e limites de uso
+                        </h2>
+                        <p className="mt-2">
+                            A contratação do IA Plus oferece maior capacidade,
+                            mas não constitui uso ilimitado. Tokens são unidades
+                            de processamento de conteúdo pela IA. O consumo
+                            inclui as entradas e respostas, o contexto da
+                            conversa, os dados consultados e as etapas necessárias
+                            à tarefa; não corresponde apenas ao tamanho da
+                            mensagem digitada nem a um número fixo de mensagens.
+                            Uma tarefa pode exigir várias etapas de processamento.
+                        </p>
+                        <ul className="mt-3 list-disc space-y-2 pl-5">
+                            <li>
+                                No acesso gratuito, a capacidade de conversa é
+                                de 150.000 tokens e uma geração de imagem por
+                                restaurante nos últimos sete dias. Essa janela é
+                                móvel: o uso deixa de contar quando completa sete
+                                dias, sem um dia único de reinício para todos.
+                                As análises de vendas geradas separadamente não
+                                consomem a franquia gratuita de conversa.
+                            </li>
+                            <li>
+                                Cada solicitação gratuita tem limite de 60.000
+                                tokens de processamento, considerando também o
+                                contexto e as etapas da tarefa. Uma última
+                                solicitação pode ultrapassar o saldo semanal
+                                restante, dentro desse limite por solicitação.
+                                Essa tolerância não cria uma franquia adicional
+                                recorrente; após esgotar a capacidade, novas
+                                solicitações ficam bloqueadas até a recomposição
+                                do saldo ou a ativação do IA Plus.
+                            </li>
+                            <li>
+                                No IA Plus, o Assistente está sujeito a tetos
+                                mensais de 1.500.000 tokens de entrada e 120.000
+                                tokens de saída e à capacidade de até 12 gerações
+                                de imagem por restaurante no mês calendário.
+                                A contagem mensal usa o horário de referência do
+                                servidor (UTC). Cada pedido de conversa aceita
+                                até 100.000 tokens estimados de entrada por etapa
+                                e até 6.000 tokens de saída na execução, conforme
+                                a capacidade disponível.
+                            </li>
+                            <li>
+                                Reservas de capacidade para solicitações em
+                                andamento e estimativas de contexto podem
+                                antecipar o bloqueio de uma tarefa que não caiba
+                                no saldo. Os limites não garantem um número exato
+                                de mensagens, propostas concluídas ou imagens
+                                aprovadas. Gerações são contabilizadas no
+                                processamento, independentemente da publicação
+                                ou aceitação da imagem.
+                            </li>
+                            <li>
+                                Também existem limites técnicos de frequência,
+                                processamento simultâneo, tamanho e quantidade
+                                de anexos e operações por proposta. Solicitações
+                                extensas podem precisar ser divididas ou feitas
+                                em uma nova conversa. Análises podem aguardar
+                                processamento e ser interrompidas em caso de
+                                falha ou falta de capacidade.
+                            </li>
+                        </ul>
+                        <p className="mt-3">
+                            Ao atingir o limite de imagens, novas gerações são
+                            suspensas, mas o Assistente pode continuar outras
+                            tarefas se houver capacidade de conversa. Ao atingir
+                            o limite de conversa, novas solicitações de IA podem
+                            ser suspensas. Esses bloqueios não impedem o uso
+                            normal do cardápio ou a edição manual no painel e
+                            não geram cobrança adicional automática.
+                        </p>
+                        <p className="mt-2">
+                            Alterações materiais das franquias e condições do
+                            IA Plus serão informadas com antecedência e, para
+                            assinaturas em curso, antes de produzirem efeitos
+                            em uma renovação futura. Permanecem assegurados os
+                            direitos legais do contratante e o cancelamento
+                            pelos canais indicados nestes termos.
+                        </p>
                     </section>
 
                     <section>
@@ -63,6 +161,15 @@ export default function IaPlusTermsPage() {
                             restaurante deve revisar as informações antes de
                             utilizá-las em sua operação.
                         </p>
+                        <p className="mt-2">
+                            Projeções de receita são estimativas baseadas nos
+                            dados disponíveis e em hipóteses, podem cobrir apenas
+                            parte das oportunidades e não garantem faturamento,
+                            conversão ou lucro. Os resultados dependem também
+                            dos custos, da operação e do comportamento dos
+                            clientes. A qualidade da análise depende da
+                            disponibilidade e da exatidão dos dados.
+                        </p>
                     </section>
 
                     <section>
@@ -75,6 +182,13 @@ export default function IaPlusTermsPage() {
                             configurações, a mudança é apresentada para revisão
                             e depende de uma ação de confirmação na interface
                             antes de ser aplicada.
+                        </p>
+                        <p className="mt-2">
+                            Após a aprovação, o sistema executa as alterações
+                            autorizadas nos campos permitidos. A geração de uma
+                            imagem prepara uma prévia e não autoriza sua
+                            publicação. Se os dados tiverem mudado desde a
+                            proposta, poderá ser necessária uma nova revisão.
                         </p>
                     </section>
 

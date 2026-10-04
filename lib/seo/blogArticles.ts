@@ -17,6 +17,34 @@ export type BlogArticleDefinition = {
 
 export const BLOG_ARTICLES: BlogArticleDefinition[] = [
     {
+        slug: "assistente-ia-para-restaurante",
+        title: "Assistente IA do iMenu: peça a mudança, aprove e veja seu cardápio atualizado",
+        shortTitle: "Assistente IA para restaurante",
+        metaTitle: "Assistente IA para Restaurante: Aprova e Aplica | iMenu",
+        metaDescription:
+            "Conheça o Assistente IA do iMenu: converse sobre seu cardápio, gere imagens e deixe o sistema aplicar as mudanças que você aprovar. Comece grátis.",
+        excerpt:
+            "Descrições, preços, organização e imagens: transforme um pedido em uma alteração pronta para aprovar. Você decide; o iMenu executa no seu restaurante.",
+        category: "Gestão",
+        readingTime: "8 min de leitura",
+        publishedAt: "2026-10-04",
+        updatedAt: "2026-10-04",
+    },
+    {
+        slug: "analise-de-vendas-com-ia",
+        title: "Vendas IA do iMenu: dos seus pedidos às melhorias aplicadas no cardápio",
+        shortTitle: "Análise de vendas com IA",
+        metaTitle: "Análise de Vendas com IA para Restaurante | iMenu",
+        metaDescription:
+            "Veja como o Vendas IA analisa pedidos, cardápio e fotos, encontra oportunidades e prepara mudanças que o iMenu aplica após sua aprovação com IA Plus.",
+        excerpt:
+            "Descubra o que merece atenção no seu restaurante, entenda as evidências e transforme oportunidades em alterações reais — sem editar cada produto à mão.",
+        category: "Vendas",
+        readingTime: "9 min de leitura",
+        publishedAt: "2026-10-04",
+        updatedAt: "2026-10-04",
+    },
+    {
         slug: "pedido-whatsapp-celular-confirmacao",
         title: "Pedido pelo WhatsApp no celular: como tornar a confirmação mais confiável",
         shortTitle: "Pedido pelo WhatsApp no celular",
