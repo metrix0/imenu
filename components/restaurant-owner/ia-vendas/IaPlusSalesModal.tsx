@@ -1,6 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
+import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
 import {
   ArrowRight,
   Check,
@@ -19,6 +21,8 @@ import QrCodeMesaCheckoutModal from "@/components/restaurant-owner/mesas/QrCodeM
 import { IA_PLUS_BENEFITS, IA_PLUS_PRICE_LABEL } from "@/lib/addons/products";
 
 const BENEFIT_ICONS = [MessageSquare, ImageIcon, WandSparkles] as const;
+const SUPPORT_URL =
+  "https://wa.me/5519997235394?text=Ol%C3%A1%2C%20tenho%20uma%20d%C3%BAvida%20sobre%20o%20iMenu%20IA%20Plus.";
 
 export function IaPlusDetails() {
   return <>
@@ -96,7 +100,7 @@ export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout
                 Transforme análise em mudanças que vendem mais.
               </h2>
               <p className="mt-3 max-w-xl text-sm leading-6 text-gray-600 sm:text-base">
-                Use o Assistente IA com mais capacidade, gere imagens e coloque em prática as oportunidades da sua Análise de Vendas — sempre com sua aprovação.
+                Use o Assistente IA com mais capacidade, gere imagens e coloque em prática as oportunidades da sua Análise de Vendas com IA.
               </p>
 
               <div className="mt-6 rounded-xl border border-brand/20 bg-brand/5 p-4">
@@ -114,9 +118,6 @@ export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout
                     </span>
                   </div>
                 </div>
-                <p className="mt-3 border-t border-brand/10 pt-3 text-xs leading-5 text-gray-500">
-                  Cartão renova mensalmente. Pix libera 30 dias de acesso.
-                </p>
               </div>
             </div>
 
@@ -178,14 +179,8 @@ export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout
             </div>
           </div>
 
-          <div className="border-t border-gray-100 px-6 py-6 sm:px-8">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.14em] text-brand">Tudo no mesmo fluxo</p>
-              <h3 className="mt-2 text-lg font-bold text-gray-900">Da conversa até a mudança no cardápio</h3>
-              <p className="mt-1 text-sm text-gray-500">Mais capacidade para analisar, criar e executar sem sair do iMenu.</p>
-            </div>
-
-            <div className="mt-5 grid gap-3 md:grid-cols-3">
+          <div className="px-6 py-6 sm:px-8">
+            <div className="grid gap-3 md:grid-cols-3">
               {IA_PLUS_BENEFITS.map((benefit, index) => {
                 const BenefitIcon = BENEFIT_ICONS[index] || Sparkles;
                 return <div key={benefit.title} className="rounded-xl border border-orange-100 bg-gradient-to-br from-white to-orange-50/70 p-4">
@@ -201,11 +196,16 @@ export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout
         </div>
 
         <div className="z-20 flex shrink-0 flex-col gap-3 border-t border-gray-100 bg-white px-6 py-4 sm:flex-row sm:items-center sm:px-8 sm:py-5">
-          <div className="hidden items-center gap-2 text-xs text-gray-500 sm:flex">
-            <ShieldCheck size={16} className="text-brand" aria-hidden="true" />
-            Você revisa antes de aplicar.
-          </div>
-          <Button type="button" variant="secondary" onClick={onClose} className="sm:ml-auto">
+          <a
+            href={SUPPORT_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hidden items-center justify-center gap-3 rounded-full border border-gray-200 bg-gray-50 px-4 py-2 text-sm font-medium text-gray-700 transition hover:border-green-200 hover:bg-green-50 hover:text-green-700 sm:mr-auto sm:inline-flex"
+          >
+            <FontAwesomeIcon icon={faWhatsapp} className="text-lg text-green-600" />
+            <span>Está em dúvida? Fale conosco</span>
+          </a>
+          <Button type="button" variant="secondary" onClick={onClose}>
             Agora não
           </Button>
           <Button
