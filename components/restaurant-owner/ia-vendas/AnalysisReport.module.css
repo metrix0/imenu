@@ -186,9 +186,10 @@
   mask-image: linear-gradient(to bottom, #000 0%, #000 66%, rgb(0 0 0 / .72) 76%, rgb(0 0 0 / .24) 91%, transparent 100%);
 }
 .paywall { position: absolute; inset: auto 0 0; z-index: 2; min-height: 430px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 14px; padding: 120px 24px 56px; background: linear-gradient(to bottom, rgb(255 255 255 / 0), #fff 52%); text-align: center; }
-.structuredPaywall { inset: 75% 0 0; min-height: 0; justify-content: flex-start; gap: 10px; padding: 56px 24px 28px; background: linear-gradient(to bottom, rgb(255 255 255 / 0), rgb(255 255 255 / .92) 20%, #fff 34%, #fff 100%); }
+.structuredPaywall { inset: 75% 0 0; min-height: 0; justify-content: flex-start; gap: 10px; padding: 88px 24px 28px; pointer-events: none; background: linear-gradient(to bottom, rgb(255 255 255 / 0) 0%, rgb(255 255 255 / .18) 10%, rgb(255 255 255 / .68) 28%, #fff 50%, #fff 100%); }
+.structuredPaywall button { pointer-events: auto; }
 .paywallImage { position: relative; width: 80px; height: 112px; margin-bottom: -4px; }
-.paywallLogo { width: 224px; height: 48px; margin-bottom: 2px; }
+.paywallLogo { width: 280px; height: 60px; margin-bottom: 6px; }
 .reportLocked :global([data-ia-plus-action] button)::after {
   content: "";
   width: 14px;

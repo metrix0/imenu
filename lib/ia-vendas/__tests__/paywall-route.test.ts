@@ -35,13 +35,16 @@ beforeEach(() => {
     rowCount: sql.startsWith("SELECT 1 FROM public.ia_vendas_conversations") && analysis ? 1 : 0,
   }));
 });
-test("free API response contains a preview and conceals the remaining report, actions and chat", async () => {
+test("free API response returns the complete report while keeping chat and internal transcript hidden", async () => {
   const data = await (await GET(new Request("https://example.test/api/ia-vendas"))).json();
   expect(data.access.plus).toBe(false);
-  expect(data.analyses[0].result.report.opportunity_count).toBe(2);
-  expect(data.actions.map((a: any) => a.id)).toEqual([first]);
+  expect(data.analyses[0].result.report.opportunities).toHaveLength(2);
+  expect(data.analyses[0].result.report.review_items).toHaveLength(1);
+  expect(data.analyses[0].result.report.sales_snapshot).toEqual({ private: true });
+  expect(data.actions.map((a: any) => a.id)).toEqual([first, second]);
   expect(data.messages).toEqual([]);
-  expect(JSON.stringify(data)).not.toMatch(/OPORTUNIDADE PRIVADA|REVISÃO PRIVADA|TRANSCRIÇÃO PRIVADA|CONVERSA PRIVADA|sales_snapshot/);
+  expect(JSON.stringify(data)).toMatch(/OPORTUNIDADE PRIVADA|REVISÃO PRIVADA|sales_snapshot/);
+  expect(JSON.stringify(data)).not.toMatch(/TRANSCRIÇÃO PRIVADA|CONVERSA PRIVADA/);
 });
 test("Plus returns the complete report and proposals", async () => {
   plus = true;

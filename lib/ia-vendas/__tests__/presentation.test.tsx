@@ -3,6 +3,7 @@ import AnalysisReport from "@/components/restaurant-owner/ia-vendas/AnalysisRepo
 import SalesMarkdown from "@/components/restaurant-owner/ia-vendas/SalesMarkdown";
 import { ActionCard, DataCard } from "@/components/restaurant-owner/ia-vendas/SalesWidgets";
 import type { Action } from "../types";
+import { analysisPreview } from "../paywall";
 
 jest.mock("@/components/restaurant-owner/ia-vendas/AnalysisReport.module.css", () => ({
   __esModule: true, default: new Proxy({}, { get: (_target, key) => String(key) }),
@@ -102,13 +103,28 @@ test("free restaurant without analysis explains the analysis and IA Plus immedia
   expect(html).toContain("49,99");
 });
 
+test("free analysis preview keeps the complete report", () => {
+  const analysis = {
+    id: "analysis",
+    result: {
+      report: {
+        opportunities: [{ id: "one" }, { id: "two" }, { id: "three" }],
+        review_items: [{ id: "review-one" }, { id: "review-two" }],
+      },
+    },
+  };
+  const visible = analysisPreview(analysis);
+  expect(visible.result.report.opportunities).toHaveLength(3);
+  expect(visible.result.report.review_items).toHaveLength(2);
+});
+
 test("locked analysis keeps the full report scrollable and overlays only its final quarter", () => {
   const html = renderToStaticMarkup(<AnalysisReport {...props} locked />);
   expect(html).toContain('class="report reportLocked"');
   expect(html).toContain("paper paperLocked");
   expect(html).not.toContain('class="previewContent"><section aria-label="Prioridades"');
   expect(html).toContain("IAPlusCombinationMarkLogo_Brand.png");
-  expect(html).toContain('sizes="224px"');
+  expect(html).toContain('sizes="280px"');
   expect(html).toContain('aria-label="Comparações"');
   expect(html).not.toContain('hidden="" aria-label="Comparações"');
   expect(html.indexOf('aria-label="Comparações"')).toBeLessThan(html.indexOf("Coloque essas oportunidades em prática"));
