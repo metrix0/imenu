@@ -41,7 +41,7 @@
 .gain { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; margin: 0; color: var(--color-green); font-size: clamp(32px, 4.5cqi, 48px); font-weight: 600; line-height: 1.15; letter-spacing: -1.6px; font-variant-numeric: tabular-nums; }
 .gain > span { white-space: nowrap; }
 .rangeEnd { display: inline-flex; align-items: baseline; gap: 12px; }
-.rangeSeparator { color: var(--panel-muted); font-size: .7em; font-weight: 400; }
+.rangeSeparator { color: inherit; font-size: .7em; font-weight: 400; }
 .range { font-size: clamp(30px, 4cqi, 44px); }
 .growth { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 12px; color: var(--panel-muted); font-size: 13px; }
 .growth strong { display: inline-flex; align-items: center; gap: 5px; padding: 4px 8px; border-radius: 6px; background: color-mix(in srgb, var(--color-green) 10%, transparent); color: var(--color-green); font-weight: 500; }
@@ -117,7 +117,7 @@
 .reviewEntries { display: grid; gap: 24px; margin-top: 24px; }
 .reviewEntry { display: grid; gap: 18px; padding-top: 20px; border-top: 1px solid var(--panel-border); }
 .reviewEntry h3 { font-size: 15px; }
-.comparison { min-width: 0; padding-block: 24px; }
+.comparison { min-width: 0; padding: 32px 0 24px; }
 .review + .comparison { border-top: 1px solid var(--panel-border); }
 .comparison h3 { display: flex; align-items: center; gap: 8px; font-size: 14px; }
 .comparison h3 > svg { color: var(--panel-muted); }
