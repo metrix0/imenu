@@ -32,4 +32,30 @@ describe("product overview", () => {
         expect(result.imenu.churn).toBe(0);
         expect(result.ia_plus.conversion).toBe(0);
     });
+    it("uses the existing Mesas and IA tab counts when no panel pageviews were recorded", () => {
+        const result = buildProductOverview({ imenu: 0, ia_plus: 0, qr_code_mesa: 0 }, 0,
+            { count: 0, base: 0 }, [{ product_key: "qr_code_mesa", buyers: 2, churn_base: 0, churned_users: 0 }],
+            { available: true, tabs: [
+                { tab: "Mesas", opens: 20 },
+                { tab: "Assistente IA", opens: 5 },
+                { tab: "Vendas IA", opens: 7 },
+                { tab: "Pedidos", opens: 100 },
+            ] });
+        expect(result.qr_code_mesa).toMatchObject({ pageViews: 20, trafficSource: "tab_opens", conversion: 10 });
+        expect(result.ia_plus).toMatchObject({ pageViews: 12, trafficSource: "tab_opens" });
+        expect(result.imenu).toMatchObject({ pageViews: 0, trafficSource: "pageviews", conversion: null });
+    });
+    it("prefers actual pageviews without adding overlapping tab clicks", () => {
+        const result = buildProductOverview(views, 0, { count: 0, base: 0 }, [],
+            { available: true, tabs: [{ tab: "Mesas", opens: 50 }] });
+        expect(result.qr_code_mesa).toMatchObject({ pageViews: 20, trafficSource: "pageviews" });
+    });
+    it("can use tab opens when pageviews are unavailable but never uses unavailable tab data", () => {
+        const pageViews = { imenu: null, ia_plus: null, qr_code_mesa: null };
+        const tabs = [{ tab: "Mesas", opens: 10 }];
+        const available = buildProductOverview(pageViews, 0, { count: 0, base: 0 }, [], { available: true, tabs });
+        const unavailable = buildProductOverview(pageViews, 0, { count: 0, base: 0 }, [], { available: false, tabs });
+        expect(available.qr_code_mesa).toMatchObject({ pageViews: 10, trafficSource: "tab_opens" });
+        expect(unavailable.qr_code_mesa).toMatchObject({ pageViews: null, conversion: null });
+    });
 });

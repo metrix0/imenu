@@ -1410,7 +1410,8 @@ export async function GET(request: Request) {
                     postHog.productPageViews,
                     cards.activatedUsers,
                     { count: churnSets.abandonedActiveUsers.size, base: churnSets.eligibleActiveUsers.size },
-                    addonProductMetricsResult.rows
+                    addonProductMetricsResult.rows,
+                    panelTabUsage
                 ),
                 cardChanges,
                 deviceUsage,

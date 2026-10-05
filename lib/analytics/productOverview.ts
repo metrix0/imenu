@@ -2,6 +2,7 @@ export type ProductKey = "imenu" | "ia_plus" | "qr_code_mesa";
 export type ProductPageViews = Record<ProductKey, number | null>;
 export type ProductOverviewMetrics = {
     pageViews: number | null;
+    trafficSource: "pageviews" | "tab_opens";
     buyers: number;
     conversion: number | null;
     churnedUsers: number;
@@ -88,16 +89,28 @@ export function buildProductOverview(
     pageViews: ProductPageViews,
     activatedUsers: number,
     imenuChurn: { count: number; base: number },
-    addons: AddonProductMetricsRow[]
+    addons: AddonProductMetricsRow[],
+    panelTabs?: { available: boolean; tabs: { tab: string; opens: number }[] }
 ): ProductOverview {
-    const metric = (key: ProductKey, buyers: number, count: number, base: number): ProductOverviewMetrics => ({
-        pageViews: pageViews[key],
-        buyers,
-        conversion: ratio(buyers, pageViews[key]),
-        churnedUsers: count,
-        churnBase: base,
-        churn: ratio(count, base),
-    });
+    const metric = (key: ProductKey, buyers: number, count: number, base: number): ProductOverviewMetrics => {
+        const labels = key === "ia_plus" ? ["Assistente IA", "Vendas IA"] : key === "qr_code_mesa" ? ["Mesas"] : [];
+        const opens = panelTabs?.available
+            ? panelTabs.tabs.reduce((sum, tab) => sum + (labels.includes(tab.tab) ? tab.opens : 0), 0)
+            : 0;
+        // Panel pageviews were previously blocked. Reuse known tab opens only
+        // when no pageviews exist; never add both events for the same visit.
+        const useTabOpens = (pageViews[key] === null || pageViews[key] === 0) && opens > 0;
+        const traffic = useTabOpens ? opens : pageViews[key];
+        return {
+            pageViews: traffic,
+            trafficSource: useTabOpens ? "tab_opens" : "pageviews",
+            buyers,
+            conversion: ratio(buyers, traffic),
+            churnedUsers: count,
+            churnBase: base,
+            churn: ratio(count, base),
+        };
+    };
     const addonMetric = (key: "ia_plus" | "qr_code_mesa") => {
         const row = addons.find((row) => row.product_key === key);
         return metric(key, Number(row?.buyers) || 0, Number(row?.churned_users) || 0, Number(row?.churn_base) || 0);

@@ -1854,6 +1854,7 @@ function ProductOverviewSections({ metrics }: { metrics: ProductOverview }) {
             {products.map((product) => {
                 const metric = metrics[product.key];
                 const views = metric.pageViews === null ? "—" : formatCount(metric.pageViews);
+                const trafficUnit = metric.trafficSource === "tab_opens" ? "aberturas da aba" : "page views";
                 const buyers = formatCount(metric.buyers);
                 const churned = formatCount(metric.churnedUsers);
                 const base = formatCount(metric.churnBase);
@@ -1862,20 +1863,22 @@ function ProductOverviewSections({ metrics }: { metrics: ProductOverview }) {
                         <SectionHeading title={product.name} />
                         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                             <MetricCard
-                                title="Traffic"
+                                title={`Traffic (${trafficUnit})`}
                                 value={views}
-                                info={`PostHog · ${product.paths} · ${views} pageviews no período.`}
+                                info={metric.trafficSource === "tab_opens"
+                                    ? `PostHog · panel_tab_opened · ${views} aberturas no período; sem page views registradas.`
+                                    : `PostHog · ${product.paths} · ${views} pageviews no período.`}
                             />
                             <MetricCard
-                                title="Conversion"
+                                title={product.key === "imenu" ? "Conversion (usuários ativados)" : "Conversion (compradores)"}
                                 value={metric.conversion === null ? "—" : formatRatio(metric.conversion)}
                                 info={product.key === "imenu"
                                     ? `${buyers} ativados ÷ ${views} visitas × 100. Pedidos + PostHog · primeiro pedido no período.`
-                                    : `${buyers} novos compradores ÷ ${views} visitas × 100. Pagamentos confirmados + PostHog · primeira compra no período.`}
+                                    : `${buyers} novos compradores ÷ ${views} ${trafficUnit} × 100. Pagamentos confirmados + PostHog · primeira compra no período.`}
                             />
-                            <MetricCard title="Pricing" value={product.price} info={product.priceInfo} />
+                            <MetricCard title="Pricing (mensalidade)" value={product.price} info={product.priceInfo} />
                             <MetricCard
-                                title="Churn"
+                                title={product.key === "imenu" ? "Churn (ativos abandonados)" : "Churn (pagantes perdidos)"}
                                 value={metric.churn === null ? "—" : formatRatio(metric.churn)}
                                 info={product.key === "imenu"
                                     ? `Pedidos · ${churned} ÷ ${base} × 100. Base: concluído nos dias 8–14; abandono: nenhum pedido nos últimos 7 dias.`
