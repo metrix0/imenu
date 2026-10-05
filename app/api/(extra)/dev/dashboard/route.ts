@@ -7,6 +7,7 @@ import { loadPostHogConsumerMetrics } from "@/lib/analytics/posthogConsumer";
 import { SEO_TRAFFIC_EVENTS } from "@/lib/analytics/seoTraffic";
 import { query } from "@/lib/database/sql";
 import { PUBLIC_CONTENT_PAGES } from "@/lib/seo/publicContent";
+import { ADDON_PRODUCT_METRICS_SQL, buildProductOverview, type AddonProductMetricsRow, type ProductPageViews } from "@/lib/analytics/productOverview";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -73,6 +74,7 @@ type DeviceUsageRow = {
 
 type PostHogMetrics = {
     available: boolean;
+    productPageViews: ProductPageViews;
     landingViews: number | null;
     registerClicks: number | null;
     beforeStartViews: number | null;
@@ -460,6 +462,7 @@ async function loadPostHogMetrics(
         return {
             available: false,
             landingViews: null,
+            productPageViews: { imenu: null, ia_plus: null, qr_code_mesa: null },
             registerClicks: null,
             beforeStartViews: null,
             blogViews: null,
@@ -497,7 +500,15 @@ async function loadPostHogMetrics(
                     properties.$pathname = '/blog'
                     OR startsWith(toString(properties.$pathname), '/blog/')
                 )
-            ) AS blog_views
+            ) AS blog_views,
+            countIf(event = '$pageview' AND properties.$pathname = '/') AS landing_pageviews,
+            countIf(event = '$pageview' AND properties.$pathname IN (
+                '/painel/vendas-ia', '/painel/assistente-ia',
+                '/painel/vendas-ia/', '/painel/assistente-ia/'
+            )) AS ia_plus_pageviews,
+            countIf(event = '$pageview' AND properties.$pathname IN (
+                '/painel/mesas', '/painel/mesas/'
+            )) AS qr_pageviews
         FROM events
         WHERE timestamp >= toDateTime('${start}', 'UTC')
           AND timestamp < toDateTime('${end}', 'UTC')
@@ -540,11 +551,17 @@ async function loadPostHogMetrics(
             registerClicks: Number(row[1]) || 0,
             beforeStartViews: Number(row[2]) || 0,
             blogViews: Number(row[3]) || 0,
+            productPageViews: {
+                imenu: Number(row[4]) || 0,
+                ia_plus: Number(row[5]) || 0,
+                qr_code_mesa: Number(row[6]) || 0,
+            },
         };
     } catch (error) {
         console.warn("[DEV_DASHBOARD] PostHog metrics unavailable:", error);
         return {
             available: false,
+            productPageViews: { imenu: null, ia_plus: null, qr_code_mesa: null },
             landingViews: null,
             registerClicks: null,
             beforeStartViews: null,
@@ -928,6 +945,7 @@ export async function GET(request: Request) {
             seoTraffic,
             orderCountResult,
             deviceUsageResult,
+            addonProductMetricsResult,
         ] =
             await Promise.all([
                 query<OnboardingFunnelRow>(
@@ -1027,6 +1045,7 @@ export async function GET(request: Request) {
                     `,
                     [activeStartIso, endIso]
                 ),
+                query<AddonProductMetricsRow>(ADDON_PRODUCT_METRICS_SQL, [startIso, endIso]),
             ]);
 
         const onboardingRow = onboardingResult.rows[0];
@@ -1387,6 +1406,12 @@ export async function GET(request: Request) {
                     bucket: range === "90d" ? "week" : "day",
                 },
                 cards,
+                productOverview: buildProductOverview(
+                    postHog.productPageViews,
+                    cards.activatedUsers,
+                    { count: churnSets.abandonedActiveUsers.size, base: churnSets.eligibleActiveUsers.size },
+                    addonProductMetricsResult.rows
+                ),
                 cardChanges,
                 deviceUsage,
                 series: metricSeries,

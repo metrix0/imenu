@@ -111,6 +111,7 @@ export default function PainelLayout({
     const { restaurantId } = useCreationStore();
     const supportButtonRef = useRef<SupportButtonRef>(null);
     const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
+    const productPageViewRef = useRef<string | null>(null);
 
     const [expanded, setExpanded] = useState(true);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -262,6 +263,15 @@ export default function PainelLayout({
             }
 
             setIsChecking(false);
+            // The SDK excludes panel events; measure these product pages without loading it.
+            if (window.location.pathname === pathname && productPageViewRef.current !== pathname) {
+                productPageViewRef.current = pathname;
+                if (["/painel/vendas-ia", "/painel/assistente-ia", "/painel/mesas"].includes(pathname?.replace(/\/$/, "") || "")) {
+                    capturePosthogLightweight("$pageview", session.user.id, {
+                        $pathname: pathname,
+                    });
+                }
+            }
         };
 
         void checkAuth();

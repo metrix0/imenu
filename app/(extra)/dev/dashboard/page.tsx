@@ -16,6 +16,10 @@ import { Bar, Line } from "react-chartjs-2";
 
 import ConsumerPipelineCard from "@/components/analytics/ConsumerPipelineCard";
 import SalesRankingSection from "@/components/analytics/SalesRankingSection";
+import InfoTooltip from "@/components/ui/Tooltip";
+import { PanelIcon } from "@/components/ui/PanelIcon";
+import { faCircleInfo } from "@fortawesome/free-solid-svg-icons";
+import type { ProductOverview } from "@/lib/analytics/productOverview";
 import type { ConsumerPipelineStep } from "@/lib/analytics/consumerPipeline";
 import { supabase } from "@/lib/database/supabaseClient";
 
@@ -45,6 +49,7 @@ type MetricKey =
     | "abandonedActiveCustomerUsers";
 
 type DashboardPayload = {
+    productOverview: ProductOverview;
     range: {
         key: RangeKey;
         startAt: string;
@@ -711,6 +716,7 @@ export default function DevDashboardPage() {
                     <DashboardLoading />
                 ) : data ? (
                     <>
+                        <ProductOverviewSections metrics={data.productOverview} />
                         {details && (
                             <section>
                                 <SectionHeading
@@ -1757,12 +1763,12 @@ function SectionHeading({
     description,
 }: {
     title: string;
-    description: string;
+    description?: string;
 }) {
     return (
         <div className="mb-4">
             <h2 className="text-xl font-bold text-gray-900">{title}</h2>
-            <p className="mt-1 text-sm text-gray-500">{description}</p>
+            {description && <p className="mt-1 text-sm text-gray-500">{description}</p>}
         </div>
     );
 }
@@ -1837,17 +1843,65 @@ function qrTableStatusLabel(status: string): string {
     return status;
 }
 
+function ProductOverviewSections({ metrics }: { metrics: ProductOverview }) {
+    const products = [
+        { key: "imenu", name: "iMenu", paths: "/", price: "-", priceInfo: "Referência do dashboard: sem mensalidade.", },
+        { key: "ia_plus", name: "IA Plus", paths: "/painel/vendas-ia + /painel/assistente-ia", price: "R$ 49,90/m", priceInfo: "Preço informado para este card: 4.990 centavos/mês.", },
+        { key: "qr_code_mesa", name: "iMenu QR", paths: "/painel/mesas", price: "R$ 5/m", priceInfo: "Preço de referência: 500 centavos/mês.", },
+    ] as const;
+    return (
+        <>
+            {products.map((product) => {
+                const metric = metrics[product.key];
+                const views = metric.pageViews === null ? "—" : formatCount(metric.pageViews);
+                const buyers = formatCount(metric.buyers);
+                const churned = formatCount(metric.churnedUsers);
+                const base = formatCount(metric.churnBase);
+                return (
+                    <section key={product.key}>
+                        <SectionHeading title={product.name} />
+                        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                            <MetricCard
+                                title="Traffic"
+                                value={views}
+                                info={`PostHog · ${product.paths} · ${views} pageviews no período.`}
+                            />
+                            <MetricCard
+                                title="Conversion"
+                                value={metric.conversion === null ? "—" : formatRatio(metric.conversion)}
+                                info={product.key === "imenu"
+                                    ? `${buyers} ativados ÷ ${views} visitas × 100. Pedidos + PostHog · primeiro pedido no período.`
+                                    : `${buyers} novos compradores ÷ ${views} visitas × 100. Pagamentos confirmados + PostHog · primeira compra no período.`}
+                            />
+                            <MetricCard title="Pricing" value={product.price} info={product.priceInfo} />
+                            <MetricCard
+                                title="Churn"
+                                value={metric.churn === null ? "—" : formatRatio(metric.churn)}
+                                info={product.key === "imenu"
+                                    ? `Pedidos · ${churned} ÷ ${base} × 100. Base: concluído nos dias 8–14; abandono: nenhum pedido nos últimos 7 dias.`
+                                    : `Pagamentos/add-ons · ${churned} ÷ ${base} × 100. Base: pagantes no início. Cartão: cancelamento/vencimento; Pix pré-pago: fim da validade.`}
+                            />
+                        </div>
+                    </section>
+                );
+            })}
+        </>
+    );
+}
+
 function MetricCard({
     title,
     value,
     change,
     description,
+    info,
     danger = false,
 }: {
     title: string;
     value: string;
     change?: number | null;
-    description: string;
+    description?: string;
+    info?: string;
     danger?: boolean;
 }) {
     return (
@@ -1856,7 +1910,18 @@ function MetricCard({
                 danger ? "border-red-200" : "border-gray-200"
             }`}
         >
-            <p className="text-sm font-medium text-gray-600">{title}</p>
+            {info ? (
+                <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-medium text-gray-600">{title}</p>
+                    <InfoTooltip text={info} size="medium" showOnClick>
+                        <button type="button" aria-label={`Informações sobre ${title}`} className="inline-flex h-6 w-6 items-center justify-center text-gray-400 hover:text-brand">
+                            <PanelIcon icon={faCircleInfo} className="h-3.5 w-3.5" />
+                        </button>
+                    </InfoTooltip>
+                </div>
+            ) : (
+                <p className="text-sm font-medium text-gray-600">{title}</p>
+            )}
             <p
                 className={`mt-2 text-3xl font-bold tracking-tight ${
                     danger ? "text-red-700" : "text-gray-950"
@@ -1880,7 +1945,7 @@ function MetricCard({
                     <span className="font-normal text-gray-500">vs. período anterior</span>
                 </p>
             )}
-            <p className="mt-3 text-xs leading-5 text-gray-500">{description}</p>
+            {description && <p className="mt-3 text-xs leading-5 text-gray-500">{description}</p>}
         </article>
     );
 }
