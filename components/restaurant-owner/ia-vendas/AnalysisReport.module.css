@@ -155,7 +155,7 @@
 }
 @media (max-width: 600px) {
     .historySelect { width: 150px; }
-    .paperLocked { height: calc(var(--locked-cutoff, 75%) + 350px); }
+    .paperLocked { height: calc(var(--locked-cutoff, 75%) + 550px); }
     .noAnalysisState { gap: 18px; padding: 32px 18px; }
     .analysisSteps { grid-template-columns: 1fr; }
     .upgradeState { grid-template-columns: 1fr; }
@@ -180,7 +180,7 @@
 }
 
 .reportLocked { position: relative; padding-bottom: 0; }
-.paperLocked { position: relative; height: calc(var(--locked-cutoff, 75%) + 320px); overflow: hidden; }
+.paperLocked { position: relative; width: calc(100% + 56px); height: calc(var(--locked-cutoff, 75%) + 520px); margin-inline: -28px; padding-inline: 28px; box-sizing: border-box; overflow: hidden; }
 .structuredContent { position: relative; display: grid; gap: 24px; }
 .preview { position: relative; min-height: 0; }
 .previewContent {
@@ -188,7 +188,7 @@
   mask-image: linear-gradient(to bottom, #000 0%, #000 66%, rgb(0 0 0 / .72) 76%, rgb(0 0 0 / .24) 91%, transparent 100%);
 }
 .paywall { position: absolute; inset: auto 0 0; z-index: 2; min-height: 430px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 14px; padding: 120px 24px 56px; background: linear-gradient(to bottom, rgb(255 255 255 / 0), #fff 52%); text-align: center; }
-.structuredPaywall { inset: calc(var(--locked-cutoff, 75%) - 72px) 0 0; min-height: 0; justify-content: flex-start; padding: 96px 24px 24px; pointer-events: none; background: linear-gradient(to bottom, rgb(255 255 255 / 0) 0, rgb(255 255 255 / .58) 36px, #fff 72px, #fff 100%); }
+.structuredPaywall { inset: calc(var(--locked-cutoff, 75%) - 72px) 0 0; min-height: 0; justify-content: flex-start; padding: 220px 24px 64px; pointer-events: none; background: linear-gradient(to bottom, rgb(255 255 255 / 0) 0, rgb(255 255 255 / .18) 56px, rgb(255 255 255 / .5) 120px, rgb(255 255 255 / .82) 176px, #fff 220px, #fff 100%); }
 .paywallCard { display: flex; width: min(100%, 560px); flex-direction: column; align-items: center; gap: 12px; padding: 22px 26px 24px; border: 1px solid var(--panel-border); border-radius: 12px; background: var(--panel-surface); box-shadow: 0 10px 30px rgb(29 29 29 / .08); pointer-events: auto; }
 .paywallImage { position: relative; width: 80px; height: 112px; margin-bottom: -4px; }
 .paywallLogo { width: 200px; height: 44px; margin-bottom: 2px; }
