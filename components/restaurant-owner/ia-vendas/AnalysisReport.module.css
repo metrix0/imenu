@@ -119,7 +119,7 @@
 .reviewEntry h3 { font-size: 15px; }
 .comparison { min-width: 0; padding: 32px 0 24px; }
 .review + .comparison { border-top: 1px solid var(--panel-border); }
-.comparison h3 { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.comparison h3 { display: flex; align-items: center; gap: 8px; font-size: 22px; }
 .comparison h3 > svg { color: var(--panel-muted); }
 .comparisonNote { max-width: 850px; margin-top: 8px; color: var(--panel-muted); font-size: 12px; line-height: 1.7; }
 .comparisonMetrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; margin-top: 24px; }
@@ -181,7 +181,7 @@
 
 .reportLocked { position: relative; padding-bottom: 0; }
 .paperLocked { position: relative; height: calc(var(--locked-cutoff, 75%) + 320px); overflow: hidden; }
-.structuredContent { position: relative; }
+.structuredContent { position: relative; display: grid; gap: 24px; }
 .preview { position: relative; min-height: 0; }
 .previewContent {
   -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 66%, rgb(0 0 0 / .72) 76%, rgb(0 0 0 / .24) 91%, transparent 100%);
