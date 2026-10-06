@@ -2,7 +2,6 @@
 
 import { ArrowUpRight } from "lucide-react";
 import {
-  faArrowTrendUp,
   faBox,
   faChair,
   faChartLine,
@@ -16,6 +15,7 @@ import {
   faPrint,
   faPuzzlePiece,
   faRobot,
+  faRocket,
   faStore,
   faTruck,
   faUtensils,
@@ -36,7 +36,7 @@ const PANEL_TAB_ICONS: Record<PanelTabKey, IconDefinition> = {
   repasses: faMoneyBillWave,
   analytics: faChartLine,
   loja: faStore,
-  "vendas-ia": faArrowTrendUp,
+  "vendas-ia": faRocket,
   promocoes: faPercent,
   horarios: faClock,
   "taxa-e-tempo": faTruck,

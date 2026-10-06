@@ -108,7 +108,7 @@
 .operationRows { display: grid; gap: 14px; }
 .operationRows > div { padding-block: 0; }
 .operationRows > div > p { color: var(--panel-text); font-size: 13px; line-height: 1.6; }
-.secondary { display: grid; gap: 0; padding: 0; }
+.secondary { display: grid; gap: 24px; padding: 0; }
 .review { padding: 24px; border: 1px solid var(--panel-border); border-radius: 10px; background: var(--panel-surface); }
 .reviewSummary { display: flex; align-items: center; gap: 12px; }
 .reviewSummary > svg { color: var(--panel-muted); flex-shrink: 0; }
@@ -117,11 +117,11 @@
 .reviewEntries { display: grid; gap: 24px; margin-top: 24px; }
 .reviewEntry { display: grid; gap: 18px; padding-top: 20px; border-top: 1px solid var(--panel-border); }
 .reviewEntry h3 { font-size: 15px; }
-.comparison { min-width: 0; padding: 32px 0 24px; }
+.comparison { min-width: 0; padding: 0; }
 .review + .comparison { border-top: 1px solid var(--panel-border); }
-.comparison h3 { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.comparison h3 { display: flex; align-items: center; gap: 8px; font-size: 22px; }
 .comparison h3 > svg { color: var(--panel-muted); }
-.comparisonNote { max-width: 850px; margin-top: 8px; color: var(--panel-muted); font-size: 12px; line-height: 1.7; }
+.comparisonNote { max-width: 850px; margin-top: 8px; color: var(--panel-muted); font-size: 14px; line-height: 1.7; }
 .comparisonMetrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; margin-top: 24px; }
 .comparisonMetrics dt { margin-bottom: 7px; color: var(--panel-muted); font-size: 12px; }
 .comparisonMetrics dd { display: flex; flex-direction: column; align-items: flex-start; gap: 7px; font-size: 24px; font-weight: 500; font-variant-numeric: tabular-nums; }
@@ -155,7 +155,7 @@
 }
 @media (max-width: 600px) {
     .historySelect { width: 150px; }
-    .paperLocked { height: calc(var(--locked-cutoff, 75%) + 350px); }
+    .paperLocked { height: calc(var(--locked-cutoff, 75%) + 550px); }
     .noAnalysisState { gap: 18px; padding: 32px 18px; }
     .analysisSteps { grid-template-columns: 1fr; }
     .upgradeState { grid-template-columns: 1fr; }
@@ -180,15 +180,15 @@
 }
 
 .reportLocked { position: relative; padding-bottom: 0; }
-.paperLocked { position: relative; height: calc(var(--locked-cutoff, 75%) + 320px); overflow: hidden; }
-.structuredContent { position: relative; }
+.paperLocked { position: relative; width: calc(100% + 56px); height: calc(var(--locked-cutoff, 75%) + 520px); margin-inline: -28px; padding-inline: 28px; box-sizing: border-box; overflow: hidden; }
+.structuredContent { position: relative; display: grid; gap: 24px; }
 .preview { position: relative; min-height: 0; }
 .previewContent {
   -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 66%, rgb(0 0 0 / .72) 76%, rgb(0 0 0 / .24) 91%, transparent 100%);
   mask-image: linear-gradient(to bottom, #000 0%, #000 66%, rgb(0 0 0 / .72) 76%, rgb(0 0 0 / .24) 91%, transparent 100%);
 }
 .paywall { position: absolute; inset: auto 0 0; z-index: 2; min-height: 430px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 14px; padding: 120px 24px 56px; background: linear-gradient(to bottom, rgb(255 255 255 / 0), #fff 52%); text-align: center; }
-.structuredPaywall { inset: calc(var(--locked-cutoff, 75%) - 72px) 0 0; min-height: 0; justify-content: flex-start; padding: 96px 24px 24px; pointer-events: none; background: linear-gradient(to bottom, rgb(255 255 255 / 0) 0, rgb(255 255 255 / .58) 36px, #fff 72px, #fff 100%); }
+.structuredPaywall { inset: calc(var(--locked-cutoff, 75%) - 72px) 0 0; min-height: 0; justify-content: flex-start; padding: 220px 24px 64px; pointer-events: none; background: linear-gradient(to bottom, rgb(255 255 255 / 0) 0, rgb(255 255 255 / .18) 56px, rgb(255 255 255 / .5) 120px, rgb(255 255 255 / .82) 176px, #fff 220px, #fff 100%); }
 .paywallCard { display: flex; width: min(100%, 560px); flex-direction: column; align-items: center; gap: 12px; padding: 22px 26px 24px; border: 1px solid var(--panel-border); border-radius: 12px; background: var(--panel-surface); box-shadow: 0 10px 30px rgb(29 29 29 / .08); pointer-events: auto; }
 .paywallImage { position: relative; width: 80px; height: 112px; margin-bottom: -4px; }
 .paywallLogo { width: 200px; height: 44px; margin-bottom: 2px; }

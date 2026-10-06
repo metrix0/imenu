@@ -2,10 +2,10 @@
 
 import { useCallback } from "react";
 import {
-    faArrowTrendUp,
     faImage,
     faPrint,
     faQrcode,
+    faRocket,
     faUsers,
     faWandMagicSparkles,
 } from "@fortawesome/free-solid-svg-icons";
@@ -51,7 +51,7 @@ const IA_PLUS_BENEFITS = [
         text: "Geração de imagens para produtos, logo e banner",
     },
     {
-        icon: faArrowTrendUp,
+        icon: faRocket,
         text: "Acesso completo à Análise de vendas e às melhorias sugeridas",
     },
 ] as const;
