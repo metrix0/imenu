@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
-import { faArrowTrendUp, faWandMagicSparkles } from "@fortawesome/free-solid-svg-icons";
+import { faRocket, faWandMagicSparkles } from "@fortawesome/free-solid-svg-icons";
 import {
   ArrowRight,
   Check,
@@ -141,7 +141,7 @@ export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout
 
               <section className="overflow-hidden rounded-xl border border-orange-100 bg-white">
                 <div className="flex items-center gap-2 bg-brand/5 px-4 py-3 text-brand">
-                  <FontAwesomeIcon icon={faArrowTrendUp} className="text-[17px]" />
+                  <FontAwesomeIcon icon={faRocket} className="text-[17px]" />
                   <h3 className="text-sm font-semibold">Vendas IA</h3>
                 </div>
                 <div className="space-y-3 p-4 text-sm leading-5 text-gray-600">

@@ -7,7 +7,6 @@ import { useParams, usePathname, useRouter } from "next/navigation";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import {
-    faArrowTrendUp,
     faBars,
     faBox,
     faChair,
@@ -25,6 +24,7 @@ import {
     faPrint,
     faPuzzlePiece,
     faRobot,
+    faRocket,
     faStore,
     faTimes,
     faTruck,
@@ -400,7 +400,7 @@ export default function PainelLayout({
         },
         { type: "divider" },
         { label: "Loja", icon: faStore, href: `${base}/loja` },
-        { label: "Vendas IA", icon: faArrowTrendUp, href: `${base}/vendas-ia` },
+        { label: "Vendas IA", icon: faRocket, href: `${base}/vendas-ia` },
         { label: "Promoções", icon: faPercent, href: `${base}/promocoes` },
         { label: "Horários", icon: faClock, href: `${base}/disponibilidade` },
         { label: "Taxa e Tempo", icon: faTruck, href: `${base}/tempo-e-taxa` },
