@@ -21,12 +21,34 @@ type Candidate = {
     latest_report_status: string | null;
 };
 
-function isAuthorized(request: Request): boolean {
+async function isAuthorized(request: Request): Promise<boolean> {
+    const authorization = request.headers.get("authorization");
     const secret = process.env.CRON_SECRET?.trim();
-    return Boolean(
-        secret &&
-            request.headers.get("authorization") === `Bearer ${secret}`
-    );
+
+    if (secret && authorization === `Bearer ${secret}`) {
+        return true;
+    }
+
+    const token = authorization?.startsWith("Bearer ")
+        ? authorization.slice(7)
+        : "";
+
+    if (!token) {
+        return false;
+    }
+
+    try {
+        return Boolean(
+            (
+                await query(
+                    "SELECT 1 FROM vault.decrypted_secrets WHERE name = 'ia_plus_analysis_watch_token' AND decrypted_secret = $1 LIMIT 1",
+                    [token]
+                )
+            ).rowCount
+        );
+    } catch {
+        return false;
+    }
 }
 
 function formatDate(value: string | Date): string {
@@ -66,7 +88,7 @@ function buildMessage(row: Candidate, delayHours: number): string {
 }
 
 export async function GET(request: Request) {
-    if (!isAuthorized(request)) {
+    if (!(await isAuthorized(request))) {
         return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
     }
 
