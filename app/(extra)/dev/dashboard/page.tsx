@@ -108,6 +108,7 @@ type DashboardPayload = {
     tracking: {
         postHogAvailable: boolean;
         blogViews: number | null;
+        totalPageViews: number | null;
     };
     panelTabs: {
         available: boolean;
@@ -233,6 +234,13 @@ const PAYMENT_COLORS = [
 
 function formatCount(value: number): string {
     return value.toLocaleString("pt-BR");
+}
+
+function formatAverage(value: number): string {
+    return value.toLocaleString("pt-BR", {
+        minimumFractionDigits: value % 1 === 0 ? 0 : 1,
+        maximumFractionDigits: 1,
+    });
 }
 
 function formatCurrencyFromCents(value: number): string {
@@ -937,6 +945,56 @@ export default function DevDashboardPage() {
                                 description="Cada conta é identificada pelo usuário proprietário do restaurante."
                             />
                             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                                {(() => {
+                                    const periodDays = Math.max(
+                                        1,
+                                        Math.ceil(
+                                            (new Date(data.range.endAt).getTime() -
+                                                new Date(data.range.startAt).getTime()) /
+                                                (24 * 60 * 60 * 1000)
+                                        )
+                                    );
+                                    return (
+                                        <>
+                                            <MetricCard
+                                                title="Usuários ativados / dia"
+                                                value={formatAverage(
+                                                    data.cards.activatedUsers / periodDays
+                                                )}
+                                                description={`${formatCount(
+                                                    data.cards.activatedUsers
+                                                )} ativados ÷ ${formatCount(periodDays)} dias do período.`}
+                                            />
+                                            <MetricCard
+                                                title="Page views / dia"
+                                                value={
+                                                    data.tracking.totalPageViews === null
+                                                        ? "—"
+                                                        : formatAverage(
+                                                              data.tracking.totalPageViews /
+                                                                  periodDays
+                                                          )
+                                                }
+                                                description={
+                                                    data.tracking.totalPageViews === null
+                                                        ? "PostHog indisponível."
+                                                        : `${formatCount(
+                                                              data.tracking.totalPageViews
+                                                          )} page views ÷ ${formatCount(
+                                                              periodDays
+                                                          )} dias do período.`
+                                                }
+                                            />
+                                            <MetricCard
+                                                title="Assinaturas IA Plus"
+                                                value={formatCount(
+                                                    data.productOverview.ia_plus.buyers
+                                                )}
+                                                description="Primeiras compras pagas e confirmadas no período selecionado."
+                                            />
+                                        </>
+                                    );
+                                })()}
                                 <MetricCard
                                     title="Usuários ativados"
                                     value={formatCount(data.cards.activatedUsers)}

@@ -79,6 +79,7 @@ type PostHogMetrics = {
     registerClicks: number | null;
     beforeStartViews: number | null;
     blogViews: number | null;
+    totalPageViews: number | null;
 };
 
 type PanelTabUsage = {
@@ -466,6 +467,7 @@ async function loadPostHogMetrics(
             registerClicks: null,
             beforeStartViews: null,
             blogViews: null,
+            totalPageViews: null,
         };
     }
 
@@ -501,6 +503,7 @@ async function loadPostHogMetrics(
                     OR startsWith(toString(properties.$pathname), '/blog/')
                 )
             ) AS blog_views,
+            countIf(event = '$pageview') AS total_pageviews,
             countIf(event = '$pageview' AND properties.$pathname = '/') AS landing_pageviews,
             countIf(event = '$pageview' AND properties.$pathname IN (
                 '/painel/vendas-ia', '/painel/assistente-ia',
@@ -551,10 +554,11 @@ async function loadPostHogMetrics(
             registerClicks: Number(row[1]) || 0,
             beforeStartViews: Number(row[2]) || 0,
             blogViews: Number(row[3]) || 0,
+            totalPageViews: Number(row[4]) || 0,
             productPageViews: {
-                imenu: Number(row[4]) || 0,
-                ia_plus: Number(row[5]) || 0,
-                qr_code_mesa: Number(row[6]) || 0,
+                imenu: Number(row[5]) || 0,
+                ia_plus: Number(row[6]) || 0,
+                qr_code_mesa: Number(row[7]) || 0,
             },
         };
     } catch (error) {
@@ -566,6 +570,7 @@ async function loadPostHogMetrics(
             registerClicks: null,
             beforeStartViews: null,
             blogViews: null,
+            totalPageViews: null,
         };
     }
 }
@@ -1433,6 +1438,7 @@ export async function GET(request: Request) {
                 tracking: {
                     postHogAvailable: postHog.available,
                     blogViews: postHog.blogViews,
+                    totalPageViews: postHog.totalPageViews,
                 },
                 panelTabs: panelTabUsage,
                 traffic: seoTraffic,
