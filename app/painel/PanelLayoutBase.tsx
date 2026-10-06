@@ -509,7 +509,7 @@ export default function PainelLayout({
                 isLoading={isTogglingStore}
             />
 
-            <div className={`bg-gray-50 md:flex ${pathname?.startsWith("/painel/assistente-ia") ? "h-dvh min-h-0 overflow-hidden md:h-auto md:min-h-screen md:overflow-visible" : "min-h-screen"}`}>
+            <div className="min-h-screen bg-gray-50 md:flex">
                 <SupportButton
                     ref={supportButtonRef}
                     showFloating={!pathname?.startsWith("/painel/ia-vendas")}
