@@ -14,6 +14,10 @@ import {
   MessageSquare,
   ArrowUpRight,
   Lock,
+  Utensils,
+  ImageIcon,
+  BadgePercent,
+  FileText,
 } from "lucide-react";
 import IaPlusSalesModal, { IaPlusLimitMessage } from "@/components/restaurant-owner/ia-vendas/IaPlusSalesModal";
 import Button from "@/components/ui/Button";
@@ -949,34 +953,72 @@ export default function SalesPage() {
               </div>
             )}
             {modeReady && !isAnalysis && !threadMessages.length && !sales.loading && (
-              <div className="mx-auto flex max-w-lg flex-col items-center py-10 text-center">
-                <div className="mb-5 rounded-[10px] bg-[var(--panel-tint)] p-4 text-[var(--panel-accent-text)]">
-                  <Sparkles size={32} />
-                </div>
-                <h2 className="text-xl font-semibold">
-                  O próximo passo para vender mais
+              <div className="mx-auto flex max-w-3xl flex-col items-center py-4 text-center sm:py-6">
+                <Image
+                  src="/images/ia-assistant-mascot.webp"
+                  alt=""
+                  width={256}
+                  height={256}
+                  priority
+                  className="h-20 w-20 object-contain sm:h-24 sm:w-24"
+                />
+                <h2 className="mt-1 text-xl font-semibold text-gray-950">
+                  Seu assistente para melhorar o iMenu
                 </h2>
-                <p className="mt-3 text-sm leading-6 text-gray-500">
-                  Encontre oportunidades nos seus pedidos, melhore seu cardápio
-                  e aprove as mudanças com um clique.
+                <p className="mt-2 max-w-2xl text-sm leading-5 text-gray-500 sm:leading-6">
+                  Me dê instruções para modificar seu cardápio, ajustar configurações
+                  do iMenu, melhorar imagens dos produtos e muito mais.
                 </p>
-                <div className="mt-6 grid w-full gap-2 sm:grid-cols-2">
+                <p className="mt-4 w-full text-left text-sm font-semibold text-gray-900">
+                  O que posso fazer por você
+                </p>
+                <div className="mt-2 grid w-full gap-2 text-left sm:grid-cols-2">
                   {[
-                    "Melhorar descrições",
-                    "Criar uma imagem realista",
-                    "Revisar preços e promoções",
-                    "Configurar upsells",
-                  ].map((label) => (
-                    <Button
-                      key={label}
-                      variant="secondary"
-                      onClick={() => {
-                        setText(label);
-                        input.current?.focus();
-                      }}
+                    {
+                      title: "Cardápio e configurações",
+                      prompt: "Organize meu cardápio",
+                      icon: Utensils,
+                    },
+                    {
+                      title: "Imagens dos produtos",
+                      prompt: "Melhore as imagens dos meus produtos",
+                      icon: ImageIcon,
+                    },
+                    {
+                      title: "Preços, promoções e upsells",
+                      prompt: "Revise meus preços e promoções",
+                      icon: BadgePercent,
+                    },
+                    {
+                      title: "Descrições e organização",
+                      prompt: "Melhore as descrições dos meus produtos",
+                      icon: FileText,
+                    },
+                  ].map(({ title, prompt, icon: Icon }) => (
+                    <div
+                      key={title}
+                      className="rounded-[10px] border border-[var(--panel-border)] bg-white p-3"
                     >
-                      {label}
-                    </Button>
+                      <div className="flex items-center gap-2.5">
+                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] bg-[var(--panel-tint)] text-[var(--panel-accent-text)]">
+                          <Icon size={17} aria-hidden="true" />
+                        </span>
+                        <h3 className="text-sm font-semibold text-gray-900">
+                          {title}
+                        </h3>
+                      </div>
+                      <button
+                        type="button"
+                        className="mt-2 flex min-h-9 w-full cursor-pointer items-center justify-between gap-2 rounded-[8px] bg-gray-50 px-3 py-2 text-left text-xs font-medium text-gray-600 transition-colors hover:bg-[var(--panel-tint)] hover:text-[var(--panel-accent-text)] focus-visible:outline-2 focus-visible:outline-[#626973] focus-visible:outline-offset-[2px]"
+                        onClick={() => {
+                          setText(prompt);
+                          input.current?.focus();
+                        }}
+                      >
+                        <span>{prompt}</span>
+                        <ArrowUpRight size={13} className="shrink-0" aria-hidden="true" />
+                      </button>
+                    </div>
                   ))}
                 </div>
               </div>

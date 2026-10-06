@@ -1,4 +1,5 @@
 import { DIMENSIONS, makeReport } from "../report";
+import { PRODUCT_DIMENSIONS } from "../products";
 const ctx = {
   coverage: { items: { loaded: 97, total: 97, complete: true } },
   sales: { start: "start", end: "end" },
@@ -112,4 +113,45 @@ test("rejects unstructured or invalid priority values", () => {
   const invalid = value();
   invalid.opportunities[0].confidence = "invented";
   expect(() => makeReport(ctx, [], [], "run", invalid)).toThrow("formato");
+});
+
+const productContext = {
+  ...ctx,
+  product_review: { targets: [
+    { item_id: "first", name: "Primeiro", image_status: "loaded" },
+    { item_id: "second", name: "Segundo", image_status: "missing" },
+  ] },
+};
+const productValue = () => ({
+  ...value(),
+  product_reviews: productContext.product_review.targets.map((item) => ({
+    item_id: item.item_id,
+    ...Object.fromEntries(PRODUCT_DIMENSIONS.map((dimension) => [dimension, { status: "keep", note: "Apresentação adequada." }])),
+    action_ids: ["own", "foreign"],
+  })),
+});
+
+test("product reviews preserve all five assessments, tenant links and honest photo evidence", () => {
+  const report = makeReport(productContext, [], [{ id: "own", run_id: "run" }], "run", productValue());
+  expect(report.coverage.product_reviews).toEqual({ expected: 2, assessed: 2, complete: true });
+  expect(report.product_reviews[0]).toMatchObject({ item_name: "Primeiro", name: { status: "keep" }, image: { status: "keep" }, action_ids: ["own"] });
+  expect(report.product_reviews[1].image.status).toBe("needs_confirmation");
+  const unseen = { ...productContext, product_review: { targets: productContext.product_review.targets.map((p) => ({ ...p, image_status: "not_reviewed" })) } };
+  expect(makeReport(unseen, [], [], "run", productValue()).product_reviews[0].image).toMatchObject({ status: "unavailable" });
+});
+
+test.each(["missing", "duplicate", "foreign", "empty note"])("an incomplete product review cannot be marked complete: %s", (problem) => {
+  const raw: any = productValue();
+  if (problem === "missing") raw.product_reviews.pop();
+  if (problem === "duplicate") raw.product_reviews[1].item_id = "first";
+  if (problem === "foreign") raw.product_reviews[1].item_id = "outside";
+  if (problem === "empty note") raw.product_reviews[0].pricing.note = " ";
+  expect(() => makeReport(productContext, [], [], "run", raw)).toThrow();
+});
+
+test("interrupted product review preserves prepared proposals and reports missing coverage", () => {
+  const report = makeReport(productContext, [], [{ id: "saved", run_id: "run", title: "Descrições", reason: "Receita confirmada" }], "run");
+  expect(report.status).toBe("partial");
+  expect(report.coverage.product_reviews).toEqual({ expected: 2, assessed: 0, complete: false });
+  expect(report.review_items[0].action_ids).toEqual(["saved"]);
 });

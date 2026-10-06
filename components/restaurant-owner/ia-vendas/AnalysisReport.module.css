@@ -55,11 +55,11 @@
 .disclosure[open]::details-content { block-size: auto; opacity: 1; }
 .calculation { max-width: 660px; margin-top: 12px; padding-left: 12px; border-left: 2px solid var(--panel-border); }
 .calculation ul { display: grid; gap: 8px; margin-bottom: 8px; }
-.summary { display: grid; gap: 8px; padding: 0; }
+.summary { display: grid; gap: 8px; margin-block: 8px; padding: 0; }
 .eyebrow { display: flex; align-items: center; gap: 7px; color: var(--panel-muted); font-size: 12px; font-weight: 500; }
 .summary .eyebrow { color: var(--panel-text); font-size: 18px; }
 .summaryCopy { max-width: 1000px; color: var(--panel-muted); font-size: 14px; line-height: 1.7; }
-.opportunitiesCard { margin-bottom: 24px; padding: 24px; border: 1px solid var(--panel-border); border-radius: 10px; background: var(--panel-surface); }
+.opportunitiesCard { padding: 24px; border: 1px solid var(--panel-border); border-radius: 10px; background: var(--panel-surface); }
 .sectionHeader { display: flex; align-items: center; gap: 10px; padding: 0; }
 .sectionHeader h2 { font-size: 22px; }
 .count { display: inline-grid; min-width: 28px; height: 28px; padding-inline: 7px; place-items: center; border-radius: 7px; background: color-mix(in srgb, var(--color-green) 10%, transparent); color: var(--color-green); font-size: 14px; font-weight: 500; }
@@ -117,7 +117,7 @@
 .reviewEntries { display: grid; gap: 24px; margin-top: 24px; }
 .reviewEntry { display: grid; gap: 18px; padding-top: 20px; border-top: 1px solid var(--panel-border); }
 .reviewEntry h3 { font-size: 15px; }
-.comparison { min-width: 0; padding: 0; }
+.comparison { min-width: 0; margin-block: 8px; padding: 0; }
 .review + .comparison { border-top: 1px solid var(--panel-border); }
 .comparison h3 { display: flex; align-items: center; gap: 8px; font-size: 22px; }
 .comparison h3 > svg { color: var(--panel-muted); }
@@ -155,7 +155,7 @@
 }
 @media (max-width: 600px) {
     .historySelect { width: 150px; }
-    .paperLocked { height: calc(var(--locked-cutoff, 75%) + 550px); }
+    .paperLocked { height: calc(var(--locked-cutoff, 75%) + 750px); }
     .noAnalysisState { gap: 18px; padding: 32px 18px; }
     .analysisSteps { grid-template-columns: 1fr; }
     .upgradeState { grid-template-columns: 1fr; }
@@ -180,7 +180,7 @@
 }
 
 .reportLocked { position: relative; padding-bottom: 0; }
-.paperLocked { position: relative; width: calc(100% + 56px); height: calc(var(--locked-cutoff, 75%) + 520px); margin-inline: -28px; padding-inline: 28px; box-sizing: border-box; overflow: hidden; }
+.paperLocked { position: relative; width: calc(100% + 56px); height: calc(var(--locked-cutoff, 75%) + 720px); margin-inline: -28px; padding-inline: 28px; box-sizing: border-box; overflow: hidden; }
 .structuredContent { position: relative; display: grid; gap: 24px; }
 .preview { position: relative; min-height: 0; }
 .previewContent {
@@ -188,7 +188,7 @@
   mask-image: linear-gradient(to bottom, #000 0%, #000 66%, rgb(0 0 0 / .72) 76%, rgb(0 0 0 / .24) 91%, transparent 100%);
 }
 .paywall { position: absolute; inset: auto 0 0; z-index: 2; min-height: 430px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 14px; padding: 120px 24px 56px; background: linear-gradient(to bottom, rgb(255 255 255 / 0), #fff 52%); text-align: center; }
-.structuredPaywall { inset: calc(var(--locked-cutoff, 75%) - 72px) 0 0; min-height: 0; justify-content: flex-start; padding: 220px 24px 64px; pointer-events: none; background: linear-gradient(to bottom, rgb(255 255 255 / 0) 0, rgb(255 255 255 / .18) 56px, rgb(255 255 255 / .5) 120px, rgb(255 255 255 / .82) 176px, #fff 220px, #fff 100%); }
+.structuredPaywall { inset: calc(var(--locked-cutoff, 75%) - 72px) 0 0; min-height: 0; justify-content: flex-start; padding: 220px 24px 64px; pointer-events: none; background: linear-gradient(to bottom, rgb(255 255 255 / 0) 0, rgb(255 255 255 / .3) 72px, rgb(255 255 255 / .58) 150px, rgb(255 255 255 / .82) 230px, #fff 310px, #fff 100%); }
 .paywallCard { display: flex; width: min(100%, 560px); flex-direction: column; align-items: center; gap: 12px; padding: 22px 26px 24px; border: 1px solid var(--panel-border); border-radius: 12px; background: var(--panel-surface); box-shadow: 0 10px 30px rgb(29 29 29 / .08); pointer-events: auto; }
 .paywallImage { position: relative; width: 80px; height: 112px; margin-bottom: -4px; }
 .paywallLogo { width: 200px; height: 44px; margin-bottom: 2px; }

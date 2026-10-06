@@ -2,6 +2,7 @@ import OpenAI from "openai";
 import { query } from "@/lib/database/sql";
 import { metrics, window28 } from "./data";
 import { SalesError, type Data } from "./types";
+import { isSellableItem } from "./products";
 export function cosine(a: number[], b: number[]) {
   const aa = Math.sqrt(a.reduce((s, x) => s + x * x, 0)),
     bb = Math.sqrt(b.reduce((s, x) => s + x * x, 0));
@@ -113,7 +114,7 @@ export async function benchmark(restaurant: string, ai: OpenAI) {
       })),
   };
 }
-export function potential(sales: Data, input: Data) {
+export function potential(sales: Data, input: Data, items?: Data[]) {
   const days = input.days === undefined ? 28 : Number(input.days);
   if (sales.orders < 30)
     return {
@@ -180,6 +181,28 @@ export function potential(sales: Data, input: Data) {
   const groups = new Map<string, { min: number; max: number }>(),
     breakdown: Data[] = [];
 
+  const observed = new Map<string, Data>((sales.products || []).map((p: Data) => [p.item_id, p]));
+  const menu = items ? new Map(items.map((item) => [item.id, item])) : null;
+  const owner = new Map<string, { index: number; high: number }>();
+  const productSets = input.opportunities.map((opportunity: Data, index: number) => {
+    if (opportunity.item_ids === undefined) return null;
+    if (!profiles[opportunity.kind] || profiles[opportunity.kind].basis !== "revenue" ||
+        !Array.isArray(opportunity.item_ids) || !opportunity.item_ids.length || opportunity.item_ids.length > 100)
+      throw new SalesError("Informe os produtos observados para melhorias de apresentação ou combos.");
+    const ids = [...new Set<string>(opportunity.item_ids)];
+    for (const id of ids) {
+      const product = observed.get(id), item = menu?.get(id);
+      if (typeof id !== "string" || !product || !Number.isFinite(Number(product.gross_cents)) ||
+          Number(product.gross_cents) < 0 || (menu && (!item || !isSellableItem(item))))
+        throw new SalesError("Use somente produtos disponíveis com vendas observadas no período.");
+      // A product gets one presentation lift, even across different labels/groups.
+      // Combo visibility retains its existing profile instead of adding another clarity lift.
+      const current = owner.get(id), high = profiles[opportunity.kind].high;
+      if (!current || high > current.high) owner.set(id, { index, high });
+    }
+    return ids;
+  });
+
   for (const [index, raw] of input.opportunities.entries()) {
     const opportunity = raw as Data,
       label = String(opportunity.label || `Oportunidade ${index + 1}`).slice(
@@ -216,7 +239,11 @@ export function potential(sales: Data, input: Data) {
       max = eligibleOrders * profile.high * extraCents * scale;
       basis = `${eligibleOrders} pedidos em que a mudança pode ajudar, com ${(profile.low * 100).toFixed(0)}%–${(profile.high * 100).toFixed(0)}% deles acrescentando ${(extraCents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} por pedido.`;
     } else {
-      const eligibleRevenue = Number(opportunity.eligible_revenue_cents);
+      const ids = productSets[index];
+      const counted = ids?.filter((id: string) => owner.get(id)?.index === index);
+      const eligibleRevenue = counted
+        ? counted.reduce((sum: number, id: string) => sum + Number(observed.get(id)!.gross_cents), 0)
+        : Number(opportunity.eligible_revenue_cents);
       if (
         !Number.isFinite(eligibleRevenue) ||
         eligibleRevenue < 0 ||
@@ -228,6 +255,8 @@ export function potential(sales: Data, input: Data) {
       min = eligibleRevenue * profile.low * scale;
       max = eligibleRevenue * profile.high * scale;
       basis = `${(eligibleRevenue / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} em vendas dos produtos envolvidos, supondo ${(profile.low * 100).toFixed(0)}%–${(profile.high * 100).toFixed(0)}% de melhora.`;
+      if (ids?.length && !counted?.length)
+        basis = "Os produtos desta mudança já foram considerados em outra melhoria; seu ganho não foi somado novamente.";
     }
 
     breakdown.push({

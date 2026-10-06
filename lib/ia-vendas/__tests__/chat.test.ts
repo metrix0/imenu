@@ -7,6 +7,9 @@ import {
 } from "../access";
 jest.mock("../access", () => ({ ...jest.requireActual("../access"), aiAccess: jest.fn().mockResolvedValue({ plus: true }), requireIaPlus: jest.fn() }));
 import { DIMENSIONS } from "../report";
+import { PRODUCT_DIMENSIONS } from "../products";
+import { potential } from "../peers";
+import { LIMITS } from "../config";
 import { query, withTransaction } from "@/lib/database/sql";
 import { context, measure } from "../data";
 import { beginRun, recordTokens, finishRun } from "../runs";
@@ -66,6 +69,29 @@ const result = () => ({
   opportunities: [],
   review_items: [],
 });
+const namedContext = () => {
+  const items = [
+    { id: "first", name: "Caseiro", description: "Carne 180g. " + "Receita confirmada. ".repeat(30), price_cents: 2500, category_id: "cat", position: 5 },
+    { id: "second", name: "Segundo", description: "Carne 360g", price_cents: 1599, category_id: "cat", position: 0 },
+  ];
+  return {
+    restaurant: { url_slug: "menu" }, items: { rows: items },
+    entities: { items: { rows: items }, categories: { rows: [{ id: "cat", name: "Caseiros" }] } },
+    coverage: {}, actions: [],
+    sales: { start: "2026-09-01", end: "2026-09-29", days: 28, orders: 200, revenue_cents: 600000, ticket_cents: 3000, products: [
+      { item_id: "first", gross_cents: 500000, units: 200 },
+      { item_id: "second", gross_cents: 100000, units: 30 },
+    ] },
+  };
+};
+const namedResult = () => ({
+  ...result(),
+  product_reviews: ["first", "second"].map((item_id) => ({
+    item_id,
+    ...Object.fromEntries(PRODUCT_DIMENSIONS.map((dimension) => [dimension, { status: "keep", note: "Dados conferidos." }])),
+    action_ids: item_id === "first" ? ["proposal"] : [],
+  })),
+});
 test.each([
   "o que acha do meu cardápio?",
   "meu cardápio está bom?",
@@ -86,6 +112,7 @@ test.each([
 });
 
 beforeEach(() => {
+  (potential as jest.Mock).mockReset().mockImplementation(jest.requireActual("../peers").potential);
   (analysisPhotos as jest.Mock).mockReset().mockResolvedValue([]);
   create.mockReset();
   (batchResponse as jest.Mock).mockReset();
@@ -134,6 +161,56 @@ beforeEach(() => {
   });
   (propose as jest.Mock).mockResolvedValue({ id: "proposal", operations: [] });
 });
+test.each([true, false])("every leading product is required through immediate and queued analysis (immediate=%s)", async (immediate) => {
+  (context as jest.Mock).mockResolvedValue(namedContext());
+  const research = (id: string) => ({ status: "completed", output: [{ type: "function_call", name: "measure_actions", arguments: "{}", call_id: id }], usage: { input_tokens: 1000, output_tokens: 100 } });
+  const final = { status: "completed", output: [], output_text: JSON.stringify(namedResult()), usage: { input_tokens: 1000, output_tokens: 1000 } };
+  if (immediate) create.mockResolvedValueOnce(research("r1")).mockResolvedValueOnce(research("r2")).mockResolvedValueOnce(final);
+  else (batchResponse as jest.Mock).mockRejectedValueOnce(new BatchPending());
+  await runChat({ ...args, immediate });
+  const request = immediate ? create.mock.calls[0][0] : (batchResponse as jest.Mock).mock.calls[0][3];
+  expect(request.text.format.schema.required).toContain("product_reviews");
+  expect(request.text.format.schema.properties.product_reviews.items.properties.item_id.enum).toEqual(["first", "second"]);
+  expect(request.input[0].content).toContain(namedContext().items.rows[0].description);
+  expect(request.input[0].content).toContain('"candidate_cents":2499');
+  if (!immediate) {
+    let checkpoint = structuredClone((batchResponse as jest.Mock).mock.calls.at(-1)[4]);
+    expect(checkpoint.ctx.product_review.targets.map((t: any) => t.item_id)).toEqual(["first", "second"]);
+    for (const response of [research("r1"), research("r2")]) {
+      (batchResponse as jest.Mock).mockResolvedValueOnce(response).mockRejectedValueOnce(new BatchPending());
+      await runChat({ ...args, immediate, resume: checkpoint });
+      checkpoint = structuredClone((batchResponse as jest.Mock).mock.calls.at(-1)[4]);
+    }
+    (batchResponse as jest.Mock).mockResolvedValueOnce(final);
+    await runChat({ ...args, immediate, resume: checkpoint });
+    expect(context).toHaveBeenCalledTimes(1);
+  }
+  const report = (finishRun as jest.Mock).mock.calls.at(-1)[2].report;
+  expect(report.coverage.product_reviews).toEqual({ expected: 2, assessed: 2, complete: true });
+  expect(report.product_reviews[0].name).toMatchObject({ status: "keep" });
+});
+
+test("failed product projection can be corrected after a real proposal without consuming the joint estimate", async () => {
+  (context as jest.Mock).mockResolvedValue(namedContext());
+  const originalQuery = (query as jest.Mock).getMockImplementation()!;
+  const operations = [{ entity: "items", kind: "update", id: "first", before: { description: "Carne" }, values: { description: "Carne 180g" } }];
+  (query as jest.Mock).mockImplementation((sql: string, ...params: any[]) => sql.includes("SELECT operations,image_jobs") ? Promise.resolve({ rows: [{ operations }] }) : originalQuery(sql, ...params));
+  (propose as jest.Mock).mockResolvedValue({ id: "proposal", operations });
+  const call = (name: string, params: any, call_id: string) => ({ type: "function_call", name, arguments: JSON.stringify(params), call_id });
+  const first = call("estimate_revenue", { opportunities: [{ kind: "menu_clarity", eligible_revenue_cents: 599999 }] }, "invalid");
+  const corrected = call("estimate_revenue", { opportunities: [{ kind: "menu_clarity", item_ids: ["first"], eligible_revenue_cents: 599999 }] }, "valid");
+  create
+    .mockResolvedValueOnce({ status: "completed", output: [first], usage: { input_tokens: 1000, output_tokens: 100 } })
+    .mockResolvedValueOnce({ status: "completed", output: [call("propose_action", {}, "proposal-call"), corrected], usage: { input_tokens: 1000, output_tokens: 100 } })
+    .mockResolvedValueOnce({ status: "completed", output: [], output_text: JSON.stringify(namedResult()), usage: { input_tokens: 1000, output_tokens: 1000 } });
+  await runChat(args);
+  expect(potential).toHaveBeenCalledTimes(1);
+  const report = (finishRun as jest.Mock).mock.calls.at(-1)[2].report;
+  expect(report.status).toBe("complete");
+  expect(report.potential_estimate).toMatchObject({ min_cents: 10000, max_cents: 25000 });
+  expect(create.mock.calls[1][0].input.find((i: any) => i.type === "function_call_output" && i.call_id === "invalid").output).toContain("quais produtos");
+});
+
 test("deep analyst requires research before final synthesis and persists only the final report", async () => {
   const toolRound = (callId: string, inputTokens: number) => ({
     status: "completed",
@@ -227,7 +304,7 @@ test("budget pressure fails instead of publishing an early second-round synthesi
           call_id: "call-2",
         },
       ],
-      usage: { input_tokens: 40000, output_tokens: 500 },
+      usage: { input_tokens: LIMITS.analysisInput - 45_000 - 5_000, output_tokens: 500 },
     });
   await runChat(args);
   expect(create).toHaveBeenCalledTimes(2);
@@ -298,7 +375,7 @@ test("deep analysis refuses another request once the whole-run input budget is e
       input: [{ role: "user", content: "Finalize" }],
       cards: [],
       userMessageId: "user",
-      inputTokens: 85_000,
+      inputTokens: LIMITS.analysisInput - 5_000,
       outputTokens: 0,
       example: false,
       estimated: false,
@@ -619,4 +696,3 @@ test("weekly image exhaustion stops only image generation and does not trigger t
   );
   expect(errorEvent?.code).toBeUndefined();
 });
-
