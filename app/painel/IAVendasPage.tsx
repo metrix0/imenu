@@ -902,7 +902,7 @@ export default function SalesPage() {
               </h2>
               {conversationPicker}
             </div>
-            <div className="flex shrink-0 gap-2">
+            <div className="ml-auto flex shrink-0 gap-2">
               <span className="hidden md:inline-flex lg:hidden">
                 <Button variant="secondary" onClick={() => setPlusModal("sales")}>iMenu IA Plus</Button>
               </span>
