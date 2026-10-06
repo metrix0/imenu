@@ -161,9 +161,17 @@ function renderBulkMessage(
         (_match, key: string, fallback = "") => {
             const value =
                 normalizedValues.get(normalizeBulkHeader(key)) || "";
-            return !value || value === "—" || value === "-"
-                ? fallback.trim()
-                : value;
+            if (value && value !== "—" && value !== "-") return value;
+
+            const fallbackValue = fallback.trim();
+            if (!fallbackValue) return "";
+
+            const quoted = fallbackValue.match(/^(["'])([\s\S]*)\1$/);
+            if (quoted) return quoted[2];
+
+            const variable =
+                normalizedValues.get(normalizeBulkHeader(fallbackValue)) || "";
+            return variable === "—" || variable === "-" ? "" : variable;
         }
     );
 }
@@ -1211,7 +1219,7 @@ export default function DevSupportPage() {
                                 className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-brand"
                             />
                             <p className="mt-1 text-xs text-gray-500">
-                                Use colunas da tabela como {"{{Restaurant Name}}"}. Fallback: {"{{Restaurant Name||pessoal}}"}.
+                                Use colunas da tabela como {"{{Restaurant Name}}"}. Fallback literal: {'{{Restaurant Name||"pessoal"}}'}. Sem aspas, o fallback é outra coluna.
                             </p>
                         </div>
                     </div>
