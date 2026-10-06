@@ -8,7 +8,7 @@ import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 
-const SHOWN_KEY = "imenu:pix-online-back-shown:v1";
+const SHOWN_KEY = "imenu:pix-online-back-shown:v2";
 const START_DATE = "2026-09-30";
 const END_DATE = "2026-10-04";
 

@@ -874,7 +874,7 @@ export default function MenuClientPage({
                                 <FontAwesomeIcon icon={faChair} />
                                 <span>Pedido direto da mesa</span>
                             </div>
-                        ) : (
+                        ) : (deliveryText() || taxText()) ? (
                             <div className="flex items-center gap-2 text-xs 2xl:text-[1rem] font-bold">
                                 <span>Entrega</span>
                                 {deliveryText() && (
@@ -890,7 +890,7 @@ export default function MenuClientPage({
                                     </>
                                 )}
                             </div>
-                        )}
+                        ) : null}
                         <div className={"hidden md:inline-block"}>
                             {!isTableOrder && (!promotionResult?.promotion || promotionResult.coupon_discount_cents > 0) && (coupon_code && coupon_type) && (
                                 <div className="px-2.5 py-1.5 rounded-lg bg-brand/10 text-brand text-xs 2xl:text-sm font-normal">
@@ -909,7 +909,9 @@ export default function MenuClientPage({
             </div>
             )}
 
-            {availabilityChecked && (!isRestaurantOpen || closedForToday) && (
+            {availabilityChecked && (!isRestaurantOpen || closedForToday) &&
+                (closedForToday || openingHoursSlots.length > 0 ||
+                    (warningOpening !== null && warningOpening.getTime() > Date.now())) && (
                 <WarningBox icon={icons.faTriangleExclamation} className="mt-10 mx-5 md:mx-48 2xl:mx-80">
                     {closedForToday && (
                         "Hoje o restaurante está fechado no horário comum de funcionamento, devido à possíveis feriados ou eventos especiais."

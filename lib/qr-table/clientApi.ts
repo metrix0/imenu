@@ -46,9 +46,9 @@ export async function startQrTableCheckout(
     restaurantId: string,
     source: QrTableSource,
     payment: PaymentCheckoutInput,
-    options: { renew?: boolean } = {}
+    options: { renew?: boolean; productKey?: "qr_code_mesa" | "ia_plus" } = {}
 ): Promise<QrTableCheckoutResult> {
-    const response = await qrTableAuthenticatedFetch("/api/qr-table/checkout", {
+    const response = await qrTableAuthenticatedFetch(options.productKey === "ia_plus" ? "/api/ia-plus/checkout" : "/api/qr-table/checkout", {
         method: "POST",
         body: JSON.stringify({
             restaurantId,
@@ -98,9 +98,9 @@ export type QrTableReconcileResult = {
 
 export async function reconcileQrTableCheckout(
     restaurantId?: string | null,
-    options: { renew?: boolean } = {}
+    options: { renew?: boolean; productKey?: "qr_code_mesa" | "ia_plus" } = {}
 ): Promise<QrTableReconcileResult> {
-    const response = await qrTableAuthenticatedFetch("/api/qr-table/reconcile", {
+    const response = await qrTableAuthenticatedFetch(options.productKey === "ia_plus" ? "/api/ia-plus/reconcile" : "/api/qr-table/reconcile", {
         method: "POST",
         body: JSON.stringify({
             ...(restaurantId ? { restaurantId } : {}),

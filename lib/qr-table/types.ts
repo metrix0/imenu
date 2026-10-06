@@ -14,6 +14,7 @@ export type QrTableMenuContext = {
 };
 
 export type QrTableAddon = {
+    product_key?: "qr_code_mesa" | "ia_plus";
     id: string;
     restaurant_id: string;
     status: string;

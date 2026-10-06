@@ -1,7 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
 import Image from "next/image";
+import { supabase } from "@/lib/database/supabaseClient";
+import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
+import ToggleOptionCard from "@/components/ui/ToggleOptionCard";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import {
     faDownload,
@@ -39,9 +42,88 @@ function formatUpdatedAt(value: string) {
 }
 
 export default function ImpressoraPage() {
+    const { restaurantId, setRestaurantId } = useCreationStore();
+    const [printerSettings, setPrinterSettings] = useState<{
+        restaurantId: string;
+        enabled: boolean;
+    } | null>(null);
+    const [saving, setSaving] = useState(false);
+    const savingRef = useRef(false);
+    const [settingsError, setSettingsError] = useState("");
     const [release, setRelease] = useState<PrinterRelease | null>(null);
     const [legacyRelease, setLegacyRelease] = useState<PrinterRelease>(LEGACY_PRINTER_RELEASE);
     const [useLegacyRelease, setUseLegacyRelease] = useState(false);
+
+    useEffect(() => {
+        let cancelled = false;
+        setPrinterSettings(null);
+        setSettingsError("");
+
+        const loadSettings = async () => {
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                if (!session) throw new Error("Sessão expirada. Entre novamente.");
+
+                let request = supabase
+                    .from("restaurants")
+                    .select("id, printer_enabled")
+                    .eq("user_id", session.user.id);
+                if (restaurantId) request = request.eq("id", restaurantId);
+                const { data, error } = await request.single();
+                if (error || !data) throw new Error("Não foi possível carregar a configuração da impressora.");
+                if (cancelled) return;
+                if (!restaurantId) setRestaurantId(data.id);
+                setPrinterSettings({ restaurantId: data.id, enabled: data.printer_enabled === true });
+            } catch (error) {
+                if (!cancelled) setSettingsError(error instanceof Error ? error.message : "Erro ao carregar a impressora.");
+            }
+        };
+
+        void loadSettings();
+        return () => { cancelled = true; };
+    }, [restaurantId, setRestaurantId]);
+
+    const settingsReady = printerSettings !== null && printerSettings.restaurantId === restaurantId;
+
+    const savePrinterEnabled = async (enabled: boolean) => {
+        if (!settingsReady || savingRef.current) return false;
+        if (printerSettings.enabled === enabled) return true;
+        const targetId = printerSettings.restaurantId;
+        savingRef.current = true;
+        setSaving(true);
+        setSettingsError("");
+        try {
+            const { data, error } = await supabase
+                .from("restaurants")
+                .update({ printer_enabled: enabled })
+                .eq("id", targetId)
+                .select("id, printer_enabled")
+                .single();
+            if (error || !data) throw new Error("Não foi possível salvar a configuração da impressora.");
+            setPrinterSettings((current) => current?.restaurantId === targetId
+                ? { restaurantId: data.id, enabled: data.printer_enabled === true }
+                : current);
+            return true;
+        } catch (error) {
+            setSettingsError(error instanceof Error ? error.message : "Erro ao salvar a impressora.");
+            return false;
+        } finally {
+            savingRef.current = false;
+            setSaving(false);
+        }
+    };
+
+    const downloadPrinter = async (event: MouseEvent<HTMLAnchorElement>) => {
+        event.preventDefault();
+        const downloadUrl = event.currentTarget.href;
+        if (!settingsReady || savingRef.current || !await savePrinterEnabled(true)) return;
+        const link = document.createElement("a");
+        link.href = downloadUrl;
+        link.download = "";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+    };
 
     useEffect(() => {
         setUseLegacyRelease(isLegacyWindows());
@@ -96,6 +178,16 @@ export default function ImpressoraPage() {
                     </div>
                 </div>
 
+                <ToggleOptionCard
+                    label="Impressão automática"
+                    checked={settingsReady && printerSettings.enabled}
+                    onChange={(enabled) => { void savePrinterEnabled(enabled); }}
+                    disabled={!settingsReady || saving}
+                    description="Ative para enviar os pedidos ao iMenu Impressora. Ao baixar o aplicativo, esta opção é ativada automaticamente."
+                    className="mb-6"
+                />
+                {settingsError && <p role="alert" className="mb-6 text-sm text-red-700">{settingsError}</p>}
+
                 {/* Main Card */}
                 <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
@@ -132,8 +224,10 @@ export default function ImpressoraPage() {
                                 data-ui="button" data-variant="primary"
                                 href={selectedRelease?.downloadUrl}
                                 download
+                                onClick={(event) => { void downloadPrinter(event); }}
+                                aria-disabled={!selectedRelease || !settingsReady || saving}
                                 className={`inline-flex w-full sm:w-fit items-center justify-center gap-2 bg-brand text-white px-6 py-3 rounded-xl font-semibold hover:bg-brand/90 transition ${
-                                    selectedRelease ? "" : "pointer-events-none"
+                                    selectedRelease && settingsReady && !saving ? "" : "pointer-events-none opacity-60"
                                 }`}
                             >
                                 <FontAwesomeIcon icon={faDownload} />
@@ -163,7 +257,9 @@ export default function ImpressoraPage() {
                                     <a
                                         href={legacyRelease.downloadUrl}
                                         download
-                                        className="w-fit font-medium text-brand hover:underline"
+                                        onClick={(event) => { void downloadPrinter(event); }}
+                                        aria-disabled={!settingsReady || saving}
+                                        className={`w-fit font-medium text-brand hover:underline ${settingsReady && !saving ? "" : "pointer-events-none opacity-60"}`}
                                     >
                                         Windows 7, 8 ou 8.1? Baixar versão compatível
                                     </a>

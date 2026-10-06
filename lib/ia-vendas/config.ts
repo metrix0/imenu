@@ -1,0 +1,28 @@
+// Server-only capacity budgets; free Assistant allowances are defined in access.ts.
+export const DEEP_ANALYSIS_MODEL =
+  process.env.IA_VENDAS_ANALYSIS_MODEL || "gpt-5.6-terra";
+
+export const MODELS = {
+  chat: process.env.IA_VENDAS_CHAT_MODEL || "gpt-5.6-luna",
+  analysis: DEEP_ANALYSIS_MODEL,
+  image: process.env.IA_VENDAS_IMAGE_MODEL || "gpt-image-2",
+};
+export const LIMITS = {
+  input: 1_850_000,
+  output: 156_000,
+  images: 12,
+  runInput: 100_000,
+  analysisInput: 90_000,
+  analysisRequestOverhead: 8_000,
+  analysisRounds: 3,
+  analysisPhotos: 6,
+  chatOutput: 6_000,
+  analysisOutput: 10_000,
+  attachments: 3,
+  fileBytes: 8_388_608,
+  monthlyFileBytes: 104_857_600,
+  operations: 20,
+  actions: 15,
+  cooldownDays: 14,
+};
+export const PRIVATE_BUCKET = "ia-vendas-private";

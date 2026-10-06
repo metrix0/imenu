@@ -1,0 +1,267 @@
+"use client";
+import { create } from "zustand";
+import { supabase } from "@/lib/database/supabaseClient";
+import type { Action, Message, Data } from "@/lib/ia-vendas/types";
+async function headers(json = true) {
+  const { data } = await supabase.auth.getSession();
+  if (!data.session) throw new Error("Sua sessão expirou. Entre novamente.");
+  return {
+    ...(json ? { "Content-Type": "application/json" } : {}),
+    Authorization: `Bearer ${data.session.access_token}`,
+  };
+}
+async function api(path: string, body?: Data) {
+  const r = await fetch(path, {
+    method: body ? "POST" : "GET",
+    headers: await headers(),
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  });
+  const data = await r.json();
+  if (!r.ok) throw Object.assign(new Error(data.error || "Não foi possível concluir."), { code: data.code });
+  return data;
+}
+let version = 0;
+type State = {
+  access: { plus: boolean; tokens_remaining: number | null; images_remaining: number | null } | null;
+  upgradeRequired: boolean;
+  clearUpgrade: () => void;
+  restaurant_id: string | null;
+  conversation_id: string | null;
+  conversations: Data[];
+  messages: Message[];
+  analyses: Data[];
+  actions: Action[];
+  instructions: string;
+  analysis_available_at: string | null;
+  running: Data | null;
+  references: Record<string, string>;
+  has_more: boolean;
+  loading: boolean;
+  busy: boolean;
+  acting: boolean;
+  status: string;
+  error: string | null;
+  load: (
+    restaurant?: string | null,
+    conversation?: string,
+    older?: boolean,
+  ) => Promise<void>;
+  send: (
+    text: string,
+    attachments: Data[],
+    deep: boolean,
+    scope?: { report_id?: string; opportunity_id?: string },
+  ) => Promise<void>;
+  command: (command: string, extra?: Data) => Promise<any>;
+  upload: (file: File) => Promise<Data>;
+  clearError: () => void;
+};
+export const useSalesStore = create<State>((set, get) => ({
+  access: null,
+  upgradeRequired: false,
+  clearUpgrade: () => set({ upgradeRequired: false }),
+  restaurant_id: null,
+  conversation_id: null,
+  conversations: [],
+  messages: [],
+  analyses: [],
+  actions: [],
+  instructions: "",
+  analysis_available_at: null,
+  running: null,
+  references: {},
+  has_more: false,
+  loading: false,
+  busy: false,
+  acting: false,
+  status: "",
+  error: null,
+  clearError: () => set({ error: null }),
+  load: async (restaurant, conversation, older = false) => {
+    const request = ++version,
+      previous = get();
+    set({
+      loading: true,
+      error: null,
+      ...(restaurant && restaurant !== previous.restaurant_id
+        ? {
+            access: null,
+            upgradeRequired: false,
+            messages: [],
+            analyses: [],
+            actions: [],
+            conversations: [],
+            instructions: "",
+            references: {},
+            running: null,
+            conversation_id: null,
+          }
+        : {}),
+    });
+    try {
+      const params = new URLSearchParams();
+      const rest = restaurant || previous.restaurant_id;
+      if (rest) params.set("restaurant_id", rest);
+      const id =
+        conversation ||
+        (rest === previous.restaurant_id ? previous.conversation_id : null);
+      if (id) params.set("conversation_id", id);
+      if (older && previous.messages[0])
+        params.set("before", previous.messages[0].created_at);
+      const data = await api(`/api/ia-vendas?${params}`);
+      if (request === version)
+        set({
+          ...data,
+          messages: older
+            ? [...data.messages, ...previous.messages]
+            : data.messages,
+          loading: false,
+        });
+    } catch (e) {
+      if (request === version)
+        set({ loading: false, error: (e as Error).message });
+    }
+  },
+  send: async (text, attachments, deep, scope = {}) => {
+    const current = get();
+    if (current.busy || !current.conversation_id) return;
+    const conversation = current.conversation_id;
+    version += 1;
+    set({
+      loading: false,
+      busy: true,
+      error: null,
+      status: "Preparando…",
+      messages: [
+        ...current.messages,
+        {
+          id: crypto.randomUUID(),
+          role: "user",
+          content: text,
+          cards: [],
+          ...scope,
+          attachments,
+          created_at: new Date().toISOString(),
+        },
+      ],
+    });
+    let error: string | null = null;
+    try {
+      const response = await fetch("/api/ia-vendas/chat", {
+        method: "POST",
+        headers: await headers(),
+        body: JSON.stringify({
+          restaurant_id: current.restaurant_id,
+          conversation_id: conversation,
+          run_id: crypto.randomUUID(),
+          text,
+          attachments: attachments.map((a) => a.id),
+          deep,
+          ...scope,
+        }),
+      });
+      if (!response.ok) {
+        const d = await response.json();
+        if (d.code === "IA_PLUS_REQUIRED") { set({ upgradeRequired: true }); return; }
+        throw new Error(d.error);
+      }
+      if (!response.body) throw new Error("Conexão interrompida.");
+      const reader = response.body.getReader(),
+        decoder = new TextDecoder();
+      let buffer = "",
+        done = false;
+      while (true) {
+        const read = await reader.read();
+        if (read.done) break;
+        buffer += decoder.decode(read.value, { stream: true });
+        let end;
+        while ((end = buffer.indexOf("\n\n")) !== -1) {
+          const block = buffer.slice(0, end);
+          buffer = buffer.slice(end + 2);
+          const event = block.match(/^event: (.+)$/m)?.[1],
+            raw = block.match(/^data: (.+)$/m)?.[1];
+          if (!raw) continue;
+          const data = JSON.parse(raw);
+          if (event === "status") set({ status: data.message });
+          if (event === "error") {
+            if (data.code === "IA_PLUS_REQUIRED") set({ upgradeRequired: true });
+            else error = data.message;
+            done = true;
+          }
+          if (event === "done") done = true;
+        }
+      }
+      if (!done)
+        error =
+          "Conexão interrompida. A resposta continua no servidor; atualize em instantes.";
+    } catch (e) {
+      error = (e as Error).message;
+    } finally {
+      await get().load(current.restaurant_id, conversation);
+      set({ busy: false, status: "", error });
+    }
+  },
+  command: async (command, extra = {}) => {
+    const current = get();
+    set({ acting: true, error: null });
+    try {
+      let data: any;
+      if (command === "apply" && extra.ids?.length > 1) {
+        const results = [];
+        for (const [i, id] of extra.ids.entries()) {
+          set({ status: `Aplicando ${i + 1} de ${extra.ids.length}…` });
+          const r = await api("/api/ia-vendas", {
+            restaurant_id: current.restaurant_id,
+            command,
+            ids: [id],
+          });
+          results.push(...r.results);
+        }
+        data = { results };
+      } else
+        data = await api("/api/ia-vendas", {
+          restaurant_id: current.restaurant_id,
+          command,
+          ...extra,
+        });
+      const nextConversation =
+        command === "create_conversation"
+          ? data.id
+          : command === "archive_conversation"
+            ? extra.conversation_id === current.conversation_id
+              ? current.conversations.find(
+                  (c) =>
+                    c.kind === "chat" && c.id !== extra.conversation_id,
+                )?.id ||
+                current.conversations.find((c) => c.kind === "analysis")?.id
+              : current.conversation_id || undefined
+            : current.conversation_id || undefined;
+      await get().load(current.restaurant_id, nextConversation);
+      const failed = data.results?.filter((r: Data) => !r.ok);
+      if (failed?.length)
+        set({ error: failed.map((r: Data) => r.error).join(" ") });
+      return data;
+    } catch (e) {
+      if ((e as Error & { code?: string }).code === "IA_PLUS_REQUIRED") {
+        await get().load(current.restaurant_id, current.conversation_id || undefined);
+        set({ upgradeRequired: true, error: null });
+      } else set({ error: (e as Error).message });
+      return null;
+    } finally {
+      set({ acting: false, status: "" });
+    }
+  },
+  upload: async (file) => {
+    const form = new FormData();
+    form.set("file", file);
+    if (get().restaurant_id) form.set("restaurant_id", get().restaurant_id!);
+    const r = await fetch("/api/ia-vendas/attachments", {
+      method: "POST",
+      headers: await headers(false),
+      body: form,
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error);
+    return data;
+  },
+}));

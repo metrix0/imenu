@@ -7,6 +7,7 @@ import { useParams, usePathname, useRouter } from "next/navigation";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import {
+    faArrowTrendUp,
     faBars,
     faBox,
     faChair,
@@ -28,6 +29,7 @@ import {
     faTimes,
     faTruck,
     faUtensils,
+    faWandMagicSparkles,
     type IconDefinition,
 } from "@fortawesome/free-solid-svg-icons";
 
@@ -109,6 +111,7 @@ export default function PainelLayout({
     const { restaurantId } = useCreationStore();
     const supportButtonRef = useRef<SupportButtonRef>(null);
     const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
+    const productPageViewRef = useRef<string | null>(null);
 
     const [expanded, setExpanded] = useState(true);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -260,6 +263,15 @@ export default function PainelLayout({
             }
 
             setIsChecking(false);
+            // The SDK excludes panel events; measure these product pages without loading it.
+            if (window.location.pathname === pathname && productPageViewRef.current !== pathname) {
+                productPageViewRef.current = pathname;
+                if (["/painel/vendas-ia", "/painel/assistente-ia", "/painel/mesas"].includes(pathname?.replace(/\/$/, "") || "")) {
+                    capturePosthogLightweight("$pageview", session.user.id, {
+                        $pathname: pathname,
+                    });
+                }
+            }
         };
 
         void checkAuth();
@@ -267,6 +279,9 @@ export default function PainelLayout({
 
     useEffect(() => {
         setMobileMenuOpen(false);
+        if (pathname?.startsWith("/painel/assistente-ia")) {
+            setExpanded(false);
+        }
     }, [pathname]);
 
     useEffect(() => {
@@ -371,6 +386,7 @@ export default function PainelLayout({
         { label: "Pedidos", icon: faHome, href: `${base}/` },
         { label: "Histórico", icon: faBox, href: `${base}/historico` },
         { label: "Cardápio", icon: faUtensils, href: cardapioHref },
+        { label: "Assistente IA", icon: faWandMagicSparkles, href: `${base}/assistente-ia` },
         { label: "Mesas", icon: faChair, href: `${base}/mesas` },
         {
             label: "Repasses",
@@ -384,6 +400,7 @@ export default function PainelLayout({
         },
         { type: "divider" },
         { label: "Loja", icon: faStore, href: `${base}/loja` },
+        { label: "Vendas IA", icon: faArrowTrendUp, href: `${base}/vendas-ia` },
         { label: "Promoções", icon: faPercent, href: `${base}/promocoes` },
         { label: "Horários", icon: faClock, href: `${base}/disponibilidade` },
         { label: "Taxa e Tempo", icon: faTruck, href: `${base}/tempo-e-taxa` },
@@ -493,7 +510,15 @@ export default function PainelLayout({
             />
 
             <div className="min-h-screen bg-gray-50 md:flex">
-                <SupportButton ref={supportButtonRef} />
+                <SupportButton
+                    ref={supportButtonRef}
+                    showFloating={!pathname?.startsWith("/painel/ia-vendas")}
+                    floatingClassName={
+                        pathname?.startsWith("/painel/assistente-ia")
+                            ? "hidden md:flex"
+                            : ""
+                    }
+                />
 
                 <header className="panel-mobile-header sticky top-0 z-30 flex h-16 items-center justify-between border-b border-gray-200 bg-white px-4 md:hidden">
                     <button
@@ -802,7 +827,7 @@ export default function PainelLayout({
                 <main
                     data-panel-path={pathname || base}
                     data-sidebar-expanded={expanded}
-                    className={`panel-mobile-content min-h-screen min-w-0 bg-gray-50 transition-all duration-300 md:flex-1 md:p-8 ${
+                    className={`panel-mobile-content relative min-h-screen min-w-0 bg-gray-50 transition-[margin-left] duration-300 md:flex-1 md:p-8 ${
                         expanded
                             ? "md:ml-60 2xl:ml-70"
                             : "md:ml-[4.5rem] 2xl:ml-20"

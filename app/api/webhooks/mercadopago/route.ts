@@ -1,3 +1,4 @@
+import { ADDON_PRODUCTS } from "@/lib/addons/products";
 import { NextResponse } from "next/server";
 
 import { query, withTransaction } from "@/lib/database/sql";
@@ -12,12 +13,11 @@ import {
     markMercadoPagoQrTablePaymentFailure,
     saveMercadoPagoQrTablePayment,
 } from "@/lib/qr-table/mercadoPagoBilling";
-import { QR_TABLE_PRICE_CENTS } from "@/lib/qr-table/payzuBilling";
 import { notifyOrderReady } from "@/lib/push/server";
 
 function qrTableAddonId(externalReference: string): string | null {
     const match = externalReference.match(
-        /^qr-table:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}):/i
+        /^(?:qr-table|ia-plus):([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}):/i
     );
     return match?.[1] || null;
 }
@@ -28,14 +28,15 @@ async function processQrTablePix(
 ): Promise<void> {
     const addonResult = await query<{
         id: string;
+        product_key: keyof typeof ADDON_PRODUCTS;
         payment_provider: string | null;
         mercadopago_order_id: string | null;
     }>(
         `
-            SELECT id, payment_provider, mercadopago_order_id
+            SELECT id, product_key, payment_provider, mercadopago_order_id
             FROM public.restaurant_addons
             WHERE id = $1
-              AND product_key = 'qr_code_mesa'
+              AND product_key IN ('qr_code_mesa', 'ia_plus')
             LIMIT 1
         `,
         [addonId]
@@ -54,14 +55,16 @@ async function processQrTablePix(
         return;
     }
 
+    const product = ADDON_PRODUCTS[addon.product_key || "qr_code_mesa"];
+    if (!product || !payment.externalReference?.startsWith(`${product.referencePrefix}:${addon.id}:`)) return;
     const paidAmountCents = Math.round(payment.amount * 100);
     if (
         !Number.isFinite(paidAmountCents) ||
-        paidAmountCents !== QR_TABLE_PRICE_CENTS
+        paidAmountCents !== product.priceCents
     ) {
         console.error("[MERCADO_PAGO_QR_TABLE] Valor divergente:", {
             addonId,
-            expected: QR_TABLE_PRICE_CENTS,
+            expected: product.priceCents,
             received: payment.amount,
         });
         return;

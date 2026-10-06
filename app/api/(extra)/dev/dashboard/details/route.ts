@@ -59,6 +59,38 @@ type QrTableBuyerRow = {
     table_count: number | string;
 };
 
+type AddonMonthlyRevenueRow = {
+    product_key: string;
+    subscription_count: number | string;
+    monthly_revenue_cents: number | string | null;
+};
+
+type AddonBillingHealthRow = {
+    current_payers: number | string;
+    current_pix_payers: number | string;
+    current_card_payers: number | string;
+    current_pix_value_cents: number | string;
+    pix_churn_base: number | string;
+    card_churn_base: number | string;
+    total_churn_base: number | string;
+    pix_churn_count: number | string;
+    card_churn_count: number | string;
+    total_churn_count: number | string;
+    new_payers_this_month: number | string;
+    revenue_received_this_month_cents: number | string;
+};
+
+type PixPayerRow = {
+    restaurant_id: string;
+    restaurant_name: string;
+    slug: string | null;
+    product_key: string;
+    amount_cents: number | string;
+    paid_at: string | Date;
+    current_period_ends_at: string | Date | null;
+    active: boolean;
+};
+
 function getBearerToken(request: Request): string | null {
     const authorization = request.headers.get("authorization")?.trim();
     const match = authorization?.match(/^Bearer\s+(.+)$/i);
@@ -523,6 +555,9 @@ export async function GET(request: Request) {
             qrTableFunnelSummary,
             qrTablePurchaseSummaryResult,
             qrTableBuyersResult,
+            addonMonthlyRevenueResult,
+            addonBillingHealthResult,
+            pixPayersResult,
         ] = await Promise.all([
             query<OrderRow>(
                 `
@@ -621,6 +656,183 @@ export async function GET(request: Request) {
                         addon.activated_at,
                         addon.current_period_ends_at
                     ORDER BY addon.activated_at DESC NULLS LAST
+                `
+            ),
+            query<AddonMonthlyRevenueRow>(
+                `
+                    SELECT
+                        product_key,
+                        COUNT(*) AS subscription_count,
+                        SUM(price_cents) AS monthly_revenue_cents
+                    FROM restaurant_addons
+                    WHERE status = 'active'
+                      AND billing_cycle = 'monthly'
+                      AND (
+                          asaas_subscription_id IS NOT NULL
+                          OR payzu_recurrence_id IS NOT NULL
+                      )
+                    GROUP BY product_key
+                    ORDER BY product_key
+                `
+            ),
+            query<AddonBillingHealthRow>(
+                `
+                    WITH latest_payment AS (
+                        SELECT DISTINCT ON (addon.id)
+                            addon.id AS addon_id,
+                            addon.restaurant_id,
+                            addon.product_key,
+                            addon.status,
+                            addon.activated_at,
+                            addon.canceled_at,
+                            addon.current_period_ends_at,
+                            payment.billing_type,
+                            payment.amount_cents,
+                            payment.paid_at
+                        FROM restaurant_addons AS addon
+                        INNER JOIN restaurant_addon_payments AS payment
+                            ON payment.addon_id = addon.id
+                           AND payment.paid_at IS NOT NULL
+                        ORDER BY addon.id, payment.paid_at DESC, payment.id DESC
+                    ),
+                    bounds AS (
+                        SELECT
+                            NOW() - INTERVAL '30 days' AS churn_start,
+                            date_trunc('month', NOW() AT TIME ZONE $1)
+                                AT TIME ZONE $1 AS month_start,
+                            (date_trunc('month', NOW() AT TIME ZONE $1)
+                                + INTERVAL '1 month') AT TIME ZONE $1 AS month_end
+                    ),
+                    base AS (
+                        SELECT latest.*
+                        FROM latest_payment AS latest
+                        CROSS JOIN bounds
+                        WHERE latest.current_period_ends_at > bounds.churn_start
+                          AND COALESCE(latest.activated_at, latest.paid_at) < NOW()
+                    ),
+                    churned AS (
+                        SELECT latest.*
+                        FROM latest_payment AS latest
+                        CROSS JOIN bounds
+                        WHERE (
+                            latest.billing_type = 'CREDIT_CARD'
+                            AND latest.canceled_at >= bounds.churn_start
+                            AND latest.canceled_at < NOW()
+                        ) OR (
+                            latest.billing_type = 'PIX'
+                            AND latest.current_period_ends_at >= bounds.churn_start
+                            AND latest.current_period_ends_at < NOW()
+                        )
+                    ),
+                    current_paid AS (
+                        SELECT latest.*
+                        FROM latest_payment AS latest
+                        WHERE (
+                            latest.billing_type = 'PIX'
+                            AND latest.current_period_ends_at > NOW()
+                        ) OR (
+                            latest.billing_type = 'CREDIT_CARD'
+                            AND latest.status = 'active'
+                            AND latest.current_period_ends_at > NOW()
+                        )
+                    ),
+                    first_paid AS (
+                        SELECT
+                            addon.restaurant_id,
+                            MIN(payment.paid_at) AS first_paid_at
+                        FROM restaurant_addons AS addon
+                        INNER JOIN restaurant_addon_payments AS payment
+                            ON payment.addon_id = addon.id
+                           AND payment.paid_at IS NOT NULL
+                        GROUP BY addon.restaurant_id
+                    )
+                    SELECT
+                        (
+                            SELECT COUNT(DISTINCT restaurant_id)
+                            FROM current_paid
+                        ) AS current_payers,
+                        (
+                            SELECT COUNT(DISTINCT restaurant_id)
+                            FROM current_paid
+                            WHERE billing_type = 'PIX'
+                        ) AS current_pix_payers,
+                        (
+                            SELECT COUNT(DISTINCT restaurant_id)
+                            FROM current_paid
+                            WHERE billing_type = 'CREDIT_CARD'
+                        ) AS current_card_payers,
+                        (
+                            SELECT COALESCE(SUM(amount_cents), 0)
+                            FROM current_paid
+                            WHERE billing_type = 'PIX'
+                        ) AS current_pix_value_cents,
+                        (
+                            SELECT COUNT(DISTINCT restaurant_id)
+                            FROM base
+                            WHERE billing_type = 'PIX'
+                        ) AS pix_churn_base,
+                        (
+                            SELECT COUNT(DISTINCT restaurant_id)
+                            FROM base
+                            WHERE billing_type = 'CREDIT_CARD'
+                        ) AS card_churn_base,
+                        (
+                            SELECT COUNT(DISTINCT restaurant_id)
+                            FROM base
+                        ) AS total_churn_base,
+                        (
+                            SELECT COUNT(DISTINCT restaurant_id)
+                            FROM churned
+                            WHERE billing_type = 'PIX'
+                        ) AS pix_churn_count,
+                        (
+                            SELECT COUNT(DISTINCT restaurant_id)
+                            FROM churned
+                            WHERE billing_type = 'CREDIT_CARD'
+                        ) AS card_churn_count,
+                        (
+                            SELECT COUNT(DISTINCT restaurant_id)
+                            FROM churned
+                        ) AS total_churn_count,
+                        (
+                            SELECT COUNT(*)
+                            FROM first_paid
+                            CROSS JOIN bounds
+                            WHERE first_paid_at >= bounds.month_start
+                              AND first_paid_at < LEAST(bounds.month_end, NOW())
+                        ) AS new_payers_this_month,
+                        (
+                            SELECT COALESCE(SUM(payment.amount_cents), 0)
+                            FROM restaurant_addon_payments AS payment
+                            CROSS JOIN bounds
+                            WHERE payment.paid_at >= bounds.month_start
+                              AND payment.paid_at < LEAST(bounds.month_end, NOW())
+                        ) AS revenue_received_this_month_cents
+                `,
+                [TIME_ZONE]
+            ),
+            query<PixPayerRow>(
+                `
+                    SELECT DISTINCT ON (addon.id)
+                        addon.restaurant_id,
+                        COALESCE(
+                            NULLIF(BTRIM(restaurant.name), ''),
+                            'Restaurante'
+                        ) AS restaurant_name,
+                        NULLIF(BTRIM(restaurant.url_slug), '') AS slug,
+                        addon.product_key,
+                        payment.amount_cents,
+                        payment.paid_at,
+                        addon.current_period_ends_at,
+                        addon.current_period_ends_at > NOW() AS active
+                    FROM restaurant_addons AS addon
+                    INNER JOIN restaurants AS restaurant
+                        ON restaurant.id = addon.restaurant_id
+                    INNER JOIN restaurant_addon_payments AS payment
+                        ON payment.addon_id = addon.id
+                       AND payment.paid_at IS NOT NULL
+                       AND payment.billing_type = 'PIX'
+                    ORDER BY addon.id, payment.paid_at DESC, payment.id DESC
                 `
             ),
         ]);
@@ -723,11 +935,73 @@ export async function GET(request: Request) {
             })),
         };
 
+        const monthlyRevenueAddons = addonMonthlyRevenueResult.rows.map((addon) => ({
+            productKey: addon.product_key,
+            subscriptionCount: Number(addon.subscription_count) || 0,
+            monthlyRevenueCents: Number(addon.monthly_revenue_cents) || 0,
+        }));
+        const addonBillingHealth = addonBillingHealthResult.rows[0];
+        const monthlyRevenue = {
+            addons: monthlyRevenueAddons,
+            totalMonthlyRevenueCents: monthlyRevenueAddons.reduce(
+                (total, addon) => total + addon.monthlyRevenueCents,
+                0
+            ),
+            billing: {
+                currentPayers: Number(addonBillingHealth?.current_payers) || 0,
+                currentPixPayers:
+                    Number(addonBillingHealth?.current_pix_payers) || 0,
+                currentCardPayers:
+                    Number(addonBillingHealth?.current_card_payers) || 0,
+                currentPixValueCents:
+                    Number(addonBillingHealth?.current_pix_value_cents) || 0,
+                newPayersThisMonth:
+                    Number(addonBillingHealth?.new_payers_this_month) || 0,
+                revenueReceivedThisMonthCents:
+                    Number(
+                        addonBillingHealth?.revenue_received_this_month_cents
+                    ) || 0,
+                churn30d: {
+                    pix: {
+                        count: Number(addonBillingHealth?.pix_churn_count) || 0,
+                        base: Number(addonBillingHealth?.pix_churn_base) || 0,
+                    },
+                    card: {
+                        count: Number(addonBillingHealth?.card_churn_count) || 0,
+                        base: Number(addonBillingHealth?.card_churn_base) || 0,
+                    },
+                    total: {
+                        count: Number(addonBillingHealth?.total_churn_count) || 0,
+                        base: Number(addonBillingHealth?.total_churn_base) || 0,
+                    },
+                },
+            },
+            pixPayers: pixPayersResult.rows
+                .map((payer) => ({
+                    restaurantId: payer.restaurant_id,
+                    restaurantName: payer.restaurant_name,
+                    slug: payer.slug,
+                    productKey: payer.product_key,
+                    amountCents: Number(payer.amount_cents) || 0,
+                    paidAt: new Date(payer.paid_at).toISOString(),
+                    currentPeriodEndsAt: payer.current_period_ends_at
+                        ? new Date(payer.current_period_ends_at).toISOString()
+                        : null,
+                    active: payer.active,
+                }))
+                .sort(
+                    (a, b) =>
+                        new Date(b.paidAt).getTime() -
+                        new Date(a.paidAt).getTime()
+                ),
+        };
+
         return NextResponse.json(
             {
                 abandonedUsers,
                 trafficSummary,
                 funnelSummary,
+                monthlyRevenue,
                 qrTable,
             },
             { headers: { "Cache-Control": "no-store" } }

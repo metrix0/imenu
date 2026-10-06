@@ -16,6 +16,7 @@ type ExpiringAddonRow = {
 };
 
 function productName(productKey: string): string {
+    if (productKey === "ia_plus") return "iMenu IA Plus";
     const uppercaseWords = new Set(["qr", "ai", "api"]);
     return productKey
         .split("_")

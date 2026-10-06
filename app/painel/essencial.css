@@ -56,6 +56,25 @@
     padding-top: 0;
     max-width: 100%;
 }
+
+.panel-essencial .panel-mobile-content[data-panel-path^="/painel/vendas-ia"] {
+    height: calc(100dvh - 64px);
+    min-height: 0;
+    overflow: hidden;
+    padding: 0 !important;
+    background: var(--panel-background);
+}
+.panel-essencial .panel-mobile-content[data-panel-path^="/painel/vendas-ia"] > div {
+    height: 100%;
+    max-width: none !important;
+    margin-inline: 0;
+}
+@media (min-width: 768px) {
+    .panel-essencial .panel-mobile-content[data-panel-path^="/painel/vendas-ia"] {
+        height: 100dvh;
+    }
+}
+
 .panel-essencial .panel-mobile-content :is(.space-y-8, .space-y-10) > :not(:last-child) { margin-block-end: 24px; }
 
 /* Contextual panel rules that are not shared-component defaults. */
@@ -193,6 +212,17 @@
 }
 @media (max-width: 767px) {
     .panel-essencial .panel-mobile-content { padding: 24px 16px; }
+    .panel-essencial .panel-mobile-content[data-panel-path^="/painel/assistente-ia"] {
+        height: calc(100dvh - 64px);
+        min-height: 0;
+        overflow: hidden;
+        padding: 0 !important;
+    }
+    .panel-essencial .panel-mobile-content[data-panel-path^="/painel/assistente-ia"] > div {
+        height: 100%;
+        max-width: none !important;
+        margin-inline: 0;
+    }
     .panel-essencial h1 { font-size: 25px; line-height: 32px; }
     .panel-essencial .panel-page-heading { align-items: stretch; }
     .panel-essencial .panel-page-actions { width: 100%; }

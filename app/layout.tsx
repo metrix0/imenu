@@ -5,7 +5,7 @@ import "@/lib/utils/fontawesome";
 import PosthogProvider from "@/components/common/PosthogProvider";
 import { AutoPopupProvider } from "@/components/common/AutoPopupProvider";
 import RestaurantDirectoryProvider from "@/components/common/RestaurantDirectoryProvider";
-import QrTablePaymentSuccess from "@/components/restaurant-owner/mesas/QrTablePaymentSuccess";
+import AddonPaymentSuccess from "@/components/payments/AddonPaymentSuccess";
 import { getRestaurantCityLinks } from "@/lib/seo/restaurantDirectory";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -51,7 +51,7 @@ export default async function RootLayout({
                 suppressHydrationWarning
             >
                 <AutoPopupProvider>
-                    <QrTablePaymentSuccess />
+                    <AddonPaymentSuccess />
                     <PosthogProvider>
                         <RestaurantDirectoryProvider cities={restaurantCities}>
                             {children}

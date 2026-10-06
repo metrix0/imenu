@@ -15,7 +15,7 @@ import {
     Percent, Phone, Plus, Power, Printer, Puzzle, QrCode, Receipt,
     RotateCcw, RotateCw, Route, Search, Send, Settings, Share2,
     ShoppingBag, Smartphone, Sparkles, Square, SquareCheck, Star,
-    Store, Target, TriangleAlert, Truck, User, Users, Utensils,
+    Store, Target, TriangleAlert, TrendingUp, Truck, User, Users, Utensils,
     Volume2, ZoomIn, ZoomOut, ChevronDown, ChevronLeft, ChevronRight,
     ChevronUp, X, Bot, ConciergeBell, type LucideIcon,
 } from "lucide-react";
@@ -24,7 +24,7 @@ import { usePanelAppearance } from "./PanelAppearance";
 // Keep existing icon definitions and call sites; only the panel's visual glyph changes.
 const panelIcons: Record<string, LucideIcon> = {
     "arrow-down": ArrowDown, "arrow-left": ArrowLeft, "arrow-right": ArrowRight,
-    "arrow-up": ArrowUp, "arrow-rotate-left": RotateCcw, "rotate-left": RotateCcw,
+    "arrow-up": ArrowUp, "arrow-trend-up": TrendingUp, "arrow-rotate-left": RotateCcw, "rotate-left": RotateCcw,
     "bag-shopping": ShoppingBag, bars: Menu, bell: Bell, "bell-slash": BellOff,
     "bell-concierge": ConciergeBell, box: Package, "box-open": PackageOpen,
     bullseye: Target, "calendar-days": CalendarDays, camera: Camera, chair: Armchair,
