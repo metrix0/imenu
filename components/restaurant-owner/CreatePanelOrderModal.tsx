@@ -575,8 +575,12 @@ export default function CreatePanelOrderModal({
             className="md:!h-[88dvh] md:!max-h-[900px] md:!max-w-7xl md:!overflow-hidden"
         >
             <div className="h-full min-h-0 overflow-x-hidden">
+            <ModalFlowStep
+                stepKey={configuringItem ? `config-${configuringItem.id}` : "order"}
+                reverse={!configuringItem}
+                animate={hasNavigatedToConfigurator}
+            >
             {configuringItem ? (
-                <ModalFlowStep key={`config-${configuringItem.id}`} animate>
                     <PanelItemConfiguratorModal
                     restaurantId={restaurantId}
                     item={configuringItem}
@@ -586,13 +590,7 @@ export default function CreatePanelOrderModal({
                     onClose={closeItemConfigurator}
                     onAdd={handleConfiguredItemAdd}
                     />
-                </ModalFlowStep>
             ) : (
-                <ModalFlowStep
-                    key="order"
-                    reverse
-                    animate={hasNavigatedToConfigurator}
-                >
             <div className="panel-create-order flex h-full min-h-0 flex-col bg-white">
                 <div className="shrink-0 border-b border-gray-100 bg-white px-4 pb-4 pt-4 md:px-6 md:py-5">
                     <div className="flex items-center justify-between gap-4">
@@ -1129,8 +1127,8 @@ export default function CreatePanelOrderModal({
                     </section>
                 </div>
             </div>
-                </ModalFlowStep>
             )}
+            </ModalFlowStep>
             </div>
             {toast && (
                 <Toast

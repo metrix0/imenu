@@ -63,8 +63,13 @@ export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout
     showCloseButton
   >
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      {step ? <ModalFlowStep key="checkout" animate>
-        <QrCodeMesaCheckoutModal
+      <ModalFlowStep
+        stepKey={step ? "checkout" : "sales"}
+        reverse={!step}
+        animate={navigated}
+      >
+        {step ? (
+          <QrCodeMesaCheckoutModal
           open
           embedded
           restaurantId={restaurantId}
@@ -74,7 +79,8 @@ export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout
           onBack={() => setStep(false)}
           onPaid={onPaid}
         />
-      </ModalFlowStep> : <ModalFlowStep key="sales" reverse animate={navigated}>
+        ) : (
+          <>
         <div className="min-h-0 flex-1 overflow-y-auto">
           <div className="grid overflow-hidden md:grid-cols-[minmax(0,1fr)_300px]">
             <div className="px-6 pb-5 pt-6 sm:px-8 sm:pb-7 sm:pt-8">
@@ -193,7 +199,9 @@ export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout
             {active ? "Seu iMenu IA Plus está ativo" : <>Assinar iMenu IA Plus <ArrowRight size={16} aria-hidden="true" /></>}
           </Button>
         </div>
-      </ModalFlowStep>}
+          </>
+        )}
+      </ModalFlowStep>
     </div>
   </Modal>;
 }
