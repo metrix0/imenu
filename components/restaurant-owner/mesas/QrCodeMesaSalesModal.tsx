@@ -92,12 +92,8 @@ export default function QrCodeMesaSalesModal({
             showCloseButton
         >
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-                <ModalFlowStep
-                    stepKey={checkoutOpen ? "checkout" : "sales"}
-                    reverse={!checkoutOpen}
-                    animate={hasNavigatedToCheckout}
-                >
                 {checkoutOpen ? (
+                    <ModalFlowStep key="checkout" animate>
                         <QrCodeMesaCheckoutModal
                             open
                             embedded
@@ -107,9 +103,15 @@ export default function QrCodeMesaSalesModal({
                             onBack={() => setCheckoutOpen(false)}
                             onPaid={onPaid}
                         />
+                    </ModalFlowStep>
                 ) : (
                     <>
                     <div className="min-h-0 flex-1 overflow-hidden">
+                    <ModalFlowStep
+                        key="sales"
+                        reverse
+                        animate={hasNavigatedToCheckout}
+                    >
             <div className="min-h-0 flex-1 overflow-y-auto">
             <div className="grid shrink-0 overflow-hidden md:grid-cols-[minmax(0,1fr)_300px]">
                 <div className="px-6 pb-1 pt-5 sm:px-8 sm:py-8">
@@ -221,9 +223,10 @@ export default function QrCodeMesaSalesModal({
                 )}
             </div>
             </div>
+                    </ModalFlowStep>
                     </div>
 
-            {/* Keep actions outside the scrolling content. */}
+            {/* Keep actions outside both the scrolling content and the slide transform. */}
             <div className="z-20 flex shrink-0 flex-col gap-3 border-t border-gray-100 bg-white px-6 py-4 sm:flex-row sm:items-center sm:px-8 sm:py-5">
                 <a
                     href={SUPPORT_URL}
@@ -253,7 +256,6 @@ export default function QrCodeMesaSalesModal({
             </div>
                     </>
                 )}
-                </ModalFlowStep>
             </div>
         </Modal>
     );
