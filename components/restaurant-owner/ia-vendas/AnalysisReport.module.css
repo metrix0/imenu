@@ -108,7 +108,7 @@
 .operationRows { display: grid; gap: 14px; }
 .operationRows > div { padding-block: 0; }
 .operationRows > div > p { color: var(--panel-text); font-size: 13px; line-height: 1.6; }
-.secondary { display: grid; gap: 0; padding: 0; }
+.secondary { display: grid; gap: 24px; padding: 0; }
 .review { padding: 24px; border: 1px solid var(--panel-border); border-radius: 10px; background: var(--panel-surface); }
 .reviewSummary { display: flex; align-items: center; gap: 12px; }
 .reviewSummary > svg { color: var(--panel-muted); flex-shrink: 0; }
@@ -117,7 +117,7 @@
 .reviewEntries { display: grid; gap: 24px; margin-top: 24px; }
 .reviewEntry { display: grid; gap: 18px; padding-top: 20px; border-top: 1px solid var(--panel-border); }
 .reviewEntry h3 { font-size: 15px; }
-.comparison { min-width: 0; padding: 8px 0 32px; }
+.comparison { min-width: 0; padding: 0; }
 .review + .comparison { border-top: 1px solid var(--panel-border); }
 .comparison h3 { display: flex; align-items: center; gap: 8px; font-size: 22px; }
 .comparison h3 > svg { color: var(--panel-muted); }
