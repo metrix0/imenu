@@ -1,4 +1,5 @@
 import { SalesError, type Data } from "./types";
+import { PRODUCT_DIMENSIONS } from "./products";
 
 export const DIMENSIONS = [
   "ordering_visibility",
@@ -66,8 +67,33 @@ export const REPORT_FORMAT = {
     ),
   }),
 };
+
+// Old checkpoints retain the original schema; new analyses require each target review.
+export function productReportFormat(ctx: Data) {
+  const targets: Data[] = ctx.product_review?.targets || [];
+  if (!targets.length) return REPORT_FORMAT;
+  const assessment = object({
+    status: { type: "string", enum: ["keep", "improve", "needs_confirmation", "unavailable"] },
+    note: string,
+  });
+  return {
+    ...REPORT_FORMAT,
+    schema: object({
+      ...REPORT_FORMAT.schema.properties,
+      product_reviews: array(object({
+        item_id: { type: "string", enum: targets.map((item) => item.item_id) },
+        ...Object.fromEntries(PRODUCT_DIMENSIONS.map((dimension) => [dimension, assessment])),
+        action_ids: array(string),
+      })),
+    }),
+  };
+}
 export const REPORT_INSTRUCTIONS = `
 Para análise profunda, substitua o formato reply/summary, os marcadores de widgets e a seção final Markdown pelo schema sales_analysis.
+Reproduza uma análise comercial produto por produto, além de upsells. catalog.product_review traz os produtos disponíveis de maior faturamento, em ordem, com descrição completa, vendas, posição, situação real da foto e alternativa de preço ,99 quando cabível. Em product_reviews, avalie TODOS esses produtos exatamente uma vez, incluindo o primeiro, segundo, terceiro e seguintes: name, description, image, position e pricing, cada um com status e uma nota curta. keep significa que a apresentação atual é adequada; improve indica melhoria concreta; needs_confirmation registra receita, porção, preço ou oferta que depende do dono; unavailable indica falta de evidência, inclusive foto não aberta. Não invente uma mudança para preencher a avaliação.
+Transforme as melhorias úteis em propostas EXATAS, como na análise manual: nomes que diferenciem quantidade/carne/sabor preservando a identidade; descrições de venda usando apenas ingredientes e porções confirmados; posição apoiada na procura observada; e foto somente quando sua revisão real justificar. Agrupe nomes e descrições de produtos relacionados numa proposta de até 20 operações, preserve mudanças independentes de ordem, imagem e preço em cartões separados, e inclua uma evidência curta por produto afetado na oportunidade. Use os mesmos IDs das propostas em product_reviews e opportunities/review_items. Receita incompleta não autoriza copiar a composição de outro lanche nem usar os adicionais ou a foto como prova: proponha apenas os fatos conhecidos e mantenha a receita completa para confirmação do dono. Uma foto boa fica como está; foto ausente ou não aberta não foi julgada visualmente.
+Avalie preços ,99 individualmente, como opção separada. Se fizer sentido, prefira reduzir UM CENTAVO de um preço inteiro (R$ 25,00 → R$ 24,99), preserve preços já terminados em ,99 e não arredonde outro preço para cima ou reduza um real automaticamente. Cite na proposta o efeito da redução no volume de unidades observado; sem custos, não prometa lucro. A terminação ,99 NÃO acrescenta um ganho separado à projeção.
+Depois de preparar as propostas, inclua também a apresentação dos produtos no estimate_revenue: menu_clarity usa UMA hipótese conjunta de 2%–5% para nome, descrição, foto e posição sobre as vendas dos produtos efetivamente afetados. Envie item_ids, não invente receita elegível, e agrupe melhorias do mesmo produto numa única oportunidade. Combos já projetados em proven_combo_visibility usam sua faixa existente de 3%–8% e não ganham outra parcela de menu_clarity pelos mesmos produtos. O carrinho usa pedidos já observados; não acrescente upsell hipotético aos pedidos adicionais da melhoria de apresentação. Mudanças sem base suficiente, preços ,99, lucro e migração de vendas entre produtos não são ganhos comprovados; declare essas hipóteses com clareza e reduza a confiança quando faltar a receita completa.
 Inspecione CADA dimensão obrigatória usando o resumo determinístico e, quando uma decisão depender de detalhes exatos, use read_data de forma seletiva. O snapshot completo continua no servidor, mas não é despejado integralmente no prompt. Registre inspection para todas as dimensões: inspected quando os dados disponíveis sustentarem a avaliação; unavailable se faltarem dados (explique). Não pagine ou leia tabelas inteiras por rotina: busque apenas os registros que podem mudar uma recomendação de alta alavancagem.
 As fotos reais carregadas são uma amostra dos produtos mais vendidos, escolhida para limitar custo. Avalie todas as fotos realmente carregadas: nitidez, iluminação, enquadramento, fundo, legibilidade do produto e coerência com o nome/descrição, sem inventar ingredientes ou julgar sabor. image_review também informa fotos ausentes, indisponíveis e não revisadas; nunca afirme ter avaliado visualmente uma foto que não foi carregada. Se uma melhoria visual for relevante, use propose_images com o item_id correto, preservando ingredientes, porção e identidade; gerar e publicar continuam exigindo as aprovações existentes. Uma foto aceitável não precisa de proposta.
 Inspeção não é recomendação. opportunities contém somente achados de alta alavancagem, priorizados por impacto e confiança, depois menor esforço e risco. Inclua evidências verificáveis e os IDs exatos de propose_action/propose_images. Não invente IDs nem números. Reutilize propostas válidas pendentes quando apropriado e considere ações aplicadas, rejeitadas, desfeitas e resultados anteriores. review_items guarda apenas questões relevantes que dependem de decisão do dono. Não registre pensamentos nem correções cosméticas deliberadamente descartadas.
@@ -105,8 +131,17 @@ export function makeReport(
   run: string,
   value?: Data,
 ): Data {
-  if (value && !validate(value, REPORT_FORMAT.schema))
+  if (value && !validate(value, productReportFormat(ctx).schema))
     throw new SalesError("O formato da análise não foi concluído.");
+  const targets: Data[] = ctx.product_review?.targets || [];
+  const productReviews: Data[] = value?.product_reviews || [];
+  if (value && targets.length) {
+    const ids = new Set(productReviews.map((item) => item.item_id));
+    if (productReviews.length !== targets.length || ids.size !== targets.length ||
+        targets.some((item) => !ids.has(item.item_id)) ||
+        productReviews.some((item) => PRODUCT_DIMENSIONS.some((d) => !item[d].note.trim())))
+      throw new SalesError("A avaliação dos produtos mais vendidos não foi concluída.");
+  }
   const allowed = new Set(actions.map((a) => a.id));
   const linked = new Set<string>();
   const link = (entry: Data, index: number) => ({
@@ -198,8 +233,31 @@ export function makeReport(
     inspection: inspected,
     opportunities,
     review_items: reviewItems,
+    ...(targets.length ? {
+      product_reviews: targets.flatMap((target) => {
+        const review = productReviews.find((item) => item.item_id === target.item_id);
+        if (!review) return [];
+        return [{
+          ...review,
+          item_name: target.name,
+          image_status: target.image_status,
+          image: target.image_status === "loaded" ? review.image : {
+            status: target.image_status === "missing" ? "needs_confirmation" : "unavailable",
+            note: target.image_status === "missing"
+              ? "Não há foto cadastrada. É preciso uma referência real da porção para melhorar a imagem."
+              : "Esta foto não foi aberta; sua qualidade e composição não foram avaliadas visualmente.",
+          },
+          action_ids: review.action_ids.filter((id: string) => allowed.has(id)),
+        }];
+      }),
+    } : {}),
     coverage: {
       ...ctx.coverage,
+      ...(targets.length ? { product_reviews: {
+        expected: targets.length,
+        assessed: productReviews.length,
+        complete: !!value && productReviews.length === targets.length,
+      } } : {}),
       dimensions: Object.fromEntries(
         DIMENSIONS.map((d) => [d, inspected[d].status]),
       ),

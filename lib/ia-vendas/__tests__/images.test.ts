@@ -1,5 +1,6 @@
 import sharp from "sharp";
 import { analysisPhotos } from "../images";
+import { LIMITS } from "../config";
 import { createSupabaseServerClient } from "@/lib/database/supabaseServerClient";
 import type { Data } from "../types";
 
@@ -22,21 +23,21 @@ beforeEach(() => {
 const context = (items: Data[], products: Data[] = []): Data => ({
   entities: { items: { rows: items } }, sales: { products }, coverage: {},
 });
-test("samples six best-selling menu photos as low-detail visual inputs", async () => {
+test("samples the product review photos by observed revenue as low-detail visual inputs", async () => {
   const items = Array.from({ length: 97 }, (_, i) => ({ id: `item-${i}`, name: `Produto ${i}`, image_path: `owner/${i}.png` }));
   const ctx = context(items, [
     { item_id: "item-96", units: 20, gross_cents: 20000 },
     { item_id: "item-0", units: 2, gross_cents: 90000 },
   ]);
   const parts = await analysisPhotos(ctx);
-  expect(download).toHaveBeenCalledTimes(6);
-  expect(parts.filter((p) => p.type === "input_image")).toHaveLength(6);
-  expect(parts[0].text).toContain('"item_id":"item-96"');
-  expect(parts[2].text).toContain('"item_id":"item-0"');
+  expect(download).toHaveBeenCalledTimes(LIMITS.analysisPhotos);
+  expect(parts.filter((p) => p.type === "input_image")).toHaveLength(LIMITS.analysisPhotos);
+  expect(parts[0].text).toContain('"item_id":"item-0"');
+  expect(parts[2].text).toContain('"item_id":"item-96"');
   expect(ctx.coverage.image_photos).toMatchObject({
-    loaded: 6,
+    loaded: LIMITS.analysisPhotos,
     total: 97,
-    not_reviewed: 91,
+    not_reviewed: 97 - LIMITS.analysisPhotos,
     complete: false,
   });
   expect(ctx.image_review.photos.find((p: Data) => p.item_id === "item-96")).toMatchObject({
@@ -50,6 +51,16 @@ test("samples six best-selling menu photos as low-detail visual inputs", async (
   expect(actual.width).toBe(640);
   expect(actual.height).toBe(427);
   expect(items[0].id).toBe("item-0");
+});
+test("unavailable and out-of-stock products do not displace the leading available photos", async () => {
+  const ctx = context([
+    { id: "hidden", name: "Oculto", image_path: "owner/hidden.png", is_available: false },
+    { id: "empty", name: "Sem estoque", image_path: "owner/empty.png", stock_enabled: true, stock_quantity: 0 },
+    { id: "available", name: "Disponível", image_path: "owner/available.png" },
+  ], [{ item_id: "hidden", gross_cents: 900000 }, { item_id: "empty", gross_cents: 800000 }]);
+  await analysisPhotos(ctx);
+  expect(download.mock.calls.map(([path]) => path)).toEqual(["owner/available.png"]);
+  expect(ctx.image_review.not_reviewed).toBe(2);
 });
 test("missing, unreadable and external photos preserve the rest of the inspection and honest coverage", async () => {
   download.mockImplementation(async (path) => path === "owner/broken.png"

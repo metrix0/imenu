@@ -10,7 +10,8 @@ import OpenAI from "openai";
 import { BatchPending, batchResponse, readBatch, saveToolResult, actionId, type BatchSnapshot, type AnalysisRequest } from "./batch";
 import { randomUUID } from "crypto";
 import { query, withTransaction } from "@/lib/database/sql";
-import { makeReport, REPORT_FORMAT, REPORT_INSTRUCTIONS } from "./report";
+import { makeReport, productReportFormat, REPORT_INSTRUCTIONS } from "./report";
+import { validateProductEstimate } from "./products";
 import { FIELDS } from "./fields";
 import { actionValuesSchema } from "./catalog";
 import { analysisModelContext, context, readData, metrics, measure } from "./data";
@@ -117,7 +118,7 @@ const tools = [
   ),
   tool(
     "estimate_revenue",
-    "Uma faixa conjunta para 7 ou 28 dias. Inclua todas as oportunidades quantificáveis na mesma chamada; a ferramenta usa faixas comerciais conservadoras e evita somar bases sobrepostas.",
+    "Uma faixa conjunta para 7 ou 28 dias. Inclua carrinho e melhorias de produtos na mesma chamada, depois de preparar as propostas. Para apresentação/combos envie item_ids: a receita é calculada pelas vendas reais e cada produto recebe uma única faixa de melhora. Nome, descrição, imagem e posição não somam ganhos separados; preços ,99 não têm ganho próprio.",
     {
       opportunities: {
         type: "array",
@@ -136,6 +137,7 @@ const tools = [
               ],
             },
             eligible_orders: num,
+            item_ids: { type: "array", items: text, maxItems: 100 },
             eligible_revenue_cents: num,
             extra_cents: num,
             overlap_group: text,
@@ -545,7 +547,7 @@ export async function runChat(args: {
               : Math.min(2500, maxOutput - outputTokens - 5000)
             : Math.min(2500, maxOutput - outputTokens),
           reasoning: { effort: deep ? "medium" : "low" },
-          text: { format: deep ? REPORT_FORMAT : { type: "json_object" } },
+          text: { format: deep ? productReportFormat(ctx) : { type: "json_object" } },
           store: false,
         };
       const response = await (batched
@@ -696,8 +698,18 @@ export async function runChat(args: {
               case "estimate_revenue": {
                 if (estimated)
                   throw new SalesError("Uma projeção conjunta por análise.");
+                if (deep && ctx.product_review?.targets?.length && Array.isArray(p.opportunities)) {
+                  const hasProducts = p.opportunities.some((o: Data) => o.kind !== "cart_addon");
+                  if (hasProducts) {
+                    const pending = (await query(
+                      "SELECT operations,image_jobs FROM public.ia_vendas_actions a WHERE a.restaurant_id=$1 AND a.status='pending' AND (a.run_id=$2 OR NOT EXISTS(SELECT 1 FROM public.ia_vendas_runs r WHERE r.restaurant_id=$1 AND r.id=a.run_id AND (r.result->>'detached_at' IS NOT NULL OR (r.kind='analysis' AND (r.status<>'completed' OR r.result->'report'->>'status' IS DISTINCT FROM 'complete')))))",
+                      [restaurant, run],
+                    )).rows;
+                    validateProductEstimate(ctx, p, pending);
+                  }
+                }
+                result = potential(ctx.sales, p, deep ? ctx.entities?.items?.rows : undefined);
                 estimated = true;
-                result = potential(ctx.sales, p);
                 cards.push({ type: "potential", ...result });
                 break;
               }

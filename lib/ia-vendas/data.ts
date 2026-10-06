@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from "@/lib/database/supabaseServerClient"
 import { FIELDS } from "./fields";
 import { fields, key, scope } from "./catalog";
 import { SalesError, type Data } from "./types";
+import { productReviewTargets } from "./products";
 export function imageUrl(path: string | null, bucket = "menu-images") {
   if (!path) return null;
   if (/^https:\/\//.test(path)) return path;
@@ -174,6 +175,8 @@ function shortText(value: unknown, max = 180) {
 }
 
 export function analysisModelContext(ctx: Data): Data {
+  const targets = productReviewTargets(ctx);
+  if (targets.length) ctx.product_review = { targets };
   const entities = ctx.entities || {};
   const rows = (entity: string): Data[] => entities[entity]?.rows || [];
   const products: Data[] = ctx.sales?.products || [];
@@ -228,6 +231,7 @@ export function analysisModelContext(ctx: Data): Data {
     coverage: ctx.coverage,
     sales: { ...ctx.sales, products: products.slice(0, 30) },
     catalog: {
+      product_review: targets,
       entity_counts: Object.fromEntries(
         Object.keys(entities).map((entity) => [entity, rows(entity).length]),
       ),

@@ -15,19 +15,22 @@ import { propose, claim } from "./actions";
 import { MODELS, LIMITS } from "./config";
 import { SalesError, object, type Data, type Action } from "./types";
 import { isUuid } from "./catalog";
+import { isSellableItem, productReviewTargets } from "./products";
 
 // Freeze the actual menu photos with the analysis snapshot, including Batch resumes.
 // Sales priority controls inspection order, not which products are covered.
 export async function analysisPhotos(ctx: Data): Promise<any[]> {
+  const targetIds = new Set(productReviewTargets(ctx).map((item) => item.item_id));
   const sales = new Map<string, Data>(
     (ctx.sales?.products || []).map((p: Data) => [p.item_id, p]),
   );
   const items: Data[] = [...(ctx.entities?.items?.rows || [])].sort(
     (a, b) =>
-      Number(sales.get(b.id)?.units || 0) - Number(sales.get(a.id)?.units || 0) ||
-      Number(sales.get(b.id)?.gross_cents || 0) - Number(sales.get(a.id)?.gross_cents || 0),
+      Number(targetIds.has(b.id)) - Number(targetIds.has(a.id)) ||
+      Number(sales.get(b.id)?.gross_cents || 0) - Number(sales.get(a.id)?.gross_cents || 0) ||
+      Number(sales.get(b.id)?.units || 0) - Number(sales.get(a.id)?.units || 0),
   );
-  const selected = items.filter((item) => item.image_path).slice(0, LIMITS.analysisPhotos);
+  const selected = items.filter((item) => item.image_path && isSellableItem(item)).slice(0, LIMITS.analysisPhotos);
   const selectedIds = new Set(selected.map((item) => item.id));
   const photos: Data[] = items.map((item) => ({
     item_id: item.id,
@@ -106,7 +109,7 @@ export async function analysisPhotos(ctx: Data): Promise<any[]> {
       unavailable,
       not_reviewed: notReviewed,
       complete: notReviewed === 0 && unavailable === 0,
-      order: "top_sellers_by_units_then_revenue",
+      order: "product_review_targets_then_revenue",
     },
   };
   return parts;
