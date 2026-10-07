@@ -249,7 +249,7 @@ export default function ComparisonBlogArticle({
     return (
         <BlogArticle
             article={article}
-            canonicalUrl={`https://imenuapp.com.br/${comparison.slug}`}
+            canonicalUrl={`https://www.imenuapp.com.br/${comparison.slug}`}
             icon={faChartLine}
             takeaways={[
                 "Uma visão rápida das diferenças sem precisar ler uma parede de texto",

@@ -1,3 +1,4 @@
+import { NextResponse } from "next/server";
 import { query } from "@/lib/database/sql";
 
 const NON_GOOGLE_INDEXING_CRAWLER =
@@ -8,6 +9,7 @@ export async function proxy(req: Request) {
   const host = (req.headers.get("host") ?? "").split(":")[0].toLowerCase();
   const pathname = url.pathname;
   const userAgent = req.headers.get("user-agent") ?? "";
+  const isPreviewDomain = host === "preview.imenuapp.com.br";
 
   if (
     pathname !== "/robots.txt" &&
@@ -20,6 +22,12 @@ export async function proxy(req: Request) {
         "X-Robots-Tag": "noindex, nofollow",
       },
     });
+  }
+
+  if (isPreviewDomain) {
+    const response = NextResponse.next();
+    response.headers.set("X-Robots-Tag", "noindex, nofollow");
+    return response;
   }
 
   const isDominos =

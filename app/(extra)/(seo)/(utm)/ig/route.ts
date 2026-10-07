@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
 
 export function GET() {
-    redirect('https://imenuapp.com.br/?utm_source=instagram');
+    redirect('https://www.imenuapp.com.br/?utm_source=instagram');
 }
