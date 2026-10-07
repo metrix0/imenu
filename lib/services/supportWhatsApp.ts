@@ -58,7 +58,7 @@ function normalize(value: unknown): string {
 
 const SUPPORT_AI_RETRY_DELAYS_MS = [500, 1_500] as const;
 const SUPPORT_REPLY_DEBOUNCE_MS = 1_500;
-const SUPPORT_BULK_SILENCE_SECONDS = 60;
+const SUPPORT_BULK_SILENCE_SECONDS = 30;
 
 function getSupportScopedValue(sessionName: string, value: string): string {
     return sessionName === SUPPORT_WAHA_SESSION_NAME
