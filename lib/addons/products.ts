@@ -9,5 +9,6 @@ export const IA_PLUS_BENEFITS = [
   { title: "Assistente IA Automático", description: "A IA segue seus comandos e pode aplicar mudanças no seu cardápio. Todas melhorias, descrições, preços e configurações, com uma capacidade maior de uso." },
   { title: "Imagens para seus produtos", description: "Gere e revise novas imagens de produtos, logo e banner antes de publicar." },
   { title: "Coloque sua análise em prática", description: "Veja a análise completa, converse sobre as oportunidades e revise e aplique as mudanças sugeridas." },
+  { title: "Atendimento exclusivo", description: "Assinantes do iMenu IA Plus podem solicitar integrações e novas funcionalidades para serem adicionadas em até 3 dias úteis." },
 ] as const;
 export const IA_PLUS_PRICE_LABEL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(IA_PLUS.priceCents / 100);

@@ -5,6 +5,7 @@ import { faArrowRight, faCheck, faCircleInfo, faLock } from "@fortawesome/free-s
 import Image from "next/image";
 import Link from "next/link";
 import type { MouseEvent } from "react";
+import Badge from "@/components/ui/Badge";
 import Tooltip from "@/components/ui/Tooltip";
 
 type ProductCardContent = {
@@ -80,15 +81,15 @@ export default function MenuProductCard(props: MenuProductCardProps) {
             {included ? (
                 <p className="mt-2 text-sm leading-relaxed text-gray-600">{props.description}</p>
             ) : (
-                <div className="mt-2 flex min-w-0 items-center gap-2 text-sm leading-relaxed text-gray-600">
+                <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2 text-sm leading-relaxed text-gray-600">
                     <span className="min-w-0">{props.description}</span>
                     {props.variant === "addon" && props.exclusiveSupport && (
                         <div className="shrink-0" onClick={(event) => event.stopPropagation()}>
-                            <Tooltip text="Durante sua assinatura, funcionalidades e melhorias que você pedir e que fizerem sentido serão implementadas em 1 semana." size="medium" showOnClick>
-                                <span className="inline-flex cursor-help items-center gap-1.5 whitespace-nowrap rounded-full bg-brand/10 px-2.5 py-1 text-[11px] font-bold leading-none text-brand">
+                            <Tooltip text="Durante sua assinatura do iMenu IA Plus, solicite integrações e novas funcionalidades para serem adicionadas em até 3 dias úteis." size="medium" showOnClick>
+                                <Badge className="cursor-help gap-1.5 whitespace-nowrap">
                                     Atendimento Exclusivo
                                     <FontAwesomeIcon icon={faCircleInfo} className="text-[10px]" />
-                                </span>
+                                </Badge>
                             </Tooltip>
                         </div>
                     )}

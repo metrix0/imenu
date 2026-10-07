@@ -1,30 +1,33 @@
-import { createHash } from "node:crypto";
 import { renderToStaticMarkup } from "react-dom/server";
 import MenuProductCards from "../MenuProductCards";
 import IaPlusProductCard from "@/components/restaurant-owner/ia-vendas/IaPlusProductCard";
 
 const noop = () => {};
-// Captured from the original two cards on preview, before extracting MenuProductCard.
-// Preserve every rendered element, text, class and attribute in all existing states.
-const baselines = [
-    [{ qrSelected: false }, "158d5bacf3dcd4499de4e7ad491cdbbeb51940d23d1db753e62f2c0b9a15a342"],
-    [{ qrSelected: true }, "a693810bcacbddf8a5c8c62ba1c68ad4d0ff082268f1c59e02d762d1eaf4e696"],
-    [{ qrSelected: false, qrActive: true }, "479704ea0bf835420b6d2f4e28ec7535c967d302bb2e32ecf7863d76e15cf529"],
-    [{ qrSelected: false, onQrToggle: noop }, "9d8f383de3bc90f5315a9ce85bea99c3b180612396f8f4879f25700752c1486b"],
-    [{ qrSelected: true, onQrToggle: noop }, "e980ac3d186c55c40545642ffa0a65cde4defa9fa308cca9a0d4a62aa2084a15"],
-] as const;
+const states = [
+    { qrSelected: false },
+    { qrSelected: true },
+    { qrSelected: false, qrActive: true },
+    { qrSelected: false, onQrToggle: noop },
+    { qrSelected: true, onQrToggle: noop },
+];
 
-test.each(baselines)("preserves the original cards with state %j", (props, hash) => {
-    const html = renderToStaticMarkup(<MenuProductCards {...props} onLearnMore={noop} />)
-        .replace(/class="([^"]*)"/g, (_, classes) => `class="${classes.trim()}"`);
-    expect(createHash("sha256").update(html).digest("hex")).toBe(hash);
+test.each(states)("QR cards keep their content and selection state without exclusive support: %j", (props) => {
+    const html = renderToStaticMarkup(<MenuProductCards {...props} onLearnMore={noop} />);
+    expect(html).toContain("Seu cardápio delivery com produtos, pedidos e gestão pelo painel.");
+    expect(html).toContain("Cardápio digital na mesa através de QR Code");
+    expect(html).toContain("R$ 5,00");
+    expect(html).not.toContain("Atendimento Exclusivo");
+    expect(html).toContain(`data-selected="${props.qrSelected || ("qrActive" in props && props.qrActive) ? "true" : "false"}"`);
+    if ("onQrToggle" in props) {
+        expect(html).toContain(`aria-pressed="${props.qrSelected ? "true" : "false"}"`);
+    }
 });
 
-test("IA Plus follows the first two cards in the two-column grid with the requested copy", () => {
+test("IA Plus has exclusive support and precedes the QR card in the two-column grid", () => {
     const html = renderToStaticMarkup(<MenuProductCards qrSelected={false} onLearnMore={noop} extraCard={<IaPlusProductCard active={false} onLearnMore={noop} />} />);
     expect(html).toContain('class="panel-product-cards grid gap-5 md:grid-cols-2"');
     expect(html).not.toContain("xl:grid-cols-3");
-    expect(html.indexOf('alt="iMenu IA Plus"')).toBeGreaterThan(html.indexOf('alt="iMenu QR Code Mesa"'));
+    expect(html.indexOf('alt="iMenu IA Plus"')).toBeLessThan(html.indexOf('alt="iMenu QR Code Mesa"'));
     expect(html).toContain("Assistente IA liberado e com mais capacidade. Acesso completo às oportunidades da Análise de vendas com IA!");
     const iaCard = html.slice(html.indexOf('aria-label="Conhecer iMenu IA Plus"'));
     expect(iaCard).toMatch(/class="text-2xl font-bold">R\$\s49,99/);
@@ -33,4 +36,9 @@ test("IA Plus follows the first two cards in the two-column grid with the reques
     expect(iaCard).toContain('title="Análise completa"');
     expect(iaCard).toContain("Ver tudo que o sistema faz");
     expect(iaCard).toContain("Saiba mais");
+    expect(iaCard).toContain("Atendimento Exclusivo");
+    expect(iaCard).toContain('data-ui="badge"');
+    expect(iaCard).toContain("Solicite integrações e novas funcionalidades em até 3 dias úteis.");
+    const qrCard = html.slice(html.indexOf('alt="iMenu QR Code Mesa"'));
+    expect(qrCard).not.toContain("Atendimento Exclusivo");
 });

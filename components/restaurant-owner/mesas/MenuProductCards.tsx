@@ -35,7 +35,6 @@ export default function MenuProductCards({ extraCard, qrSelected, qrActive = fal
                 active={qrActive}
                 onToggle={onQrToggle}
                 onLearnMore={onLearnMore}
-                exclusiveSupport
             />
         </div>
     );
