@@ -89,12 +89,12 @@ export const RESTAURANT_TOOLS: RestaurantToolDefinition[] = [
         name: "Calculadora de margem para delivery",
         title: "Calculadora de margem de lucro para delivery",
         metaDescription:
-            "Calcule margem de contribuição, lucro mensal e ponto de equilíbrio do delivery considerando CMV, embalagem, comissão, taxas e impostos.",
+            "Calcule margem por pedido, resultado mensal, ponto de equilíbrio e o preço necessário para atingir sua meta de margem no delivery. Grátis, sem cadastro.",
         introduction:
-            "Veja quanto cada pedido realmente deixa para pagar os custos fixos e gerar lucro depois de ingredientes, embalagem, comissões, impostos e demais despesas variáveis.",
-        calculationTitle: "Margem de contribuição no delivery",
+            "Informe preço, CMV, embalagem, comissão, taxas e custos do delivery para ver quanto sobra por pedido, o ponto de equilíbrio e quanto cobrar para atingir sua meta de margem.",
+        calculationTitle: "Como calcular a margem de lucro no delivery",
         calculation:
-            "A margem de contribuição por pedido é o preço de venda menos todos os custos variáveis da venda. O ponto de equilíbrio divide os custos fixos mensais por essa margem. O resultado mensal estimado multiplica a margem pelos pedidos e desconta os custos fixos.",
+            "A margem de contribuição por pedido é o preço de venda menos todos os custos variáveis da venda. O ponto de equilíbrio divide os custos fixos mensais por essa margem. Para calcular o preço de uma meta de margem, a ferramenta considera os custos por pedido e os percentuais de comissão, pagamento e impostos.",
         practicalTips: [
             "Separe custos fixos dos custos que crescem a cada pedido.",
             "Calcule a margem por canal, pois marketplace e pedido direto têm custos diferentes.",
@@ -115,6 +115,11 @@ export const RESTAURANT_TOOLS: RestaurantToolDefinition[] = [
                 question: "Como calcular a margem de um canal direto?",
                 answer:
                     "Zere a comissão do marketplace e informe apenas as taxas de pagamento, entrega subsidiada, impostos e outros custos que existirem naquele canal.",
+            },
+            {
+                question: "Como calcular a margem de um pedido de delivery?",
+                answer:
+                    "Subtraia do preço de venda os ingredientes, embalagem, entrega subsidiada, comissão, pagamento, impostos e outros custos variáveis. Divida o valor que sobra pelo preço de venda para obter a margem percentual.",
             },
         ],
     },
@@ -189,11 +194,11 @@ export const RESTAURANT_TOOLS: RestaurantToolDefinition[] = [
     {
         slug: "calculadora-ticket-medio",
         name: "Calculadora de ticket médio",
-        title: "Calculadora de ticket médio para restaurantes",
+        title: "Calculadora de ticket médio para restaurante e delivery",
         metaDescription:
-            "Calcule o ticket médio do restaurante e simule metas, adicionais e aumento de faturamento por pedido. Ferramenta gratuita para delivery.",
+            "Calcule ticket médio, veja quanto falta por pedido para atingir sua meta e simule aumento de faturamento com adicionais. Grátis, sem cadastro.",
         introduction:
-            "Calcule quanto cada pedido vale em média e simule o impacto de uma meta de ticket ou de um adicional aceito por parte dos clientes.",
+            "Informe o faturamento e a quantidade de pedidos para calcular o ticket médio, ver quanto falta por pedido para sua meta e simular o impacto de adicionais.",
         calculationTitle: "Como calcular ticket médio",
         calculation:
             "O ticket médio é o faturamento do período dividido pela quantidade de pedidos. A simulação de adicional multiplica o valor do adicional pela taxa de aceitação e soma esse valor esperado ao ticket atual.",
@@ -203,6 +208,11 @@ export const RESTAURANT_TOOLS: RestaurantToolDefinition[] = [
             "Teste adicionais coerentes, combos e sobremesas sem dificultar o pedido.",
         ],
         faq: [
+            {
+                question: "Como calcular o ticket médio?",
+                answer:
+                    "Divida o faturamento do período pela quantidade de pedidos ou comandas concluídas no mesmo período. A calculadora faz a conta automaticamente.",
+            },
             {
                 question: "Ticket médio alto sempre é melhor?",
                 answer:
@@ -291,11 +301,11 @@ export const RESTAURANT_TOOLS: RestaurantToolDefinition[] = [
     {
         slug: "calculadora-preco-combo",
         name: "Calculadora de preço para combo",
-        title: "Calculadora de preço de combo para restaurante",
+        title: "Calculadora de preço de combo para delivery",
         metaDescription:
-            "Monte um combo, calcule desconto percebido, custo, taxas, margem e preço mínimo para proteger a rentabilidade do restaurante.",
+            "Calcule preço de combo, desconto, custo, taxas, margem mínima e economia frente aos itens avulsos. Veja o preço recomendado grátis, sem cadastro.",
         introduction:
-            "Some preços e custos dos itens, aplique o desconto desejado e descubra se o combo preserva a margem mínima depois das taxas da venda.",
+            "Informe os preços avulsos e custos dos itens para calcular o desconto, a economia do cliente, a margem e o preço recomendado do combo.",
         calculationTitle: "Como precificar um combo sem perder margem",
         calculation:
             "O preço promocional parte da soma dos preços avulsos menos o desconto. O preço mínimo sustentável considera o custo total, as taxas percentuais e a margem desejada. A recomendação usa o maior desses dois valores.",
@@ -305,6 +315,11 @@ export const RESTAURANT_TOOLS: RestaurantToolDefinition[] = [
             "Considere comissão, imposto e embalagem antes de definir o desconto.",
         ],
         faq: [
+            {
+                question: "Como calcular o preço de um combo?",
+                answer:
+                    "Some os preços e custos dos itens, aplique o desconto desejado e compare o resultado com o preço mínimo necessário para cobrir custos, taxas e a margem definida.",
+            },
             {
                 question: "Todo combo precisa ter desconto?",
                 answer:

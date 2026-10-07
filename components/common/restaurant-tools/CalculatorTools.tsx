@@ -295,13 +295,20 @@ function DeliveryMarginCalculator() {
     const [otherVariable, setOtherVariable] = useState(1);
     const [fixedCosts, setFixedCosts] = useState(5000);
     const [monthlyOrders, setMonthlyOrders] = useState(400);
+    const [targetMargin, setTargetMargin] = useState(20);
 
-    const percentageCosts = price * (Math.max(0, commission + paymentFee + tax) / 100);
-    const variableCosts = foodCost + packaging + deliverySubsidy + otherVariable + percentageCosts;
+    const percentageRate = Math.max(0, commission + paymentFee + tax);
+    const fixedVariableCosts = foodCost + packaging + deliverySubsidy + otherVariable;
+    const percentageCosts = price * (percentageRate / 100);
+    const variableCosts = fixedVariableCosts + percentageCosts;
     const contribution = price - variableCosts;
     const contributionMargin = price > 0 ? (contribution / price) * 100 : 0;
     const breakEven = contribution > 0 ? Math.ceil(fixedCosts / contribution) : 0;
     const monthlyResult = contribution * Math.max(0, monthlyOrders) - Math.max(0, fixedCosts);
+    const targetDenominator = 1 - (percentageRate + Math.max(0, targetMargin)) / 100;
+    const priceForTargetMargin = targetDenominator > 0
+        ? fixedVariableCosts / targetDenominator
+        : 0;
 
     return (
         <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
@@ -317,6 +324,7 @@ function DeliveryMarginCalculator() {
                     <NumberField label="Outros custos variáveis" value={otherVariable} onChange={setOtherVariable} prefix="R$" />
                     <NumberField label="Custos fixos mensais" value={fixedCosts} onChange={setFixedCosts} prefix="R$" step={100} />
                     <NumberField label="Pedidos por mês" value={monthlyOrders} onChange={setMonthlyOrders} suffix="un" step={1} />
+                    <NumberField label="Meta de margem por pedido" value={targetMargin} onChange={setTargetMargin} suffix="%" max={100} />
                 </div>
             </ToolPanel>
             <ToolPanel title="Margem e ponto de equilíbrio" icon={faChartLine}>
@@ -340,9 +348,17 @@ function DeliveryMarginCalculator() {
                         highlight={monthlyResult >= 0}
                         danger={monthlyResult < 0}
                     />
+                    <ResultItem
+                        label="Preço para a meta de margem"
+                        value={targetDenominator > 0 ? formatCurrency(priceForTargetMargin) : "Impossível"}
+                        description="Meta de margem de contribuição, antes dos custos fixos"
+                    />
                 </ResultGrid>
                 {contribution <= 0 && (
                     <Notice>Os custos variáveis são iguais ou maiores que o preço. Revise preço, porção, taxas ou subsídio antes de vender.</Notice>
+                )}
+                {targetDenominator <= 0 && (
+                    <Notice>A soma das taxas percentuais e da meta de margem precisa ser menor que 100%.</Notice>
                 )}
             </ToolPanel>
         </div>
@@ -359,6 +375,8 @@ function AverageTicketCalculator() {
     const ticket = orders > 0 ? revenue / orders : 0;
     const targetRevenue = Math.max(0, orders) * Math.max(0, targetTicket);
     const targetDifference = targetRevenue - revenue;
+    const targetIncreasePerOrder = targetTicket - ticket;
+    const targetIncreasePercent = ticket > 0 ? (targetIncreasePerOrder / ticket) * 100 : 0;
     const expectedUpsell = upsellValue * (Math.min(100, Math.max(0, acceptance)) / 100);
     const projectedTicket = ticket + expectedUpsell;
     const projectedRevenue = projectedTicket * Math.max(0, orders);
@@ -378,6 +396,11 @@ function AverageTicketCalculator() {
                 <ResultGrid>
                     <ResultItem label="Ticket médio atual" value={formatCurrency(ticket)} highlight />
                     <ResultItem label="Faturamento na meta" value={formatCurrency(targetRevenue)} />
+                    <ResultItem
+                        label="Aumento por pedido para a meta"
+                        value={targetIncreasePerOrder > 0 ? formatCurrency(targetIncreasePerOrder) : "Meta já atingida"}
+                        description={targetIncreasePerOrder > 0 ? `${formatPercent(targetIncreasePercent)} sobre o ticket atual` : undefined}
+                    />
                     <ResultItem
                         label="Diferença para a meta"
                         value={formatCurrency(Math.abs(targetDifference))}
@@ -523,6 +546,7 @@ function ComboPriceCalculator() {
     const actualDiscount = totals.price > 0
         ? ((totals.price - recommendedPrice) / totals.price) * 100
         : 0;
+    const customerSavings = totals.price - recommendedPrice;
 
     const updateItem = (id: number, field: keyof Omit<ComboItem, "id">, value: string | number) => {
         setItems((current) => current.map((item) => item.id === id ? { ...item, [field]: value } : item));
@@ -577,13 +601,17 @@ function ComboPriceCalculator() {
                     <ResultItem label="Preço mínimo pela margem" value={denominator > 0 ? formatCurrency(minimumPrice) : "Impossível"} />
                     <ResultItem label="Preço recomendado" value={denominator > 0 ? formatCurrency(recommendedPrice) : "Revise os percentuais"} highlight={denominator > 0} />
                     <ResultItem
+                        label="Economia vs. itens avulsos"
+                        value={customerSavings >= 0 ? formatCurrency(customerSavings) : "Sem economia"}
+                        description={
+                            customerSavings >= 0
+                                ? `${formatPercent(actualDiscount)} de desconto real`
+                                : `${formatCurrency(Math.abs(customerSavings))} acima da soma avulsa`
+                        }
+                    />
+                    <ResultItem
                         label="Margem no recomendado"
                         value={formatPercent(actualMargin)}
-                        description={
-                            actualDiscount >= 0
-                                ? `${formatPercent(actualDiscount)} de desconto real`
-                                : `${formatPercent(Math.abs(actualDiscount))} acima da soma avulsa`
-                        }
                     />
                 </ResultGrid>
                 {minimumPrice > promotionalPrice && denominator > 0 && (
