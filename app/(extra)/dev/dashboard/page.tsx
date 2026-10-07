@@ -968,19 +968,19 @@ export default function DevDashboardPage() {
                                             <MetricCard
                                                 title="Page views / dia"
                                                 value={
-                                                    data.tracking.totalPageViews === null
+                                                    data.productOverview.imenu.pageViews === null
                                                         ? "—"
                                                         : formatAverage(
-                                                              data.tracking.totalPageViews /
+                                                              data.productOverview.imenu.pageViews /
                                                                   periodDays
                                                           )
                                                 }
                                                 description={
-                                                    data.tracking.totalPageViews === null
+                                                    data.productOverview.imenu.pageViews === null
                                                         ? "PostHog indisponível."
                                                         : `${formatCount(
-                                                              data.tracking.totalPageViews
-                                                          )} page views ÷ ${formatCount(
+                                                              data.productOverview.imenu.pageViews
+                                                          )} page views da landing page ÷ ${formatCount(
                                                               periodDays
                                                           )} dias do período.`
                                                 }
