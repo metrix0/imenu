@@ -134,13 +134,8 @@ export default function Page() {
 
                 <section>
                     <h2 className="mb-4 text-2xl font-bold">
-                        Comparando os melhores cardápios digitais
+                        Comparação rápida das plataformas
                     </h2>
-                    <p className="mb-6 text-gray-600">
-                        Ao comparar plataformas de cardápio digital, vale olhar principalmente
-                        para custo, facilidade de uso e quanto de gestão extra sua operação
-                        realmente precisa.
-                    </p>
 
                     <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white">
                         <table className="w-full min-w-[620px] text-left text-sm">
@@ -180,6 +175,43 @@ export default function Page() {
                         Planos e condições de plataformas de terceiros podem mudar. Confirme
                         sempre os valores e recursos atuais antes de contratar.
                     </p>
+                </section>
+
+                <section>
+                    <h2 className="mb-4 text-2xl font-bold">
+                        Comparando os melhores cardápios digitais
+                    </h2>
+                    <p className="mb-6 text-gray-600">
+                        Ao comparar plataformas de cardápio digital, vale olhar principalmente
+                        para custo, facilidade de uso e quanto de gestão extra sua operação
+                        realmente precisa.
+                    </p>
+
+                    <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                        <div className="rounded-xl bg-gray-50 p-5">
+                            <h3 className="mb-2 text-lg font-semibold">
+                                Plataformas mais completas
+                            </h3>
+                            <ul className="space-y-2 text-gray-600 list-disc list-inside">
+                                <li>Planos gratuitos costumam ter limites</li>
+                                <li>Recursos avançados geralmente ficam nos planos pagos</li>
+                                <li>Mais módulos de PDV, gestão e autoatendimento</li>
+                                <li>Mais configuração para começar</li>
+                            </ul>
+                        </div>
+
+                        <div className="rounded-xl border border-green-200 bg-green-50 p-5">
+                            <h3 className="mb-2 text-lg font-semibold text-green-700">
+                                iMenu
+                            </h3>
+                            <ul className="space-y-2 text-gray-700 list-disc list-inside">
+                                <li>Grátis, sem mensalidade nem taxa</li>
+                                <li>Pedidos e acessos ilimitados</li>
+                                <li>Configuração em minutos</li>
+                                <li>Foco em cardápio, pedidos e simplicidade</li>
+                            </ul>
+                        </div>
+                    </div>
                 </section>
 
                 <section>
