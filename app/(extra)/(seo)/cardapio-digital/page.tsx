@@ -347,11 +347,14 @@ export default function Page() {
                     </Link>
                 </section>
 
-                <section className="text-center">
-                    <p className="text-3xl font-extrabold text-brand md:text-4xl">
-                        Sim. O iMenu é totalmente grátis.
+                <section className="border-l-4 border-brand pl-6 md:pl-8">
+                    <p className="text-sm font-semibold uppercase tracking-wide text-brand">
+                        100% grátis
                     </p>
-                    <p className="mt-3 text-lg font-semibold text-gray-700">
+                    <p className="mt-3 text-3xl font-extrabold leading-tight text-gray-950 md:text-4xl">
+                        Sim, o iMenu é o primeiro cardápio totalmente grátis do Brasil!
+                    </p>
+                    <p className="mt-4 text-lg font-medium text-gray-600">
                         Sem limites. Sem taxas. Sem mensalidade.
                     </p>
                 </section>
