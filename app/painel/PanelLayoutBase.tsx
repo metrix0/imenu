@@ -35,6 +35,7 @@ import {
 
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import Loader from "@/components/ui/Loader";
+import Badge from "@/components/ui/Badge";
 import SupportButton, {
     type SupportButtonRef,
 } from "@/components/common/SupportButton";
@@ -655,9 +656,7 @@ export default function PainelLayout({
                                     </span>
                                     <span>{item.label}</span>
                                     {item.isNew && (
-                                        <span className="inline-flex shrink-0 items-center rounded-full bg-white px-1.5 pt-[3px] pb-px !text-[9px] leading-none font-semibold uppercase tracking-wide !text-brand ring-1 ring-inset ring-brand/25">
-                                            Novo
-                                        </span>
+                                        <Badge>Novo</Badge>
                                     )}
                                 </Link>
                             );
@@ -808,9 +807,7 @@ export default function PainelLayout({
                                         {item.label}
                                     </span>
                                     {item.isNew && expanded && (
-                                        <span className="inline-flex shrink-0 items-center rounded-full bg-white px-1.5 pt-[3px] pb-px !text-[9px] leading-none font-semibold uppercase tracking-wide !text-brand ring-1 ring-inset ring-brand/25">
-                                            Novo
-                                        </span>
+                                        <Badge>Novo</Badge>
                                     )}
                                 </Link>
                             );
