@@ -16,6 +16,7 @@ import { Bar, Line } from "react-chartjs-2";
 
 import ConsumerPipelineCard from "@/components/analytics/ConsumerPipelineCard";
 import SalesRankingSection from "@/components/analytics/SalesRankingSection";
+import IaAssistantConversationsSection from "@/components/dev/IaAssistantConversationsSection";
 import InfoTooltip from "@/components/ui/Tooltip";
 import { PanelIcon } from "@/components/ui/PanelIcon";
 import { faCircleInfo } from "@fortawesome/free-solid-svg-icons";
@@ -726,6 +727,7 @@ export default function DevDashboardPage() {
                 ) : data ? (
                     <>
                         <ProductOverviewSections metrics={data.productOverview} />
+                        <IaAssistantConversationsSection />
                         {details && (
                             <section>
                                 <SectionHeading
