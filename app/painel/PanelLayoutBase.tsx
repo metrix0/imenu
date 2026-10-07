@@ -655,7 +655,7 @@ export default function PainelLayout({
                                     </span>
                                     <span>{item.label}</span>
                                     {item.isNew && (
-                                        <span className="inline-flex shrink-0 items-center rounded-full bg-white px-1.5 py-0.5 !text-[9px] leading-none font-semibold uppercase tracking-wide !text-brand ring-1 ring-inset ring-brand/25">
+                                        <span className="inline-flex shrink-0 items-center rounded-full bg-white px-1.5 pt-[3px] pb-px !text-[9px] leading-none font-semibold uppercase tracking-wide !text-brand ring-1 ring-inset ring-brand/25">
                                             Novo
                                         </span>
                                     )}
@@ -780,7 +780,7 @@ export default function PainelLayout({
                                     title={!expanded ? item.label : ""}
                                     aria-current={active ? "page" : undefined}
                                     style={{ outlineColor: "#d93d00" }}
-                                    className="panel-nav-link group relative flex cursor-pointer items-center transition-colors duration-200"
+                                    className={`panel-nav-link group relative flex cursor-pointer items-center transition-colors duration-200 ${item.isNew && expanded ? "!gap-1.5" : ""}`}
                                 >
                                     <div className="relative flex h-6 w-6 shrink-0 items-center justify-center 2xl:h-10 2xl:w-12">
                                         <FontAwesomeIcon
@@ -801,14 +801,14 @@ export default function PainelLayout({
                                     <span
                                         className={`overflow-hidden whitespace-nowrap text-sm transition-all duration-300 2xl:text-lg ${
                                             expanded
-                                                ? "ml-0 w-auto opacity-100"
+                                                ? `ml-0 w-auto opacity-100 ${item.isNew ? "shrink-0" : ""}`
                                                 : "ml-0 w-0 opacity-0"
                                         }`}
                                     >
                                         {item.label}
                                     </span>
                                     {item.isNew && expanded && (
-                                        <span className="ml-1.5 inline-flex shrink-0 items-center rounded-full bg-white px-1.5 py-0.5 !text-[9px] leading-none font-semibold uppercase tracking-wide !text-brand ring-1 ring-inset ring-brand/25">
+                                        <span className="inline-flex shrink-0 items-center rounded-full bg-white px-1.5 pt-[3px] pb-px !text-[9px] leading-none font-semibold uppercase tracking-wide !text-brand ring-1 ring-inset ring-brand/25">
                                             Novo
                                         </span>
                                     )}
