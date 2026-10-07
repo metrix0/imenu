@@ -6,7 +6,7 @@ export const metadata = {
     description:
         "Cardápio digital gratuito para restaurantes e delivery. Sem mensalidade, sem taxas e sem limite de pedidos.",
     alternates: {
-        canonical: "https://imenuapp.com.br/cardapio-digital-gratuito",
+        canonical: "https://www.imenuapp.com.br/cardapio-digital-gratuito",
     },
 };
 
@@ -81,6 +81,9 @@ export default function Page() {
                 <p className="text-gray-600 mt-4">
                     Para o salão ou materiais impressos, você também pode criar um código
                     na nossa <a className="text-blue-500 underline" href="/ferramentas/gerador-qr-code-cardapio">ferramenta gratuita de QR Code</a>.
+                </p>
+                <p className="text-gray-600 mt-4">
+                    Se ainda estiver organizando o menu, use o nosso <a className="text-blue-500 underline" href="/ferramentas/gerador-cardapio-digital">criador de cardápio digital</a> e o <a className="text-blue-500 underline" href="/ferramentas/gerador-descricao-produto-ia">gerador de descrições com IA</a>.
                 </p>
             </section>
         </SeoPage>

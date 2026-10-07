@@ -6,7 +6,7 @@ export const metadata = {
     description:
         "Gestor de pedidos para restaurante: organize, acompanhe e gerencie pedidos com mais eficiência usando o iMenu.",
     alternates: {
-        canonical: "https://imenuapp.com.br/gestor-de-pedidos",
+        canonical: "https://www.imenuapp.com.br/gestor-de-pedidos",
     },
 };
 

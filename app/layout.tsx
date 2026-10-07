@@ -14,7 +14,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
     const baseUrl = host
         ? "https://" + host
-        : "https://imenuapp.com.br";
+        : "https://www.imenuapp.com.br";
 
     return {
         title: "Cardápio Digital Gratuito para Restaurantes e Delivery | iMenu",
@@ -32,7 +32,7 @@ export async function generateMetadata(): Promise<Metadata> {
             apple: "/icons/appIcon.png",
         },
         alternates: {
-            canonical: baseUrl,
+            canonical: "https://www.imenuapp.com.br",
         },
     };
 }

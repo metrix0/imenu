@@ -226,7 +226,7 @@ export function getComparisonPage(slug: string): ComparisonPageDefinition {
 export function createComparisonMetadata(
     page: ComparisonPageDefinition
 ): Metadata {
-    const canonical = `https://imenuapp.com.br/${page.slug}`;
+    const canonical = `https://www.imenuapp.com.br/${page.slug}`;
 
     return {
         title: page.metaTitle,

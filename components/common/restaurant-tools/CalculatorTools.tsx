@@ -64,6 +64,17 @@ const IFOOD_PLANS: Record<
     entrega: { commission: 23, paymentFee: 3.2, monthlyFee: 150 },
 };
 
+function calculatePriceForDesiredNet(
+    desiredNet: number,
+    percentageRate: number,
+    fixedCosts = 0
+) {
+    const remainingRate = 1 - Math.max(0, percentageRate) / 100;
+    return remainingRate > 0
+        ? (Math.max(0, desiredNet) + Math.max(0, fixedCosts)) / remainingRate
+        : 0;
+}
+
 function IfoodFeeCalculator() {
     const [plan, setPlan] = useState<IfoodPlan>("basico");
     const [revenue, setRevenue] = useState(30000);
@@ -73,6 +84,7 @@ function IfoodFeeCalculator() {
     const [paymentFee, setPaymentFee] = useState(3.2);
     const [monthlyFee, setMonthlyFee] = useState(110);
     const [monthlyThreshold, setMonthlyThreshold] = useState(1800);
+    const [desiredNet, setDesiredNet] = useState(40);
 
     const selectPlan = (value: IfoodPlan) => {
         setPlan(value);
@@ -93,6 +105,8 @@ function IfoodFeeCalculator() {
     const total = commissionCost + paymentCost + chargedMonthlyFee;
     const orders = ticket > 0 ? safeRevenue / ticket : 0;
     const effectiveRate = safeRevenue > 0 ? (total / safeRevenue) * 100 : 0;
+    const perOrderRate = Math.max(0, commission + paymentFee);
+    const requiredPrice = calculatePriceForDesiredNet(desiredNet, perOrderRate);
 
     return (
         <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
@@ -168,6 +182,12 @@ function IfoodFeeCalculator() {
                         prefix="R$"
                         step={100}
                     />
+                    <NumberField
+                        label="Quero receber líquido por pedido"
+                        value={desiredNet}
+                        onChange={setDesiredNet}
+                        prefix="R$"
+                    />
                 </div>
                 <Notice>
                     Taxas e condições podem variar por contrato, região e campanha. Confirme os valores no Portal do Parceiro. Impostos, produção, embalagem, entrega e eventuais promoções não estão incluídos.
@@ -201,6 +221,11 @@ function IfoodFeeCalculator() {
                         label="Líquido após as taxas"
                         value={formatCurrency(Math.max(0, safeRevenue - total))}
                         highlight
+                    />
+                    <ResultItem
+                        label="Preço para receber o líquido desejado"
+                        value={perOrderRate < 100 ? formatCurrency(requiredPrice) : "Impossível"}
+                        description={`${formatCurrency(Math.max(0, desiredNet))} líquidos em pedido pago no app; sem ratear mensalidade`}
                     />
                 </ResultGrid>
                 <div className="mt-4 rounded-xl border border-green-200 bg-green-50 p-4">
@@ -270,13 +295,20 @@ function DeliveryMarginCalculator() {
     const [otherVariable, setOtherVariable] = useState(1);
     const [fixedCosts, setFixedCosts] = useState(5000);
     const [monthlyOrders, setMonthlyOrders] = useState(400);
+    const [targetMargin, setTargetMargin] = useState(20);
 
-    const percentageCosts = price * (Math.max(0, commission + paymentFee + tax) / 100);
-    const variableCosts = foodCost + packaging + deliverySubsidy + otherVariable + percentageCosts;
+    const percentageRate = Math.max(0, commission + paymentFee + tax);
+    const fixedVariableCosts = foodCost + packaging + deliverySubsidy + otherVariable;
+    const percentageCosts = price * (percentageRate / 100);
+    const variableCosts = fixedVariableCosts + percentageCosts;
     const contribution = price - variableCosts;
     const contributionMargin = price > 0 ? (contribution / price) * 100 : 0;
     const breakEven = contribution > 0 ? Math.ceil(fixedCosts / contribution) : 0;
     const monthlyResult = contribution * Math.max(0, monthlyOrders) - Math.max(0, fixedCosts);
+    const targetDenominator = 1 - (percentageRate + Math.max(0, targetMargin)) / 100;
+    const priceForTargetMargin = targetDenominator > 0
+        ? fixedVariableCosts / targetDenominator
+        : 0;
 
     return (
         <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
@@ -292,6 +324,7 @@ function DeliveryMarginCalculator() {
                     <NumberField label="Outros custos variáveis" value={otherVariable} onChange={setOtherVariable} prefix="R$" />
                     <NumberField label="Custos fixos mensais" value={fixedCosts} onChange={setFixedCosts} prefix="R$" step={100} />
                     <NumberField label="Pedidos por mês" value={monthlyOrders} onChange={setMonthlyOrders} suffix="un" step={1} />
+                    <NumberField label="Meta de margem por pedido" value={targetMargin} onChange={setTargetMargin} suffix="%" max={100} />
                 </div>
             </ToolPanel>
             <ToolPanel title="Margem e ponto de equilíbrio" icon={faChartLine}>
@@ -315,9 +348,17 @@ function DeliveryMarginCalculator() {
                         highlight={monthlyResult >= 0}
                         danger={monthlyResult < 0}
                     />
+                    <ResultItem
+                        label="Preço para a meta de margem"
+                        value={targetDenominator > 0 ? formatCurrency(priceForTargetMargin) : "Impossível"}
+                        description="Meta de margem de contribuição, antes dos custos fixos"
+                    />
                 </ResultGrid>
                 {contribution <= 0 && (
                     <Notice>Os custos variáveis são iguais ou maiores que o preço. Revise preço, porção, taxas ou subsídio antes de vender.</Notice>
+                )}
+                {targetDenominator <= 0 && (
+                    <Notice>A soma das taxas percentuais e da meta de margem precisa ser menor que 100%.</Notice>
                 )}
             </ToolPanel>
         </div>
@@ -334,6 +375,8 @@ function AverageTicketCalculator() {
     const ticket = orders > 0 ? revenue / orders : 0;
     const targetRevenue = Math.max(0, orders) * Math.max(0, targetTicket);
     const targetDifference = targetRevenue - revenue;
+    const targetIncreasePerOrder = targetTicket - ticket;
+    const targetIncreasePercent = ticket > 0 ? (targetIncreasePerOrder / ticket) * 100 : 0;
     const expectedUpsell = upsellValue * (Math.min(100, Math.max(0, acceptance)) / 100);
     const projectedTicket = ticket + expectedUpsell;
     const projectedRevenue = projectedTicket * Math.max(0, orders);
@@ -353,6 +396,11 @@ function AverageTicketCalculator() {
                 <ResultGrid>
                     <ResultItem label="Ticket médio atual" value={formatCurrency(ticket)} highlight />
                     <ResultItem label="Faturamento na meta" value={formatCurrency(targetRevenue)} />
+                    <ResultItem
+                        label="Aumento por pedido para a meta"
+                        value={targetIncreasePerOrder > 0 ? formatCurrency(targetIncreasePerOrder) : "Meta já atingida"}
+                        description={targetIncreasePerOrder > 0 ? `${formatPercent(targetIncreasePercent)} sobre o ticket atual` : undefined}
+                    />
                     <ResultItem
                         label="Diferença para a meta"
                         value={formatCurrency(Math.abs(targetDifference))}
@@ -379,15 +427,18 @@ function DeliveryCommissionCalculator() {
     const [deliveryCost, setDeliveryCost] = useState(0);
     const [desiredNet, setDesiredNet] = useState(40);
 
-    const percentage = Math.max(0, commission + paymentFee) / 100;
+    const percentageRate = Math.max(0, commission + paymentFee);
+    const percentage = percentageRate / 100;
     const percentageFees = orderValue * percentage;
     const totalFees = percentageFees + fixedFee + deliveryCost;
     const net = orderValue - totalFees;
     const effectiveRate = orderValue > 0 ? (totalFees / orderValue) * 100 : 0;
     const remainingRate = 1 - percentage;
-    const requiredPrice = remainingRate > 0
-        ? (desiredNet + fixedFee + deliveryCost) / remainingRate
-        : 0;
+    const requiredPrice = calculatePriceForDesiredNet(
+        desiredNet,
+        percentageRate,
+        fixedFee + deliveryCost
+    );
 
     return (
         <div className="grid gap-5 lg:grid-cols-2">
@@ -495,6 +546,7 @@ function ComboPriceCalculator() {
     const actualDiscount = totals.price > 0
         ? ((totals.price - recommendedPrice) / totals.price) * 100
         : 0;
+    const customerSavings = totals.price - recommendedPrice;
 
     const updateItem = (id: number, field: keyof Omit<ComboItem, "id">, value: string | number) => {
         setItems((current) => current.map((item) => item.id === id ? { ...item, [field]: value } : item));
@@ -549,13 +601,17 @@ function ComboPriceCalculator() {
                     <ResultItem label="Preço mínimo pela margem" value={denominator > 0 ? formatCurrency(minimumPrice) : "Impossível"} />
                     <ResultItem label="Preço recomendado" value={denominator > 0 ? formatCurrency(recommendedPrice) : "Revise os percentuais"} highlight={denominator > 0} />
                     <ResultItem
+                        label="Economia vs. itens avulsos"
+                        value={customerSavings >= 0 ? formatCurrency(customerSavings) : "Sem economia"}
+                        description={
+                            customerSavings >= 0
+                                ? `${formatPercent(actualDiscount)} de desconto real`
+                                : `${formatCurrency(Math.abs(customerSavings))} acima da soma avulsa`
+                        }
+                    />
+                    <ResultItem
                         label="Margem no recomendado"
                         value={formatPercent(actualMargin)}
-                        description={
-                            actualDiscount >= 0
-                                ? `${formatPercent(actualDiscount)} de desconto real`
-                                : `${formatPercent(Math.abs(actualDiscount))} acima da soma avulsa`
-                        }
                     />
                 </ResultGrid>
                 {minimumPrice > promotionalPrice && denominator > 0 && (

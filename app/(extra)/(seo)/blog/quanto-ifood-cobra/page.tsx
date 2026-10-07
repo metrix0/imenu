@@ -25,6 +25,7 @@ const sections = [
     { id: "exemplo-30-mil", label: "Exemplo com R$ 30 mil" },
     { id: "comparar-canal-proprio", label: "Comparar canal próprio" },
     { id: "decisao", label: "Tomar a decisão" },
+    { id: "guias-ifood", label: "Guias sobre iFood" },
     { id: "perguntas-frequentes", label: "Perguntas frequentes" },
 ];
 
@@ -32,7 +33,7 @@ const faq = [
     {
         question: "Quanto o iFood cobra por pedido do restaurante?",
         answer:
-            "Nas condições padrão consultadas em 14 de agosto de 2026, a comissão publicada é de 12% no Plano Básico e 23% no Plano Entrega. Pedidos pagos no iFood também têm taxa publicada de 3,2%. Condições comerciais podem variar, então o contrato da loja é a fonte final.",
+            "Nas páginas oficiais consultadas em 7 de outubro de 2026, a comissão publicada é de 12% no Plano Básico e 23% no Plano Entrega. A página de planos mostra 3,2% para pagamentos via iFood, enquanto a página de entregas mostra 3,5%. O contrato ou Portal do Parceiro da loja é a referência final.",
     },
     {
         question: "O iFood cobra mensalidade?",
@@ -40,7 +41,7 @@ const faq = [
             "Nas condições padrão publicadas, há mensalidade quando o faturamento no iFood ultrapassa R$ 1.800 no mês: R$ 110 no Plano Básico e R$ 150 no Plano Entrega. Confirme o valor e eventuais promoções no Portal do Parceiro.",
     },
     {
-        question: "Somar 12% e 3,2% sempre dá o custo real?",
+        question: "Somar comissão e taxa de pagamento sempre dá o custo real?",
         answer:
             "Não. A comissão incide sobre os pedidos, mas a taxa de pagamento online depende da parcela paga dentro do aplicativo. A mensalidade e outras condições também alteram a taxa efetiva.",
     },
@@ -58,26 +59,26 @@ export default function QuantoIfoodCobraPage() {
             icon={faReceipt}
             takeaways={[
                 "A composição das taxas padrão dos planos Básico e Entrega",
-                "Uma conta completa para transformar percentuais em reais",
+                "Como calcular o custo mensal e quanto cobrar por pedido",
                 "Um método justo para comparar marketplace e canal próprio",
             ]}
             sections={sections}
             faq={faq}
             relatedSlugs={[
-                "alternativa-ao-ifood",
-                "como-vender-delivery-pelo-whatsapp",
-                "como-aumentar-ticket-medio-restaurante",
+                "taxa-ifood-para-restaurante",
+                "quanto-sobra-restaurante-ifood",
+                "ifood-vale-a-pena-restaurante",
             ]}
             ctaTitle="Tenha também um canal direto de pedidos"
         >
             <BlogSection id="resposta-rapida" title="Quanto o iFood cobra: resposta rápida">
                 <p>
-                    Nas condições padrão publicadas pelo iFood e consultadas em
-                    14 de agosto de 2026, o <strong>Plano Básico</strong> cobra 12% de
-                    comissão e o <strong>Plano Entrega</strong> cobra 23%. Quando o
-                    pedido é pago dentro do aplicativo, há ainda uma taxa publicada de
-                    3,2%. Acima de R$ 1.800 de faturamento mensal na plataforma, as
-                    mensalidades informadas são de R$ 110 e R$ 150, respectivamente.
+                    Nas páginas oficiais do iFood consultadas em 7 de outubro de 2026, o
+                    <strong>Plano Básico</strong> cobra 12% de comissão e o
+                    <strong>Plano Entrega</strong> cobra 23%. Para pagamentos via iFood,
+                    a página de planos mostra 3,2%, enquanto a página de entregas mostra
+                    3,5%. Acima de R$ 1.800 de faturamento mensal na plataforma, as
+                    mensalidades publicadas são de R$ 110 e R$ 150, respectivamente.
                 </p>
                 <BlogCallout title="Seu contrato vem antes de qualquer tabela" variant="warning">
                     Promoções, região, categoria, serviços adicionais e negociação podem
@@ -85,16 +86,30 @@ export default function QuantoIfoodCobraPage() {
                     condições da sua loja no Portal do Parceiro.
                 </BlogCallout>
                 <BlogReadingNote>
-                    Fonte dos valores: página oficial de {" "}
+                    Fontes dos valores: páginas oficiais de {" "}
                     <a
                         href="https://parceiros.ifood.com.br/restaurante/planos-ifood"
                         target="_blank"
                         rel="noreferrer"
                         className="font-semibold text-brand underline"
                     >
-                        Planos iFood para Restaurantes
-                    </a>. A data da consulta fica explícita porque preços e regras podem mudar.
+                        Planos iFood
+                    </a>{" "}
+                    e {" "}
+                    <a
+                        href="https://parceiros.ifood.com.br/restaurante/como-funciona/entregas"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="font-semibold text-brand underline"
+                    >
+                        Entregas
+                    </a>. Como elas exibiam taxas de pagamento diferentes na data da consulta, confirme o valor do seu contrato antes de decidir.
                 </BlogReadingNote>
+                <BlogToolLink
+                    href="/ferramentas/calculadora-taxas-ifood"
+                    title="Calcule as taxas e quanto cobrar no iFood"
+                    description="Informe seu faturamento e as taxas do contrato para ver custo total, líquido, custo por pedido e o preço necessário para receber um valor líquido desejado."
+                />
             </BlogSection>
 
             <BlogSection id="planos-e-taxas" title="Planos do iFood e taxas publicadas">
@@ -120,8 +135,8 @@ export default function QuantoIfoodCobraPage() {
                             </tr>
                             <tr>
                                 <td className="px-5 py-4 font-semibold text-gray-900">Pagamento pelo iFood</td>
-                                <td className="px-5 py-4">3,2% sobre a parcela paga no app</td>
-                                <td className="px-5 py-4">3,2% sobre a parcela paga no app</td>
+                                <td className="px-5 py-4">3,2% na página de planos; 3,5% na página de entregas</td>
+                                <td className="px-5 py-4">3,2% na página de planos; 3,5% na página de entregas</td>
                             </tr>
                             <tr>
                                 <td className="px-5 py-4 font-semibold text-gray-900">Mensalidade publicada</td>
@@ -157,7 +172,7 @@ export default function QuantoIfoodCobraPage() {
                 <div className="rounded-2xl border border-gray-200 bg-gray-950 p-6 text-white">
                     <p className="text-sm font-semibold uppercase tracking-wide text-orange-300">Fórmula</p>
                     <p className="mt-3 font-mono text-sm leading-7 sm:text-base">
-                        custo total = (vendas × comissão) + (vendas pagas no app × 3,2%) + mensalidade
+                        custo total = (vendas × comissão) + (vendas pagas no app × taxa de pagamento) + mensalidade
                     </p>
                     <p className="mt-3 font-mono text-sm leading-7 sm:text-base">
                         taxa efetiva = custo total ÷ vendas × 100
@@ -169,17 +184,14 @@ export default function QuantoIfoodCobraPage() {
                     mês, já considerando a forma de pagamento e a mensalidade. Também
                     permite comparar períodos com volumes diferentes.
                 </p>
-                <BlogToolLink
-                    href="/ferramentas/calculadora-taxas-ifood"
-                    title="Calcule as taxas do seu contrato"
-                    description="Informe faturamento, ticket, pagamentos online e valores negociados para ver custo total, líquido e custo por pedido."
-                />
             </BlogSection>
 
             <BlogSection id="exemplo-30-mil" title="Exemplo: R$ 30 mil por mês no iFood">
                 <p>
                     Considere R$ 30.000 em pedidos, todos pagos dentro do aplicativo e
-                    faturamento acima do limite de mensalidade. O cálculo é uma estimativa
+                    faturamento acima do limite de mensalidade. Para deixar o exemplo
+                    reproduzível, usamos 3,2% de taxa de pagamento, valor exibido na página
+                    oficial de planos em 7 de outubro de 2026. O cálculo é uma estimativa
                     dos custos da plataforma, antes de impostos, ingredientes, embalagem,
                     equipe e entrega própria.
                 </p>
@@ -270,6 +282,39 @@ export default function QuantoIfoodCobraPage() {
                         alternativa ao iFood
                     </Link>. Ele mostra como construir um canal próprio sem sacrificar a
                     demanda que a plataforma já traz.
+                </p>
+            </BlogSection>
+
+            <BlogSection id="guias-ifood" title="Guias para cada dúvida sobre custos do iFood">
+                <p>
+                    Se você quer aprofundar uma parte específica da conta, use estes guias
+                    do mesmo cluster:
+                </p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                    {[
+                        ["/blog/taxa-ifood-para-restaurante", "Taxa do iFood para restaurante"],
+                        ["/blog/comissao-ifood", "Comissão do iFood"],
+                        ["/blog/quanto-custa-vender-no-ifood", "Quanto custa vender no iFood"],
+                        ["/blog/quanto-sobra-restaurante-ifood", "Quanto sobra para o restaurante"],
+                        ["/blog/ifood-vale-a-pena-restaurante", "iFood vale a pena para restaurante?"],
+                    ].map(([href, label]) => (
+                        <Link
+                            key={href}
+                            href={href}
+                            className="rounded-xl border border-gray-200 bg-white p-4 font-semibold text-gray-800 transition hover:border-brand/40 hover:text-brand"
+                        >
+                            {label}
+                        </Link>
+                    ))}
+                </div>
+                <p>
+                    Para fazer a conta com seus próprios números, use a {" "}
+                    <Link href="/ferramentas/calculadora-taxas-ifood" className="font-semibold text-brand underline">
+                        calculadora de taxas do iFood
+                    </Link>. Para comparar com pedidos diretos, veja também {" "}
+                    <Link href="/cardapio-digital" className="font-semibold text-brand underline">
+                        cardápio digital
+                    </Link>.
                 </p>
             </BlogSection>
         </BlogArticle>

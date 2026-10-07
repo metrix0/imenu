@@ -46,6 +46,70 @@ type BlogArticleProps = {
     children: React.ReactNode;
 };
 
+type RelatedTool = {
+    href: string;
+    title: string;
+    description: string;
+};
+
+const RELATED_TOOL_BY_ARTICLE: Record<string, RelatedTool> = {
+    "assistente-ia-para-restaurante": {
+        href: "/ferramentas/gerador-descricao-produto-ia",
+        title: "Teste a IA nas descrições do seu cardápio",
+        description: "Gere descrições de produtos com IA usando informações reais do seu item.",
+    },
+    "analise-de-vendas-com-ia": {
+        href: "/ferramentas/calculadora-ticket-medio",
+        title: "Calcule seu ticket médio",
+        description: "Use seus próprios pedidos para medir o valor médio e simular oportunidades de crescimento.",
+    },
+    "pedido-whatsapp-celular-confirmacao": {
+        href: "/ferramentas/gerador-cardapio-digital",
+        title: "Monte um rascunho do seu cardápio digital",
+        description: "Organize produtos, preços e categorias antes de levar o fluxo de pedidos para o WhatsApp.",
+    },
+    "taxa-de-entrega-por-bairro": {
+        href: "/ferramentas/calculadora-margem-delivery",
+        title: "Veja como o frete afeta sua margem",
+        description: "Simule custos e margem do delivery antes de definir taxas para cada região.",
+    },
+    "promocoes-para-delivery": {
+        href: "/ferramentas/calculadora-margem-delivery",
+        title: "Confira a margem antes de dar desconto",
+        description: "Simule o impacto de taxas, custos e promoções no resultado de cada pedido.",
+    },
+    "aplicativo-para-garcom": {
+        href: "/ferramentas/gerador-qr-code-cardapio",
+        title: "Crie um QR Code para o cardápio",
+        description: "Gere um QR Code gratuito para complementar o atendimento no salão.",
+    },
+    "melhor-qr-code-mesa-restaurante": {
+        href: "/ferramentas/gerador-qr-code-cardapio",
+        title: "Gere o QR Code do seu cardápio",
+        description: "Crie gratuitamente um QR Code para seu link e teste antes de imprimir.",
+    },
+    "robo-whatsapp-para-restaurante": {
+        href: "/ferramentas/gerador-cardapio-digital",
+        title: "Organize seu cardápio antes de automatizar o WhatsApp",
+        description: "Monte um rascunho com categorias, produtos, descrições e preços.",
+    },
+    "criar-cardapio-com-ia": {
+        href: "/ferramentas/gerador-descricao-produto-ia",
+        title: "Gere descrições de produtos com IA",
+        description: "Transforme ingredientes e características reais em descrições prontas para revisar.",
+    },
+    "programa-fidelidade-restaurante": {
+        href: "/ferramentas/calculadora-ticket-medio",
+        title: "Meça o ticket médio dos seus pedidos",
+        description: "Acompanhe o valor médio por pedido antes e depois das ações de fidelização.",
+    },
+    "controle-estoque-cardapio-digital": {
+        href: "/ferramentas/calculadora-cmv",
+        title: "Calcule o CMV do restaurante",
+        description: "Use estoque inicial, compras, estoque final e vendas para medir o consumo real do período.",
+    },
+};
+
 function formatArticleDate(value: string): string {
     return new Intl.DateTimeFormat("pt-BR", {
         day: "numeric",
@@ -71,6 +135,7 @@ export default function BlogArticle({
     const relatedArticles = relatedSlugs
         .map((slug) => BLOG_ARTICLES.find((candidate) => candidate.slug === slug))
         .filter((candidate): candidate is BlogArticleDefinition => Boolean(candidate));
+    const relatedTool = RELATED_TOOL_BY_ARTICLE[article.slug];
     const usesQrCodeMesaHero = [
         "cardapio-digital-qr-code-restaurante",
         "melhor-qr-code-mesa-restaurante",
@@ -237,6 +302,21 @@ export default function BlogArticle({
                         </div>
                     </section>
 
+                    {relatedTool && (
+                        <section className="mt-16" aria-labelledby="related-tool-title">
+                            <h2 id="related-tool-title" className="text-2xl font-bold text-gray-950">
+                                Ferramenta relacionada
+                            </h2>
+                            <div className="mt-5">
+                                <BlogToolLink
+                                    href={relatedTool.href}
+                                    title={relatedTool.title}
+                                    description={relatedTool.description}
+                                />
+                            </div>
+                        </section>
+                    )}
+
                     {relatedArticles.length > 0 && (
                         <section className="mt-16" aria-labelledby="related-articles-title">
                             <h2 id="related-articles-title" className="text-2xl font-bold text-gray-950">
@@ -266,7 +346,7 @@ export default function BlogArticle({
                     )}
 
                     <div className="mt-16">
-                        <RestaurantToolsCta title={ctaTitle} />
+                        <RestaurantToolsCta title={ctaTitle} href="/cardapio-digital" />
                     </div>
                 </div>
             </div>
