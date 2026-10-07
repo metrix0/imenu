@@ -86,7 +86,7 @@ export default function AnalysisReport({
               />
               <div className={styles.noAnalysisIntro}>
                 <h2>Sua análise ainda não foi liberada</h2>
-                <p>A Análise de vendas usa os dados reais do seu restaurante para encontrar oportunidades que podem aumentar suas vendas e transformar os melhores achados em mudanças prontas para revisão.</p>
+                <p>A Análise de vendas usa os dados reais do seu restaurante para encontrar oportunidades de aumentar suas vendas e transformar os melhores achados em melhorias prontas para aplicar.</p>
               </div>
             </div>
 
@@ -95,28 +95,28 @@ export default function AnalysisReport({
                 <span><Rocket size={18} aria-hidden="true" /></span>
                 <div>
                   <strong>Aplica melhorias automaticamente</strong>
-                  <p>Você apenas revisa e aceita as mudanças que aumentam seu faturamento.</p>
+                  <p>Você só revisa e aprova as melhorias sugeridas.</p>
                 </div>
               </article>
               <article>
                 <span><ClipboardList size={18} aria-hidden="true" /></span>
                 <div>
                   <strong>Entende suas vendas</strong>
-                  <p>Analisa pedidos, desempenho dos produtos, cardápio e configurações do restaurante.</p>
+                  <p>Analisa seus pedidos, produtos, cardápio e configurações para encontrar oportunidades de venda.</p>
                 </div>
               </article>
               <article>
                 <span><Target size={18} aria-hidden="true" /></span>
                 <div>
                   <strong>Encontra o que vale priorizar</strong>
-                  <p>Destaca oportunidades com evidências e, quando possível, estima o impacto nas próximas 4 semanas.</p>
+                  <p>Prioriza as melhores oportunidades, mostra as evidências e, quando possível, estima o impacto nas próximas 4 semanas.</p>
                 </div>
               </article>
             </div>
 
             <div className={styles.freeReleaseNote}>
               <strong>Como funciona o acesso gratuito</strong>
-              <p>Por enquanto, estamos liberando análises gratuitas para poucos restaurantes por vez. Quando o seu for selecionado, a análise aparecerá automaticamente aqui. Volte em outro dia para conferir. Aplicar as modificações da análise automaticamente é uma função do Plano IA Plus.</p>
+              <p>Estamos liberando análises gratuitas para alguns restaurantes por vez. Quando o seu for selecionado, a análise aparecerá aqui automaticamente. Para liberar a análise imediatamente e aplicar as melhorias com IA, conheça o Plano IA Plus.</p>
             </div>
 
             <div className={styles.upgradeState}>
