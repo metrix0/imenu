@@ -106,7 +106,7 @@
     .panel-essencial .plans-included { flex-direction: row; align-items: center; justify-content: space-between; }
     .panel-essencial .plans-included-copy { flex-direction: row; align-items: center; gap: 24px; }
     .panel-essencial .plans-included-copy > div:first-child { width: 80px; }
-    .panel-essencial .plans-included-status { align-items: flex-end; text-align: right; }
+    .panel-essencial .plans-included-status { align-self: stretch; align-items: flex-end; justify-content: space-between; text-align: right; }
     .panel-essencial .plans-product-description { min-height: 72px; }
     .panel-essencial .plans-product-features { min-height: 68px; }
     .panel-essencial .plans-product-actions { min-height: 48px; }
