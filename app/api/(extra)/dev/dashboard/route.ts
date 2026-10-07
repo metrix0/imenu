@@ -79,6 +79,7 @@ type PostHogMetrics = {
     registerClicks: number | null;
     beforeStartViews: number | null;
     blogViews: number | null;
+    publicContentPageViews: number | null;
     totalPageViews: number | null;
 };
 
@@ -467,6 +468,7 @@ async function loadPostHogMetrics(
             registerClicks: null,
             beforeStartViews: null,
             blogViews: null,
+            publicContentPageViews: null,
             totalPageViews: null,
         };
     }
@@ -479,6 +481,16 @@ async function loadPostHogMetrics(
         .toISOString()
         .replace("T", " ")
         .replace(/\.\d{3}Z$/, "");
+
+    const publicContentPaths = [
+        "/",
+        ...PUBLIC_CONTENT_PAGES
+            .filter((page) => page.kind !== "Ferramenta" && page.path !== "/ferramentas")
+            .map((page) => page.path),
+    ];
+    const publicContentPathList = publicContentPaths
+        .map((path) => `'${path.replace(/'/g, "\\'")}'`)
+        .join(", ");
 
     const hogql = `
         SELECT
@@ -511,7 +523,11 @@ async function loadPostHogMetrics(
             )) AS ia_plus_pageviews,
             countIf(event = '$pageview' AND properties.$pathname IN (
                 '/painel/mesas', '/painel/mesas/'
-            )) AS qr_pageviews
+            )) AS qr_pageviews,
+            countIf(
+                event = '$pageview'
+                AND properties.$pathname IN (${publicContentPathList})
+            ) AS public_content_pageviews
         FROM events
         WHERE timestamp >= toDateTime('${start}', 'UTC')
           AND timestamp < toDateTime('${end}', 'UTC')
@@ -554,6 +570,7 @@ async function loadPostHogMetrics(
             registerClicks: Number(row[1]) || 0,
             beforeStartViews: Number(row[2]) || 0,
             blogViews: Number(row[3]) || 0,
+            publicContentPageViews: Number(row[8]) || 0,
             totalPageViews: Number(row[4]) || 0,
             productPageViews: {
                 imenu: Number(row[5]) || 0,
@@ -570,6 +587,7 @@ async function loadPostHogMetrics(
             registerClicks: null,
             beforeStartViews: null,
             blogViews: null,
+            publicContentPageViews: null,
             totalPageViews: null,
         };
     }
@@ -1438,6 +1456,7 @@ export async function GET(request: Request) {
                 tracking: {
                     postHogAvailable: postHog.available,
                     blogViews: postHog.blogViews,
+                    publicContentPageViews: postHog.publicContentPageViews,
                     totalPageViews: postHog.totalPageViews,
                 },
                 panelTabs: panelTabUsage,
