@@ -68,8 +68,8 @@ export default function AllowedPaymentMethods({
             </h2>
             <p className="mb-5 text-sm text-gray-500">
                 Escolha quais formas aparecem para o cliente no checkout.{" "}
-                <strong>Pagamentos com Pix (Online) são repassados</strong>{" "}
-                dentro de 1 dia (todo dia às 12:00).
+                <strong>Pix (Online) tem taxa de processamento de 0,99%</strong>{" "}
+                sobre o valor pago e os repasses são processados diariamente às 12:00.
             </p>
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

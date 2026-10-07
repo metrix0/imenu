@@ -40,6 +40,12 @@ export default function TermosPage() {
                 completos de cartão.
             </p>
             <p className="mt-3">
+                O Pix Online está sujeito à taxa de processamento de 0,99% sobre o
+                valor processado, descontada do valor bruto antes do repasse. A
+                composição dessa taxa pode incluir custos efetivamente cobrados pelo
+                provedor de pagamentos e ajustes operacionais do serviço.
+            </p>
+            <p className="mt-3">
                 No Pix Online, o pagamento é recebido pela estrutura operacional de
                 pagamentos utilizada pelo iMenu e posteriormente repassado à chave Pix
                 cadastrada pelo restaurante. Por esse motivo, o banco ou aplicativo do
