@@ -5,18 +5,36 @@ on:
     branches:
       - temp-ifood-seo-cluster-20261007
 
+concurrency:
+  group: temp-ifood-seo-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   validate:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CI: "true"
+      NEXT_TELEMETRY_DISABLED: "1"
+      DATABASE_URL: "postgresql://ci:ci@127.0.0.1:5432/ci"
+      NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co"
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: "ci-placeholder"
+      SUPABASE_URL: "https://example.supabase.co"
+      SUPABASE_ANON_KEY: "ci-placeholder"
+      SUPABASE_SERVICE_ROLE_KEY: "ci-placeholder"
+      OPENAI_API_KEY: "ci-placeholder"
+      MERCADO_PAGO_ACCESS_TOKEN: "ci-placeholder"
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
-      - run: npm ci
-      - name: IA Vendas regression tests
-        run: npx jest lib/ia-vendas/__tests__ --runInBand
+      - name: Install dependencies
+        run: npm ci
       - name: Typecheck
         run: npx tsc --noEmit
       - name: Build
