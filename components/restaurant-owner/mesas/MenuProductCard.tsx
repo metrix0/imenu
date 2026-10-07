@@ -61,7 +61,10 @@ export default function MenuProductCard(props: MenuProductCardProps) {
                             <Image src={props.logo} alt={props.name} fill sizes="112px" className="object-contain object-left" />
                         </div>
                         <div>
-                            <h3>{props.name}</h3>
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                                <h3>{props.name}</h3>
+                                <Badge>{props.priceLabel}</Badge>
+                            </div>
                             <p className="mt-1 text-sm text-gray-500">{props.description}</p>
                             <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs text-gray-600">
                                 {props.features.map((feature) => (
@@ -75,7 +78,6 @@ export default function MenuProductCard(props: MenuProductCardProps) {
                     </div>
                     <div className="plans-included-status">
                         <Badge variant="success">Incluído na sua conta</Badge>
-                        <p className="text-sm font-semibold text-gray-900">{props.priceLabel}</p>
                         <Link href={props.learnMoreLink.href} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-xs text-gray-500 hover:text-brand">
                             {props.learnMoreLink.label}
                             <FontAwesomeIcon icon={faArrowRight} />
@@ -115,7 +117,6 @@ export default function MenuProductCard(props: MenuProductCardProps) {
                         {active ? "Conhecer meu plano" : "Conhecer o plano"}
                         <FontAwesomeIcon icon={faArrowRight} />
                     </Button>
-                    {active && <p className="text-center text-xs text-green-700">Disponível no seu painel</p>}
                 </div>
             </article>
         );

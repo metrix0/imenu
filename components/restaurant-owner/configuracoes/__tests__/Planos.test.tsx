@@ -73,7 +73,7 @@ test("plans separate discovery from billing without selection checkboxes", () =>
     expect(html).toContain("plans-included");
     expect(html).toContain("plans-products");
     expect(html).toContain('id="suas-assinaturas"');
-    expect(html).toContain("Seu Cardápio Digital é grátis para sempre");
+    expect(html).toContain("Nenhum plano adicional contratado.");
     expect(html).not.toContain("aria-pressed");
     expect(html).not.toContain("Selecionar iMenu");
     expect(html.match(/Conhecer o plano/g)).toHaveLength(2);
@@ -86,6 +86,8 @@ test("active plans keep recurring cancellation and prepaid renewal with collapse
     expect(html.match(/Descadastrar do plano/g)).toHaveLength(1);
     expect(html.match(/>Renovar</g)).toHaveLength(1);
     expect(html.match(/<details class="plans-payment-history">/g)).toHaveLength(2);
+    expect(html.match(/class="plans-subscription-card"/g)).toHaveLength(2);
+    expect(html).toContain("plans-subscription-identity");
     expect(html).toContain("https://example.com/invoice");
     expect(html).toContain("Confirmado");
     expect(html).toContain("07/11/2026");
@@ -102,6 +104,10 @@ test("historical canceled PayZu access keeps renewal without recurring cancellat
 test.each(Object.entries(fixtures))("render the actual plans page for visual QA: %s", (name, payload) => {
     const html = renderBilling(payload, true);
     expect(html).toContain("Planos iMenu");
+    expect(html).not.toContain("FEITO PARA O SEU RESTAURANTE");
+    expect(html).not.toContain("Suas assinaturas ↓");
+    expect(html).not.toContain("Disponível no seu painel");
+    expect(html).toMatch(/<h3>iMenu Cardápio Digital<\/h3><span data-ui="badge"[^>]*>Grátis para sempre, sem limites<\/span>/);
     expect(html).toContain("Atendimento Exclusivo");
     expect(html).toContain("Cardápio digital na mesa através de QR Code");
     if (process.env.PLANS_VISUAL_DIR) {

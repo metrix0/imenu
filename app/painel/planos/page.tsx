@@ -52,12 +52,11 @@ export default function PlanosPage() {
     return (
         <div className="plans-page min-h-screen pb-20">
             <div className="plans-content mx-auto max-w-6xl">
-                <header className="plans-heading panel-page-heading">
-                    <p className="plans-eyebrow">FEITO PARA O SEU RESTAURANTE</p>
+                <header className="panel-page-heading">
                     <h1 className="text-3xl font-bold text-gray-900">
                         Planos iMenu
                     </h1>
-                    <p className="mt-2 text-gray-500">
+                    <p className="mt-1 text-gray-500">
                         Escolha os sistemas que fazem sentido para o seu restaurante.
                     </p>
                 </header>

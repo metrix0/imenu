@@ -7,6 +7,8 @@ import {
     faCreditCard,
     faChevronDown,
     faExternalLinkAlt,
+    faQrcode,
+    faWandMagicSparkles,
 } from "@fortawesome/free-solid-svg-icons";
 
 import IaPlusSalesModal from "@/components/restaurant-owner/ia-vendas/IaPlusSalesModal";
@@ -284,6 +286,7 @@ export default function QrCodeMesaSettingsSection({
     const cancelBilling =
         billing?.addons.find((item) => item.addon.id === cancelAddonId) || null;
     const cancelAddon = cancelBilling?.addon || null;
+    const BillingContainer = presentation === "plans" ? "section" : Card;
     const productCards = loading ? (
         <div className="flex justify-center py-10">
             <Loader className="border-t-brand" />
@@ -381,7 +384,6 @@ export default function QrCodeMesaSettingsSection({
                             <div>
                                 <h2 id="available-plans-heading">Planos disponíveis</h2>
                             </div>
-                            <a href="#suas-assinaturas" className="text-sm text-gray-500 hover:text-brand">Suas assinaturas ↓</a>
                         </div>
                         {productCards}
                     </section>
@@ -389,17 +391,19 @@ export default function QrCodeMesaSettingsSection({
             )}
 
             {(billing?.addons.length || 0) > 0 && (
-                <Card id={presentation === "plans" ? "suas-assinaturas" : undefined} className={presentation === "plans" ? "plans-subscriptions" : "border border-gray-200 shadow-sm"}>
-                    <div className="border-b border-gray-100 pb-5">
-                        <h2 className="text-xl font-medium text-gray-900">
-                            {presentation === "plans" ? "Suas assinaturas" : "Assinaturas e pagamentos"}
-                        </h2>
-                        <p className="mt-1 text-sm text-gray-500">
-                            Acompanhe o acesso, as renovações e os pagamentos dos seus planos.
-                        </p>
+                <BillingContainer id={presentation === "plans" ? "suas-assinaturas" : undefined} className={presentation === "plans" ? "plans-subscriptions" : "border border-gray-200 shadow-sm"}>
+                    <div className={presentation === "plans" ? "plans-section-heading" : "border-b border-gray-100 pb-5"}>
+                        <div>
+                            <h2 className="text-xl font-medium text-gray-900">
+                                {presentation === "plans" ? "Suas assinaturas" : "Assinaturas e pagamentos"}
+                            </h2>
+                            <p className="mt-1 text-sm text-gray-500">
+                                Acompanhe o acesso, as renovações e os pagamentos dos seus planos.
+                            </p>
+                        </div>
                     </div>
 
-                    <div className="divide-y divide-gray-100">
+                    <div className={presentation === "plans" ? "plans-subscription-list" : "divide-y divide-gray-100"}>
                         {billing?.addons.map((item) => {
                             const itemAddon = item.addon;
                             const itemActive = item.active;
@@ -415,37 +419,36 @@ export default function QrCodeMesaSettingsSection({
                             return (
                                 <section
                                     key={itemAddon.id}
-                                    className="py-5 first:pt-5 last:pb-0"
+                                    className={presentation === "plans" ? "plans-subscription-card" : "py-5 first:pt-5 last:pb-0"}
                                 >
-                                    <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
-                                        <div>
-                                            <h3 className="font-semibold text-gray-900">
-                                                {addonProductName(
-                                                    itemAddon.product_key
-                                                )}
-                                            </h3>
-                                            {presentation !== "plans" && (
-                                                <p className="mt-1 text-sm text-gray-500">{planLabel(itemAddon)}</p>
+                                    <div className={presentation === "plans" ? "plans-subscription-head" : "flex flex-col justify-between gap-3 sm:flex-row sm:items-start"}>
+                                        <div className={presentation === "plans" ? "plans-subscription-identity" : undefined}>
+                                            {presentation === "plans" && (
+                                                <span className="plans-subscription-icon" aria-hidden="true">
+                                                    <FontAwesomeIcon icon={isQrCodeMesa ? faQrcode : itemAddon.product_key === "ia_plus" ? faWandMagicSparkles : faCreditCard} />
+                                                </span>
                                             )}
+                                            <div>
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <h3 className="font-semibold text-gray-900">
+                                                        {addonProductName(itemAddon.product_key)}
+                                                    </h3>
+                                                    {presentation === "plans" && (
+                                                        <Badge variant={itemActive && itemAddon.status !== "canceled" ? "success" : "neutral"}>
+                                                            {itemAddon.status === "canceled" ? "Cancelado" : itemActive ? "Ativo" : addonStatus(itemAddon, false)}
+                                                        </Badge>
+                                                    )}
+                                                </div>
+                                                {presentation !== "plans" && (
+                                                    <p className="mt-1 text-sm text-gray-500">{planLabel(itemAddon)}</p>
+                                                )}
+                                            </div>
                                         </div>
                                         <div className="flex flex-wrap items-center gap-2">
-                                            {presentation === "plans" ? (
-                                                <Badge variant={itemActive && itemAddon.status !== "canceled" ? "success" : "neutral"}>
-                                                    {itemAddon.status === "canceled" ? "Cancelado" : itemActive ? "Ativo" : addonStatus(itemAddon, false)}
-                                                </Badge>
-                                            ) : (
-                                            <span
-                                                className={`w-fit rounded-full px-3 py-1 text-xs font-semibold ${
-                                                    itemActive
-                                                        ? "bg-green-100 text-green-800"
-                                                        : "bg-gray-100 text-gray-700"
-                                                }`}
-                                            >
-                                                {addonStatus(
-                                                    itemAddon,
-                                                    itemActive
-                                                )}
-                                            </span>
+                                            {presentation !== "plans" && (
+                                                <span className={`w-fit rounded-full px-3 py-1 text-xs font-semibold ${itemActive ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-700"}`}>
+                                                    {addonStatus(itemAddon, itemActive)}
+                                                </span>
                                             )}
                                             {itemCanRenew && (
                                                 <Button
@@ -480,7 +483,7 @@ export default function QrCodeMesaSettingsSection({
                                             />
                                             <div>
                                                 <p className="text-xs text-gray-500">
-                                                    Plano
+                                                    {presentation === "plans" ? "Valor do plano" : "Plano"}
                                                 </p>
                                                 <p className="font-semibold text-gray-900">
                                                     {planLabel(itemAddon)}
@@ -592,16 +595,26 @@ export default function QrCodeMesaSettingsSection({
                             );
                         })}
                     </div>
-                </Card>
+                </BillingContainer>
             )}
             {presentation === "plans" && !loading && billing && !billing.addons.length && (
-                <Card id="suas-assinaturas" className="plans-subscriptions plans-subscriptions-empty">
-                    <div>
-                        <h2>Suas assinaturas</h2>
-                        <p className="mt-1 text-sm text-gray-500">Seu Cardápio Digital é grátis para sempre. Os planos que você adicionar aparecerão aqui.</p>
+                <section id="suas-assinaturas" className="plans-subscriptions">
+                    <div className="plans-section-heading">
+                        <div>
+                            <h2>Suas assinaturas</h2>
+                            <p>Acompanhe o acesso, as renovações e os pagamentos dos seus planos.</p>
+                        </div>
                     </div>
-                    <Badge variant="success">Cardápio Digital incluído</Badge>
-                </Card>
+                    <div className="plans-subscription-card plans-subscription-empty">
+                        <span className="plans-subscription-icon" aria-hidden="true">
+                            <FontAwesomeIcon icon={faCreditCard} />
+                        </span>
+                        <div>
+                            <p className="font-semibold text-gray-900">Nenhum plano adicional contratado.</p>
+                            <p className="mt-1 text-sm text-gray-500">Ao adicionar um plano, você poderá gerenciar sua assinatura e os pagamentos aqui.</p>
+                        </div>
+                    </div>
+                </section>
             )}
         </>
     );
