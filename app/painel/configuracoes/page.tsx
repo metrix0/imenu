@@ -5,8 +5,10 @@ import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import {
+    faChevronRight,
     faCircleInfo,
     faCopy,
+    faCrown,
     faDownload,
     faSignOutAlt,
     faTrash,
@@ -576,8 +578,8 @@ export default function ConfiguracoesPage() {
                         </p>
                     </div>
 
-                    <Card className="border border-gray-200 shadow-sm">
-                        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+                    <section>
+                        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                             <h2 className="text-xl font-medium text-gray-900">
                                 Minha Conta
                             </h2>
@@ -595,8 +597,8 @@ export default function ConfiguracoesPage() {
                             </Button>
                         </div>
 
-                        <div className="space-y-6">
-                            <div>
+                        <div className="divide-y divide-gray-200 border-y border-gray-200">
+                            <div className="py-5">
                                 <Input
                                     label="Celular do Responsável"
                                     value={phone}
@@ -613,67 +615,71 @@ export default function ConfiguracoesPage() {
                                 )}
                             </div>
 
-                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                                <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
-                                    <div className="min-w-0">
-                                        <p className="text-sm font-medium text-gray-500">
-                                            E-mail
-                                        </p>
-                                        <p className="break-all font-medium text-gray-900">
-                                            {user?.email}
-                                        </p>
-                                    </div>
-                                    <Button
-                                        variant="secondary"
-                                        onClick={() =>
-                                            router.push(
-                                                "/painel/configuracoes/atualizando-email",
-                                            )
-                                        }
-                                    >
-                                        Alterar
-                                    </Button>
+                            <div className="flex flex-wrap items-center justify-between gap-4 py-4">
+                                <div className="min-w-0">
+                                    <p className="text-sm font-medium text-gray-500">
+                                        E-mail
+                                    </p>
+                                    <p className="mt-0.5 break-all font-medium text-gray-900">
+                                        {user?.email}
+                                    </p>
                                 </div>
+                                <Button
+                                    variant="secondary"
+                                    onClick={() =>
+                                        router.push(
+                                            "/painel/configuracoes/atualizando-email",
+                                        )
+                                    }
+                                >
+                                    Alterar
+                                </Button>
+                            </div>
 
-                                <div className="flex items-center justify-between gap-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
-                                    <div>
-                                        <p className="text-sm font-medium text-gray-500">
-                                            Senha
-                                        </p>
-                                        <p className="font-medium text-gray-900">
-                                            ••••••••
-                                        </p>
-                                    </div>
-                                    <Button
-                                        variant="secondary"
-                                        onClick={() =>
-                                            router.push(
-                                                "/painel/configuracoes/nova-senha",
-                                            )
-                                        }
-                                    >
-                                        Alterar
-                                    </Button>
+                            <div className="flex items-center justify-between gap-4 py-4">
+                                <div>
+                                    <p className="text-sm font-medium text-gray-500">
+                                        Senha
+                                    </p>
+                                    <p className="mt-0.5 font-medium text-gray-900">
+                                        ••••••••
+                                    </p>
                                 </div>
+                                <Button
+                                    variant="secondary"
+                                    onClick={() =>
+                                        router.push(
+                                            "/painel/configuracoes/nova-senha",
+                                        )
+                                    }
+                                >
+                                    Alterar
+                                </Button>
                             </div>
                         </div>
-                    </Card>
+                    </section>
 
-                    <Card className="border border-gray-200 shadow-sm">
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                            <p className="text-sm text-gray-600">
-                                Veja os planos do iMenu e gerencie suas assinaturas.
-                            </p>
-                            <Button
-                                type="button"
-                                variant="secondary"
-                                onClick={() => router.push("/painel/planos")}
-                                className="shrink-0 bg-white"
-                            >
-                                Ver planos
-                            </Button>
-                        </div>
-                    </Card>
+                    <button
+                        type="button"
+                        onClick={() => router.push("/painel/planos")}
+                        className="group flex w-full cursor-pointer items-center gap-4 border-y border-gray-200 py-5 text-left transition-colors hover:bg-gray-100/60"
+                    >
+                        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[10px] bg-gray-100 text-gray-700">
+                            <FontAwesomeIcon icon={faCrown} />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                            <span className="block font-medium text-gray-900">
+                                Planos do iMenu
+                            </span>
+                            <span className="mt-1 block text-sm text-gray-500">
+                                Veja os planos disponíveis e gerencie suas assinaturas.
+                            </span>
+                        </span>
+                        <span className="flex shrink-0 items-center gap-2 text-sm font-medium text-gray-600 transition-colors group-hover:text-gray-900">
+                            <span className="hidden sm:inline">Ver planos</span>
+                            <FontAwesomeIcon icon={faChevronRight} />
+                        </span>
+                    </button>
 
                     <Card className="border border-gray-200 shadow-sm">
                         <div className="mb-5">
