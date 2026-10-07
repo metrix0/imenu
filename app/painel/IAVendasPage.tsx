@@ -956,7 +956,7 @@ export default function SalesPage() {
                   height={1086}
                   priority
                   unoptimized
-                  className="h-40 w-auto object-contain sm:h-44"
+                  className="h-44 w-auto object-contain sm:h-48"
                 />
                 <h2 className="mt-1 text-xl font-semibold text-gray-950">
                   Seu assistente para melhorar o iMenu
