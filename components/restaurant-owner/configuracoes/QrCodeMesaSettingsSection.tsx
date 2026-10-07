@@ -280,6 +280,18 @@ export default function QrCodeMesaSettingsSection({
     const cancelBilling =
         billing?.addons.find((item) => item.addon.id === cancelAddonId) || null;
     const cancelAddon = cancelBilling?.addon || null;
+    const productCards = loading ? (
+        <div className="flex justify-center py-10">
+            <Loader className="border-t-brand" />
+        </div>
+    ) : (
+        <MenuProductCards
+            qrSelected={active}
+            qrActive={active}
+            onLearnMore={openSales}
+            extraCard={<IaPlusProductCard active={iaPlusActive} onLearnMore={() => setIaPlusOpen(true)} />}
+        />
+    );
 
     return (
         <>
@@ -345,8 +357,8 @@ export default function QrCodeMesaSettingsSection({
                 variant="danger"
             />
 
-            <Card className="border border-gray-200 shadow-sm">
-                {showHeader && (
+            {showHeader ? (
+                <Card className="border border-gray-200 shadow-sm">
                     <div className="mb-6">
                         <h2 className="text-xl font-medium text-gray-900">
                             Sistemas iMenu
@@ -355,21 +367,11 @@ export default function QrCodeMesaSettingsSection({
                             Gerencie os produtos disponíveis na sua conta.
                         </p>
                     </div>
-                )}
-
-                {loading ? (
-                    <div className="flex justify-center py-10">
-                        <Loader className="border-t-brand" />
-                    </div>
-                ) : (
-                    <MenuProductCards
-                        qrSelected={active}
-                        qrActive={active}
-                        onLearnMore={openSales}
-                        extraCard={<IaPlusProductCard active={iaPlusActive} onLearnMore={() => setIaPlusOpen(true)} />}
-                    />
-                )}
-            </Card>
+                    {productCards}
+                </Card>
+            ) : (
+                productCards
+            )}
 
             {(billing?.addons.length || 0) > 0 && (
                 <Card className="border border-gray-200 shadow-sm">
