@@ -655,7 +655,7 @@ export default function PainelLayout({
                                     </span>
                                     <span>{item.label}</span>
                                     {item.isNew && (
-                                        <span className="rounded-full bg-brand/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-brand">
+                                        <span className="rounded-full bg-brand/10 px-1.5 py-px text-[8px] font-medium uppercase leading-none text-brand">
                                             Novo
                                         </span>
                                     )}
@@ -794,7 +794,7 @@ export default function PainelLayout({
                                         {item.isNew && !expanded && (
                                             <span
                                                 aria-label="Novo"
-                                                className="absolute right-0 top-0 h-2 w-2 rounded-full bg-brand 2xl:right-1 2xl:top-1"
+                                                className="absolute bottom-0 right-0 h-1.5 w-1.5 rounded-full bg-brand 2xl:bottom-1 2xl:right-1"
                                             />
                                         )}
                                     </div>
@@ -808,7 +808,7 @@ export default function PainelLayout({
                                         {item.label}
                                     </span>
                                     {item.isNew && expanded && (
-                                        <span className="ml-2 rounded-full bg-brand/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-brand">
+                                        <span className="ml-1.5 rounded-full bg-brand/10 px-1.5 py-px text-[8px] font-medium uppercase leading-none text-brand">
                                             Novo
                                         </span>
                                     )}
