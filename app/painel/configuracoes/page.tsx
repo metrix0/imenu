@@ -585,9 +585,23 @@ export default function ConfiguracoesPage() {
                     </div>
 
                     <section className="space-y-4">
-                        <h2 className="text-xl font-medium text-gray-900">
-                            Minha Conta
-                        </h2>
+                        <div className="flex items-center justify-between gap-4">
+                            <h2 className="text-xl font-medium text-gray-900">
+                                Minha Conta
+                            </h2>
+                            <Button
+                                variant="secondary"
+                                onClick={handleLogout}
+                                loading={isLoggingOut}
+                                className="!min-h-0 !border-0 !bg-transparent !px-0 !py-0 text-sm text-red-600 hover:!bg-transparent hover:text-red-700"
+                            >
+                                <FontAwesomeIcon
+                                    icon={faSignOutAlt}
+                                    className="mr-2"
+                                />
+                                Sair da Conta
+                            </Button>
+                        </div>
 
                         <Card className="!p-0 overflow-hidden">
                             <div className="divide-y divide-gray-100 px-5">
@@ -672,18 +686,6 @@ export default function ConfiguracoesPage() {
                             </div>
                         </Card>
 
-                        <Button
-                            variant="secondary"
-                            onClick={handleLogout}
-                            loading={isLoggingOut}
-                            className="!min-h-0 !border-0 !bg-transparent !px-0 !py-0 text-sm text-red-600 hover:!bg-transparent hover:text-red-700"
-                        >
-                            <FontAwesomeIcon
-                                icon={faSignOutAlt}
-                                className="mr-2"
-                            />
-                            Sair da Conta
-                        </Button>
                     </section>
 
                     <Card className="!p-0 overflow-hidden">
