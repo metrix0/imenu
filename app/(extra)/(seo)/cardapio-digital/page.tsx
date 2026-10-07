@@ -43,8 +43,8 @@ const comparisonRows = [
         name: "iMenu",
         href: "/",
         logo: "/logos/LogoMark_Brand.png",
-        includes: "Cardápio digital + pedidos",
-        price: "Grátis, sem mensalidade nem taxa",
+        includes: "Cardápio digital + pedidos + automação",
+        price: "Grátis sem limites (sem taxas nem mensalidade)",
     },
     {
         name: "Anota Ai",
@@ -57,7 +57,7 @@ const comparisonRows = [
         name: "Goomer",
         href: "/goomer",
         logo: "https://www.google.com/s2/favicons?sz=64&domain_url=https://goomer.com.br",
-        includes: "Cardápio + pedidos + autoatendimento",
+        includes: "Cardápio + pedidos",
         price: "Grátis limitado + planos pagos",
     },
     {
@@ -169,6 +169,15 @@ export default function Page() {
                                 ))}
                             </tbody>
                         </table>
+                    </div>
+
+                    <div className="mt-6 rounded-2xl border border-green-200 bg-green-50 px-6 py-6 text-center">
+                        <p className="text-xl font-bold text-green-800 md:text-2xl">
+                            Sim, o iMenu é totalmente grátis.
+                        </p>
+                        <p className="mt-1 text-sm font-semibold uppercase tracking-wide text-green-700 md:text-base">
+                            Sem limites, sem taxas e sem mensalidade.
+                        </p>
                     </div>
 
                     <p className="mt-4 text-sm text-gray-500">
