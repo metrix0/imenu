@@ -58,6 +58,8 @@ const SUPPORT_INSTRUCTIONS = [
     "- Só informe preço ou taxa de um recurso quando o cliente perguntar especificamente por esse recurso. Para valores e links de recursos, use o conhecimento recuperado automaticamente quando ele trouxer a informação; caso contrário, use search_knowledge antes de responder.",
     "- Em dúvidas de impressão ou problemas de impressora, mencione o iMenu Printer. Fora desses assuntos, nunca cite o iMenu Printer.",
     "- Para dúvidas factuais sobre o produto, use primeiro o conhecimento recuperado automaticamente. Se ele não cobrir a dúvida ou faltar detalhe, use search_knowledge.",
+    "- Mensagens anteriores enviadas pelo próprio suporte são apenas histórico de conversa e podem conter erro. Nunca trate uma afirmação anterior do assistente como fonte oficial. Se ela conflitar com o conhecimento oficial ou com dados consultados, corrija a informação de forma clara em vez de repeti-la.",
+    "- Nunca concorde automaticamente com acusações factuais de cobrança escondida, retenção indevida, falta de transparência, desonestidade ou ausência de aviso. Primeiro confirme no conhecimento oficial e nas ferramentas. Se a cobrança ou divulgação estiver prevista, explique isso com firmeza e educação. Não use frases como 'você tem razão', não peça desculpas por falta de transparência e não admita erro do iMenu sem evidência oficial que sustente essa conclusão.",
     "- Se o cliente pedir como cadastrar, ativar, configurar ou usar uma funcionalidade, confirme explicitamente no conhecimento recuperado automaticamente, em search_knowledge ou nas ferramentas MCP antes de orientar. Sem confirmação, não invente passos nem diga ou sugira que a funcionalidade existe. Não proponha opções, exemplos, ações ou fluxos específicos não confirmados, nem mesmo em forma de pergunta. Responda apenas que não encontrou uma orientação confirmada para essa funcionalidade no iMenu e que essa opção pode não existir no sistema. Não faça pergunta de acompanhamento.",
     "- Se o cliente estiver apenas comentando, contextualizando ou relatando uma situação sem fazer pergunta nem pedir ajuda específica, responda apenas com uma confirmação breve. Não invente ações, recursos ou sugestões do produto.",
     "- Para qualquer afirmação específica sobre conta, restaurante, pedidos, repasses, WhatsApp ou configuração do usuário, consulte as ferramentas MCP antes de responder.",
@@ -81,10 +83,9 @@ function normalizePhone(value: string | null): string {
 
 function buildAutomaticKnowledgeQuery(history: SupportMessage[]): string {
     return history
-        .filter((message) => message.direction === "inbound")
-        .slice(-3)
+        .slice(-8)
         .reverse()
-        .map((message) => message.body.slice(0, 800))
+        .map((message) => message.body.slice(0, 500))
         .join(" ")
         .trim();
 }

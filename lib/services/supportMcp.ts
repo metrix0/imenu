@@ -229,6 +229,13 @@ const KNOWLEDGE_STOP_WORDS = new Set([
     "por",
     "favor",
     "sem",
+    "voce",
+    "voces",
+    "razao",
+    "foram",
+    "referentes",
+    "questionar",
+    "mas",
 ]);
 
 export async function searchSupportKnowledge(search: string, limit = 8) {

@@ -448,9 +448,22 @@ function isQrCodeMesaQuestion(body: string): boolean {
 function isGenericPricingQuestion(body: string): boolean {
     const value = normalize(body);
     if (
-        value.includes("pix") ||
-        value.includes("qr code") ||
-        value.includes("mesa")
+        [
+            "pix",
+            "qr code",
+            "mesa",
+            "repasse",
+            "pagamento",
+            "venda",
+            "vendas",
+            "receber",
+            "recebi",
+            "retiveram",
+            "reteve",
+            "desconto",
+            "descontaram",
+            "valor total",
+        ].some((term) => value.includes(term))
     ) {
         return false;
     }
@@ -471,10 +484,41 @@ function isGenericPricingQuestion(body: string): boolean {
 
     return (
         mentionsImenu &&
-        ["quanto custa", "preco", "valor", "custa", "custo", "taxa", "pago", "pagar"].some(
-            (term) => value.includes(term)
-        )
+        [
+            "quanto custa",
+            "qual o preco",
+            "qual preco",
+            "tem custo",
+            "tem taxa",
+            "cobra taxa",
+            "custa quanto",
+            "e pago",
+            "precisa pagar",
+        ].some((term) => value.includes(term))
     );
+}
+
+async function hasRecentSpecificPricingContext(
+    conversationId: string
+): Promise<boolean> {
+    const result = await query<{ body: string }>(
+        "SELECT body FROM support_messages WHERE conversation_id = $1 ORDER BY created_at DESC, id DESC LIMIT 8",
+        [conversationId]
+    );
+    const context = normalize(result.rows.map((row) => row.body).join(" "));
+
+    return [
+        "pix",
+        "repasse",
+        "pagamento online",
+        "taxa de processamento",
+        "mercado pago",
+        "retiveram",
+        "reteve",
+        "descontado",
+        "descontaram",
+        "valor total da venda",
+    ].some((term) => context.includes(term));
 }
 
 function isInitialHelpGreeting(body: string): boolean {
@@ -902,7 +946,10 @@ export async function processSupportIncomingWhatsAppMessage(input: {
                 return;
             }
 
-            if (isGenericPricingQuestion(intentBody)) {
+            if (
+                isGenericPricingQuestion(intentBody) &&
+                !(await hasRecentSpecificPricingContext(conversation.id))
+            ) {
                 await sendTrackedSupportText({
                     conversationId: conversation.id,
                     sessionName: input.sessionName,
