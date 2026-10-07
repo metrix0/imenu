@@ -5,6 +5,7 @@ on:
     branches:
       - preview
       - preview-iavendas
+      - temp-ifood-seo-cluster-20261007
 
 concurrency:
   group: validate-build-${{ github.ref }}
