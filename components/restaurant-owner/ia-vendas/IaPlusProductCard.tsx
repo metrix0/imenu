@@ -3,9 +3,10 @@
 import MenuProductCard from "@/components/restaurant-owner/mesas/MenuProductCard";
 import { IA_PLUS_PRICE_LABEL } from "@/lib/addons/products";
 
-export default function IaPlusProductCard({ active, onLearnMore }: { active: boolean; onLearnMore: () => void }) {
+export default function IaPlusProductCard({ active, onLearnMore, presentation = "default" }: { active: boolean; onLearnMore: () => void; presentation?: "default" | "plans" }) {
     return (
         <MenuProductCard
+            presentation={presentation}
             variant="addon"
             cardClickable={false}
             name="iMenu IA Plus"

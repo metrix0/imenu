@@ -6,6 +6,7 @@ import QrCodeMesaSettingsSection from "@/components/restaurant-owner/configuraco
 import Loader from "@/components/ui/Loader";
 import { supabase } from "@/lib/database/supabaseClient";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
+import "./planos.css";
 
 export default function PlanosPage() {
     const { restaurantId, setRestaurantId } = useCreationStore();
@@ -49,23 +50,24 @@ export default function PlanosPage() {
     }, [restaurantId, setRestaurantId]);
 
     return (
-        <div className="min-h-screen bg-gray-50 px-4 pb-20 pt-8 sm:px-6">
-            <div className="mx-auto max-w-6xl space-y-8">
-                <div className="panel-page-heading">
-                    <h1 className="text-3xl font-bold text-gray-900 2xl:text-4xl">
-                        Sistemas iMenu
+        <div className="plans-page min-h-screen pb-20">
+            <div className="plans-content mx-auto max-w-6xl">
+                <header className="plans-heading panel-page-heading">
+                    <p className="plans-eyebrow">FEITO PARA O SEU RESTAURANTE</p>
+                    <h1 className="text-3xl font-bold text-gray-900">
+                        Planos iMenu
                     </h1>
-                    <p className="mt-1 text-gray-500 2xl:text-lg">
-                        Gerencie os produtos disponíveis na sua conta.
+                    <p className="mt-2 text-gray-500">
+                        Escolha os sistemas que fazem sentido para o seu restaurante.
                     </p>
-                </div>
+                </header>
 
                 {loading ? (
                     <div className="flex justify-center py-10">
                         <Loader />
                     </div>
                 ) : restaurantId ? (
-                    <QrCodeMesaSettingsSection restaurantId={restaurantId} showHeader={false} />
+                    <QrCodeMesaSettingsSection restaurantId={restaurantId} showHeader={false} presentation="plans" />
                 ) : null}
             </div>
         </div>

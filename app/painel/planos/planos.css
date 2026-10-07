@@ -1,0 +1,109 @@
+/* Plan discovery has its own presentation; onboarding cards retain their layout. */
+.panel-essencial .plans-content {
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+}
+.panel-essencial .plans-heading {
+    position: relative;
+    margin-bottom: 0;
+    padding: 24px 0 24px 24px;
+    border-left: 3px solid var(--panel-action);
+    background: linear-gradient(90deg, var(--panel-tint), transparent 70%);
+}
+.panel-essencial .plans-heading > p:last-child { max-width: 620px; line-height: 1.6; }
+.panel-essencial .plans-eyebrow {
+    margin-bottom: 12px;
+    color: var(--panel-accent-text);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: .09em;
+}
+.panel-essencial .plans-section-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+.panel-essencial .plans-section-heading p { margin-top: 4px; color: var(--panel-muted); font-size: 13px; }
+.panel-essencial .plans-products { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; }
+.panel-essencial .plans-included {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding: 24px;
+    border: 1px solid var(--panel-border);
+    border-radius: var(--panel-radius);
+    background: var(--panel-surface);
+}
+.panel-essencial .plans-included-copy { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.panel-essencial .plans-included-copy > div:first-child { flex-shrink: 0; }
+.panel-essencial .plans-included-status { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; flex-shrink: 0; }
+.panel-essencial .plans-product {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
+    padding: 24px;
+    border: 1px solid var(--panel-border);
+    border-radius: var(--panel-radius);
+    background: var(--panel-surface);
+    transition: border-color 150ms;
+}
+.panel-essencial .plans-product:hover { border-color: #b8bec6; }
+.panel-essencial .plans-product[data-active="true"] {
+    border-color: var(--panel-action);
+    background: linear-gradient(180deg, var(--panel-tint), var(--panel-surface) 150px);
+}
+.panel-essencial .plans-product-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.panel-essencial .plans-product h3 { margin-top: 4px; font-size: 21px; line-height: 28px; }
+.panel-essencial .plans-product-description { color: var(--panel-muted); font-size: 14px; line-height: 1.6; }
+.panel-essencial .plans-product-price { display: flex; align-items: baseline; gap: 6px; margin-top: 4px; }
+.panel-essencial .plans-product-price > span:first-child { font-size: 30px; font-weight: 500; line-height: 40px; letter-spacing: -.02em; }
+.panel-essencial .plans-product-features {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 20px;
+    padding-top: 18px;
+    border-top: 1px solid var(--panel-border);
+    color: var(--panel-text);
+    font-size: 13px;
+}
+.panel-essencial .plans-product-features .panel-icon { font-size: 14px; }
+.panel-essencial .plans-product-actions [data-ui="button"] { gap: 8px; }
+.panel-essencial .plans-product-actions { display: flex; flex-direction: column; gap: 10px; margin-top: auto; padding-top: 8px; }
+.panel-essencial .plans-subscriptions[data-ui="card"] { margin-top: 8px; padding: 24px; box-shadow: none; scroll-margin-top: 24px; }
+.panel-essencial .plans-subscription-meta { gap: 16px 32px; padding-block: 16px; }
+.panel-essencial .plans-subscription-meta > div { padding: 0; background: transparent; border-radius: 0; }
+.panel-essencial .plans-subscription-meta .panel-icon { color: var(--panel-muted); font-size: 16px; }
+.panel-essencial .plans-payment-history { padding-top: 16px; }
+.panel-essencial .plans-payment-history summary { min-height: 36px; cursor: pointer; list-style: none; font-size: 13px; }
+.panel-essencial .plans-payment-history summary::-webkit-details-marker { display: none; }
+.panel-essencial .plans-payment-history summary:focus-visible { outline: 2px solid var(--panel-action); outline-offset: 4px; border-radius: 4px; }
+.panel-essencial .plans-history-chevron { transition: transform 150ms; }
+.panel-essencial .plans-payment-history[open] .plans-history-chevron { transform: rotate(180deg); }
+.panel-essencial .plans-subscriptions-empty { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 16px; }
+@container (min-width: 760px) {
+    .panel-essencial .plans-products { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .panel-essencial .plans-included { flex-direction: row; align-items: center; justify-content: space-between; }
+    .panel-essencial .plans-included-copy { flex-direction: row; align-items: center; gap: 24px; }
+    .panel-essencial .plans-included-copy > div:first-child { width: 80px; }
+    .panel-essencial .plans-included-status { align-items: flex-end; text-align: right; }
+    .panel-essencial .plans-product-description { min-height: 72px; }
+    .panel-essencial .plans-product-features { min-height: 68px; }
+    .panel-essencial .plans-product-actions { min-height: 78px; }
+}
+@media (max-width: 767px) {
+    .panel-essencial .plans-content { gap: 24px; }
+    .panel-essencial .plans-heading { padding: 20px 0 20px 16px; }
+    .panel-essencial .plans-included,
+    .panel-essencial .plans-product,
+    .panel-essencial .plans-subscriptions[data-ui="card"] { padding: 20px; }
+    .panel-essencial .plans-product h3 { font-size: 19px; line-height: 26px; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .panel-essencial .plans-product, .panel-essencial .plans-history-chevron { transition: none; }
+}

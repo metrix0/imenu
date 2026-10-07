@@ -5,6 +5,7 @@ import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import {
     faCalendarDays,
     faCreditCard,
+    faChevronDown,
     faExternalLinkAlt,
 } from "@fortawesome/free-solid-svg-icons";
 
@@ -13,6 +14,7 @@ import IaPlusProductCard from "@/components/restaurant-owner/ia-vendas/IaPlusPro
 import MenuProductCards from "@/components/restaurant-owner/mesas/MenuProductCards";
 import QrCodeMesaCheckoutModal from "@/components/restaurant-owner/mesas/QrCodeMesaCheckoutModal";
 import QrCodeMesaSalesModal from "@/components/restaurant-owner/mesas/QrCodeMesaSalesModal";
+import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import ConfirmModal from "@/components/ui/ConfirmModal";
@@ -145,9 +147,11 @@ function planLabel(addon: Addon | null): string {
 export default function QrCodeMesaSettingsSection({
     restaurantId,
     showHeader = true,
+    presentation = "default",
 }: {
     restaurantId: string;
     showHeader?: boolean;
+    presentation?: "default" | "plans";
 }) {
     const [billing, setBilling] = useState<BillingPayload | null>(null);
     const [loading, setLoading] = useState(true);
@@ -286,10 +290,11 @@ export default function QrCodeMesaSettingsSection({
         </div>
     ) : (
         <MenuProductCards
+            presentation={presentation}
             qrSelected={active}
             qrActive={active}
             onLearnMore={openSales}
-            extraCard={<IaPlusProductCard active={iaPlusActive} onLearnMore={() => setIaPlusOpen(true)} />}
+            extraCard={<IaPlusProductCard presentation={presentation} active={iaPlusActive} onLearnMore={() => setIaPlusOpen(true)} />}
         />
     );
 
@@ -370,18 +375,27 @@ export default function QrCodeMesaSettingsSection({
                     {productCards}
                 </Card>
             ) : (
-                productCards
+                presentation === "plans" ? (
+                    <section aria-labelledby="available-plans-heading" className="plans-catalog">
+                        <div className="plans-section-heading">
+                            <div>
+                                <h2 id="available-plans-heading">Planos disponíveis</h2>
+                            </div>
+                            <a href="#suas-assinaturas" className="text-sm text-gray-500 hover:text-brand">Suas assinaturas ↓</a>
+                        </div>
+                        {productCards}
+                    </section>
+                ) : productCards
             )}
 
             {(billing?.addons.length || 0) > 0 && (
-                <Card className="border border-gray-200 shadow-sm">
+                <Card id={presentation === "plans" ? "suas-assinaturas" : undefined} className={presentation === "plans" ? "plans-subscriptions" : "border border-gray-200 shadow-sm"}>
                     <div className="border-b border-gray-100 pb-5">
                         <h2 className="text-xl font-medium text-gray-900">
-                            Assinaturas e pagamentos
+                            {presentation === "plans" ? "Suas assinaturas" : "Assinaturas e pagamentos"}
                         </h2>
                         <p className="mt-1 text-sm text-gray-500">
-                            Gerencie planos, renovações e histórico de pagamentos
-                            dos seus adicionais.
+                            Acompanhe o acesso, as renovações e os pagamentos dos seus planos.
                         </p>
                     </div>
 
@@ -410,11 +424,16 @@ export default function QrCodeMesaSettingsSection({
                                                     itemAddon.product_key
                                                 )}
                                             </h3>
-                                            <p className="mt-1 text-sm text-gray-500">
-                                                {planLabel(itemAddon)}
-                                            </p>
+                                            {presentation !== "plans" && (
+                                                <p className="mt-1 text-sm text-gray-500">{planLabel(itemAddon)}</p>
+                                            )}
                                         </div>
                                         <div className="flex flex-wrap items-center gap-2">
+                                            {presentation === "plans" ? (
+                                                <Badge variant={itemActive && itemAddon.status !== "canceled" ? "success" : "neutral"}>
+                                                    {itemAddon.status === "canceled" ? "Cancelado" : itemActive ? "Ativo" : addonStatus(itemAddon, false)}
+                                                </Badge>
+                                            ) : (
                                             <span
                                                 className={`w-fit rounded-full px-3 py-1 text-xs font-semibold ${
                                                     itemActive
@@ -427,6 +446,7 @@ export default function QrCodeMesaSettingsSection({
                                                     itemActive
                                                 )}
                                             </span>
+                                            )}
                                             {itemCanRenew && (
                                                 <Button
                                                     type="button"
@@ -452,7 +472,7 @@ export default function QrCodeMesaSettingsSection({
                                         </div>
                                     </div>
 
-                                    <div className="grid gap-4 border-b border-gray-100 py-5 sm:grid-cols-2">
+                                    <div className={`grid gap-4 border-b border-gray-100 py-5 sm:grid-cols-2 ${presentation === "plans" ? "plans-subscription-meta" : ""}`}>
                                         <div className="flex items-center gap-3 rounded-xl bg-gray-50 p-4">
                                             <FontAwesomeIcon
                                                 icon={faCreditCard}
@@ -485,10 +505,16 @@ export default function QrCodeMesaSettingsSection({
                                         </div>
                                     </div>
 
-                                    <div className="pt-5">
-                                        <h4 className="font-semibold text-gray-900">
-                                            Histórico de pagamentos
-                                        </h4>
+                                    <details className={presentation === "plans" ? "plans-payment-history" : "pt-5"} open={presentation === "plans" ? undefined : true}>
+                                        <summary className="flex items-center justify-between gap-3 font-semibold text-gray-900">
+                                            <span>Histórico de pagamentos</span>
+                                            {presentation === "plans" && (
+                                                <span className="flex items-center gap-3 text-xs text-gray-500">
+                                                    {item.payments.length} {item.payments.length === 1 ? "pagamento" : "pagamentos"}
+                                                    <FontAwesomeIcon icon={faChevronDown} className="plans-history-chevron" />
+                                                </span>
+                                            )}
+                                        </summary>
                                         {item.payments.length ? (
                                             <div className="mt-4 overflow-x-auto rounded-xl border border-gray-200">
                                                 <table className="w-full min-w-[620px] text-left text-sm">
@@ -560,12 +586,21 @@ export default function QrCodeMesaSettingsSection({
                                                 Nenhum pagamento registrado ainda.
                                             </p>
                                         )}
-                                    </div>
+                                    </details>
 
                                 </section>
                             );
                         })}
                     </div>
+                </Card>
+            )}
+            {presentation === "plans" && !loading && billing && !billing.addons.length && (
+                <Card id="suas-assinaturas" className="plans-subscriptions plans-subscriptions-empty">
+                    <div>
+                        <h2>Suas assinaturas</h2>
+                        <p className="mt-1 text-sm text-gray-500">Seu Cardápio Digital é grátis para sempre. Os planos que você adicionar aparecerão aqui.</p>
+                    </div>
+                    <Badge variant="success">Cardápio Digital incluído</Badge>
                 </Card>
             )}
         </>
