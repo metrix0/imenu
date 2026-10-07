@@ -928,11 +928,10 @@ export async function processSupportIncomingWhatsAppMessage(input: {
     }
 
     if (
-        input.sessionName === SUPPORT_WAHA_SESSION_NAME &&
-        (await isSupportBulkSilenced(
+        await isSupportBulkSilenced(
             conversation.restaurant_id,
             input.chatId
-        ))
+        )
     ) {
         console.info("[SUPPORT_WHATSAPP] inbound_suppressed_bulk", {
             restaurantId: conversation.restaurant_id,
