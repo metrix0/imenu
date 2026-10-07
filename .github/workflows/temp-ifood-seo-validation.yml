@@ -1,0 +1,23 @@
+name: Temp validate iFood SEO cluster
+
+on:
+  push:
+    branches:
+      - temp-ifood-seo-cluster-20261007
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: IA Vendas regression tests
+        run: npx jest lib/ia-vendas/__tests__ --runInBand
+      - name: Typecheck
+        run: npx tsc --noEmit
+      - name: Build
+        run: npx next build
