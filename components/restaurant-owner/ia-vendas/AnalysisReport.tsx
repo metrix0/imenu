@@ -74,7 +74,15 @@ export default function AnalysisReport({
 
         {locked ? (
           <section className={styles.noAnalysisState}>
-            <div className={styles.stateIcon}><Sparkles size={24} aria-hidden="true" /></div>
+            <Image
+              src="/images/ia-assistant-mascot.webp"
+              alt="Mascote do Assistente IA"
+              width={112}
+              height={112}
+              priority
+              unoptimized
+              className="h-24 w-24 object-contain sm:h-28 sm:w-28"
+            />
             <div className={styles.noAnalysisIntro}>
               <h2>Sua análise ainda não foi liberada</h2>
               <p>A Análise de vendas usa os dados reais do seu restaurante para encontrar oportunidades que podem aumentar suas vendas e transformar os melhores achados em mudanças prontas para revisão.</p>
