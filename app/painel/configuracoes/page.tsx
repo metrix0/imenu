@@ -585,17 +585,12 @@ export default function ConfiguracoesPage() {
                     </div>
 
                     <section className="space-y-4">
-                        <div>
-                            <h2 className="text-xl font-medium text-gray-900">
-                                Minha Conta
-                            </h2>
-                            <p className="mt-1 text-sm text-gray-500">
-                                Gerencie seus dados de acesso e segurança.
-                            </p>
-                        </div>
+                        <h2 className="text-xl font-medium text-gray-900">
+                            Minha Conta
+                        </h2>
 
-                        <div className="overflow-hidden rounded-[10px] bg-white px-5">
-                            <div className="divide-y divide-gray-100">
+                        <Card className="!p-0 overflow-hidden">
+                            <div className="divide-y divide-gray-100 px-5">
                                 <div className="grid gap-3 py-4 sm:grid-cols-[180px_minmax(0,1fr)_auto] sm:items-center sm:gap-6">
                                     <p className="text-sm font-medium text-gray-600">
                                         Celular do Responsável
@@ -675,7 +670,7 @@ export default function ConfiguracoesPage() {
                                     </Button>
                                 </div>
                             </div>
-                        </div>
+                        </Card>
 
                         <Button
                             variant="secondary"
@@ -691,20 +686,11 @@ export default function ConfiguracoesPage() {
                         </Button>
                     </section>
 
-                    <section className="space-y-4">
-                        <div>
-                            <h2 className="text-xl font-medium text-gray-900">
-                                Planos e assinaturas
-                            </h2>
-                            <p className="mt-1 text-sm text-gray-500">
-                                Veja os planos disponíveis e gerencie suas assinaturas.
-                            </p>
-                        </div>
-
+                    <Card className="!p-0 overflow-hidden">
                         <button
                             type="button"
                             onClick={() => router.push("/painel/planos")}
-                            className="group flex w-full cursor-pointer items-center gap-4 rounded-[10px] bg-white px-5 py-4 text-left transition-colors hover:bg-gray-100"
+                            className="group flex w-full cursor-pointer items-center gap-4 px-5 py-4 text-left transition-colors hover:bg-gray-100"
                         >
                             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] bg-gray-100 text-gray-700">
                                 <FontAwesomeIcon icon={faCrown} />
@@ -722,7 +708,7 @@ export default function ConfiguracoesPage() {
                                 <FontAwesomeIcon icon={faChevronRight} />
                             </span>
                         </button>
-                    </section>
+                    </Card>
 
                     <Card className="border border-gray-200 shadow-sm">
                         <div className="mb-5">
