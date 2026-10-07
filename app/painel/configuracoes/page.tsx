@@ -584,32 +584,23 @@ export default function ConfiguracoesPage() {
                         </p>
                     </div>
 
-                    <section>
-                        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                    <section className="space-y-4">
+                        <div>
                             <h2 className="text-xl font-medium text-gray-900">
                                 Minha Conta
                             </h2>
-                            <Button
-                                variant="secondary"
-                                onClick={handleLogout}
-                                loading={isLoggingOut}
-                                className="bg-white text-sm text-red-600 hover:bg-red-50"
-                            >
-                                <FontAwesomeIcon
-                                    icon={faSignOutAlt}
-                                    className="mr-2"
-                                />
-                                Sair da Conta
-                            </Button>
+                            <p className="mt-1 text-sm text-gray-500">
+                                Gerencie seus dados de acesso e segurança.
+                            </p>
                         </div>
 
-                        <div className="grid gap-6 md:grid-cols-3 md:gap-8">
-                            <div className="min-w-0">
-                                <div className="flex items-start justify-between gap-3">
-                                    <div className="min-w-0 flex-1">
-                                        <p className="text-sm font-medium text-gray-500">
-                                            Celular do Responsável
-                                        </p>
+                        <div className="overflow-hidden rounded-[10px] bg-white px-5">
+                            <div className="divide-y divide-gray-100">
+                                <div className="grid gap-3 py-4 sm:grid-cols-[180px_minmax(0,1fr)_auto] sm:items-center sm:gap-6">
+                                    <p className="text-sm font-medium text-gray-600">
+                                        Celular do Responsável
+                                    </p>
+                                    <div className="min-w-0">
                                         {isEditingPhone ? (
                                             <Input
                                                 value={phone}
@@ -620,10 +611,9 @@ export default function ConfiguracoesPage() {
                                                 type="tel"
                                                 maxLength={15}
                                                 autoFocus
-                                                className="mt-1"
                                             />
                                         ) : (
-                                            <p className="mt-0.5 font-medium text-gray-900">
+                                            <p className="font-medium text-gray-900">
                                                 {phone || "—"}
                                             </p>
                                         )}
@@ -639,80 +629,100 @@ export default function ConfiguracoesPage() {
                                                 : setIsEditingPhone(true)
                                         }
                                         loading={savingField === "phone"}
-                                        className="shrink-0"
+                                        className="justify-self-start sm:justify-self-end"
                                     >
                                         {isEditingPhone ? "Salvar" : "Alterar"}
                                     </Button>
                                 </div>
-                            </div>
 
-                            <div className="flex min-w-0 items-start justify-between gap-3">
-                                <div className="min-w-0">
-                                    <p className="text-sm font-medium text-gray-500">
+                                <div className="grid gap-3 py-4 sm:grid-cols-[180px_minmax(0,1fr)_auto] sm:items-center sm:gap-6">
+                                    <p className="text-sm font-medium text-gray-600">
                                         E-mail
                                     </p>
-                                    <p className="mt-0.5 break-all font-medium text-gray-900">
+                                    <p className="min-w-0 break-all font-medium text-gray-900">
                                         {user?.email}
                                     </p>
+                                    <Button
+                                        variant="secondary"
+                                        onClick={() =>
+                                            router.push(
+                                                "/painel/configuracoes/atualizando-email",
+                                            )
+                                        }
+                                        className="justify-self-start sm:justify-self-end"
+                                    >
+                                        Alterar
+                                    </Button>
                                 </div>
-                                <Button
-                                    variant="secondary"
-                                    onClick={() =>
-                                        router.push(
-                                            "/painel/configuracoes/atualizando-email",
-                                        )
-                                    }
-                                    className="shrink-0"
-                                >
-                                    Alterar
-                                </Button>
-                            </div>
 
-                            <div className="flex items-start justify-between gap-3">
-                                <div>
-                                    <p className="text-sm font-medium text-gray-500">
+                                <div className="grid gap-3 py-4 sm:grid-cols-[180px_minmax(0,1fr)_auto] sm:items-center sm:gap-6">
+                                    <p className="text-sm font-medium text-gray-600">
                                         Senha
                                     </p>
-                                    <p className="mt-0.5 font-medium text-gray-900">
+                                    <p className="font-medium tracking-[0.08em] text-gray-900">
                                         ••••••••
                                     </p>
+                                    <Button
+                                        variant="secondary"
+                                        onClick={() =>
+                                            router.push(
+                                                "/painel/configuracoes/nova-senha",
+                                            )
+                                        }
+                                        className="justify-self-start sm:justify-self-end"
+                                    >
+                                        Alterar
+                                    </Button>
                                 </div>
-                                <Button
-                                    variant="secondary"
-                                    onClick={() =>
-                                        router.push(
-                                            "/painel/configuracoes/nova-senha",
-                                        )
-                                    }
-                                    className="shrink-0"
-                                >
-                                    Alterar
-                                </Button>
                             </div>
                         </div>
+
+                        <Button
+                            variant="secondary"
+                            onClick={handleLogout}
+                            loading={isLoggingOut}
+                            className="!min-h-0 !border-0 !bg-transparent !px-0 !py-0 text-sm text-red-600 hover:!bg-transparent hover:text-red-700"
+                        >
+                            <FontAwesomeIcon
+                                icon={faSignOutAlt}
+                                className="mr-2"
+                            />
+                            Sair da Conta
+                        </Button>
                     </section>
 
-                    <button
-                        type="button"
-                        onClick={() => router.push("/painel/planos")}
-                        className="group flex w-full cursor-pointer items-center gap-4 py-3 text-left transition-colors hover:bg-gray-100/60"
-                    >
-                        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[10px] bg-gray-100 text-gray-700">
-                            <FontAwesomeIcon icon={faCrown} />
-                        </span>
-                        <span className="min-w-0 flex-1">
-                            <span className="block font-medium text-gray-900">
-                                Planos do iMenu
-                            </span>
-                            <span className="mt-1 block text-sm text-gray-500">
+                    <section className="space-y-4">
+                        <div>
+                            <h2 className="text-xl font-medium text-gray-900">
+                                Planos e assinaturas
+                            </h2>
+                            <p className="mt-1 text-sm text-gray-500">
                                 Veja os planos disponíveis e gerencie suas assinaturas.
+                            </p>
+                        </div>
+
+                        <button
+                            type="button"
+                            onClick={() => router.push("/painel/planos")}
+                            className="group flex w-full cursor-pointer items-center gap-4 rounded-[10px] bg-white px-5 py-4 text-left transition-colors hover:bg-gray-100"
+                        >
+                            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] bg-gray-100 text-gray-700">
+                                <FontAwesomeIcon icon={faCrown} />
                             </span>
-                        </span>
-                        <span className="flex shrink-0 items-center gap-2 text-sm font-medium text-gray-600 transition-colors group-hover:text-gray-900">
-                            <span className="hidden sm:inline">Ver planos</span>
-                            <FontAwesomeIcon icon={faChevronRight} />
-                        </span>
-                    </button>
+                            <span className="min-w-0 flex-1">
+                                <span className="block font-medium text-gray-900">
+                                    Planos do iMenu
+                                </span>
+                                <span className="mt-0.5 block text-sm text-gray-500">
+                                    Confira seus benefícios e opções disponíveis.
+                                </span>
+                            </span>
+                            <span className="flex shrink-0 items-center gap-2 text-sm font-medium text-gray-600 transition-colors group-hover:text-gray-900">
+                                <span className="hidden sm:inline">Ver planos</span>
+                                <FontAwesomeIcon icon={faChevronRight} />
+                            </span>
+                        </button>
+                    </section>
 
                     <Card className="border border-gray-200 shadow-sm">
                         <div className="mb-5">
