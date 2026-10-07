@@ -33,7 +33,7 @@ export default function Badge({
         <span
             data-ui="badge"
             data-variant={variant}
-            className={`inline-flex shrink-0 items-center rounded-full px-1.5 pt-[3px] pb-px !text-[9px] leading-none font-semibold tracking-wide ring-1 ring-inset ${uppercase ? "uppercase" : ""} ${variants[variant]} ${className}`}
+            className={`relative -top-[1.5px] inline-flex shrink-0 items-center align-middle rounded-full px-1.5 pt-1 pb-0.5 !text-[9px] leading-none font-semibold tracking-wide ring-1 ring-inset ${uppercase ? "uppercase" : ""} ${variants[variant]} ${className}`}
             {...props}
         >
             {children}
