@@ -655,7 +655,7 @@ export default function PainelLayout({
                                     </span>
                                     <span>{item.label}</span>
                                     {item.isNew && (
-                                        <span className="inline-flex shrink-0 items-center rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide !text-brand ring-1 ring-inset ring-brand/25">
+                                        <span className="inline-flex shrink-0 items-center rounded-full bg-white px-1.5 py-0.5 !text-[9px] leading-none font-semibold uppercase tracking-wide !text-brand ring-1 ring-inset ring-brand/25">
                                             Novo
                                         </span>
                                     )}
@@ -808,7 +808,7 @@ export default function PainelLayout({
                                         {item.label}
                                     </span>
                                     {item.isNew && expanded && (
-                                        <span className="ml-1.5 inline-flex shrink-0 items-center rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide !text-brand ring-1 ring-inset ring-brand/25">
+                                        <span className="ml-1.5 inline-flex shrink-0 items-center rounded-full bg-white px-1.5 py-0.5 !text-[9px] leading-none font-semibold uppercase tracking-wide !text-brand ring-1 ring-inset ring-brand/25">
                                             Novo
                                         </span>
                                     )}
