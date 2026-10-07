@@ -24,7 +24,6 @@ import Toast from "@/components/ui/Toast";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import Tooltip from "@/components/ui/Tooltip";
 import ChoiceCardGroup from "@/components/ui/ChoiceCardGroup";
-import QrCodeMesaSettingsSection from "@/components/restaurant-owner/configuracoes/QrCodeMesaSettingsSection";
 import ResetOrderCountSection from "@/components/restaurant-owner/configuracoes/ResetOrderCountSection";
 import PizzaSettingsSection from "@/components/restaurant-owner/configuracoes/PizzaSettingsSection";
 
@@ -660,11 +659,21 @@ export default function ConfiguracoesPage() {
                         </div>
                     </Card>
 
-                    {restaurant && (
-                        <QrCodeMesaSettingsSection
-                            restaurantId={restaurant.id}
-                        />
-                    )}
+                    <Card className="border border-gray-200 shadow-sm">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <p className="text-sm text-gray-600">
+                                Veja os planos do iMenu e gerencie suas assinaturas.
+                            </p>
+                            <Button
+                                type="button"
+                                variant="secondary"
+                                onClick={() => router.push("/painel/planos")}
+                                className="shrink-0 bg-white"
+                            >
+                                Ver planos
+                            </Button>
+                        </div>
+                    </Card>
 
                     <Card className="border border-gray-200 shadow-sm">
                         <div className="mb-5">
