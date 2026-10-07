@@ -288,77 +288,70 @@ function DeliveryMarginCalculator() {
     const [price, setPrice] = useState(50);
     const [foodCost, setFoodCost] = useState(15);
     const [packaging, setPackaging] = useState(3);
-    const [commission, setCommission] = useState(12);
-    const [paymentFee, setPaymentFee] = useState(3.2);
-    const [tax, setTax] = useState(6);
-    const [deliverySubsidy, setDeliverySubsidy] = useState(0);
-    const [otherVariable, setOtherVariable] = useState(1);
-    const [fixedCosts, setFixedCosts] = useState(5000);
-    const [monthlyOrders, setMonthlyOrders] = useState(400);
+    const [fees, setFees] = useState(21.2);
+    const [otherCosts, setOtherCosts] = useState(1);
     const [targetMargin, setTargetMargin] = useState(20);
 
-    const percentageRate = Math.max(0, commission + paymentFee + tax);
-    const fixedVariableCosts = foodCost + packaging + deliverySubsidy + otherVariable;
-    const percentageCosts = price * (percentageRate / 100);
-    const variableCosts = fixedVariableCosts + percentageCosts;
-    const contribution = price - variableCosts;
+    const fixedVariableCosts = foodCost + packaging + otherCosts;
+    const percentageCosts = price * (Math.max(0, fees) / 100);
+    const totalCost = fixedVariableCosts + percentageCosts;
+    const contribution = price - totalCost;
     const contributionMargin = price > 0 ? (contribution / price) * 100 : 0;
-    const breakEven = contribution > 0 ? Math.ceil(fixedCosts / contribution) : 0;
-    const monthlyResult = contribution * Math.max(0, monthlyOrders) - Math.max(0, fixedCosts);
-    const targetDenominator = 1 - (percentageRate + Math.max(0, targetMargin)) / 100;
+    const targetDenominator = 1 - (Math.max(0, fees) + Math.max(0, targetMargin)) / 100;
     const priceForTargetMargin = targetDenominator > 0
         ? fixedVariableCosts / targetDenominator
         : 0;
 
     return (
-        <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
-            <ToolPanel title="Custos por pedido" icon={faReceipt}>
+        <div className="grid gap-5 lg:grid-cols-2">
+            <ToolPanel title="Dados do pedido" icon={faReceipt}>
                 <div className="grid gap-4 sm:grid-cols-2">
                     <NumberField label="Preço de venda" value={price} onChange={setPrice} prefix="R$" />
-                    <NumberField label="Ingredientes / CMV" value={foodCost} onChange={setFoodCost} prefix="R$" />
+                    <NumberField label="Custo do produto / CMV" value={foodCost} onChange={setFoodCost} prefix="R$" />
                     <NumberField label="Embalagem" value={packaging} onChange={setPackaging} prefix="R$" />
-                    <NumberField label="Comissão" value={commission} onChange={setCommission} suffix="%" max={100} />
-                    <NumberField label="Taxa de pagamento" value={paymentFee} onChange={setPaymentFee} suffix="%" max={100} />
-                    <NumberField label="Impostos sobre a venda" value={tax} onChange={setTax} suffix="%" max={100} />
-                    <NumberField label="Frete subsidiado pela loja" value={deliverySubsidy} onChange={setDeliverySubsidy} prefix="R$" />
-                    <NumberField label="Outros custos variáveis" value={otherVariable} onChange={setOtherVariable} prefix="R$" />
-                    <NumberField label="Custos fixos mensais" value={fixedCosts} onChange={setFixedCosts} prefix="R$" step={100} />
-                    <NumberField label="Pedidos por mês" value={monthlyOrders} onChange={setMonthlyOrders} suffix="un" step={1} />
-                    <NumberField label="Meta de margem por pedido" value={targetMargin} onChange={setTargetMargin} suffix="%" max={100} />
+                    <NumberField
+                        label="Taxas sobre a venda"
+                        value={fees}
+                        onChange={setFees}
+                        suffix="%"
+                        max={100}
+                        help="Comissão, pagamento e impostos."
+                    />
+                    <NumberField
+                        label="Outros custos por pedido"
+                        value={otherCosts}
+                        onChange={setOtherCosts}
+                        prefix="R$"
+                        help="Ex.: frete subsidiado."
+                    />
+                    <NumberField label="Meta de margem" value={targetMargin} onChange={setTargetMargin} suffix="%" max={100} />
                 </div>
             </ToolPanel>
-            <ToolPanel title="Margem e ponto de equilíbrio" icon={faChartLine}>
+            <ToolPanel title="Resultado" icon={faChartLine}>
                 <ResultGrid>
-                    <ResultItem label="Custos variáveis" value={formatCurrency(variableCosts)} />
+                    <ResultItem label="Custo total por pedido" value={formatCurrency(totalCost)} />
                     <ResultItem
                         label="Margem por pedido"
                         value={formatCurrency(contribution)}
-                        description={formatPercent(contributionMargin)}
                         highlight={contribution > 0}
                         danger={contribution <= 0}
                     />
                     <ResultItem
-                        label="Ponto de equilíbrio"
-                        value={contribution > 0 ? `${formatNumber(breakEven, 0)} pedidos` : "Sem equilíbrio"}
+                        label="Margem"
+                        value={formatPercent(contributionMargin)}
+                        highlight={contribution > 0}
+                        danger={contribution <= 0}
                     />
                     <ResultItem
-                        label="Resultado mensal estimado"
-                        value={formatCurrency(monthlyResult)}
-                        description="Antes de investimentos e despesas não informadas"
-                        highlight={monthlyResult >= 0}
-                        danger={monthlyResult < 0}
-                    />
-                    <ResultItem
-                        label="Preço para a meta de margem"
+                        label="Preço para atingir a meta"
                         value={targetDenominator > 0 ? formatCurrency(priceForTargetMargin) : "Impossível"}
-                        description="Meta de margem de contribuição, antes dos custos fixos"
                     />
                 </ResultGrid>
                 {contribution <= 0 && (
-                    <Notice>Os custos variáveis são iguais ou maiores que o preço. Revise preço, porção, taxas ou subsídio antes de vender.</Notice>
+                    <Notice>O custo total é igual ou maior que o preço de venda. Revise os valores.</Notice>
                 )}
                 {targetDenominator <= 0 && (
-                    <Notice>A soma das taxas percentuais e da meta de margem precisa ser menor que 100%.</Notice>
+                    <Notice>A soma das taxas e da meta de margem precisa ser menor que 100%.</Notice>
                 )}
             </ToolPanel>
         </div>
