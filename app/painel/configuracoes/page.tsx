@@ -195,6 +195,7 @@ export default function ConfiguracoesPage() {
     const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
     const [loading, setLoading] = useState(true);
     const [savingField, setSavingField] = useState<"phone" | null>(null);
+    const [isEditingPhone, setIsEditingPhone] = useState(false);
     const [phone, setPhone] = useState("");
     const [savedPhone, setSavedPhone] = useState("");
     const [orderDingleDuration, setOrderDingleDuration] =
@@ -303,7 +304,11 @@ export default function ConfiguracoesPage() {
     }, [restaurantId, router, setRestaurantId]);
 
     const savePhone = async () => {
-        if (!restaurant || phone === savedPhone) return;
+        if (!restaurant) return;
+        if (phone === savedPhone) {
+            setIsEditingPhone(false);
+            return;
+        }
         if (phone.replace(/\D/g, "").length !== 11) {
             setToast({ message: "Digite um celular válido.", type: "error" });
             return;
@@ -323,6 +328,7 @@ export default function ConfiguracoesPage() {
         }
 
         setSavedPhone(phone);
+        setIsEditingPhone(false);
         setToast({ message: "Celular atualizado!", type: "success" });
     };
 
@@ -597,25 +603,50 @@ export default function ConfiguracoesPage() {
                             </Button>
                         </div>
 
-                        <div className="divide-y divide-gray-200 border-y border-gray-200">
-                            <div className="py-5">
-                                <Input
-                                    label="Celular do Responsável"
-                                    value={phone}
-                                    onChange={(event) =>
-                                        setPhone(formatPhone(event.target.value))
-                                    }
-                                    onBlur={savePhone}
-                                    placeholder="(00) 00000-0000"
-                                    type="tel"
-                                    maxLength={15}
-                                />
-                                {savingField === "phone" && (
-                                    <SaveStatus status="saving" className="mt-2" />
-                                )}
+                        <div className="grid gap-6 md:grid-cols-3 md:gap-8">
+                            <div className="min-w-0">
+                                <div className="flex items-start justify-between gap-3">
+                                    <div className="min-w-0 flex-1">
+                                        <p className="text-sm font-medium text-gray-500">
+                                            Celular do Responsável
+                                        </p>
+                                        {isEditingPhone ? (
+                                            <Input
+                                                value={phone}
+                                                onChange={(event) =>
+                                                    setPhone(formatPhone(event.target.value))
+                                                }
+                                                placeholder="(00) 00000-0000"
+                                                type="tel"
+                                                maxLength={15}
+                                                autoFocus
+                                                className="mt-1"
+                                            />
+                                        ) : (
+                                            <p className="mt-0.5 font-medium text-gray-900">
+                                                {phone || "—"}
+                                            </p>
+                                        )}
+                                        {savingField === "phone" && (
+                                            <SaveStatus status="saving" className="mt-2" />
+                                        )}
+                                    </div>
+                                    <Button
+                                        variant="secondary"
+                                        onClick={() =>
+                                            isEditingPhone
+                                                ? void savePhone()
+                                                : setIsEditingPhone(true)
+                                        }
+                                        loading={savingField === "phone"}
+                                        className="shrink-0"
+                                    >
+                                        {isEditingPhone ? "Salvar" : "Alterar"}
+                                    </Button>
+                                </div>
                             </div>
 
-                            <div className="flex flex-wrap items-center justify-between gap-4 py-4">
+                            <div className="flex min-w-0 items-start justify-between gap-3">
                                 <div className="min-w-0">
                                     <p className="text-sm font-medium text-gray-500">
                                         E-mail
@@ -631,12 +662,13 @@ export default function ConfiguracoesPage() {
                                             "/painel/configuracoes/atualizando-email",
                                         )
                                     }
+                                    className="shrink-0"
                                 >
                                     Alterar
                                 </Button>
                             </div>
 
-                            <div className="flex items-center justify-between gap-4 py-4">
+                            <div className="flex items-start justify-between gap-3">
                                 <div>
                                     <p className="text-sm font-medium text-gray-500">
                                         Senha
@@ -652,6 +684,7 @@ export default function ConfiguracoesPage() {
                                             "/painel/configuracoes/nova-senha",
                                         )
                                     }
+                                    className="shrink-0"
                                 >
                                     Alterar
                                 </Button>
@@ -662,7 +695,7 @@ export default function ConfiguracoesPage() {
                     <button
                         type="button"
                         onClick={() => router.push("/painel/planos")}
-                        className="group flex w-full cursor-pointer items-center gap-4 border-y border-gray-200 py-5 text-left transition-colors hover:bg-gray-100/60"
+                        className="group flex w-full cursor-pointer items-center gap-4 py-3 text-left transition-colors hover:bg-gray-100/60"
                     >
                         <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[10px] bg-gray-100 text-gray-700">
                             <FontAwesomeIcon icon={faCrown} />
