@@ -171,15 +171,6 @@ export default function Page() {
                         </table>
                     </div>
 
-                    <div className="mt-6 rounded-2xl border border-green-200 bg-green-50 px-6 py-6 text-center">
-                        <p className="text-xl font-bold text-green-800 md:text-2xl">
-                            Sim, o iMenu é totalmente grátis.
-                        </p>
-                        <p className="mt-1 text-sm font-semibold uppercase tracking-wide text-green-700 md:text-base">
-                            Sem limites, sem taxas e sem mensalidade.
-                        </p>
-                    </div>
-
                     <p className="mt-4 text-sm text-gray-500">
                         Planos e condições de plataformas de terceiros podem mudar. Confirme
                         sempre os valores e recursos atuais antes de contratar.
@@ -354,6 +345,15 @@ export default function Page() {
                             Criar meu cardápio grátis
                         </Button>
                     </Link>
+                </section>
+
+                <section className="text-center">
+                    <p className="text-3xl font-extrabold text-brand md:text-4xl">
+                        Sim. O iMenu é totalmente grátis.
+                    </p>
+                    <p className="mt-3 text-lg font-semibold text-gray-700">
+                        Sem limites. Sem taxas. Sem mensalidade.
+                    </p>
                 </section>
 
                 <section>
