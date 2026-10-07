@@ -13,7 +13,7 @@ import {
     faChartLine,
     faCircleQuestion,
     faClock,
-    faCreditCard,
+    faLayerGroup,
     faDoorOpen,
     faGear,
     faGift,
@@ -413,7 +413,7 @@ export default function PainelLayout({
         { label: "Robô WhatsApp", icon: faRobot, href: `${base}/robo-whatsapp` },
         { label: "Impressora", icon: faPrint, href: `${base}/impressora` },
         { label: "Integrações", icon: faPuzzlePiece, href: `${base}/integracoes` },
-        { label: "Planos", icon: faCreditCard, href: `${base}/planos` },
+        { label: "Planos", icon: faLayerGroup, href: `${base}/planos` },
         {
             label: "Configurações",
             icon: faGear,

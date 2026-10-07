@@ -53,8 +53,11 @@ export default function PlanosPage() {
             <div className="mx-auto max-w-6xl space-y-8">
                 <div className="panel-page-heading">
                     <h1 className="text-3xl font-bold text-gray-900 2xl:text-4xl">
-                        Planos
+                        Sistemas iMenu
                     </h1>
+                    <p className="mt-1 text-gray-500 2xl:text-lg">
+                        Gerencie os produtos disponíveis na sua conta.
+                    </p>
                 </div>
 
                 {loading ? (
@@ -62,7 +65,7 @@ export default function PlanosPage() {
                         <Loader />
                     </div>
                 ) : restaurantId ? (
-                    <QrCodeMesaSettingsSection restaurantId={restaurantId} />
+                    <QrCodeMesaSettingsSection restaurantId={restaurantId} showHeader={false} />
                 ) : null}
             </div>
         </div>
