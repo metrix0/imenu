@@ -81,7 +81,7 @@ export default function AnalysisReport({
               height={1086}
               priority
               unoptimized
-              className="h-36 w-auto object-contain sm:h-40"
+              className="h-40 w-auto object-contain sm:h-44"
             />
             <div className={styles.noAnalysisIntro}>
               <h2>Sua análise ainda não foi liberada</h2>
