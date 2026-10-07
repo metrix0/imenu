@@ -50,6 +50,7 @@ type MenuItem =
           label: string;
           icon: IconDefinition;
           href: string;
+          isNew?: boolean;
           type?: undefined;
       };
 
@@ -386,7 +387,7 @@ export default function PainelLayout({
         { label: "Pedidos", icon: faHome, href: `${base}/` },
         { label: "Histórico", icon: faBox, href: `${base}/historico` },
         { label: "Cardápio", icon: faUtensils, href: cardapioHref },
-        { label: "Assistente IA", icon: faWandMagicSparkles, href: `${base}/assistente-ia` },
+        { label: "Assistente IA", icon: faWandMagicSparkles, href: `${base}/assistente-ia`, isNew: true },
         { label: "Mesas", icon: faChair, href: `${base}/mesas` },
         {
             label: "Repasses",
@@ -400,7 +401,7 @@ export default function PainelLayout({
         },
         { type: "divider" },
         { label: "Loja", icon: faStore, href: `${base}/loja` },
-        { label: "Vendas IA", icon: faRocket, href: `${base}/vendas-ia` },
+        { label: "Vendas IA", icon: faRocket, href: `${base}/vendas-ia`, isNew: true },
         { label: "Promoções", icon: faPercent, href: `${base}/promocoes` },
         { label: "Horários", icon: faClock, href: `${base}/disponibilidade` },
         { label: "Taxa e Tempo", icon: faTruck, href: `${base}/tempo-e-taxa` },
@@ -652,7 +653,12 @@ export default function PainelLayout({
                                             }
                                         />
                                     </span>
-                                    {item.label}
+                                    <span>{item.label}</span>
+                                    {item.isNew && (
+                                        <span className="rounded-full bg-brand/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-brand">
+                                            Novo
+                                        </span>
+                                    )}
                                 </Link>
                             );
                         })}
@@ -776,7 +782,7 @@ export default function PainelLayout({
                                     style={{ outlineColor: "#d93d00" }}
                                     className="panel-nav-link group relative flex cursor-pointer items-center transition-colors duration-200"
                                 >
-                                    <div className="flex h-6 w-6 shrink-0 items-center justify-center 2xl:h-10 2xl:w-12">
+                                    <div className="relative flex h-6 w-6 shrink-0 items-center justify-center 2xl:h-10 2xl:w-12">
                                         <FontAwesomeIcon
                                             icon={item.icon}
                                             className={`text-lg transition-colors 2xl:text-2xl ${
@@ -785,6 +791,12 @@ export default function PainelLayout({
                                                     : "text-gray-400 group-hover:text-gray-600"
                                             }`}
                                         />
+                                        {item.isNew && !expanded && (
+                                            <span
+                                                aria-label="Novo"
+                                                className="absolute right-0 top-0 h-2 w-2 rounded-full bg-brand 2xl:right-1 2xl:top-1"
+                                            />
+                                        )}
                                     </div>
                                     <span
                                         className={`overflow-hidden whitespace-nowrap text-sm transition-all duration-300 2xl:text-lg ${
@@ -795,6 +807,11 @@ export default function PainelLayout({
                                     >
                                         {item.label}
                                     </span>
+                                    {item.isNew && expanded && (
+                                        <span className="ml-2 rounded-full bg-brand/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-brand">
+                                            Novo
+                                        </span>
+                                    )}
                                 </Link>
                             );
                         })}
