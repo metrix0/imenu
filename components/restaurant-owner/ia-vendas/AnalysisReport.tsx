@@ -101,15 +101,15 @@ export default function AnalysisReport({
               <article>
                 <span><ClipboardList size={18} aria-hidden="true" /></span>
                 <div>
-                  <strong>Entende suas vendas</strong>
-                  <p>Analisa seus pedidos, produtos, cardápio e configurações para encontrar oportunidades de venda.</p>
+                  <strong>Dados reais</strong>
+                  <p>Usa dados de milhares de restaurantes no iMenu para indicar as melhores modificações.</p>
                 </div>
               </article>
               <article>
                 <span><Target size={18} aria-hidden="true" /></span>
                 <div>
                   <strong>Encontra o que vale priorizar</strong>
-                  <p>Prioriza as melhores oportunidades, mostra as evidências e, quando possível, estima o impacto nas próximas 4 semanas.</p>
+                  <p>Prioriza as melhores oportunidades, mostra as evidências e estima o impacto nas próximas 4 semanas.</p>
                 </div>
               </article>
             </div>
