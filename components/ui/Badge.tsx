@@ -8,8 +8,11 @@ export type BadgeVariant =
     | "info"
     | "danger";
 
+export type BadgeMode = "default" | "pill";
+
 type BadgeProps = React.HTMLAttributes<HTMLSpanElement> & {
     variant?: BadgeVariant;
+    mode?: BadgeMode;
     uppercase?: boolean;
 };
 
@@ -22,18 +25,28 @@ const variants: Record<BadgeVariant, string> = {
     danger: "bg-red-50 !text-red-700 ring-red-200",
 };
 
+const modes: Record<BadgeMode, string> = {
+    default:
+        "inline-flex shrink-0 items-center align-middle rounded-full px-2 py-1 !text-[11px] leading-none font-semibold ring-1 ring-inset",
+    pill: "relative -top-[1.5px] inline-flex shrink-0 items-center align-middle rounded-full px-1.5 pt-1 pb-0.5 !text-[9px] leading-none font-semibold tracking-wide ring-1 ring-inset",
+};
+
 export default function Badge({
     children,
     variant = "brand",
-    uppercase = true,
+    mode = "default",
+    uppercase,
     className = "",
     ...props
 }: BadgeProps) {
+    const shouldUppercase = uppercase ?? mode === "pill";
+
     return (
         <span
             data-ui="badge"
             data-variant={variant}
-            className={`relative -top-[1.5px] inline-flex shrink-0 items-center align-middle rounded-full px-1.5 pt-1 pb-0.5 !text-[9px] leading-none font-semibold tracking-wide ring-1 ring-inset ${uppercase ? "uppercase" : ""} ${variants[variant]} ${className}`}
+            data-mode={mode}
+            className={`${modes[mode]} ${shouldUppercase ? "uppercase" : ""} ${variants[variant]} ${className}`}
             {...props}
         >
             {children}
