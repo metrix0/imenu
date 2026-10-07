@@ -25,6 +25,7 @@ const sections = [
     { id: "exemplo-30-mil", label: "Exemplo com R$ 30 mil" },
     { id: "comparar-canal-proprio", label: "Comparar canal próprio" },
     { id: "decisao", label: "Tomar a decisão" },
+    { id: "guias-ifood", label: "Guias sobre iFood" },
     { id: "perguntas-frequentes", label: "Perguntas frequentes" },
 ];
 
@@ -64,9 +65,9 @@ export default function QuantoIfoodCobraPage() {
             sections={sections}
             faq={faq}
             relatedSlugs={[
-                "alternativa-ao-ifood",
-                "como-vender-delivery-pelo-whatsapp",
-                "como-aumentar-ticket-medio-restaurante",
+                "taxa-ifood-para-restaurante",
+                "quanto-sobra-restaurante-ifood",
+                "ifood-vale-a-pena-restaurante",
             ]}
             ctaTitle="Tenha também um canal direto de pedidos"
         >
@@ -281,6 +282,39 @@ export default function QuantoIfoodCobraPage() {
                         alternativa ao iFood
                     </Link>. Ele mostra como construir um canal próprio sem sacrificar a
                     demanda que a plataforma já traz.
+                </p>
+            </BlogSection>
+
+            <BlogSection id="guias-ifood" title="Guias para cada dúvida sobre custos do iFood">
+                <p>
+                    Se você quer aprofundar uma parte específica da conta, use estes guias
+                    do mesmo cluster:
+                </p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                    {[
+                        ["/blog/taxa-ifood-para-restaurante", "Taxa do iFood para restaurante"],
+                        ["/blog/comissao-ifood", "Comissão do iFood"],
+                        ["/blog/quanto-custa-vender-no-ifood", "Quanto custa vender no iFood"],
+                        ["/blog/quanto-sobra-restaurante-ifood", "Quanto sobra para o restaurante"],
+                        ["/blog/ifood-vale-a-pena-restaurante", "iFood vale a pena para restaurante?"],
+                    ].map(([href, label]) => (
+                        <Link
+                            key={href}
+                            href={href}
+                            className="rounded-xl border border-gray-200 bg-white p-4 font-semibold text-gray-800 transition hover:border-brand/40 hover:text-brand"
+                        >
+                            {label}
+                        </Link>
+                    ))}
+                </div>
+                <p>
+                    Para fazer a conta com seus próprios números, use a {" "}
+                    <Link href="/ferramentas/calculadora-taxas-ifood" className="font-semibold text-brand underline">
+                        calculadora de taxas do iFood
+                    </Link>. Para comparar com pedidos diretos, veja também {" "}
+                    <Link href="/cardapio-digital" className="font-semibold text-brand underline">
+                        cardápio digital
+                    </Link>.
                 </p>
             </BlogSection>
         </BlogArticle>
