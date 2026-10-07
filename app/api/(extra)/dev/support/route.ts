@@ -391,13 +391,6 @@ export async function POST(request: Request) {
                 [[phone, localPhone]]
             );
 
-            if (recipients.rows.length === 0) {
-                return NextResponse.json(
-                    { error: "Número não encontrado em nenhum restaurante." },
-                    { status: 404 }
-                );
-            }
-
             const connection = await readConnection(senderConnectionId);
             if (
                 connection.desired_state !== "connected" ||
@@ -417,20 +410,27 @@ export async function POST(request: Request) {
             const restaurantIds = recipients.rows.map(
                 (recipient) => recipient.restaurant_id
             );
-            const restaurantId = restaurantIds[0];
+            const restaurantId = restaurantIds[0] || null;
+            const chatId = phone + "@c.us";
 
             if (skipRecent) {
                 const recentlySent = await query(
                     `
                         SELECT 1
                         FROM whatsapp_outbound_messages
-                        WHERE restaurant_id = ANY($1::uuid[])
-                          AND dedupe_key LIKE 'support:bulk:%'
+                        WHERE dedupe_key LIKE 'support:bulk:%'
                           AND status = 'sent'
                           AND updated_at >= NOW() - INTERVAL '7 days'
+                          AND (
+                                chat_id = $2
+                                OR (
+                                    cardinality($1::uuid[]) > 0
+                                    AND restaurant_id = ANY($1::uuid[])
+                                )
+                              )
                         LIMIT 1
                     `,
-                    [restaurantIds]
+                    [restaurantIds, chatId]
                 );
 
                 if (recentlySent.rowCount > 0) {
@@ -441,9 +441,11 @@ export async function POST(request: Request) {
                 }
             }
 
-            const chatId = phone + "@c.us";
             const dedupeKey =
-                "support:bulk:" + batchId + ":" + restaurantId;
+                "support:bulk:" +
+                batchId +
+                ":" +
+                (restaurantId || "phone:" + phone);
 
             const claim = await query(
                 "INSERT INTO whatsapp_outbound_messages (dedupe_key, restaurant_id, chat_id, message_type, status, updated_at) VALUES ($1, $2, $3, 'text', 'sending', NOW()) ON CONFLICT (dedupe_key) DO NOTHING RETURNING dedupe_key",
