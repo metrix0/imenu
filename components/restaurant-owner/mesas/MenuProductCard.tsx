@@ -81,10 +81,10 @@ export default function MenuProductCard(props: MenuProductCardProps) {
             {included ? (
                 <p className="mt-2 text-sm leading-relaxed text-gray-600">{props.description}</p>
             ) : (
-                <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2 text-sm leading-relaxed text-gray-600">
-                    <span className="min-w-0">{props.description}</span>
+                <div className="mt-2 text-sm leading-relaxed text-gray-600">
+                    {props.description}
                     {props.variant === "addon" && props.exclusiveSupport && (
-                        <div className="shrink-0" onClick={(event) => event.stopPropagation()}>
+                        <div className="ml-2 inline-block align-middle" onClick={(event) => event.stopPropagation()}>
                             <Tooltip text="Durante sua assinatura do iMenu IA Plus, solicite integrações e novas funcionalidades para serem adicionadas em até 3 dias úteis." size="medium" showOnClick>
                                 <Badge className="cursor-help gap-1.5 whitespace-nowrap">
                                     Atendimento Exclusivo

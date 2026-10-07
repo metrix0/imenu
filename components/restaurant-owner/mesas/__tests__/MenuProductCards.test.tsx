@@ -38,7 +38,8 @@ test("IA Plus has exclusive support and precedes the QR card in the two-column g
     expect(iaCard).toContain("Saiba mais");
     expect(iaCard).toContain("Atendimento Exclusivo");
     expect(iaCard).toContain('data-ui="badge"');
-    expect(iaCard).toContain("Solicite integrações e novas funcionalidades em até 3 dias úteis.");
+    expect(iaCard).not.toContain("Solicite integrações e novas funcionalidades em até 3 dias úteis.");
+    expect(iaCard).toContain("Durante sua assinatura do iMenu IA Plus, solicite integrações e novas funcionalidades para serem adicionadas em até 3 dias úteis.");
     const qrCard = html.slice(html.indexOf('alt="iMenu QR Code Mesa"'));
     expect(qrCard).not.toContain("Atendimento Exclusivo");
 });
