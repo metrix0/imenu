@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import MenuProductCard from "./MenuProductCard";
 
 type MenuProductCardsProps = {
+    presentation?: "default" | "plans";
     extraCard?: ReactNode;
     qrSelected: boolean;
     qrActive?: boolean;
@@ -11,10 +12,11 @@ type MenuProductCardsProps = {
     onLearnMore: () => void;
 };
 
-export default function MenuProductCards({ extraCard, qrSelected, qrActive = false, onQrToggle, onLearnMore }: MenuProductCardsProps) {
+export default function MenuProductCards({ presentation = "default", extraCard, qrSelected, qrActive = false, onQrToggle, onLearnMore }: MenuProductCardsProps) {
     return (
-        <div className="panel-product-cards grid gap-5 md:grid-cols-2">
+        <div className={presentation === "plans" ? "plans-products" : "panel-product-cards grid gap-5 md:grid-cols-2"}>
             <MenuProductCard
+                presentation={presentation}
                 variant="included"
                 name="iMenu Cardápio Digital"
                 logo="/logos/CombinationMarkLogo_Brand.png"
@@ -25,6 +27,7 @@ export default function MenuProductCards({ extraCard, qrSelected, qrActive = fal
             />
             {extraCard}
             <MenuProductCard
+                presentation={presentation}
                 variant="addon"
                 name="iMenu QR Code Mesa"
                 logo="/logos/QRCODECombinationMarkLogo_Brand.png"
@@ -35,7 +38,6 @@ export default function MenuProductCards({ extraCard, qrSelected, qrActive = fal
                 active={qrActive}
                 onToggle={onQrToggle}
                 onLearnMore={onLearnMore}
-                exclusiveSupport
             />
         </div>
     );

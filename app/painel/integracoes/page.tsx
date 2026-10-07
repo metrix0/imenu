@@ -3,6 +3,7 @@
 import { useEffect, useState, type ChangeEvent } from "react";
 import Image from "next/image";
 
+import IaPlusSalesModal from "@/components/restaurant-owner/ia-vendas/IaPlusSalesModal";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
@@ -10,6 +11,7 @@ import ListLoader from "@/components/ui/ListLoader";
 import Toast from "@/components/ui/Toast";
 import { supabase } from "@/lib/database/supabaseClient";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
+import { qrTableAuthenticatedFetch } from "@/lib/qr-table/clientApi";
 
 const extractFirst = (value: string, pattern: RegExp) =>
     value.toUpperCase().match(pattern)?.[0] ?? "";
@@ -32,6 +34,8 @@ export default function IntegracoesPage() {
     const { restaurantId, setRestaurantId } = useCreationStore();
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [iaPlusOpen, setIaPlusOpen] = useState(false);
+    const [iaPlusActive, setIaPlusActive] = useState(false);
     const [tracking, setTracking] = useState({
         ga4_id: "",
         gtm_id: "",
@@ -98,6 +102,32 @@ export default function IntegracoesPage() {
         void loadTracking();
     }, [restaurantId, setRestaurantId]);
 
+    useEffect(() => {
+        if (!restaurantId) return;
+        let canceled = false;
+        const loadIaPlus = async () => {
+            try {
+                const response = await qrTableAuthenticatedFetch(
+                    `/api/addons/billing?restaurantId=${encodeURIComponent(restaurantId)}`,
+                    { cache: "no-store" }
+                );
+                if (!response.ok) return;
+                const payload = await response.json() as {
+                    addons: { addon: { product_key: string }; active: boolean }[];
+                };
+                if (!canceled) {
+                    setIaPlusActive(payload.addons.some(
+                        (item) => item.addon.product_key === "ia_plus" && item.active
+                    ));
+                }
+            } catch (error) {
+                console.error("[INTEGRACOES] Erro ao carregar IA Plus:", error);
+            }
+        };
+        void loadIaPlus();
+        return () => { canceled = true; };
+    }, [restaurantId]);
+
     const saveTracking = async () => {
         if (!restaurantId || saving) return;
         setSaving(true);
@@ -144,8 +174,25 @@ export default function IntegracoesPage() {
         <div className="mx-auto max-w-4xl px-4 pb-24 pt-8 sm:px-6">
             <h1 className="mb-2 text-3xl font-bold text-gray-900">Integrações</h1>
             <p className="mb-6 text-gray-600">
-                Configure o rastreamento dos seus anúncios.
+                Configure o rastreamento dos seus anúncios e solicite novas integrações.
             </p>
+
+            <Card className="mb-6 !p-5 sm:!p-7">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <h2 className="text-xl font-semibold text-gray-900">
+                            Solicitar integrações
+                        </h2>
+                        <p className="mt-2 text-sm text-gray-600">
+                            Com o iMenu IA Plus, solicite integrações e novas funcionalidades
+                            para serem adicionadas em até 3 dias úteis.
+                        </p>
+                    </div>
+                    <Button type="button" className="shrink-0" disabled={!restaurantId} onClick={() => setIaPlusOpen(true)}>
+                        Solicitar integração
+                    </Button>
+                </div>
+            </Card>
 
             <Card className="space-y-8 !p-5 sm:!p-7">
                 <h2 className="mb-2 text-xl font-semibold text-gray-900">
@@ -209,6 +256,19 @@ export default function IntegracoesPage() {
                     </Button>
                 </div>
             </Card>
+
+            {restaurantId && (
+                <IaPlusSalesModal
+                    open={iaPlusOpen}
+                    onClose={() => setIaPlusOpen(false)}
+                    restaurantId={restaurantId}
+                    active={iaPlusActive}
+                    onPaid={() => {
+                        setIaPlusActive(true);
+                        setIaPlusOpen(false);
+                    }}
+                />
+            )}
 
             {showToast && (
                 <Toast

@@ -1,4 +1,8 @@
-import { asksAboutWholeMenu, runChat } from "../chat";
+import {
+  asksAboutWholeMenu,
+  ensureSalesAnalysisBridge,
+  runChat,
+} from "../chat";
 import {
   aiAccess,
   IaImageLimitReached,
@@ -109,6 +113,25 @@ test.each([
   "troque a foto deste produto",
 ])("specific menu request does not suggest Vendas IA: %s", (message) => {
   expect(asksAboutWholeMenu(message)).toBe(false);
+});
+
+test("Vendas IA CTA always has a textual bridge", () => {
+  const cards = [{ type: "sales_analysis_cta" }];
+
+  expect(
+    ensureSalesAnalysisBridge("Revisei os principais pontos.", cards),
+  ).toContain("**Vendas IA**");
+  expect(
+    ensureSalesAnalysisBridge(
+      "Para uma análise completa, a Vendas IA considera seus dados reais.",
+      cards,
+    ),
+  ).toBe(
+    "Para uma análise completa, a Vendas IA considera seus dados reais.",
+  );
+  expect(
+    ensureSalesAnalysisBridge("Resposta sem CTA.", []),
+  ).toBe("Resposta sem CTA.");
 });
 
 beforeEach(() => {

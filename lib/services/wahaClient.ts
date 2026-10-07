@@ -217,7 +217,8 @@ export async function getWahaSession(
 
 async function ensureWahaSessionWithConfig(
     sessionName: string,
-    config: Record<string, unknown>
+    config: Record<string, unknown>,
+    refreshWorkingConfig = false
 ): Promise<WahaSession> {
     const existing = await getWahaSession(sessionName);
 
@@ -234,8 +235,51 @@ async function ensureWahaSessionWithConfig(
 
     // Never update a healthy restaurant session during a status check or
     // repeated connect request. Updating GOWS config can restart it.
-    if (existing.status === "WORKING") {
+    if (existing.status === "WORKING" && !refreshWorkingConfig) {
         return existing;
+    }
+
+    if (existing.status === "WORKING" && refreshWorkingConfig) {
+        const expectedWebhooks = Array.isArray(config.webhooks)
+            ? config.webhooks
+            : [];
+        const currentWebhooks = Array.isArray(existing.config?.webhooks)
+            ? existing.config.webhooks
+            : [];
+
+        const hasExpectedWebhook = expectedWebhooks.every((expected) => {
+            if (!expected || typeof expected !== "object") return false;
+            const expectedWebhook = expected as {
+                url?: unknown;
+                events?: unknown;
+            };
+
+            return currentWebhooks.some((current) => {
+                if (!current || typeof current !== "object") return false;
+                const currentWebhook = current as {
+                    url?: unknown;
+                    events?: unknown;
+                };
+
+                const expectedEvents = Array.isArray(expectedWebhook.events)
+                    ? expectedWebhook.events.map(String)
+                    : [];
+                const currentEvents = Array.isArray(currentWebhook.events)
+                    ? currentWebhook.events.map(String)
+                    : [];
+
+                return (
+                    currentWebhook.url === expectedWebhook.url &&
+                    expectedEvents.every((event) =>
+                        currentEvents.includes(event)
+                    )
+                );
+            });
+        });
+
+        if (hasExpectedWebhook) {
+            return existing;
+        }
     }
 
     const updated = await wahaRequest<WahaSession>(
@@ -276,16 +320,11 @@ export async function ensureWahaSupportSession(
 export async function ensureWahaBlastSession(
     sessionName = BLAST_WAHA_SESSION_NAME
 ): Promise<WahaSession> {
-    return ensureWahaSessionWithConfig(sessionName, {
-        metadata: { blast: "true" },
-        ignore: {
-            status: true,
-            groups: true,
-            channels: true,
-            broadcast: true,
-        },
-        webhooks: [],
-    });
+    return ensureWahaSessionWithConfig(
+        sessionName,
+        sessionConfig({ blast: "true" }, getSupportPublicUrl()),
+        true
+    );
 }
 
 export async function startWahaSession(

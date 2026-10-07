@@ -12,6 +12,7 @@ import {
     resolveWahaChatPhone,
     restartWahaSession,
     sendWahaText,
+    SUPPORT_WAHA_SESSION_NAME,
     startWahaTyping,
     stopWahaTyping,
 } from "@/lib/services/wahaClient";
@@ -57,7 +58,14 @@ function normalize(value: unknown): string {
 
 const SUPPORT_AI_RETRY_DELAYS_MS = [500, 1_500] as const;
 const SUPPORT_REPLY_DEBOUNCE_MS = 1_500;
-const SUPPORT_BULK_SILENCE_SECONDS = 60;
+const SUPPORT_BULK_SILENCE_SECONDS = 30;
+
+function getSupportScopedValue(sessionName: string, value: string): string {
+    return sessionName === SUPPORT_WAHA_SESSION_NAME
+        ? value
+        : sessionName + ":" + value;
+}
+
 const KNOWN_INFRASTRUCTURE_QUOTA_MESSAGE =
     "Esse erro é uma indisponibilidade técnica do iMenu por limite do serviço. Não é problema da sua senha ou cadastro; o iMenu precisa restabelecê-lo.";
 const GENERIC_FREE_MESSAGE = "O iMenu é totalmente gratuito.";
@@ -252,6 +260,42 @@ async function isSupportBulkSilenced(
     return result.rowCount > 0;
 }
 
+export async function isSecondaryBlastRecipient(input: {
+    sessionName: string;
+    chatId: string;
+}): Promise<boolean> {
+    const resolvedPhone =
+        (await resolveWahaChatPhone(input.sessionName, input.chatId)) ||
+        String(input.chatId).split("@")[0].replace(/\D/g, "") ||
+        null;
+    const chatIds = new Set<string>([
+        input.chatId.replace("@s.whatsapp.net", "@c.us"),
+    ]);
+
+    for (const candidate of phoneCandidates(resolvedPhone)) {
+        if (
+            candidate.startsWith("55") &&
+            (candidate.length === 12 || candidate.length === 13)
+        ) {
+            chatIds.add(candidate + "@c.us");
+        }
+    }
+
+    const result = await query(
+        `
+            SELECT 1
+            FROM whatsapp_outbound_messages
+            WHERE status = 'sent'
+              AND dedupe_key LIKE 'support:bulk:blast:%'
+              AND chat_id = ANY($1::text[])
+            LIMIT 1
+        `,
+        [[...chatIds]]
+    );
+
+    return result.rowCount > 0;
+}
+
 export async function getSupportConnectionForSession(
     sessionName: string
 ): Promise<SupportConnectionRow | null> {
@@ -295,7 +339,7 @@ export async function handleSupportSessionStatus(input: {
     }
 
     await query(
-        "UPDATE support_whatsapp_connection SET status = $1, status_data = $2::jsonb, phone = COALESCE($3, phone), push_name = COALESCE($4, push_name), qr_code_data = $5, qr_updated_at = CASE WHEN $5::text IS NULL THEN NULL ELSE NOW() END, last_connected_at = CASE WHEN $1 = 'WORKING' THEN NOW() ELSE last_connected_at END, last_disconnected_at = CASE WHEN $1 IN ('FAILED','STOPPED') THEN NOW() ELSE last_disconnected_at END, last_event_at = NOW(), last_error = CASE WHEN $1 = 'FAILED' THEN 'A sessão de suporte não conseguiu se reconectar.' WHEN $1 = 'WORKING' THEN NULL ELSE last_error END, updated_at = NOW() WHERE id = 'default'",
+        "UPDATE support_whatsapp_connection SET status = $1, status_data = $2::jsonb, phone = COALESCE($3, phone), push_name = COALESCE($4, push_name), qr_code_data = $5, qr_updated_at = CASE WHEN $5::text IS NULL THEN NULL ELSE NOW() END, last_connected_at = CASE WHEN $1 = 'WORKING' THEN NOW() ELSE last_connected_at END, last_disconnected_at = CASE WHEN $1 IN ('FAILED','STOPPED') THEN NOW() ELSE last_disconnected_at END, last_event_at = NOW(), last_error = CASE WHEN $1 = 'FAILED' THEN 'A sessão de suporte não conseguiu se reconectar.' WHEN $1 = 'WORKING' THEN NULL ELSE last_error END, updated_at = NOW() WHERE id = $6",
         [
             status,
             JSON.stringify(statusData ?? null),
@@ -304,6 +348,7 @@ export async function handleSupportSessionStatus(input: {
                 ? pushName.trim()
                 : null,
             qrCode,
+            connection.id,
         ]
     );
 
@@ -317,7 +362,8 @@ export async function handleSupportSessionStatus(input: {
 
         if (Date.now() - lastRestart > 60_000) {
             await query(
-                "UPDATE support_whatsapp_connection SET status = 'STARTING', last_restart_at = NOW(), updated_at = NOW() WHERE id = 'default'"
+                "UPDATE support_whatsapp_connection SET status = 'STARTING', last_restart_at = NOW(), updated_at = NOW() WHERE id = $1",
+                [connection.id]
             );
 
             try {
@@ -345,18 +391,23 @@ async function prepareConversation(input: {
     customerName: string | null;
     currentMessageId: string;
 }): Promise<ConversationRow> {
-    return withAdvisoryLock("support:" + input.chatId, async () => {
+    const conversationChatId = getSupportScopedValue(
+        input.sessionName,
+        input.chatId
+    );
+
+    return withAdvisoryLock("support:" + conversationChatId, async () => {
         const resolvedPhone =
             (await resolveWahaChatPhone(input.sessionName, input.chatId)) ||
             String(input.chatId).split("@")[0].replace(/\D/g, "") ||
             null;
 
-        await releaseExpiredSupportHandoffs(input.chatId);
-        await resetExpiredSupportHandoffPrompt(input.chatId);
+        await releaseExpiredSupportHandoffs(conversationChatId);
+        await resetExpiredSupportHandoffPrompt(conversationChatId);
 
         const existing = await query<ConversationRow>(
             "SELECT id, chat_id, phone, customer_name, restaurant_id, mode, handoff_prompted_at FROM support_conversations WHERE chat_id = $1 LIMIT 1",
-            [input.chatId]
+            [conversationChatId]
         );
 
         const current = existing.rows[0] || null;
@@ -368,7 +419,7 @@ async function prepareConversation(input: {
             const inserted = await query<ConversationRow>(
                 "INSERT INTO support_conversations (chat_id, phone, customer_name, restaurant_id, mode, last_inbound_at, updated_at) VALUES ($1, $2, $3, $4, 'ai', NOW(), NOW()) RETURNING id, chat_id, phone, customer_name, restaurant_id, mode, handoff_prompted_at",
                 [
-                    input.chatId,
+                    conversationChatId,
                     resolvedPhone,
                     input.customerName,
                     restaurantId,
@@ -391,7 +442,10 @@ async function prepareConversation(input: {
                             conversation.id,
                             message.fromMe ? "outbound" : "inbound",
                             message.body,
-                            message.id,
+                            getSupportScopedValue(
+                                input.sessionName,
+                                message.id
+                            ),
                             message.fromMe ? "sent" : "received",
                             message.timestamp,
                         ]
@@ -728,9 +782,14 @@ async function sendTrackedSupportText(input: {
 }
 
 export async function markSupportHumanTakeover(input: {
+    sessionName: string;
     chatId: string;
     body?: string;
 }): Promise<void> {
+    const conversationChatId = getSupportScopedValue(
+        input.sessionName,
+        input.chatId
+    );
     const result = await query<{ id: string }>(
         `
             UPDATE support_conversations
@@ -749,7 +808,7 @@ export async function markSupportHumanTakeover(input: {
             WHERE chat_id = $1
             RETURNING id
         `,
-        [input.chatId]
+        [conversationChatId]
     );
 
     const conversationId = result.rows[0]?.id;
@@ -776,6 +835,10 @@ export async function processSupportIncomingWhatsAppMessage(input: {
         customerName: input.customerName,
         currentMessageId: input.messageId,
     });
+    const storageMessageId = getSupportScopedValue(
+        input.sessionName,
+        input.messageId
+    );
     const originalBody = input.body.trim();
     let messageBody =
         originalBody ||
@@ -847,7 +910,7 @@ export async function processSupportIncomingWhatsAppMessage(input: {
 
     await query(
         "INSERT INTO support_messages (conversation_id, direction, body, provider_message_id, send_status) VALUES ($1, 'inbound', $2, $3, 'received') ON CONFLICT (provider_message_id) WHERE provider_message_id IS NOT NULL DO NOTHING",
-        [conversation.id, messageBody, input.messageId]
+        [conversation.id, messageBody, storageMessageId]
     );
 
     if (conversation.mode === "human" || !input.botEnabled) return;
@@ -880,7 +943,7 @@ export async function processSupportIncomingWhatsAppMessage(input: {
         setTimeout(resolve, SUPPORT_REPLY_DEBOUNCE_MS)
     );
 
-    await withAdvisoryLock("support-reply:" + input.chatId, async () => {
+    await withAdvisoryLock("support-reply:" + conversation.chat_id, async () => {
         const stateResult = await query<{ mode: "ai" | "human" }>(
             "SELECT mode FROM support_conversations WHERE id = $1 LIMIT 1",
             [conversation.id]
@@ -890,7 +953,7 @@ export async function processSupportIncomingWhatsAppMessage(input: {
         if (
             !(await isLatestInboundMessage(
                 conversation.id,
-                input.messageId
+                storageMessageId
             ))
         ) {
             return;
@@ -919,7 +982,7 @@ export async function processSupportIncomingWhatsAppMessage(input: {
                     sessionName: input.sessionName,
                     chatId: input.chatId,
                     text: greeting,
-                    dedupeKey: input.messageId + ":greeting",
+                    dedupeKey: storageMessageId + ":greeting",
                 });
                 return;
             }
@@ -930,7 +993,7 @@ export async function processSupportIncomingWhatsAppMessage(input: {
                     sessionName: input.sessionName,
                     chatId: input.chatId,
                     text: KNOWN_INFRASTRUCTURE_QUOTA_MESSAGE,
-                    dedupeKey: input.messageId + ":known-infrastructure",
+                    dedupeKey: storageMessageId + ":known-infrastructure",
                 });
                 return;
             }
@@ -941,7 +1004,7 @@ export async function processSupportIncomingWhatsAppMessage(input: {
                     sessionName: input.sessionName,
                     chatId: input.chatId,
                     text: QR_CODE_MESA_MESSAGE,
-                    dedupeKey: input.messageId + ":qr-code-mesa",
+                    dedupeKey: storageMessageId + ":qr-code-mesa",
                 });
                 return;
             }
@@ -955,7 +1018,7 @@ export async function processSupportIncomingWhatsAppMessage(input: {
                     sessionName: input.sessionName,
                     chatId: input.chatId,
                     text: GENERIC_FREE_MESSAGE,
-                    dedupeKey: input.messageId + ":free-pricing",
+                    dedupeKey: storageMessageId + ":free-pricing",
                 });
                 return;
             }
@@ -972,12 +1035,12 @@ export async function processSupportIncomingWhatsAppMessage(input: {
                     text: unsupportedMedia
                         ? "Consigo analisar imagens e áudios, mas ainda não esse tipo de arquivo. Pode explicar por texto?"
                         : "Não consegui analisar essa mídia agora. Pode reenviar ou explicar por texto?",
-                    dedupeKey: input.messageId + ":media",
+                    dedupeKey: storageMessageId + ":media",
                 });
                 return;
             }
 
-            const replyKey = input.messageId + ":ai";
+            const replyKey = storageMessageId + ":ai";
             const existingReply = await query<{
                 body: string;
                 send_status: string;
@@ -1006,7 +1069,7 @@ export async function processSupportIncomingWhatsAppMessage(input: {
                     !reply.handoffState &&
                     !(await isLatestInboundMessage(
                         conversation.id,
-                        input.messageId
+                        storageMessageId
                     ))
                 ) {
                     return;
@@ -1028,7 +1091,7 @@ export async function processSupportIncomingWhatsAppMessage(input: {
                 if (
                     !(await isLatestInboundMessage(
                         conversation.id,
-                        input.messageId
+                        storageMessageId
                     ))
                 ) {
                     return;
@@ -1039,7 +1102,7 @@ export async function processSupportIncomingWhatsAppMessage(input: {
                     sessionName: input.sessionName,
                     chatId: input.chatId,
                     text: "Tive um problema para responder agora. Tente novamente em instantes.",
-                    dedupeKey: input.messageId + ":ai-fallback",
+                    dedupeKey: storageMessageId + ":ai-fallback",
                 });
             }
         } finally {

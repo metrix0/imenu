@@ -5,7 +5,10 @@ import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import {
     faCalendarDays,
     faCreditCard,
+    faChevronDown,
     faExternalLinkAlt,
+    faQrcode,
+    faWandMagicSparkles,
 } from "@fortawesome/free-solid-svg-icons";
 
 import IaPlusSalesModal from "@/components/restaurant-owner/ia-vendas/IaPlusSalesModal";
@@ -13,6 +16,7 @@ import IaPlusProductCard from "@/components/restaurant-owner/ia-vendas/IaPlusPro
 import MenuProductCards from "@/components/restaurant-owner/mesas/MenuProductCards";
 import QrCodeMesaCheckoutModal from "@/components/restaurant-owner/mesas/QrCodeMesaCheckoutModal";
 import QrCodeMesaSalesModal from "@/components/restaurant-owner/mesas/QrCodeMesaSalesModal";
+import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import ConfirmModal from "@/components/ui/ConfirmModal";
@@ -144,8 +148,12 @@ function planLabel(addon: Addon | null): string {
 
 export default function QrCodeMesaSettingsSection({
     restaurantId,
+    showHeader = true,
+    presentation = "default",
 }: {
     restaurantId: string;
+    showHeader?: boolean;
+    presentation?: "default" | "plans";
 }) {
     const [billing, setBilling] = useState<BillingPayload | null>(null);
     const [loading, setLoading] = useState(true);
@@ -278,6 +286,20 @@ export default function QrCodeMesaSettingsSection({
     const cancelBilling =
         billing?.addons.find((item) => item.addon.id === cancelAddonId) || null;
     const cancelAddon = cancelBilling?.addon || null;
+    const BillingContainer = presentation === "plans" ? "section" : Card;
+    const productCards = loading ? (
+        <div className="flex justify-center py-10">
+            <Loader className="border-t-brand" />
+        </div>
+    ) : (
+        <MenuProductCards
+            presentation={presentation}
+            qrSelected={active}
+            qrActive={active}
+            onLearnMore={openSales}
+            extraCard={<IaPlusProductCard presentation={presentation} active={iaPlusActive} onLearnMore={() => setIaPlusOpen(true)} />}
+        />
+    );
 
     return (
         <>
@@ -343,43 +365,45 @@ export default function QrCodeMesaSettingsSection({
                 variant="danger"
             />
 
-            <Card className="border border-gray-200 shadow-sm">
-                <div className="mb-6">
-                    <h2 className="text-xl font-medium text-gray-900">
-                        Sistemas iMenu
-                    </h2>
-                    <p className="mt-1 text-sm text-gray-500">
-                        Gerencie os produtos disponíveis na sua conta.
-                    </p>
-                </div>
-
-                {loading ? (
-                    <div className="flex justify-center py-10">
-                        <Loader className="border-t-brand" />
-                    </div>
-                ) : (
-                    <MenuProductCards
-                        qrSelected={active}
-                        qrActive={active}
-                        onLearnMore={openSales}
-                        extraCard={<IaPlusProductCard active={iaPlusActive} onLearnMore={() => setIaPlusOpen(true)} />}
-                    />
-                )}
-            </Card>
-
-            {(billing?.addons.length || 0) > 0 && (
+            {showHeader ? (
                 <Card className="border border-gray-200 shadow-sm">
-                    <div className="border-b border-gray-100 pb-5">
+                    <div className="mb-6">
                         <h2 className="text-xl font-medium text-gray-900">
-                            Assinaturas e pagamentos
+                            Sistemas iMenu
                         </h2>
                         <p className="mt-1 text-sm text-gray-500">
-                            Gerencie planos, renovações e histórico de pagamentos
-                            dos seus adicionais.
+                            Gerencie os produtos disponíveis na sua conta.
                         </p>
                     </div>
+                    {productCards}
+                </Card>
+            ) : (
+                presentation === "plans" ? (
+                    <section aria-labelledby="available-plans-heading" className="plans-catalog">
+                        <div className="plans-section-heading">
+                            <div>
+                                <h2 id="available-plans-heading">Planos disponíveis</h2>
+                            </div>
+                        </div>
+                        {productCards}
+                    </section>
+                ) : productCards
+            )}
 
-                    <div className="divide-y divide-gray-100">
+            {(billing?.addons.length || 0) > 0 && (
+                <BillingContainer id={presentation === "plans" ? "suas-assinaturas" : undefined} className={presentation === "plans" ? "plans-subscriptions" : "border border-gray-200 shadow-sm"}>
+                    <div className={presentation === "plans" ? "plans-section-heading" : "border-b border-gray-100 pb-5"}>
+                        <div>
+                            <h2 className="text-xl font-medium text-gray-900">
+                                {presentation === "plans" ? "Suas assinaturas" : "Assinaturas e pagamentos"}
+                            </h2>
+                            <p className="mt-1 text-sm text-gray-500">
+                                Acompanhe o acesso, as renovações e os pagamentos dos seus planos.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className={presentation === "plans" ? "plans-subscription-list" : "divide-y divide-gray-100"}>
                         {billing?.addons.map((item) => {
                             const itemAddon = item.addon;
                             const itemActive = item.active;
@@ -395,32 +419,37 @@ export default function QrCodeMesaSettingsSection({
                             return (
                                 <section
                                     key={itemAddon.id}
-                                    className="py-5 first:pt-5 last:pb-0"
+                                    className={presentation === "plans" ? "plans-subscription-card" : "py-5 first:pt-5 last:pb-0"}
                                 >
-                                    <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
-                                        <div>
-                                            <h3 className="font-semibold text-gray-900">
-                                                {addonProductName(
-                                                    itemAddon.product_key
+                                    <div className={presentation === "plans" ? "plans-subscription-head" : "flex flex-col justify-between gap-3 sm:flex-row sm:items-start"}>
+                                        <div className={presentation === "plans" ? "plans-subscription-identity" : undefined}>
+                                            {presentation === "plans" && (
+                                                <span className="plans-subscription-icon" aria-hidden="true">
+                                                    <FontAwesomeIcon icon={isQrCodeMesa ? faQrcode : itemAddon.product_key === "ia_plus" ? faWandMagicSparkles : faCreditCard} />
+                                                </span>
+                                            )}
+                                            <div>
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <h3 className="font-semibold text-gray-900">
+                                                        {addonProductName(itemAddon.product_key)}
+                                                    </h3>
+                                                    {presentation === "plans" && (
+                                                        <Badge variant={itemActive && itemAddon.status !== "canceled" ? "success" : "neutral"}>
+                                                            {itemAddon.status === "canceled" ? "Cancelado" : itemActive ? "Ativo" : addonStatus(itemAddon, false)}
+                                                        </Badge>
+                                                    )}
+                                                </div>
+                                                {presentation !== "plans" && (
+                                                    <p className="mt-1 text-sm text-gray-500">{planLabel(itemAddon)}</p>
                                                 )}
-                                            </h3>
-                                            <p className="mt-1 text-sm text-gray-500">
-                                                {planLabel(itemAddon)}
-                                            </p>
+                                            </div>
                                         </div>
                                         <div className="flex flex-wrap items-center gap-2">
-                                            <span
-                                                className={`w-fit rounded-full px-3 py-1 text-xs font-semibold ${
-                                                    itemActive
-                                                        ? "bg-green-100 text-green-800"
-                                                        : "bg-gray-100 text-gray-700"
-                                                }`}
-                                            >
-                                                {addonStatus(
-                                                    itemAddon,
-                                                    itemActive
-                                                )}
-                                            </span>
+                                            {presentation !== "plans" && (
+                                                <span className={`w-fit rounded-full px-3 py-1 text-xs font-semibold ${itemActive ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-700"}`}>
+                                                    {addonStatus(itemAddon, itemActive)}
+                                                </span>
+                                            )}
                                             {itemCanRenew && (
                                                 <Button
                                                     type="button"
@@ -446,7 +475,7 @@ export default function QrCodeMesaSettingsSection({
                                         </div>
                                     </div>
 
-                                    <div className="grid gap-4 border-b border-gray-100 py-5 sm:grid-cols-2">
+                                    <div className={`grid gap-4 border-b border-gray-100 py-5 sm:grid-cols-2 ${presentation === "plans" ? "plans-subscription-meta" : ""}`}>
                                         <div className="flex items-center gap-3 rounded-xl bg-gray-50 p-4">
                                             <FontAwesomeIcon
                                                 icon={faCreditCard}
@@ -454,7 +483,7 @@ export default function QrCodeMesaSettingsSection({
                                             />
                                             <div>
                                                 <p className="text-xs text-gray-500">
-                                                    Plano
+                                                    {presentation === "plans" ? "Valor do plano" : "Plano"}
                                                 </p>
                                                 <p className="font-semibold text-gray-900">
                                                     {planLabel(itemAddon)}
@@ -479,10 +508,16 @@ export default function QrCodeMesaSettingsSection({
                                         </div>
                                     </div>
 
-                                    <div className="pt-5">
-                                        <h4 className="font-semibold text-gray-900">
-                                            Histórico de pagamentos
-                                        </h4>
+                                    <details className={presentation === "plans" ? "plans-payment-history" : "pt-5"} open={presentation === "plans" ? undefined : true}>
+                                        <summary className="flex items-center justify-between gap-3 font-semibold text-gray-900">
+                                            <span>Histórico de pagamentos</span>
+                                            {presentation === "plans" && (
+                                                <span className="flex items-center gap-3 text-xs text-gray-500">
+                                                    {item.payments.length} {item.payments.length === 1 ? "pagamento" : "pagamentos"}
+                                                    <FontAwesomeIcon icon={faChevronDown} className="plans-history-chevron" />
+                                                </span>
+                                            )}
+                                        </summary>
                                         {item.payments.length ? (
                                             <div className="mt-4 overflow-x-auto rounded-xl border border-gray-200">
                                                 <table className="w-full min-w-[620px] text-left text-sm">
@@ -554,13 +589,32 @@ export default function QrCodeMesaSettingsSection({
                                                 Nenhum pagamento registrado ainda.
                                             </p>
                                         )}
-                                    </div>
+                                    </details>
 
                                 </section>
                             );
                         })}
                     </div>
-                </Card>
+                </BillingContainer>
+            )}
+            {presentation === "plans" && !loading && billing && !billing.addons.length && (
+                <section id="suas-assinaturas" className="plans-subscriptions">
+                    <div className="plans-section-heading">
+                        <div>
+                            <h2>Suas assinaturas</h2>
+                            <p>Acompanhe o acesso, as renovações e os pagamentos dos seus planos.</p>
+                        </div>
+                    </div>
+                    <div className="plans-subscription-card plans-subscription-empty">
+                        <span className="plans-subscription-icon" aria-hidden="true">
+                            <FontAwesomeIcon icon={faCreditCard} />
+                        </span>
+                        <div>
+                            <p className="font-semibold text-gray-900">Nenhum plano adicional contratado.</p>
+                            <p className="mt-1 text-sm text-gray-500">Ao adicionar um plano, você poderá gerenciar sua assinatura e os pagamentos aqui.</p>
+                        </div>
+                    </div>
+                </section>
             )}
         </>
     );

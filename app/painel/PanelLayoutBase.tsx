@@ -13,6 +13,7 @@ import {
     faChartLine,
     faCircleQuestion,
     faClock,
+    faCrown,
     faDoorOpen,
     faGear,
     faGift,
@@ -35,6 +36,7 @@ import {
 
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import Loader from "@/components/ui/Loader";
+import Badge from "@/components/ui/Badge";
 import SupportButton, {
     type SupportButtonRef,
 } from "@/components/common/SupportButton";
@@ -50,6 +52,7 @@ type MenuItem =
           label: string;
           icon: IconDefinition;
           href: string;
+          isNew?: boolean;
           type?: undefined;
       };
 
@@ -386,7 +389,7 @@ export default function PainelLayout({
         { label: "Pedidos", icon: faHome, href: `${base}/` },
         { label: "Histórico", icon: faBox, href: `${base}/historico` },
         { label: "Cardápio", icon: faUtensils, href: cardapioHref },
-        { label: "Assistente IA", icon: faWandMagicSparkles, href: `${base}/assistente-ia` },
+        { label: "Assistente IA", icon: faWandMagicSparkles, href: `${base}/assistente-ia`, isNew: true },
         { label: "Mesas", icon: faChair, href: `${base}/mesas` },
         {
             label: "Repasses",
@@ -400,7 +403,7 @@ export default function PainelLayout({
         },
         { type: "divider" },
         { label: "Loja", icon: faStore, href: `${base}/loja` },
-        { label: "Vendas IA", icon: faRocket, href: `${base}/vendas-ia` },
+        { label: "Vendas IA", icon: faRocket, href: `${base}/vendas-ia`, isNew: true },
         { label: "Promoções", icon: faPercent, href: `${base}/promocoes` },
         { label: "Horários", icon: faClock, href: `${base}/disponibilidade` },
         { label: "Taxa e Tempo", icon: faTruck, href: `${base}/tempo-e-taxa` },
@@ -410,6 +413,7 @@ export default function PainelLayout({
         { label: "Robô WhatsApp", icon: faRobot, href: `${base}/robo-whatsapp` },
         { label: "Impressora", icon: faPrint, href: `${base}/impressora` },
         { label: "Integrações", icon: faPuzzlePiece, href: `${base}/integracoes` },
+        { label: "Planos", icon: faCrown, href: `${base}/planos` },
         {
             label: "Configurações",
             icon: faGear,
@@ -652,7 +656,10 @@ export default function PainelLayout({
                                             }
                                         />
                                     </span>
-                                    {item.label}
+                                    <span>{item.label}</span>
+                                    {item.isNew && (
+                                        <Badge mode="pill" className="ml-auto">Novo</Badge>
+                                    )}
                                 </Link>
                             );
                         })}
@@ -774,9 +781,9 @@ export default function PainelLayout({
                                     title={!expanded ? item.label : ""}
                                     aria-current={active ? "page" : undefined}
                                     style={{ outlineColor: "#d93d00" }}
-                                    className="panel-nav-link group relative flex cursor-pointer items-center transition-colors duration-200"
+                                    className={`panel-nav-link group relative flex cursor-pointer items-center transition-colors duration-200 ${item.isNew && expanded ? "!gap-1.5" : ""}`}
                                 >
-                                    <div className="flex h-6 w-6 shrink-0 items-center justify-center 2xl:h-10 2xl:w-12">
+                                    <div className="relative flex h-6 w-6 shrink-0 items-center justify-center 2xl:h-10 2xl:w-12">
                                         <FontAwesomeIcon
                                             icon={item.icon}
                                             className={`text-lg transition-colors 2xl:text-2xl ${
@@ -785,16 +792,25 @@ export default function PainelLayout({
                                                     : "text-gray-400 group-hover:text-gray-600"
                                             }`}
                                         />
+                                        {item.isNew && !expanded && (
+                                            <span
+                                                aria-label="Novo"
+                                                className="absolute bottom-0 right-0 h-1.5 w-1.5 rounded-full bg-brand 2xl:bottom-1 2xl:right-1"
+                                            />
+                                        )}
                                     </div>
                                     <span
                                         className={`overflow-hidden whitespace-nowrap text-sm transition-all duration-300 2xl:text-lg ${
                                             expanded
-                                                ? "ml-0 w-auto opacity-100"
+                                                ? `ml-0 w-auto opacity-100 ${item.isNew ? "shrink-0" : ""}`
                                                 : "ml-0 w-0 opacity-0"
                                         }`}
                                     >
                                         {item.label}
                                     </span>
+                                    {item.isNew && expanded && (
+                                        <Badge mode="pill" className="ml-auto">Novo</Badge>
+                                    )}
                                 </Link>
                             );
                         })}

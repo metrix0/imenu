@@ -5,9 +5,12 @@ import { faArrowRight, faCheck, faCircleInfo, faLock } from "@fortawesome/free-s
 import Image from "next/image";
 import Link from "next/link";
 import type { MouseEvent } from "react";
+import Badge from "@/components/ui/Badge";
+import Button from "@/components/ui/Button";
 import Tooltip from "@/components/ui/Tooltip";
 
 type ProductCardContent = {
+    presentation?: "default" | "plans";
     name: string;
     logo: string;
     description: string;
@@ -37,6 +40,87 @@ export default function MenuProductCard(props: MenuProductCardProps) {
         event.stopPropagation();
         if (props.variant === "addon") props.onLearnMore();
     };
+
+    const supportBadge = props.variant === "addon" && props.exclusiveSupport && (
+        <div className="ml-2 inline-block align-middle" onClick={(event) => event.stopPropagation()}>
+            <Tooltip text="Durante sua assinatura do iMenu IA Plus, solicite integrações e novas funcionalidades para serem adicionadas em até 3 dias úteis." size="medium" showOnClick>
+                <Badge className="cursor-help gap-1.5 whitespace-nowrap">
+                    Atendimento Exclusivo
+                    <FontAwesomeIcon icon={faCircleInfo} className="text-[10px]" />
+                </Badge>
+            </Tooltip>
+        </div>
+    );
+
+    if (props.presentation === "plans") {
+        if (props.variant === "included") {
+            return (
+                <article className="plans-included" aria-label={props.name}>
+                    <div className="plans-included-copy">
+                        <div className="relative h-8 w-28">
+                            <Image src={props.logo} alt={props.name} fill sizes="112px" className="object-contain object-left" />
+                        </div>
+                        <div>
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                                <h3>{props.name}</h3>
+                                <Badge>{props.priceLabel}</Badge>
+                            </div>
+                            <p className="mt-1 text-sm text-gray-500">{props.description}</p>
+                            <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs text-gray-600">
+                                {props.features.map((feature) => (
+                                    <li key={feature} className="flex items-center gap-1.5">
+                                        <FontAwesomeIcon icon={faCheck} className="text-brand" />
+                                        {feature}
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    </div>
+                    <div className="plans-included-status">
+                        <Badge variant="success">Incluído na sua conta</Badge>
+                        <Link href={props.learnMoreLink.href} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-xs text-gray-500 hover:text-brand">
+                            {props.learnMoreLink.label}
+                            <FontAwesomeIcon icon={faArrowRight} />
+                        </Link>
+                    </div>
+                </article>
+            );
+        }
+
+        return (
+            <article className="plans-product" data-active={active} aria-label={props.name}>
+                <div className="plans-product-top">
+                    <div className="relative h-10 w-40 max-w-[65%]">
+                        <Image src={props.logo} alt={props.name} fill sizes="160px" className="object-contain object-left" />
+                    </div>
+                    <Badge variant={active ? "success" : "neutral"}>{active ? "Ativo" : "Desativado"}</Badge>
+                </div>
+                <h3>{props.name}</h3>
+                <div className="plans-product-description">
+                    {props.description}
+                    {supportBadge}
+                </div>
+                <div className="plans-product-price">
+                    <span>{props.priceLabel}</span>
+                    <span className="text-sm text-gray-500">/mês</span>
+                </div>
+                <ul className="plans-product-features">
+                    {props.features.map((feature) => (
+                        <li key={feature} className="flex items-center gap-2">
+                            <FontAwesomeIcon icon={faCheck} className="text-brand" />
+                            <span>{feature}</span>
+                        </li>
+                    ))}
+                </ul>
+                <div className="plans-product-actions">
+                    <Button type="button" variant={active ? "secondary" : "primary"} onClick={stopAndLearnMore} className="w-full justify-center">
+                        {active ? "Conhecer meu plano" : "Conhecer o plano"}
+                        <FontAwesomeIcon icon={faArrowRight} />
+                    </Button>
+                </div>
+            </article>
+        );
+    }
 
     return (
         <div
@@ -80,18 +164,9 @@ export default function MenuProductCard(props: MenuProductCardProps) {
             {included ? (
                 <p className="mt-2 text-sm leading-relaxed text-gray-600">{props.description}</p>
             ) : (
-                <div className="mt-2 flex min-w-0 items-center gap-2 text-sm leading-relaxed text-gray-600">
-                    <span className="min-w-0">{props.description}</span>
-                    {props.variant === "addon" && props.exclusiveSupport && (
-                        <div className="shrink-0" onClick={(event) => event.stopPropagation()}>
-                            <Tooltip text="Durante sua assinatura, funcionalidades e melhorias que você pedir e que fizerem sentido serão implementadas em 1 semana." size="medium" showOnClick>
-                                <span className="inline-flex cursor-help items-center gap-1.5 whitespace-nowrap rounded-full bg-brand/10 px-2.5 py-1 text-[11px] font-bold leading-none text-brand">
-                                    Atendimento Exclusivo
-                                    <FontAwesomeIcon icon={faCircleInfo} className="text-[10px]" />
-                                </span>
-                            </Tooltip>
-                        </div>
-                    )}
+                <div className="mt-2 text-sm leading-relaxed text-gray-600">
+                    {props.description}
+                    {supportBadge}
                 </div>
             )}
 
@@ -103,7 +178,7 @@ export default function MenuProductCard(props: MenuProductCardProps) {
                     <span className="pb-0.5 text-xs text-gray-500">/mês</span>
                 </div>
             )}
-            <ul className={included ? "mt-3 flex flex-wrap gap-x-4 gap-y-2 text-sm text-gray-700" : "mt-4 grid min-w-0 grid-cols-3 gap-2 text-sm text-gray-700"}>
+            <ul className={included ? "mt-3 flex flex-wrap gap-x-4 gap-y-2 text-sm text-gray-700" : "mt-4 flex min-w-0 flex-wrap gap-x-4 gap-y-2 text-sm text-gray-700"}>
                 {props.features.map((feature) => (
                     <li key={feature} className={included ? "flex items-center gap-2" : "flex min-w-0 items-center gap-1.5"}>
                         <FontAwesomeIcon icon={faCheck} className={included ? "text-xs text-brand" : "shrink-0 text-xs text-brand"} />

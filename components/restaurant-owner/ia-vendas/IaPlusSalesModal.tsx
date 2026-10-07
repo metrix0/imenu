@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
-import { faRocket, faWandMagicSparkles } from "@fortawesome/free-solid-svg-icons";
+import { faBellConcierge, faRocket, faWandMagicSparkles } from "@fortawesome/free-solid-svg-icons";
 import {
   ArrowRight,
   Check,
@@ -147,6 +147,16 @@ export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout
                 <div className="space-y-3 p-4 text-sm leading-5 text-gray-600">
                   <p className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0 text-brand" aria-hidden="true" /><span>Veja a análise completa e todas as oportunidades encontradas para o seu restaurante.</span></p>
                   <p className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0 text-brand" aria-hidden="true" /><span>Converse sobre as oportunidades e revise e aplique as melhorias sugeridas.</span></p>
+                </div>
+              </section>
+              <section className="overflow-hidden rounded-xl border border-orange-100 bg-white md:col-span-2">
+                <div className="flex items-center gap-2 bg-brand/5 px-4 py-3 text-brand">
+                  <FontAwesomeIcon icon={faBellConcierge} className="text-[17px]" />
+                  <h3 className="text-sm font-semibold">Atendimento exclusivo</h3>
+                </div>
+                <div className="space-y-3 p-4 text-sm leading-5 text-gray-600">
+                  <p className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0 text-brand" aria-hidden="true" /><span>Solicite integrações e novas funcionalidades para o seu restaurante.</span></p>
+                  <p className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0 text-brand" aria-hidden="true" /><span>As integrações e funcionalidades solicitadas serão adicionadas em até 3 dias úteis durante sua assinatura do iMenu IA Plus.</span></p>
                 </div>
               </section>
             </div>

@@ -935,7 +935,7 @@ export function ActionCard({
   compact?: boolean;
   generatedActions?: Action[];
   locked?: boolean;
-  onUpgrade?: () => void;
+  onUpgrade?: (ids: string[]) => void;
 }) {
   const retry =
       action.attempts < 2 &&
@@ -990,8 +990,9 @@ export function ActionCard({
             {gateApply(
               <Button
                 disabled={!locked && disabled}
+                data-ia-apply-id={action.id}
                 onClick={() =>
-                  locked ? onUpgrade?.() : onAction("apply", [action.id])
+                  locked ? onUpgrade?.([action.id]) : onAction("apply", [action.id])
                 }
               >
                 {retry
@@ -1023,9 +1024,16 @@ export function ActionCard({
           gateApply(
             <Button
               disabled={!locked && disabled}
+              data-ia-apply-ids={publishableGeneratedActions
+                .map((generated) => generated.id)
+                .join(",")}
               onClick={() =>
                 locked
-                  ? onUpgrade?.()
+                  ? onUpgrade?.(
+                      publishableGeneratedActions.map(
+                        (generated) => generated.id,
+                      ),
+                    )
                   : onAction(
                       "apply",
                       publishableGeneratedActions.map(

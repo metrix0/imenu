@@ -8,6 +8,7 @@ import {
     getWahaQrCode,
     getWahaWebhookHmacKey,
     restartWahaSession,
+    BLAST_WAHA_SESSION_NAME,
     SUPPORT_WAHA_SESSION_NAME,
 } from "@/lib/services/wahaClient";
 import {
@@ -17,6 +18,7 @@ import {
 import {
     getSupportConnectionForSession,
     handleSupportSessionStatus,
+    isSecondaryBlastRecipient,
     markSupportHumanTakeover,
     processSupportIncomingWhatsAppMessage,
 } from "@/lib/services/supportWhatsApp";
@@ -394,7 +396,12 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ ok: true });
         }
 
-        if (sessionName === SUPPORT_WAHA_SESSION_NAME) {
+        if (
+            sessionName === SUPPORT_WAHA_SESSION_NAME ||
+            sessionName === BLAST_WAHA_SESSION_NAME
+        ) {
+            const isBlastSession =
+                sessionName === BLAST_WAHA_SESSION_NAME;
             const supportConnection =
                 await getSupportConnectionForSession(sessionName);
             if (!supportConnection) {
@@ -427,6 +434,19 @@ export async function POST(request: NextRequest) {
                     return NextResponse.json({ ok: true });
                 }
 
+                if (
+                    isBlastSession &&
+                    !(await isSecondaryBlastRecipient({
+                        sessionName,
+                        chatId: supportChatId,
+                    }))
+                ) {
+                    return NextResponse.json({
+                        ok: true,
+                        ignored: "non_blast_recipient",
+                    });
+                }
+
                 const messageId = getStableMessageId(event, rawBody);
                 claimedEventId = "support-owner:" + sessionName + ":" + messageId;
                 if (!(await claimEvent(claimedEventId))) {
@@ -434,6 +454,7 @@ export async function POST(request: NextRequest) {
                 }
 
                 await markSupportHumanTakeover({
+                    sessionName,
                     chatId: supportChatId,
                     body: extractIncomingBody(payload),
                 });
@@ -442,6 +463,19 @@ export async function POST(request: NextRequest) {
             }
 
             if (eventName === "message" && payload.fromMe !== true) {
+                if (
+                    isBlastSession &&
+                    !(await isSecondaryBlastRecipient({
+                        sessionName,
+                        chatId: supportChatId,
+                    }))
+                ) {
+                    return NextResponse.json({
+                        ok: true,
+                        ignored: "non_blast_recipient",
+                    });
+                }
+
                 const messageId = getStableMessageId(event, rawBody);
                 claimedEventId = "support-inbound:" + sessionName + ":" + messageId;
                 if (!(await claimEvent(claimedEventId))) {
@@ -455,7 +489,8 @@ export async function POST(request: NextRequest) {
                     hasMedia: payload.hasMedia === true,
                     messageId,
                     customerName: extractCustomerName(payload),
-                    botEnabled: supportConnection.bot_enabled,
+                    botEnabled:
+                        isBlastSession || supportConnection.bot_enabled,
                 });
                 await finishEvent(claimedEventId, "processed");
             }
