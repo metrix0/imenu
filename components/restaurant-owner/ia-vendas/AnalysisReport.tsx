@@ -77,11 +77,11 @@ export default function AnalysisReport({
             <Image
               src="/images/ia-assistant-mascot.webp"
               alt="Mascote do Assistente IA"
-              width={112}
-              height={112}
+              width={1448}
+              height={1086}
               priority
               unoptimized
-              className="h-24 w-24 object-contain sm:h-28 sm:w-28"
+              className="h-24 w-auto object-contain sm:h-28"
             />
             <div className={styles.noAnalysisIntro}>
               <h2>Sua análise ainda não foi liberada</h2>

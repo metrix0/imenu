@@ -952,11 +952,11 @@ export default function SalesPage() {
                 <Image
                   src="/images/ia-assistant-mascot.webp"
                   alt="Mascote do Assistente IA"
-                  width={112}
-                  height={112}
+                  width={1448}
+                  height={1086}
                   priority
                   unoptimized
-                  className="h-24 w-24 object-contain sm:h-28 sm:w-28"
+                  className="h-24 w-auto object-contain sm:h-28"
                 />
                 <h2 className="mt-1 text-xl font-semibold text-gray-950">
                   Seu assistente para melhorar o iMenu
