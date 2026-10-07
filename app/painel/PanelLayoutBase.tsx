@@ -656,7 +656,7 @@ export default function PainelLayout({
                                     </span>
                                     <span>{item.label}</span>
                                     {item.isNew && (
-                                        <Badge>Novo</Badge>
+                                        <Badge className="ml-auto">Novo</Badge>
                                     )}
                                 </Link>
                             );
@@ -807,7 +807,7 @@ export default function PainelLayout({
                                         {item.label}
                                     </span>
                                     {item.isNew && expanded && (
-                                        <Badge>Novo</Badge>
+                                        <Badge className="ml-auto">Novo</Badge>
                                     )}
                                 </Link>
                             );
