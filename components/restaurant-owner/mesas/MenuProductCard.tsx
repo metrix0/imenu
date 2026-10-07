@@ -104,7 +104,7 @@ export default function MenuProductCard(props: MenuProductCardProps) {
                     <span className="pb-0.5 text-xs text-gray-500">/mês</span>
                 </div>
             )}
-            <ul className={included ? "mt-3 flex flex-wrap gap-x-4 gap-y-2 text-sm text-gray-700" : "mt-4 grid min-w-0 grid-cols-3 gap-2 text-sm text-gray-700"}>
+            <ul className={included ? "mt-3 flex flex-wrap gap-x-4 gap-y-2 text-sm text-gray-700" : "mt-4 flex min-w-0 flex-wrap gap-x-4 gap-y-2 text-sm text-gray-700"}>
                 {props.features.map((feature) => (
                     <li key={feature} className={included ? "flex items-center gap-2" : "flex min-w-0 items-center gap-1.5"}>
                         <FontAwesomeIcon icon={faCheck} className={included ? "text-xs text-brand" : "shrink-0 text-xs text-brand"} />
