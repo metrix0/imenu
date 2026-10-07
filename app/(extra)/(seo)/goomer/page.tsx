@@ -6,7 +6,7 @@ export const metadata = {
     description:
         "Compare iMenu e Goomer e entenda as diferenças entre custo, facilidade de uso e modelo de cobrança para restaurantes.",
     alternates: {
-        canonical: "https://imenuapp.com.br/goomer",
+        canonical: "https://www.imenuapp.com.br/goomer",
     },
 };
 

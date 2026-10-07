@@ -6,7 +6,7 @@ export const metadata = {
     description:
         "Compare iMenu e Saipos e descubra qual solução de cardápio digital faz mais sentido para seu restaurante.",
     alternates: {
-        canonical: "https://imenuapp.com.br/saipos",
+        canonical: "https://www.imenuapp.com.br/saipos",
     },
 };
 

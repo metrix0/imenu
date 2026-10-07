@@ -6,7 +6,7 @@ export const metadata = {
     description:
         "Compare iMenu e Anota Ai e descubra qual solução de cardápio digital é mais simples e econômica para restaurantes.",
     alternates: {
-        canonical: "https://imenuapp.com.br/anota-ai",
+        canonical: "https://www.imenuapp.com.br/anota-ai",
     },
 };
 

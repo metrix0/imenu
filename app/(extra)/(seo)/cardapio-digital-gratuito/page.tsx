@@ -6,7 +6,7 @@ export const metadata = {
     description:
         "Cardápio digital gratuito para restaurantes e delivery. Sem mensalidade, sem taxas e sem limite de pedidos.",
     alternates: {
-        canonical: "https://imenuapp.com.br/cardapio-digital-gratuito",
+        canonical: "https://www.imenuapp.com.br/cardapio-digital-gratuito",
     },
 };
 

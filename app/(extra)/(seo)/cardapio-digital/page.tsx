@@ -81,7 +81,7 @@ export const metadata = {
     description:
         "Compare 5 opções de cardápio digital para restaurantes em 2026, incluindo alternativas grátis e pagas. Veja recursos, custos e qual faz mais sentido para sua operação.",
     alternates: {
-        canonical: "https://imenuapp.com.br/cardapio-digital",
+        canonical: "https://www.imenuapp.com.br/cardapio-digital",
     },
 };
 
