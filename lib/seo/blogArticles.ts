@@ -185,6 +185,76 @@ export const BLOG_ARTICLES: BlogArticleDefinition[] = [
         updatedAt: "2026-08-17",
     },
     {
+        slug: "taxa-ifood-para-restaurante",
+        title: "Taxa do iFood para restaurante: comissão, pagamento e mensalidade",
+        shortTitle: "Taxa do iFood para restaurante",
+        metaTitle: "Taxa do iFood para Restaurante: Veja os Custos | iMenu",
+        metaDescription:
+            "Veja a taxa do iFood para restaurante, comissão dos planos, pagamento online, mensalidade e como calcular o custo real da sua loja.",
+        excerpt:
+            "Entenda quais cobranças entram na conta, como os percentuais são aplicados e onde conferir a taxa real do seu contrato.",
+        category: "Gestão",
+        readingTime: "7 min de leitura",
+        publishedAt: "2026-10-07",
+        updatedAt: "2026-10-07",
+    },
+    {
+        slug: "comissao-ifood",
+        title: "Comissão do iFood: quanto é e como calcular por pedido",
+        shortTitle: "Comissão do iFood",
+        metaTitle: "Comissão do iFood: Quanto é e Como Calcular | iMenu",
+        metaDescription:
+            "Veja a comissão do iFood nos planos Básico e Entrega, calcule o valor por pedido e entenda por que comissão não é o custo total.",
+        excerpt:
+            "Transforme 12% ou 23% em reais por pedido e separe comissão de pagamento, mensalidade e outros custos do delivery.",
+        category: "Gestão",
+        readingTime: "6 min de leitura",
+        publishedAt: "2026-10-07",
+        updatedAt: "2026-10-07",
+    },
+    {
+        slug: "quanto-custa-vender-no-ifood",
+        title: "Quanto custa vender no iFood? Faça a conta completa do restaurante",
+        shortTitle: "Quanto custa vender no iFood",
+        metaTitle: "Quanto Custa Vender no iFood? Conta Completa | iMenu",
+        metaDescription:
+            "Veja quanto custa vender no iFood por mês, separe comissão, pagamento, mensalidade e custos do restaurante e calcule sua margem.",
+        excerpt:
+            "Separe custos da plataforma e da operação para descobrir quanto o canal realmente consome do faturamento e da margem.",
+        category: "Gestão",
+        readingTime: "7 min de leitura",
+        publishedAt: "2026-10-07",
+        updatedAt: "2026-10-07",
+    },
+    {
+        slug: "quanto-sobra-restaurante-ifood",
+        title: "Quanto sobra para o restaurante no iFood depois das taxas?",
+        shortTitle: "Quanto sobra no iFood",
+        metaTitle: "Quanto Sobra para o Restaurante no iFood? | iMenu",
+        metaDescription:
+            "Calcule quanto sobra de um pedido do iFood depois de comissão e pagamento e entenda a diferença entre valor líquido e lucro.",
+        excerpt:
+            "Veja a fórmula do valor líquido, exemplos por pedido e quais custos ainda precisam sair antes de chegar ao lucro real.",
+        category: "Gestão",
+        readingTime: "6 min de leitura",
+        publishedAt: "2026-10-07",
+        updatedAt: "2026-10-07",
+    },
+    {
+        slug: "ifood-vale-a-pena-restaurante",
+        title: "iFood vale a pena para restaurante? Como decidir com margem e clientes",
+        shortTitle: "iFood vale a pena?",
+        metaTitle: "iFood Vale a Pena para Restaurante? Como Decidir | iMenu",
+        metaDescription:
+            "Descubra quando o iFood vale a pena para restaurante comparando margem, clientes novos, volume e custo do canal com pedidos diretos.",
+        excerpt:
+            "Use margem por pedido, aquisição de clientes e função do canal para decidir sem cair no erro de olhar só comissão ou faturamento.",
+        category: "Delivery",
+        readingTime: "7 min de leitura",
+        publishedAt: "2026-10-07",
+        updatedAt: "2026-10-07",
+    },
+    {
         slug: "quanto-ifood-cobra",
         title: "Quanto o iFood cobra do restaurante? Taxas, planos e cálculo real",
         shortTitle: "Quanto o iFood cobra",
