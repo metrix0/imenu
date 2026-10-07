@@ -190,13 +190,13 @@ export const BLOG_ARTICLES: BlogArticleDefinition[] = [
         shortTitle: "Quanto o iFood cobra",
         metaTitle: "Quanto o iFood cobra? Taxas e cálculo em 2026 | iMenu",
         metaDescription:
-            "Veja as taxas atuais do iFood, calcule o custo dos planos Básico e Entrega e compare o valor líquido com pedidos diretos.",
+            "Veja quanto o iFood cobra em 2026, entenda as taxas dos planos Básico e Entrega e calcule quanto sobra e quanto cobrar no aplicativo.",
         excerpt:
             "Entenda comissão, pagamento online e mensalidade com exemplos de R$ 30 mil — sem confundir taxa nominal com custo efetivo.",
         category: "Gestão",
         readingTime: "10 min de leitura",
         publishedAt: "2026-08-15",
-        updatedAt: "2026-08-15",
+        updatedAt: "2026-10-07",
     },
     {
         slug: "alternativa-ao-ifood",

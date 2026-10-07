@@ -64,6 +64,17 @@ const IFOOD_PLANS: Record<
     entrega: { commission: 23, paymentFee: 3.2, monthlyFee: 150 },
 };
 
+function calculatePriceForDesiredNet(
+    desiredNet: number,
+    percentageRate: number,
+    fixedCosts = 0
+) {
+    const remainingRate = 1 - Math.max(0, percentageRate) / 100;
+    return remainingRate > 0
+        ? (Math.max(0, desiredNet) + Math.max(0, fixedCosts)) / remainingRate
+        : 0;
+}
+
 function IfoodFeeCalculator() {
     const [plan, setPlan] = useState<IfoodPlan>("basico");
     const [revenue, setRevenue] = useState(30000);
@@ -73,6 +84,7 @@ function IfoodFeeCalculator() {
     const [paymentFee, setPaymentFee] = useState(3.2);
     const [monthlyFee, setMonthlyFee] = useState(110);
     const [monthlyThreshold, setMonthlyThreshold] = useState(1800);
+    const [desiredNet, setDesiredNet] = useState(40);
 
     const selectPlan = (value: IfoodPlan) => {
         setPlan(value);
@@ -93,6 +105,8 @@ function IfoodFeeCalculator() {
     const total = commissionCost + paymentCost + chargedMonthlyFee;
     const orders = ticket > 0 ? safeRevenue / ticket : 0;
     const effectiveRate = safeRevenue > 0 ? (total / safeRevenue) * 100 : 0;
+    const perOrderRate = Math.max(0, commission + paymentFee);
+    const requiredPrice = calculatePriceForDesiredNet(desiredNet, perOrderRate);
 
     return (
         <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
@@ -168,6 +182,12 @@ function IfoodFeeCalculator() {
                         prefix="R$"
                         step={100}
                     />
+                    <NumberField
+                        label="Quero receber líquido por pedido"
+                        value={desiredNet}
+                        onChange={setDesiredNet}
+                        prefix="R$"
+                    />
                 </div>
                 <Notice>
                     Taxas e condições podem variar por contrato, região e campanha. Confirme os valores no Portal do Parceiro. Impostos, produção, embalagem, entrega e eventuais promoções não estão incluídos.
@@ -201,6 +221,11 @@ function IfoodFeeCalculator() {
                         label="Líquido após as taxas"
                         value={formatCurrency(Math.max(0, safeRevenue - total))}
                         highlight
+                    />
+                    <ResultItem
+                        label="Preço para receber o líquido desejado"
+                        value={perOrderRate < 100 ? formatCurrency(requiredPrice) : "Impossível"}
+                        description={`${formatCurrency(Math.max(0, desiredNet))} líquidos em pedido pago no app; sem ratear mensalidade`}
                     />
                 </ResultGrid>
                 <div className="mt-4 rounded-xl border border-green-200 bg-green-50 p-4">
@@ -379,15 +404,18 @@ function DeliveryCommissionCalculator() {
     const [deliveryCost, setDeliveryCost] = useState(0);
     const [desiredNet, setDesiredNet] = useState(40);
 
-    const percentage = Math.max(0, commission + paymentFee) / 100;
+    const percentageRate = Math.max(0, commission + paymentFee);
+    const percentage = percentageRate / 100;
     const percentageFees = orderValue * percentage;
     const totalFees = percentageFees + fixedFee + deliveryCost;
     const net = orderValue - totalFees;
     const effectiveRate = orderValue > 0 ? (totalFees / orderValue) * 100 : 0;
     const remainingRate = 1 - percentage;
-    const requiredPrice = remainingRate > 0
-        ? (desiredNet + fixedFee + deliveryCost) / remainingRate
-        : 0;
+    const requiredPrice = calculatePriceForDesiredNet(
+        desiredNet,
+        percentageRate,
+        fixedFee + deliveryCost
+    );
 
     return (
         <div className="grid gap-5 lg:grid-cols-2">

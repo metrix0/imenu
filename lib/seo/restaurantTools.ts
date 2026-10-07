@@ -16,12 +16,12 @@ export const RESTAURANT_TOOLS: RestaurantToolDefinition[] = [
         name: "Calculadora de taxas do iFood",
         title: "Calculadora de taxas do iFood para restaurantes",
         metaDescription:
-            "Calcule comissão, pagamento online, mensalidade, custo por pedido e valor líquido estimado do iFood. Compare com pedidos diretos gratuitamente.",
+            "Calcule taxas do iFood, comissão, mensalidade, valor líquido, custo por pedido e quanto cobrar para receber o valor desejado. Ferramenta grátis.",
         introduction:
-            "Informe o faturamento, o plano e a participação dos pagamentos online para estimar quanto a operação deixa no marketplace e quanto sobra antes dos demais custos do restaurante.",
-        calculationTitle: "Como a estimativa das taxas é calculada",
+            "Informe o faturamento e as taxas do seu contrato para ver quanto o iFood custa no mês, quanto sobra e quanto cobrar por pedido para preservar um valor líquido.",
+        calculationTitle: "Como calcular as taxas e o preço no iFood",
         calculation:
-            "A calculadora soma a comissão sobre as vendas, a taxa de pagamento online apenas sobre a parcela paga no aplicativo e a mensalidade quando o faturamento ultrapassa o limite informado. Todos os percentuais e valores podem ser alterados para refletir o contrato real da sua loja.",
+            "A calculadora soma a comissão sobre as vendas, a taxa de pagamento online apenas sobre a parcela paga no aplicativo e a mensalidade quando o faturamento ultrapassa o limite informado. Para estimar quanto cobrar por pedido pago no app, divide o líquido desejado pelo percentual que resta após comissão e pagamento online, sem ratear a mensalidade nessa conta.",
         practicalTips: [
             "Confira as condições vigentes no Portal do Parceiro antes de tomar uma decisão.",
             "Compare canais usando o mesmo faturamento, ticket médio e custo de entrega.",
@@ -42,6 +42,11 @@ export const RESTAURANT_TOOLS: RestaurantToolDefinition[] = [
                 question: "A comparação inclui imposto, embalagem e entrega?",
                 answer:
                     "Não. Ela compara custos de plataforma e marketplace. Impostos, produção, embalagem, meios de pagamento e logística devem ser analisados separadamente.",
+            },
+            {
+                question: "Quanto devo cobrar no iFood para receber um valor líquido?",
+                answer:
+                    "Para um pedido pago no app, divida o valor líquido desejado pelo percentual que sobra depois da comissão e da taxa de pagamento. A calculadora faz essa conta automaticamente com as taxas informadas e não rateia a mensalidade nesse preço por pedido.",
             },
         ],
     },
@@ -218,9 +223,9 @@ export const RESTAURANT_TOOLS: RestaurantToolDefinition[] = [
     {
         slug: "calculadora-comissao-delivery",
         name: "Calculadora de comissão de delivery",
-        title: "Calculadora de comissão de aplicativo de delivery",
+        title: "Calculadora de comissão de delivery",
         metaDescription:
-            "Calcule comissão, taxa de pagamento, custo fixo, valor líquido e preço necessário em qualquer aplicativo de delivery.",
+            "Calcule comissão e taxas de delivery, valor líquido por pedido e quanto cobrar no aplicativo para atingir o líquido desejado. Ferramenta grátis.",
         introduction:
             "Informe as condições de qualquer canal de delivery para saber o custo total por pedido, o valor líquido recebido e o preço necessário para atingir uma meta líquida.",
         calculationTitle: "Como calcular comissão de delivery",

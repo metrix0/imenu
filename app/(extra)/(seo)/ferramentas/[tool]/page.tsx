@@ -140,10 +140,14 @@ export default async function ToolPage({ params }: ToolPageProps) {
                     <p className="mt-4 leading-7 text-gray-600">{tool.calculation}</p>
                     {tool.slug === "calculadora-taxas-ifood" && (
                         <p className="mt-3 text-sm leading-6 text-gray-500">
-                            Os presets foram baseados nas condições padrão publicadas pelo próprio iFood. Consulte sempre as condições atuais da sua loja na página oficial de {" "}
+                            Em 7 de outubro de 2026, páginas oficiais do iFood exibiam valores diferentes para a taxa de pagamento online: {" "}
+                            <a href="https://parceiros.ifood.com.br/restaurante/planos-ifood" target="_blank" rel="noreferrer" className="text-brand underline">
+                                3,2% na página de planos
+                            </a>{" "}
+                            e {" "}
                             <a href="https://parceiros.ifood.com.br/restaurante/como-funciona/entregas" target="_blank" rel="noreferrer" className="text-brand underline">
-                                planos e entregas para restaurantes
-                            </a>.
+                                3,5% na página de entregas
+                            </a>. O preset mantém 3,2% como referência editável; use sempre o valor do contrato ou Portal do Parceiro da sua loja.
                         </p>
                     )}
                 </section>
