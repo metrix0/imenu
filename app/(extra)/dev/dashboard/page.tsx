@@ -108,6 +108,7 @@ type DashboardPayload = {
     tracking: {
         postHogAvailable: boolean;
         blogViews: number | null;
+        publicContentPageViews: number | null;
         totalPageViews: number | null;
     };
     panelTabs: {
@@ -966,21 +967,21 @@ export default function DevDashboardPage() {
                                                 )} ativados ÷ ${formatCount(periodDays)} dias do período.`}
                                             />
                                             <MetricCard
-                                                title="Page views / dia"
+                                                title="Page views (LP/Blogs)/ dia"
                                                 value={
-                                                    data.tracking.totalPageViews === null
+                                                    data.tracking.publicContentPageViews === null
                                                         ? "—"
                                                         : formatAverage(
-                                                              data.tracking.totalPageViews /
+                                                              data.tracking.publicContentPageViews /
                                                                   periodDays
                                                           )
                                                 }
                                                 description={
-                                                    data.tracking.totalPageViews === null
+                                                    data.tracking.publicContentPageViews === null
                                                         ? "PostHog indisponível."
                                                         : `${formatCount(
-                                                              data.tracking.totalPageViews
-                                                          )} page views ÷ ${formatCount(
+                                                              data.tracking.publicContentPageViews
+                                                          )} page views de LPs e blogs ÷ ${formatCount(
                                                               periodDays
                                                           )} dias do período.`
                                                 }
