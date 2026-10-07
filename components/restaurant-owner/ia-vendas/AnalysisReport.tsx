@@ -21,7 +21,7 @@ export default function AnalysisReport({
   analyses, selected, actions, refs, disabled, loading, generating, locked = false, onUpgrade,
   activeOpportunityId, onSelect, onDiscuss, onChat, onHistory, onAction, onBatch,
 }: {
-  locked?: boolean; onUpgrade?: () => void;
+  locked?: boolean; onUpgrade?: (ids?: string[]) => void;
   analyses: Data[]; selected?: Data; actions: Action[]; refs: Record<string, string>;
   disabled: boolean; loading: boolean; generating: boolean;
   activeOpportunityId?: string;
@@ -133,7 +133,7 @@ export default function AnalysisReport({
               </div>
               <div className={styles.upgradeAction}>
                 <p><strong>{IA_PLUS_PRICE_LABEL}</strong><span>/mês</span></p>
-                <Button onClick={onUpgrade}>Começar análise agora</Button>
+                <Button onClick={() => onUpgrade?.()}>Começar análise agora</Button>
                 <small>Cartão ou Pix · cancele quando quiser</small>
               </div>
             </div>
@@ -195,7 +195,15 @@ export default function AnalysisReport({
   </button>);
 
   return (
-    <div className={`${styles.report} ${locked ? styles.reportLocked : ""}`} onClickCapture={locked ? event => { if ((event.target as HTMLElement).closest("[data-ia-plus-action] button")) { event.preventDefault(); event.stopPropagation(); onUpgrade?.(); } } : undefined}>
+    <div className={`${styles.report} ${locked ? styles.reportLocked : ""}`} onClickCapture={locked ? event => {
+      const button = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-ia-plus-action] button");
+      if (!button) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const rawIds = button.dataset.iaApplyIds || button.dataset.iaApplyId || "";
+      const applyIds = rawIds.split(",").filter(Boolean);
+      onUpgrade?.(applyIds.length ? applyIds : undefined);
+    } : undefined}>
       <header className="panel-page-heading flex flex-col xl:flex-row justify-between items-start xl:items-end gap-4 mb-8">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 2xl:text-4xl">Análise de vendas</h1>
@@ -231,7 +239,7 @@ export default function AnalysisReport({
               </div>}
             </div>
             <div className={styles.heroActions}>
-              {gate(<Button disabled={!locked && (disabled || !pending.length)} onClick={() => onBatch(pending)}>Revisar e aplicar tudo</Button>)}
+              {gate(<Button disabled={!locked && (disabled || !pending.length)} data-ia-apply-ids={pending.join(",")} onClick={() => onBatch(pending)}>Revisar e aplicar tudo</Button>)}
               {gate(<Button variant="secondary" disabled={!locked && disabled} onClick={onChat}><MessageSquare size={15} aria-hidden="true" />Conversar com Assistente de IA</Button>)}
               <p className={styles.approvalNote}>Você revisa cada mudança antes de confirmar.</p>
             </div>
@@ -281,13 +289,13 @@ export default function AnalysisReport({
             </section>}
           </div>
           </div>
-          {locked && report && <div className={`${styles.paywall} ${styles.structuredPaywall}`}><div className={styles.paywallCard}><div className={`${styles.paywallImage} ${styles.paywallLogo}`}><Image src="/logos/IAPlusCombinationMarkLogo_Brand.png" alt="" fill sizes="200px" className="object-contain" /></div><h3>Coloque essas oportunidades em prática</h3><p>Veja a análise completa, converse com a IA e revise e aplique as melhorias com o iMenu IA Plus.</p><Button onClick={onUpgrade}>Conhecer iMenu IA Plus</Button></div></div>}
+          {locked && report && <div className={`${styles.paywall} ${styles.structuredPaywall}`}><div className={styles.paywallCard}><div className={`${styles.paywallImage} ${styles.paywallLogo}`}><Image src="/logos/IAPlusCombinationMarkLogo_Brand.png" alt="" fill sizes="200px" className="object-contain" /></div><h3>Coloque essas oportunidades em prática</h3><p>Veja a análise completa, converse com a IA e revise e aplique as melhorias com o iMenu IA Plus.</p><Button onClick={() => onUpgrade?.()}>Conhecer iMenu IA Plus</Button></div></div>}
         </>}
         {legacy && <div className={locked ? styles.preview : undefined}><div className={locked ? styles.previewContent : undefined}><section className={styles.legacy}>
           <p className={styles.eyebrow}>Relatório anterior ao formato estruturado.</p>
           <SalesMarkdown content={String(selected.result.reply || "").replace(/\[\[(?:action:[^\]]+|card:[^\]]+)\]\]/g, "")} />
           {actions.filter((action) => action.run_id === selected.id).map((action) => <ActionCard key={action.id} action={action} generatedActions={(action.generated_actions || []).map((id) => actionById.get(id)).filter((generated): generated is Action => !!generated)} refs={refs} disabled={disabled} onAction={onAction} />)}
-        </section></div>{locked && <div className={styles.paywall}><div className={styles.paywallImage}><Image src="/images/IAPlus.png" alt="" fill sizes="80px" className="object-contain" /></div><h3>Veja a análise completa</h3><p>Converse com a IA e revise e aplique as melhorias com o iMenu IA Plus.</p><Button onClick={onUpgrade}>Conhecer iMenu IA Plus</Button></div>}</div>}
+        </section></div>{locked && <div className={styles.paywall}><div className={styles.paywallImage}><Image src="/images/IAPlus.png" alt="" fill sizes="80px" className="object-contain" /></div><h3>Veja a análise completa</h3><p>Converse com a IA e revise e aplique as melhorias com o iMenu IA Plus.</p><Button onClick={() => onUpgrade?.()}>Conhecer iMenu IA Plus</Button></div>}</div>}
       </div>
     </div>
   );

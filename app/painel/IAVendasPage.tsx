@@ -39,6 +39,7 @@ import type { Data } from "@/lib/ia-vendas/types";
 import { IA_PLUS_FEATURE_MESSAGE } from "@/lib/addons/products";
 import { isPanelTabKey, type PanelTabKey } from "@/lib/ia-vendas/panelTabs";
 import { SupportWhatsappBadge } from "@/components/common/SupportButton";
+import { capturePosthogLightweight } from "@/lib/api/instrumentation-client";
 
 const IA_CAPACITY_SUPPORT_SUFFIX =
   "Caso precise de mais limite ou ajuda, entre em contato com o suporte.";
@@ -258,6 +259,25 @@ export default function SalesPage() {
         : sales.messages;
   const locked = sales.access?.plus !== true;
   const freeLimitReached = !isAnalysis && sales.access && !sales.access.plus && (sales.upgradeRequired || Number(sales.access.tokens_remaining) <= 0);
+  const openLockedApply = (ids: string[] = []) => {
+    const actionIds = [...new Set(ids.filter(Boolean))];
+    if (restaurant && actionIds.length) {
+      capturePosthogLightweight(
+        "ia_apply_blocked_clicked",
+        restaurant,
+        {
+          surface: isAnalysis ? "vendas-ia" : "assistente-ia",
+          apply_type: actionIds.length > 1 ? "batch" : "single",
+          action_count: actionIds.length,
+          action_ids: actionIds.join(","),
+          conversation_id: sales.conversation_id || null,
+          analysis_id: isAnalysis ? selectedReport?.id || null : null,
+          blocked_reason: "ia_plus_required",
+        },
+      );
+    }
+    setPlusModal("sales");
+  };
   useEffect(() => {
     if (
       !isAnalysis ||
@@ -338,8 +358,12 @@ export default function SalesPage() {
     }
   }
   const onAction = (command: string, ids: string[]) => {
-      if (isAnalysis && locked) { setPlusModal("sales"); return; }
-      if (!isAnalysis && locked && command === "apply") { setPlusModal("sales"); return; }
+      if (isAnalysis && locked) {
+        if (command === "apply") openLockedApply(ids);
+        else setPlusModal("sales");
+        return;
+      }
+      if (!isAnalysis && locked && command === "apply") { openLockedApply(ids); return; }
       void sales.command(command, { ids });
     },
     selectedBatchActions = sales.actions.filter((action) =>
@@ -512,7 +536,7 @@ export default function SalesPage() {
                             disabled={disabled}
                             onAction={onAction}
                             locked={locked}
-                            onUpgrade={() => setPlusModal("sales")}
+                            onUpgrade={openLockedApply}
                           />
                         );
                       }
@@ -566,7 +590,7 @@ export default function SalesPage() {
                             disabled={disabled}
                             onAction={onAction}
                             locked={locked}
-                            onUpgrade={() => setPlusModal("sales")}
+                            onUpgrade={openLockedApply}
                           />
                         );
                       if (card.type === "panel_tab")
@@ -588,7 +612,7 @@ export default function SalesPage() {
                           disabled={!locked && disabled}
                           onClick={() => {
                             if (locked) {
-                              setPlusModal("sales");
+                              openLockedApply(pendingIds);
                               return;
                             }
                             setBatchIds(pendingIds);
@@ -854,7 +878,7 @@ export default function SalesPage() {
                   {!analysisChatOpen && notice}
                   <AnalysisReport
                     locked={locked}
-                    onUpgrade={() => setPlusModal("sales")}
+                    onUpgrade={(ids) => ids?.length ? openLockedApply(ids) : setPlusModal("sales")}
                     analyses={sales.analyses}
                     selected={selectedReport}
                     actions={sales.actions}
@@ -1188,7 +1212,7 @@ export default function SalesPage() {
                       disabled={disabled}
                       onAction={onAction}
                       locked={locked}
-                      onUpgrade={() => setPlusModal("sales")}
+                      onUpgrade={openLockedApply}
                     />
                   </div>
                 ))

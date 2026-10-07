@@ -80,6 +80,8 @@ test("report leads with potential actions, then summary, opportunities, comparis
   expect(html).toContain("O que seu restaurante pode ganhar em 4 semanas");
   expect(html).toContain('aria-label="Prioridades" class="opportunitiesCard"');
   expect(html).toContain("Revisar e aplicar tudo");
+  expect(html).toContain('data-ia-apply-ids="proposal"');
+  expect(html).toContain('data-ia-apply-id="proposal"');
   expect(html).toContain("Conversar com Assistente de IA");
   expect(html).not.toContain("Potencial nas próximas 4 semanas");
   expect(html).toContain('aria-label="Pontos rápidos para revisão" class="review"');
@@ -154,6 +156,7 @@ test("locked assistant proposals show the IA Plus lock only on apply actions", (
   expect(html).toContain("lucide-lock");
   expect(html).toContain("ml-1");
   expect(html).toContain(">Aplicar<");
+  expect(html).toContain('data-ia-apply-id="proposal"');
   expect(html).toContain(">Descartar<");
 });
 
