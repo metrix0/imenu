@@ -6,7 +6,13 @@ import {
     faStore,
 } from "@fortawesome/free-solid-svg-icons";
 
-export default function RestaurantToolsCta({ title }: { title: string }) {
+export default function RestaurantToolsCta({
+    title,
+    href = "/",
+}: {
+    title: string;
+    href?: string;
+}) {
     return (
         <section className="relative overflow-hidden rounded-[2rem] border border-orange-200 bg-gradient-to-br from-orange-50 via-white to-orange-100/70 shadow-[0_24px_70px_-36px_rgba(234,88,12,0.55)]">
             <div aria-hidden="true" className="absolute -left-20 -top-24 h-64 w-64 rounded-full bg-brand/10 blur-3xl" />
@@ -38,7 +44,7 @@ export default function RestaurantToolsCta({ title }: { title: string }) {
                     </div>
 
                     <Link
-                        href="/"
+                        href={href}
                         data-seo-home-link
                         className="mt-7 inline-flex items-center gap-2 rounded-xl bg-brand px-5 py-3 font-semibold text-white shadow-lg shadow-brand/20 transition hover:-translate-y-0.5 hover:bg-brand/90 hover:shadow-xl"
                     >
