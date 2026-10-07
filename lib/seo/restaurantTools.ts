@@ -89,16 +89,16 @@ export const RESTAURANT_TOOLS: RestaurantToolDefinition[] = [
         name: "Calculadora de margem para delivery",
         title: "Calculadora de margem de lucro para delivery",
         metaDescription:
-            "Calcule margem por pedido, resultado mensal, ponto de equilíbrio e o preço necessário para atingir sua meta de margem no delivery. Grátis, sem cadastro.",
+            "Calcule custo por pedido, margem em reais e percentual e o preço necessário para atingir sua meta de margem no delivery. Grátis, sem cadastro.",
         introduction:
-            "Informe preço, CMV, embalagem, comissão, taxas e custos do delivery para ver quanto sobra por pedido, o ponto de equilíbrio e quanto cobrar para atingir sua meta de margem.",
+            "Informe preço, CMV, embalagem, taxas e outros custos do pedido para ver sua margem e quanto cobrar para atingir a meta desejada.",
         calculationTitle: "Como calcular a margem de lucro no delivery",
         calculation:
-            "A margem de contribuição por pedido é o preço de venda menos todos os custos variáveis da venda. O ponto de equilíbrio divide os custos fixos mensais por essa margem. Para calcular o preço de uma meta de margem, a ferramenta considera os custos por pedido e os percentuais de comissão, pagamento e impostos.",
+            "Some o custo do produto, embalagem, outros custos por pedido e as taxas percentuais da venda. A margem é o preço menos esse custo total. Para encontrar o preço da meta, a calculadora considera os mesmos custos e o percentual de margem desejado.",
         practicalTips: [
-            "Separe custos fixos dos custos que crescem a cada pedido.",
-            "Calcule a margem por canal, pois marketplace e pedido direto têm custos diferentes.",
-            "Não confunda faturamento alto com lucro alto.",
+            "Some comissão, pagamento e impostos no campo de taxas sobre a venda.",
+            "Inclua frete subsidiado e outros gastos que acontecem a cada pedido.",
+            "Compare a margem entre canais usando os mesmos custos.",
         ],
         faq: [
             {
@@ -107,19 +107,19 @@ export const RESTAURANT_TOOLS: RestaurantToolDefinition[] = [
                     "Margem é o que sobra em relação ao preço de venda. Markup é o multiplicador aplicado sobre o custo. Percentuais iguais produzem resultados diferentes.",
             },
             {
-                question: "O pró-labore entra no cálculo?",
+                question: "O que entra em outros custos por pedido?",
                 answer:
-                    "Quando é uma despesa mensal recorrente, inclua o pró-labore nos custos fixos para que o ponto de equilíbrio seja realista.",
+                    "Inclua custos que variam a cada venda e não estão nos outros campos, como frete subsidiado ou algum custo operacional por pedido.",
             },
             {
                 question: "Como calcular a margem de um canal direto?",
                 answer:
-                    "Zere a comissão do marketplace e informe apenas as taxas de pagamento, entrega subsidiada, impostos e outros custos que existirem naquele canal.",
+                    "Informe apenas as taxas e custos que realmente existem no canal direto. Se não houver comissão, não inclua esse percentual no campo de taxas.",
             },
             {
                 question: "Como calcular a margem de um pedido de delivery?",
                 answer:
-                    "Subtraia do preço de venda os ingredientes, embalagem, entrega subsidiada, comissão, pagamento, impostos e outros custos variáveis. Divida o valor que sobra pelo preço de venda para obter a margem percentual.",
+                    "Subtraia do preço de venda o CMV, embalagem, outros custos por pedido e as taxas da venda. Divida o valor que sobra pelo preço para obter a margem percentual.",
             },
         ],
     },
