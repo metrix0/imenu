@@ -7,6 +7,7 @@ import BlogArticle, {
     BlogSection,
     BlogSteps,
     BlogSubheading,
+    BlogToolLink,
 } from "@/components/common/blog/BlogArticle";
 import {
     createBlogArticleMetadata,
@@ -75,9 +76,9 @@ export default function CardapioDigitalQrCodeRestaurantePage() {
             sections={sections}
             faq={faq}
             relatedSlugs={[
+                "melhor-qr-code-mesa-restaurante",
+                "aplicativo-para-garcom",
                 "controle-estoque-cardapio-digital",
-                "robo-whatsapp-para-restaurante",
-                "como-aumentar-ticket-medio-restaurante",
             ]}
             ctaTitle="Crie seu cardápio digital grátis e transforme cada mesa em um ponto de pedido"
         >
@@ -340,6 +341,11 @@ export default function CardapioDigitalQrCodeRestaurantePage() {
                                 "Escaneie com outro celular, envie itens e confirme se a mesa aparece corretamente no painel e na impressão usada pela operação.",
                         },
                     ]}
+                />
+                <BlogToolLink
+                    href="/ferramentas/gerador-qr-code-cardapio"
+                    title="Gere o QR Code do seu cardápio"
+                    description="Crie gratuitamente um QR Code para seu link, personalize as cores e teste antes de imprimir."
                 />
                 <p>
                     Se você ainda não usa o iMenu, pode começar pelo guia com os{" "}

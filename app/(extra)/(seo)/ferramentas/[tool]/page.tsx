@@ -26,6 +26,64 @@ type ToolPageProps = {
     params: Promise<{ tool: string }>;
 };
 
+type RelatedLink = {
+    href: string;
+    label: string;
+};
+
+const TOOL_RELATED_LINKS: Record<string, readonly RelatedLink[]> = {
+    "calculadora-taxas-ifood": [
+        { href: "/blog/quanto-ifood-cobra", label: "Quanto o iFood cobra do restaurante" },
+        { href: "/ferramentas/calculadora-comissao-delivery", label: "Calculadora de comissão de delivery" },
+        { href: "/blog/alternativa-ao-ifood", label: "Alternativas ao iFood para restaurantes" },
+    ],
+    "calculadora-preco-de-venda": [
+        { href: "/blog/como-montar-cardapio-delivery", label: "Como montar um cardápio para delivery" },
+        { href: "/ferramentas/calculadora-margem-delivery", label: "Calculadora de margem para delivery" },
+        { href: "/ferramentas/calculadora-cmv", label: "Calculadora de CMV" },
+    ],
+    "calculadora-margem-delivery": [
+        { href: "/ferramentas/calculadora-preco-de-venda", label: "Calculadora de preço de venda e food cost" },
+        { href: "/ferramentas/calculadora-comissao-delivery", label: "Calculadora de comissão de delivery" },
+        { href: "/blog/como-aumentar-ticket-medio-restaurante", label: "Como aumentar o ticket médio do restaurante" },
+    ],
+    "gerador-qr-code-cardapio": [
+        { href: "/blog/cardapio-digital-qr-code-restaurante", label: "Cardápio digital com QR Code para restaurante" },
+        { href: "/blog/melhor-qr-code-mesa-restaurante", label: "Melhores sistemas de QR Code para mesa" },
+        { href: "/cardapio-digital", label: "Os melhores cardápios digitais grátis" },
+    ],
+    "gerador-cardapio-digital": [
+        { href: "/cardapio-digital", label: "Os melhores cardápios digitais grátis" },
+        { href: "/cardapio-digital-gratuito", label: "Cardápio digital gratuito para restaurantes" },
+        { href: "/ferramentas/gerador-descricao-produto-ia", label: "Gerador de descrição de produto com IA" },
+    ],
+    "calculadora-ticket-medio": [
+        { href: "/blog/como-aumentar-ticket-medio-restaurante", label: "Como aumentar o ticket médio do restaurante" },
+        { href: "/ferramentas/calculadora-preco-combo", label: "Calculadora de preço para combo" },
+        { href: "/ferramentas/calculadora-margem-delivery", label: "Calculadora de margem para delivery" },
+    ],
+    "calculadora-comissao-delivery": [
+        { href: "/ferramentas/calculadora-taxas-ifood", label: "Calculadora de taxas do iFood" },
+        { href: "/blog/quanto-ifood-cobra", label: "Quanto o iFood cobra do restaurante" },
+        { href: "/blog/alternativa-ao-ifood", label: "Alternativas ao iFood para restaurantes" },
+    ],
+    "calculadora-cmv": [
+        { href: "/ferramentas/calculadora-preco-de-venda", label: "Calculadora de preço de venda e food cost" },
+        { href: "/blog/controle-estoque-cardapio-digital", label: "Controle de estoque no cardápio digital" },
+        { href: "/ferramentas/calculadora-margem-delivery", label: "Calculadora de margem para delivery" },
+    ],
+    "calculadora-preco-combo": [
+        { href: "/blog/como-criar-combo-no-delivery", label: "Como criar combos no delivery" },
+        { href: "/ferramentas/calculadora-ticket-medio", label: "Calculadora de ticket médio" },
+        { href: "/ferramentas/calculadora-margem-delivery", label: "Calculadora de margem para delivery" },
+    ],
+    "gerador-descricao-produto-ia": [
+        { href: "/blog/criar-cardapio-com-ia", label: "Como criar um cardápio com IA" },
+        { href: "/ferramentas/gerador-cardapio-digital", label: "Criador de rascunho de cardápio" },
+        { href: "/cardapio-digital", label: "Os melhores cardápios digitais grátis" },
+    ],
+};
+
 export const dynamicParams = false;
 
 export function generateStaticParams() {
@@ -60,10 +118,7 @@ export default async function ToolPage({ params }: ToolPageProps) {
     if (!tool) notFound();
 
     const canonical = `${SITE_URL}${getRestaurantToolPath(tool.slug)}`;
-    const currentIndex = RESTAURANT_TOOLS.findIndex((candidate) => candidate.slug === tool.slug);
-    const related = [1, 2, 3].map(
-        (offset) => RESTAURANT_TOOLS[(currentIndex + offset) % RESTAURANT_TOOLS.length]
-    );
+    const related = TOOL_RELATED_LINKS[tool.slug] ?? [];
     const structuredData = [
         {
             "@context": "https://schema.org",
@@ -197,7 +252,7 @@ export default async function ToolPage({ params }: ToolPageProps) {
 
                 <section>
                     <div className="flex flex-wrap items-center justify-between gap-3">
-                        <h2 className="text-xl font-bold text-gray-950">Outras ferramentas úteis</h2>
+                        <h2 className="text-xl font-bold text-gray-950">Conteúdos e ferramentas relacionados</h2>
                         <Link
                             href="/ferramentas"
                             className="inline-flex items-center gap-2 text-sm font-semibold text-brand hover:underline"
@@ -207,16 +262,16 @@ export default async function ToolPage({ params }: ToolPageProps) {
                         </Link>
                     </div>
                     <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                        {related.map((relatedTool) => (
+                        {related.map((relatedLink) => (
                             <Link
-                                key={relatedTool.slug}
-                                href={getRestaurantToolPath(relatedTool.slug)}
+                                key={relatedLink.href}
+                                href={relatedLink.href}
                                 className="group flex items-center gap-3 rounded-xl border border-gray-200 bg-white p-4 text-sm font-semibold text-gray-800 transition hover:border-brand/40 hover:text-brand"
                             >
                                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand">
-                                    <RestaurantToolIcon tool={relatedTool.slug} className="h-4 w-4" />
+                                    <FontAwesomeIcon icon={faArrowRight} className="h-3.5 w-3.5" />
                                 </span>
-                                <span>{relatedTool.name}</span>
+                                <span>{relatedLink.label}</span>
                             </Link>
                         ))}
                     </div>
