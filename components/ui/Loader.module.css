@@ -1,0 +1,10 @@
+.loader {
+    background: transparent;
+    animation: imenu-loader-spin 800ms linear infinite;
+}
+
+@keyframes imenu-loader-spin {
+    to {
+        rotate: 1turn;
+    }
+}
