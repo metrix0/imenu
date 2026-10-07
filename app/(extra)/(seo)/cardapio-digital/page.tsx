@@ -42,37 +42,37 @@ const comparisonRows = [
     {
         name: "iMenu",
         href: "/",
-        focus: "Cardápio digital e pedidos",
-        model: "Grátis, sem mensalidade",
-        fit: "Restaurantes que querem começar rápido e sem custo fixo",
+        logo: "/logos/LogoMark_Brand.png",
+        includes: "Cardápio digital + pedidos",
+        price: "Grátis, sem mensalidade nem taxa",
     },
     {
         name: "Anota Ai",
         href: "/anota-ai",
-        focus: "Delivery e gestão de pedidos",
-        model: "Planos pagos",
-        fit: "Operações que querem uma solução mais ampla de delivery",
+        logo: "https://www.google.com/s2/favicons?sz=64&domain_url=https://anota.ai",
+        includes: "Cardápio + pedidos + automação",
+        price: "Mensalidade",
     },
     {
         name: "Goomer",
         href: "/goomer",
-        focus: "Autoatendimento, totens e cardápio digital",
-        model: "Planos pagos",
-        fit: "Operações presenciais e redes com autoatendimento",
+        logo: "https://www.google.com/s2/favicons?sz=64&domain_url=https://goomer.com.br",
+        includes: "Cardápio + pedidos + autoatendimento",
+        price: "Grátis limitado + planos pagos",
     },
     {
         name: "Saipos",
         href: "/saipos",
-        focus: "PDV e gestão completa",
-        model: "Planos pagos",
-        fit: "Restaurantes que querem centralizar a operação em um ERP",
+        logo: "https://www.google.com/s2/favicons?sz=64&domain_url=https://saipos.com",
+        includes: "Cardápio + PDV + gestão",
+        price: "Mensalidade",
     },
     {
         name: "Consumer",
         href: "/consumer",
-        focus: "PDV, gestão, delivery e cardápio",
-        model: "Consulte condições",
-        fit: "Operações que precisam de vários módulos integrados",
+        logo: "https://www.google.com/s2/favicons?sz=64&domain_url=https://consumer.com.br",
+        includes: "Cardápio + PDV + gestão",
+        price: "Grátis limitado + planos pagos",
     },
 ];
 
@@ -144,35 +144,74 @@ export default function Page() {
 
                 <section>
                     <h2 className="mb-4 text-2xl font-bold">
-                        Comparação dos 5 melhores cardápios digitais
+                        Comparando os melhores cardápios digitais
                     </h2>
                     <p className="mb-6 text-gray-600">
-                        A melhor plataforma depende do que você precisa além do cardápio:
-                        apenas pedidos online, ou também PDV, estoque, financeiro,
-                        autoatendimento e outros módulos de gestão.
+                        Ao comparar plataformas de cardápio digital, vale olhar principalmente
+                        para custo, facilidade de uso e quanto de gestão extra sua operação
+                        realmente precisa.
                     </p>
 
+                    <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                        <div className="rounded-xl bg-gray-50 p-5">
+                            <h3 className="mb-2 text-lg font-semibold">
+                                Plataformas mais completas
+                            </h3>
+                            <ul className="space-y-2 text-gray-600 list-disc list-inside">
+                                <li>Planos gratuitos costumam ter limites</li>
+                                <li>Recursos avançados geralmente ficam nos planos pagos</li>
+                                <li>Mais módulos de PDV, gestão e autoatendimento</li>
+                                <li>Mais configuração para começar</li>
+                            </ul>
+                        </div>
+
+                        <div className="rounded-xl border border-green-200 bg-green-50 p-5">
+                            <h3 className="mb-2 text-lg font-semibold text-green-700">
+                                iMenu
+                            </h3>
+                            <ul className="space-y-2 text-gray-700 list-disc list-inside">
+                                <li>Grátis, sem mensalidade nem taxa</li>
+                                <li>Pedidos e acessos ilimitados</li>
+                                <li>Configuração em minutos</li>
+                                <li>Foco em cardápio, pedidos e simplicidade</li>
+                            </ul>
+                        </div>
+                    </div>
+                </section>
+
+                <section>
+                    <h2 className="mb-4 text-2xl font-bold">
+                        Comparação rápida das plataformas
+                    </h2>
+
                     <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white">
-                        <table className="w-full min-w-[760px] text-left text-sm">
+                        <table className="w-full min-w-[620px] text-left text-sm">
                             <thead className="bg-gray-50 text-gray-900">
                                 <tr>
                                     <th className="px-5 py-4 font-semibold">Plataforma</th>
-                                    <th className="px-5 py-4 font-semibold">Foco principal</th>
-                                    <th className="px-5 py-4 font-semibold">Modelo</th>
-                                    <th className="px-5 py-4 font-semibold">Melhor para</th>
+                                    <th className="px-5 py-4 font-semibold">Inclui</th>
+                                    <th className="px-5 py-4 font-semibold">Preço</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-200">
                                 {comparisonRows.map((item) => (
                                     <tr key={item.name}>
-                                        <td className="px-5 py-4 font-semibold text-gray-900">
-                                            <Link href={item.href} className="text-brand underline">
+                                        <td className="px-5 py-4">
+                                            <Link
+                                                href={item.href}
+                                                className="inline-flex items-center gap-3 font-semibold text-gray-900 hover:text-brand"
+                                            >
+                                                <img
+                                                    src={item.logo}
+                                                    alt=""
+                                                    className="h-8 w-8 rounded-lg object-contain"
+                                                    loading="lazy"
+                                                />
                                                 {item.name}
                                             </Link>
                                         </td>
-                                        <td className="px-5 py-4 text-gray-600">{item.focus}</td>
-                                        <td className="px-5 py-4 text-gray-600">{item.model}</td>
-                                        <td className="px-5 py-4 text-gray-600">{item.fit}</td>
+                                        <td className="px-5 py-4 text-gray-600">{item.includes}</td>
+                                        <td className="px-5 py-4 font-medium text-gray-700">{item.price}</td>
                                     </tr>
                                 ))}
                             </tbody>
