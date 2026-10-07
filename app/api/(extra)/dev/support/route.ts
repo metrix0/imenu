@@ -167,7 +167,17 @@ async function refreshConnection(
     if (connection.desired_state !== "connected") return connection;
 
     try {
-        const session = await getWahaSession(connection.session_name);
+        let session =
+            connectionId === "blast"
+                ? await ensureWahaBlastSession(connection.session_name)
+                : await getWahaSession(connection.session_name);
+
+        if (session?.status === "STARTING" && connectionId === "blast") {
+            await sleep(700);
+            session =
+                (await getWahaSession(connection.session_name)) || session;
+        }
+
         if (session) {
             connection = await updateFromWahaSession(session, connectionId);
         }
@@ -391,7 +401,7 @@ export async function POST(request: Request) {
                 [[phone, localPhone]]
             );
 
-            const connection = await readConnection(senderConnectionId);
+            const connection = await refreshConnection(senderConnectionId);
             if (
                 connection.desired_state !== "connected" ||
                 connection.status !== "WORKING"
@@ -443,6 +453,8 @@ export async function POST(request: Request) {
 
             const dedupeKey =
                 "support:bulk:" +
+                sender +
+                ":" +
                 batchId +
                 ":" +
                 (restaurantId || "phone:" + phone);
