@@ -93,7 +93,7 @@ export default function MenuProductCard(props: MenuProductCardProps) {
                     <div className="relative h-10 w-40 max-w-[65%]">
                         <Image src={props.logo} alt={props.name} fill sizes="160px" className="object-contain object-left" />
                     </div>
-                    <Badge variant={active ? "success" : "neutral"}>{active ? "Ativo" : "Opcional"}</Badge>
+                    <Badge variant={active ? "success" : "neutral"}>{active ? "Ativo" : "Desativado"}</Badge>
                 </div>
                 <h3>{props.name}</h3>
                 <div className="plans-product-description">

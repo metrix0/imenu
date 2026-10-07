@@ -37,9 +37,7 @@
     border: 1px solid var(--panel-border);
     border-radius: var(--panel-radius);
     background: var(--panel-surface);
-    transition: border-color 150ms;
 }
-.panel-essencial .plans-product:hover { border-color: #b8bec6; }
 .panel-essencial .plans-product[data-active="true"] {
     border-color: var(--panel-action);
     background: linear-gradient(180deg, var(--panel-tint), var(--panel-surface) 150px);
