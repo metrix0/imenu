@@ -77,7 +77,7 @@ const comparisonRows = [
 ];
 
 export const metadata = {
-    title: "Cardápio Digital: 5 Melhores Opções para Restaurantes | iMenu",
+    title: "Top 5 Cardápios Digitais Gratuitos no Brasil | iMenu",
     description:
         "Compare 5 opções de cardápio digital para restaurantes em 2026, incluindo alternativas grátis e pagas. Veja recursos, custos e qual faz mais sentido para sua operação.",
     alternates: {
@@ -109,7 +109,7 @@ export default function Page() {
             />
 
             <SeoPage
-                h1="5 melhores cardápios digitais para restaurantes em 2026"
+                h1="Top 5 Cardápios Digitais Gratuitos no Brasil"
                 description={
                     <>
                         Compare opções de <strong>cardápio digital</strong> grátis e pagas,
