@@ -112,8 +112,7 @@ export default function SalesPage() {
     emptyThreadStart = useRef(Date.now()),
     file = useRef<HTMLInputElement>(null),
     input = useRef<HTMLTextAreaElement>(null),
-    focusChat = useRef(false),
-    autoAnalysisRestaurant = useRef<string | null>(null);
+    focusChat = useRef(false);
   useEffect(() => {
     const media = window.matchMedia("(min-width: 1280px)");
     const update = () => {
@@ -278,33 +277,6 @@ export default function SalesPage() {
     }
     setPlusModal("sales");
   };
-  useEffect(() => {
-    if (
-      !isAnalysis ||
-      !restaurant ||
-      !modeReady ||
-      sales.loading ||
-      sales.acting ||
-      sales.busy ||
-      sales.access?.plus !== true ||
-      sales.analyses.length ||
-      sales.running ||
-      autoAnalysisRestaurant.current === restaurant
-    )
-      return;
-    autoAnalysisRestaurant.current = restaurant;
-    void useSalesStore.getState().command("start_analysis");
-  }, [
-    isAnalysis,
-    restaurant,
-    modeReady,
-    sales.loading,
-    sales.acting,
-    sales.busy,
-    sales.access?.plus,
-    sales.analyses.length,
-    sales.running,
-  ]);
   useEffect(() => {
     if (sales.upgradeRequired) {
       if (isAnalysis) setPlusModal("sales");
