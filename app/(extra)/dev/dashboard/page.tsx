@@ -78,7 +78,9 @@ type DashboardPayload = {
         tied: number;
         mainlyMobilePercentage: number | null;
     };
-    series: Record<MetricKey, SeriesPoint[]>;
+    series: Record<MetricKey, SeriesPoint[]> & {
+        activatedUsersPerDay: SeriesPoint[];
+    };
     abandonmentRates: {
         activeUsers: SeriesPoint[];
         activeCustomerUsers: SeriesPoint[];
@@ -387,7 +389,7 @@ function formatRestaurantNameForMessage(value: string): string {
         .join(" ");
 }
 
-function lineOptions(currency = false, percentage = false) {
+function lineOptions(currency = false, percentage = false, decimal = false) {
     return {
         responsive: true,
         maintainAspectRatio: false,
@@ -399,6 +401,7 @@ function lineOptions(currency = false, percentage = false) {
                     label: (context: any) => {
                         const value = Number(context.parsed.y) || 0;
                         if (percentage) return formatRatio(value);
+                        if (decimal) return formatAverage(value);
                         return currency ? formatCurrency(value) : formatCount(value);
                     },
                 },
@@ -413,10 +416,11 @@ function lineOptions(currency = false, percentage = false) {
                 beginAtZero: true,
                 ...(percentage ? { max: 100 } : {}),
                 ticks: {
-                    precision: percentage ? 1 : 0,
+                    precision: percentage || decimal ? 1 : 0,
                     callback: (value: string | number) => {
                         const numericValue = Number(value) || 0;
                         if (percentage) return formatRatio(numericValue);
+                        if (decimal) return formatAverage(numericValue);
                         return currency
                             ? formatCurrency(numericValue)
                             : formatCount(numericValue);
@@ -524,6 +528,9 @@ export default function DevDashboardPage() {
     const [showAllAbandoned, setShowAllAbandoned] = useState(false);
     const [abandonmentView, setAbandonmentView] = useState<"percentage" | "absolute">(
         "percentage"
+    );
+    const [activatedUsersView, setActivatedUsersView] = useState<"total" | "perDay">(
+        "total"
     );
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
@@ -1099,9 +1106,28 @@ export default function DevDashboardPage() {
                             />
                             <div className="grid gap-5 xl:grid-cols-2">
                                 <MetricChart
-                                    title="Usuários ativados"
-                                    series={data.series.activatedUsers}
+                                    title={
+                                        activatedUsersView === "total"
+                                            ? "Usuários ativados"
+                                            : "Usuários/dia ativados"
+                                    }
+                                    series={
+                                        activatedUsersView === "total"
+                                            ? data.series.activatedUsers
+                                            : data.series.activatedUsersPerDay
+                                    }
                                     color="#f14400"
+                                    decimal={activatedUsersView === "perDay"}
+                                    actionLabel={
+                                        activatedUsersView === "total"
+                                            ? "Usuários/dia ativados"
+                                            : "Usuários ativados"
+                                    }
+                                    onAction={() =>
+                                        setActivatedUsersView((current) =>
+                                            current === "total" ? "perDay" : "total"
+                                        )
+                                    }
                                 />
                                 <MetricChart
                                     title="Usuários ativos"
@@ -2175,12 +2201,18 @@ function MetricChart({
     color,
     currency = false,
     percentage = false,
+    decimal = false,
+    actionLabel,
+    onAction,
 }: {
     title: string;
     series: SeriesPoint[];
     color: string;
     currency?: boolean;
     percentage?: boolean;
+    decimal?: boolean;
+    actionLabel?: string;
+    onAction?: () => void;
 }) {
     const chartData = {
         labels: series.map((point) => point.label),
@@ -2202,12 +2234,23 @@ function MetricChart({
 
     return (
         <article className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
-            <h3 className="text-base font-semibold text-gray-900">{title}</h3>
+            <div className="flex items-center justify-between gap-3">
+                <h3 className="text-base font-semibold text-gray-900">{title}</h3>
+                {actionLabel && onAction && (
+                    <button
+                        type="button"
+                        onClick={onAction}
+                        className="shrink-0 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-600 transition hover:bg-gray-50"
+                    >
+                        {actionLabel}
+                    </button>
+                )}
+            </div>
             <div className="mt-4 h-[280px]">
                 {series.length ? (
                     <Line
                         data={chartData}
-                        options={lineOptions(currency, percentage)}
+                        options={lineOptions(currency, percentage, decimal)}
                     />
                 ) : (
                     <EmptyChart />
