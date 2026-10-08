@@ -360,6 +360,63 @@ test("failed synthesis persists a partial report and proposals rather than losin
   expect(finished[3]).toBeTruthy();
 });
 
+test("failed tool calls persist the exact error and arguments in run cycles", async () => {
+  const originalQuery = (query as jest.Mock).getMockImplementation()!;
+  (query as jest.Mock).mockImplementation((sql: string, ...params: any[]) =>
+    sql.includes("SELECT * FROM public.ia_vendas_conversations")
+      ? Promise.resolve({ rows: [{ kind: "chat", summary: "" }] })
+      : originalQuery(sql, ...params),
+  );
+  const payload = {
+    title: "Atualizar descrições",
+    reason: "Seguir o padrão pedido",
+    operations: [
+      {
+        entity: "items",
+        kind: "update",
+        id: "item-1",
+        values: { description: "Descrição nova" },
+      },
+    ],
+  };
+  (propose as jest.Mock).mockRejectedValueOnce(
+    new Error("Falha exata da proposta."),
+  );
+  create
+    .mockResolvedValueOnce({
+      status: "completed",
+      output: [
+        {
+          type: "function_call",
+          name: "propose_action",
+          arguments: JSON.stringify(payload),
+          call_id: "failed-proposal",
+        },
+      ],
+      usage: { input_tokens: 1000, output_tokens: 100 },
+    })
+    .mockResolvedValueOnce({
+      status: "completed",
+      output: [],
+      output_text: JSON.stringify({ reply: "Não consegui concluir.", summary: "" }),
+      usage: { input_tokens: 1000, output_tokens: 100 },
+    });
+
+  await runChat({ ...args, deep: false });
+
+  const toolCycle = (recordTokens as jest.Mock).mock.calls
+    .map((call) => call[4])
+    .find((cycle) => cycle?.call_id === "failed-proposal");
+
+  expect(toolCycle).toMatchObject({
+    phase: "tool",
+    name: "propose_action",
+    status: "failed",
+    error: "Falha exata da proposta.",
+    arguments: JSON.stringify(payload),
+  });
+});
+
 test("deep analysis never makes more than three model rounds", async () => {
   const toolResponse = (call: string) => ({
     status: "completed",
