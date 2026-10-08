@@ -111,6 +111,11 @@ type ConsumerTimeline = {
     averageCartCents: SeriesPoint[];
 };
 
+type PageViewTimeline = {
+    landingPageViews: SeriesPoint[];
+    publicContentPageViews: SeriesPoint[];
+};
+
 function getBearerToken(request: Request): string | null {
     const authorization = request.headers.get("authorization")?.trim();
     const match = authorization?.match(/^Bearer\s+(.+)$/i);
@@ -833,6 +838,119 @@ async function loadPostHogSeoTraffic(
 }
 
 
+async function loadPostHogPageViewTimeline(
+    buckets: Bucket[]
+): Promise<PageViewTimeline> {
+    const personalApiKey = process.env.POSTHOG_PERSONAL_API_KEY?.trim();
+    const projectId = process.env.POSTHOG_PROJECT_ID?.trim();
+    const rawHost =
+        process.env.POSTHOG_API_HOST?.trim() ||
+        process.env.NEXT_PUBLIC_POSTHOG_HOST?.trim();
+
+    if (!personalApiKey || !projectId || !rawHost || !buckets.length) {
+        return {
+            landingPageViews: [],
+            publicContentPageViews: [],
+        };
+    }
+
+    const publicContentPaths = [
+        "/",
+        ...PUBLIC_CONTENT_PAGES
+            .filter((page) => page.kind !== "Ferramenta" && page.path !== "/ferramentas")
+            .map((page) => page.path),
+    ];
+    const publicContentPathList = publicContentPaths
+        .map((path) => `'${path.replace(/'/g, "\\'")}'`)
+        .join(", ");
+    const bucketExpression = buckets
+        .map(
+            (bucket, index) => `
+                timestamp >= parseDateTimeBestEffort('${new Date(
+                    bucket.start
+                ).toISOString()}')
+                AND timestamp < parseDateTimeBestEffort('${new Date(
+                    bucket.end
+                ).toISOString()}'), ${index}`
+        )
+        .join(",");
+
+    const start = new Date(buckets[0].start).toISOString();
+    const end = new Date(buckets[buckets.length - 1].end).toISOString();
+    const hogql = `
+        SELECT
+            multiIf(${bucketExpression}, -1) AS bucket_index,
+            countIf(properties.$pathname = '/') AS landing_pageviews,
+            countIf(properties.$pathname IN (${publicContentPathList})) AS public_content_pageviews
+        FROM events
+        WHERE timestamp >= parseDateTimeBestEffort('${start}')
+          AND timestamp < parseDateTimeBestEffort('${end}')
+          AND event = '$pageview'
+        GROUP BY bucket_index
+        HAVING bucket_index >= 0
+        ORDER BY bucket_index
+    `;
+
+    try {
+        const response = await fetch(
+            `${postHogApiHost(rawHost)}/api/projects/${encodeURIComponent(
+                projectId
+            )}/query/`,
+            {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${personalApiKey}`,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    query: {
+                        kind: "HogQLQuery",
+                        query: hogql,
+                    },
+                }),
+                signal: AbortSignal.timeout(15_000),
+                cache: "no-store",
+            }
+        );
+
+        if (!response.ok) {
+            throw new Error(`PostHog query failed with ${response.status}.`);
+        }
+
+        const payload = (await response.json()) as { results?: unknown[][] };
+        const byBucket = new Map(
+            (payload.results || []).map(
+                (row) =>
+                    [
+                        Number(row[0]),
+                        {
+                            landingPageViews: Number(row[1]) || 0,
+                            publicContentPageViews: Number(row[2]) || 0,
+                        },
+                    ] as const
+            )
+        );
+
+        return {
+            landingPageViews: buckets.map((bucket, index) => ({
+                label: bucket.label,
+                value: byBucket.get(index)?.landingPageViews || 0,
+            })),
+            publicContentPageViews: buckets.map((bucket, index) => ({
+                label: bucket.label,
+                value: byBucket.get(index)?.publicContentPageViews || 0,
+            })),
+        };
+    } catch (error) {
+        console.warn("[DEV_DASHBOARD] Page view timeline unavailable:", error);
+        return {
+            landingPageViews: [],
+            publicContentPageViews: [],
+        };
+    }
+}
+
+
 async function loadPostHogConsumerTimeline(
     buckets: Bucket[]
 ): Promise<ConsumerTimeline> {
@@ -1015,6 +1133,7 @@ export async function GET(request: Request) {
             panelTabUsage,
             consumerTracking,
             consumerTimeline,
+            pageViewTimeline,
             seoTraffic,
             orderCountResult,
             deviceUsageResult,
@@ -1058,6 +1177,7 @@ export async function GET(request: Request) {
                 loadPostHogPanelTabUsage(startAt, endAt),
                 loadPostHogConsumerMetrics(startAt, endAt),
                 loadPostHogConsumerTimeline(buckets),
+                loadPostHogPageViewTimeline(buckets),
                 loadPostHogSeoTraffic(startAt, endAt),
                 query<OrderCountRow>(
                     `
@@ -1514,6 +1634,7 @@ export async function GET(request: Request) {
                     blogViews: postHog.blogViews,
                     publicContentPageViews: postHog.publicContentPageViews,
                     totalPageViews: postHog.totalPageViews,
+                    timeline: pageViewTimeline,
                 },
                 panelTabs: panelTabUsage,
                 traffic: seoTraffic,
