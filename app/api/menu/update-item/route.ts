@@ -52,6 +52,18 @@ export async function POST(request: Request) {
         // Helper to delete storage object if path hints at storage key
         async function tryRemoveStorageObject(path: string | null) {
             if (!path) return;
+            // Do not delete an image that other items still reference.
+            const { data: otherItems, error: refsErr } = await supabase
+                .from("items")
+                .select("id")
+                .eq("image_path", path)
+                .neq("id", itemId)
+                .limit(1);
+            if (refsErr) {
+                console.warn("Falha ao verificar imagem compartilhada:", refsErr);
+                return;
+            }
+            if (otherItems?.length) return;
             // case 1: you saved a storage key like "menu-images/...."
             if (path.startsWith("menu-images/")) {
                 try {
