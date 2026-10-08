@@ -21,20 +21,28 @@ export async function POST(req: Request) {
 
         if (fetchErr) return NextResponse.json({ error: "Erro ao buscar item", detail: fetchErr }, { status: 500 });
 
-        // Deletar imagem do storage se existir
-        if (item?.image_path) {
-            const { error: removeErr } = await supabaseAdmin.storage
-                .from("menu-images")
-                .remove([item.image_path]);
-
-            if (removeErr) console.error("Erro ao remover imagem:", removeErr);
-        }
-
         // Chamar RPC que limpa DB
         const { data: rpcData, error: rpcErr } = await supabaseAdmin
             .rpc("delete_item_completely", { p_item_id: itemId });
 
         if (rpcErr) return NextResponse.json({ error: "Erro ao deletar item no DB", detail: rpcErr }, { status: 500 });
+
+        // Preserve files still shared by other menu items.
+        if (item?.image_path) {
+            const { count, error: refsErr } = await supabaseAdmin
+                .from("items")
+                .select("id", { count: "exact", head: true })
+                .eq("image_path", item.image_path);
+
+            if (refsErr) {
+                console.error("Erro ao verificar imagem compartilhada:", refsErr);
+            } else if (count === 0) {
+                const { error: removeErr } = await supabaseAdmin.storage
+                    .from("menu-images")
+                    .remove([item.image_path]);
+                if (removeErr) console.error("Erro ao remover imagem:", removeErr);
+            }
+        }
 
         return NextResponse.json({ ok: true, rpcData });
     } catch (err) {

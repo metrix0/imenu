@@ -118,6 +118,10 @@ type DashboardPayload = {
         blogViews: number | null;
         publicContentPageViews: number | null;
         totalPageViews: number | null;
+        timeline: {
+            landingPageViews: SeriesPoint[];
+            publicContentPageViews: SeriesPoint[];
+        };
     };
     panelTabs: {
         available: boolean;
@@ -389,13 +393,18 @@ function formatRestaurantNameForMessage(value: string): string {
         .join(" ");
 }
 
-function lineOptions(currency = false, percentage = false, decimal = false) {
+function lineOptions(
+    currency = false,
+    percentage = false,
+    decimal = false,
+    showLegend = false
+) {
     return {
         responsive: true,
         maintainAspectRatio: false,
         interaction: { mode: "index" as const, intersect: false },
         plugins: {
-            legend: { display: false },
+            legend: { display: showLegend },
             tooltip: {
                 callbacks: {
                     label: (context: any) => {
@@ -1155,6 +1164,17 @@ export default function DevDashboardPage() {
                                     series={data.series.onlineMoneyHandledCents}
                                     color="#0891b2"
                                     currency
+                                />
+                                <MetricChart
+                                    title="Page views (LP e Blog)"
+                                    series={data.tracking.timeline.landingPageViews}
+                                    color="#f14400"
+                                    seriesLabel="LP"
+                                    secondarySeries={
+                                        data.tracking.timeline.publicContentPageViews
+                                    }
+                                    secondaryLabel="Blog + LPs"
+                                    secondaryColor="#2563eb"
                                 />
                             </div>
                         </section>
@@ -2202,6 +2222,10 @@ function MetricChart({
     currency = false,
     percentage = false,
     decimal = false,
+    seriesLabel,
+    secondarySeries,
+    secondaryLabel,
+    secondaryColor,
     actionLabel,
     onAction,
 }: {
@@ -2211,14 +2235,20 @@ function MetricChart({
     currency?: boolean;
     percentage?: boolean;
     decimal?: boolean;
+    seriesLabel?: string;
+    secondarySeries?: SeriesPoint[];
+    secondaryLabel?: string;
+    secondaryColor?: string;
     actionLabel?: string;
     onAction?: () => void;
 }) {
     const chartData = {
-        labels: series.map((point) => point.label),
+        labels: (series.length ? series : secondarySeries || []).map(
+            (point) => point.label
+        ),
         datasets: [
             {
-                label: title,
+                label: seriesLabel || title,
                 data: series.map((point) =>
                     currency ? point.value / 100 : point.value
                 ),
@@ -2229,6 +2259,20 @@ function MetricChart({
                 tension: 0.3,
                 fill: false,
             },
+            ...(secondarySeries && secondaryLabel && secondaryColor
+                ? [
+                      {
+                          label: secondaryLabel,
+                          data: secondarySeries.map((point) => point.value),
+                          borderColor: secondaryColor,
+                          backgroundColor: secondaryColor,
+                          pointRadius: 2,
+                          pointHoverRadius: 5,
+                          tension: 0.3,
+                          fill: false,
+                      },
+                  ]
+                : []),
         ],
     };
 
@@ -2247,10 +2291,15 @@ function MetricChart({
                 )}
             </div>
             <div className="mt-4 h-[280px]">
-                {series.length ? (
+                {series.length || secondarySeries?.length ? (
                     <Line
                         data={chartData}
-                        options={lineOptions(currency, percentage, decimal)}
+                        options={lineOptions(
+                            currency,
+                            percentage,
+                            decimal,
+                            Boolean(secondarySeries?.length)
+                        )}
                     />
                 ) : (
                     <EmptyChart />
