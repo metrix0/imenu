@@ -254,6 +254,55 @@ function distinctAccounts(orders: NormalizedOrder[]): number {
     return distinctAccountSet(orders).size;
 }
 
+const PURCHASE_DAY_FORMATTER = new Intl.DateTimeFormat("en-CA", {
+    timeZone: TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+});
+
+function purchaseDayKey(timestamp: number): string {
+    return PURCHASE_DAY_FORMATTER.format(new Date(timestamp));
+}
+
+function accountsWithMinPurchaseDays(
+    orders: NormalizedOrder[],
+    minimumDays: number
+): Set<string> {
+    const daysByAccount = new Map<string, Set<string>>();
+
+    for (const order of orders) {
+        if (order.status !== "done") continue;
+        const days = daysByAccount.get(order.accountId) || new Set<string>();
+        days.add(purchaseDayKey(order.createdAt));
+        daysByAccount.set(order.accountId, days);
+    }
+
+    return new Set(
+        [...daysByAccount.entries()]
+            .filter(([, days]) => days.size >= minimumDays)
+            .map(([accountId]) => accountId)
+    );
+}
+
+function activeUserAccountSet(
+    orders: NormalizedOrder[],
+    asOf: number
+): Set<string> {
+    const eligible = accountsWithMinPurchaseDays(
+        ordersInside(orders, asOf - 30 * DAY_MS, asOf),
+        2
+    );
+    const recent = accountsWithMinPurchaseDays(
+        ordersInside(orders, asOf - 14 * DAY_MS, asOf),
+        1
+    );
+
+    return new Set(
+        [...eligible].filter((accountId) => recent.has(accountId))
+    );
+}
+
 function distinctCustomers(orders: NormalizedOrder[]): number {
     return new Set(
         orders
@@ -362,12 +411,16 @@ function churnAccountSets(
     eligibleActiveUsers: Set<string>;
     eligibleActiveCustomerUsers: Set<string>;
 } {
-    const inactivityStart = asOf - 7 * DAY_MS;
-    const priorActiveWindow = ordersInside(
-        orders,
-        inactivityStart - 7 * DAY_MS,
-        inactivityStart
+    const eligibleActiveUsers = accountsWithMinPurchaseDays(
+        ordersInside(orders, asOf - 30 * DAY_MS, asOf),
+        2
     );
+    const recentlyActiveUsers = accountsWithMinPurchaseDays(
+        ordersInside(orders, asOf - 14 * DAY_MS, asOf),
+        1
+    );
+
+    const inactivityStart = asOf - 7 * DAY_MS;
     const priorCustomerWindow = ordersInside(
         orders,
         inactivityStart - 30 * DAY_MS,
@@ -376,16 +429,13 @@ function churnAccountSets(
     const accountsWithRecentOrders = distinctAccountSet(
         ordersInside(orders, inactivityStart, asOf)
     );
-    const previouslyActiveAccounts = distinctAccountSet(
-        priorActiveWindow.filter((order) => order.status === "done")
-    );
     const previouslyQualifiedCustomerAccounts =
         customerQualifiedAccounts(priorCustomerWindow);
 
     return {
         abandonedActiveUsers: new Set(
-            [...previouslyActiveAccounts].filter(
-                (accountId) => !accountsWithRecentOrders.has(accountId)
+            [...eligibleActiveUsers].filter(
+                (accountId) => !recentlyActiveUsers.has(accountId)
             )
         ),
         abandonedActiveCustomerUsers: new Set(
@@ -393,7 +443,7 @@ function churnAccountSets(
                 (accountId) => !accountsWithRecentOrders.has(accountId)
             )
         ),
-        eligibleActiveUsers: previouslyActiveAccounts,
+        eligibleActiveUsers,
         eligibleActiveCustomerUsers: previouslyQualifiedCustomerAccounts,
     };
 }
@@ -1130,9 +1180,7 @@ export async function GET(request: Request) {
         const churnSets = churnAccountSets(history, endAt);
         const cards = {
             activatedUsers: activatedAccounts.size,
-            activeUsers: distinctAccounts(
-                activeWindow.filter((order) => order.status === "done")
-            ),
+            activeUsers: activeUserAccountSet(history, endAt).size,
             realActiveUsers: realActiveAccounts(activeWindow),
             activeCustomerUsers: activeCustomerAccountSet.size,
             moneyHandledCents: handledMoney(selected),
@@ -1158,9 +1206,7 @@ export async function GET(request: Request) {
                 previousStartAt,
                 startAt
             ).size,
-            activeUsers: distinctAccounts(
-                previousActiveWindow.filter((order) => order.status === "done")
-            ),
+            activeUsers: activeUserAccountSet(history, startAt).size,
             realActiveUsers: realActiveAccounts(previousActiveWindow),
             activeCustomerUsers: customerQualifiedAccounts(previousCustomerWindow).size,
             moneyHandledCents: handledMoney(previousSelected),
@@ -1254,9 +1300,6 @@ export async function GET(request: Request) {
                 bucket.end - 7 * DAY_MS,
                 bucket.end
             );
-            const bucketDoneOrders = activeBucketWindow.filter(
-                (order) => order.status === "done"
-            );
             const churn = churnAt(history, bucket.end);
 
             metricSeries.activatedUsers.push({
@@ -1269,7 +1312,7 @@ export async function GET(request: Request) {
             });
             metricSeries.activeUsers.push({
                 label: bucket.label,
-                value: distinctAccounts(bucketDoneOrders),
+                value: activeUserAccountSet(history, bucket.end).size,
             });
             metricSeries.realActiveUsers.push({
                 label: bucket.label,

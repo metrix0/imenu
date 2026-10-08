@@ -20,6 +20,10 @@ import Loader from "@/components/ui/Loader";
 import Switch from "@/components/ui/Switch";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import Textarea from "@/components/ui/Textarea";
+import {
+    DID_NOT_ACTIVATE_BLAST_MESSAGE,
+    DID_NOT_ACTIVATE_BLAST_PREFILL_STORAGE_KEY,
+} from "@/lib/dev/didNotActivateBlast";
 import { supabase } from "@/lib/database/supabaseClient";
 
 const ALLOWED_DEV_EMAIL = "joaovralmeida@hotmail.com";
@@ -347,6 +351,39 @@ export default function DevSupportPage() {
     const [selectedBlastId, setSelectedBlastId] = useState<string | null>(null);
     const [blastRecipients, setBlastRecipients] = useState<BlastRecipient[]>([]);
     const [blastAction, setBlastAction] = useState("");
+
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get("blast") !== "did-not-activate") return;
+
+        const stored = window.sessionStorage.getItem(
+            DID_NOT_ACTIVATE_BLAST_PREFILL_STORAGE_KEY
+        );
+        if (!stored) return;
+
+        try {
+            const prefill = JSON.parse(stored) as {
+                phones?: string;
+                message?: string;
+            };
+            if (!prefill.phones) return;
+
+            setBulkPhones(prefill.phones);
+            setBulkMessage(
+                prefill.message === DID_NOT_ACTIVATE_BLAST_MESSAGE
+                    ? prefill.message
+                    : DID_NOT_ACTIVATE_BLAST_MESSAGE
+            );
+            setBulkSender("blast");
+            setBulkSkipRecent(false);
+        } catch {
+            // Ignore invalid one-time prefill data.
+        } finally {
+            window.sessionStorage.removeItem(
+                DID_NOT_ACTIVATE_BLAST_PREFILL_STORAGE_KEY
+            );
+        }
+    }, []);
 
     const getAccessToken = useCallback(async () => {
         const {
