@@ -1057,7 +1057,7 @@ export async function GET(request: Request) {
                 (a, b) =>
                     Number(b.activeCustomerAbandoned) -
                         Number(a.activeCustomerAbandoned) ||
-                    b.previousWeekGmvCents - a.previousWeekGmvCents ||
+                    b.last30DaysGmvCents - a.last30DaysGmvCents ||
                     a.restaurantName.localeCompare(b.restaurantName, "pt-BR")
             );
 
