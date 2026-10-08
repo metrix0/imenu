@@ -1277,6 +1277,7 @@ export async function GET(request: Request) {
 
         const metricSeries = {
             activatedUsers: [] as SeriesPoint[],
+            activatedUsersPerDay: [] as SeriesPoint[],
             activeUsers: [] as SeriesPoint[],
             realActiveUsers: [] as SeriesPoint[],
             activeCustomerUsers: [] as SeriesPoint[],
@@ -1309,6 +1310,18 @@ export async function GET(request: Request) {
                     bucket.start,
                     bucket.end
                 ).size,
+            });
+            metricSeries.activatedUsersPerDay.push({
+                label: bucket.label,
+                value: Number(
+                    (
+                        activatedAccountSet(
+                            firstOrders,
+                            bucket.end - 7 * DAY_MS,
+                            bucket.end
+                        ).size / 7
+                    ).toFixed(2)
+                ),
             });
             metricSeries.activeUsers.push({
                 label: bucket.label,
