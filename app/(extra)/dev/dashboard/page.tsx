@@ -17,11 +17,16 @@ import { Bar, Line } from "react-chartjs-2";
 import ConsumerPipelineCard from "@/components/analytics/ConsumerPipelineCard";
 import SalesRankingSection from "@/components/analytics/SalesRankingSection";
 import IaAssistantConversationsSection from "@/components/dev/IaAssistantConversationsSection";
+import Button from "@/components/ui/Button";
 import InfoTooltip from "@/components/ui/Tooltip";
 import { PanelIcon } from "@/components/ui/PanelIcon";
 import { faCircleInfo } from "@fortawesome/free-solid-svg-icons";
 import type { ProductOverview } from "@/lib/analytics/productOverview";
 import type { ConsumerPipelineStep } from "@/lib/analytics/consumerPipeline";
+import {
+    DID_NOT_ACTIVATE_BLAST_MESSAGE,
+    DID_NOT_ACTIVATE_BLAST_PREFILL_STORAGE_KEY,
+} from "@/lib/dev/didNotActivateBlast";
 import { supabase } from "@/lib/database/supabaseClient";
 
 ChartJS.register(
@@ -136,15 +141,23 @@ type DashboardPayload = {
 };
 
 type DashboardDetailsPayload = {
+    didNotActivateUsers: Array<{
+        restaurantId: string;
+        restaurantName: string;
+        ownerPhone: string | null;
+        orderAttempts: number;
+        lastOrderAt: string;
+        alreadyBlastedThisMonth: boolean;
+    }>;
     abandonedUsers: Array<{
         accountId: string;
         restaurantName: string;
         phone: string | null;
         storeWhatsapp: string | null;
         activeCustomerAbandoned: boolean;
-        previousWeekOrders: number;
-        previousWeekCustomers: number;
-        previousWeekGmvCents: number;
+        last30DaysOrders: number;
+        last30DaysCustomers: number;
+        last30DaysGmvCents: number;
         lastOrderAt: string | null;
     }>;
     trafficSummary: {
@@ -322,6 +335,10 @@ function formatPhone(value: string | null): string {
         return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
     }
     return original || "—";
+}
+
+function escapeMarkdownTableCell(value: string): string {
+    return value.replace(/\r?\n/g, " ").replace(/\|/g, "\\|").trim();
 }
 
 function normalizeWhatsappNumber(value: string | null): string | null {
@@ -503,6 +520,7 @@ export default function DevDashboardPage() {
     const [accessState, setAccessState] = useState<AccessState>("checking");
     const [data, setData] = useState<DashboardPayload | null>(null);
     const [details, setDetails] = useState<DashboardDetailsPayload | null>(null);
+    const [showAllDidNotActivate, setShowAllDidNotActivate] = useState(false);
     const [showAllAbandoned, setShowAllAbandoned] = useState(false);
     const [abandonmentView, setAbandonmentView] = useState<"percentage" | "absolute">(
         "percentage"
@@ -510,12 +528,43 @@ export default function DevDashboardPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
 
+    const didNotActivateBlastRecipients =
+        details?.didNotActivateUsers.filter(
+            (user) =>
+                Boolean(user.ownerPhone) &&
+                !user.alreadyBlastedThisMonth
+        ) || [];
+
+    const openDidNotActivateBlast = () => {
+        if (!didNotActivateBlastRecipients.length) return;
+
+        const rows = didNotActivateBlastRecipients.map(
+            (user) =>
+                `| ${escapeMarkdownTableCell(user.restaurantName)} | ${user.ownerPhone} |`
+        );
+        const phones = [
+            "| Nome Restaurante | WhatsApp |",
+            "| --- | --- |",
+            ...rows,
+        ].join("\n");
+
+        window.sessionStorage.setItem(
+            DID_NOT_ACTIVATE_BLAST_PREFILL_STORAGE_KEY,
+            JSON.stringify({
+                phones,
+                message: DID_NOT_ACTIVATE_BLAST_MESSAGE,
+            })
+        );
+        router.push("/dev/support?blast=did-not-activate");
+    };
+
     useEffect(() => {
         const controller = new AbortController();
 
         const loadDashboard = async () => {
             setLoading(true);
             setError("");
+            setShowAllDidNotActivate(false);
             setShowAllAbandoned(false);
 
             try {
@@ -1008,7 +1057,7 @@ export default function DevDashboardPage() {
                                     title="Usuários ativos"
                                     value={formatCount(data.cards.activeUsers)}
                                     change={data.cardChanges.activeUsers}
-                                    description="Tiveram pelo menos um pedido concluído nos sete dias anteriores ao fim do período."
+                                    description="Tiveram pedidos concluídos em pelo menos 2 dias diferentes nos últimos 30 dias e em pelo menos 1 dia nos últimos 14 dias."
                                 />
                                 <MetricCard
                                     title="Usuários realmente ativos"
@@ -1046,7 +1095,7 @@ export default function DevDashboardPage() {
                                 title="Evolução dos indicadores"
                                 description={`Ativação e valores são agrupados por ${
                                     data.range.bucket === "week" ? "semana" : "dia"
-                                }; atividade usa janelas móveis de 7 e 30 dias.`}
+                                }; atividade usa janelas móveis de 7, 14 e 30 dias.`}
                             />
                             <div className="grid gap-5 xl:grid-cols-2">
                                 <MetricChart
@@ -1346,6 +1395,112 @@ export default function DevDashboardPage() {
                         <section>
                             <div className="mb-4 flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
                                 <div>
+                                    <h2 className="text-xl font-bold text-gray-900">
+                                        Não ativaram
+                                    </h2>
+                                    <p className="mt-1 text-sm text-gray-500">
+                                        Tiveram pedidos ou tentativas em apenas 1 dia diferente nos últimos 30 dias, independentemente do status.
+                                    </p>
+                                </div>
+                                <Button
+                                    onClick={openDidNotActivateBlast}
+                                    disabled={!didNotActivateBlastRecipients.length}
+                                >
+                                    Ir para Blast
+                                </Button>
+                            </div>
+
+                            <div className="grid gap-4 sm:grid-cols-2">
+                                <MetricCard
+                                    title="Usuários que não ativaram"
+                                    value={formatCount(
+                                        details?.didNotActivateUsers.length || 0
+                                    )}
+                                    description="Restaurantes com atividade de pedido em exatamente 1 dia nos últimos 30 dias."
+                                    danger
+                                />
+                                <MetricCard
+                                    title="Disponíveis para Blast"
+                                    value={formatCount(
+                                        didNotActivateBlastRecipients.length
+                                    )}
+                                    description="Possuem celular do responsável e ainda não receberam esta mesma mensagem neste mês."
+                                />
+                            </div>
+
+                            <div className="mt-5 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+                                <div className="border-b border-gray-200 px-5 py-4">
+                                    <h3 className="font-semibold text-gray-900">
+                                        Usuários que não ativaram
+                                    </h3>
+                                </div>
+                                {details?.didNotActivateUsers.length ? (
+                                    <>
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full min-w-[760px] text-left text-sm">
+                                                <thead className="border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
+                                                    <tr>
+                                                        <th className="px-5 py-4 font-semibold">Restaurante</th>
+                                                        <th className="px-5 py-4 font-semibold">Celular do responsável</th>
+                                                        <th className="px-5 py-4 text-right font-semibold">Tentativas</th>
+                                                        <th className="px-5 py-4 font-semibold">Última tentativa</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-gray-100">
+                                                    {(showAllDidNotActivate
+                                                        ? details.didNotActivateUsers
+                                                        : details.didNotActivateUsers.slice(0, 10)
+                                                    ).map((user) => (
+                                                        <tr
+                                                            key={user.restaurantId}
+                                                            className="hover:bg-gray-50/70"
+                                                        >
+                                                            <td className="px-5 py-4 font-medium text-gray-900">
+                                                                {user.restaurantName}
+                                                            </td>
+                                                            <td className="px-5 py-4 text-gray-600">
+                                                                {formatPhone(user.ownerPhone)}
+                                                            </td>
+                                                            <td className="px-5 py-4 text-right tabular-nums text-gray-700">
+                                                                {formatCount(user.orderAttempts)}
+                                                            </td>
+                                                            <td className="px-5 py-4 text-gray-600">
+                                                                {formatDateTime(user.lastOrderAt)}
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                        {details.didNotActivateUsers.length > 10 && (
+                                            <div className="border-t border-gray-100 p-3 text-center">
+                                                <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                        setShowAllDidNotActivate(
+                                                            (value) => !value
+                                                        )
+                                                    }
+                                                    className="rounded-lg px-4 py-2 text-sm font-semibold text-brand transition hover:bg-brand/5"
+                                                >
+                                                    {showAllDidNotActivate
+                                                        ? "Mostrar menos"
+                                                        : `Mostrar mais (${details.didNotActivateUsers.length - 10})`}
+                                                </button>
+                                            </div>
+                                        )}
+                                    </>
+                                ) : (
+                                    <div className="px-5 py-8 text-center text-sm text-gray-400">
+                                        Nenhum usuário nessa condição.
+                                    </div>
+                                )}
+                            </div>
+                        </section>
+
+                        <section>
+                            <div className="mb-4 flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
+                                <div>
                                     <h2 className="text-xl font-bold text-gray-900">Abandono</h2>
                                     <p className="mt-1 text-sm text-gray-500">
                                         Situação calculada em relação ao fim do período selecionado e ao fim de cada intervalo do gráfico.
@@ -1382,7 +1537,7 @@ export default function DevDashboardPage() {
                                     value={formatCount(
                                         data.cards.abandonedActiveUsers
                                     )}
-                                    description="Tiveram pedido concluído na semana anterior e nenhum pedido nos sete dias seguintes."
+                                    description="Tiveram pedidos concluídos em pelo menos 2 dias diferentes nos últimos 30 dias e nenhum dia com pedido concluído nos últimos 14 dias."
                                     danger
                                 />
                                 <MetricCard
@@ -1445,13 +1600,13 @@ export default function DevDashboardPage() {
                                                                     {formatPhone(user.storeWhatsapp)}
                                                                 </td>
                                                                 <td className="px-5 py-4 text-right tabular-nums text-gray-700">
-                                                                    {formatCount(user.previousWeekOrders)}
+                                                                    {formatCount(user.last30DaysOrders)}
                                                                 </td>
                                                                 <td className="px-5 py-4 text-right tabular-nums text-gray-700">
-                                                                    {formatCount(user.previousWeekCustomers)}
+                                                                    {formatCount(user.last30DaysCustomers)}
                                                                 </td>
                                                                 <td className="px-5 py-4 text-right font-semibold tabular-nums text-gray-900">
-                                                                    {formatCurrencyFromCents(user.previousWeekGmvCents)}
+                                                                    {formatCurrencyFromCents(user.last30DaysGmvCents)}
                                                                 </td>
                                                                 <td className="px-5 py-4 text-gray-600">
                                                                     {formatDateTime(user.lastOrderAt)}
@@ -1942,7 +2097,7 @@ function ProductOverviewSections({ metrics }: { metrics: ProductOverview }) {
                                 title={product.key === "imenu" ? "Churn (ativos abandonados)" : "Churn (pagantes perdidos)"}
                                 value={metric.churn === null ? "—" : formatRatio(metric.churn)}
                                 info={product.key === "imenu"
-                                    ? `Pedidos · ${churned} ÷ ${base} × 100. Base: concluído nos dias 8–14; abandono: nenhum pedido nos últimos 7 dias.`
+                                    ? `Pedidos · ${churned} ÷ ${base} × 100. Base: pelo menos 2 dias com pedidos concluídos nos últimos 30 dias; abandono: nenhum dia com pedido concluído nos últimos 14 dias.`
                                     : `Pagamentos/add-ons · ${churned} ÷ ${base} × 100. Base: pagantes no início. Cartão: cancelamento/vencimento; Pix pré-pago: fim da validade.`}
                             />
                         </div>

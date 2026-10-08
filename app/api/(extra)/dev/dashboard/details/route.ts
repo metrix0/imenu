@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
 import { CONSUMER_EVENTS } from "@/lib/analytics/consumerEvents";
+import { DID_NOT_ACTIVATE_BLAST_MESSAGE } from "@/lib/dev/didNotActivateBlast";
 import { query } from "@/lib/database/sql";
 
 export const runtime = "nodejs";
@@ -40,6 +41,15 @@ type AccountDetailsRow = {
     restaurant_name: string;
     phone: string | null;
     store_whatsapp: string | null;
+};
+
+type DidNotActivateRow = {
+    restaurant_id: string;
+    restaurant_name: string;
+    owner_phone: string | null;
+    order_attempts: number | string;
+    last_order_at: string | Date;
+    already_blasted_this_month: boolean;
 };
 
 type QrTablePurchaseSummaryRow = {
@@ -187,6 +197,37 @@ function ordersInside(
 
 function distinctAccountSet(orders: NormalizedOrder[]): Set<string> {
     return new Set(orders.map((order) => order.accountId));
+}
+
+const PURCHASE_DAY_FORMATTER = new Intl.DateTimeFormat("en-CA", {
+    timeZone: TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+});
+
+function purchaseDayKey(timestamp: number): string {
+    return PURCHASE_DAY_FORMATTER.format(new Date(timestamp));
+}
+
+function accountsWithMinPurchaseDays(
+    orders: NormalizedOrder[],
+    minimumDays: number
+): Set<string> {
+    const daysByAccount = new Map<string, Set<string>>();
+
+    for (const order of orders) {
+        if (order.status !== "done") continue;
+        const days = daysByAccount.get(order.accountId) || new Set<string>();
+        days.add(purchaseDayKey(order.createdAt));
+        daysByAccount.set(order.accountId, days);
+    }
+
+    return new Set(
+        [...daysByAccount.entries()]
+            .filter(([, days]) => days.size >= minimumDays)
+            .map(([accountId]) => accountId)
+    );
 }
 
 function isHandledOrder(order: NormalizedOrder): boolean {
@@ -546,10 +587,12 @@ export async function GET(request: Request) {
         const endAt = toTimestamp(bounds.end_at);
         const inactivityStart = endAt - 7 * DAY_MS;
         const historyStart = inactivityStart - 30 * DAY_MS;
+        const didNotActivateStart = endAt - 30 * DAY_MS;
 
         const [
             historyResult,
             accountDetailsResult,
+            didNotActivateResult,
             trafficSummary,
             funnelSummary,
             qrTableFunnelSummary,
@@ -599,6 +642,103 @@ export async function GET(request: Request) {
                     FROM restaurants
                     GROUP BY COALESCE(user_id::text, id::text)
                 `
+            ),
+            query<DidNotActivateRow>(
+                `
+                    WITH raw_candidates AS (
+                        SELECT
+                            r.id::text AS restaurant_id,
+                            COALESCE(
+                                NULLIF(BTRIM(r.name), ''),
+                                'Restaurante'
+                            ) AS restaurant_name,
+                            COALESCE(
+                                NULLIF(
+                                    regexp_replace(
+                                        COALESCE(r.phone, ''),
+                                        '[^0-9]',
+                                        '',
+                                        'g'
+                                    ),
+                                    ''
+                                ),
+                                NULLIF(
+                                    regexp_replace(
+                                        COALESCE(
+                                            u.raw_user_meta_data->>'phone',
+                                            ''
+                                        ),
+                                        '[^0-9]',
+                                        '',
+                                        'g'
+                                    ),
+                                    ''
+                                )
+                            ) AS owner_phone_raw,
+                            COUNT(*)::int AS order_attempts,
+                            MAX(o.created_at) AS last_order_at
+                        FROM restaurants AS r
+                        INNER JOIN orders AS o
+                            ON o.restaurant_id = r.id
+                        LEFT JOIN auth.users AS u
+                            ON u.id = r.user_id
+                        WHERE o.created_at >= $1
+                          AND o.created_at < $2
+                          AND o.table_id IS NULL
+                        GROUP BY
+                            r.id,
+                            r.name,
+                            r.phone,
+                            u.raw_user_meta_data
+                        HAVING COUNT(
+                            DISTINCT (
+                                o.created_at AT TIME ZONE $3
+                            )::date
+                        ) = 1
+                    ),
+                    candidates AS (
+                        SELECT
+                            restaurant_id,
+                            restaurant_name,
+                            CASE
+                                WHEN owner_phone_raw LIKE '55%'
+                                  AND LENGTH(owner_phone_raw) IN (12, 13)
+                                    THEN SUBSTRING(owner_phone_raw FROM 3)
+                                ELSE owner_phone_raw
+                            END AS owner_phone,
+                            order_attempts,
+                            last_order_at
+                        FROM raw_candidates
+                    )
+                    SELECT
+                        candidate.*,
+                        EXISTS (
+                            SELECT 1
+                            FROM support_blast_recipients AS recipient
+                            INNER JOIN support_blast_campaigns AS campaign
+                                ON campaign.id = recipient.campaign_id
+                            WHERE recipient.status = 'sent'
+                              AND campaign.message = $4
+                              AND campaign.created_at >=
+                                  date_trunc(
+                                      'month',
+                                      NOW() AT TIME ZONE $3
+                                  ) AT TIME ZONE $3
+                              AND candidate.owner_phone IS NOT NULL
+                              AND recipient.phone =
+                                  '55' || candidate.owner_phone
+                        ) AS already_blasted_this_month
+                    FROM candidates AS candidate
+                    ORDER BY
+                        candidate.last_order_at DESC,
+                        candidate.restaurant_name
+                `,
+                [
+                    new Date(didNotActivateStart).toISOString(),
+                    new Date(endAt).toISOString(),
+                    TIME_ZONE,
+                    DID_NOT_ACTIVATE_BLAST_MESSAGE,
+                ]
             ),
             loadTrafficSummary(startAt, endAt),
             loadFunnelSummary(startAt, endAt),
@@ -838,29 +978,50 @@ export async function GET(request: Request) {
         ]);
 
         const history = historyResult.rows.map(normalizeOrder);
-        const priorWeekDoneOrders = ordersInside(
+        const last30DayDoneOrders = ordersInside(
             history,
-            inactivityStart - 7 * DAY_MS,
-            inactivityStart
+            endAt - 30 * DAY_MS,
+            endAt
         ).filter((order) => order.status === "done");
+        const last14DayDoneOrders = ordersInside(
+            history,
+            endAt - 14 * DAY_MS,
+            endAt
+        ).filter((order) => order.status === "done");
+        const eligibleActiveAccounts = accountsWithMinPurchaseDays(
+            last30DayDoneOrders,
+            2
+        );
+        const recentlyActiveAccounts = accountsWithMinPurchaseDays(
+            last14DayDoneOrders,
+            1
+        );
         const accountsWithRecentOrders = distinctAccountSet(
             ordersInside(history, inactivityStart, endAt)
         );
-        const previouslyActiveAccounts = distinctAccountSet(priorWeekDoneOrders);
         const previouslyQualifiedCustomerAccounts = customerQualifiedAccounts(
             ordersInside(history, inactivityStart - 30 * DAY_MS, inactivityStart)
         );
-        const abandonedAccounts = [...previouslyActiveAccounts].filter(
-            (accountId) => !accountsWithRecentOrders.has(accountId)
+        const abandonedAccounts = [...eligibleActiveAccounts].filter(
+            (accountId) => !recentlyActiveAccounts.has(accountId)
         );
 
         const accountDetails = new Map(
             accountDetailsResult.rows.map((row) => [row.account_id, row])
         );
 
+        const didNotActivateUsers = didNotActivateResult.rows.map((row) => ({
+            restaurantId: row.restaurant_id,
+            restaurantName: row.restaurant_name,
+            ownerPhone: row.owner_phone,
+            orderAttempts: Number(row.order_attempts) || 0,
+            lastOrderAt: new Date(row.last_order_at).toISOString(),
+            alreadyBlastedThisMonth: row.already_blasted_this_month === true,
+        }));
+
         const abandonedUsers = abandonedAccounts
             .map((accountId) => {
-                const priorOrders = priorWeekDoneOrders.filter(
+                const priorOrders = last30DayDoneOrders.filter(
                     (order) => order.accountId === accountId
                 );
                 const details = accountDetails.get(accountId);
@@ -881,9 +1042,9 @@ export async function GET(request: Request) {
                     storeWhatsapp: details?.store_whatsapp || null,
                     activeCustomerAbandoned:
                         previouslyQualifiedCustomerAccounts.has(accountId),
-                    previousWeekOrders: priorOrders.length,
-                    previousWeekCustomers: customerKeys.size,
-                    previousWeekGmvCents: priorOrders.reduce(
+                    last30DaysOrders: priorOrders.length,
+                    last30DaysCustomers: customerKeys.size,
+                    last30DaysGmvCents: priorOrders.reduce(
                         (total, order) => total + order.totalCents,
                         0
                     ),
@@ -998,6 +1159,7 @@ export async function GET(request: Request) {
 
         return NextResponse.json(
             {
+                didNotActivateUsers,
                 abandonedUsers,
                 trafficSummary,
                 funnelSummary,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
     faCircleCheck,
@@ -17,14 +17,16 @@ import Card from "@/components/ui/Card";
 import Dropdown from "@/components/ui/Dropdown";
 import Input from "@/components/ui/Input";
 import Loader from "@/components/ui/Loader";
+import Switch from "@/components/ui/Switch";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import Textarea from "@/components/ui/Textarea";
+import {
+    DID_NOT_ACTIVATE_BLAST_MESSAGE,
+    DID_NOT_ACTIVATE_BLAST_PREFILL_STORAGE_KEY,
+} from "@/lib/dev/didNotActivateBlast";
 import { supabase } from "@/lib/database/supabaseClient";
 
 const ALLOWED_DEV_EMAIL = "joaovralmeida@hotmail.com";
-const BULK_SEND_MIN_DELAY_SECONDS = 15;
-const BULK_SEND_MAX_DELAY_SECONDS = 30;
-
 type BulkInputRecipient = {
     phone: string;
     values: Record<string, string>;
@@ -178,17 +180,28 @@ function renderBulkMessage(
 
 type AccessState = "checking" | "allowed" | "forbidden" | "signed-out";
 
-type BulkRecipientStatus =
-    | "pending"
-    | "sending"
-    | "sent"
-    | "skipped_recent"
-    | "failed";
+type BlastCampaign = {
+    id: string;
+    sender: "blast" | "support";
+    message: string;
+    daily_limit: number | null;
+    status: "running" | "paused" | "cancelled" | "completed";
+    total: number;
+    sent: number;
+    failed: number;
+    skipped: number;
+    pending: number;
+    created_at: string;
+    completed_at: string | null;
+};
 
-type BulkRecipientResult = {
+type BlastRecipient = {
+    id: number;
     phone: string;
-    status: BulkRecipientStatus;
-    error?: string;
+    status: string;
+    error: string | null;
+    scheduled_at: string;
+    sent_at: string | null;
 };
 
 type Connection = {
@@ -328,16 +341,49 @@ export default function DevSupportPage() {
     const [bulkPhones, setBulkPhones] = useState("");
     const [bulkMessage, setBulkMessage] = useState("");
     const [bulkSending, setBulkSending] = useState(false);
-    const [bulkSent, setBulkSent] = useState(0);
-    const [bulkTotal, setBulkTotal] = useState(0);
     const [bulkStatus, setBulkStatus] = useState("");
     const [bulkSkipRecent, setBulkSkipRecent] = useState(true);
     const [bulkSender, setBulkSender] = useState<"blast" | "support">("blast");
-    const [bulkRecipients, setBulkRecipients] = useState<BulkRecipientResult[]>([]);
-    const [bulkFailures, setBulkFailures] = useState<
-        Array<{ phone: string; error: string }>
-    >([]);
-    const bulkStopRef = useRef(false);
+    const [bulkCadenceEnabled, setBulkCadenceEnabled] = useState(false);
+    const [bulkCadence, setBulkCadence] = useState("200");
+    const [blastHistory, setBlastHistory] = useState<BlastCampaign[]>([]);
+    const [blastHistoryLoading, setBlastHistoryLoading] = useState(false);
+    const [selectedBlastId, setSelectedBlastId] = useState<string | null>(null);
+    const [blastRecipients, setBlastRecipients] = useState<BlastRecipient[]>([]);
+    const [blastAction, setBlastAction] = useState("");
+
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get("blast") !== "did-not-activate") return;
+
+        const stored = window.sessionStorage.getItem(
+            DID_NOT_ACTIVATE_BLAST_PREFILL_STORAGE_KEY
+        );
+        if (!stored) return;
+
+        try {
+            const prefill = JSON.parse(stored) as {
+                phones?: string;
+                message?: string;
+            };
+            if (!prefill.phones) return;
+
+            setBulkPhones(prefill.phones);
+            setBulkMessage(
+                prefill.message === DID_NOT_ACTIVATE_BLAST_MESSAGE
+                    ? prefill.message
+                    : DID_NOT_ACTIVATE_BLAST_MESSAGE
+            );
+            setBulkSender("blast");
+            setBulkSkipRecent(false);
+        } catch {
+            // Ignore invalid one-time prefill data.
+        } finally {
+            window.sessionStorage.removeItem(
+                DID_NOT_ACTIVATE_BLAST_PREFILL_STORAGE_KEY
+            );
+        }
+    }, []);
 
     const getAccessToken = useCallback(async () => {
         const {
@@ -380,6 +426,43 @@ export default function DevSupportPage() {
         setError("");
         setLoading(false);
     }, [getAccessToken]);
+
+    const loadBlastHistory = useCallback(async () => {
+        const token = await getAccessToken();
+        if (!token) return;
+        const response = await fetch("/api/dev/support?blast_history=1", {
+            headers: { Authorization: "Bearer " + token },
+            cache: "no-store",
+        });
+        const payload = (await response.json()) as { campaigns?: BlastCampaign[]; error?: string };
+        if (!response.ok) throw new Error(payload.error || "Erro ao carregar histórico.");
+        setBlastHistory(payload.campaigns || []);
+    }, [getAccessToken]);
+
+    const loadBlastRecipients = useCallback(async (id: string) => {
+        const token = await getAccessToken();
+        if (!token) return;
+        const response = await fetch("/api/dev/support?blast_id=" + encodeURIComponent(id), {
+            headers: { Authorization: "Bearer " + token },
+            cache: "no-store",
+        });
+        const payload = (await response.json()) as { recipients?: BlastRecipient[]; error?: string };
+        if (!response.ok) throw new Error(payload.error || "Erro ao carregar destinatários.");
+        setBlastRecipients(payload.recipients || []);
+    }, [getAccessToken]);
+
+    useEffect(() => {
+        if (accessState !== "allowed") return;
+        setBlastHistoryLoading(true);
+        void loadBlastHistory()
+            .catch((caught) => setError(caught instanceof Error ? caught.message : "Erro ao carregar histórico."))
+            .finally(() => setBlastHistoryLoading(false));
+        const timer = window.setInterval(() => {
+            void loadBlastHistory().catch(() => undefined);
+            if (selectedBlastId) void loadBlastRecipients(selectedBlastId).catch(() => undefined);
+        }, 30_000);
+        return () => window.clearInterval(timer);
+    }, [accessState, loadBlastHistory, loadBlastRecipients, selectedBlastId]);
 
     useEffect(() => {
         let active = true;
@@ -498,176 +581,85 @@ export default function DevSupportPage() {
     const startBulkSend = async () => {
         const recipients = parseBulkRecipients(bulkPhones);
         const messageTemplate = bulkMessage.trim();
-
+        const dailyLimit = bulkCadenceEnabled ? Number(bulkCadence) : null;
         if (!recipients.length || !messageTemplate) {
             setBulkStatus("Informe pelo menos um número e uma mensagem.");
             return;
         }
-
-        window.alert("Deixe em janela aberta");
-
-        const token = await getAccessToken();
-        if (!token) {
-            setAccessState("signed-out");
+        if (bulkCadenceEnabled && (!Number.isInteger(dailyLimit) || dailyLimit! < 1 || dailyLimit! > 10000)) {
+            setBulkStatus("Informe uma cadência de 1 a 10.000 mensagens por dia.");
             return;
         }
-
-        const batchId = crypto.randomUUID();
-        const skippedErrors: string[] = [];
-        let sentCount = 0;
-        bulkStopRef.current = false;
         setBulkSending(true);
-        setBulkSent(0);
-        setBulkTotal(recipients.length);
         setBulkStatus("");
-        setBulkPhones("");
-        setBulkFailures([]);
-        setBulkRecipients(
-            recipients.map(({ phone }) => ({
-                phone,
-                status: "pending",
-            }))
-        );
-
         try {
-            for (let index = 0; index < recipients.length; index += 1) {
-                if (bulkStopRef.current) break;
-
-                const recipient = recipients[index];
-                const phone = recipient.phone;
-                const message = renderBulkMessage(
-                    messageTemplate,
-                    recipient.values
-                ).trim();
-                setBulkRecipients((current) =>
-                    current.map((recipient) =>
-                        recipient.phone === phone
-                            ? { ...recipient, status: "sending", error: undefined }
-                            : recipient
-                    )
-                );
-                setBulkStatus(
-                    "Enviando " + (index + 1) + " de " + recipients.length + "..."
-                );
-
-                const response = await fetch("/api/dev/support", {
-                    method: "POST",
-                    headers: {
-                        Authorization: "Bearer " + token,
-                        "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify({
-                        action: "send_bulk_message",
-                        batchId,
-                        phone,
-                        message,
-                        skipRecent: bulkSkipRecent,
-                        sender: bulkSender,
-                    }),
-                });
-                const payload = (await response.json()) as {
-                    error?: string;
-                    skippedRecent?: boolean;
-                };
-
-                if (!response.ok) {
-                    const error = payload.error || "Falha ao enviar.";
-                    const errorMessage = phone + ": " + error;
-
-                    skippedErrors.push(errorMessage);
-                    setBulkRecipients((current) =>
-                        current.map((recipient) =>
-                            recipient.phone === phone
-                                ? {
-                                      ...recipient,
-                                      status: "failed",
-                                      error,
-                                  }
-                                : recipient
-                        )
-                    );
-                    setBulkFailures((current) => [
-                        ...current,
-                        { phone, error },
-                    ]);
-                    setBulkStatus("Ignorado: " + errorMessage);
-                    continue;
-                }
-
-                if (payload.skippedRecent) {
-                    setBulkRecipients((current) =>
-                        current.map((recipient) =>
-                            recipient.phone === phone
-                                ? { ...recipient, status: "skipped_recent" }
-                                : recipient
-                        )
-                    );
-                    setBulkStatus(
-                        "Ignorado: " +
-                            phone +
-                            " já recebeu envio em massa nos últimos 7 dias."
-                    );
-                    continue;
-                }
-
-                sentCount += 1;
-                setBulkSent(sentCount);
-                setBulkRecipients((current) =>
-                    current.map((recipient) =>
-                        recipient.phone === phone
-                            ? { ...recipient, status: "sent" }
-                            : recipient
-                    )
-                );
-
-                if (index < recipients.length - 1 && !bulkStopRef.current) {
-                    const delaySeconds =
-                        Math.floor(
-                            Math.random() *
-                                (BULK_SEND_MAX_DELAY_SECONDS -
-                                    BULK_SEND_MIN_DELAY_SECONDS +
-                                    1)
-                        ) + BULK_SEND_MIN_DELAY_SECONDS;
-
-                    setBulkStatus(
-                        "Enviado " +
-                            sentCount +
-                            " de " +
-                            recipients.length +
-                            ". Próximo envio em " +
-                            delaySeconds +
-                            "s..."
-                    );
-
-                    for (
-                        let waited = 0;
-                        waited < delaySeconds && !bulkStopRef.current;
-                        waited += 1
-                    ) {
-                        await new Promise((resolve) =>
-                            window.setTimeout(resolve, 1000)
-                        );
-                    }
-                }
+            const token = await getAccessToken();
+            if (!token) {
+                setAccessState("signed-out");
+                return;
             }
-
-            const skippedSuffix = skippedErrors.length
-                ? " Erros: " + skippedErrors.join(" | ")
-                : "";
-            setBulkStatus(
-                (bulkStopRef.current
-                    ? "Envio interrompido."
-                    : "Envio concluído.") + skippedSuffix
-            );
+            const response = await fetch("/api/dev/support", {
+                method: "POST",
+                headers: {
+                    Authorization: "Bearer " + token,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    action: "create_blast",
+                    connection: bulkSender,
+                    message: messageTemplate,
+                    dailyLimit,
+                    skipRecent: bulkSkipRecent,
+                    recipients: recipients.map(({ phone, values }) => ({
+                        phone,
+                        message: renderBulkMessage(messageTemplate, values).trim(),
+                    })),
+                }),
+            });
+            const payload = (await response.json()) as { id?: string; error?: string };
+            if (!response.ok || !payload.id) {
+                throw new Error(payload.error || "Falha ao criar o envio.");
+            }
+            setBulkPhones("");
+            setBulkStatus("Envio criado. Ele continuará automaticamente mesmo com a página fechada.");
+            setSelectedBlastId(payload.id);
+            await Promise.all([loadBlastHistory(), loadBlastRecipients(payload.id)]);
         } catch (caught) {
-            setBulkStatus(
-                "Envio pausado por erro: " +
-                    (caught instanceof Error
-                        ? caught.message
-                        : "Falha desconhecida.")
-            );
+            setBulkStatus(caught instanceof Error ? caught.message : "Falha ao criar o envio.");
         } finally {
             setBulkSending(false);
+        }
+    };
+
+    const updateBlast = async (id: string, nextStatus: "pause" | "resume" | "cancel") => {
+        setBlastAction(id + ":" + nextStatus);
+        setError("");
+        try {
+            const token = await getAccessToken();
+            if (!token) {
+                setAccessState("signed-out");
+                return;
+            }
+            const response = await fetch("/api/dev/support", {
+                method: "POST",
+                headers: {
+                    Authorization: "Bearer " + token,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    action: "set_blast_status",
+                    id,
+                    nextStatus,
+                }),
+            });
+            const payload = (await response.json()) as { error?: string };
+            if (!response.ok) throw new Error(payload.error || "Ação indisponível.");
+            await loadBlastHistory();
+            if (selectedBlastId === id) await loadBlastRecipients(id);
+        } catch (caught) {
+            setError(caught instanceof Error ? caught.message : "Ação indisponível.");
+        } finally {
+            setBlastAction("");
         }
     };
 
@@ -1117,6 +1109,28 @@ export default function DevSupportPage() {
                         </div>
                     </div>
 
+                    <div className="mt-6 flex items-center justify-between gap-4 rounded-xl border border-gray-200 p-4">
+                        <div>
+                            <p className="font-medium text-gray-900">
+                                Respostas por IA
+                            </p>
+                            <p className="text-sm text-gray-500">
+                                Responde automaticamente pessoas que receberam disparos por este número.
+                            </p>
+                        </div>
+                        <Switch
+                            checked={blastConnection?.bot_enabled ?? true}
+                            disabled={action === "set_bot_enabled:blast"}
+                            aria-label="Ativar respostas por IA no WhatsApp Blast"
+                            onClick={() =>
+                                void runAction("set_bot_enabled", {
+                                    connection: "blast",
+                                    enabled: !(blastConnection?.bot_enabled ?? true),
+                                })
+                            }
+                        />
+                    </div>
+
                     {showBlastQr && (
                         <div className="mt-6 grid gap-5 rounded-xl border border-blue-100 bg-blue-50/40 p-5 sm:grid-cols-[220px_1fr] sm:items-center">
                             <div className="flex min-h-[210px] items-center justify-center rounded-xl border border-gray-200 bg-white p-3">
@@ -1149,7 +1163,7 @@ export default function DevSupportPage() {
                         Envio em massa
                     </h2>
                     <p className="mt-1 text-sm text-gray-500">
-                        Envia uma mensagem por vez pelo número selecionado, com intervalo aleatório entre 15 e 30 segundos.
+                        Os envios continuam no servidor, mesmo com a página fechada. Sem cadência, o intervalo é de aproximadamente 25 segundos.
                     </p>
 
                     <div className="mt-5 max-w-md">
@@ -1182,6 +1196,34 @@ export default function DevSupportPage() {
                                 },
                             ]}
                         />
+                    </div>
+
+                    <div className="mt-5 flex flex-wrap items-center gap-4 rounded-xl border border-gray-200 p-4">
+                        <div className="min-w-0 flex-1">
+                            <p className="font-medium text-gray-900">Cadência</p>
+                            <p className="text-sm text-gray-500">
+                                Limita este envio a uma quantidade por dia, distribuída das 8h às 21h (horário de Brasília).
+                            </p>
+                        </div>
+                        <Switch
+                            checked={bulkCadenceEnabled}
+                            disabled={bulkSending}
+                            aria-label="Ativar cadência neste envio"
+                            onClick={() => setBulkCadenceEnabled(!bulkCadenceEnabled)}
+                        />
+                        {bulkCadenceEnabled && (
+                            <div className="w-36">
+                                <Input
+                                    label="Mensagens por dia"
+                                    type="number"
+                                    min={1}
+                                    max={10000}
+                                    value={bulkCadence}
+                                    disabled={bulkSending}
+                                    onChange={(event) => setBulkCadence(event.target.value)}
+                                />
+                            </div>
+                        )}
                     </div>
 
                     <div className="mt-5 grid gap-4 md:grid-cols-2">
@@ -1244,7 +1286,7 @@ export default function DevSupportPage() {
                             <strong>Atenção:</strong> não é recomendado enviar para mais de 50 destinatários por lote.
                         </p>
                         <p className="mt-1">
-                            Mantenha esta janela aberta durante todo o envio. Fechar ou recarregar a página interrompe o lote.
+                            Você pode fechar esta página depois de iniciar: o envio continuará no servidor.
                         </p>
                         {parseBulkPhones(bulkPhones).length > 50 && (
                             <p className="mt-1 font-semibold">
@@ -1256,6 +1298,7 @@ export default function DevSupportPage() {
                     <div className="mt-4 flex flex-wrap items-center gap-3">
                         <Button
                             onClick={() => void startBulkSend()}
+                            loading={bulkSending}
                             disabled={
                                 bulkSending ||
                                 !bulkMessage.trim() ||
@@ -1265,112 +1308,102 @@ export default function DevSupportPage() {
                         >
                             Enviar em massa
                         </Button>
-                        {bulkSending && (
-                            <Button
-                                variant="secondary"
-                                onClick={() => {
-                                    bulkStopRef.current = true;
-                                    setBulkStatus("Interrompendo após o envio atual...");
-                                }}
-                            >
-                                Parar
-                            </Button>
-                        )}
-                        {bulkTotal > 0 && (
-                            <span className="text-sm text-gray-500">
-                                {bulkSent} / {bulkTotal} enviados
-                            </span>
-                        )}
                     </div>
-
                     {bulkStatus && (
-                        <p className="mt-3 text-sm text-gray-600">
-                            {bulkStatus}
-                        </p>
+                        <p className="mt-3 text-sm text-gray-600">{bulkStatus}</p>
                     )}
+                </Card>
 
-                    {bulkRecipients.length > 0 && (
-                        <div className="mt-4 grid gap-4 md:grid-cols-2">
-                            <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-                                <div className="flex items-center justify-between gap-3">
-                                    <h3 className="text-sm font-semibold text-gray-900">
-                                        Números do lote
-                                    </h3>
-                                    <span className="text-xs text-gray-500">
-                                        {bulkRecipients.length}
-                                    </span>
+                <Card>
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                            <h2 className="text-lg font-semibold text-gray-900">Histórico de envios</h2>
+                            <p className="mt-1 text-sm text-gray-500">
+                                Acompanhe o andamento, pause ou interrompa qualquer envio.
+                            </p>
+                        </div>
+                        <Button variant="secondary" onClick={() => void loadBlastHistory().catch((caught) =>
+                            setError(caught instanceof Error ? caught.message : "Falha ao atualizar.")
+                        )}>Atualizar</Button>
+                    </div>
+                    <div className="mt-5 divide-y divide-gray-100 rounded-xl border border-gray-200">
+                        {blastHistoryLoading && !blastHistory.length && (
+                            <p className="p-4 text-sm text-gray-500">Carregando histórico...</p>
+                        )}
+                        {!blastHistoryLoading && !blastHistory.length && (
+                            <p className="p-4 text-sm text-gray-500">Nenhum envio registrado ainda.</p>
+                        )}
+                        {blastHistory.map((campaign) => (
+                            <div key={campaign.id} className="p-4">
+                                <div className="flex flex-wrap items-center justify-between gap-3">
+                                    <button type="button" className="min-w-0 flex-1 cursor-pointer text-left"
+                                        onClick={() => {
+                                            if (selectedBlastId === campaign.id) {
+                                                setSelectedBlastId(null);
+                                                return;
+                                            }
+                                            setSelectedBlastId(campaign.id);
+                                            setBlastRecipients([]);
+                                            void loadBlastRecipients(campaign.id).catch((caught) =>
+                                                setError(caught instanceof Error ? caught.message : "Falha ao abrir envio.")
+                                            );
+                                        }}>
+                                        <p className="truncate font-medium text-gray-900">{campaign.message}</p>
+                                        <p className="mt-1 text-xs text-gray-500">
+                                            {new Date(campaign.created_at).toLocaleString("pt-BR")} ·{" "}
+                                            {campaign.sender === "blast" ? "WhatsApp Blast" : "WhatsApp suporte"} ·{" "}
+                                            {campaign.daily_limit ? campaign.daily_limit + "/dia" : "Sem cadência"}
+                                        </p>
+                                        <p className="mt-2 text-sm text-gray-600">
+                                            {campaign.sent}/{campaign.total} enviados · {campaign.pending} pendentes ·{" "}
+                                            {campaign.skipped} ignorados · {campaign.failed} falhas ·{" "}
+                                            {campaign.status === "running" ? "Em andamento"
+                                                : campaign.status === "paused" ? "Pausado"
+                                                : campaign.status === "cancelled" ? "Interrompido" : "Concluído"}
+                                        </p>
+                                    </button>
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        {campaign.status === "running" && (
+                                            <Button variant="secondary"
+                                                loading={blastAction === campaign.id + ":pause"}
+                                                onClick={() => void updateBlast(campaign.id, "pause")}>Pausar</Button>
+                                        )}
+                                        {campaign.status === "paused" && (
+                                            <Button variant="secondary"
+                                                loading={blastAction === campaign.id + ":resume"}
+                                                onClick={() => void updateBlast(campaign.id, "resume")}>Retomar</Button>
+                                        )}
+                                        {(campaign.status === "running" || campaign.status === "paused") && (
+                                            <Button variant="secondary"
+                                                loading={blastAction === campaign.id + ":cancel"}
+                                                onClick={() => void updateBlast(campaign.id, "cancel")}>Parar</Button>
+                                        )}
+                                    </div>
                                 </div>
-                                <div className="mt-3 max-h-64 divide-y divide-gray-200 overflow-y-auto">
-                                    {bulkRecipients.map((recipient) => (
-                                        <div
-                                            key={recipient.phone}
-                                            className="flex items-center justify-between gap-3 py-2 text-sm"
-                                        >
-                                            <span className="text-gray-700">
-                                                {formatPhone(recipient.phone)}
-                                            </span>
-                                            <span
-                                                className={
-                                                    recipient.status === "sent"
-                                                        ? "text-green-700"
-                                                        : recipient.status === "failed"
-                                                          ? "text-red-700"
-                                                          : recipient.status ===
-                                                              "sending"
-                                                            ? "text-amber-700"
-                                                            : "text-gray-500"
-                                                }
-                                            >
-                                                {recipient.status === "sent"
-                                                    ? "Enviado"
-                                                    : recipient.status === "failed"
-                                                      ? "Falhou"
-                                                      : recipient.status ===
-                                                          "skipped_recent"
-                                                        ? "Ignorado (7 dias)"
-                                                        : recipient.status ===
-                                                            "sending"
-                                                          ? "Enviando"
-                                                          : "Pendente"}
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            <div className="rounded-xl border border-red-200 bg-red-50/50 p-4">
-                                <div className="flex items-center justify-between gap-3">
-                                    <h3 className="text-sm font-semibold text-red-900">
-                                        Falhas
-                                    </h3>
-                                    <span className="text-xs text-red-700">
-                                        {bulkFailures.length}
-                                    </span>
-                                </div>
-                                {bulkFailures.length ? (
-                                    <div className="mt-3 max-h-64 divide-y divide-red-100 overflow-y-auto">
-                                        {bulkFailures.map((failure, index) => (
-                                            <div
-                                                key={failure.phone + ":" + index}
-                                                className="py-2 text-sm"
-                                            >
-                                                <p className="font-medium text-red-900">
-                                                    {formatPhone(failure.phone)}
-                                                </p>
-                                                <p className="mt-0.5 text-xs text-red-700">
-                                                    {failure.error}
-                                                </p>
+                                {selectedBlastId === campaign.id && (
+                                    <div className="mt-4 max-h-72 divide-y divide-gray-100 overflow-y-auto rounded-lg border border-gray-200">
+                                        <p className="px-3 py-2 text-xs text-gray-500">
+                                            Primeiros 500 destinatários
+                                        </p>
+                                        {blastRecipients.map((recipient) => (
+                                            <div key={recipient.id} className="flex flex-wrap justify-between gap-3 px-3 py-2 text-sm">
+                                                <span className="text-gray-700">{formatPhone(recipient.phone)}</span>
+                                                <span className={recipient.status === "sent" ? "text-green-700" :
+                                                    recipient.status === "failed" ? "text-red-700" : "text-gray-500"}>
+                                                    {recipient.status === "sent" ? "Enviado" :
+                                                        recipient.status === "failed" ? "Falhou: " + (recipient.error || "") :
+                                                        recipient.status === "skipped_recent" ? "Ignorado (7 dias)" :
+                                                        recipient.status === "cancelled" ? "Interrompido" :
+                                                        recipient.status === "processing" ? "Enviando" :
+                                                        "Agendado: " + new Date(recipient.scheduled_at).toLocaleString("pt-BR")}
+                                                </span>
                                             </div>
                                         ))}
                                     </div>
-                                ) : (
-                                    <p className="mt-3 text-sm text-red-700/70">
-                                        Nenhuma falha neste lote.
-                                    </p>
                                 )}
                             </div>
-                        </div>
-                    )}
+                        ))}
+                    </div>
                 </Card>
 
                 <Card>

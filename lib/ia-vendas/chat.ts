@@ -636,6 +636,7 @@ export async function runChat(args: {
       for (const call of calls) {
         const toolStarted = Date.now();
         let result: any;
+        let toolError: unknown = null;
         const cached = batched ? (await readBatch(restaurant, run)).tool_results?.[call.call_id] : null;
         const cardStart = cards.length;
         if (cached) {
@@ -773,6 +774,7 @@ export async function runChat(args: {
           } catch (e) {
             if (e instanceof IaPlusRequired || e instanceof IaImageLimitReached)
               throw e;
+            toolError = e;
             result = {
               error:
                 e instanceof SalesError
@@ -788,6 +790,15 @@ export async function runChat(args: {
             call_id: call.call_id,
             duration_ms: Date.now() - toolStarted,
             status: result?.error ? "failed" : "completed",
+            ...(result?.error
+              ? {
+                  error:
+                    toolError instanceof Error
+                      ? toolError.message
+                      : String(result.error),
+                  arguments: call.arguments,
+                }
+              : {}),
           });
         }
         input.push({
