@@ -1139,17 +1139,6 @@ export default function DevDashboardPage() {
                                     }
                                 />
                                 <MetricChart
-                                    title="Page views (LP e Blog)"
-                                    series={data.tracking.timeline.landingPageViews}
-                                    color="#f14400"
-                                    seriesLabel="LP"
-                                    secondarySeries={
-                                        data.tracking.timeline.publicContentPageViews
-                                    }
-                                    secondaryLabel="Blog + LPs"
-                                    secondaryColor="#2563eb"
-                                />
-                                <MetricChart
                                     title="Usuários ativos"
                                     series={data.series.activeUsers}
                                     color="#16a34a"
@@ -1175,6 +1164,17 @@ export default function DevDashboardPage() {
                                     series={data.series.onlineMoneyHandledCents}
                                     color="#0891b2"
                                     currency
+                                />
+                                <MetricChart
+                                    title="Page views (LP e Blog)"
+                                    series={data.tracking.timeline.landingPageViews}
+                                    color="#f14400"
+                                    seriesLabel="LP"
+                                    secondarySeries={
+                                        data.tracking.timeline.publicContentPageViews
+                                    }
+                                    secondaryLabel="Blog + LPs"
+                                    secondaryColor="#2563eb"
                                 />
                             </div>
                         </section>
