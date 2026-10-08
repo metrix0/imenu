@@ -4,6 +4,10 @@ import { createClient } from "@supabase/supabase-js";
 import { query } from "@/lib/database/sql";
 import { releaseExpiredSupportHandoffs } from "@/lib/services/supportWhatsApp";
 import {
+    createSupportBlast, listSupportBlasts, getSupportBlastRecipients,
+    setSupportBlastStatus, type BlastRecipientInput,
+} from "@/lib/services/supportBlast";
+import {
     checkWahaPhoneExists,
     ensureWahaBlastSession,
     ensureWahaSupportSession,
@@ -261,6 +265,15 @@ export async function GET(request: Request) {
         const authorization = await authorizeDevRequest(request);
         if (!authorization.ok) return authorization.response;
 
+        const searchParams = new URL(request.url).searchParams;
+        if (searchParams.get("blast_history") === "1") {
+            return NextResponse.json({ campaigns: await listSupportBlasts() });
+        }
+        const blastId = searchParams.get("blast_id");
+        if (blastId && /^[0-9a-f-]{36}$/i.test(blastId)) {
+            return NextResponse.json({ recipients: await getSupportBlastRecipients(blastId) });
+        }
+
         return NextResponse.json(await getDashboardData(), {
             headers: { "Cache-Control": "no-store" },
         });
@@ -292,6 +305,45 @@ export async function POST(request: Request) {
             body.connection === "blast" ? "blast" : "support";
         connectionId =
             connectionTarget === "blast" ? "blast" : "default";
+
+        if (action === "create_blast") {
+            const recipients = Array.isArray(body.recipients)
+                ? body.recipients as BlastRecipientInput[] : [];
+            const cadence = body.dailyLimit === null ? null : Number(body.dailyLimit);
+            try {
+                const id = await createSupportBlast({
+                    sender: connectionTarget === "blast" ? "blast" : "support",
+                    message: String(body.message || ""),
+                    dailyLimit: cadence,
+                    skipRecent: body.skipRecent !== false,
+                    recipients,
+                });
+                return NextResponse.json({ ok: true, id });
+            } catch (error) {
+                return NextResponse.json(
+                    { error: error instanceof Error ? error.message : "Falha ao criar envio." },
+                    { status: 400 }
+                );
+            }
+        }
+
+        if (action === "set_blast_status") {
+            const id = String(body.id || "");
+            const nextStatus = String(body.nextStatus || "");
+            if (!/^[0-9a-f-]{36}$/i.test(id) ||
+                !["pause", "resume", "cancel"].includes(nextStatus)) {
+                return NextResponse.json({ error: "Ação inválida." }, { status: 400 });
+            }
+            try {
+                await setSupportBlastStatus(id, nextStatus as "pause" | "resume" | "cancel");
+                return NextResponse.json({ ok: true });
+            } catch (error) {
+                return NextResponse.json(
+                    { error: error instanceof Error ? error.message : "Ação indisponível." },
+                    { status: 400 }
+                );
+            }
+        }
 
         if (
             ["connect", "reconnect", "refresh_qr", "disconnect"].includes(
