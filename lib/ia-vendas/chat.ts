@@ -231,6 +231,8 @@ export function asksAboutWholeMenu(text: string) {
     /\b(?:o que|oq)\s+(?:voce\s+)?acha\s+(?:do|de)\s+(?:(?:meu|nosso)\s+)?(?:cardapio|menu)\b/,
     /\b(?:meu|nosso)\s+(?:cardapio|menu)\s+(?:esta|ta|e|ficou)\s+(?:bom|legal|bonito|atraente)\b/,
     /\b(?:avali[ea]|analis[ea]|analisar|revise|revisar|melhore|melhorar)\s+(?:(?:o|meu|nosso)\s+)?(?:cardapio|menu)\b/,
+    /\b(?:avali[ea]|analis[ea]|analisar|revise|revisar|melhore|melhorar)\b.{0,48}\b(?:meus|minhas|nossos|nossas|todos os|todas as)\s+(?:itens|produtos|descricoes?|categorias|fotos|nomes|precos)\b/,
+    /\b(?:avali[ea]|analis[ea]|analisar|revise|revisar|melhore|melhorar)\b.{0,48}\b(?:descricoes?|categorias|fotos|nomes|precos)\s+(?:do|de)\s+(?:(?:meu|nosso)\s+)?(?:cardapio|menu)\b/,
     /\b(?:do you|do u)\s+think\s+(?:my|our|the)\s+menu\b/,
     /\b(?:review|analy[sz]e|evaluate|improve)\s+(?:my|our|the)\s+menu\b/,
     /\bis\s+(?:my|our)\s+menu\s+(?:nice|good|ok|okay)\b/,

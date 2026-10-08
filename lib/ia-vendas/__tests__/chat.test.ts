@@ -101,6 +101,8 @@ test.each([
   "meu cardápio está bom?",
   "analise meu cardápio",
   "revise o menu completo",
+  "Revise meus itens e melhore a descricao do meu cardápio",
+  "melhore as descrições do meu cardápio",
   "do u think my menu is nice?",
   "review my entire menu",
 ])("whole-menu evaluation suggests Vendas IA: %s", (message) => {
