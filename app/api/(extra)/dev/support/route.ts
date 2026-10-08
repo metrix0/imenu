@@ -527,8 +527,8 @@ export async function POST(request: Request) {
 
         if (action === "set_bot_enabled") {
             await query(
-                "UPDATE support_whatsapp_connection SET bot_enabled = $1, updated_at = NOW() WHERE id = 'default'",
-                [body.enabled === true]
+                "UPDATE support_whatsapp_connection SET bot_enabled = $1, updated_at = NOW() WHERE id = $2",
+                [body.enabled === true, connectionId]
             );
             return NextResponse.json(await getDashboardData());
         }

@@ -489,8 +489,7 @@ export async function POST(request: NextRequest) {
                     hasMedia: payload.hasMedia === true,
                     messageId,
                     customerName: extractCustomerName(payload),
-                    botEnabled:
-                        isBlastSession || supportConnection.bot_enabled,
+                    botEnabled: supportConnection.bot_enabled,
                 });
                 await finishEvent(claimedEventId, "processed");
             }

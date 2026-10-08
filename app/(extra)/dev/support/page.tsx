@@ -17,6 +17,7 @@ import Card from "@/components/ui/Card";
 import Dropdown from "@/components/ui/Dropdown";
 import Input from "@/components/ui/Input";
 import Loader from "@/components/ui/Loader";
+import Switch from "@/components/ui/Switch";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import Textarea from "@/components/ui/Textarea";
 import { supabase } from "@/lib/database/supabaseClient";
@@ -1115,6 +1116,28 @@ export default function DevSupportPage() {
                                 </>
                             )}
                         </div>
+                    </div>
+
+                    <div className="mt-6 flex items-center justify-between gap-4 rounded-xl border border-gray-200 p-4">
+                        <div>
+                            <p className="font-medium text-gray-900">
+                                Respostas por IA
+                            </p>
+                            <p className="text-sm text-gray-500">
+                                Responde automaticamente pessoas que receberam disparos por este número.
+                            </p>
+                        </div>
+                        <Switch
+                            checked={blastConnection?.bot_enabled ?? true}
+                            disabled={action === "set_bot_enabled:blast"}
+                            aria-label="Ativar respostas por IA no WhatsApp Blast"
+                            onClick={() =>
+                                void runAction("set_bot_enabled", {
+                                    connection: "blast",
+                                    enabled: !(blastConnection?.bot_enabled ?? true),
+                                })
+                            }
+                        />
                     </div>
 
                     {showBlastQr && (
