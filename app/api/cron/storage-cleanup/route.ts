@@ -44,7 +44,7 @@ async function fetchAllRows(
 
         if (error) throw error;
 
-        rows.push(...((data || []) as Record<string, unknown>[]));
+        rows.push(...((data || []) as unknown as Record<string, unknown>[]));
 
         if (!data || data.length < PAGE_SIZE) break;
     }
