@@ -166,7 +166,12 @@ export default function LojaPage() {
             const response = await fetch(`/api/restaurants/${restaurant.id}`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ creation_step: 4 }),
+                body: JSON.stringify({
+                    creation_step: 4,
+                    ...(needsResponsiblePhone
+                        ? { phone: responsiblePhoneDigits }
+                        : {}),
+                }),
             });
             if (!response.ok) throw new Error("Não foi possível continuar.");
             router.push("/restaurante/criar/localizacao");
