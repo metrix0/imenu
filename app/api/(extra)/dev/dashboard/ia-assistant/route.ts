@@ -3,6 +3,9 @@ import { createClient } from "@supabase/supabase-js";
 
 import { query } from "@/lib/database/sql";
 import { isUuid } from "@/lib/ia-vendas/catalog";
+import { imageUrl } from "@/lib/ia-vendas/data";
+import { signedAttachment } from "@/lib/ia-vendas/files";
+import type { Action } from "@/lib/ia-vendas/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -173,9 +176,10 @@ export async function GET(request: Request) {
                   conversation_id: string;
                   role: string;
                   content: string;
+                  cards: Array<Record<string, unknown>>;
                   created_at: string | Date;
               }>(
-                  `SELECT id,conversation_id,role,content,created_at
+                  `SELECT id,conversation_id,role,content,cards,created_at
                    FROM public.ia_vendas_messages
                    WHERE restaurant_id=$1
                      AND conversation_id=ANY($2::uuid[])
@@ -184,12 +188,52 @@ export async function GET(request: Request) {
               )
             : { rows: [] };
 
+        const [actionsResult, refsResult] = await Promise.all([
+            conversationIds.length
+                ? query<Action>(
+                      `SELECT *
+                       FROM public.ia_vendas_actions
+                       WHERE restaurant_id=$1
+                         AND conversation_id=ANY($2::uuid[])
+                       ORDER BY created_at ASC`,
+                      [restaurantId, conversationIds]
+                  )
+                : Promise.resolve({ rows: [] as Action[] }),
+            query<{ id: string; name: string }>(
+                `SELECT id,name FROM public.items WHERE restaurant_id=$1
+                 UNION ALL SELECT id,name FROM public.categories WHERE restaurant_id=$1
+                 UNION ALL SELECT g.id,g.name FROM public.item_subcategories g JOIN public.items i ON i.id=g.item_id WHERE i.restaurant_id=$1
+                 UNION ALL SELECT s.id,s.name FROM public.subitems s JOIN public.item_subcategories g ON g.id=s.item_subcategory_id JOIN public.items i ON i.id=g.item_id WHERE i.restaurant_id=$1
+                 UNION ALL SELECT u.id,i.name FROM public.upsell u JOIN public.items i ON i.id=u.item_id WHERE u.restaurant_id=$1
+                 UNION ALL SELECT p.id,i.name FROM public.promotions p JOIN public.items i ON i.id=p.item_id WHERE p.restaurant_id=$1`,
+                [restaurantId]
+            ),
+        ]);
+
+        const hydratedActions = await Promise.all(
+            actionsResult.rows.map(async (action) => ({
+                ...action,
+                image: action.image
+                    ? {
+                          ...action.image,
+                          after: (
+                              await signedAttachment(
+                                  restaurantId,
+                                  action.image.attachment_id
+                              )
+                          ).url,
+                      }
+                    : undefined,
+            }))
+        );
+
         const messagesByConversation = new Map<
             string,
             Array<{
                 id: string;
                 role: string;
                 content: string;
+                cards: Array<Record<string, unknown>>;
                 createdAt: string;
             }>
         >();
@@ -201,6 +245,18 @@ export async function GET(request: Request) {
                 id: message.id,
                 role: message.role,
                 content: message.content,
+                cards: (message.cards || []).map((card) =>
+                    card.type === "item"
+                        ? {
+                              ...card,
+                              image_url: imageUrl(
+                                  typeof card.image_path === "string"
+                                      ? card.image_path
+                                      : null
+                              ),
+                          }
+                        : card
+                ),
                 createdAt: toIso(message.created_at),
             });
             messagesByConversation.set(message.conversation_id, messages);
@@ -221,6 +277,13 @@ export async function GET(request: Request) {
                     lastMessageAt: toIso(row.last_message_at),
                     messages: messagesByConversation.get(row.id) || [],
                 })),
+                actions: hydratedActions,
+                references: Object.fromEntries(
+                    refsResult.rows.map((reference) => [
+                        reference.id,
+                        reference.name,
+                    ])
+                ),
             },
             { headers: { "Cache-Control": "no-store" } }
         );
