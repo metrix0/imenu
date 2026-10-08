@@ -185,7 +185,7 @@ export default function MenuItemRow({
 
         setIsUploading(true);
         try {
-            const path = await uploadMenuImage(file);
+            const path = await uploadMenuImage(file, restaurantId);
             const { data } = supabase.storage
                 .from("menu-images")
                 .getPublicUrl(path);
