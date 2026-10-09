@@ -9,6 +9,8 @@ import type { DateRange } from "@/lib/utils/dateRange";
 import OrdersFilter from "@/components/restaurant-owner/pedidos/OrdersFilter";
 import OrdersTable, { Order } from "@/components/restaurant-owner/pedidos/OrdersTable";
 import OrderDetailsModal from "@/components/restaurant-owner/pedidos/OrderDetailsModal";
+import ConfirmModal from "@/components/ui/ConfirmModal";
+import Toast from "@/components/ui/Toast";
 
 const PAGE_SIZE = 10;
 
@@ -31,6 +33,9 @@ export default function HistoricoPage() {
     // Modal
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
     const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+    const [orderToDelete, setOrderToDelete] = useState<Order | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
+    const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
     // 1. Inicialização (Busca ID se não tiver)
     useEffect(() => {
@@ -108,6 +113,41 @@ export default function HistoricoPage() {
         if (restaurantId) fetchOrders(restaurantId);
     };
 
+    const handleDeleteOrder = async () => {
+        if (!restaurantId || !orderToDelete || isDeleting) return;
+        setIsDeleting(true);
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session?.access_token) throw new Error("Sessão inválida ou expirada.");
+
+            const response = await fetch(`/api/orders/${orderToDelete.id}`, {
+                method: "DELETE",
+                headers: {
+                    Authorization: `Bearer ${session.access_token}`,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ restaurant_id: restaurantId }),
+            });
+            const result = await response.json().catch(() => null);
+            if (!response.ok) throw new Error(result?.error || "Não foi possível excluir o pedido.");
+
+            setOrderToDelete(null);
+            setToast({ message: "Pedido excluído.", type: "success" });
+            if (page > 0 && orders.length === 1) {
+                setPage(page - 1);
+            } else {
+                await fetchOrders(restaurantId);
+            }
+        } catch (error) {
+            setToast({
+                message: error instanceof Error ? error.message : "Não foi possível excluir o pedido.",
+                type: "error",
+            });
+        } finally {
+            setIsDeleting(false);
+        }
+    };
+
     return (
         <div className="max-w-7xl 2xl:max-w-9xl mx-auto pb-20 space-y-8 px-4 sm:px-6 pt-8">
             <div>
@@ -124,9 +164,23 @@ export default function HistoricoPage() {
                 orders={orders}
                 isLoading={isLoading}
                 onViewOrder={handleViewOrder}
+                onDeleteOrder={setOrderToDelete}
             />
 
             {(totalCount > 0 || page > 0) && <Pagination page={page} pageCount={Math.ceil(totalCount / PAGE_SIZE)} onChange={setPage} disabled={isLoading} />}
+
+            <ConfirmModal
+                open={orderToDelete !== null}
+                onClose={() => { if (!isDeleting) setOrderToDelete(null); }}
+                onConfirm={() => void handleDeleteOrder()}
+                title="Excluir pedido?"
+                description={`O pedido #${orderToDelete?.display_id || orderToDelete?.id.slice(0, 4) || ""} será removido permanentemente do histórico e das métricas. A exclusão não reembolsa pagamentos.`}
+                confirmLabel="Excluir pedido"
+                isLoading={isDeleting}
+                variant="danger"
+            />
+
+            {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
             <OrderDetailsModal
                 isOpen={isDetailsOpen}
