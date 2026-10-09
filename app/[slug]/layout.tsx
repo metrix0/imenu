@@ -3,6 +3,7 @@ import { cache, Suspense } from "react";
 import { notFound } from "next/navigation";
 import MenuSkeleton from "./MenuSkeleton";
 import { createSupabaseServerClient } from "@/lib/database/supabaseServerClient";
+import { getPublicMenuRestaurant } from "./restaurant-data";
 import ConsumerMenuViewTracker from "@/components/analytics/ConsumerMenuViewTracker";
 
 const SITE_URL = "https://www.imenuapp.com.br";
@@ -200,22 +201,10 @@ function getPublicUrl(
 
 const getRestaurantSeo = cache(
     async (slug: string): Promise<RestaurantSeoData | null | undefined> => {
+        const data = await getPublicMenuRestaurant(slug);
+        if (!data) return data;
+
         const supabase = createSupabaseServerClient();
-        const { data, error } = await supabase
-            .from("restaurants")
-            .select(
-                "name, logo_url, banner_url, availability_json, address, store_whatsapp, latitude, longitude, first_time"
-            )
-            .eq("url_slug", slug)
-            .maybeSingle();
-
-        if (error) {
-            console.error("[RESTAURANT_SEO] Failed to load restaurant:", error);
-            return undefined;
-        }
-
-        if (!data) return null;
-
         const row = data as unknown as Record<string, unknown>;
         const logoPath = typeof row.logo_url === "string" ? row.logo_url : null;
         const bannerPath =

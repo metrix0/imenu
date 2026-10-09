@@ -99,7 +99,16 @@ export async function uploadMenuImage(
         });
 
     // A duplicate hash means the identical file was already uploaded.
-    if (error && !(hash && String(error.statusCode) === "409")) throw error;
+    if (
+        error &&
+        !(
+            hash &&
+            "statusCode" in error &&
+            String(error.statusCode) === "409"
+        )
+    ) {
+        throw error;
+    }
 
     return key;
 }

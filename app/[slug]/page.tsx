@@ -16,6 +16,7 @@ import { faWhatsapp } from "@fortawesome/free-brands-svg-icons";
 import PickupAvailabilityGuard from "./PickupAvailabilityGuard";
 
 import { createSupabaseServerClient } from "@/lib/database/supabaseServerClient";
+import { getPublicMenuRestaurant } from "./restaurant-data";
 import type {
   QrTableAddon,
   QrTableMenuContext,
@@ -114,13 +115,7 @@ export default async function Page({
   const supabase = createSupabaseServerClient();
 
   // --- 1. Restaurante ---
-  const { data: restaurantData } = await supabase
-    .from("restaurants")
-    .select(
-      "id, name, is_closed, logo_url, rating, min_order_cents, description, banner_url, availability_json,delivery_fee_json, delivery_fee_mode, delivery_neighborhood_fee_json, latitude, longitude, allowed_payment_methods, address, store_whatsapp, pickup_enabled, force_whatsapp_order_confirmation, allow_future_order_scheduling, automatic_promotions, pizza_settings",
-    )
-    .eq("url_slug", slug)
-    .maybeSingle();
+  const restaurantData = await getPublicMenuRestaurant(slug);
 
   if (!restaurantData) return notFound();
 
