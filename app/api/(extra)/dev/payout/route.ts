@@ -142,6 +142,7 @@ export async function POST(request: Request) {
         adjustToOnePercent?: unknown;
         amounts?: unknown;
         restaurantIds?: unknown;
+        cutoffAt?: unknown;
         retryPayoutId?: unknown;
     };
     try {
@@ -229,9 +230,21 @@ export async function POST(request: Request) {
             return NextResponse.json(await retryFailedPayout(retryPayoutId));
         }
 
+        const latestEligibleCutoff = getPayoutCutoffAt();
+        const requestedCutoff = body.cutoffAt === undefined
+            ? latestEligibleCutoff
+            : typeof body.cutoffAt === "string" ? new Date(body.cutoffAt) : new Date(NaN);
+        if (!Number.isFinite(requestedCutoff.getTime()) ||
+            requestedCutoff.getTime() > latestEligibleCutoff.getTime()) {
+            return NextResponse.json(
+                { error: "A margem de segurança de 1h30 ainda não terminou. Atualize a lista." },
+                { status: 409 }
+            );
+        }
+
         return NextResponse.json(
             await sendPayouts({
-                cutoffAt: getPayoutCutoffAt(),
+                cutoffAt: requestedCutoff,
                 discountPercent,
                 adjustToOnePercent,
                 amountOverrides,

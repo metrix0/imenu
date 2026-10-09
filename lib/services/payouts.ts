@@ -84,28 +84,11 @@ export class PayoutValidationError extends Error {
     }
 }
 
-const PAYOUT_TIME_ZONE = "America/Sao_Paulo";
-const PAYOUT_CUTOFF_HOUR = 10;
-const PAYOUT_UTC_OFFSET = "-03:00";
+const PAYOUT_MARGIN_MINUTES = 90;
 
+// Use a rolling margin instead of a fixed daily cutoff for confirmed Pix orders.
 export function getPayoutCutoffAt(referenceAt: Date = new Date()): Date {
-    const parts = new Intl.DateTimeFormat("en-CA", {
-        timeZone: PAYOUT_TIME_ZONE,
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-    }).formatToParts(referenceAt);
-    const value = Object.fromEntries(
-        parts.map((part) => [part.type, part.value])
-    );
-    const hour = String(PAYOUT_CUTOFF_HOUR).padStart(2, "0");
-    const cutoffAt = new Date(
-        `${value.year}-${value.month}-${value.day}T${hour}:00:00${PAYOUT_UTC_OFFSET}`
-    );
-
-    return referenceAt.getTime() < cutoffAt.getTime()
-        ? referenceAt
-        : cutoffAt;
+    return new Date(referenceAt.getTime() - PAYOUT_MARGIN_MINUTES * 60_000);
 }
 
 export function getAsaasApiKey(): string | null {
@@ -257,8 +240,8 @@ async function getPayables(cutoffAt: Date): Promise<PayableRestaurant[]> {
          AND o.payment_method = 'pix'
          AND o.payment_ref IS NOT NULL
          AND o.status IN ('paid', 'preparing', 'delivering', 'done')
-         AND COALESCE(o.payment_paid_at, o.created_at) > COALESCE(lp.last_created_at, '-infinity'::timestamptz)
-         AND COALESCE(o.payment_paid_at, o.created_at) <= $1
+         AND GREATEST(o.created_at, COALESCE(o.payment_paid_at, o.created_at)) > COALESCE(lp.last_created_at, '-infinity'::timestamptz)
+         AND GREATEST(o.created_at, COALESCE(o.payment_paid_at, o.created_at)) <= $1
         GROUP BY r.id, r.name, r.payment_info, r.payment_info_type
         HAVING COALESCE(SUM(o.total_cents), 0) > 0
         ORDER BY gross_cents DESC, restaurant_name ASC
@@ -285,6 +268,48 @@ async function getPayables(cutoffAt: Date): Promise<PayableRestaurant[]> {
         }
     }
 
+    return rows;
+}
+
+type WaitingPayableRestaurant = Pick<
+    PayableRestaurant,
+    "restaurant_id" | "restaurant_name" | "payment_info" | "payment_info_type"
+> & {
+    waiting_gross_cents: number | string;
+    next_eligible_at: string;
+};
+
+async function getWaitingPayables(cutoffAt: Date): Promise<WaitingPayableRestaurant[]> {
+    const { rows } = await query<WaitingPayableRestaurant>(
+        `
+        WITH last_payout AS (
+            SELECT restaurant_id, MAX(created_at) AS last_created_at
+            FROM public.payouts
+            GROUP BY restaurant_id
+        )
+        SELECT
+            r.id AS restaurant_id,
+            COALESCE(r.name, 'Restaurante') AS restaurant_name,
+            r.payment_info,
+            r.payment_info_type,
+            SUM(o.total_cents)::bigint AS waiting_gross_cents,
+            MIN(GREATEST(o.created_at, COALESCE(o.payment_paid_at, o.created_at)))
+                + INTERVAL '90 minutes' AS next_eligible_at
+        FROM public.restaurants r
+        LEFT JOIN last_payout lp ON lp.restaurant_id = r.id
+        JOIN public.orders o
+          ON o.restaurant_id = r.id
+         AND o.payment_method = 'pix'
+         AND o.payment_ref IS NOT NULL
+         AND o.status IN ('paid', 'preparing', 'delivering', 'done')
+         AND GREATEST(o.created_at, COALESCE(o.payment_paid_at, o.created_at))
+             > COALESCE(lp.last_created_at, '-infinity'::timestamptz)
+         AND GREATEST(o.created_at, COALESCE(o.payment_paid_at, o.created_at)) > $1
+        GROUP BY r.id, r.name, r.payment_info, r.payment_info_type
+        HAVING SUM(o.total_cents) > 0
+        `,
+        [cutoffAt.toISOString()]
+    );
     return rows;
 }
 
@@ -523,6 +548,12 @@ export async function createPayoutPlan(input: {
     const payables = (await getPayables(input.cutoffAt)).filter(
         (row) => !restaurantIds || restaurantIds.has(row.restaurant_id)
     );
+    if (restaurantIds && payables.length !== restaurantIds.size) {
+        throw new PayoutValidationError(
+            "Um ou mais restaurantes ainda não têm pedidos elegíveis após a margem de 1h30. Atualize a lista.",
+            409
+        );
+    }
     const ambiguous = payables.filter(
         (row) => row.payment_info && !resolvePixKeyType(row)
     );
@@ -962,15 +993,9 @@ export async function getPayoutDashboardData() {
     await reconcileProcessingPayouts();
     const now = new Date();
     const cutoffAt = getPayoutCutoffAt(now);
-    // Transfers remain limited to the 10h cutoff, but outstanding balances
-    // also include confirmed orders received since then, up to now.
-    const atCutoff = getPayables(cutoffAt);
-    const allOutstanding = cutoffAt.getTime() === now.getTime()
-        ? atCutoff
-        : getPayables(now);
-    const [payables, outstanding, historyResult, automationResult] = await Promise.all([
-        atCutoff,
-        allOutstanding,
+    const [payables, waitingPayables, historyResult, automationResult] = await Promise.all([
+        getPayables(cutoffAt),
+        getWaitingPayables(cutoffAt),
         query<{
             id: string;
             restaurant_id: string;
@@ -1037,24 +1062,49 @@ export async function getPayoutDashboardData() {
         }
     }
 
-    const toDashboardPayable = (row: PayableRestaurant) => ({
-        restaurantId: row.restaurant_id,
-        restaurantName: row.restaurant_name,
-        grossCents: Number(row.gross_cents) || 0,
-        payzuFeeCents: row.provider_fee_cents,
-        pixKey: row.payment_info,
-        pixKeyType: resolvePixKeyType(row),
-        pixKeyTypeStored: row.payment_info_type,
-        canSend: Boolean(row.payment_info && resolvePixKeyType(row)),
-    });
+    const waitingByRestaurant = new Map(
+        waitingPayables.map((row) => [row.restaurant_id, row])
+    );
+    const eligibleRestaurants = new Set(payables.map((row) => row.restaurant_id));
+    const dashboardPayables = [
+        ...payables.map((row) => {
+            const waiting = waitingByRestaurant.get(row.restaurant_id);
+            return {
+                restaurantId: row.restaurant_id,
+                restaurantName: row.restaurant_name,
+                grossCents: Number(row.gross_cents) || 0,
+                payzuFeeCents: row.provider_fee_cents,
+                pixKey: row.payment_info,
+                pixKeyType: resolvePixKeyType(row),
+                pixKeyTypeStored: row.payment_info_type,
+                canSend: Boolean(row.payment_info && resolvePixKeyType(row)),
+                waitingGrossCents: Number(waiting?.waiting_gross_cents) || 0,
+                nextEligibleAt: waiting?.next_eligible_at || null,
+            };
+        }),
+        ...waitingPayables
+            .filter((row) => !eligibleRestaurants.has(row.restaurant_id))
+            .map((row) => ({
+                restaurantId: row.restaurant_id,
+                restaurantName: row.restaurant_name,
+                grossCents: 0,
+                payzuFeeCents: 0,
+                pixKey: row.payment_info,
+                pixKeyType: resolvePixKeyType(row),
+                pixKeyTypeStored: row.payment_info_type,
+                canSend: false,
+                waitingGrossCents: Number(row.waiting_gross_cents) || 0,
+                nextEligibleAt: row.next_eligible_at,
+            })),
+    ];
 
     return {
         asaasConfigured: Boolean(getAsaasApiKey()),
         asaasBalanceCents,
         asaasError,
         generatedAt: now.toISOString(),
-        payables: payables.map(toDashboardPayable),
-        outstandingPayables: outstanding.map(toDashboardPayable),
+        cutoffAt: cutoffAt.toISOString(),
+        payables: dashboardPayables,
         history: historyResult.rows.map((row) => ({
             ...row,
             amount_cents: Number(row.amount_cents) || 0,
