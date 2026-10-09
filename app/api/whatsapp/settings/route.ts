@@ -48,6 +48,28 @@ function jsonError(error: unknown) {
     );
 }
 
+type HandoffConversation = {
+    chat_id: string;
+    customer_name: string | null;
+    handoff_phone: string | null;
+    handoff_requested_at: string;
+    last_owner_message_at: string | null;
+};
+
+async function listHandoffs(restaurantId: string): Promise<HandoffConversation[]> {
+    const result = await query<HandoffConversation>(
+        `SELECT chat_id, customer_name, handoff_phone, handoff_requested_at,
+                last_owner_message_at
+         FROM whatsapp_conversations
+         WHERE restaurant_id = $1
+           AND handoff_requested_at >= NOW() - INTERVAL '7 days'
+         ORDER BY handoff_requested_at DESC
+         LIMIT 50`,
+        [restaurantId]
+    );
+    return result.rows;
+}
+
 export async function GET(request: NextRequest) {
     try {
         const restaurantId = getRestaurantId(request);
@@ -59,30 +81,13 @@ export async function GET(request: NextRequest) {
         }
 
         await requireRestaurantOwner(request, restaurantId);
-        const [restaurant, templates, conversationsResult] = await Promise.all([
+        if (request.nextUrl.searchParams.get("handoffsOnly") === "1") {
+            return NextResponse.json({ conversations: await listHandoffs(restaurantId) });
+        }
+        const [restaurant, templates, conversations] = await Promise.all([
             getRestaurantTemplateData(restaurantId),
             getWhatsAppTemplates(restaurantId),
-            query<{
-                chat_id: string;
-                customer_name: string | null;
-                last_owner_message_at: string | null;
-                updated_at: string;
-            }>(
-                `
-                    SELECT
-                        chat_id,
-                        customer_name,
-                        last_owner_message_at,
-                        updated_at
-                    FROM whatsapp_conversations
-                    WHERE restaurant_id = $1
-                      AND mode = 'human'
-                      AND (human_until IS NULL OR human_until > NOW())
-                    ORDER BY updated_at DESC
-                    LIMIT 50
-                `,
-                [restaurantId]
-            ),
+            listHandoffs(restaurantId),
         ]);
 
         if (!restaurant) {
@@ -103,7 +108,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({
             templates,
             variables,
-            conversations: conversationsResult.rows,
+            conversations,
         });
     } catch (error) {
         return jsonError(error);

@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { ABANDONED_BLAST_MESSAGE } from "@/lib/dev/abandonedBlast";
 import { query, withTransaction } from "@/lib/database/sql";
 import {
     checkWahaPhoneExists,
@@ -24,6 +25,7 @@ export async function createSupportBlast(input: {
     dailyLimit: number | null;
     skipRecent: boolean;
     recipients: BlastRecipientInput[];
+    campaignId?: string;
 }): Promise<string> {
     if (!input.message.trim() || !input.recipients.length || input.recipients.length > 10000) {
         throw new Error("Informe uma mensagem e de 1 a 10.000 destinatários.");
@@ -57,12 +59,13 @@ export async function createSupportBlast(input: {
         throw new Error("O WhatsApp selecionado não está conectado.");
     }
 
-    const id = randomUUID();
+    const id = input.campaignId || randomUUID();
     await withTransaction(async (client) => {
-        await client.query(
-            "INSERT INTO support_blast_campaigns (id, sender, message, daily_limit, skip_recent, total, status) VALUES ($1, $2, $3, $4, $5, $6, 'running')",
+        const inserted = await client.query(
+            "INSERT INTO support_blast_campaigns (id, sender, message, daily_limit, skip_recent, total, status) VALUES ($1, $2, $3, $4, $5, $6, 'running') ON CONFLICT (id) DO NOTHING RETURNING id",
             [id, input.sender, input.message.trim(), input.dailyLimit, input.skipRecent, rows.length]
         );
+        if (!inserted.rowCount) return; // Cron retry: leave the existing campaign untouched.
         // Assign one slot to every recipient. Cadenced sends are distributed over
         // 08:00-21:00 São Paulo time; the launch day's remaining window is used.
         // Without cadence, preserve roughly 25-second spacing between messages.
@@ -137,7 +140,7 @@ export async function listSupportBlasts() {
                c.created_at, c.completed_at,
                COUNT(r.id) FILTER (WHERE r.status = 'sent')::int AS sent,
                COUNT(r.id) FILTER (WHERE r.status = 'failed')::int AS failed,
-               COUNT(r.id) FILTER (WHERE r.status = 'skipped_recent')::int AS skipped,
+               COUNT(r.id) FILTER (WHERE r.status IN ('skipped_recent', 'skipped_monthly', 'skipped_30d', 'skipped_reactivated'))::int AS skipped,
                COUNT(r.id) FILTER (WHERE r.status IN ('pending', 'processing'))::int AS pending
         FROM (SELECT * FROM support_blast_campaigns ORDER BY created_at DESC LIMIT 40) c
         LEFT JOIN support_blast_recipients r ON r.campaign_id = c.id
@@ -184,6 +187,7 @@ type ClaimedRecipient = {
     message: string;
     sender: "support" | "blast";
     skip_recent: boolean;
+    campaign_message: string;
 };
 
 async function finishRecipient(id: number, status: string, error: string | null = null) {
@@ -238,7 +242,7 @@ async function claimNextRecipient(): Promise<ClaimedRecipient | null> {
         SET status = 'processing', attempted_at = NOW(), attempts = attempts + 1
         FROM claimed, support_blast_campaigns c
         WHERE r.id = claimed.id AND c.id = r.campaign_id
-        RETURNING r.id, r.campaign_id, r.phone, r.message, c.sender, c.skip_recent
+        RETURNING r.id, r.campaign_id, r.phone, r.message, c.sender, c.skip_recent, c.message AS campaign_message
         `
     );
     return result.rows[0] || null;
@@ -272,9 +276,10 @@ async function sendRecipient(item: ClaimedRecipient): Promise<"sent" | "skipped"
     const phone = item.phone;
     const chatId = phone + "@c.us";
     const localPhone = phone.slice(2);
-    const matched = await query<{ restaurant_id: string }>(
+    const matched = await query<{ restaurant_id: string; account_id: string }>(
         `
-        SELECT DISTINCT r.id AS restaurant_id
+        SELECT DISTINCT r.id AS restaurant_id,
+               COALESCE(r.user_id, r.id)::text AS account_id
         FROM restaurants r LEFT JOIN auth.users u ON u.id = r.user_id
         WHERE regexp_replace(COALESCE(u.raw_user_meta_data->>'phone', ''), '[^0-9]', '', 'g') = ANY($1::text[])
            OR regexp_replace(COALESCE(r.phone, ''), '[^0-9]', '', 'g') = ANY($1::text[])
@@ -286,38 +291,76 @@ async function sendRecipient(item: ClaimedRecipient): Promise<"sent" | "skipped"
     const restaurantIds = matched.rows.map((row) => row.restaurant_id);
     const restaurantId = restaurantIds[0] || null;
 
-    if (item.skip_recent) {
-        const recent = await query(
-            `
-            SELECT 1 FROM whatsapp_outbound_messages
-            WHERE dedupe_key LIKE 'support:bulk:%' AND status = 'sent'
-              AND updated_at >= NOW() - INTERVAL '7 days'
-              AND (
-                chat_id = $2
-                OR (cardinality($1::uuid[]) > 0 AND restaurant_id = ANY($1::uuid[]))
-              )
-            UNION ALL
-            SELECT 1 FROM support_blast_recipients
-            WHERE phone = $3 AND status = 'sent'
-              AND sent_at >= NOW() - INTERVAL '7 days'
-            LIMIT 1
-            `,
-            [restaurantIds, chatId, phone]
+    // A restaurant that resumed ordering after scheduling must not be contacted.
+    if (item.campaign_message === ABANDONED_BLAST_MESSAGE) {
+        const reactivated = await query(
+            `SELECT 1 FROM orders WHERE restaurant_id = ANY($1::uuid[])
+              AND table_id IS NULL AND status = 'done'
+              AND created_at >= NOW() - INTERVAL '14 days' LIMIT 1`,
+            [restaurantIds]
         );
-        if (recent.rowCount) {
-            await finishRecipient(item.id, "skipped_recent");
+        if (reactivated.rowCount) {
+            await finishRecipient(item.id, "skipped_reactivated");
             return "skipped";
         }
     }
 
-    const dedupeKey = "support:bulk:" + item.sender + ":" + item.campaign_id +
-        ":" + (restaurantId || "phone:" + phone);
+    const isAbandonedBlast = item.campaign_message === ABANDONED_BLAST_MESSAGE;
+    if (item.skip_recent || isAbandonedBlast) {
+        const recent = await query(
+            `
+            SELECT 1 FROM whatsapp_outbound_messages
+            WHERE dedupe_key LIKE 'support:bulk:%'
+              AND (
+                  status = 'sent'
+                  OR ($4::boolean AND dedupe_key LIKE 'support:bulk:abandoned:%'
+                      AND status IN ('sending', 'failed'))
+              )
+              AND updated_at >= NOW() - CASE WHEN $4::boolean
+                  THEN INTERVAL '30 days' ELSE INTERVAL '7 days' END
+              AND (
+                chat_id = $2
+                OR (cardinality($1::uuid[]) > 0 AND restaurant_id = ANY($1::uuid[]))
+                OR (
+                    $4::boolean AND EXISTS (
+                        SELECT 1
+                        FROM restaurants contacted
+                        JOIN restaurants candidate ON
+                            COALESCE(contacted.user_id, contacted.id) =
+                            COALESCE(candidate.user_id, candidate.id)
+                        WHERE contacted.id = whatsapp_outbound_messages.restaurant_id
+                          AND candidate.id = ANY($1::uuid[])
+                    )
+                )
+              )
+            UNION ALL
+            SELECT 1 FROM support_blast_recipients
+            WHERE phone = $3 AND status = 'sent'
+              AND sent_at >= NOW() - CASE WHEN $4::boolean
+                  THEN INTERVAL '30 days' ELSE INTERVAL '7 days' END
+            LIMIT 1
+            `,
+            [restaurantIds, chatId, phone, isAbandonedBlast]
+        );
+        if (recent.rowCount) {
+            await finishRecipient(item.id, isAbandonedBlast ? "skipped_30d" : "skipped_recent");
+            return "skipped";
+        }
+    }
+
+    // One stable key per account and daily campaign, including cron retries.
+    // The rolling 30-day history check governs eligibility across campaigns.
+    const dedupeKey = isAbandonedBlast
+        ? "support:bulk:abandoned:" + item.campaign_id + ":" +
+            (matched.rows[0]?.account_id || "phone:" + phone)
+        : "support:bulk:" + item.sender + ":" + item.campaign_id +
+            ":" + (restaurantId || "phone:" + phone);
     const outbound = await query(
         "INSERT INTO whatsapp_outbound_messages (dedupe_key, restaurant_id, chat_id, message_type, status, updated_at) VALUES ($1,$2,$3,'text','sending',NOW()) ON CONFLICT (dedupe_key) DO NOTHING RETURNING dedupe_key",
         [dedupeKey, restaurantId, chatId]
     );
     if (!outbound.rowCount) {
-        await finishRecipient(item.id, "skipped_recent");
+        await finishRecipient(item.id, isAbandonedBlast ? "skipped_30d" : "skipped_recent");
         return "skipped";
     }
 
@@ -330,7 +373,11 @@ async function sendRecipient(item: ClaimedRecipient): Promise<"sent" | "skipped"
         try {
             await sendWahaText(session.session_name, resolvedChatId, item.message);
         } catch (firstError) {
-            if (!isWahaHttpErrorStatus(firstError, 500)) throw firstError;
+            // A 500 response may still mean WhatsApp delivered the message.
+            // Never retry abandonment outreach: at-most-once is more important.
+            if (isAbandonedBlast || !isWahaHttpErrorStatus(firstError, 500)) {
+                throw firstError;
+            }
             await new Promise((resolve) => setTimeout(resolve, 1000));
             await sendWahaText(session.session_name, resolvedChatId, item.message);
         }
@@ -339,6 +386,30 @@ async function sendRecipient(item: ClaimedRecipient): Promise<"sent" | "skipped"
             [dedupeKey, resolvedChatId]
         );
         await finishRecipient(item.id, "sent");
+
+        // Preserve the exact sent blast in an existing AI conversation, if any.
+        // LID chat IDs cannot be matched against the sending phone's @c.us ID.
+        // New conversations are populated on the first incoming reply instead.
+        try {
+            await query(
+                `INSERT INTO support_messages (conversation_id, direction, body, dedupe_key, send_status, created_at)
+                 SELECT c.id, 'outbound', $3, 'support:blast-recipient:' || r.id::text, 'sent', r.sent_at
+                 FROM support_conversations c
+                 JOIN support_blast_recipients r ON r.id = $4
+                 WHERE c.phone = $1
+                   AND (c.chat_id LIKE 'imenu-blast:%') = $2
+                   AND NOT EXISTS (
+                       SELECT 1 FROM support_messages m
+                       WHERE m.conversation_id = c.id AND m.direction = 'outbound' AND m.body = $3
+                         AND m.created_at BETWEEN r.sent_at - INTERVAL '5 minutes' AND r.sent_at + INTERVAL '5 minutes'
+                   )
+                 ON CONFLICT (dedupe_key) WHERE dedupe_key IS NOT NULL DO NOTHING`,
+                [phone, item.sender === "blast", item.message, item.id]
+            );
+        } catch (error) {
+            // A history recording failure must never mark a delivered blast as failed.
+            console.warn("[SUPPORT_BLAST] sent_message_history_failed:", error);
+        }
         return "sent";
     } catch (error) {
         const message = error instanceof Error ? error.message.slice(0, 500) : "WAHA send failed";

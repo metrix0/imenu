@@ -385,6 +385,46 @@ async function resetExpiredSupportHandoffPrompt(chatId: string): Promise<void> {
     );
 }
 
+// Fill gaps for new conversations (and phone/LID aliases) from successfully sent
+// blasts already stored per recipient. No additional WhatsApp requests are needed.
+async function syncSentBlastHistory(
+    conversationId: string,
+    phone: string | null,
+    sessionName: string
+): Promise<void> {
+    const candidates = phoneCandidates(phone).filter((value) => value.startsWith("55"));
+    if (!candidates.length) return;
+
+    try {
+        await query(
+            `WITH recent_blasts AS (
+                 SELECT r.id, r.message, r.sent_at
+                 FROM support_blast_recipients r
+                 JOIN support_blast_campaigns c ON c.id = r.campaign_id
+                 WHERE r.status = 'sent' AND r.phone = ANY($2::text[])
+                   AND c.sender = $3
+                 ORDER BY r.sent_at DESC LIMIT 20
+             )
+             INSERT INTO support_messages (conversation_id, direction, body, dedupe_key, send_status, created_at)
+             SELECT $1::uuid, 'outbound', b.message, 'support:blast-recipient:' || b.id::text, 'sent', b.sent_at
+             FROM recent_blasts b
+             WHERE NOT EXISTS (
+                 SELECT 1 FROM support_messages m
+                 WHERE m.conversation_id = $1::uuid AND m.direction = 'outbound' AND m.body = b.message
+                   AND m.created_at BETWEEN b.sent_at - INTERVAL '5 minutes' AND b.sent_at + INTERVAL '5 minutes'
+             )
+             ON CONFLICT (dedupe_key) WHERE dedupe_key IS NOT NULL DO NOTHING`,
+            [
+                conversationId,
+                candidates,
+                sessionName === SUPPORT_WAHA_SESSION_NAME ? "support" : "blast",
+            ]
+        );
+    } catch (error) {
+        console.warn("[SUPPORT_WHATSAPP] blast_history_sync_failed:", error);
+    }
+}
+
 async function prepareConversation(input: {
     sessionName: string;
     chatId: string;
@@ -458,6 +498,7 @@ async function prepareConversation(input: {
                 );
             }
 
+            await syncSentBlastHistory(conversation.id, resolvedPhone, input.sessionName);
             return conversation;
         }
 
@@ -470,6 +511,7 @@ async function prepareConversation(input: {
                 restaurantId,
             ]
         );
+        await syncSentBlastHistory(updated.rows[0].id, resolvedPhone, input.sessionName);
         return updated.rows[0];
     });
 }

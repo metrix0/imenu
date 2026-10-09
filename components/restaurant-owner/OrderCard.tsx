@@ -72,6 +72,7 @@ interface OrderCardProps {
     order: OrderData;
     onStatusChange: () => void; 
     onViewOrder?: (order: OrderData) => void; // NOVA PROP
+    deliveryOnly?: boolean;
 }
 
 
@@ -123,7 +124,7 @@ function TimeInfo({ text, time, scheduled }: { text: string; time: string; sched
     );
 }
 
-export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderCardProps) {
+export default function OrderCard({ order, onStatusChange, onViewOrder, deliveryOnly = false }: OrderCardProps) {
     const [loading, setLoading] = useState(false);
     const [currentTime, setCurrentTime] = useState(() => Date.now());
     const [allowFutureOrderScheduling, setAllowFutureOrderScheduling] = useState(false);
@@ -240,6 +241,11 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
 
     // --- Lógica de AVANÇAR Status ---
     const advanceStatus = async () => {
+        if (deliveryOnly) {
+            if (order.status === "delivering") await updateStatus("done");
+            return;
+        }
+
         let nextStatus: OrderStatus | null = null;
 
         console.log(order)
@@ -366,7 +372,10 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
         .find(Boolean) || "Cliente não pediu troco";
 
     const config = statusConfig[order.status] || statusConfig.pending_online_payment;
-    const showBackButton = ["preparing", "delivering", "done"].includes(order.status);
+    const showBackButton = !deliveryOnly && ["preparing", "delivering", "done"].includes(order.status);
+    const actionLabel = deliveryOnly
+        ? order.status === "delivering" ? "Entregue" : null
+        : config.btn;
     const scheduledDate = order.scheduled_for ? new Date(order.scheduled_for) : null;
     const isScheduled = !isTableOrder && Boolean(scheduledDate && !Number.isNaN(scheduledDate.getTime()));
     const scheduledTime = scheduledDate
@@ -524,7 +533,7 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
                     </div>
 
                     {/* Botões de Ação */}
-                    {config.btn && (
+                    {(actionLabel || (deliveryOnly && onViewOrder)) && (
                         <div className="panel-order-actions flex gap-2 mt-2 min-[1800px]:mt-5">
                             {showBackButton && (
                                 <Button 
@@ -541,15 +550,15 @@ export default function OrderCard({ order, onStatusChange, onViewOrder }: OrderC
                             )}
                             
                             {/* Botão Principal (Avançar) */}
-                            <Button 
+                            {actionLabel && <Button
                                 variant={config.btnColor as "primary" | "secondary"} 
                                 className="flex-1"
                                 onClick={advanceStatus}
                                 loading={loading}
                                 disabled={loading}
                             >
-                                {config.btn}
-                            </Button>
+                                {actionLabel}
+                            </Button>}
 
                             {/* Botão de Ver Detalhes (Olho) */}
                             <Button 

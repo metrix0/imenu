@@ -21,6 +21,7 @@ import Modal from "@/components/ui/Modal";
 import Switch from "@/components/ui/Switch";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import Textarea from "@/components/ui/Textarea";
+import { ABANDONED_BLAST_MESSAGE } from "@/lib/dev/abandonedBlast";
 import {
     DID_NOT_ACTIVATE_BLAST_MESSAGE,
     DID_NOT_ACTIVATE_BLAST_PREFILL_STORAGE_KEY,
@@ -1406,6 +1407,7 @@ export default function DevSupportPage() {
                                         <p className="truncate font-medium text-gray-900">{campaign.message}</p>
                                         <p className="mt-1 text-xs text-gray-500">
                                             {new Date(campaign.created_at).toLocaleString("pt-BR")} ·{" "}
+                                            {campaign.message === ABANDONED_BLAST_MESSAGE ? "Automático · Abandonados · " : ""}
                                             {campaign.sender === "blast" ? "WhatsApp Blast" : "WhatsApp suporte"} ·{" "}
                                             {campaign.daily_limit ? campaign.daily_limit + "/dia" : "Sem cadência"}
                                         </p>
@@ -1448,6 +1450,9 @@ export default function DevSupportPage() {
                                                     {recipient.status === "sent" ? "Enviado" :
                                                         recipient.status === "failed" ? "Falhou: " + (recipient.error || "") :
                                                         recipient.status === "skipped_recent" ? "Ignorado (7 dias)" :
+                                                        recipient.status === "skipped_monthly" ? "Ignorado (envio recente/neste mês)" :
+                                                        recipient.status === "skipped_30d" ? "Ignorado (últimos 30 dias)" :
+                                                        recipient.status === "skipped_reactivated" ? "Ignorado (voltou a receber pedidos)" :
                                                         recipient.status === "cancelled" ? "Interrompido" :
                                                         recipient.status === "processing" ? "Enviando" :
                                                         "Agendado: " + new Date(recipient.scheduled_at).toLocaleString("pt-BR")}

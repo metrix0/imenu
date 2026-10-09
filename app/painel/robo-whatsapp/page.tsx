@@ -16,6 +16,7 @@ import {
     faCreditCard,
     faLink,
     faPlus,
+    faBell,
     faPowerOff,
     faQrcode,
     faRotate,
@@ -67,6 +68,14 @@ type WhatsAppConnection = {
     last_event_at: string | null;
     last_error: string | null;
     updated_at: string;
+};
+
+type HandoffConversation = {
+    chat_id: string;
+    customer_name: string | null;
+    handoff_phone: string | null;
+    handoff_requested_at: string;
+    last_owner_message_at: string | null;
 };
 
 type TemplateVariable = {
@@ -546,6 +555,7 @@ export default function RoboWhatsAppPage() {
     const [connection, setConnection] = useState<WhatsAppConnection | null>(null);
     const [templates, setTemplates] = useState<WhatsAppMessageTemplates | null>(null);
     const [variables, setVariables] = useState<TemplateVariable[]>([]);
+    const [handoffs, setHandoffs] = useState<HandoffConversation[]>([]);
     const [openTemplate, setOpenTemplate] = useState<WhatsAppTemplateKey | null>(null);
     const [openVariables, setOpenVariables] = useState<WhatsAppTemplateKey | null>(null);
     const [showToast, setShowToast] = useState(false);
@@ -622,6 +632,7 @@ export default function RoboWhatsAppPage() {
             if (settingsResponse.ok) {
                 setTemplates(settingsData.templates);
                 setVariables(settingsData.variables || []);
+                setHandoffs(settingsData.conversations || []);
             } else {
                 showMessage(
                     settingsData.error || "Não foi possível carregar as mensagens do robô.",
@@ -655,6 +666,35 @@ export default function RoboWhatsAppPage() {
             .subscribe();
         return () => {
             void supabase.removeChannel(channel);
+        };
+    }, [restaurantId]);
+
+    useEffect(() => {
+        if (!restaurantId) return;
+
+        const refreshHandoffs = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) return;
+            const response = await fetch(
+                `/api/whatsapp/settings?restaurantId=${encodeURIComponent(restaurantId)}&handoffsOnly=1`,
+                {
+                    headers: { Authorization: `Bearer ${session.access_token}` },
+                    cache: "no-store",
+                }
+            );
+            if (!response.ok) return;
+            const data = await response.json();
+            setHandoffs(data.conversations || []);
+        };
+
+        const interval = window.setInterval(() => {
+            void refreshHandoffs().catch(() => undefined);
+        }, 30_000);
+        const onFocus = () => void refreshHandoffs().catch(() => undefined);
+        window.addEventListener("focus", onFocus);
+        return () => {
+            window.clearInterval(interval);
+            window.removeEventListener("focus", onFocus);
         };
     }, [restaurantId]);
 
@@ -742,6 +782,11 @@ export default function RoboWhatsAppPage() {
         (connection.status === "SCAN_QR_CODE" || connection.status === "FAILED");
     const isConnected =
         connection?.desired_state === "connected" && connection.status === "WORKING";
+    const pendingHandoffs = handoffs.filter((handoff) =>
+        !handoff.last_owner_message_at ||
+        new Date(handoff.last_owner_message_at).getTime() <
+            new Date(handoff.handoff_requested_at).getTime()
+    ).length;
 
     if (loading) {
         return (
@@ -886,6 +931,80 @@ export default function RoboWhatsAppPage() {
                         </p>
                     </Card>
                 )}
+
+                <Card id="atendimentos-humanos" className="border border-gray-200 p-7">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div className="flex items-start gap-4">
+                            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brand/10 text-xl text-brand">
+                                <FontAwesomeIcon icon={faBell} />
+                            </div>
+                            <div>
+                                <h2 className="text-lg font-semibold text-gray-900">Atendimento humano</h2>
+                                <p className="mt-1 text-sm text-gray-600">
+                                    Clientes encaminhados pelo robô nos últimos 7 dias.
+                                </p>
+                            </div>
+                        </div>
+                        {pendingHandoffs > 0 && (
+                            <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800">
+                                {pendingHandoffs} aguardando
+                            </span>
+                        )}
+                    </div>
+                    {handoffs.length === 0 ? (
+                        <p className="mt-6 py-8 text-center text-sm text-gray-500">
+                            Nenhum atendimento humano solicitado recentemente.
+                        </p>
+                    ) : (
+                        <div className="mt-5 divide-y divide-gray-200 rounded-lg border border-gray-200">
+                            {handoffs.map((handoff) => {
+                                const attended = Boolean(
+                                    handoff.last_owner_message_at &&
+                                    new Date(handoff.last_owner_message_at).getTime() >=
+                                        new Date(handoff.handoff_requested_at).getTime()
+                                );
+                                const rawPhone = (handoff.handoff_phone || "").replace(/\D/g, "");
+                                const phone = rawPhone.startsWith("55")
+                                    ? rawPhone
+                                    : rawPhone.length === 10 || rawPhone.length === 11
+                                      ? "55" + rawPhone : "";
+                                const canOpen = /^55\d{10,11}$/.test(phone);
+                                return (
+                                    <div key={handoff.chat_id} className="flex flex-wrap items-center justify-between gap-3 p-4">
+                                        <div className="min-w-0">
+                                            <p className="text-sm font-semibold text-gray-900">
+                                                {handoff.customer_name || "Cliente"}
+                                            </p>
+                                            <p className="mt-1 text-xs text-gray-500">
+                                                {canOpen ? formatPhone(phone) : "Telefone indisponível"} ·{" "}
+                                                {new Date(handoff.handoff_requested_at).toLocaleString("pt-BR", {
+                                                    timeZone: "America/Sao_Paulo",
+                                                    dateStyle: "short",
+                                                    timeStyle: "short",
+                                                })}
+                                            </p>
+                                            <p className={`mt-2 text-xs font-medium ${attended ? "text-green-700" : "text-amber-700"}`}>
+                                                {attended ? "Atendido" : "Aguardando atendimento"}
+                                            </p>
+                                        </div>
+                                        <Button
+                                            variant="secondary"
+                                            disabled={!canOpen}
+                                            onClick={() => {
+                                                if (canOpen) {
+                                                    window.open(`https://wa.me/${phone}`, "_blank", "noopener,noreferrer");
+                                                }
+                                            }}
+                                        >
+                                            <FontAwesomeIcon icon={faWhatsapp} className="mr-2" />
+                                            Abrir WhatsApp
+                                        </Button>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </Card>
 
                 {templates && (
                     <Card className="border border-gray-200 p-7">

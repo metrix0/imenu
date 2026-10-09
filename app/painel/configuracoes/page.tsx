@@ -469,13 +469,29 @@ export default function ConfiguracoesPage() {
     const handleLogout = async () => {
         setIsLoggingOut(true);
         try {
-            window.localStorage.removeItem("imenu:landing-panel-auto-redirect");
+            await supabase.auth.signOut();
         } catch {
-            // Browser storage can be unavailable; logout should still proceed.
+            // An invalid or unreachable server session must not block local logout.
         }
-        await supabase.auth.signOut();
-        clear();
-        router.push("/restaurante/login");
+
+        try {
+            const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+            if (!supabaseUrl) throw new Error("Supabase URL missing");
+            const projectRef = new URL(supabaseUrl).hostname.split(".")[0];
+            const storageKey = `sb-${projectRef}-auth-token`;
+
+            // Supabase can leave the cached session behind when server sign-out fails.
+            window.localStorage.removeItem(storageKey);
+            window.localStorage.removeItem(`${storageKey}-code-verifier`);
+            window.localStorage.removeItem("imenu:landing-panel-auto-redirect");
+
+            clear();
+            // Reset the in-memory auth client before the login page checks its session.
+            window.location.replace("/restaurante/login");
+        } catch {
+            setToast({ message: "Não foi possível sair da conta. Tente novamente.", type: "error" });
+            setIsLoggingOut(false);
+        }
     };
 
     const handleDeleteAccount = async () => {

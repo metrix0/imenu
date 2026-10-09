@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useParams, usePathname, useRouter } from "next/navigation";
-import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
+import { PanelIcon as FontAwesomeIcon, faMotorRacingHelmet } from "@/components/ui/PanelIcon";
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import {
     faBars,
@@ -407,6 +407,7 @@ export default function PainelLayout({
         { label: "Promoções", icon: faPercent, href: `${base}/promocoes` },
         { label: "Horários", icon: faClock, href: `${base}/disponibilidade` },
         { label: "Taxa e Tempo", icon: faTruck, href: `${base}/tempo-e-taxa` },
+        { label: "Motoboy e Garçom", icon: faMotorRacingHelmet, href: `${base}/motoboy-garcom` },
         { label: "Fidelidade", icon: faGift, href: `${base}/fidelidade` },
         { type: "divider" },
         { label: "Aplicativo", icon: faMobileScreenButton, href: `${base}/aplicativo` },
