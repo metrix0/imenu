@@ -5,6 +5,9 @@ on:
     branches:
       - preview
       - preview-iavendas
+  pull_request:
+    branches:
+      - main
 
 concurrency:
   group: validate-build-${{ github.ref }}
@@ -12,6 +15,7 @@ concurrency:
 
 jobs:
   validate:
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -47,3 +51,35 @@ jobs:
 
       - name: Build
         run: npx next build
+
+  merge-typecheck:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CI: "true"
+      NEXT_TELEMETRY_DISABLED: "1"
+      DATABASE_URL: "postgresql://ci:ci@127.0.0.1:5432/ci"
+      NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co"
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: "ci-placeholder"
+      SUPABASE_URL: "https://example.supabase.co"
+      SUPABASE_ANON_KEY: "ci-placeholder"
+      SUPABASE_SERVICE_ROLE_KEY: "ci-placeholder"
+      OPENAI_API_KEY: "ci-placeholder"
+      MERCADO_PAGO_ACCESS_TOKEN: "ci-placeholder"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npx tsc --noEmit
