@@ -469,27 +469,24 @@ export default function ConfiguracoesPage() {
     const handleLogout = async () => {
         setIsLoggingOut(true);
         try {
-            try {
-                window.localStorage.removeItem("imenu:landing-panel-auto-redirect");
-            } catch {
-                // Browser storage can be unavailable; logout should still proceed.
-            }
+            await supabase.auth.signOut();
+        } catch {
+            // An invalid or unreachable server session must not block local logout.
+        }
 
-            const { error } = await supabase.auth.signOut();
-            if (error) {
-                // A revoked server session must not leave a cached browser session.
-                const { error: localError } = await supabase.auth.signOut({ scope: "local" });
-                if (localError) throw localError;
-            }
+        try {
+            const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+            if (!supabaseUrl) throw new Error("Supabase URL missing");
+            const projectRef = new URL(supabaseUrl).hostname.split(".")[0];
+            const storageKey = `sb-${projectRef}-auth-token`;
 
-            const { data: { session } } = await supabase.auth.getSession();
-            if (session) {
-                const { error: localError } = await supabase.auth.signOut({ scope: "local" });
-                if (localError) throw localError;
-            }
+            // Supabase can leave the cached session behind when server sign-out fails.
+            window.localStorage.removeItem(storageKey);
+            window.localStorage.removeItem(`${storageKey}-code-verifier`);
+            window.localStorage.removeItem("imenu:landing-panel-auto-redirect");
 
             clear();
-            // A full navigation avoids mounting login with stale in-memory auth state.
+            // Reset the in-memory auth client before the login page checks its session.
             window.location.replace("/restaurante/login");
         } catch {
             setToast({ message: "Não foi possível sair da conta. Tente novamente.", type: "error" });
