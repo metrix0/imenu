@@ -68,7 +68,7 @@ const panelIcons: Record<string, LucideIcon> = {
 export function PanelIcon(props: FontAwesomeIconProps) {
     const panel = usePanelAppearance();
     const { icon, className = "", size, spin, pulse, title, style, ...rest } = props;
-    const name = typeof icon === "object" && "iconName" in icon ? icon.iconName : null;
+    const name = typeof icon === "object" && "iconName" in icon ? String(icon.iconName) : null;
     const prefix = typeof icon === "object" && "prefix" in icon ? icon.prefix : null;
     const Icon = name ? panelIcons[name] : undefined;
 
