@@ -140,7 +140,7 @@ export async function listSupportBlasts() {
                c.created_at, c.completed_at,
                COUNT(r.id) FILTER (WHERE r.status = 'sent')::int AS sent,
                COUNT(r.id) FILTER (WHERE r.status = 'failed')::int AS failed,
-               COUNT(r.id) FILTER (WHERE r.status IN ('skipped_recent', 'skipped_monthly', 'skipped_reactivated'))::int AS skipped,
+               COUNT(r.id) FILTER (WHERE r.status IN ('skipped_recent', 'skipped_monthly', 'skipped_30d', 'skipped_reactivated'))::int AS skipped,
                COUNT(r.id) FILTER (WHERE r.status IN ('pending', 'processing'))::int AS pending
         FROM (SELECT * FROM support_blast_campaigns ORDER BY created_at DESC LIMIT 40) c
         LEFT JOIN support_blast_recipients r ON r.campaign_id = c.id
@@ -310,12 +310,14 @@ async function sendRecipient(item: ClaimedRecipient): Promise<"sent" | "skipped"
         const recent = await query(
             `
             SELECT 1 FROM whatsapp_outbound_messages
-            WHERE dedupe_key LIKE 'support:bulk:%' AND status = 'sent'
-              AND updated_at >= CASE WHEN $4::boolean THEN LEAST(
-                  NOW() - INTERVAL '7 days',
-                  date_trunc('month', NOW() AT TIME ZONE 'America/Sao_Paulo')
-                      AT TIME ZONE 'America/Sao_Paulo'
-              ) ELSE NOW() - INTERVAL '7 days' END
+            WHERE dedupe_key LIKE 'support:bulk:%'
+              AND (
+                  status = 'sent'
+                  OR ($4::boolean AND dedupe_key LIKE 'support:bulk:abandoned:%'
+                      AND status IN ('sending', 'failed'))
+              )
+              AND updated_at >= NOW() - CASE WHEN $4::boolean
+                  THEN INTERVAL '30 days' ELSE INTERVAL '7 days' END
               AND (
                 chat_id = $2
                 OR (cardinality($1::uuid[]) > 0 AND restaurant_id = ANY($1::uuid[]))
@@ -334,32 +336,22 @@ async function sendRecipient(item: ClaimedRecipient): Promise<"sent" | "skipped"
             UNION ALL
             SELECT 1 FROM support_blast_recipients
             WHERE phone = $3 AND status = 'sent'
-              AND sent_at >= CASE WHEN $4::boolean THEN LEAST(
-                  NOW() - INTERVAL '7 days',
-                  date_trunc('month', NOW() AT TIME ZONE 'America/Sao_Paulo')
-                      AT TIME ZONE 'America/Sao_Paulo'
-              ) ELSE NOW() - INTERVAL '7 days' END
+              AND sent_at >= NOW() - CASE WHEN $4::boolean
+                  THEN INTERVAL '30 days' ELSE INTERVAL '7 days' END
             LIMIT 1
             `,
             [restaurantIds, chatId, phone, isAbandonedBlast]
         );
         if (recent.rowCount) {
-            await finishRecipient(item.id, isAbandonedBlast ? "skipped_monthly" : "skipped_recent");
+            await finishRecipient(item.id, isAbandonedBlast ? "skipped_30d" : "skipped_recent");
             return "skipped";
         }
     }
 
-    // One immutable outbound idempotency key per account per São Paulo month.
-    // This also prevents duplicate abandoned sends if a user changes phone numbers.
-    const monthParts = new Intl.DateTimeFormat("en-US", {
-        timeZone: "America/Sao_Paulo",
-        month: "2-digit",
-        year: "numeric",
-    }).formatToParts(new Date());
-    const monthKey = monthParts.find((part) => part.type === "year")?.value + "-" +
-        monthParts.find((part) => part.type === "month")?.value;
+    // One stable key per account and daily campaign, including cron retries.
+    // The rolling 30-day history check governs eligibility across campaigns.
     const dedupeKey = isAbandonedBlast
-        ? "support:bulk:abandoned:" + monthKey + ":" +
+        ? "support:bulk:abandoned:" + item.campaign_id + ":" +
             (matched.rows[0]?.account_id || "phone:" + phone)
         : "support:bulk:" + item.sender + ":" + item.campaign_id +
             ":" + (restaurantId || "phone:" + phone);
@@ -368,7 +360,7 @@ async function sendRecipient(item: ClaimedRecipient): Promise<"sent" | "skipped"
         [dedupeKey, restaurantId, chatId]
     );
     if (!outbound.rowCount) {
-        await finishRecipient(item.id, isAbandonedBlast ? "skipped_monthly" : "skipped_recent");
+        await finishRecipient(item.id, isAbandonedBlast ? "skipped_30d" : "skipped_recent");
         return "skipped";
     }
 
