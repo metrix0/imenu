@@ -84,6 +84,30 @@ export class PayoutValidationError extends Error {
     }
 }
 
+const PAYOUT_TIME_ZONE = "America/Sao_Paulo";
+const PAYOUT_CUTOFF_HOUR = 10;
+const PAYOUT_UTC_OFFSET = "-03:00";
+
+export function getPayoutCutoffAt(referenceAt: Date = new Date()): Date {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+        timeZone: PAYOUT_TIME_ZONE,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+    }).formatToParts(referenceAt);
+    const value = Object.fromEntries(
+        parts.map((part) => [part.type, part.value])
+    );
+    const hour = String(PAYOUT_CUTOFF_HOUR).padStart(2, "0");
+    const cutoffAt = new Date(
+        `${value.year}-${value.month}-${value.day}T${hour}:00:00${PAYOUT_UTC_OFFSET}`
+    );
+
+    return referenceAt.getTime() < cutoffAt.getTime()
+        ? referenceAt
+        : cutoffAt;
+}
+
 export function getAsaasApiKey(): string | null {
     return process.env.ASAAS_API_KEY?.trim() || null;
 }
@@ -937,8 +961,9 @@ export async function retryFailedPayout(
 export async function getPayoutDashboardData() {
     await reconcileProcessingPayouts();
     const now = new Date();
+    const cutoffAt = getPayoutCutoffAt(now);
     const [payables, historyResult, automationResult] = await Promise.all([
-        getPayables(now),
+        getPayables(cutoffAt),
         query<{
             id: string;
             restaurant_id: string;

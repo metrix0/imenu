@@ -5,6 +5,7 @@ import {
     createPayoutPlan,
     failRecentPendingPayouts,
     getAsaasBalance,
+    getPayoutCutoffAt,
     PayoutValidationError,
     reconcileProcessingPayouts,
     sendPayouts,
@@ -159,6 +160,7 @@ export async function GET(request: Request) {
     }
 
     const startedAt = new Date();
+    const cutoffAt = getPayoutCutoffAt(startedAt);
     const runDate = getBusinessDate(startedAt);
     const clientReference = `imenu-mp-daily-payout-${runDate}`;
     const inserted = await query<{ id: string }>(
@@ -177,7 +179,7 @@ export async function GET(request: Request) {
         ON CONFLICT (run_date) DO NOTHING
         RETURNING id
         `,
-        [runDate, startedAt.toISOString(), clientReference]
+        [runDate, cutoffAt.toISOString(), clientReference]
     );
     const runId = inserted.rows[0]?.id;
 
@@ -237,7 +239,7 @@ export async function GET(request: Request) {
 
         currentStep = "adjustment";
         const plan = await createPayoutPlan({
-            cutoffAt: startedAt,
+            cutoffAt,
             discountPercent: 1,
             adjustToOnePercent: true,
         });
@@ -394,7 +396,7 @@ export async function GET(request: Request) {
         );
 
         const payoutResult = await sendPayouts({
-            cutoffAt: startedAt,
+            cutoffAt,
             discountPercent: 1,
             adjustToOnePercent: true,
             automationRunId: runId,
