@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { faArrowLeft, faLink, faTruck } from "@fortawesome/free-solid-svg-icons";
 import Button from "@/components/ui/Button";
-import Card from "@/components/ui/Card";
+import { Inbox } from "lucide-react";
 import Loader from "@/components/ui/Loader";
 import OrderCard, { type OrderData } from "@/components/restaurant-owner/OrderCard";
 import type { Order } from "@/components/restaurant-owner/pedidos/OrdersTable";
@@ -146,7 +146,13 @@ export default function MotoboyPage() {
             {orders.map((order) => <OrderCard key={order.id} order={order} deliveryOnly onStatusChange={() => restaurant && void loadOrders(restaurant.id, deliveredLimitRef.current)} onViewOrder={setSelectedOrder} />)}
         </div>
     ) : (
-        <Card className="border border-gray-200 text-center shadow-sm"><p className="py-8 text-sm text-gray-500">Nenhum pedido.</p></Card>
+        <div className="panel-empty text-center flex flex-col items-center bg-white">
+            <Inbox className="panel-empty-icon" strokeWidth={1.75} aria-hidden="true" />
+            <h3 className="text-xl font-bold text-gray-900 2xl:text-3xl">Nenhum pedido.</h3>
+            <p className="text-gray-500 mt-2 2xl:text-lg">
+                Esta página recebe pedidos automaticamente, não é necessário atualizar.
+            </p>
+        </div>
     );
 
     if (loading) return <div className="flex min-h-screen items-center justify-center bg-gray-50"><Loader className="border-t-brand" /></div>;
