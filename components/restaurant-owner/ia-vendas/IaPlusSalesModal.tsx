@@ -153,6 +153,7 @@ export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout
               <section className="overflow-hidden rounded-xl border border-orange-100 bg-white md:col-span-2">
                 <div className="flex items-center gap-2 bg-brand/5 px-4 py-3 text-brand">
                   <FontAwesomeIcon icon={faBellConcierge} className="text-[17px]" />
+                  <h3 className="text-sm font-semibold">Atendimento exclusivo</h3>
                   <Badge>BÔNUS</Badge>
                 </div>
                 <div className="space-y-3 p-4 text-sm leading-5 text-gray-600">
