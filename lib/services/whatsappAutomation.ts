@@ -1,4 +1,5 @@
 import { query, withAdvisoryLock, withTransaction } from "@/lib/database/sql";
+import { sendOwnerPush } from "@/lib/push/server";
 import {
     buildRestaurantTemplateVariables,
     getRestaurantTemplateData,
@@ -10,6 +11,7 @@ import {
 import {
     sendWahaList,
     sendWahaText,
+    resolveWahaChatPhone,
     startWahaTyping,
     stopWahaTyping,
     type WahaListRow,
@@ -255,9 +257,10 @@ async function prepareConversation(
 async function handoffConversation(
     restaurantId: string,
     chatId: string,
-    ownerMessage: boolean
-): Promise<void> {
-    await query(
+    ownerMessage: boolean,
+    phone: string | null = null
+): Promise<boolean> {
+    const result = await query(
         `
             INSERT INTO whatsapp_conversations (
                 restaurant_id,
@@ -265,15 +268,17 @@ async function handoffConversation(
                 mode,
                 human_until,
                 last_owner_message_at,
+                handoff_requested_at,
+                handoff_reminder_sent_at,
+                handoff_phone,
                 updated_at
             )
             VALUES (
-                $1,
-                $2,
-                'human',
+                $1, $2, 'human',
                 NOW() + ($3 * INTERVAL '1 minute'),
                 CASE WHEN $4 THEN NOW() ELSE NULL END,
-                NOW()
+                CASE WHEN $4 THEN NULL ELSE NOW() END,
+                NULL, $5, NOW()
             )
             ON CONFLICT (restaurant_id, chat_id)
             DO UPDATE SET
@@ -283,10 +288,28 @@ async function handoffConversation(
                     WHEN $4 THEN NOW()
                     ELSE whatsapp_conversations.last_owner_message_at
                 END,
+                handoff_requested_at = CASE
+                    WHEN $4 THEN whatsapp_conversations.handoff_requested_at
+                    ELSE NOW()
+                END,
+                handoff_reminder_sent_at = CASE
+                    WHEN $4 THEN whatsapp_conversations.handoff_reminder_sent_at
+                    ELSE NULL
+                END,
+                handoff_phone = CASE
+                    WHEN $4 THEN whatsapp_conversations.handoff_phone
+                    ELSE $5
+                END,
                 updated_at = NOW()
+            WHERE $4 OR whatsapp_conversations.mode <> 'human'
+              OR (
+                  whatsapp_conversations.human_until IS NOT NULL
+                  AND whatsapp_conversations.human_until <= NOW()
+              )
         `,
-        [restaurantId, chatId, HUMAN_HANDOFF_MINUTES, ownerMessage]
+        [restaurantId, chatId, HUMAN_HANDOFF_MINUTES, ownerMessage, phone]
     );
+    return !ownerMessage && result.rowCount > 0;
 }
 
 function providerMessageId(value: unknown): string | null {
@@ -676,15 +699,37 @@ async function answerFlow({
     inboundMessageId: string;
 }): Promise<void> {
     if (flow === "handoff") {
-        await handoffConversation(restaurantId, chatId, false);
-        await sendTrackedText({
-            dedupeKey: `${inboundMessageId}:handoff`,
-            restaurantId,
-            sessionName,
-            chatId,
-            text: renderWhatsAppTemplate(templates.handoff, variables),
-            allowHuman: true,
-        });
+        let phone: string | null = null;
+        try {
+            phone = await resolveWahaChatPhone(sessionName, chatId);
+        } catch (error) {
+            console.warn("[WHATSAPP_AUTOMATION] handoff_phone_lookup_failed", error);
+        }
+        const newHandoff = await handoffConversation(restaurantId, chatId, false, phone);
+        try {
+            await sendTrackedText({
+                dedupeKey: `${inboundMessageId}:handoff`,
+                restaurantId,
+                sessionName,
+                chatId,
+                text: renderWhatsAppTemplate(templates.handoff, variables),
+                allowHuman: true,
+            });
+        } finally {
+            // Notify the owner even if WhatsApp rejects the confirmation message.
+            if (newHandoff) {
+                try {
+                    await sendOwnerPush(restaurantId, {
+                        title: "Atendimento humano solicitado 🔔",
+                        body: `${variables.NOME_DO_CLIENTE || "Um cliente"} precisa de atendimento no WhatsApp.`,
+                        url: "/painel/robo-whatsapp#atendimentos-humanos",
+                        tag: `whatsapp-handoff-${restaurantId}-${chatId}`,
+                    });
+                } catch (error) {
+                    console.error("[WHATSAPP_AUTOMATION] handoff_push_failed", error);
+                }
+            }
+        }
         return;
     }
 
