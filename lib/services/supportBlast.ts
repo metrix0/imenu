@@ -386,6 +386,30 @@ async function sendRecipient(item: ClaimedRecipient): Promise<"sent" | "skipped"
             [dedupeKey, resolvedChatId]
         );
         await finishRecipient(item.id, "sent");
+
+        // Preserve the exact sent blast in an existing AI conversation, if any.
+        // LID chat IDs cannot be matched against the sending phone's @c.us ID.
+        // New conversations are populated on the first incoming reply instead.
+        try {
+            await query(
+                `INSERT INTO support_messages (conversation_id, direction, body, dedupe_key, send_status, created_at)
+                 SELECT c.id, 'outbound', $3, 'support:blast-recipient:' || r.id::text, 'sent', r.sent_at
+                 FROM support_conversations c
+                 JOIN support_blast_recipients r ON r.id = $4
+                 WHERE c.phone = $1
+                   AND (c.chat_id LIKE 'imenu-blast:%') = $2
+                   AND NOT EXISTS (
+                       SELECT 1 FROM support_messages m
+                       WHERE m.conversation_id = c.id AND m.direction = 'outbound' AND m.body = $3
+                         AND m.created_at BETWEEN r.sent_at - INTERVAL '5 minutes' AND r.sent_at + INTERVAL '5 minutes'
+                   )
+                 ON CONFLICT (dedupe_key) WHERE dedupe_key IS NOT NULL DO NOTHING`,
+                [phone, item.sender === "blast", item.message, item.id]
+            );
+        } catch (error) {
+            // A history recording failure must never mark a delivered blast as failed.
+            console.warn("[SUPPORT_BLAST] sent_message_history_failed:", error);
+        }
         return "sent";
     } catch (error) {
         const message = error instanceof Error ? error.message.slice(0, 500) : "WAHA send failed";
