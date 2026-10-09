@@ -5,6 +5,7 @@ import { query } from "@/lib/database/sql";
 import { resolveAsaasSubscriptionId } from "@/lib/qr-table/asaasSubscription";
 import type { QrTableAddon } from "@/lib/qr-table/types";
 import { asaasRequest } from "@/lib/qr-table/asaas";
+import { sendAddonPurchaseWhatsApp } from "@/lib/services/addonPurchaseWhatsApp";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -237,7 +238,15 @@ async function processEvent(payload: AsaasWebhook): Promise<void> {
             throw new Error("Cobrança Asaas divergente do iMenu IA Plus.");
         }
         await activateAddon(addon.id, payment, subscriptionId);
-        if (payment) await savePayment(addon.id, payment, event);
+        if (payment) {
+            await savePayment(addon.id, payment, event);
+            if (payment.id) {
+                await sendAddonPurchaseWhatsApp({
+                    addonId: addon.id,
+                    paymentId: payment.id,
+                });
+            }
+        }
         return;
     }
 
@@ -269,6 +278,12 @@ async function processEvent(payload: AsaasWebhook): Promise<void> {
             throw new Error("Cobrança Asaas divergente do iMenu IA Plus.");
         }
         await activateAddon(addon.id, payment);
+        if (payment.id) {
+            await sendAddonPurchaseWhatsApp({
+                addonId: addon.id,
+                paymentId: payment.id,
+            });
+        }
         return;
     }
 

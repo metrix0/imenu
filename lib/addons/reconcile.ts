@@ -22,6 +22,7 @@ import {
 } from "@/lib/qr-table/payzuBilling";
 import type { QrTableAddon } from "@/lib/qr-table/types";
 import { hasQrTableAccess } from "@/lib/qr-table/types";
+import { sendAddonPurchaseWhatsApp } from "@/lib/services/addonPurchaseWhatsApp";
 
 
 type AsaasPayment = {
@@ -266,6 +267,12 @@ async function reconcileAsaasPayments(
     }
 
     await activateAsaasAddon(addon.id, confirmedPayment);
+    if (confirmedPayment.id) {
+        await sendAddonPurchaseWhatsApp({
+            addonId: addon.id,
+            paymentId: confirmedPayment.id,
+        });
+    }
     return {
         active: true,
         activatedNow: true,

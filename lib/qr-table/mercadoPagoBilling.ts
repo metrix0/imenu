@@ -1,5 +1,6 @@
 import { query } from "@/lib/database/sql";
 import { QR_TABLE_PRICE_CENTS } from "@/lib/qr-table/payzuBilling";
+import { sendAddonPurchaseWhatsApp } from "@/lib/services/addonPurchaseWhatsApp";
 
 export async function saveMercadoPagoQrTablePayment(input: {
     addonId: string;
@@ -128,6 +129,11 @@ export async function activateMercadoPagoQrTablePrepaid(input: {
             input.paidAt || null,
         ]
     );
+
+    await sendAddonPurchaseWhatsApp({
+        addonId: input.addonId,
+        paymentId: input.paymentId,
+    });
 }
 
 export async function markMercadoPagoQrTablePaymentFailure(input: {
