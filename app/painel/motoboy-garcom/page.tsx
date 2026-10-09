@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PanelIcon as FontAwesomeIcon, faMotorRacingHelmet } from "@/components/ui/PanelIcon";
-import { faUpRightFromSquare, faBellConcierge, faCheck, faLock } from "@fortawesome/free-solid-svg-icons";
+import { faUpRightFromSquare, faBellConcierge, faCheck, faCopy, faLock } from "@fortawesome/free-solid-svg-icons";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Loader from "@/components/ui/Loader";
@@ -11,11 +11,9 @@ import Tooltip from "@/components/ui/Tooltip";
 import QrCodeMesaSalesModal from "@/components/restaurant-owner/mesas/QrCodeMesaSalesModal";
 import { supabase } from "@/lib/database/supabaseClient";
 import { hasQrTableAccess } from "@/lib/qr-table/types";
-import { ADDON_PRODUCTS } from "@/lib/addons/products";
 
 const WAITER_PLAN_MESSAGE = "Essa é uma função do plano iMenu QR Code Mesa";
-const WAITER_PRICE = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })
-    .format(ADDON_PRODUCTS.qr_code_mesa.priceCents / 100);
+type StaffPanel = "garcom" | "motoboy";
 
 export default function StaffPanelsPage() {
     const router = useRouter();
@@ -24,6 +22,8 @@ export default function StaffPanelsPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [salesOpen, setSalesOpen] = useState(false);
+    const [copyFeedback, setCopyFeedback] = useState<{ panel: StaffPanel; success: boolean } | null>(null);
+    const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const loadAccess = useCallback(async () => {
         setLoading(true);
@@ -53,13 +53,37 @@ export default function StaffPanelsPage() {
     }, [router]);
 
     useEffect(() => { void loadAccess(); }, [loadAccess]);
+    useEffect(() => () => {
+        if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
+    }, []);
+
+    const copyPanelLink = async (panel: StaffPanel) => {
+        if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
+        try {
+            await navigator.clipboard.writeText(new URL(`/${panel}`, window.location.origin).href);
+            setCopyFeedback({ panel, success: true });
+            copyTimeoutRef.current = setTimeout(() => setCopyFeedback(null), 2000);
+        } catch {
+            setCopyFeedback({ panel, success: false });
+        }
+    };
+
+    const renderCopyButton = (panel: StaffPanel, label: string) => (
+        <div className="mt-2">
+            <Button variant="secondary" className="w-full gap-2" aria-label={`Copiar link do ${label}`} onClick={() => void copyPanelLink(panel)}>
+                <FontAwesomeIcon icon={copyFeedback?.panel === panel && copyFeedback.success ? faCheck : faCopy} />
+                <span aria-live="polite">{copyFeedback?.panel === panel && copyFeedback.success ? "Link copiado!" : "Copiar link"}</span>
+            </Button>
+            {copyFeedback?.panel === panel && !copyFeedback.success && <p role="alert" className="mt-2 text-xs text-red-700">Não foi possível copiar o link. Tente novamente.</p>}
+        </div>
+    );
 
     if (loading) return <div className="flex h-64 items-center justify-center"><Loader /></div>;
 
     return (
         <div className="mx-auto max-w-7xl px-4 pb-20 pt-8 sm:px-6">
             <header className="panel-page-heading mb-8">
-                <h1 className="text-3xl font-bold text-gray-900">Motoboy/Garçom</h1>
+                <h1 className="text-3xl font-bold text-gray-900">Motoboy e Garçom</h1>
                 <p className="mt-2 max-w-2xl text-sm leading-relaxed text-gray-500">
                     Cada pedido no lugar certo. Escolha o painel para acompanhar as entregas ou atender suas mesas.
                 </p>
@@ -73,7 +97,7 @@ export default function StaffPanelsPage() {
                             </span>
                             <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${waiterAccess ? "bg-green-50 text-green-700" : "bg-orange-50 text-orange-800"}`}>
                                 <FontAwesomeIcon icon={waiterAccess ? faCheck : faLock} />
-                                {waiterAccess ? "Plano ativo" : "Plano pago"}
+                                {waiterAccess ? "Plano ativo" : "Incluso no plano iMenu QR Code"}
                             </span>
                         </div>
                         <p className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-500">Atendimento nas mesas</p>
@@ -96,16 +120,13 @@ export default function StaffPanelsPage() {
                             ))}
                         </ul>
                         <div className="border-t border-gray-200 pt-5">
-                            <div className="mb-5">
-                                <p className="text-xl font-bold text-gray-900">{WAITER_PRICE}<span className="ml-1 text-sm font-normal text-gray-500">/mês</span></p>
-                                <p className="mt-1 text-xs leading-relaxed text-gray-500">Incluído no plano iMenu QR Code Mesa.</p>
-                            </div>
                             <Tooltip text={WAITER_PLAN_MESSAGE} disabled={waiterAccess} parentClassName="!block">
                                 <Button className="w-full gap-2" onClick={() => waiterAccess ? window.open("/garcom", "_blank", "noopener,noreferrer") : setSalesOpen(true)}>
                                     <FontAwesomeIcon icon={waiterAccess ? faUpRightFromSquare : faLock} />
                                     {waiterAccess ? "Abrir Painel Garçom" : "Desbloquear Painel Garçom"}
                                 </Button>
                             </Tooltip>
+                            {renderCopyButton("garcom", "Painel Garçom")}
                         </div>
                     </Card>
                     <Card className="flex min-w-0 flex-col !p-6 sm:!p-7">
@@ -133,14 +154,11 @@ export default function StaffPanelsPage() {
                             ))}
                         </ul>
                         <div className="border-t border-gray-200 pt-5">
-                            <div className="mb-5">
-                                <p className="text-xl font-bold text-gray-900">Gratuito</p>
-                                <p className="mt-1 text-xs leading-relaxed text-gray-500">Pronto para usar, sem mensalidade.</p>
-                            </div>
                             <Button className="w-full gap-2" onClick={() => window.open("/motoboy", "_blank", "noopener,noreferrer")}>
                                 <FontAwesomeIcon icon={faUpRightFromSquare} />
                                 Abrir Painel Motoboy
                             </Button>
+                            {renderCopyButton("motoboy", "Painel Motoboy")}
                         </div>
                     </Card>
                 </div>
