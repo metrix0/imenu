@@ -391,7 +391,6 @@ export default function PainelLayout({
         { label: "Cardápio", icon: faUtensils, href: cardapioHref },
         { label: "Assistente IA", icon: faWandMagicSparkles, href: `${base}/assistente-ia`, isNew: true },
         { label: "Mesas", icon: faChair, href: `${base}/mesas` },
-        { label: "Motoboy e Garçom", icon: faMotorRacingHelmet, href: `${base}/motoboy-garcom` },
         {
             label: "Repasses",
             icon: faMoneyBillWave,
@@ -408,6 +407,7 @@ export default function PainelLayout({
         { label: "Promoções", icon: faPercent, href: `${base}/promocoes` },
         { label: "Horários", icon: faClock, href: `${base}/disponibilidade` },
         { label: "Taxa e Tempo", icon: faTruck, href: `${base}/tempo-e-taxa` },
+        { label: "Motoboy e Garçom", icon: faMotorRacingHelmet, href: `${base}/motoboy-garcom` },
         { label: "Fidelidade", icon: faGift, href: `${base}/fidelidade` },
         { type: "divider" },
         { label: "Aplicativo", icon: faMobileScreenButton, href: `${base}/aplicativo` },

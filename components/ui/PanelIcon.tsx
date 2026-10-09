@@ -31,7 +31,7 @@ export const faMotorRacingHelmet = {
     prefix: "fas",
     iconName: "motor-racing-helmet",
     icon: [24, 24, [], "e000", ""],
-} as IconDefinition;
+} as unknown as IconDefinition;
 
 // Keep existing icon definitions and call sites; only the panel's visual glyph changes.
 const panelIcons: Record<string, LucideIcon> = {
