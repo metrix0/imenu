@@ -180,12 +180,15 @@ export default function MotoboyPage() {
                     </section>
                     <section className="mb-8">
                         <h2 className="mb-4 text-xl font-bold text-gray-900">Entregues</h2>
-                        {recentDeliveryDays().map((day) => (
-                            <section key={day.dateKey} className="mb-6">
-                                <h3 className="mb-3 text-base font-semibold text-gray-700">{day.title}</h3>
-                                {renderOrderCards(delivered.filter((order) => deliveryDateKey(order.updated_at) === day.dateKey))}
-                            </section>
-                        ))}
+                        {recentDeliveryDays().map((day) => {
+                            const dayOrders = delivered.filter((order) => deliveryDateKey(order.updated_at) === day.dateKey);
+                            return (
+                                <section key={day.dateKey} className="mb-6">
+                                    <h3 className="mb-3 text-base font-semibold text-gray-700">{day.title}</h3>
+                                    {dayOrders.length > 0 && renderOrderCards(dayOrders)}
+                                </section>
+                            );
+                        })}
                     </section>
                     {hasMoreDelivered && <Button variant="secondary" loading={loadingMore} disabled={loadingMore} onClick={() => void loadMore()}>Carregar mais entregues</Button>}
                 </>}
