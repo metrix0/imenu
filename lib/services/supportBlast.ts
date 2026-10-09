@@ -140,7 +140,7 @@ export async function listSupportBlasts() {
                c.created_at, c.completed_at,
                COUNT(r.id) FILTER (WHERE r.status = 'sent')::int AS sent,
                COUNT(r.id) FILTER (WHERE r.status = 'failed')::int AS failed,
-               COUNT(r.id) FILTER (WHERE r.status IN ('skipped_recent', 'skipped_reactivated'))::int AS skipped,
+               COUNT(r.id) FILTER (WHERE r.status IN ('skipped_recent', 'skipped_monthly', 'skipped_reactivated'))::int AS skipped,
                COUNT(r.id) FILTER (WHERE r.status IN ('pending', 'processing'))::int AS pending
         FROM (SELECT * FROM support_blast_campaigns ORDER BY created_at DESC LIMIT 40) c
         LEFT JOIN support_blast_recipients r ON r.campaign_id = c.id
@@ -276,9 +276,10 @@ async function sendRecipient(item: ClaimedRecipient): Promise<"sent" | "skipped"
     const phone = item.phone;
     const chatId = phone + "@c.us";
     const localPhone = phone.slice(2);
-    const matched = await query<{ restaurant_id: string }>(
+    const matched = await query<{ restaurant_id: string; account_id: string }>(
         `
-        SELECT DISTINCT r.id AS restaurant_id
+        SELECT DISTINCT r.id AS restaurant_id,
+               COALESCE(r.user_id, r.id)::text AS account_id
         FROM restaurants r LEFT JOIN auth.users u ON u.id = r.user_id
         WHERE regexp_replace(COALESCE(u.raw_user_meta_data->>'phone', ''), '[^0-9]', '', 'g') = ANY($1::text[])
            OR regexp_replace(COALESCE(r.phone, ''), '[^0-9]', '', 'g') = ANY($1::text[])
@@ -304,38 +305,70 @@ async function sendRecipient(item: ClaimedRecipient): Promise<"sent" | "skipped"
         }
     }
 
-    if (item.skip_recent) {
+    const isAbandonedBlast = item.campaign_message === ABANDONED_BLAST_MESSAGE;
+    if (item.skip_recent || isAbandonedBlast) {
         const recent = await query(
             `
             SELECT 1 FROM whatsapp_outbound_messages
             WHERE dedupe_key LIKE 'support:bulk:%' AND status = 'sent'
-              AND updated_at >= NOW() - INTERVAL '7 days'
+              AND updated_at >= CASE WHEN $4::boolean THEN LEAST(
+                  NOW() - INTERVAL '7 days',
+                  date_trunc('month', NOW() AT TIME ZONE 'America/Sao_Paulo')
+                      AT TIME ZONE 'America/Sao_Paulo'
+              ) ELSE NOW() - INTERVAL '7 days' END
               AND (
                 chat_id = $2
                 OR (cardinality($1::uuid[]) > 0 AND restaurant_id = ANY($1::uuid[]))
+                OR (
+                    $4::boolean AND EXISTS (
+                        SELECT 1
+                        FROM restaurants contacted
+                        JOIN restaurants candidate ON
+                            COALESCE(contacted.user_id, contacted.id) =
+                            COALESCE(candidate.user_id, candidate.id)
+                        WHERE contacted.id = whatsapp_outbound_messages.restaurant_id
+                          AND candidate.id = ANY($1::uuid[])
+                    )
+                )
               )
             UNION ALL
             SELECT 1 FROM support_blast_recipients
             WHERE phone = $3 AND status = 'sent'
-              AND sent_at >= NOW() - INTERVAL '7 days'
+              AND sent_at >= CASE WHEN $4::boolean THEN LEAST(
+                  NOW() - INTERVAL '7 days',
+                  date_trunc('month', NOW() AT TIME ZONE 'America/Sao_Paulo')
+                      AT TIME ZONE 'America/Sao_Paulo'
+              ) ELSE NOW() - INTERVAL '7 days' END
             LIMIT 1
             `,
-            [restaurantIds, chatId, phone]
+            [restaurantIds, chatId, phone, isAbandonedBlast]
         );
         if (recent.rowCount) {
-            await finishRecipient(item.id, "skipped_recent");
+            await finishRecipient(item.id, isAbandonedBlast ? "skipped_monthly" : "skipped_recent");
             return "skipped";
         }
     }
 
-    const dedupeKey = "support:bulk:" + item.sender + ":" + item.campaign_id +
-        ":" + (restaurantId || "phone:" + phone);
+    // One immutable outbound idempotency key per account per São Paulo month.
+    // This also prevents duplicate abandoned sends if a user changes phone numbers.
+    const monthParts = new Intl.DateTimeFormat("en-US", {
+        timeZone: "America/Sao_Paulo",
+        month: "2-digit",
+        year: "numeric",
+    }).formatToParts(new Date());
+    const monthKey = monthParts.find((part) => part.type === "year")?.value + "-" +
+        monthParts.find((part) => part.type === "month")?.value;
+    const dedupeKey = isAbandonedBlast
+        ? "support:bulk:abandoned:" + monthKey + ":" +
+            (matched.rows[0]?.account_id || "phone:" + phone)
+        : "support:bulk:" + item.sender + ":" + item.campaign_id +
+            ":" + (restaurantId || "phone:" + phone);
     const outbound = await query(
         "INSERT INTO whatsapp_outbound_messages (dedupe_key, restaurant_id, chat_id, message_type, status, updated_at) VALUES ($1,$2,$3,'text','sending',NOW()) ON CONFLICT (dedupe_key) DO NOTHING RETURNING dedupe_key",
         [dedupeKey, restaurantId, chatId]
     );
     if (!outbound.rowCount) {
-        await finishRecipient(item.id, "skipped_recent");
+        await finishRecipient(item.id, isAbandonedBlast ? "skipped_monthly" : "skipped_recent");
         return "skipped";
     }
 
@@ -348,7 +381,11 @@ async function sendRecipient(item: ClaimedRecipient): Promise<"sent" | "skipped"
         try {
             await sendWahaText(session.session_name, resolvedChatId, item.message);
         } catch (firstError) {
-            if (!isWahaHttpErrorStatus(firstError, 500)) throw firstError;
+            // A 500 response may still mean WhatsApp delivered the message.
+            // Never retry abandonment outreach: at-most-once is more important.
+            if (isAbandonedBlast || !isWahaHttpErrorStatus(firstError, 500)) {
+                throw firstError;
+            }
             await new Promise((resolve) => setTimeout(resolve, 1000));
             await sendWahaText(session.session_name, resolvedChatId, item.message);
         }

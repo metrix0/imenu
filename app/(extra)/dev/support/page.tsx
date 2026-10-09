@@ -1450,6 +1450,7 @@ export default function DevSupportPage() {
                                                     {recipient.status === "sent" ? "Enviado" :
                                                         recipient.status === "failed" ? "Falhou: " + (recipient.error || "") :
                                                         recipient.status === "skipped_recent" ? "Ignorado (7 dias)" :
+                                                        recipient.status === "skipped_monthly" ? "Ignorado (envio recente/neste mês)" :
                                                         recipient.status === "skipped_reactivated" ? "Ignorado (voltou a receber pedidos)" :
                                                         recipient.status === "cancelled" ? "Interrompido" :
                                                         recipient.status === "processing" ? "Enviando" :

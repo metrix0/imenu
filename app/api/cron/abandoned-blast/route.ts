@@ -108,13 +108,18 @@ export async function GET(request: Request) {
             return NextResponse.json({ day, eligible: candidates.rows.length, queued: 0 });
         }
 
-        // Avoid overlapping manual blasts, including messages already queued.
+        // Exclude all bulk-blasted contacts this calendar month, recent 7-day sends,
+        // and currently queued sends (including manual and cadenced campaigns).
         const existing = await query<{ phone: string }>(
             `SELECT DISTINCT phone FROM support_blast_recipients
              WHERE phone = ANY($1::text[])
                AND (
                    status IN ('pending', 'processing')
-                   OR (status = 'sent' AND sent_at >= NOW() - INTERVAL '7 days')
+                   OR (status = 'sent' AND sent_at >= LEAST(
+                       NOW() - INTERVAL '7 days',
+                       date_trunc('month', NOW() AT TIME ZONE 'America/Sao_Paulo')
+                           AT TIME ZONE 'America/Sao_Paulo'
+                   ))
                )
              UNION
              SELECT split_part(chat_id, '@', 1) AS phone
@@ -122,7 +127,11 @@ export async function GET(request: Request) {
              WHERE chat_id = ANY($2::text[])
                AND dedupe_key LIKE 'support:bulk:%'
                AND status = 'sent'
-               AND updated_at >= NOW() - INTERVAL '7 days'`,
+               AND updated_at >= LEAST(
+                   NOW() - INTERVAL '7 days',
+                   date_trunc('month', NOW() AT TIME ZONE 'America/Sao_Paulo')
+                       AT TIME ZONE 'America/Sao_Paulo'
+               )`,
             [recipients.map((r) => r.phone), recipients.map((r) => r.phone + "@c.us")]
         );
         const blocked = new Set(existing.rows.map((row) => row.phone));
