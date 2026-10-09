@@ -257,8 +257,8 @@ async function getPayables(cutoffAt: Date): Promise<PayableRestaurant[]> {
          AND o.payment_method = 'pix'
          AND o.payment_ref IS NOT NULL
          AND o.status IN ('paid', 'preparing', 'delivering', 'done')
-         AND o.created_at > COALESCE(lp.last_created_at, '-infinity'::timestamptz)
-         AND o.created_at <= $1
+         AND COALESCE(o.payment_paid_at, o.created_at) > COALESCE(lp.last_created_at, '-infinity'::timestamptz)
+         AND COALESCE(o.payment_paid_at, o.created_at) <= $1
         GROUP BY r.id, r.name, r.payment_info, r.payment_info_type
         HAVING COALESCE(SUM(o.total_cents), 0) > 0
         ORDER BY gross_cents DESC, restaurant_name ASC

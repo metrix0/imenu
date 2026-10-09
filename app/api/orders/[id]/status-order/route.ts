@@ -122,6 +122,19 @@ export async function PATCH(
             if (
                 status === "canceled" &&
                 order.payment_method === "pix" &&
+                order.status !== "pending_online_payment" &&
+                order.status !== "canceled" &&
+                order.status !== "paid"
+            ) {
+                throw new OrderStatusError(
+                    "Pedidos Pix Online só podem ser rejeitados enquanto estão no status Pago.",
+                    409
+                );
+            }
+
+            if (
+                status === "canceled" &&
+                order.payment_method === "pix" &&
                 order.status === "paid" &&
                 Date.now() - new Date(order.created_at).getTime() > 60 * 60 * 1000
             ) {
