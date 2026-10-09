@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
-import { faBellConcierge, faCheck, faLock, faTruck } from "@fortawesome/free-solid-svg-icons";
+import { faBellConcierge, faCheck, faLock, faMotorcycle } from "@fortawesome/free-solid-svg-icons";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Loader from "@/components/ui/Loader";
@@ -94,7 +94,7 @@ export default function StaffPanelsPage() {
                     <Card className="flex flex-col">
                         <div className="mb-5 flex items-start justify-between gap-4">
                             <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-brand/10 text-brand">
-                                <FontAwesomeIcon icon={faTruck} className="text-xl" />
+                                <FontAwesomeIcon icon={faMotorcycle} className="text-xl" />
                             </span>
                             <span className="text-xs font-medium text-green-700">Disponível</span>
                         </div>
@@ -115,7 +115,7 @@ export default function StaffPanelsPage() {
                             ))}
                         </ul>
                         <Button className="mt-auto w-full" onClick={() => window.open("/motoboy", "_blank", "noopener,noreferrer")}>
-                            <FontAwesomeIcon icon={faTruck} className="mr-2" />
+                            <FontAwesomeIcon icon={faMotorcycle} className="mr-2" />
                             Painel Motoboy
                         </Button>
                     </Card>
