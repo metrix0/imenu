@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PanelIcon as FontAwesomeIcon, faMotorRacingHelmet } from "@/components/ui/PanelIcon";
-import { faUpRightFromSquare, faBellConcierge, faCheck, faCopy, faLock } from "@fortawesome/free-solid-svg-icons";
+import { faBellConcierge, faCheck, faCopy, faLock } from "@fortawesome/free-solid-svg-icons";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Loader from "@/components/ui/Loader";
@@ -125,7 +125,6 @@ export default function StaffPanelsPage() {
                         <div>
                             <Tooltip text={WAITER_PLAN_MESSAGE} disabled={waiterAccess} parentClassName="!block">
                                 <Button className="w-full gap-2" onClick={() => waiterAccess ? window.open("/garcom", "_blank", "noopener,noreferrer") : setSalesOpen(true)}>
-                                    <FontAwesomeIcon icon={waiterAccess ? faUpRightFromSquare : faBellConcierge} />
                                     {waiterAccess ? "Abrir Painel Garçom" : "Desbloquear Painel Garçom"}
                                     {!waiterAccess && <FontAwesomeIcon icon={faLock} />}
                                 </Button>
@@ -158,7 +157,6 @@ export default function StaffPanelsPage() {
                         </ul>
                         <div>
                             <Button className="w-full gap-2" onClick={() => window.open("/motoboy", "_blank", "noopener,noreferrer")}>
-                                <FontAwesomeIcon icon={faUpRightFromSquare} />
                                 Abrir Painel Motoboy
                             </Button>
                             {renderCopyButton("motoboy", "Painel Motoboy")}
@@ -166,7 +164,7 @@ export default function StaffPanelsPage() {
                     </Card>
                 </div>
             )}
-            {!error && <p className="mt-5 text-center text-xs leading-relaxed text-gray-500">Os painéis abrem em uma nova aba, para você manter o painel principal à mão.</p>}
+            {!error && <p className="mt-5 text-center text-xs leading-relaxed text-gray-500">Os painéis dos motoboys e garçons são separados do painel principal.</p>}
             {restaurantId && <QrCodeMesaSalesModal open={salesOpen} onClose={() => setSalesOpen(false)} restaurantId={restaurantId} source="mesas" onPaid={loadAccess} />}
         </div>
     );
