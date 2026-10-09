@@ -934,11 +934,16 @@ export default function RoboWhatsAppPage() {
 
                 <Card id="atendimentos-humanos" className="border border-gray-200 p-7">
                     <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div>
-                            <h2 className="text-lg font-semibold text-gray-900"><FontAwesomeIcon icon={faBell} className="mr-2 text-brand" />Atendimento humano</h2>
-                            <p className="mt-1 text-sm text-gray-600">
-                                Clientes encaminhados pelo robô nos últimos 7 dias.
-                            </p>
+                        <div className="flex items-start gap-4">
+                            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brand/10 text-xl text-brand">
+                                <FontAwesomeIcon icon={faBell} />
+                            </div>
+                            <div>
+                                <h2 className="text-lg font-semibold text-gray-900">Atendimento humano</h2>
+                                <p className="mt-1 text-sm text-gray-600">
+                                    Clientes encaminhados pelo robô nos últimos 7 dias.
+                                </p>
+                            </div>
                         </div>
                         {pendingHandoffs > 0 && (
                             <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800">
