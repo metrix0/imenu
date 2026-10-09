@@ -11,6 +11,7 @@ import {
   CreditCard,
   RefreshCw,
   Sparkles,
+  Star,
 } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 import ModalFlowStep from "@/components/ui/ModalFlowStep";
@@ -154,7 +155,7 @@ export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout
                 <div className="flex items-center gap-2 bg-brand/5 px-4 py-3 text-brand">
                   <FontAwesomeIcon icon={faBellConcierge} className="text-[17px]" />
                   <h3 className="text-sm font-semibold">Atendimento exclusivo</h3>
-                  <Badge>BÔNUS</Badge>
+                  <Badge className="gap-1"><Star size={10} aria-hidden="true" />BÔNUS</Badge>
                 </div>
                 <div className="space-y-3 p-4 text-sm leading-5 text-gray-600">
                   <p className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0 text-brand" aria-hidden="true" /><span>Solicite integrações e novas funcionalidades para o seu restaurante.</span></p>
