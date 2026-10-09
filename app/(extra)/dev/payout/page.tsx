@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import Button from "@/components/ui/Button";
@@ -1075,7 +1075,9 @@ export default function DevPayoutPage() {
                                     onePercentNet
                                 );
                                 return (
-                                    <tr key={item.restaurantId}>
+                                    <Fragment key={item.restaurantId}>
+                                        {item.grossCents > 0 && (
+                                    <tr>
                                         <td className="px-3 py-4">
                                             <input
                                                 type="checkbox"
@@ -1092,12 +1094,6 @@ export default function DevPayoutPage() {
                                         </td>
                                         <td className="px-3 py-4 font-semibold text-gray-900">
                                             {item.restaurantName}
-                                            {item.waitingGrossCents > 0 && (
-                                                <p className="mt-1 text-xs font-normal text-amber-700">
-                                                    {money(item.waitingGrossCents)} aguardando 1h30
-                                                    {item.nextEligibleAt && ` · até ${new Date(item.nextEligibleAt).toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" })}`}
-                                                </p>
-                                            )}
                                         </td>
                                         <td className="px-3 py-4 text-gray-500">
                                             {formatPhone(restaurantPhones[item.restaurantId]) || "—"}
@@ -1188,6 +1184,41 @@ export default function DevPayoutPage() {
                                             )}
                                         </td>
                                     </tr>
+                                        )}
+                                        {item.waitingGrossCents > 0 && (
+                                            <tr className="bg-amber-50/40">
+                                                <td className="px-3 py-4">
+                                                    <input
+                                                        type="checkbox"
+                                                        aria-label={`Aguardando margem de 1h30: ${item.restaurantName}`}
+                                                        checked={false}
+                                                        disabled
+                                                        className="h-4 w-4 accent-brand opacity-40"
+                                                    />
+                                                </td>
+                                                <td className="px-3 py-4 font-semibold text-gray-900">
+                                                    {item.restaurantName}
+                                                    <p className="mt-1 text-xs font-normal text-amber-700">
+                                                        Aguardando 1h30
+                                                        {item.nextEligibleAt && ` · até ${new Date(item.nextEligibleAt).toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" })}`}
+                                                    </p>
+                                                </td>
+                                                <td className="px-3 py-4 text-gray-500">
+                                                    {formatPhone(restaurantPhones[item.restaurantId]) || "—"}
+                                                </td>
+                                                <td className="px-3 py-4 text-gray-500">
+                                                    {item.pixKey
+                                                        ? `${item.pixKeyType ? `${item.pixKeyType} · ` : ""}${item.pixKey}`
+                                                        : "Não cadastrado"}
+                                                </td>
+                                                <td className="px-3 py-4 text-right">{money(item.waitingGrossCents)}</td>
+                                                <td className="px-3 py-4 text-right text-gray-500">—</td>
+                                                <td className="px-3 py-4 text-right text-gray-500">—</td>
+                                                <td className="px-3 py-4 text-right font-bold">—</td>
+                                                <td className="px-3 py-4 text-right">—</td>
+                                            </tr>
+                                        )}
+                                    </Fragment>
                                 );
                             })}
                             {payables.length === 0 && (
