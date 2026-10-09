@@ -75,6 +75,7 @@ type DashboardPayload = {
     asaasError: string | null;
     generatedAt: string;
     payables: Payable[];
+    outstandingPayables: Payable[];
     history: HistoryItem[];
     automationRuns: AutomationRun[];
     ownerPhones: Record<string, string>;
@@ -360,6 +361,7 @@ export default function DevPayoutPage() {
     }, []);
 
     const payables = data?.payables || [];
+    const outstandingPayables = data?.outstandingPayables || [];
     const history = data?.history || [];
     const failedHistory = history.filter((item) => item.status === "failed");
     const automationRuns = data?.automationRuns || [];
@@ -410,20 +412,20 @@ export default function DevPayoutPage() {
     };
     const invalidManualAmounts = sendable.some(hasInvalidManualAmount);
 
-    const grossOwedCents = payables.reduce(
+    const grossOwedCents = outstandingPayables.reduce(
         (sum, item) => sum + item.grossCents,
         0
     );
-    const payzuOwedCents = payables.reduce(
+    const payzuOwedCents = outstandingPayables.reduce(
         (sum, item) => sum + item.payzuFeeCents,
         0
     );
-    const owedDiscountCents = payables.reduce(
+    const owedDiscountCents = outstandingPayables.reduce(
         (sum, item) =>
             sum + getDiscountCents(item, numericDiscount, onePercentNet),
         0
     );
-    const netOwedCents = payables.reduce(
+    const netOwedCents = outstandingPayables.reduce(
         (sum, item) => sum + getNetCents(item, numericDiscount, onePercentNet),
         0
     );
@@ -908,10 +910,52 @@ export default function DevPayoutPage() {
                 />
                 <MetricCard
                     label="Restaurantes com valor a receber"
-                    value={String(payables.length)}
-                    detail={`${sendable.length} prontos · ${missingPix.length} sem PIX · ${ambiguousPix.length} com tipo pendente`}
+                    value={String(outstandingPayables.length)}
+                    detail={`${sendable.length} prontos agora · ${outstandingPayables.filter((item) => !item.pixKey).length} sem PIX · ${outstandingPayables.filter((item) => item.pixKey && !item.pixKeyType).length} com tipo pendente · ${Math.max(0, outstandingPayables.length - payables.length)} no próximo lote`}
                 />
             </div>
+
+            <Card>
+                <h2 className="text-lg font-bold text-gray-900">Restaurantes ainda a receber</h2>
+                <p className="mt-1 text-sm text-gray-500">
+                    Todos os pedidos PIX Online confirmados desde o último repasse, inclusive os do próximo lote.
+                </p>
+                <div className="mt-5 overflow-x-auto">
+                    <table className="w-full min-w-[700px] text-left text-sm">
+                        <thead className="border-b border-gray-100 text-xs uppercase text-gray-400">
+                            <tr>
+                                <th className="px-3 py-3">Restaurante</th>
+                                <th className="px-3 py-3 text-right">Bruto</th>
+                                <th className="px-3 py-3 text-right">Gateway</th>
+                                <th className="px-3 py-3 text-right">Desconto</th>
+                                <th className="px-3 py-3 text-right">A receber</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                            {outstandingPayables.map((item) => (
+                                <tr key={item.restaurantId}>
+                                    <td className="px-3 py-4 font-semibold text-gray-900">{item.restaurantName}</td>
+                                    <td className="px-3 py-4 text-right">{money(item.grossCents)}</td>
+                                    <td className="px-3 py-4 text-right text-gray-500">{money(item.payzuFeeCents)}</td>
+                                    <td className="px-3 py-4 text-right text-gray-500">
+                                        {money(getDiscountCents(item, numericDiscount, onePercentNet))}
+                                    </td>
+                                    <td className="px-3 py-4 text-right font-semibold">
+                                        {money(getNetCents(item, numericDiscount, onePercentNet))}
+                                    </td>
+                                </tr>
+                            ))}
+                            {outstandingPayables.length === 0 && (
+                                <tr>
+                                    <td colSpan={5} className="px-3 py-10 text-center text-gray-400">
+                                        Nenhum restaurante com valor pendente.
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </Card>
 
             <Card>
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

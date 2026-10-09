@@ -962,8 +962,15 @@ export async function getPayoutDashboardData() {
     await reconcileProcessingPayouts();
     const now = new Date();
     const cutoffAt = getPayoutCutoffAt(now);
-    const [payables, historyResult, automationResult] = await Promise.all([
-        getPayables(cutoffAt),
+    // Transfers remain limited to the 10h cutoff, but outstanding balances
+    // also include confirmed orders received since then, up to now.
+    const atCutoff = getPayables(cutoffAt);
+    const allOutstanding = cutoffAt.getTime() === now.getTime()
+        ? atCutoff
+        : getPayables(now);
+    const [payables, outstanding, historyResult, automationResult] = await Promise.all([
+        atCutoff,
+        allOutstanding,
         query<{
             id: string;
             restaurant_id: string;
@@ -1030,21 +1037,24 @@ export async function getPayoutDashboardData() {
         }
     }
 
+    const toDashboardPayable = (row: PayableRestaurant) => ({
+        restaurantId: row.restaurant_id,
+        restaurantName: row.restaurant_name,
+        grossCents: Number(row.gross_cents) || 0,
+        payzuFeeCents: row.provider_fee_cents,
+        pixKey: row.payment_info,
+        pixKeyType: resolvePixKeyType(row),
+        pixKeyTypeStored: row.payment_info_type,
+        canSend: Boolean(row.payment_info && resolvePixKeyType(row)),
+    });
+
     return {
         asaasConfigured: Boolean(getAsaasApiKey()),
         asaasBalanceCents,
         asaasError,
         generatedAt: now.toISOString(),
-        payables: payables.map((row) => ({
-            restaurantId: row.restaurant_id,
-            restaurantName: row.restaurant_name,
-            grossCents: Number(row.gross_cents) || 0,
-            payzuFeeCents: row.provider_fee_cents,
-            pixKey: row.payment_info,
-            pixKeyType: resolvePixKeyType(row),
-            pixKeyTypeStored: row.payment_info_type,
-            canSend: Boolean(row.payment_info && resolvePixKeyType(row)),
-        })),
+        payables: payables.map(toDashboardPayable),
+        outstandingPayables: outstanding.map(toDashboardPayable),
         history: historyResult.rows.map((row) => ({
             ...row,
             amount_cents: Number(row.amount_cents) || 0,
