@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
-import { faUpRightFromSquare, faBellConcierge, faCheck, faLock, faMotorcycle } from "@fortawesome/free-solid-svg-icons";
+import { PanelIcon as FontAwesomeIcon, faMotorRacingHelmet } from "@/components/ui/PanelIcon";
+import { faUpRightFromSquare, faBellConcierge, faCheck, faLock } from "@fortawesome/free-solid-svg-icons";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Loader from "@/components/ui/Loader";
@@ -111,7 +111,7 @@ export default function StaffPanelsPage() {
                     <Card className="flex min-w-0 flex-col !p-6 sm:!p-7">
                         <div className="mb-6 flex items-center justify-between gap-3">
                             <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-brand" aria-hidden="true">
-                                <FontAwesomeIcon icon={faMotorcycle} className="text-xl" />
+                                <FontAwesomeIcon icon={faMotorRacingHelmet} className="text-xl" />
                             </span>
                             <span className="inline-flex items-center gap-1.5 rounded-full bg-green-50 px-3 py-1 text-xs font-medium text-green-700"><FontAwesomeIcon icon={faCheck} />Grátis</span>
                         </div>

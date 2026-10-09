@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useParams, usePathname, useRouter } from "next/navigation";
-import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
+import { PanelIcon as FontAwesomeIcon, faMotorRacingHelmet } from "@/components/ui/PanelIcon";
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import {
     faBars,
@@ -20,7 +20,6 @@ import {
     faHome,
     faMoneyBillWave,
     faMobileScreenButton,
-    faMotorcycle,
     faPercent,
     faPowerOff,
     faPrint,
@@ -392,7 +391,7 @@ export default function PainelLayout({
         { label: "Cardápio", icon: faUtensils, href: cardapioHref },
         { label: "Assistente IA", icon: faWandMagicSparkles, href: `${base}/assistente-ia`, isNew: true },
         { label: "Mesas", icon: faChair, href: `${base}/mesas` },
-        { label: "Motoboy e Garçom", icon: faMotorcycle, href: `${base}/motoboy-garcom` },
+        { label: "Motoboy e Garçom", icon: faMotorRacingHelmet, href: `${base}/motoboy-garcom` },
         {
             label: "Repasses",
             icon: faMoneyBillWave,

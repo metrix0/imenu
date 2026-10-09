@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
-import { faArrowLeft, faLink, faTruck } from "@fortawesome/free-solid-svg-icons";
+import { PanelIcon as FontAwesomeIcon, faMotorRacingHelmet } from "@/components/ui/PanelIcon";
+import { faArrowLeft, faLink } from "@fortawesome/free-solid-svg-icons";
 import Button from "@/components/ui/Button";
 import { Inbox } from "lucide-react";
 import Loader from "@/components/ui/Loader";
@@ -165,7 +165,7 @@ export default function MotoboyPage() {
                 </Link>
                 <div className="mb-6 mt-5">
                     <div className="flex flex-wrap items-center gap-3">
-                        <h1 className="flex items-center gap-3 text-3xl font-bold text-gray-900"><FontAwesomeIcon icon={faTruck} className="text-brand" />Motoboy</h1>
+                        <h1 className="flex items-center gap-3 text-3xl font-bold text-gray-900"><FontAwesomeIcon icon={faMotorRacingHelmet} className="text-brand" />Motoboy</h1>
                         <button type="button" onClick={() => void copyLink()} aria-label="Copiar link do painel motoboy" title="Copiar link" className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-brand"><FontAwesomeIcon icon={faLink} /></button>
                         {linkCopied && <span className="text-sm font-medium text-brand">Link copiado</span>}
                     </div>
