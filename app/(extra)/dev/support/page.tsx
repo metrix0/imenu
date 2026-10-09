@@ -17,6 +17,7 @@ import Card from "@/components/ui/Card";
 import Dropdown from "@/components/ui/Dropdown";
 import Input from "@/components/ui/Input";
 import Loader from "@/components/ui/Loader";
+import Modal from "@/components/ui/Modal";
 import Switch from "@/components/ui/Switch";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import Textarea from "@/components/ui/Textarea";
@@ -161,19 +162,25 @@ function renderBulkMessage(
     return template.replace(
         /\{\{\s*([^{}|]+?)\s*(?:\|\|\s*([^{}]*?)\s*)?\}\}/g,
         (_match, key: string, fallback = "") => {
+            const normalizedKey = normalizeBulkHeader(key);
             const value =
-                normalizedValues.get(normalizeBulkHeader(key)) || "";
+                normalizedValues.get(normalizedKey) ||
+                (normalizedKey === "cidade" ? normalizedValues.get("city") : "") ||
+                (normalizedKey === "city" ? normalizedValues.get("cidade") : "") ||
+                "";
             if (value && value !== "—" && value !== "-") return value;
 
             const fallbackValue = fallback.trim();
-            if (!fallbackValue) return "";
+            if (fallbackValue) {
+                const quoted = fallbackValue.match(/^(["'])([\s\S]*)\1$/);
+                if (quoted && quoted[2].trim()) return quoted[2];
 
-            const quoted = fallbackValue.match(/^(["'])([\s\S]*)\1$/);
-            if (quoted) return quoted[2];
+                const variable =
+                    normalizedValues.get(normalizeBulkHeader(fallbackValue)) || "";
+                if (variable && variable !== "—" && variable !== "-") return variable;
+            }
 
-            const variable =
-                normalizedValues.get(normalizeBulkHeader(fallbackValue)) || "";
-            return variable === "—" || variable === "-" ? "" : variable;
+            throw new Error(`Campo "${key.trim()}" vazio ou ausente na tabela. Corrija antes do envio.`);
         }
     );
 }
@@ -341,6 +348,7 @@ export default function DevSupportPage() {
     const [bulkPhones, setBulkPhones] = useState("");
     const [bulkMessage, setBulkMessage] = useState("");
     const [bulkSending, setBulkSending] = useState(false);
+    const [bulkPreview, setBulkPreview] = useState<Array<{ phone: string; message: string }> | null>(null);
     const [bulkStatus, setBulkStatus] = useState("");
     const [bulkSkipRecent, setBulkSkipRecent] = useState(true);
     const [bulkSender, setBulkSender] = useState<"blast" | "support">("blast");
@@ -578,7 +586,7 @@ export default function DevSupportPage() {
         }
     };
 
-    const startBulkSend = async () => {
+    const startBulkSend = async (confirmed = false) => {
         const recipients = parseBulkRecipients(bulkPhones);
         const messageTemplate = bulkMessage.trim();
         const dailyLimit = bulkCadenceEnabled ? Number(bulkCadence) : null;
@@ -590,6 +598,26 @@ export default function DevSupportPage() {
             setBulkStatus("Informe uma cadência de 1 a 10.000 mensagens por dia.");
             return;
         }
+        let resolvedRecipients: Array<{ phone: string; message: string }>;
+        try {
+            resolvedRecipients = recipients.map(({ phone, values }, index) => {
+                try {
+                    return { phone, message: renderBulkMessage(messageTemplate, values).trim() };
+                } catch (error) {
+                    throw new Error(`Destinatário ${index + 1}: ${error instanceof Error ? error.message : "Dados inválidos."}`);
+                }
+            });
+        } catch (error) {
+            setBulkStatus(error instanceof Error ? error.message : "Verifique os campos da tabela.");
+            return;
+        }
+
+        if (!confirmed) {
+            setBulkPreview(resolvedRecipients);
+            setBulkStatus("");
+            return;
+        }
+
         setBulkSending(true);
         setBulkStatus("");
         try {
@@ -610,10 +638,7 @@ export default function DevSupportPage() {
                     message: messageTemplate,
                     dailyLimit,
                     skipRecent: bulkSkipRecent,
-                    recipients: recipients.map(({ phone, values }) => ({
-                        phone,
-                        message: renderBulkMessage(messageTemplate, values).trim(),
-                    })),
+                    recipients: resolvedRecipients,
                 }),
             });
             const payload = (await response.json()) as { id?: string; error?: string };
@@ -621,6 +646,7 @@ export default function DevSupportPage() {
                 throw new Error(payload.error || "Falha ao criar o envio.");
             }
             setBulkPhones("");
+            setBulkPreview(null);
             setBulkStatus("Envio criado. Ele continuará automaticamente mesmo com a página fechada.");
             setSelectedBlastId(payload.id);
             await Promise.all([loadBlastHistory(), loadBlastRecipients(payload.id)]);
@@ -1313,6 +1339,35 @@ export default function DevSupportPage() {
                         <p className="mt-3 text-sm text-gray-600">{bulkStatus}</p>
                     )}
                 </Card>
+
+                <Modal
+                    open={bulkPreview !== null}
+                    onClose={() => { if (!bulkSending) setBulkPreview(null); }}
+                    height="80dvh"
+                    className="max-w-2xl"
+                >
+                    <div className="p-5 sm:p-6">
+                        <h3 className="text-lg font-semibold text-gray-900">Conferir mensagens antes do envio</h3>
+                        <p className="mt-2 text-sm text-gray-500">
+                            Confira se nomes, cidades e estabelecimentos estão corretos.
+                            {bulkPreview ? ` ${bulkPreview.length} destinatário(s); prévia dos primeiros ${Math.min(20, bulkPreview.length)}.` : ""}
+                        </p>
+                        <div className="mt-4 max-h-[48dvh] space-y-3 overflow-y-auto">
+                            {bulkPreview?.slice(0, 20).map((recipient, index) => (
+                                <div key={index} className="rounded-lg border border-gray-200 p-3">
+                                    <p className="mb-2 text-xs font-medium text-gray-600">
+                                        {index + 1}. {formatPhone(recipient.phone)}
+                                    </p>
+                                    <p className="whitespace-pre-wrap text-sm text-gray-800">{recipient.message}</p>
+                                </div>
+                            ))}
+                        </div>
+                        <div className="mt-5 flex flex-wrap justify-end gap-3">
+                            <Button variant="secondary" onClick={() => setBulkPreview(null)} disabled={bulkSending}>Voltar</Button>
+                            <Button onClick={() => void startBulkSend(true)} loading={bulkSending}>Confirmar envio</Button>
+                        </div>
+                    </div>
+                </Modal>
 
                 <Card>
                     <div className="flex flex-wrap items-center justify-between gap-3">

@@ -1,6 +1,7 @@
 // app/api/orders/[id]/route.ts
 import { NextResponse } from "next/server";
-import { query } from "@/lib/database/sql";
+import { query, withTransaction } from "@/lib/database/sql";
+import { requireRestaurantOwner, RestaurantOwnerAuthError } from "@/lib/auth/restaurantOwner";
 
 // ================================
 // GET — returns order + items + subitems
@@ -172,6 +173,54 @@ export async function PATCH(
         return NextResponse.json(
             { error: (error as Error).message },
             { status: 500 }
+        );
+    }
+}
+
+const ORDER_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Delete from history, including dependent print jobs and order line items.
+export async function DELETE(
+    request: Request,
+    context: { params: Promise<{ id: string }> }
+) {
+    try {
+        const { id } = await context.params;
+        const body = await request.json().catch(() => null);
+        const restaurantId = body?.restaurant_id;
+        if (!ORDER_ID_PATTERN.test(id) || typeof restaurantId !== "string" || !ORDER_ID_PATTERN.test(restaurantId)) {
+            return NextResponse.json({ error: "Pedido inválido." }, { status: 400 });
+        }
+
+        await requireRestaurantOwner(request, restaurantId);
+
+        await withTransaction(async (client) => {
+            const order = await client.query(
+                "SELECT id FROM public.orders WHERE id = $1 AND restaurant_id = $2 FOR UPDATE",
+                [id, restaurantId]
+            );
+            if (!order.rowCount) {
+                throw new RestaurantOwnerAuthError("Pedido não encontrado.", 404);
+            }
+
+            await client.query(
+                "DELETE FROM public.print_jobs WHERE order_id = $1 AND restaurant_id = $2",
+                [id, restaurantId]
+            );
+            // order_items, order_item_subitems and owner_push_order_events cascade.
+            await client.query(
+                "DELETE FROM public.orders WHERE id = $1 AND restaurant_id = $2",
+                [id, restaurantId]
+            );
+        });
+
+        return NextResponse.json({ ok: true });
+    } catch (error) {
+        const status = error instanceof RestaurantOwnerAuthError ? error.status : 500;
+        if (status === 500) console.error("Erro ao excluir pedido:", error);
+        return NextResponse.json(
+            { error: status === 500 ? "Não foi possível excluir o pedido." : (error as Error).message },
+            { status }
         );
     }
 }

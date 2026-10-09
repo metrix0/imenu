@@ -68,7 +68,7 @@ function getSupportScopedValue(sessionName: string, value: string): string {
 
 const KNOWN_INFRASTRUCTURE_QUOTA_MESSAGE =
     "Esse erro é uma indisponibilidade técnica do iMenu por limite do serviço. Não é problema da sua senha ou cadastro; o iMenu precisa restabelecê-lo.";
-const GENERIC_FREE_MESSAGE = "O iMenu é totalmente gratuito.";
+const GENERIC_FREE_MESSAGE = "O cardápio digital do iMenu é totalmente gratuito, sem mensalidade, sem taxas por pedido e sem limite de pedidos.";
 const QR_CODE_MESA_MESSAGE =
     "O iMenu QR Code Mesa custa R$ 5,00/mês, sem limites. Ative em https://imenuapp.com.br/painel/mesas";
 

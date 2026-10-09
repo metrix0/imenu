@@ -295,9 +295,14 @@ async function sendRecipient(item: ClaimedRecipient): Promise<"sent" | "skipped"
               AND (
                 chat_id = $2
                 OR (cardinality($1::uuid[]) > 0 AND restaurant_id = ANY($1::uuid[]))
-              ) LIMIT 1
+              )
+            UNION ALL
+            SELECT 1 FROM support_blast_recipients
+            WHERE phone = $3 AND status = 'sent'
+              AND sent_at >= NOW() - INTERVAL '7 days'
+            LIMIT 1
             `,
-            [restaurantIds, chatId]
+            [restaurantIds, chatId, phone]
         );
         if (recent.rowCount) {
             await finishRecipient(item.id, "skipped_recent");

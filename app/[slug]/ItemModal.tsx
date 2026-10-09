@@ -2,6 +2,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
 import { Restaurant, Item, Subitem, Subcategory, CartItem, PizzaCatalogItem, Category, ItemsByCategory } from "@/lib/types/types";
 import { useCartStore } from "@/lib/stores/costumer/cartStore";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -651,9 +652,12 @@ export default function ItemModal({
             <div ref={modalStart} className={"md:grid md:grid-cols-2"}>
 
             <div className="relative w-full h-[260px] md:h-auto md:aspect-square ">
-                <img
+                <Image
                     src={shownItem.image_public_url || "/placeholders/item.png"}
-                    className="w-full h-full object-cover md:rounded-br-4xl "
+                    alt={shownItem.name}
+                    fill
+                    sizes="(min-width: 768px) 50vw, 100vw"
+                    className="object-cover md:rounded-br-4xl"
                 />
 
                 <button
@@ -666,9 +670,12 @@ export default function ItemModal({
 
                 <div className="absolute left-4 bottom-4 bg-white shadow-md rounded-full px-3 2xl:px-5 pr-4 2xl:pr-8 py-2 2xl:py-2 flex items-center gap-2 leading-none">
                     {restaurant.logo_url && (
-                        <img
+                        <Image
                             src={restaurant.logo_url}
-                            className="w-8 h-8 2xl:w-12 2xl:h-12 rounded-full object-cover "
+                            alt=""
+                            width={48}
+                            height={48}
+                            className="w-8 h-8 2xl:w-12 2xl:h-12 rounded-full object-cover"
                         />
                     )}
 

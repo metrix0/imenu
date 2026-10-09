@@ -60,6 +60,10 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
     const isTableOrder = details?.is_delivery === "mesa" || order?.is_delivery === "mesa";
     const isPickup = isTableOrder || details?.is_delivery === "retirada" || order?.is_delivery === "retirada";
     const isPaidOnlinePix = details?.status === "paid" && details?.payment_method === "pix";
+    const isPixRefundExpired =
+        isPaidOnlinePix &&
+        !!details?.created_at &&
+        Date.now() - new Date(details.created_at).getTime() > 60 * 60 * 1000;
 
     const fmtMoney = (cents: number) => (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
     const fmtDate = (dateStr: string) => new Date(dateStr).toLocaleString("pt-BR");
@@ -469,13 +473,15 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
                 onClose={() => setShowRefundConfirmation(false)}
                 onConfirm={() => {
                     setShowRefundConfirmation(false);
-                    void handleStatusUpdate("canceled");
+                    if (!isPixRefundExpired) void handleStatusUpdate("canceled");
                 }}
-                title="Rejeitar pedido?"
-                description={isPaidOnlinePix
-                    ? "O valor total pago via Pix será reembolsado automaticamente ao cliente. O cliente será notificado na página de acompanhamento do pedido."
-                    : "O cliente será notificado do cancelamento na página de acompanhamento do pedido."}
-                confirmLabel={isPaidOnlinePix ? "Rejeitar e reembolsar" : "Rejeitar pedido"}
+                title={isPixRefundExpired ? "Pedido não pode mais ser rejeitado" : "Rejeitar pedido?"}
+                description={isPixRefundExpired
+                    ? "Este pedido Pix Online tem mais de 60 minutos e não pode mais ser rejeitado. Se quiser, aceite o pedido normalmente e depois exclua-o na aba Histórico. Qualquer reembolso deve ser feito manualmente."
+                    : isPaidOnlinePix
+                      ? "O valor total pago via Pix será reembolsado automaticamente ao cliente. O cliente será notificado na página de acompanhamento do pedido."
+                      : "O cliente será notificado do cancelamento na página de acompanhamento do pedido."}
+                confirmLabel={isPixRefundExpired ? "Entendi" : isPaidOnlinePix ? "Rejeitar e reembolsar" : "Rejeitar pedido"}
                 cancelLabel="Voltar"
                 isLoading={isUpdating}
                 variant="danger"

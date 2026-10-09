@@ -6,6 +6,7 @@ import { query } from "@/lib/database/sql";
 import {
     createPayoutPlan,
     getAsaasBalance,
+    getPayoutCutoffAt,
     getPayoutDashboardData,
     PayoutValidationError,
     retryFailedPayout,
@@ -170,7 +171,7 @@ export async function POST(request: Request) {
 
     try {
         if (body.action === "fund_asaas") {
-            const cutoffAt = new Date();
+            const cutoffAt = getPayoutCutoffAt();
             const plan = await createPayoutPlan({
                 cutoffAt,
                 discountPercent: 1,
@@ -230,7 +231,7 @@ export async function POST(request: Request) {
 
         return NextResponse.json(
             await sendPayouts({
-                cutoffAt: new Date(),
+                cutoffAt: getPayoutCutoffAt(),
                 discountPercent,
                 adjustToOnePercent,
                 amountOverrides,

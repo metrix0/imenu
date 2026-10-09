@@ -104,6 +104,7 @@ export async function PATCH(
                             status,
                             payment_method,
                             payment_ref,
+                            created_at,
                             is_delivery
                         FROM orders
                         WHERE id = $1
@@ -116,6 +117,31 @@ export async function PATCH(
 
             if (!order) {
                 throw new OrderStatusError("Order not found", 404);
+            }
+
+            if (
+                status === "canceled" &&
+                order.payment_method === "pix" &&
+                order.status !== "pending_online_payment" &&
+                order.status !== "canceled" &&
+                order.status !== "paid"
+            ) {
+                throw new OrderStatusError(
+                    "Pedidos Pix Online só podem ser rejeitados enquanto estão no status Pago.",
+                    409
+                );
+            }
+
+            if (
+                status === "canceled" &&
+                order.payment_method === "pix" &&
+                order.status === "paid" &&
+                Date.now() - new Date(order.created_at).getTime() > 60 * 60 * 1000
+            ) {
+                throw new OrderStatusError(
+                    "Pedidos pagos com Pix Online há mais de 60 minutos não podem ser rejeitados. Se quiser, aceite o pedido normalmente e depois exclua-o na aba Histórico. Qualquer reembolso deve ser feito manualmente.",
+                    409
+                );
             }
 
             if (

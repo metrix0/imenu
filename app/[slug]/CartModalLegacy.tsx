@@ -5,6 +5,7 @@ import PromotionSummary from "@/components/costumer/PromotionSummary";
 import type { PromotionResult } from "@/lib/promotions/automatic";
 
 import { useEffect, useState, useRef } from "react";
+import Image from "next/image";
 import { useCartStore } from "@/lib/stores/costumer/cartStore";
 import { useCheckoutStore } from "@/lib/stores/costumer/checkoutStore";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -903,8 +904,11 @@ export default function CartModal({
                 <div className="w-full h-full min-h-0 px-4 2xl:px-8 overflow-y-auto pt-2 ">
                     <div className="flex items-center gap-3 mt-2 mb-4">
                         {restaurant?.logo_url && (
-                            <img
+                            <Image
                                 src={restaurant.logo_url}
+                                alt=""
+                                width={60}
+                                height={60}
                                 className="w-10 h-10 2xl:w-15 2xl:h-15 rounded-full object-cover"
                             />
                         )}
@@ -949,8 +953,11 @@ export default function CartModal({
                             className="flex items-start justify-between py-4 2xl:py-6 w-full"
                         >
                             <div className="flex items-start gap-3 2xl:gap-5">
-                                <img
+                                <Image
                                     src={it.image || "/placeholders/item.png"}
+                                    alt={it.name}
+                                    width={80}
+                                    height={80}
                                     className="w-14 h-14 2xl:w-20 2xl:h-20 rounded-xl object-cover"
                                 />
                                 <div>
@@ -1026,9 +1033,11 @@ export default function CartModal({
                                     className="w-[28.3vw] md:w-[33%] h-auto aspect-square flex-shrink-0 text-left"
                                 >
                                     <div className="relative">
-                                        <img
+                                        <Image
                                             src={item.image_public_url || "/placeholders/item.png"}
                                             alt={item.name}
+                                            width={320}
+                                            height={320}
                                             className="w-full h-28 md:h-40 aspect-square object-cover rounded-xl"
                                         />
 

@@ -178,9 +178,14 @@ async function processOrderPix(
             current.payment_method !== "pix" || Number(current.total_cents) !== paidAmountCents ||
             (current.payment_ref && current.payment_ref !== payment.id)) return false;
         const updateResult = await client.query(
-            `UPDATE public.orders SET status = 'paid', payment_ref = COALESCE(payment_ref, $2), updated_at = NOW()
+            `UPDATE public.orders
+             SET
+                 status = 'paid',
+                 payment_ref = COALESCE(payment_ref, $2),
+                 payment_paid_at = COALESCE(payment_paid_at, $3::timestamptz),
+                 updated_at = NOW()
              WHERE id = $1 AND status = 'pending_online_payment'
-             RETURNING id`, [order.id, payment.id]
+             RETURNING id`, [order.id, payment.id, payment.paidAt]
         );
         // The order lock and transaction make status + print enqueue retryable together.
         const printResult = await client.query(

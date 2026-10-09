@@ -84,6 +84,30 @@ export class PayoutValidationError extends Error {
     }
 }
 
+const PAYOUT_TIME_ZONE = "America/Sao_Paulo";
+const PAYOUT_CUTOFF_HOUR = 10;
+const PAYOUT_UTC_OFFSET = "-03:00";
+
+export function getPayoutCutoffAt(referenceAt: Date = new Date()): Date {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+        timeZone: PAYOUT_TIME_ZONE,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+    }).formatToParts(referenceAt);
+    const value = Object.fromEntries(
+        parts.map((part) => [part.type, part.value])
+    );
+    const hour = String(PAYOUT_CUTOFF_HOUR).padStart(2, "0");
+    const cutoffAt = new Date(
+        `${value.year}-${value.month}-${value.day}T${hour}:00:00${PAYOUT_UTC_OFFSET}`
+    );
+
+    return referenceAt.getTime() < cutoffAt.getTime()
+        ? referenceAt
+        : cutoffAt;
+}
+
 export function getAsaasApiKey(): string | null {
     return process.env.ASAAS_API_KEY?.trim() || null;
 }
@@ -233,8 +257,8 @@ async function getPayables(cutoffAt: Date): Promise<PayableRestaurant[]> {
          AND o.payment_method = 'pix'
          AND o.payment_ref IS NOT NULL
          AND o.status IN ('paid', 'preparing', 'delivering', 'done')
-         AND o.created_at > COALESCE(lp.last_created_at, '-infinity'::timestamptz)
-         AND o.created_at <= $1
+         AND COALESCE(o.payment_paid_at, o.created_at) > COALESCE(lp.last_created_at, '-infinity'::timestamptz)
+         AND COALESCE(o.payment_paid_at, o.created_at) <= $1
         GROUP BY r.id, r.name, r.payment_info, r.payment_info_type
         HAVING COALESCE(SUM(o.total_cents), 0) > 0
         ORDER BY gross_cents DESC, restaurant_name ASC
@@ -937,8 +961,9 @@ export async function retryFailedPayout(
 export async function getPayoutDashboardData() {
     await reconcileProcessingPayouts();
     const now = new Date();
+    const cutoffAt = getPayoutCutoffAt(now);
     const [payables, historyResult, automationResult] = await Promise.all([
-        getPayables(now),
+        getPayables(cutoffAt),
         query<{
             id: string;
             restaurant_id: string;

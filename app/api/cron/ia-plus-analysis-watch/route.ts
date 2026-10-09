@@ -76,7 +76,7 @@ function buildMessage(row: Candidate, delayHours: number): string {
         : ["Última análise: nenhuma"];
 
     return [
-        `IA Plus comprado há ${delayHours}h e ainda sem análise concluída.`,
+        `IA Plus comprado há ${delayHours}h e ainda sem análise concluída nos últimos 28 dias.`,
         `Restaurante: ${row.restaurant_name}`,
         row.owner_email ? `E-mail: ${row.owner_email}` : null,
         `Restaurante ID: ${row.restaurant_id}`,
@@ -141,6 +141,7 @@ export async function GET(request: Request) {
                 AND completed.status = 'completed'
                 AND completed.result->>'detached_at' IS NULL
                 AND completed.result->'report'->>'status' = 'complete'
+                AND completed.created_at >= NOW() - INTERVAL '28 days'
           )
         ORDER BY addon.activated_at ASC
         LIMIT 100
@@ -179,7 +180,7 @@ export async function GET(request: Request) {
 
         try {
             await sendNtfyNotification({
-                title: `ALARM TRIGGER - IA Plus sem análise (${delayHours}h)`,
+                title: `ALARM TRIGGER - IA Plus sem análise recente (${delayHours}h)`,
                 message: buildMessage(candidate, delayHours),
             });
             sent += 1;
