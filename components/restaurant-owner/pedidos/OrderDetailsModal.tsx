@@ -484,7 +484,7 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
                 confirmLabel={isPixRefundExpired ? "Entendi" : isPaidOnlinePix ? "Rejeitar e reembolsar" : "Rejeitar pedido"}
                 cancelLabel="Voltar"
                 isLoading={isUpdating}
-                variant={isPixRefundExpired ? "primary" : "danger"}
+                variant="danger"
             />
         </>
     );
