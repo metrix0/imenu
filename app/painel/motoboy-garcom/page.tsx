@@ -119,14 +119,14 @@ export default function StaffPanelsPage() {
                                 </li>
                             ))}
                         </ul>
-                        <div className="border-t border-gray-200 pt-5">
+                        <div>
                             <Tooltip text={WAITER_PLAN_MESSAGE} disabled={waiterAccess} parentClassName="!block">
                                 <Button className="w-full gap-2" onClick={() => waiterAccess ? window.open("/garcom", "_blank", "noopener,noreferrer") : setSalesOpen(true)}>
                                     <FontAwesomeIcon icon={waiterAccess ? faUpRightFromSquare : faLock} />
                                     {waiterAccess ? "Abrir Painel Garçom" : "Desbloquear Painel Garçom"}
                                 </Button>
                             </Tooltip>
-                            {renderCopyButton("garcom", "Painel Garçom")}
+                            {waiterAccess && renderCopyButton("garcom", "Painel Garçom")}
                         </div>
                     </Card>
                     <Card className="flex min-w-0 flex-col !p-6 sm:!p-7">
@@ -153,7 +153,7 @@ export default function StaffPanelsPage() {
                                 </li>
                             ))}
                         </ul>
-                        <div className="border-t border-gray-200 pt-5">
+                        <div>
                             <Button className="w-full gap-2" onClick={() => window.open("/motoboy", "_blank", "noopener,noreferrer")}>
                                 <FontAwesomeIcon icon={faUpRightFromSquare} />
                                 Abrir Painel Motoboy
