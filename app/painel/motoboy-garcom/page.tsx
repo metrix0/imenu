@@ -68,15 +68,21 @@ export default function StaffPanelsPage() {
         }
     };
 
-    const renderCopyButton = (panel: StaffPanel, label: string) => (
-        <div className="mt-2">
-            <Button variant="secondary" className="w-full gap-2" aria-label={`Copiar link do ${label}`} onClick={() => void copyPanelLink(panel)}>
-                <FontAwesomeIcon icon={copyFeedback?.panel === panel && copyFeedback.success ? faCheck : faCopy} />
-                <span aria-live="polite">{copyFeedback?.panel === panel && copyFeedback.success ? "Link copiado!" : "Copiar link"}</span>
-            </Button>
-            {copyFeedback?.panel === panel && !copyFeedback.success && <p role="alert" className="mt-2 text-xs text-red-700">Não foi possível copiar o link. Tente novamente.</p>}
-        </div>
-    );
+    const renderCopyButton = (panel: StaffPanel, label: string) => {
+        const locked = panel === "garcom" && !waiterAccess;
+        return (
+            <div className="mt-2">
+                <Tooltip text={WAITER_PLAN_MESSAGE} disabled={!locked} parentClassName="!block">
+                    <Button variant="secondary" className="w-full gap-2" aria-label={`Copiar link do ${label}`} onClick={() => locked ? setSalesOpen(true) : void copyPanelLink(panel)}>
+                        <FontAwesomeIcon icon={copyFeedback?.panel === panel && copyFeedback.success ? faCheck : faCopy} />
+                        <span aria-live="polite">{copyFeedback?.panel === panel && copyFeedback.success ? "Link copiado!" : "Copiar link"}</span>
+                        {locked && <FontAwesomeIcon icon={faLock} />}
+                    </Button>
+                </Tooltip>
+                {copyFeedback?.panel === panel && !copyFeedback.success && <p role="alert" className="mt-2 text-xs text-red-700">Não foi possível copiar o link. Tente novamente.</p>}
+            </div>
+        );
+    };
 
     if (loading) return <div className="flex h-64 items-center justify-center"><Loader /></div>;
 
@@ -100,10 +106,7 @@ export default function StaffPanelsPage() {
                                 {waiterAccess ? "Plano ativo" : "Incluso no plano iMenu QR Code"}
                             </span>
                         </div>
-                        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-500">Atendimento nas mesas</p>
-                        <Tooltip text={WAITER_PLAN_MESSAGE} disabled={waiterAccess} parentClassName="!block">
-                            <h2 className="text-xl font-bold text-gray-900">Painel Garçom</h2>
-                        </Tooltip>
+                        <h2 className="text-xl font-bold text-gray-900">Painel Garçom</h2>
                         <p className="mt-2 text-sm leading-relaxed text-gray-500">
                             Da chegada do cliente ao fechamento da mesa, organize o atendimento em um só lugar.
                         </p>
@@ -122,11 +125,12 @@ export default function StaffPanelsPage() {
                         <div>
                             <Tooltip text={WAITER_PLAN_MESSAGE} disabled={waiterAccess} parentClassName="!block">
                                 <Button className="w-full gap-2" onClick={() => waiterAccess ? window.open("/garcom", "_blank", "noopener,noreferrer") : setSalesOpen(true)}>
-                                    <FontAwesomeIcon icon={waiterAccess ? faUpRightFromSquare : faLock} />
+                                    <FontAwesomeIcon icon={waiterAccess ? faUpRightFromSquare : faBellConcierge} />
                                     {waiterAccess ? "Abrir Painel Garçom" : "Desbloquear Painel Garçom"}
+                                    {!waiterAccess && <FontAwesomeIcon icon={faLock} />}
                                 </Button>
                             </Tooltip>
-                            {waiterAccess && renderCopyButton("garcom", "Painel Garçom")}
+                            {renderCopyButton("garcom", "Painel Garçom")}
                         </div>
                     </Card>
                     <Card className="flex min-w-0 flex-col !p-6 sm:!p-7">
@@ -136,7 +140,6 @@ export default function StaffPanelsPage() {
                             </span>
                             <span className="inline-flex items-center gap-1.5 rounded-full bg-green-50 px-3 py-1 text-xs font-medium text-green-700"><FontAwesomeIcon icon={faCheck} />Grátis</span>
                         </div>
-                        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-500">Entregas</p>
                         <h2 className="text-xl font-bold text-gray-900">Painel Motoboy</h2>
                         <p className="mt-2 text-sm leading-relaxed text-gray-500">
                             Saiba o que está pronto para sair e registre cada entrega assim que chegar ao cliente.
