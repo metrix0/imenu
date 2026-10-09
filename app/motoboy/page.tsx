@@ -36,7 +36,7 @@ export default function MotoboyPage() {
         const request = ++requestRef.current;
         const [pendingResult, deliveredResult] = await Promise.all([
             supabase.from("orders").select(ORDER_SELECT).eq("restaurant_id", restaurantId)
-                .eq("is_delivery", "entrega").in("status", ["paid", "pending_physical_payment", "preparing", "delivering"])
+                .eq("is_delivery", "entrega").eq("status", "delivering")
                 .order("created_at", { ascending: false }),
             supabase.from("orders").select(ORDER_SELECT).eq("restaurant_id", restaurantId)
                 .eq("is_delivery", "entrega").eq("status", "done")
@@ -115,7 +115,7 @@ export default function MotoboyPage() {
 
     return (
         <main className="min-h-screen bg-gray-50 px-4 pb-16 pt-6 sm:px-6 sm:pt-8">
-            <div className="mx-auto max-w-6xl">
+            <div className="mx-auto max-w-6xl [container-type:inline-size]">
                 <Link href="/painel/motoboy-garcom" className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-brand">
                     <FontAwesomeIcon icon={faArrowLeft} />Voltar para painel
                 </Link>
