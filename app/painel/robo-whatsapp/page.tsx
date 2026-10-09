@@ -952,7 +952,7 @@ export default function RoboWhatsAppPage() {
                         )}
                     </div>
                     {handoffs.length === 0 ? (
-                        <p className="mt-5 text-sm text-gray-500">
+                        <p className="mt-6 py-8 text-center text-sm text-gray-500">
                             Nenhum atendimento humano solicitado recentemente.
                         </p>
                     ) : (
