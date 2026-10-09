@@ -272,10 +272,9 @@ export default async function Page({
     !tableOrder && loyaltyProgram?.active === true;
   const itemIds = itemsRaw.map((item: any) => item.id);
 
-  // Show "A partir de" only when a product has at least one mandatory
-  // complemento group where every available option costs more than R$ 0.
-  // A mandatory group with any available free option must NOT trigger it.
-  const itemIdsWithMandatoryPaidGroup = new Set<string>();
+  // Show "A partir de" when at least one mandatory complemento group
+  // has available options with different prices, including R$ 0 options.
+  const itemIdsWithVariableMandatoryGroup = new Set<string>();
 
   if (itemIds.length > 0) {
     const { data: mandatoryGroups, error: mandatoryGroupsError } =
@@ -320,13 +319,8 @@ export default async function Page({
           groups.forEach((group: any) => {
             const prices = pricesByGroupId.get(group.id) || [];
 
-            // Empty groups do not trigger the label. A group triggers only
-            // when it has selectable options and none of them is free.
-            const hasOptions = prices.length > 0;
-            const hasFreeOption = prices.some((price) => price <= 0);
-
-            if (hasOptions && !hasFreeOption) {
-              itemIdsWithMandatoryPaidGroup.add(group.item_id);
+            if (new Set(prices).size > 1) {
+              itemIdsWithVariableMandatoryGroup.add(group.item_id);
             }
           });
         }
@@ -358,7 +352,7 @@ export default async function Page({
     promotion: promotionByItemId.get(item.id) ?? undefined,
   }));
 
-  const startingPriceItemIds = itemIdsWithMandatoryPaidGroup;
+  const startingPriceItemIds = itemIdsWithVariableMandatoryGroup;
 
   // --- 5. Group Items by Category ---
 
