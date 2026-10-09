@@ -391,6 +391,7 @@ export default function PainelLayout({
         { label: "Cardápio", icon: faUtensils, href: cardapioHref },
         { label: "Assistente IA", icon: faWandMagicSparkles, href: `${base}/assistente-ia`, isNew: true },
         { label: "Mesas", icon: faChair, href: `${base}/mesas` },
+        { label: "Motoboy/Garçom", icon: faTruck, href: `${base}/motoboy-garcom` },
         {
             label: "Repasses",
             icon: faMoneyBillWave,

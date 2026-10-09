@@ -116,8 +116,8 @@ export default function AdminLogin() {
                 : null;
         const target =
             restaurant.first_time === false
-                ? requestedNext === "/garcom"
-                    ? "/garcom"
+                ? requestedNext === "/garcom" || requestedNext === "/motoboy"
+                    ? requestedNext
                     : "/painel"
                 : getCreationStepPath(restaurant.creation_step);
 
