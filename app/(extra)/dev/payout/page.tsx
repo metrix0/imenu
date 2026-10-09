@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import Button from "@/components/ui/Button";
@@ -26,6 +26,8 @@ type Payable = {
     pixKeyType: PixKeyType | null;
     pixKeyTypeStored: PixKeyType | null;
     canSend: boolean;
+    waitingGrossCents: number;
+    nextEligibleAt: string | null;
 };
 
 type HistoryItem = {
@@ -74,6 +76,7 @@ type DashboardPayload = {
     asaasBalanceCents: number | null;
     asaasError: string | null;
     generatedAt: string;
+    cutoffAt: string;
     payables: Payable[];
     history: HistoryItem[];
     automationRuns: AutomationRun[];
@@ -234,6 +237,7 @@ export default function DevPayoutPage() {
         Record<string, { pixKey: string; pixKeyType: string }>
     >({});
     const [manualAmounts, setManualAmounts] = useState<Record<string, string>>({});
+    const [selectedRestaurantIds, setSelectedRestaurantIds] = useState<string[]>([]);
     const [loading, setLoading] = useState(true);
     const [sending, setSending] = useState(false);
     const [sendRestaurantId, setSendRestaurantId] = useState<string | null>(null);
@@ -339,6 +343,7 @@ export default function DevPayoutPage() {
                 )
             );
             setManualAmounts({});
+            setSelectedRestaurantIds(payload.payables.filter((item) => item.grossCents > 0).map((item) => item.restaurantId));
             setHistoryPage(1);
             setAutomationHistoryPage(1);
             setAccessState("allowed");
@@ -381,16 +386,18 @@ export default function DevPayoutPage() {
         (currentAutomationHistoryPage - 1) * AUTOMATION_HISTORY_PAGE_SIZE,
         currentAutomationHistoryPage * AUTOMATION_HISTORY_PAGE_SIZE
     );
+    const eligiblePayables = payables.filter((item) => item.grossCents > 0);
     const sendable = useMemo(
         () => data?.payables.filter((item) => item.canSend) || [],
         [data]
     );
+    const selectedSendable = sendable.filter((item) => selectedRestaurantIds.includes(item.restaurantId));
     const missingPix = useMemo(
-        () => data?.payables.filter((item) => !item.pixKey) || [],
+        () => data?.payables.filter((item) => item.grossCents > 0 && !item.pixKey) || [],
         [data]
     );
     const ambiguousPix = useMemo(
-        () => data?.payables.filter((item) => item.pixKey && !item.pixKeyType) || [],
+        () => data?.payables.filter((item) => item.grossCents > 0 && item.pixKey && !item.pixKeyType) || [],
         [data]
     );
 
@@ -408,7 +415,7 @@ export default function DevPayoutPage() {
         const cents = parseAmountInput(manual);
         return cents === null || cents <= 0 || cents > item.grossCents;
     };
-    const invalidManualAmounts = sendable.some(hasInvalidManualAmount);
+    const invalidManualAmounts = selectedSendable.some(hasInvalidManualAmount);
 
     const grossOwedCents = payables.reduce(
         (sum, item) => sum + item.grossCents,
@@ -428,13 +435,13 @@ export default function DevPayoutPage() {
         0
     );
 
-    const netSendableCents = sendable.reduce(
+    const netSendableCents = selectedSendable.reduce(
         (sum, item) => sum + getSendCents(item),
         0
     );
     const confirmSendable = sendRestaurantId
         ? sendable.filter((item) => item.restaurantId === sendRestaurantId)
-        : sendable;
+        : selectedSendable;
     const confirmNetSendableCents = confirmSendable.reduce(
         (sum, item) => sum + getSendCents(item),
         0
@@ -571,9 +578,8 @@ export default function DevPayoutPage() {
                             getSendCents(item),
                         ])
                     ),
-                    restaurantIds: sendRestaurantId
-                        ? [sendRestaurantId]
-                        : undefined,
+                    restaurantIds: confirmSendable.map((item) => item.restaurantId),
+                    cutoffAt: data?.cutoffAt,
                 }),
             });
             const payload = await response.json();
@@ -909,7 +915,7 @@ export default function DevPayoutPage() {
                 <MetricCard
                     label="Restaurantes com valor a receber"
                     value={String(payables.length)}
-                    detail={`${sendable.length} prontos · ${missingPix.length} sem PIX · ${ambiguousPix.length} com tipo pendente`}
+                    detail={`${sendable.length} prontos · ${missingPix.length} sem PIX · ${ambiguousPix.length} com tipo pendente · ${payables.filter((item) => item.grossCents === 0).length} aguardando 1h30`}
                 />
             </div>
 
@@ -973,14 +979,14 @@ export default function DevPayoutPage() {
                                 sending ||
                                 transferringPayzu ||
                                 !data?.asaasConfigured ||
-                                sendable.length === 0 ||
+                                selectedSendable.length === 0 ||
                                 invalidManualAmounts ||
                                 (!onePercentNet &&
                                     (numericDiscount < 0 || numericDiscount > 100))
                             }
                             className="min-w-52 bg-green-600 text-white hover:opacity-90 disabled:opacity-40"
                         >
-                            Enviar para todos — {money(netSendableCents)}
+                            Enviar selecionados — {money(netSendableCents)}
                         </Button>
                     </div>
                 </div>
@@ -1009,7 +1015,7 @@ export default function DevPayoutPage() {
                     <div>
                         <h2 className="text-lg font-bold text-gray-900">Valores por restaurante</h2>
                         <p className="mt-1 text-sm text-gray-500">
-                            Apenas pedidos PIX Online confirmados desde o último repasse registrado são considerados. O valor em Enviar pode ser ajustado manualmente antes da confirmação.
+                            Pedidos PIX Online com pelo menos 1h30 de margem podem ser repassados. Selecione os restaurantes para o envio em lote.
                         </p>
                     </div>
                     <div className="flex shrink-0 items-center gap-3">
@@ -1033,9 +1039,19 @@ export default function DevPayoutPage() {
                 </div>
 
                 <div className="mt-5 overflow-x-auto">
-                    <table className="w-full min-w-[1000px] text-left text-sm">
+                    <table className="w-full min-w-[1060px] text-left text-sm">
                         <thead className="border-b border-gray-100 text-xs uppercase text-gray-400">
                             <tr>
+                                <th className="px-3 py-3">
+                                    <input
+                                        type="checkbox"
+                                        aria-label="Selecionar todos os restaurantes elegíveis"
+                                        checked={eligiblePayables.length > 0 && eligiblePayables.every((item) => selectedRestaurantIds.includes(item.restaurantId))}
+                                        disabled={eligiblePayables.length === 0}
+                                        onChange={(event) => setSelectedRestaurantIds(event.target.checked ? eligiblePayables.map((item) => item.restaurantId) : [])}
+                                        className="h-4 w-4 cursor-pointer accent-brand disabled:cursor-not-allowed disabled:opacity-40"
+                                    />
+                                </th>
                                 <th className="px-3 py-3">Restaurante</th>
                                 <th className="px-3 py-3">Telefone</th>
                                 <th className="px-3 py-3">PIX</th>
@@ -1059,8 +1075,26 @@ export default function DevPayoutPage() {
                                     onePercentNet
                                 );
                                 return (
-                                    <tr key={item.restaurantId}>
-                                        <td className="px-3 py-4 font-semibold text-gray-900">{item.restaurantName}</td>
+                                    <Fragment key={item.restaurantId}>
+                                        {item.grossCents > 0 && (
+                                    <tr>
+                                        <td className="px-3 py-4">
+                                            <input
+                                                type="checkbox"
+                                                aria-label={`Selecionar ${item.restaurantName}`}
+                                                checked={selectedRestaurantIds.includes(item.restaurantId)}
+                                                disabled={item.grossCents <= 0}
+                                                onChange={(event) => setSelectedRestaurantIds((current) =>
+                                                    event.target.checked
+                                                        ? [...current, item.restaurantId]
+                                                        : current.filter((id) => id !== item.restaurantId)
+                                                )}
+                                                className="h-4 w-4 cursor-pointer accent-brand disabled:cursor-not-allowed disabled:opacity-40"
+                                            />
+                                        </td>
+                                        <td className="px-3 py-4 font-semibold text-gray-900">
+                                            {item.restaurantName}
+                                        </td>
                                         <td className="px-3 py-4 text-gray-500">
                                             {formatPhone(restaurantPhones[item.restaurantId]) || "—"}
                                         </td>
@@ -1150,11 +1184,46 @@ export default function DevPayoutPage() {
                                             )}
                                         </td>
                                     </tr>
+                                        )}
+                                        {item.waitingGrossCents > 0 && (
+                                            <tr className="bg-amber-50/40">
+                                                <td className="px-3 py-4">
+                                                    <input
+                                                        type="checkbox"
+                                                        aria-label={`Aguardando margem de 1h30: ${item.restaurantName}`}
+                                                        checked={false}
+                                                        disabled
+                                                        className="h-4 w-4 accent-brand opacity-40"
+                                                    />
+                                                </td>
+                                                <td className="px-3 py-4 font-semibold text-gray-900">
+                                                    {item.restaurantName}
+                                                    <p className="mt-1 text-xs font-normal text-amber-700">
+                                                        Aguardando 1h30
+                                                        {item.nextEligibleAt && ` · até ${new Date(item.nextEligibleAt).toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" })}`}
+                                                    </p>
+                                                </td>
+                                                <td className="px-3 py-4 text-gray-500">
+                                                    {formatPhone(restaurantPhones[item.restaurantId]) || "—"}
+                                                </td>
+                                                <td className="px-3 py-4 text-gray-500">
+                                                    {item.pixKey
+                                                        ? `${item.pixKeyType ? `${item.pixKeyType} · ` : ""}${item.pixKey}`
+                                                        : "Não cadastrado"}
+                                                </td>
+                                                <td className="px-3 py-4 text-right">{money(item.waitingGrossCents)}</td>
+                                                <td className="px-3 py-4 text-right text-gray-500">—</td>
+                                                <td className="px-3 py-4 text-right text-gray-500">—</td>
+                                                <td className="px-3 py-4 text-right font-bold">—</td>
+                                                <td className="px-3 py-4 text-right">—</td>
+                                            </tr>
+                                        )}
+                                    </Fragment>
                                 );
                             })}
                             {payables.length === 0 && (
                                 <tr>
-                                    <td colSpan={8} className="px-3 py-10 text-center text-gray-400">
+                                    <td colSpan={9} className="px-3 py-10 text-center text-gray-400">
                                         Nada a repassar agora.
                                     </td>
                                 </tr>
