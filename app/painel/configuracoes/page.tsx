@@ -469,13 +469,32 @@ export default function ConfiguracoesPage() {
     const handleLogout = async () => {
         setIsLoggingOut(true);
         try {
-            window.localStorage.removeItem("imenu:landing-panel-auto-redirect");
+            try {
+                window.localStorage.removeItem("imenu:landing-panel-auto-redirect");
+            } catch {
+                // Browser storage can be unavailable; logout should still proceed.
+            }
+
+            const { error } = await supabase.auth.signOut();
+            if (error) {
+                // A revoked server session must not leave a cached browser session.
+                const { error: localError } = await supabase.auth.signOut({ scope: "local" });
+                if (localError) throw localError;
+            }
+
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session) {
+                const { error: localError } = await supabase.auth.signOut({ scope: "local" });
+                if (localError) throw localError;
+            }
+
+            clear();
+            // A full navigation avoids mounting login with stale in-memory auth state.
+            window.location.replace("/restaurante/login");
         } catch {
-            // Browser storage can be unavailable; logout should still proceed.
+            setToast({ message: "Não foi possível sair da conta. Tente novamente.", type: "error" });
+            setIsLoggingOut(false);
         }
-        await supabase.auth.signOut();
-        clear();
-        router.push("/restaurante/login");
     };
 
     const handleDeleteAccount = async () => {
