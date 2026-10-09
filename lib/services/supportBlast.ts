@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { ABANDONED_BLAST_MESSAGE } from "@/lib/dev/abandonedBlast";
 import { query, withTransaction } from "@/lib/database/sql";
 import {
     checkWahaPhoneExists,
@@ -24,6 +25,7 @@ export async function createSupportBlast(input: {
     dailyLimit: number | null;
     skipRecent: boolean;
     recipients: BlastRecipientInput[];
+    campaignId?: string;
 }): Promise<string> {
     if (!input.message.trim() || !input.recipients.length || input.recipients.length > 10000) {
         throw new Error("Informe uma mensagem e de 1 a 10.000 destinatários.");
@@ -57,12 +59,13 @@ export async function createSupportBlast(input: {
         throw new Error("O WhatsApp selecionado não está conectado.");
     }
 
-    const id = randomUUID();
+    const id = input.campaignId || randomUUID();
     await withTransaction(async (client) => {
-        await client.query(
-            "INSERT INTO support_blast_campaigns (id, sender, message, daily_limit, skip_recent, total, status) VALUES ($1, $2, $3, $4, $5, $6, 'running')",
+        const inserted = await client.query(
+            "INSERT INTO support_blast_campaigns (id, sender, message, daily_limit, skip_recent, total, status) VALUES ($1, $2, $3, $4, $5, $6, 'running') ON CONFLICT (id) DO NOTHING RETURNING id",
             [id, input.sender, input.message.trim(), input.dailyLimit, input.skipRecent, rows.length]
         );
+        if (!inserted.rowCount) return; // Cron retry: leave the existing campaign untouched.
         // Assign one slot to every recipient. Cadenced sends are distributed over
         // 08:00-21:00 São Paulo time; the launch day's remaining window is used.
         // Without cadence, preserve roughly 25-second spacing between messages.
@@ -137,7 +140,7 @@ export async function listSupportBlasts() {
                c.created_at, c.completed_at,
                COUNT(r.id) FILTER (WHERE r.status = 'sent')::int AS sent,
                COUNT(r.id) FILTER (WHERE r.status = 'failed')::int AS failed,
-               COUNT(r.id) FILTER (WHERE r.status = 'skipped_recent')::int AS skipped,
+               COUNT(r.id) FILTER (WHERE r.status IN ('skipped_recent', 'skipped_reactivated'))::int AS skipped,
                COUNT(r.id) FILTER (WHERE r.status IN ('pending', 'processing'))::int AS pending
         FROM (SELECT * FROM support_blast_campaigns ORDER BY created_at DESC LIMIT 40) c
         LEFT JOIN support_blast_recipients r ON r.campaign_id = c.id
@@ -184,6 +187,7 @@ type ClaimedRecipient = {
     message: string;
     sender: "support" | "blast";
     skip_recent: boolean;
+    campaign_message: string;
 };
 
 async function finishRecipient(id: number, status: string, error: string | null = null) {
@@ -238,7 +242,7 @@ async function claimNextRecipient(): Promise<ClaimedRecipient | null> {
         SET status = 'processing', attempted_at = NOW(), attempts = attempts + 1
         FROM claimed, support_blast_campaigns c
         WHERE r.id = claimed.id AND c.id = r.campaign_id
-        RETURNING r.id, r.campaign_id, r.phone, r.message, c.sender, c.skip_recent
+        RETURNING r.id, r.campaign_id, r.phone, r.message, c.sender, c.skip_recent, c.message AS campaign_message
         `
     );
     return result.rows[0] || null;
@@ -285,6 +289,20 @@ async function sendRecipient(item: ClaimedRecipient): Promise<"sent" | "skipped"
     );
     const restaurantIds = matched.rows.map((row) => row.restaurant_id);
     const restaurantId = restaurantIds[0] || null;
+
+    // A restaurant that resumed ordering after scheduling must not be contacted.
+    if (item.campaign_message === ABANDONED_BLAST_MESSAGE) {
+        const reactivated = await query(
+            `SELECT 1 FROM orders WHERE restaurant_id = ANY($1::uuid[])
+              AND table_id IS NULL AND status = 'done'
+              AND created_at >= NOW() - INTERVAL '14 days' LIMIT 1`,
+            [restaurantIds]
+        );
+        if (reactivated.rowCount) {
+            await finishRecipient(item.id, "skipped_reactivated");
+            return "skipped";
+        }
+    }
 
     if (item.skip_recent) {
         const recent = await query(
