@@ -16,12 +16,36 @@ import { supabase } from "@/lib/database/supabaseClient";
 const ORDER_SELECT = `*, order_items(id, item_id, pizza, quantity, price_cents, name, observation, total_cents, order_item_subitems(id, subitem_id, name, price_cents, quantity))`;
 const DELIVERED_PAGE_SIZE = 50;
 type Restaurant = { id: string; name: string | null };
+type DeliveredOrder = OrderData & { updated_at: string };
+
+function brazilDateKey(date: Date): string {
+    const parts = new Intl.DateTimeFormat("en", {
+        timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit",
+    }).formatToParts(date);
+    const part = (type: string) => parts.find((item) => item.type === type)?.value;
+    return `${part("year")}-${part("month")}-${part("day")}`;
+}
+
+function recentDeliveryDays(now = new Date()) {
+    const today = brazilDateKey(now);
+    return ["Hoje", "Ontem", "Anteontem"].map((title, offset) => {
+        const date = new Date(`${today}T12:00:00Z`);
+        date.setUTCDate(date.getUTCDate() - offset);
+        return { title, dateKey: date.toISOString().slice(0, 10) };
+    });
+}
+
+function deliveryDateKey(updatedAt: string): string {
+    // orders.updated_at is a timestamp without time zone, written in UTC.
+    const utcValue = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(updatedAt) ? updatedAt : `${updatedAt}Z`;
+    return brazilDateKey(new Date(utcValue));
+}
 
 export default function MotoboyPage() {
     const router = useRouter();
     const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
     const [pending, setPending] = useState<OrderData[]>([]);
-    const [delivered, setDelivered] = useState<OrderData[]>([]);
+    const [delivered, setDelivered] = useState<DeliveredOrder[]>([]);
     const deliveredLimitRef = useRef(DELIVERED_PAGE_SIZE);
     const [hasMoreDelivered, setHasMoreDelivered] = useState(false);
     const [loadingMore, setLoadingMore] = useState(false);
@@ -34,13 +58,19 @@ export default function MotoboyPage() {
 
     const loadOrders = useCallback(async (restaurantId: string, limit: number) => {
         const request = ++requestRef.current;
+        const days = recentDeliveryDays();
+        const start = new Date(`${days[2].dateKey}T00:00:00-03:00`);
+        const end = new Date(`${days[0].dateKey}T00:00:00-03:00`);
+        end.setUTCDate(end.getUTCDate() + 1);
         const [pendingResult, deliveredResult] = await Promise.all([
             supabase.from("orders").select(ORDER_SELECT).eq("restaurant_id", restaurantId)
                 .eq("is_delivery", "entrega").eq("status", "delivering")
                 .order("created_at", { ascending: false }),
             supabase.from("orders").select(ORDER_SELECT).eq("restaurant_id", restaurantId)
                 .eq("is_delivery", "entrega").eq("status", "done")
-                .order("created_at", { ascending: false }).order("id", { ascending: false }).limit(limit + 1),
+                .gte("updated_at", start.toISOString().replace("Z", ""))
+                .lt("updated_at", end.toISOString().replace("Z", ""))
+                .order("updated_at", { ascending: false }).order("id", { ascending: false }).limit(limit + 1),
         ]);
         if (request !== requestRef.current) return;
         setOrdersLoading(false);
@@ -50,7 +80,7 @@ export default function MotoboyPage() {
         }
         setError(null);
         setPending((pendingResult.data as OrderData[]) || []);
-        setDelivered(((deliveredResult.data as OrderData[]) || []).slice(0, limit));
+        setDelivered(((deliveredResult.data as DeliveredOrder[]) || []).slice(0, limit));
         setHasMoreDelivered((deliveredResult.data?.length || 0) > limit);
     }, []);
 
@@ -111,6 +141,14 @@ export default function MotoboyPage() {
         setLoadingMore(false);
     };
 
+    const renderOrderCards = (orders: OrderData[]) => orders.length ? (
+        <div className="panel-orders">
+            {orders.map((order) => <OrderCard key={order.id} order={order} deliveryOnly onStatusChange={() => restaurant && void loadOrders(restaurant.id, deliveredLimitRef.current)} onViewOrder={setSelectedOrder} />)}
+        </div>
+    ) : (
+        <Card className="border border-gray-200 text-center shadow-sm"><p className="py-8 text-sm text-gray-500">Nenhum pedido.</p></Card>
+    );
+
     if (loading) return <div className="flex min-h-screen items-center justify-center bg-gray-50"><Loader className="border-t-brand" /></div>;
 
     return (
@@ -130,14 +168,19 @@ export default function MotoboyPage() {
                 {error && <div role="alert" className="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
                 {restaurant && ordersLoading && <div className="flex h-64 items-center justify-center"><Loader /></div>}
                 {restaurant && !ordersLoading && <>
-                    {[{ title: "Pedidos para entrega", orders: pending }, { title: "Entregues", orders: delivered }].map((section) => (
-                        <section key={section.title} className="mb-8">
-                            <h2 className="mb-4 text-xl font-bold text-gray-900">{section.title}</h2>
-                            {section.orders.length ? <div className="panel-orders">
-                                {section.orders.map((order) => <OrderCard key={order.id} order={order} deliveryOnly onStatusChange={() => void loadOrders(restaurant.id, deliveredLimitRef.current)} onViewOrder={setSelectedOrder} />)}
-                            </div> : <Card className="border border-gray-200 text-center shadow-sm"><p className="py-8 text-sm text-gray-500">Nenhum pedido.</p></Card>}
-                        </section>
-                    ))}
+                    <section className="mb-8">
+                        <h2 className="mb-4 text-xl font-bold text-gray-900">Pedidos para entrega</h2>
+                        {renderOrderCards(pending)}
+                    </section>
+                    <section className="mb-8">
+                        <h2 className="mb-4 text-xl font-bold text-gray-900">Entregues</h2>
+                        {recentDeliveryDays().map((day) => (
+                            <section key={day.dateKey} className="mb-6">
+                                <h3 className="mb-3 text-base font-semibold text-gray-700">{day.title}</h3>
+                                {renderOrderCards(delivered.filter((order) => deliveryDateKey(order.updated_at) === day.dateKey))}
+                            </section>
+                        ))}
+                    </section>
                     {hasMoreDelivered && <Button variant="secondary" loading={loadingMore} disabled={loadingMore} onClick={() => void loadMore()}>Carregar mais entregues</Button>}
                 </>}
             </div>
