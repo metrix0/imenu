@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import { useRouter, usePathname } from "next/navigation";
 import { Restaurant, Menu, Category, ItemsByCategory, Item, Subitem, Subcategory } from "@/lib/types/types";
 import { useCheckoutStore } from "@/lib/stores/costumer/checkoutStore";
@@ -813,10 +814,13 @@ export default function MenuClientPage({
             <div className="relative w-full h-[21vh] overflow-hidden">
                 {restaurant.banner_url && (
                     <>
-                        <img
+                        <Image
                             src={restaurant.banner_url}
                             alt="Banner"
-                            className="w-full h-full object-cover"
+                            fill
+                            sizes="100vw"
+                            preload
+                            className="object-cover"
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/0 to-transparent pointer-events-none" />
                     </>
@@ -826,8 +830,10 @@ export default function MenuClientPage({
             <div className="relative -mt-8 ">
                 {restaurant.logo_url && (
                     <div className="absolute left-1/2 -translate-x-1/2 -top-10 md:-top-8 z-20">
-                        <img
+                        <Image
                             src={restaurant.logo_url}
+                            width={120}
+                            height={120}
                             className="h-[78px] w-[78px] md:w-23 md:h-23 2xl:h-30 2xl:w-30 rounded-full border-1 border-gray-200 object-cover"
                             alt="Logo"
                         />
@@ -1109,11 +1115,12 @@ export default function MenuClientPage({
                                         }`}
                                     >
                                         <div className=" w-full aspect-square rounded-2xl overflow-hidden bg-gray-200 shadow-sm">
-                                            <img
+                                            <Image
                                                 src={item.image_public_url || "/placeholders/item.png"}
+                                                width={320}
+                                                height={320}
                                                 className="w-full h-full object-cover"
                                                 alt={item.name}
-                                                loading="lazy"
                                             />
                                         </div>
 
@@ -1168,11 +1175,12 @@ export default function MenuClientPage({
 
                                         <div className="w-[22vw] h-[22vw] md:w-[10vw] md:h-[10vw] rounded-2xl overflow-hidden
                     bg-gray-200 shadow-sm flex-shrink-0">
-                                            <img
+                                            <Image
                                                 src={item.image_public_url || "/placeholders/item.png"}
+                                                width={320}
+                                                height={320}
                                                 className="w-full h-full object-cover"
                                                 alt={item.name}
-                                                loading="lazy"
                                             />
                                         </div>
                                     </button>
@@ -1283,9 +1291,11 @@ export default function MenuClientPage({
                 <div className="px-5 pb-8 pt-2 md:px-6 md:pt-6 2xl:px-8">
                     <div className="flex items-center gap-3 border-b border-gray-200 pb-4">
                         {restaurant.logo_url && (
-                            <img
+                            <Image
                                 src={restaurant.logo_url}
                                 alt=""
+                                width={56}
+                                height={56}
                                 className="h-12 w-12 rounded-full border border-gray-200 object-cover 2xl:h-14 2xl:w-14"
                             />
                         )}

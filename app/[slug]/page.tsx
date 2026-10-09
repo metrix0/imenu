@@ -1,7 +1,7 @@
 // app/[slug]/page.tsx
 
 import { notFound } from "next/navigation";
-import { preload } from "react-dom";
+import Image from "next/image";
 import MenuClientPage from "./menu-client";
 import StartingPriceLabels from "./StartingPriceLabels";
 import {
@@ -220,12 +220,6 @@ export default async function Page({
     allow_future_order_scheduling:
       restaurantData.allow_future_order_scheduling === true,
   };
-
-  // The banner is the page LCP element. Start its request as soon as the
-  // restaurant row resolves instead of waiting for the remaining menu data.
-  if (restaurant.banner_url) {
-    preload(restaurant.banner_url, { as: "image", fetchPriority: "high" });
-  }
 
   // These reads only depend on the restaurant and do not depend on each other.
   // Running them together removes avoidable database round trips from the TTFB.
@@ -449,9 +443,11 @@ export default async function Page({
               />
               <span>{storeWhatsapp.formatted}</span>
               {restaurant.logo_url && (
-                <img
+                <Image
                   src={restaurant.logo_url}
                   alt=""
+                  width={40}
+                  height={40}
                   className="h-10 w-10 rounded-full border border-gray-200 bg-white object-cover"
                 />
               )}
