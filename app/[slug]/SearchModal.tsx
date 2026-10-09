@@ -60,13 +60,6 @@ export default function SearchModal({ categories, itemsByCategory, onClose, onSe
         return () => observer.disconnect();
     }, [sentinel, hasMore, openModal, visibleCount, debouncedSearch]);
 
-    useEffect(() => {
-        if (!openModal) return;
-        const original = document.body.style.overflow;
-        document.body.style.overflow = "hidden";
-        return () => { document.body.style.overflow = original; };
-    }, [openModal]);
-
     return <DraggableModal open={openModal} onClose={closeWithAnimation} height={1} handle>
         <div className="sticky top-0 z-10 w-full bg-white pb-3 pt-5 md:px-6 md:pt-6">
             {flavorStep && <h2 className="mb-3 font-semibold">Escolha o sabor {flavorStep.current} de {flavorStep.total}</h2>}

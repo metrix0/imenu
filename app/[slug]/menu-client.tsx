@@ -216,23 +216,6 @@ export default function MenuClientPage({
     }
 
     useEffect(() => {
-        const shouldLockScroll = cartOpen || isItemModalOpen;
-
-        if (shouldLockScroll) {
-            document.body.style.overflow = "hidden";
-            document.body.style.touchAction = "none";
-        } else {
-            document.body.style.overflow = "";
-            document.body.style.touchAction = "";
-        }
-
-        return () => {
-            document.body.style.overflow = "";
-            document.body.style.touchAction = "";
-        };
-    }, [cartOpen, isItemModalOpen]);
-
-    useEffect(() => {
         if (!selectedCouponCode) return;
         if (coupon_code === selectedCouponCode) return;
         setField("coupon_code", selectedCouponCode);
