@@ -11,6 +11,7 @@ import { ADDON_PRODUCT_METRICS_SQL, buildProductOverview, type AddonProductMetri
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 const ALLOWED_DEV_EMAIL = "joaovralmeida@hotmail.com";
 const TIME_ZONE = "America/Sao_Paulo";

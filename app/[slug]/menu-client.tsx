@@ -73,6 +73,7 @@ export default function MenuClientPage({
     selectedCouponCode,
     openedProductId,
     tableOrder,
+    readOnly = false,
                                        }: {
     slug: string;
     restaurant: Restaurant;
@@ -81,6 +82,7 @@ export default function MenuClientPage({
     openedProductId?: string | null;
     selectedCouponCode?: string | null;
     tableOrder?: QrTableMenuContext | null;
+    readOnly?: boolean;
 }) {
     const router = useRouter();
 
@@ -216,10 +218,10 @@ export default function MenuClientPage({
     }
 
     useEffect(() => {
-        if (!selectedCouponCode) return;
+        if (readOnly || !selectedCouponCode) return;
         if (coupon_code === selectedCouponCode) return;
         setField("coupon_code", selectedCouponCode);
-    }, [selectedCouponCode]);
+    }, [selectedCouponCode, readOnly]);
 
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -231,6 +233,7 @@ export default function MenuClientPage({
 
 
     useEffect(() => {
+        if (readOnly) return;
         if(coupon_code === couponUsed) return
         if (!useCheckoutStore.getState().coupon_code || !restaurant?.id) {
             const store = useCheckoutStore.getState();
@@ -285,9 +288,10 @@ export default function MenuClientPage({
 
 
         fetchCouponOnce();
-    }, [coupon_code, restaurant?.id]);
+    }, [coupon_code, restaurant?.id, readOnly]);
 
     useEffect(() => {
+        if (readOnly) return;
         const cart = useCartStore.getState();
         const checkout = useCheckoutStore.getState();
 
@@ -369,6 +373,7 @@ export default function MenuClientPage({
 
         checkout.setField("coupon_discount_cents", discountCents);
     }, [
+        readOnly,
         useCartStore((s) => s.items),
         useCheckoutStore((s) => s.delivery_fee_cents),
         useCheckoutStore((s) => s.coupon_type),
@@ -691,7 +696,7 @@ export default function MenuClientPage({
     const pathname = usePathname();
 
     useEffect(() => {
-        if (typeof document === "undefined") return;
+        if (readOnly || typeof document === "undefined") return;
 
         const cookie = document.cookie
             .split("; ")
@@ -710,7 +715,7 @@ export default function MenuClientPage({
                 setRestaurantCartWarningVisible(true);
             });
         }
-    }, []);
+    }, [readOnly]);
 
     useEffect(() => {
         const observer = new IntersectionObserver(
@@ -846,7 +851,7 @@ export default function MenuClientPage({
 
                     <p className="text-gray-600 text-xs 2xl:text-[1rem] mt-1 border-b border-gray-200 pb-2">
                         {(isRestaurantOpen && !closedForToday) ? "Aberto" : "Fechado" }
-                        {isTableOrder ? (
+                        {readOnly ? " • Somente visualização" : isTableOrder ? (
                             <> • {selectedTable?.name || tableOrder?.tableName || "Atendimento na mesa"}</>
                         ) : (
                             <> • Min{" "}
@@ -858,7 +863,7 @@ export default function MenuClientPage({
                     </p>
 
                     <div className={"block md:flex justify-between mt-3"}>
-                        {isTableOrder ? (
+                        {readOnly ? null : isTableOrder ? (
                             <div className="flex items-center gap-2 text-xs font-bold 2xl:text-[1rem]">
                                 <FontAwesomeIcon icon={faChair} />
                                 <span>Pedido direto da mesa</span>
@@ -881,7 +886,7 @@ export default function MenuClientPage({
                             </div>
                         ) : null}
                         <div className={"hidden md:inline-block"}>
-                            {!isTableOrder && (!promotionResult?.promotion || promotionResult.coupon_discount_cents > 0) && (coupon_code && coupon_type) && (
+                            {!readOnly && !isTableOrder && (!promotionResult?.promotion || promotionResult.coupon_discount_cents > 0) && (coupon_code && coupon_type) && (
                                 <div className="px-2.5 py-1.5 rounded-lg bg-brand/10 text-brand text-xs 2xl:text-sm font-normal">
                                     <FontAwesomeIcon icon={icons.faTicket} /> CUPOM {coupon_code} APLICADO - <b>{couponLabel()}</b>
                                 </div>
@@ -890,7 +895,7 @@ export default function MenuClientPage({
                     </div>
                 </div>
             </div>
-            {!isTableOrder && (!promotionResult?.promotion || promotionResult.coupon_discount_cents > 0) && coupon_code && (
+            {!readOnly && !isTableOrder && (!promotionResult?.promotion || promotionResult.coupon_discount_cents > 0) && coupon_code && (
             <div className={"mt-6 -mb-4 mx-5 flex md:hidden justify-center"}>
                     <div className="px-2.5 py-1.5 rounded-lg bg-brand/10 text-brand text-xs 2xl:text-sm font-normal">
                         <FontAwesomeIcon icon={icons.faTicket} /> CUPOM {coupon_code} APLICADO - <b>{couponLabel()}</b>
@@ -898,7 +903,7 @@ export default function MenuClientPage({
             </div>
             )}
 
-            {availabilityChecked && (!isRestaurantOpen || closedForToday) &&
+            {!readOnly && availabilityChecked && (!isRestaurantOpen || closedForToday) &&
                 (closedForToday || openingHoursSlots.length > 0 ||
                     (warningOpening !== null && warningOpening.getTime() > Date.now())) && (
                 <WarningBox icon={icons.faTriangleExclamation} className="mt-10 mx-5 md:mx-48 2xl:mx-80">
@@ -1040,7 +1045,7 @@ export default function MenuClientPage({
             </div>
 
 
-            {!debouncedSearch && visiblePromotions.length > 0 && (
+            {!readOnly && !debouncedSearch && visiblePromotions.length > 0 && (
                 <div className="mt-8 mx-5 md:mx-48 2xl:mx-80 space-y-3">
                     {visiblePromotions.map(p => <PromotionBanner key={p.id} promotion={p} products={promotionProducts} applied={promotionResult?.promotion?.id === p.id} />)}
                 </div>
@@ -1178,6 +1183,7 @@ export default function MenuClientPage({
             {openedItem && (
                 <ItemModal
                     key={openedItem.item.id}
+                    readOnly={readOnly}
                     restaurant={restaurant}
                     item={openedItem.item}
                     subcategories={openedItem.subcategories}
@@ -1201,7 +1207,7 @@ export default function MenuClientPage({
                 />
             )}
 
-            {(isTableOrder
+            {!readOnly && (isTableOrder
                 ? !closedForToday && isRestaurantOpen
                 : restaurant.allow_future_order_scheduling === true ||
                   (!closedForToday && (isRestaurantOpen || canScheduleToday))) && (
@@ -1228,7 +1234,7 @@ export default function MenuClientPage({
             )}
 
 
-            {cartOpen && (
+            {!readOnly && cartOpen && (
                 <CartModal
                     promotionResult={promotionResult}
                     restaurant={restaurant}
@@ -1255,7 +1261,7 @@ export default function MenuClientPage({
                 />
             )}
 
-            {!isTableOrder && (
+            {!readOnly && !isTableOrder && (
                 <HistoryModal
                     open={historyOpen}
                     onClose={() => setHistoryOpen(false)}
@@ -1343,7 +1349,7 @@ export default function MenuClientPage({
             </ModalMobile>
 
             <ModalMobile
-                open={restaurantCartWarningVisible}
+                open={!readOnly && restaurantCartWarningVisible}
                 onClose={() => setRestaurantCartWarningVisible(false)}
                 height={0.30}
                 handle={true}

@@ -6,10 +6,12 @@ import type { User } from "@supabase/supabase-js";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import {
     faChevronRight,
+    faCheck,
     faCircleInfo,
     faCopy,
     faCrown,
     faDownload,
+    faLock,
     faSignOutAlt,
     faTrash,
     faVolumeHigh,
@@ -28,6 +30,7 @@ import Tooltip from "@/components/ui/Tooltip";
 import ChoiceCardGroup from "@/components/ui/ChoiceCardGroup";
 import ResetOrderCountSection from "@/components/restaurant-owner/configuracoes/ResetOrderCountSection";
 import PizzaSettingsSection from "@/components/restaurant-owner/configuracoes/PizzaSettingsSection";
+import { hasQrTableAccess } from "@/lib/qr-table/types";
 
 type Restaurant = {
     id: string;
@@ -37,6 +40,7 @@ type Restaurant = {
     phone?: string | null;
     force_whatsapp_order_confirmation?: boolean | null;
     allow_future_order_scheduling?: boolean | null;
+    vitrine_enabled?: boolean;
 };
 
 type OrderDingleDuration = "short" | "medium" | "long";
@@ -210,6 +214,8 @@ export default function ConfiguracoesPage() {
         useState(false);
     const [isSavingOrderScheduling, setIsSavingOrderScheduling] =
         useState(false);
+    const [isSavingVitrine, setIsSavingVitrine] = useState(false);
+    const [vitrineAccess, setVitrineAccess] = useState(false);
     const [isLoggingOut, setIsLoggingOut] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -218,6 +224,21 @@ export default function ConfiguracoesPage() {
         message: string;
         type: "success" | "error" | "info";
     } | null>(null);
+
+    const vitrineUrl = shareableUrl && restaurant?.url_slug
+        ? new URL(`/vitrine/${restaurant.url_slug}`, shareableUrl).href
+        : "";
+
+    const loadVitrineAccess = useCallback(async (id: string) => {
+        const { data, error } = await supabase
+            .from("restaurant_addons")
+            .select("status,current_period_ends_at")
+            .eq("restaurant_id", id)
+            .in("product_key", ["qr_code_mesa", "ia_plus"]);
+        const access = !error && Boolean(data?.some((addon) => hasQrTableAccess(addon)));
+        setVitrineAccess(access);
+        if (error) throw error;
+    }, []);
 
     useEffect(() => {
         const audio = new Audio("/sounds/new-order.mp3");
@@ -267,7 +288,7 @@ export default function ConfiguracoesPage() {
                     const { data: restData } = await supabase
                         .from("restaurants")
                         .select(
-                            "id, name, url_slug, user_id, phone, force_whatsapp_order_confirmation, allow_future_order_scheduling",
+                            "id, name, url_slug, user_id, phone, force_whatsapp_order_confirmation, allow_future_order_scheduling, vitrine_enabled",
                         )
                         .eq("id", targetId)
                         .single();
@@ -290,6 +311,7 @@ export default function ConfiguracoesPage() {
                                 `${window.location.origin}/${restData.url_slug}`,
                             );
                         }
+                        await loadVitrineAccess(restData.id);
                     }
                 }
             } catch (error) {
@@ -301,7 +323,7 @@ export default function ConfiguracoesPage() {
         };
 
         void loadData();
-    }, [restaurantId, router, setRestaurantId]);
+    }, [restaurantId, router, setRestaurantId, loadVitrineAccess]);
 
     const savePhone = async () => {
         if (!restaurant) return;
@@ -405,6 +427,47 @@ export default function ConfiguracoesPage() {
                 : "Agendamentos limitados ao dia atual.",
             type: "success",
         });
+    };
+
+    const saveVitrineMode = async (enabled: boolean) => {
+        if (!restaurant || isSavingVitrine) return;
+        if (!vitrineAccess) {
+            router.push("/painel/planos");
+            return;
+        }
+
+        setIsSavingVitrine(true);
+        try {
+            const { data, error } = await supabase
+                .from("restaurants")
+                .update({ vitrine_enabled: enabled })
+                .eq("id", restaurant.id)
+                .select("vitrine_enabled")
+                .single();
+            if (error) throw error;
+
+            setRestaurant((current) => current
+                ? { ...current, vitrine_enabled: data.vitrine_enabled }
+                : current);
+            setToast({
+                message: enabled ? "Modo Vitrine ativado." : "Modo Vitrine desativado.",
+                type: "success",
+            });
+        } catch (error) {
+            console.error("Erro ao salvar modo vitrine:", error);
+            setToast({ message: "Erro ao salvar o Modo Vitrine.", type: "error" });
+        } finally {
+            setIsSavingVitrine(false);
+        }
+    };
+
+    const copyVitrineLink = async () => {
+        try {
+            await navigator.clipboard.writeText(vitrineUrl);
+            setToast({ message: "Link da vitrine copiado!", type: "success" });
+        } catch {
+            setToast({ message: "Não foi possível copiar o link.", type: "error" });
+        }
     };
 
     const saveOrderDingleDuration = (
@@ -834,6 +897,57 @@ export default function ConfiguracoesPage() {
                     </Card>
 
                     {restaurant && <PizzaSettingsSection restaurantId={restaurant.id} />}
+
+                    {restaurant && (
+                        <Card className="border border-gray-200 shadow-sm">
+                            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                                <div>
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <h2 className="text-xl font-medium text-gray-900">Modo Vitrine</h2>
+                                        <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${vitrineAccess ? "bg-green-50 text-green-700" : "bg-orange-50 text-orange-800"}`}>
+                                            <FontAwesomeIcon icon={vitrineAccess ? faCheck : faLock} />
+                                            {vitrineAccess ? "Plano ativo" : "Incluso no iMenu QR ou IA Plus"}
+                                        </span>
+                                    </div>
+                                    <p id="vitrine-description" className="mt-2 text-sm text-gray-500">
+                                        Crie um cardápio separado dos demais, exclusivo para visualização.
+                                        Seus clientes podem consultar produtos e preços, mas não realizar pedidos.
+                                    </p>
+                                </div>
+                                <div className="flex shrink-0 items-start gap-3">
+                                    {isSavingVitrine && <SaveStatus status="saving" />}
+                                    {vitrineAccess ? <Switch
+                                        checked={restaurant.vitrine_enabled === true}
+                                        aria-label="Modo Vitrine"
+                                        aria-describedby="vitrine-description"
+                                        disabled={isSavingVitrine}
+                                        onClick={() => void saveVitrineMode(restaurant.vitrine_enabled !== true)}
+                                    /> : (
+                                        <Tooltip text="Disponível com iMenu QR ou IA Plus. Assine um dos planos para desbloquear o Modo Vitrine." parentClassName="!block">
+                                            <Button onClick={() => router.push("/painel/planos")} className="gap-2">
+                                                Desbloquear Modo Vitrine
+                                                <FontAwesomeIcon icon={faLock} />
+                                            </Button>
+                                        </Tooltip>
+                                    )}
+                                </div>
+                            </div>
+                            {vitrineAccess && restaurant.vitrine_enabled && vitrineUrl && (
+                                <div className="mt-6 flex min-w-0 flex-col gap-3 sm:flex-row">
+                                    <div className="min-w-0 flex-1">
+                                        <Input value={vitrineUrl} readOnly aria-label="Link do cardápio vitrine" className="min-w-0" />
+                                    </div>
+                                    <Button variant="secondary" onClick={() => void copyVitrineLink()} className="shrink-0">
+                                        <FontAwesomeIcon icon={faCopy} className="mr-2" />
+                                        Copiar link
+                                    </Button>
+                                    <Button variant="secondary" onClick={() => window.open(vitrineUrl, "_blank", "noopener,noreferrer")} className="shrink-0">
+                                        Abrir cardápio
+                                    </Button>
+                                </div>
+                            )}
+                        </Card>
+                    )}
 
                     {restaurant && shareableUrl && (
                         <Card className="border border-gray-200 shadow-sm">

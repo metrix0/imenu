@@ -17,12 +17,7 @@ export async function GET(request: NextRequest) {
     try {
         const notification = await takeNextPushNotification(deviceToken);
         return NextResponse.json(
-            notification || {
-                title: "Novo aviso do iMenu",
-                body: "Abra o aplicativo para conferir as novidades.",
-                url: "/painel",
-                tag: "imenu-generic",
-            },
+            notification,
             {
                 headers: {
                     "Cache-Control": "no-store",

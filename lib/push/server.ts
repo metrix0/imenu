@@ -28,6 +28,8 @@ type PendingNotificationRow = {
     body: string;
     url: string;
     tag: string | null;
+    created_at: string;
+    expiresAt: number;
 };
 
 function getRequiredEnv(name: string): string {
@@ -205,6 +207,19 @@ export async function takeNextPushNotification(
     deviceToken: string
 ): Promise<PendingNotificationRow | null> {
     return withTransaction(async (client) => {
+        // Match the push wake's 120-second TTL; missed wakes must not leave old alerts.
+        await client.query(
+            `
+                DELETE FROM owner_push_notifications AS notification
+                USING owner_push_subscriptions AS subscription
+                WHERE subscription.id = notification.subscription_id
+                  AND subscription.device_token = $1
+                  AND notification.delivered_at IS NULL
+                  AND notification.created_at <= NOW() - INTERVAL '120 seconds'
+            `,
+            [deviceToken]
+        );
+
         const result = await client.query<PendingNotificationRow>(
             `
                 SELECT
@@ -212,13 +227,16 @@ export async function takeNextPushNotification(
                     notification.title,
                     notification.body,
                     notification.url,
-                    notification.tag
+                    notification.tag,
+                    notification.created_at,
+                    (EXTRACT(EPOCH FROM notification.created_at + INTERVAL '120 seconds') * 1000)::double precision AS "expiresAt"
                 FROM owner_push_notifications AS notification
                 INNER JOIN owner_push_subscriptions AS subscription
                     ON subscription.id = notification.subscription_id
                 WHERE subscription.device_token = $1
                   AND subscription.enabled = true
                   AND notification.delivered_at IS NULL
+                  AND notification.created_at > NOW() - INTERVAL '120 seconds'
                 ORDER BY notification.created_at ASC
                 LIMIT 1
                 FOR UPDATE OF notification SKIP LOCKED
@@ -269,7 +287,7 @@ export async function notifyOrderReady(orderId: string): Promise<boolean> {
     const order = orderResult.rows[0];
     if (!order) return false;
 
-    if (["pending_online_payment", "canceled"].includes(order.status)) {
+    if (["pending_online_payment", "canceled", "done"].includes(order.status)) {
         return false;
     }
 

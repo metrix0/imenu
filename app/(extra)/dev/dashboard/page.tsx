@@ -598,26 +598,29 @@ export default function DevDashboardPage() {
                 const headers = {
                     Authorization: `Bearer ${session.access_token}`,
                 };
-                const [response, detailsResponse] = await Promise.all([
-                    fetch(`/api/dev/dashboard?range=${range}`, {
-                        headers,
-                        cache: "no-store",
-                        signal: controller.signal,
-                    }),
-                    fetch(`/api/dev/dashboard/details?range=${range}`, {
-                        headers,
-                        cache: "no-store",
-                        signal: controller.signal,
-                    }),
-                ]);
+                const fetchDashboardEndpoint = async (path: string) => {
+                    const request = () =>
+                        fetch(path, {
+                            headers,
+                            cache: "no-store",
+                            signal: controller.signal,
+                        });
 
-                const payload = (await response.json()) as DashboardPayload & {
-                    error?: string;
+                    let response = await request();
+                    if (
+                        !controller.signal.aborted &&
+                        (response.status >= 500 ||
+                            !response.headers.get("content-type")?.includes("application/json"))
+                    ) {
+                        response = await request();
+                    }
+                    return response;
                 };
-                const detailsPayload =
-                    (await detailsResponse.json()) as DashboardDetailsPayload & {
-                        error?: string;
-                    };
+
+                const [response, detailsResponse] = await Promise.all([
+                    fetchDashboardEndpoint(`/api/dev/dashboard?range=${range}`),
+                    fetchDashboardEndpoint(`/api/dev/dashboard/details?range=${range}`),
+                ]);
 
                 if (response.status === 401 || detailsResponse.status === 401) {
                     setAccessState("signed-out");
@@ -632,6 +635,24 @@ export default function DevDashboardPage() {
                     setDetails(null);
                     return;
                 }
+
+                const readJson = async (response: Response, section: string) => {
+                    if (!response.headers.get("content-type")?.includes("application/json")) {
+                        throw new Error(
+                            `Falha ao carregar ${section} (HTTP ${response.status}). O servidor não retornou JSON.`
+                        );
+                    }
+                    try {
+                        return await response.json();
+                    } catch {
+                        throw new Error(`Falha ao carregar ${section}: resposta JSON inválida.`);
+                    }
+                };
+
+                const [payload, detailsPayload] = await Promise.all([
+                    readJson(response, "o dashboard") as Promise<DashboardPayload & { error?: string }>,
+                    readJson(detailsResponse, "os detalhes do dashboard") as Promise<DashboardDetailsPayload & { error?: string }>,
+                ]);
 
                 if (!response.ok) {
                     throw new Error(payload.error || "Erro ao carregar o dashboard.");

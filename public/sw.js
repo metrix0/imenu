@@ -85,6 +85,9 @@ self.addEventListener("push", (event) => {
                 };
             }
 
+            // An expired queue entry produces no alert, including after a delayed wake.
+            if (!payload || (payload.expiresAt && payload.expiresAt <= Date.now())) return;
+
             await self.registration.showNotification(payload.title, {
                 body: payload.body,
                 icon: "/logos/LogoMark_Brand.png",
