@@ -1,7 +1,7 @@
 // app/[slug]/page.tsx
 
 import { notFound } from "next/navigation";
-import Image from "@/components/ui/CdnImage";
+import Image from "next/image";
 import MenuClientPage from "./menu-client";
 import StartingPriceLabels from "./StartingPriceLabels";
 import {

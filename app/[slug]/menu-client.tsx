@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Image from "@/components/ui/CdnImage";
+import Image from "next/image";
 import { useRouter, usePathname } from "next/navigation";
 import { Restaurant, Menu, Category, ItemsByCategory, Item, Subitem, Subcategory } from "@/lib/types/types";
 import { useCheckoutStore } from "@/lib/stores/costumer/checkoutStore";

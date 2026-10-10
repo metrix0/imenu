@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import Image from "@/components/ui/CdnImage";
+import Image from "next/image";
 import { Restaurant, Item, Subitem, Subcategory, CartItem, PizzaCatalogItem, Category, ItemsByCategory } from "@/lib/types/types";
 import { useCartStore } from "@/lib/stores/costumer/cartStore";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";

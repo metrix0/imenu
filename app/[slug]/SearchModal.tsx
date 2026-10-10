@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useEffect } from "react";
-import Image from "@/components/ui/CdnImage";
+import Image from "next/image";
 import type { Category, ItemsByCategory, Item } from "@/lib/types/types";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { icons } from "@/lib/utils/fontawesome";
