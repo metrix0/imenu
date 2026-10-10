@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { query, withTransaction } from "@/lib/database/sql";
+import { query } from "@/lib/database/sql";
 import { requireOwnedRestaurant } from "@/lib/push/auth";
 
 export const runtime = "nodejs";
@@ -79,57 +79,43 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        await withTransaction(async client => {
-            // A renewed endpoint replaces the old registration for this device.
-            await client.query(`SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, [deviceToken]);
-            await client.query(`
-                DELETE FROM owner_push_subscriptions
-                WHERE device_token = $1 AND endpoint <> $2
-            `, [deviceToken, endpoint]);
-            // Do not carry another account's queued alerts across account switches.
-            await client.query(`
-                DELETE FROM owner_push_notifications n USING owner_push_subscriptions s
-                WHERE n.subscription_id = s.id AND s.endpoint = $1
-                  AND (s.restaurant_id <> $2::uuid OR s.user_id <> $3::uuid)
-            `, [endpoint, restaurantId, userId]);
-            await client.query(
-                `
-                    INSERT INTO owner_push_subscriptions (
-                        restaurant_id,
-                        user_id,
-                        endpoint,
-                        p256dh,
-                        auth_secret,
-                        device_token,
-                        user_agent,
-                        enabled,
-                        last_seen_at,
-                        updated_at
-                    )
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, true, NOW(), NOW())
-                    ON CONFLICT (endpoint)
-                    DO UPDATE SET
-                        restaurant_id = EXCLUDED.restaurant_id,
-                        user_id = EXCLUDED.user_id,
-                        p256dh = EXCLUDED.p256dh,
-                        auth_secret = EXCLUDED.auth_secret,
-                        device_token = EXCLUDED.device_token,
-                        user_agent = EXCLUDED.user_agent,
-                        enabled = true,
-                        last_seen_at = NOW(),
-                        updated_at = NOW()
-                `,
-                [
-                    restaurantId,
-                    userId,
+        await query(
+            `
+                INSERT INTO owner_push_subscriptions (
+                    restaurant_id,
+                    user_id,
                     endpoint,
                     p256dh,
-                    authSecret,
-                    deviceToken,
-                    request.headers.get("user-agent"),
-                ]
-            );
-        });
+                    auth_secret,
+                    device_token,
+                    user_agent,
+                    enabled,
+                    last_seen_at,
+                    updated_at
+                )
+                VALUES ($1, $2, $3, $4, $5, $6, $7, true, NOW(), NOW())
+                ON CONFLICT (endpoint)
+                DO UPDATE SET
+                    restaurant_id = EXCLUDED.restaurant_id,
+                    user_id = EXCLUDED.user_id,
+                    p256dh = EXCLUDED.p256dh,
+                    auth_secret = EXCLUDED.auth_secret,
+                    device_token = EXCLUDED.device_token,
+                    user_agent = EXCLUDED.user_agent,
+                    enabled = true,
+                    last_seen_at = NOW(),
+                    updated_at = NOW()
+            `,
+            [
+                restaurantId,
+                userId,
+                endpoint,
+                p256dh,
+                authSecret,
+                deviceToken,
+                request.headers.get("user-agent"),
+            ]
+        );
 
         return NextResponse.json({ ok: true });
     } catch (error) {

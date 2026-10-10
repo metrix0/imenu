@@ -1,5 +1,3 @@
-jest.mock("next/server", () => ({ ...jest.requireActual("next/server"), after: jest.fn() }));
-jest.mock("@/lib/push/server", () => ({ notifyOrderReady: jest.fn() }));
 import { POST } from "./route";
 import { query, withTransaction } from "@/lib/database/sql";
 import { createMercadoPagoPixCharge } from "@/lib/mercadoPagoPix";

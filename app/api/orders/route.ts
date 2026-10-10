@@ -1,5 +1,5 @@
 // app/api/orders/route.ts
-import { after, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 
 import {
     query,
@@ -11,7 +11,6 @@ import { pricePizzaOrderItems } from "@/lib/pizza/orderPricing";
 import { PizzaPricingError, pizzaStockItemIds } from "@/lib/pizza/pricing";
 import type { AppliedPromotion } from "@/lib/promotions/automatic";
 import { promotionPrice } from "@/lib/utils/formatPrice";
-import { notifyOrderReady } from "@/lib/push/server";
 
 export const dynamic = "force-dynamic";
 
@@ -1143,13 +1142,6 @@ export async function POST(request: Request) {
         } = transactionResult;
 
         if (!isOnlinePix) {
-            after(async () => {
-                try {
-                    await notifyOrderReady(orderId);
-                } catch (error) {
-                    console.error("[OWNER_PUSH] Failed after order creation:", error);
-                }
-            });
             return NextResponse.json({
                 order_id: orderId,
                 payment_type: "offline",

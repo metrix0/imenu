@@ -1,7 +1,3 @@
-import { after } from "next/server";
-import { notifyOrderReady } from "@/lib/push/server";
-jest.mock("next/server", () => ({ ...jest.requireActual("next/server"), after: jest.fn() }));
-jest.mock("@/lib/push/server", () => ({ notifyOrderReady: jest.fn() }));
 import { POST } from "./route";
 import { query, withTransaction } from "@/lib/database/sql";
 import { createMercadoPagoPixCharge } from "@/lib/mercadoPagoPix";
@@ -310,23 +306,4 @@ it("retains unpaid PIX compensation and restores stock on provider failure", asy
   expect(
     writes.some((sql) => sql.includes("'canceled'::public.order_status")),
   ).toBe(true);
-});
-
-it("schedules offline pushes only after successful creation", async () => {
-  expect((await send()).status).toBe(200);
-  expect(after).toHaveBeenCalledTimes(1);
-  expect(notifyOrderReady).not.toHaveBeenCalled();
-  await (after as jest.Mock).mock.calls[0][0]();
-  expect(notifyOrderReady).toHaveBeenCalledWith(orderId);
-});
-it("failed orders do not schedule pushes", async () => {
-  stock = 0;
-  await send();
-  expect(after).not.toHaveBeenCalled();
-});
-it("push failures cannot fail an already-created order", async () => {
-  jest.spyOn(console, "error").mockImplementation(() => undefined);
-  (notifyOrderReady as jest.Mock).mockRejectedValueOnce(new Error("push unavailable"));
-  expect((await send()).status).toBe(200);
-  await expect((after as jest.Mock).mock.calls[0][0]()).resolves.toBeUndefined();
 });
