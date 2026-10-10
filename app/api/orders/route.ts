@@ -1,5 +1,5 @@
 // app/api/orders/route.ts
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 
 import {
     query,
@@ -11,6 +11,7 @@ import { pricePizzaOrderItems } from "@/lib/pizza/orderPricing";
 import { PizzaPricingError, pizzaStockItemIds } from "@/lib/pizza/pricing";
 import type { AppliedPromotion } from "@/lib/promotions/automatic";
 import { promotionPrice } from "@/lib/utils/formatPrice";
+import { notifyOrderReady } from "@/lib/push/server";
 
 export const dynamic = "force-dynamic";
 
@@ -1142,6 +1143,13 @@ export async function POST(request: Request) {
         } = transactionResult;
 
         if (!isOnlinePix) {
+            after(async () => {
+                try {
+                    await notifyOrderReady(orderId);
+                } catch (error) {
+                    console.error("[ORDERS] Failed to send owner push:", error);
+                }
+            });
             return NextResponse.json({
                 order_id: orderId,
                 payment_type: "offline",

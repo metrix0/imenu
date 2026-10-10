@@ -287,7 +287,7 @@ export async function notifyOrderReady(orderId: string): Promise<boolean> {
     const order = orderResult.rows[0];
     if (!order) return false;
 
-    if (["pending_online_payment", "canceled"].includes(order.status)) {
+    if (["pending_online_payment", "canceled", "done"].includes(order.status)) {
         return false;
     }
 
