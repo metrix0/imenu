@@ -169,15 +169,33 @@ export default function ApplicationSetup() {
             scope: "/",
         });
         const subscription = await registration.pushManager.getSubscription();
-        setNotificationEnabled(
-            Notification.permission === "granted" && Boolean(subscription)
-        );
+        setNotificationEnabled(false);
+
+        // Browser permission alone does not mean the server can notify this device.
+        if (Notification.permission === "granted" && subscription && restaurantId) {
+            try {
+                let deviceToken = await readStoredDeviceToken();
+                if (!deviceToken) {
+                    deviceToken = `${crypto.randomUUID()}-${crypto.randomUUID()}`.replace(/-/g, "_");
+                    await saveDeviceToken(deviceToken);
+                }
+                const token = await getAccessToken();
+                const response = await fetch("/api/push/subscriptions", {
+                    method: "POST",
+                    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+                    body: JSON.stringify({ restaurantId, deviceToken, subscription: subscription.toJSON() }),
+                });
+                setNotificationEnabled(response.ok);
+            } catch (error) {
+                console.error("[APPLICATION_PUSH] Failed to restore registration:", error);
+            }
+        }
 
         const configResponse = await fetch("/api/push/config", {
             cache: "no-store",
         });
         setServerConfigured(configResponse.ok);
-    }, []);
+    }, [restaurantId]);
 
     useEffect(() => {
         const handleInstallPrompt = (event: Event) => {
@@ -368,7 +386,7 @@ export default function ApplicationSetup() {
 
             if (deviceToken) {
                 const token = await getAccessToken();
-                await fetch("/api/push/subscriptions", {
+                const response = await fetch("/api/push/subscriptions", {
                     method: "DELETE",
                     headers: {
                         Authorization: `Bearer ${token}`,
@@ -376,6 +394,7 @@ export default function ApplicationSetup() {
                     },
                     body: JSON.stringify({ restaurantId, deviceToken }),
                 });
+                if (!response.ok) throw new Error("Não foi possível desativar as notificações no servidor.");
             }
 
             await subscription?.unsubscribe();

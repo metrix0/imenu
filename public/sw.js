@@ -33,32 +33,75 @@ async function readDeviceToken() {
     });
 }
 
-async function getNotificationPayload() {
-    const deviceToken = await readDeviceToken().catch(() => null);
-
-    if (!deviceToken) {
-        return {
-            title: "Novo aviso do iMenu",
-            body: "Abra o aplicativo para conferir as novidades.",
-            url: "/painel",
-            tag: "imenu-generic",
-        };
-    }
-
-    const response = await fetch(
-        `/api/push/next?deviceToken=${encodeURIComponent(deviceToken)}`,
-        {
-            cache: "no-store",
-            credentials: "same-origin",
+async function getNotificationPayloads(event) {
+    if (event.data) {
+        const payload = event.data.json();
+        if (payload && typeof payload.title === "string" && typeof payload.body === "string"
+            && Number.isFinite(payload.expiresAt)) {
+            // A delayed push must not retrieve another order's queue entry.
+            return payload.expiresAt > Date.now() ? [payload] : [];
         }
-    );
-
-    if (!response.ok) {
-        throw new Error(`Notification payload returned ${response.status}`);
     }
-
-    return response.json();
+    const deviceToken = await readDeviceToken().catch(() => null);
+    if (!deviceToken) return [];
+    const response = await fetch(`/api/push/next?batch=1&deviceToken=${encodeURIComponent(deviceToken)}`, {
+        cache: "no-store", credentials: "same-origin", signal: AbortSignal.timeout(10_000),
+    });
+    if (!response.ok) throw new Error(`Notification payload returned ${response.status}`);
+    const payload = await response.json();
+    return (payload?.notifications || (payload?.title ? [payload] : [])).map(notification => ({
+        ...notification,
+        expiresAt: notification.expiresAt || new Date(notification.created_at).getTime() + 300_000,
+    })).filter(notification => notification.expiresAt > Date.now());
 }
+
+async function wasShown(id) {
+    if (!id) return false;
+    const database = await openPushDatabase();
+    return new Promise((resolve, reject) => {
+        const transaction = database.transaction(PUSH_STORE_NAME, "readonly");
+        const request = transaction.objectStore(PUSH_STORE_NAME).get(`shown-${id}`);
+        request.onsuccess = () => resolve(Boolean(request.result));
+        request.onerror = () => reject(request.error);
+        transaction.oncomplete = () => database.close();
+    });
+}
+
+async function rememberShown(payload) {
+    if (!payload.id) return;
+    const database = await openPushDatabase();
+    try {
+        await new Promise((resolve, reject) => {
+            const transaction = database.transaction(PUSH_STORE_NAME, "readwrite");
+            const store = transaction.objectStore(PUSH_STORE_NAME);
+            store.put(payload.expiresAt, `shown-${payload.id}`);
+            const cursor = store.openCursor();
+            cursor.onsuccess = () => {
+                const current = cursor.result;
+                if (!current) return;
+                if (String(current.key).startsWith("shown-") && current.value <= Date.now()) current.delete();
+                current.continue();
+            };
+            transaction.oncomplete = () => resolve();
+            transaction.onerror = () => reject(transaction.error);
+            transaction.onabort = () => reject(transaction.error);
+        });
+    } finally { database.close(); }
+}
+
+async function acknowledge(payload) {
+    if (!payload.id) return;
+    try {
+        const deviceToken = await readDeviceToken();
+        if (!deviceToken) return;
+        await fetch("/api/push/next", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ deviceToken, notificationId: payload.id }), signal: AbortSignal.timeout(10_000),
+        });
+    } catch (error) { console.error("[IMENU_PUSH] Failed to acknowledge notification:", error); }
+}
+
+let pushQueue = Promise.resolve();
 
 self.addEventListener("install", () => {
     self.skipWaiting();
@@ -69,35 +112,28 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("push", (event) => {
-    event.waitUntil(
-        (async () => {
-            let payload;
-
-            try {
-                payload = await getNotificationPayload();
-            } catch (error) {
-                console.error("[IMENU_PUSH] Failed to load payload:", error);
-                payload = {
-                    title: "Novo aviso do iMenu",
-                    body: "Abra o aplicativo para conferir as novidades.",
-                    url: "/painel",
-                    tag: "imenu-generic",
-                };
-            }
-
+    const acknowledgements = [];
+    pushQueue = pushQueue.catch(() => undefined).then(async () => {
+        const payloads = await getNotificationPayloads(event);
+        for (const payload of payloads) {
+            if (payload.expiresAt <= Date.now()) continue;
+            const shown = await wasShown(payload.id).catch(() => false);
             await self.registration.showNotification(payload.title, {
                 body: payload.body,
                 icon: "/logos/LogoMark_Brand.png",
                 badge: "/logos/LogoMark_Brand.png",
                 tag: payload.tag || undefined,
-                data: {
-                    url: payload.url || "/painel",
-                },
-                vibrate: [180, 90, 180],
+                data: { url: payload.url || "/painel" },
+                ...(shown ? { silent: true } : { vibrate: [180, 90, 180] }),
                 requireInteraction: true,
+                renotify: false,
+                timestamp: new Date(payload.created_at).getTime() || Date.now(),
             });
-        })()
-    );
+            await rememberShown(payload).catch(error => console.error("[IMENU_PUSH] Failed to remember notification:", error));
+            acknowledgements.push(acknowledge(payload));
+        }
+    });
+    event.waitUntil(pushQueue.then(() => Promise.all(acknowledgements)).catch(error => console.error("[IMENU_PUSH] Failed to display notification:", error)));
 });
 
 self.addEventListener("notificationclick", (event) => {
