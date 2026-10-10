@@ -26,12 +26,10 @@ import SaveStatus from "@/components/ui/SaveStatus";
 import Loader from "@/components/ui/Loader";
 import Toast from "@/components/ui/Toast";
 import ConfirmModal from "@/components/ui/ConfirmModal";
-import Modal from "@/components/ui/Modal";
 import Tooltip from "@/components/ui/Tooltip";
 import ChoiceCardGroup from "@/components/ui/ChoiceCardGroup";
 import ResetOrderCountSection from "@/components/restaurant-owner/configuracoes/ResetOrderCountSection";
 import PizzaSettingsSection from "@/components/restaurant-owner/configuracoes/PizzaSettingsSection";
-import QrCodeMesaSettingsSection from "@/components/restaurant-owner/configuracoes/QrCodeMesaSettingsSection";
 import { hasQrTableAccess } from "@/lib/qr-table/types";
 
 type Restaurant = {
@@ -218,7 +216,6 @@ export default function ConfiguracoesPage() {
         useState(false);
     const [isSavingVitrine, setIsSavingVitrine] = useState(false);
     const [vitrineAccess, setVitrineAccess] = useState(false);
-    const [vitrinePlansOpen, setVitrinePlansOpen] = useState(false);
     const [isLoggingOut, setIsLoggingOut] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -241,23 +238,7 @@ export default function ConfiguracoesPage() {
         const access = !error && Boolean(data?.some((addon) => hasQrTableAccess(addon)));
         setVitrineAccess(access);
         if (error) throw error;
-        return access;
     }, []);
-
-    useEffect(() => {
-        if (!restaurant?.id) return;
-        const refreshAccess = () => {
-            void loadVitrineAccess(restaurant.id)
-                .then((access) => { if (access) setVitrinePlansOpen(false); })
-                .catch(() => setToast({ message: "Erro ao verificar acesso ao Modo Vitrine.", type: "error" }));
-        };
-        window.addEventListener("imenu:qr-table-activated", refreshAccess);
-        window.addEventListener("imenu:ia-plus-activated", refreshAccess);
-        return () => {
-            window.removeEventListener("imenu:qr-table-activated", refreshAccess);
-            window.removeEventListener("imenu:ia-plus-activated", refreshAccess);
-        };
-    }, [restaurant?.id, loadVitrineAccess]);
 
     useEffect(() => {
         const audio = new Audio("/sounds/new-order.mp3");
@@ -451,7 +432,7 @@ export default function ConfiguracoesPage() {
     const saveVitrineMode = async (enabled: boolean) => {
         if (!restaurant || isSavingVitrine) return;
         if (!vitrineAccess) {
-            setVitrinePlansOpen(true);
+            router.push("/painel/planos");
             return;
         }
 
@@ -662,14 +643,6 @@ export default function ConfiguracoesPage() {
                 isLoading={isDeleting}
                 variant="danger"
             />
-
-            {restaurant && vitrinePlansOpen && (
-                <Modal open onClose={() => setVitrinePlansOpen(false)} height="85dvh" showCloseButton className="!max-w-5xl">
-                    <h2 className="mb-2 text-xl font-medium text-gray-900">Desbloquear Modo Vitrine</h2>
-                    <p className="mb-6 text-sm text-gray-500">Escolha iMenu QR ou IA Plus para usar seu cardápio vitrine.</p>
-                    <QrCodeMesaSettingsSection restaurantId={restaurant.id} showHeader={false} />
-                </Modal>
-            )}
 
             {toast && (
                 <Toast
@@ -951,7 +924,7 @@ export default function ConfiguracoesPage() {
                                         onClick={() => void saveVitrineMode(restaurant.vitrine_enabled !== true)}
                                     /> : (
                                         <Tooltip text="Disponível com iMenu QR ou IA Plus. Assine um dos planos para desbloquear o Modo Vitrine." parentClassName="!block">
-                                            <Button onClick={() => setVitrinePlansOpen(true)} className="gap-2">
+                                            <Button onClick={() => router.push("/painel/planos")} className="gap-2">
                                                 Desbloquear Modo Vitrine
                                                 <FontAwesomeIcon icon={faLock} />
                                             </Button>
