@@ -7,6 +7,21 @@
       "preview": true
     }
   },
+  "rewrites": [
+    {
+      "source": "/cdn/storage/:path*",
+      "destination": "https://mjogdsnxbwhbqcoijrwt.supabase.co/storage/v1/object/public/:path*"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/cdn/storage/:path*",
+      "headers": [
+        { "key": "x-vercel-enable-rewrite-caching", "value": "1" },
+        { "key": "CDN-Cache-Control", "value": "max-age=2592000" }
+      ]
+    }
+  ],
   "crons": [
     {
       "path": "/api/cron/daily-payout",

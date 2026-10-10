@@ -2,7 +2,7 @@
 
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { faArrowRight, faCheck, faCircleInfo, faLock } from "@fortawesome/free-solid-svg-icons";
-import Image from "next/image";
+import Image from "@/components/ui/CdnImage";
 import Link from "next/link";
 import type { MouseEvent } from "react";
 import Badge from "@/components/ui/Badge";
