@@ -93,11 +93,11 @@ test("report leads with potential actions, then summary, opportunities, comparis
 test("free restaurant without analysis explains the analysis and IA Plus immediate access", () => {
   const html = renderToStaticMarkup(<AnalysisReport {...props} analyses={[]} selected={undefined} locked />);
   expect(html).toContain("Sua análise ainda não foi liberada");
-  expect(html).toContain("Entende suas vendas");
+  expect(html).toContain("Dados reais");
   expect(html).toContain("Encontra o que vale priorizar");
   expect(html).toContain("Aplica melhorias automaticamente");
-  expect(html).toContain("Você apenas revisa e aceita as mudanças que aumentam seu faturamento.");
-  expect(html.indexOf("Aplica melhorias automaticamente")).toBeLessThan(html.indexOf("Entende suas vendas"));
+  expect(html).toContain("Você só revisa e aprova as melhorias sugeridas.");
+  expect(html.indexOf("Aplica melhorias automaticamente")).toBeLessThan(html.indexOf("Dados reais"));
   expect(html).toContain("Como funciona o acesso gratuito");
   expect(html).toContain("Sem esperar pela seleção gratuita");
   expect(html).toContain("Análise iniciada automaticamente");
