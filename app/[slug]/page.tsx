@@ -119,6 +119,9 @@ export default async function Page({
 
   if (!restaurantData) return notFound();
 
+  const readOnly = p.origem === "vitrine";
+  if (readOnly && restaurantData.vitrine_enabled !== true) return notFound();
+
   let tableOrder: QrTableMenuContext | null = null;
   if (p.origem === "mesa") {
     const { data: addonData } = await supabase
@@ -377,7 +380,7 @@ export default async function Page({
       )}
 
       <PickupAvailabilityGuard
-        enabled={!tableOrder && restaurant.pickup_enabled === true}
+        enabled={!readOnly && !tableOrder && restaurant.pickup_enabled === true}
       />
 
       <div
@@ -397,11 +400,12 @@ export default async function Page({
 
         <MenuClientPage
           slug={slug}
+          readOnly={readOnly}
           restaurant={restaurant}
           categories={categoriesWithItems}
           itemsByCategory={itemsByCategory}
           openedProductId={p.p}
-          selectedCouponCode={tableOrder ? undefined : p.c?.toUpperCase()}
+          selectedCouponCode={readOnly || tableOrder ? undefined : p.c?.toUpperCase()}
           tableOrder={tableOrder}
         />
       </div>

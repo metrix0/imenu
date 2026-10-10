@@ -18,6 +18,7 @@ import SearchModal from "./SearchModal";
 import { isPizzaItem, parsePizzaSettings, pricePizza } from "@/lib/pizza/pricing";
 
 type Props = {
+    readOnly?: boolean;
     restaurant: Restaurant;
     item: Item;
     subcategories: Subcategory[];
@@ -40,7 +41,7 @@ export default function ItemModal({
                                       onClose,
                                         deliveryTax,
                                       deliveryTime,
-    onAdd, trackMeta, slug, error, onRetry
+    onAdd, trackMeta, slug, error, onRetry, readOnly = false
                                   }: Props) {
     const [qty, setQty] = useState(1);
     const [observation, setObservation] = useState("");
@@ -51,7 +52,7 @@ export default function ItemModal({
     const [isRestaurantOpen, setIsRestaurantOpen] = useState(false);
     const [canScheduleToday, setCanScheduleToday] = useState(false);
     const pizzaSettings = parsePizzaSettings(restaurant.pizza_settings);
-    const eligibleForPizza = isPizzaItem(item, pizzaSettings);
+    const eligibleForPizza = !readOnly && isPizzaItem(item, pizzaSettings);
     const [flavorCount, setFlavorCount] = useState(1);
     const [extraFlavors, setExtraFlavors] = useState<PizzaCatalogItem[]>([]);
     const [flavorSearch, setFlavorSearch] = useState(false);
@@ -322,7 +323,7 @@ export default function ItemModal({
     };
 
     const handleAdd = () => {
-        if (!canAdd || !canOrderNow) return;
+        if (readOnly || !canAdd || !canOrderNow) return;
         if (needsNextFlavor) { void showFlavorSearch(); return; }
 
 
@@ -473,14 +474,14 @@ export default function ItemModal({
                                         <p className="font-semibold text-gray-600 2xl:text-lg">
                                             {sc.name}
                                         </p>
-                                        <p className="text-[13px] 2xl:text-lg text-gray-600">
+                                        {!readOnly && <p className="text-[13px] 2xl:text-lg text-gray-600">
                                             {sc.max_select > 0
                                                 ? `Escolha até ${sc.max_select}`
                                                 : "Escolha o quanto quiser"}
-                                        </p>
+                                        </p>}
                                     </div>
 
-                                    {sc.min_select > 0 && (
+                                    {!readOnly && sc.min_select > 0 && (
                                         <span className="text-[11px] 2xl:text-lg  text-gray-600 px-2 py-1 rounded-full">
                                             OBRIGATÓRIO
                                         </span>
@@ -490,6 +491,16 @@ export default function ItemModal({
                                 {[...sc.subitems]
                                     .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
                                     .map((si) => {
+                                        if (readOnly) {
+                                            return (
+                                                <div key={si.id} className="2xl:text-lg w-full px-4 py-3 flex items-center justify-between gap-4">
+                                                    <p className="font-medium">{si.name.replace(/\n/g, " ")}</p>
+                                                    {si.price_cents > 0 && (
+                                                        <p className="shrink-0 text-[13px] 2xl:text-lg text-gray-500">+ {formatPrice(si.price_cents)}</p>
+                                                    )}
+                                                </div>
+                                            );
+                                        }
                                         if (sc.allow_multiple_units) {
                                             const quantity = quantities[si.id] || 0;
 
@@ -612,7 +623,7 @@ export default function ItemModal({
                     })}
                 </div>
 
-                {!isSubsequentFlavor && <div className="px-4 mt-8">
+                {!readOnly && !isSubsequentFlavor && <div className="px-4 mt-8">
                     <p className="text-[15px] 2xl:text-lg font-semibold text-gray-500">
                         <FontAwesomeIcon icon={icons.faComment} /> Alguma observação?
                     </p>
@@ -683,7 +694,7 @@ export default function ItemModal({
                         <span className="text-[13px] font-semibold 2xl:text-md">
                             {restaurant.name}
                         </span>
-                        {(deliveryTimeText || deliveryTaxText) && (
+                        {!readOnly && (deliveryTimeText || deliveryTaxText) && (
                             <>
                                 <br />
                                 <span className="text-[12px] text-gray-600 2xl:text-md">
@@ -707,7 +718,7 @@ export default function ItemModal({
 
             </div>
 
-            <div className="absolute left-0 right-0 bottom-0 bg-white border-t border-gray-200 pt-5 pb-14 md:pb-8 px-4 flex items-center gap-3">
+            {!readOnly && <div className="absolute left-0 right-0 bottom-0 bg-white border-t border-gray-200 pt-5 pb-14 md:pb-8 px-4 flex items-center gap-3">
                 <div className="flex items-center border border-gray-200 rounded-xl px-3 2xl:px-6 py-2 w-[110px] 2xl:w-[180px] justify-between">
                     <button
                         onClick={() => changeQty(-1)}
@@ -749,7 +760,7 @@ export default function ItemModal({
                         <span>{formatPrice(displayedTotal)}</span>
                     </button>
                 </Tooltip>
-            </div>
+            </div>}
         </ModalMobile>
         {flavorSearch && <SearchModal
             categories={catalogCategories}
