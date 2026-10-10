@@ -28,7 +28,7 @@ test("IA Plus has exclusive support and precedes the QR card in the two-column g
     expect(html).toContain('class="panel-product-cards grid gap-5 md:grid-cols-2"');
     expect(html).not.toContain("xl:grid-cols-3");
     expect(html.indexOf('alt="iMenu IA Plus"')).toBeLessThan(html.indexOf('alt="iMenu QR Code Mesa"'));
-    expect(html).toContain("Assistente IA liberado e com mais capacidade. Acesso completo às oportunidades da Análise de vendas com IA!");
+    expect(html).toContain("Assistente IA com capacidade total! Acesso completo às Análise de vendas com IA!");
     const iaCard = html.slice(html.indexOf('aria-label="Conhecer iMenu IA Plus"'));
     expect(iaCard).toMatch(/class="text-2xl font-bold">R\$\s49,99/);
     expect(iaCard).toContain('title="Assistente IA"');
@@ -36,7 +36,7 @@ test("IA Plus has exclusive support and precedes the QR card in the two-column g
     expect(iaCard).toContain('title="Análise completa"');
     expect(iaCard).toContain("Ver tudo que o sistema faz");
     expect(iaCard).toContain("Saiba mais");
-    expect(iaCard).toContain("Atendimento Exclusivo");
+    expect(iaCard).toContain("BÔNUS: Atendimento Exclusivo");
     expect(iaCard).toContain('data-ui="badge"');
     expect(iaCard).not.toContain("Solicite integrações e novas funcionalidades em até 3 dias úteis.");
     expect(iaCard).toContain("Durante sua assinatura do iMenu IA Plus, solicite integrações e novas funcionalidades para serem adicionadas em até 3 dias úteis.");

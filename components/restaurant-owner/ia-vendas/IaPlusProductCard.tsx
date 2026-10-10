@@ -11,7 +11,7 @@ export default function IaPlusProductCard({ active, onLearnMore, presentation = 
             cardClickable={false}
             name="iMenu IA Plus"
             logo="/logos/IAPlusCombinationMarkLogo_Brand.png"
-            description="Assistente IA liberado e com mais capacidade. Acesso completo às oportunidades da Análise de vendas com IA!"
+            description="Assistente IA com capacidade total! Acesso completo às Análise de vendas com IA!"
             priceLabel={IA_PLUS_PRICE_LABEL}
             features={["Assistente IA", "Geração de imagens", "Análise completa"]}
             exclusiveSupport
