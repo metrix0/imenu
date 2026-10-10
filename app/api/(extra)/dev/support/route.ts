@@ -307,6 +307,12 @@ export async function POST(request: Request) {
             connectionTarget === "blast" ? "blast" : "default";
 
         if (action === "create_blast") {
+            if (body.dailyLimit === null) {
+                return NextResponse.json(
+                    { error: "Envios sem cadência devem ser feitos com a aba aberta." },
+                    { status: 400 }
+                );
+            }
             const recipients = Array.isArray(body.recipients)
                 ? body.recipients as BlastRecipientInput[] : [];
             const cadence = body.dailyLimit === null ? null : Number(body.dailyLimit);
