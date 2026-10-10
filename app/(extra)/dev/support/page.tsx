@@ -599,6 +599,7 @@ export default function DevSupportPage() {
             setBulkStatus("Informe uma cadência de 1 a 10.000 mensagens por dia.");
             return;
         }
+
         let resolvedRecipients: Array<{ phone: string; message: string }>;
         try {
             resolvedRecipients = recipients.map(({ phone, values }, index) => {
@@ -627,6 +628,76 @@ export default function DevSupportPage() {
                 setAccessState("signed-out");
                 return;
             }
+
+            if (!bulkCadenceEnabled) {
+                window.alert("Deixe esta aba aberta durante o envio.");
+
+                const batchId = window.crypto.randomUUID();
+                let sent = 0;
+                let skipped = 0;
+                let failed = 0;
+                let previousStartedAt = 0;
+
+                for (let index = 0; index < resolvedRecipients.length; index += 1) {
+                    if (previousStartedAt) {
+                        const remainingDelay = 25_000 - (Date.now() - previousStartedAt);
+                        if (remainingDelay > 0) {
+                            await new Promise((resolve) =>
+                                window.setTimeout(resolve, remainingDelay)
+                            );
+                        }
+                    }
+
+                    previousStartedAt = Date.now();
+                    const recipient = resolvedRecipients[index];
+                    setBulkStatus(
+                        `Enviando ${index + 1}/${resolvedRecipients.length}...`
+                    );
+
+                    const response = await fetch("/api/dev/support", {
+                        method: "POST",
+                        headers: {
+                            Authorization: "Bearer " + token,
+                            "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({
+                            action: "send_bulk_message",
+                            batchId,
+                            phone: recipient.phone,
+                            message: recipient.message,
+                            skipRecent: bulkSkipRecent,
+                            sender: bulkSender,
+                        }),
+                    });
+                    const payload = (await response.json()) as {
+                        error?: string;
+                        skippedRecent?: boolean;
+                        duplicate?: boolean;
+                    };
+
+                    if (response.status === 401) {
+                        setAccessState("signed-out");
+                        throw new Error("Sessão expirada. Entre novamente.");
+                    }
+                    if (!response.ok) {
+                        failed += 1;
+                        continue;
+                    }
+                    if (payload.skippedRecent || payload.duplicate) {
+                        skipped += 1;
+                    } else {
+                        sent += 1;
+                    }
+                }
+
+                setBulkPhones("");
+                setBulkPreview(null);
+                setBulkStatus(
+                    `Envio concluído. ${sent} enviado(s), ${skipped} ignorado(s), ${failed} falha(s).`
+                );
+                return;
+            }
+
             const response = await fetch("/api/dev/support", {
                 method: "POST",
                 headers: {
@@ -646,9 +717,10 @@ export default function DevSupportPage() {
             if (!response.ok || !payload.id) {
                 throw new Error(payload.error || "Falha ao criar o envio.");
             }
+
             setBulkPhones("");
             setBulkPreview(null);
-            setBulkStatus("Envio criado. Ele continuará automaticamente mesmo com a página fechada.");
+            setBulkStatus("Envio cadenciado criado. Ele continuará automaticamente mesmo com a página fechada.");
             setSelectedBlastId(payload.id);
             await Promise.all([loadBlastHistory(), loadBlastRecipients(payload.id)]);
         } catch (caught) {
