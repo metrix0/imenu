@@ -53,6 +53,7 @@ const SUPPORT_INSTRUCTIONS = [
     "- A ferramenta controla duas etapas: no primeiro pedido ela registra o aviso de até 1 dia útil; depois de uma nova mensagem do cliente, se ele confirmar positivamente ou reiterar que quer atendimento humano, use request_human_handoff novamente para efetivar o encaminhamento.",
     "- Interprete confirmações pelo contexto, sem depender de frase exata. Exemplos depois do aviso: sim, pode, quero, isso, somente humano, somente atendimento humano.",
     "- Antes de fazer uma pergunta, confira o histórico disponível. Não repita pergunta já respondida, não peça novamente o mesmo identificador e não repita a mesma tentativa de diagnóstico ou consulta que já falhou sem informação nova.",
+    "- Se a dúvida envolver onde clicar, botões, campos, configurações ou possíveis motivos de algo não aparecer na interface, use somente orientações específicas confirmadas pelo conhecimento oficial recuperado. Nunca deduza a existência, posição ou comportamento de um controle nem sugira soluções sem evidência. Se as orientações disponíveis não cobrirem a situação, faça uma pergunta objetiva ou peça um print da tela; não exponha limitações internas de verificação.",
     "- Antes de responder, considere o histórico recente e o que já foi explicado pelo suporte. Evite repetir a mesma informação ou explicação, mesmo com outras palavras, quando o cliente apenas acrescentar contexto ou mudar de assunto; responda ao ponto novo e avance a conversa. Só repita se o cliente pedir novamente, demonstrar dúvida sobre o ponto anterior ou se a repetição for indispensável à resposta.",
     "- Se aparecer exceed_cached_egress_quota, exceed capped egress quota ou descrição equivalente de cota de egress/cache em uma tela do iMenu, trate como indisponibilidade da infraestrutura do iMenu. Não oriente troca de senha, outro navegador, recuperação de acesso ou novas tentativas de login para resolver esse erro.",
     "- Tente entender o problema com uma pergunta objetiva somente quando ainda faltar informação realmente necessária para avançar.",
@@ -96,6 +97,53 @@ function buildAutomaticKnowledgeQuery(history: SupportMessage[]): string {
         .map((message) => message.body.slice(0, 500))
         .join(" ")
         .trim();
+}
+
+
+function normalizeUiGuidanceText(value: string): string {
+    return value
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
+}
+
+function isUiGuidanceRequest(history: SupportMessage[]): boolean {
+    const latestInbound = [...history]
+        .reverse()
+        .find((message) => message.direction === "inbound")?.body || "";
+    const message = normalizeUiGuidanceText(latestInbound);
+    const context = normalizeUiGuidanceText(
+        history.slice(-8).map((item) => item.body).join(" ")
+    );
+
+    return (
+        /\b(onde|como|qual botao|nao aparece|nao encontro|nao consigo|sumiu|desapareceu)\b/.test(message) &&
+        /\b(tela|botao|clique|clicar|apertar|aperta|salvar|salvo|campo|aba|painel|configuracao|configuracoes|opcao|menu)\b/.test(context)
+    );
+}
+
+function hasDocumentedUiGuidance(
+    history: SupportMessage[],
+    knowledge: Array<{ title: string; content: string }>
+): boolean {
+    const context = normalizeUiGuidanceText(
+        history.slice(-8).map((message) => message.body).join(" ")
+    );
+
+    return knowledge.some((item) => {
+        const titleMatchesContext = normalizeUiGuidanceText(item.title)
+            .split(/[^a-z0-9]+/)
+            .some(
+                (term) =>
+                    term.length >= 6 &&
+                    !["imenu", "painel", "pagina", "automatico", "aberta"].includes(term) &&
+                    context.includes(term)
+            );
+        const describesUi = /\b(acesse|clique|toque|abra|botao|aba|campo|tela|salvar|salvas|salvo|salvamento|configurar|ativar)\b/.test(
+            normalizeUiGuidanceText(item.content)
+        );
+        return titleMatchesContext && describesUi;
+    });
 }
 
 function limitSupportReply(value: string): string {
@@ -430,6 +478,22 @@ export async function generateSupportReply(
     const automaticKnowledge = automaticKnowledgeQuery
         ? await searchSupportKnowledge(automaticKnowledgeQuery, 5)
         : [];
+
+    if (isUiGuidanceRequest(history.rows) &&
+        !hasDocumentedUiGuidance(history.rows, automaticKnowledge)) {
+        const hasScreenshot = history.rows.slice(-8).some(
+            (message) => message.direction === "inbound" && message.body.startsWith("[Imagem]")
+        );
+        return {
+            text: hasScreenshot
+                ? "Pode me mandar um print da tela inteira, incluindo qualquer aviso ou erro que aparece? Assim consigo te orientar."
+                : "Pode me mandar um print da tela onde você está? Assim consigo te orientar certinho.",
+            model: "support-knowledge",
+            inputTokens: null,
+            outputTokens: null,
+            handoffState: null,
+        };
+    }
 
     const handoffBlocked =
         normalizePhone(conversation.phone) === BLOCKED_HANDOFF_PHONE;
