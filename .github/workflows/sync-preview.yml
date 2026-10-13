@@ -18,11 +18,11 @@ permissions:
 jobs:
   sync-preview:
     if: ${{ github.event_name == 'push' && !contains(github.event.head_commit.message, '[skip-preview-reset]') }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout main
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: main
           fetch-depth: 0
@@ -33,11 +33,11 @@ jobs:
   sync-printer-release:
     needs: sync-preview
     if: ${{ always() && (github.event_name == 'push' || github.event_name == 'repository_dispatch' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout preview
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: preview
           fetch-depth: 0
@@ -101,9 +101,9 @@ jobs:
           fi
 
           ENCODED_NAME="$(python - <<'PY'
-import os, urllib.parse
-print(urllib.parse.quote(os.environ['FILE_NAME']))
-PY
+          import os, urllib.parse
+          print(urllib.parse.quote(os.environ['FILE_NAME']))
+          PY
           )"
 
           jq -n \

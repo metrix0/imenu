@@ -409,11 +409,14 @@ export async function runChat(args: {
           try {
             const intent = /\b(publicar|publique)\b/i.test(message) ? "publish"
               : /\b(gerar|gere)\b/i.test(message) ? "generate" : undefined;
-            const applied = await applyProposal(restaurant, id, conversation, intent);
+            const applied = await applyProposal(restaurant, id, conversation, intent, run);
             responses.push(applied.image_jobs
               ? "As prévias foram geradas. Revise as imagens antes de aprovar a publicação."
               : applied.image ? "Imagem publicada." : "Proposta aplicada.");
             cards.push({ type: "action", id });
+            if (applied.image_jobs) cards.push(...(applied.generated_actions || []).map(
+              (id: string) => ({ type: "action", id }),
+            ));
           } catch (e) {
             if (!(e instanceof SalesError)) throw e;
             responses.push(e.message);

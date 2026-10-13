@@ -329,15 +329,23 @@ export async function proposeImages(
     )
   ).rows[0];
 }
-export async function applyImages(restaurant: string, id: string) {
+export async function applyImages(restaurant: string, id: string, existingRun?: string) {
   const action = await claim(restaurant, id);
   if (!action)
     throw new SalesError("Lote em processamento ou sem novas tentativas.", 409);
-  const run = randomUUID();
+  const run = existingRun || randomUUID();
   let started = false;
   try {
-    await beginRun(restaurant, action.conversation_id, run, "image");
-    started = true;
+    if (existingRun) {
+      const parent = (await query(
+        "SELECT id FROM public.ia_vendas_runs WHERE restaurant_id=$1 AND id=$2 AND conversation_id=$3 AND kind='chat' AND status='running'",
+        [restaurant, existingRun, action.conversation_id],
+      )).rows[0];
+      if (!parent) throw new SalesError("Conversa em processamento não encontrada.", 409);
+    } else {
+      await beginRun(restaurant, action.conversation_id, run, "image");
+      started = true;
+    }
     const generated = action.generated_actions || [];
     for (const job of (action.image_jobs || []).slice(generated.length)) {
       const preview = await previewImage(
@@ -356,8 +364,8 @@ export async function applyImages(restaurant: string, id: string) {
       "UPDATE public.ia_vendas_actions SET status='applied',applied_at=now() WHERE restaurant_id=$1 AND id=$2",
       [restaurant, id],
     );
-    await finishRun(restaurant, run, { generated });
-    return { id, status: "applied" };
+    if (started) await finishRun(restaurant, run, { generated });
+    return { id, status: "applied", generated_actions: generated };
   } catch (e) {
     if (started)
       await finishRun(restaurant, run, null, "Geração interrompida.");

@@ -14,11 +14,11 @@ jobs:
     if: >
       github.event.pull_request.merged == true &&
       github.event.pull_request.head.ref == 'preview'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout main
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: main
           fetch-depth: 0

@@ -102,11 +102,13 @@ async function updateFromWahaSession({
     restaurantId,
     sessionName,
     session,
+    connection,
 }: {
     supabase: ReturnType<typeof createSupabaseServerClient>;
     restaurantId: string;
     sessionName: string;
     session: WahaSession;
+    connection?: ConnectionRow;
 }): Promise<ConnectionRow> {
     const status = session.status || "STARTING";
     const now = new Date().toISOString();
@@ -138,6 +140,25 @@ async function updateFromWahaSession({
         } else if (status === "FAILED" || status === "STOPPED") {
             update.last_disconnected_at = now;
         }
+    }
+
+    // Only persist WAHA reconciliation when it actually changes the connection.
+    // QR codes are fetched above, so a rotated QR is still saved and shown.
+    if (
+        connection &&
+        connection.session_name === sessionName &&
+        connection.desired_state === "connected" &&
+        connection.status === status &&
+        connection.status_data === null &&
+        connection.last_error === null &&
+        (!phone || connection.phone === phone) &&
+        (!session.me?.pushName || connection.push_name === session.me.pushName) &&
+        connection.qr_code_data === update.qr_code_data &&
+        (update.qr_updated_at !== null || connection.qr_updated_at === null) &&
+        (status !== "WORKING" || connection.last_connected_at !== null) &&
+        ((status !== "FAILED" && status !== "STOPPED") || connection.last_disconnected_at !== null)
+    ) {
+        return connection;
     }
 
     const { data, error } = await supabase
@@ -199,6 +220,7 @@ export async function GET(request: NextRequest) {
                         restaurantId,
                         sessionName: connection.session_name,
                         session,
+                        connection,
                     });
                 } else {
                     const now = new Date().toISOString();
