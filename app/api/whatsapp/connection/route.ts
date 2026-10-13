@@ -108,7 +108,7 @@ async function updateFromWahaSession({
     restaurantId: string;
     sessionName: string;
     session: WahaSession;
-    connection: ConnectionRow;
+    connection?: ConnectionRow;
 }): Promise<ConnectionRow> {
     const status = session.status || "STARTING";
     const now = new Date().toISOString();
@@ -145,6 +145,7 @@ async function updateFromWahaSession({
     // Only persist WAHA reconciliation when it actually changes the connection.
     // QR codes are fetched above, so a rotated QR is still saved and shown.
     if (
+        connection &&
         connection.session_name === sessionName &&
         connection.desired_state === "connected" &&
         connection.status === status &&
