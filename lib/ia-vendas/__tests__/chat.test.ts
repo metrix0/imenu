@@ -813,9 +813,26 @@ function approvalChat(ids = ["proposal"]) {
 test("chat approval executes the same reviewed application flow with restaurant and conversation scope", async () => {
   approvalChat();
   await runChat({ ...args, deep: false, text: "Pode aplicar" });
-  expect(applyProposal).toHaveBeenCalledWith("owner", "proposal", "conversation", undefined);
+  expect(applyProposal).toHaveBeenCalledWith("owner", "proposal", "conversation", undefined, "run");
   expect(create).not.toHaveBeenCalled();
   expect(args.send).toHaveBeenCalledWith("done", expect.any(Object));
+});
+test("chat image approval passes its run and shows the generated previews for publication review", async () => {
+  approvalChat();
+  (applyProposal as jest.Mock).mockResolvedValue({
+    id: "proposal", status: "applied", image_jobs: [{}], generated_actions: ["preview"],
+  });
+  await runChat({ ...args, deep: false, text: "Pode gerar" });
+  expect(applyProposal).toHaveBeenCalledWith("owner", "proposal", "conversation", "generate", "run");
+  const saved = (finishRun as jest.Mock).mock.calls.at(-1)[2];
+  expect(saved.reply).toContain("antes de aprovar a publicação");
+  const transaction = (withTransaction as jest.Mock).mock.calls.at(-1)[0];
+  const sql = jest.fn().mockResolvedValue({ rows: [] });
+  await transaction({ query: sql });
+  const assistant = sql.mock.calls.find(([statement]) => statement.startsWith("INSERT INTO public.ia_vendas_messages"));
+  expect(JSON.parse(assistant[1][4])).toEqual([
+    { type: "action", id: "proposal" }, { type: "action", id: "preview" },
+  ]);
 });
 test.each(["Não aplique", "Pode aplicar?", "Crie e aplique uma proposta"])("a model tool call cannot bypass approval: %s", async text => {
   approvalChat();
