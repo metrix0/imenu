@@ -45,8 +45,15 @@ type ConnectionRow = {
     session_name: string;
     desired_state: "connected" | "disconnected";
     status: string;
+    status_data: unknown;
+    phone: string | null;
+    push_name: string | null;
+    qr_code_data: string | null;
+    qr_updated_at: string | null;
+    last_error: string | null;
     last_restart_at: string | null;
     last_connected_at: string | null;
+    last_disconnected_at: string | null;
     last_event_at: string | null;
 };
 
@@ -260,7 +267,7 @@ async function getConnection(
     const { data, error } = await supabase
         .from("whatsapp_connections")
         .select(
-            "restaurant_id,session_name,desired_state,status,last_restart_at,last_connected_at,last_event_at"
+            "restaurant_id,session_name,desired_state,status,status_data,phone,push_name,qr_code_data,qr_updated_at,last_error,last_restart_at,last_connected_at,last_disconnected_at,last_event_at"
         )
         .eq("session_name", sessionName)
         .maybeSingle();
@@ -331,12 +338,27 @@ async function updateSessionStatus({
         }
     }
 
-    const { error } = await supabase
-        .from("whatsapp_connections")
-        .update(update)
-        .eq("restaurant_id", connection.restaurant_id);
+    // WAHA can repeat an unchanged session status. Preserve transitions, updated
+    // QR codes, contact details and reconnection, without writing duplicate rows.
+    const hasMeaningfulChange =
+        connection.status !== status ||
+        JSON.stringify(connection.status_data ?? null) !== JSON.stringify(update.status_data) ||
+        (update.phone !== undefined && connection.phone !== update.phone) ||
+        (update.push_name !== undefined && connection.push_name !== update.push_name) ||
+        connection.qr_code_data !== update.qr_code_data ||
+        (update.qr_updated_at === null && connection.qr_updated_at !== null) ||
+        (update.last_error !== undefined && connection.last_error !== update.last_error) ||
+        (status === "WORKING" && connection.last_connected_at === null) ||
+        ((status === "FAILED" || status === "STOPPED") && connection.last_disconnected_at === null);
 
-    if (error) throw error;
+    if (hasMeaningfulChange) {
+        const { error } = await supabase
+            .from("whatsapp_connections")
+            .update(update)
+            .eq("restaurant_id", connection.restaurant_id);
+
+        if (error) throw error;
+    }
 
     if (
         (status === "FAILED" || status === "STOPPED") &&
