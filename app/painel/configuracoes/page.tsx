@@ -12,6 +12,7 @@ import {
     faCrown,
     faDownload,
     faLock,
+    faQrcode,
     faSignOutAlt,
     faTrash,
     faVolumeHigh,
@@ -216,6 +217,7 @@ export default function ConfiguracoesPage() {
         useState(false);
     const [isSavingVitrine, setIsSavingVitrine] = useState(false);
     const [vitrineAccess, setVitrineAccess] = useState(false);
+    const [showVitrineQr, setShowVitrineQr] = useState(false);
     const [isLoggingOut, setIsLoggingOut] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -606,16 +608,16 @@ export default function ConfiguracoesPage() {
         setToast({ message: "Link copiado!", type: "success" });
     };
 
-    const downloadQr = async () => {
-        if (!shareableUrl) return;
-        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(shareableUrl)}`;
+    const downloadQr = async (url: string, filename: string) => {
+        if (!url) return;
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(url)}`;
         try {
             const response = await fetch(qrUrl);
             const blob = await response.blob();
             const objectUrl = URL.createObjectURL(blob);
             const link = document.createElement("a");
             link.href = objectUrl;
-            link.download = `qrcode-${restaurant?.url_slug || "cardapio"}.png`;
+            link.download = `qrcode-${filename}.png`;
             link.click();
             URL.revokeObjectURL(objectUrl);
         } catch {
@@ -944,6 +946,23 @@ export default function ConfiguracoesPage() {
                                     <Button variant="secondary" onClick={() => window.open(vitrineUrl, "_blank", "noopener,noreferrer")} className="shrink-0">
                                         Abrir cardápio
                                     </Button>
+                                    <Button variant="secondary" onClick={() => setShowVitrineQr(!showVitrineQr)} className="shrink-0">
+                                        <FontAwesomeIcon icon={faQrcode} className="mr-2" />
+                                        QR Code
+                                    </Button>
+                                </div>
+                            )}
+                            {vitrineAccess && restaurant.vitrine_enabled && vitrineUrl && showVitrineQr && (
+                                <div className="mt-4 flex flex-col items-center rounded-lg border border-gray-200 bg-gray-50 p-6">
+                                    <img
+                                        src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(vitrineUrl)}`}
+                                        alt="QR Code do cardápio vitrine"
+                                        className="mb-4 h-48 w-48 rounded-md border border-gray-200"
+                                    />
+                                    <Button variant="secondary" onClick={() => void downloadQr(vitrineUrl, `vitrine-${restaurant.url_slug || "cardapio"}`)}>
+                                        <FontAwesomeIcon icon={faDownload} className="mr-2" />
+                                        Baixar Imagem
+                                    </Button>
                                 </div>
                             )}
                         </Card>
@@ -987,7 +1006,7 @@ export default function ConfiguracoesPage() {
                                 />
                                 <Button
                                     variant="secondary"
-                                    onClick={downloadQr}
+                                    onClick={() => void downloadQr(shareableUrl, restaurant?.url_slug || "cardapio")}
                                 >
                                     <FontAwesomeIcon
                                         icon={faDownload}
