@@ -2,6 +2,8 @@
 const nextConfig = {
   serverExternalPackages: ['ogg-opus-decoder'],
   images: {
+    // Serve stored images directly while Vercel image optimization is unavailable.
+    unoptimized: true,
     remotePatterns: [
       {
         protocol: 'https',
