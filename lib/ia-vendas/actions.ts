@@ -13,6 +13,7 @@ import {
   isUuid,
 } from "./catalog";
 import { LIMITS } from "./config";
+import { requireApplicationAccess } from "./access";
 import {
   SalesError,
   object,
@@ -328,6 +329,9 @@ export async function execute(
     ).rows[0] as Action;
     if (!action) throw new SalesError("Proposta não encontrada.", 404);
     if (action.status === (undo ? "undone" : "applied")) return action;
+    // Check under the restaurant transaction lock: concurrent requests cannot
+    // both consume the one successful application. Undo retains applied_at.
+    if (!undo) await requireApplicationAccess(restaurant, action.conversation_id, c);
     if (
       action.status !== (undo ? "applied" : "applying") ||
       !action.operations.length

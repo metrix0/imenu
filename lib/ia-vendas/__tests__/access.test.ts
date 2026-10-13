@@ -5,24 +5,47 @@ import {
   IaImageLimitReached,
   IaPlusRequired,
   requireIaPlus,
+  requireApplicationAccess,
 } from "../access";
 import { beginRun, reserveImage } from "../runs";
 import { query, withTransaction } from "@/lib/database/sql";
 
 jest.mock("@/lib/database/sql", () => ({ query: jest.fn(), withTransaction: jest.fn() }));
 const sql = query as jest.Mock;
-let addon: any, usage: any;
+let addon: any, usage: any, used: boolean, kind: string;
 beforeEach(() => {
   addon = null;
+  used = false;
+  kind = "chat";
   usage = { tokens: 0, reserved: 0, images: 0 };
   sql.mockImplementation(async (statement: string) => ({
-    rows: statement.includes("restaurant_addons") ? (addon ? [addon] : [])
+    rows: statement.includes("SELECT EXISTS") ? [{ used }]
+      : statement.startsWith("SELECT kind") ? [{ kind }]
+      : statement.includes("restaurant_addons") ? (addon ? [addon] : [])
       : statement.includes("sum(input_tokens + output_tokens)") ? [usage]
       : statement.includes("sum(greatest") ? [{ input: 0, output: 0, recent: 0 }]
       : statement.includes("sum(image_count),0) n") ? [{ n: usage.images }] : [],
     rowCount: statement.startsWith("UPDATE public.ia_vendas_runs SET image_count") ? 1 : 0,
   }));
   (withTransaction as jest.Mock).mockImplementation(fn => fn({ query: sql }));
+});
+test("the free application is lifetime history, including undo, excluding image generation", async () => {
+  expect((await aiAccess("restaurant")).free_applications_remaining).toBe(1);
+  await expect(requireApplicationAccess("restaurant", "chat")).resolves.toBeUndefined();
+  used = true;
+  expect((await aiAccess("restaurant")).free_applications_remaining).toBe(0);
+  await expect(requireApplicationAccess("restaurant", "chat")).rejects.toBeInstanceOf(IaPlusRequired);
+  const history = sql.mock.calls.find(([s]) => s.includes("SELECT EXISTS"))[0];
+  expect(history).toContain("a.applied_at IS NOT NULL");
+  expect(history).toContain("a.image_jobs IS NULL");
+  expect(history).not.toMatch(/interval|status='applied'/);
+  addon = { status: "active" };
+  await expect(requireApplicationAccess("restaurant", "chat")).resolves.toBeUndefined();
+  expect((await aiAccess("restaurant")).free_applications_remaining).toBeNull();
+});
+test("the first free application does not unlock Vendas IA", async () => {
+  kind = "analysis";
+  await expect(requireApplicationAccess("restaurant", "analysis")).rejects.toBeInstanceOf(IaPlusRequired);
 });
 test("a restaurant without Plus starts with 150,000 weekly tokens and one weekly image", async () => {
   expect(FREE_AI_TOKENS).toBe(150_000);

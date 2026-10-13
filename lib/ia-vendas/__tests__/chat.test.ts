@@ -2,6 +2,7 @@ import {
   asksAboutWholeMenu,
   ensureSalesAnalysisBridge,
   runChat,
+  chatApproval,
 } from "../chat";
 import {
   aiAccess,
@@ -18,6 +19,7 @@ import { query, withTransaction } from "@/lib/database/sql";
 import { context, measure } from "../data";
 import { beginRun, recordTokens, finishRun } from "../runs";
 import { propose } from "../actions";
+import { applyProposal } from "../application";
 import { analysisPhotos, previewImage } from "../images";
 import OpenAI from "openai";
 import { batchResponse, readBatch, saveToolResult, BatchPending } from "../batch";
@@ -43,6 +45,7 @@ jest.mock("../runs", () => ({
   finishRun: jest.fn(),
 }));
 jest.mock("../actions", () => ({ propose: jest.fn() }));
+jest.mock("../application", () => ({ applyProposal: jest.fn() }));
 jest.mock("../images", () => ({
   previewImage: jest.fn(),
   proposeImages: jest.fn(),
@@ -777,4 +780,64 @@ test("weekly image exhaustion stops only image generation and does not trigger t
     "Seu limite semanal de geração de imagens foi atingido",
   );
   expect(errorEvent?.code).toBeUndefined();
+});
+
+test.each(["Pode aplicar", "Aplicar", "Sim, pode aplicar!", "Pode publicar", "Aplique tudo"])("accepts explicit chat approval: %s", (text) => {
+  expect(chatApproval(text)).toBe(true);
+});
+test.each(["Não aplique", "Pode aplicar?", "Pode aplicar se ficar bom", "Crie e aplique uma proposta", "Aplicar amanhã", "sim"])("does not authorize ambiguous, conditional or new changes: %s", (text) => {
+  expect(chatApproval(text)).toBe(false);
+});
+
+function approvalChat(ids = ["proposal"]) {
+  (aiAccess as jest.Mock).mockResolvedValue({ plus: false, free_applications_remaining: 1 });
+  (applyProposal as jest.Mock).mockReset().mockResolvedValue({ id: "proposal", status: "applied" });
+  (query as jest.Mock).mockImplementation(async (sql: string) => ({
+    rows: sql.includes("SELECT * FROM public.ia_vendas_conversations") ? [{ kind: "chat", summary: "" }]
+      : sql.includes("RETURNING id") ? [{ id: "user" }]
+      : sql.startsWith("SELECT role,content,cards") ? [
+        { role: "user", content: "Pode aplicar", cards: [] },
+        { role: "assistant", content: "Revise a proposta.", cards: [] },
+        { role: "assistant", content: "Horários preparados.", cards: ids.map(id => ({ type: "action", id })) },
+      ] : [],
+  }));
+  create.mockResolvedValueOnce({
+    status: "completed", output: [{ type: "function_call", name: "apply_action", arguments: JSON.stringify({ id: "proposal" }), call_id: "approval" }],
+    usage: { input_tokens: 100, output_tokens: 50 },
+  }).mockResolvedValueOnce({
+    status: "completed", output: [], output_text: JSON.stringify({ reply: "Resultado da proposta.", summary: "" }),
+    usage: { input_tokens: 100, output_tokens: 50 },
+  });
+}
+
+test("chat approval executes the same reviewed application flow with restaurant and conversation scope", async () => {
+  approvalChat();
+  await runChat({ ...args, deep: false, text: "Pode aplicar" });
+  expect(applyProposal).toHaveBeenCalledWith("owner", "proposal", "conversation", undefined);
+  expect(create).not.toHaveBeenCalled();
+  expect(args.send).toHaveBeenCalledWith("done", expect.any(Object));
+});
+test.each(["Não aplique", "Pode aplicar?", "Crie e aplique uma proposta"])("a model tool call cannot bypass approval: %s", async text => {
+  approvalChat();
+  await runChat({ ...args, deep: false, text });
+  expect(applyProposal).not.toHaveBeenCalled();
+});
+test("an ambiguous approval of multiple proposals cannot pick one silently", async () => {
+  approvalChat(["proposal", "another"]);
+  await runChat({ ...args, deep: false, text: "Pode aplicar" });
+  expect(applyProposal).not.toHaveBeenCalled();
+});
+test("a proposal that was not shown to the user cannot be approved in chat", async () => {
+  approvalChat([]);
+  await runChat({ ...args, deep: false, text: "Pode aplicar" });
+  expect(applyProposal).not.toHaveBeenCalled();
+});
+test("chat tells the model when the first application is already used", async () => {
+  approvalChat();
+  (aiAccess as jest.Mock).mockResolvedValue({ plus: false, free_applications_remaining: 0 });
+  (applyProposal as jest.Mock).mockRejectedValue(new IaPlusRequired("Sua primeira aplicação grátis já foi usada."));
+  await runChat({ ...args, deep: false, text: "Pode aplicar" });
+  expect(create).not.toHaveBeenCalled();
+  expect(args.send).toHaveBeenCalledWith("done", expect.any(Object));
+  expect((finishRun as jest.Mock).mock.calls.at(-1)[2].reply).toContain("primeira aplicação grátis já foi usada");
 });

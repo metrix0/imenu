@@ -926,6 +926,8 @@ export function ActionCard({
   compact = false,
   generatedActions = [],
   locked = false,
+  freeApply = false,
+  lockedLabel,
   onUpgrade,
 }: {
   action: Action;
@@ -935,6 +937,8 @@ export function ActionCard({
   compact?: boolean;
   generatedActions?: Action[];
   locked?: boolean;
+  freeApply?: boolean;
+  lockedLabel?: string;
   onUpgrade?: (ids: string[]) => void;
 }) {
   const retry =
@@ -1005,10 +1009,11 @@ export function ActionCard({
                     ? `Gerar imagens (${action.image_jobs!.length})`
                     : imagePreview
                       ? "Publicar imagem"
-                      : "Aplicar"}
+                      : locked && lockedLabel ? lockedLabel : "Aplicar"}
                 {locked && <Lock size={14} className="ml-1" aria-hidden="true" />}
               </Button>,
             )}
+            {freeApply && !imageBatch && <span className="self-center text-xs text-gray-500">Primeira aplicação grátis</span>}
             <Button
               variant="secondary"
               disabled={disabled}
@@ -1096,6 +1101,7 @@ export function ActionCard({
               disabled={disabled}
               onAction={onAction}
               locked={locked}
+              freeApply={freeApply}
               onUpgrade={onUpgrade}
               compact
             />

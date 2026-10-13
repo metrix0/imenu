@@ -25,7 +25,7 @@ const sections = [
 
 const faq = [
     { question: "O Assistente IA do iMenu é gratuito?", answer: "Sim. Você pode conversar e gerar imagens dentro da capacidade gratuita. O iMenu IA Plus é opcional e oferece limites maiores. Atingir o limite da IA não impede o uso normal do cardápio e do painel." },
-    { question: "A IA altera meu cardápio sozinha?", answer: "Ela prepara propostas. Depois que você revisa e clica em Aplicar, o sistema executa as alterações aprovadas no restaurante. Uma mensagem enviada no chat não é uma aprovação para publicar mudanças." },
+    { question: "A IA altera meu cardápio sozinha?", answer: "Ela prepara propostas. Depois de revisar, você pode clicar em Aplicar ou aprovar explicitamente uma proposta já mostrada pelo chat, como “Pode aplicar”. A primeira aplicação concluída no Assistente IA é grátis por restaurante; as próximas exigem IA Plus." },
     { question: "Preciso copiar a resposta da IA para cada produto?", answer: "Quando o pedido vira uma proposta executável, não. O cartão mostra as mudanças e o iMenu as aplica após sua confirmação, sem exigir que você copie cada descrição ou preço à mão." },
     { question: "Posso gerar imagens para produtos, logo e banner?", answer: "Sim, dentro dos limites disponíveis. A imagem é uma prévia para revisão. Gerar a imagem não a publica: a publicação depende de aprovação e o resultado deve representar corretamente seu produto ou marca." },
     { question: "Qual é a diferença para o Vendas IA?", answer: "O Assistente IA parte da sua conversa e dos seus pedidos. O Vendas IA apresenta uma análise estruturada de oportunidades com base nos dados do restaurante. Com IA Plus, você também pode discutir e aplicar as propostas da análise." },
@@ -145,7 +145,7 @@ export default function AssistenteIaParaRestaurantePage() {
                     { title: "Você pede", description: "Abra o Assistente IA e explique o resultado desejado." },
                     { title: "A IA prepara", description: "Ela consulta o estado atual e apresenta a proposta quando houver uma alteração executável." },
                     { title: "Você revisa", description: "Confira quais produtos e campos serão alterados. Você pode descartar a proposta ou pedir um ajuste." },
-                    { title: "O iMenu aplica", description: "Ao clicar em Aplicar, o sistema executa as mudanças aprovadas e informa o resultado." },
+                    { title: "O iMenu aplica", description: "Ao clicar em Aplicar ou aprovar explicitamente a proposta pelo chat, o sistema executa as mudanças e informa o resultado." },
                 ]} />
                 <p>
                     Se o item mudou depois que a proposta foi criada, o sistema pode pedir uma nova
@@ -160,7 +160,7 @@ export default function AssistenteIaParaRestaurantePage() {
                     O <strong>Assistente IA é gratuito, com limites de conversa e geração de imagens</strong>.
                     A capacidade é medida pelo processamento da conversa, não por um número fixo de
                     mensagens: pedidos extensos e conversas longas podem consumir mais.
-                    Os limites gratuitos consideram o uso dos últimos sete dias.
+                    Os limites de conversa e imagens consideram o uso dos últimos sete dias. Cada restaurante também tem uma primeira aplicação grátis no Assistente IA: ela só é usada quando uma proposta é concluída. Falhas não a consomem; desfazer uma alteração não a devolve. Depois, aplicar novas propostas exige IA Plus.
                 </p>
                 <p>
                     Atingir o limite de imagens impede novas gerações naquele período, mas você pode
