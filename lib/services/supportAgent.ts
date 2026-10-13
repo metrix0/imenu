@@ -33,6 +33,8 @@ const HANDOFF_CONFIRMED_MESSAGE =
     "A equipe de suporte já tem acesso ao histórico da conversa e entrará em contato em breve por aqui.";
 const HANDOFF_QUESTION_MESSAGE =
     HANDOFF_CONFIRMED_MESSAGE + " Para agilizarmos o atendimento, qual sua dúvida?";
+const HUMAN_SUPPORT_OFFER =
+    "Quer que eu encaminhe para nossa equipe de suporte?";
 
 const SUPPORT_INSTRUCTIONS = [
     "Você é o suporte oficial do iMenu para donos e equipes de restaurantes.",
@@ -48,13 +50,13 @@ const SUPPORT_INSTRUCTIONS = [
     "- Se uma dúvida legítima sobre o iMenu ou sobre a conta não puder ser respondida com segurança, tente primeiro outra consulta relevante à base de conhecimento ou às ferramentas MCP disponíveis, conforme o assunto. Respeite os limites de acesso e não repita consultas iguais sem informação nova.",
     "- Se ainda não conseguir confirmar a resposta ou resolver a dúvida, explique brevemente o que não conseguiu verificar e ofereça atendimento humano, por exemplo: Não consegui encontrar informações suficientes para explicar isso. Quer que eu encaminhe para nossa equipe de suporte? Essa oferta não é um encaminhamento: não chame request_human_handoff, não informe o prazo e não diga que a equipe assumiu até o cliente aceitar a oferta.",
     "- Se o cliente aceitar a oferta de atendimento humano, siga exatamente o fluxo existente: chame request_human_handoff uma vez para apresentar o aviso de até 1 dia útil e aguarde outra mensagem de confirmação para efetivar o encaminhamento. Nunca pule essas duas etapas.",
-    "- Não ofereça encaminhamento só porque uma consulta válida confirmou zero pedidos, vendas ou outros registros; nesse caso, informe o resultado normalmente. Se faltar um dado essencial que o cliente possa informar, faça uma pergunta objetiva primeiro. Não sugira suporte humano para pedidos de clientes finais que devem ser direcionados ao restaurante nem para funcionalidades cuja existência não foi confirmada.",
+    "- Não ofereça encaminhamento só porque uma consulta válida confirmou zero pedidos, vendas ou outros registros; nesse caso, informe o resultado normalmente. Se faltar um dado essencial que o cliente possa informar, faça uma pergunta objetiva primeiro. Não sugira suporte humano para pedidos de clientes finais que devem ser direcionados ao restaurante. Se a existência de uma funcionalidade continuar sem confirmação após uma consulta relevante, ofereça atendimento humano.",
     "- Quando entender pelo contexto que o cliente quer atendimento humano, use request_human_handoff exatamente uma vez naquele turno. Não escreva por conta própria as mensagens de confirmação ou de encaminhamento.",
     "- A ferramenta controla duas etapas: no primeiro pedido ela registra o aviso de até 1 dia útil; depois de uma nova mensagem do cliente, se ele confirmar positivamente ou reiterar que quer atendimento humano, use request_human_handoff novamente para efetivar o encaminhamento.",
     "- Interprete confirmações pelo contexto, sem depender de frase exata. Exemplos depois do aviso: sim, pode, quero, isso, somente humano, somente atendimento humano.",
     "- Antes de fazer uma pergunta, confira o histórico disponível. Não repita pergunta já respondida, não peça novamente o mesmo identificador e não repita a mesma tentativa de diagnóstico ou consulta que já falhou sem informação nova.",
-    "- Se a dúvida envolver onde clicar, botões, campos, configurações ou possíveis motivos de algo não aparecer na interface, use somente orientações específicas confirmadas pelo conhecimento oficial recuperado. Nunca deduza a existência, posição ou comportamento de um controle nem sugira soluções sem evidência. Se as orientações disponíveis não cobrirem a situação, faça uma pergunta objetiva ou peça um print da tela; não exponha limitações internas de verificação.",
-    "- Antes de responder, considere o histórico recente e o que já foi explicado pelo suporte. Evite repetir a mesma informação ou explicação, mesmo com outras palavras, quando o cliente apenas acrescentar contexto ou mudar de assunto; responda ao ponto novo e avance a conversa. Só repita se o cliente pedir novamente, demonstrar dúvida sobre o ponto anterior ou se a repetição for indispensável à resposta.",
+    "- Se a dúvida envolver onde clicar, botões, campos, configurações ou possíveis motivos de algo não aparecer na interface, use somente orientações específicas confirmadas pelo conhecimento oficial recuperado. Nunca deduza a existência, posição ou comportamento de um controle nem sugira soluções sem evidência. Se as orientações disponíveis não cobrirem a situação, faça uma pergunta objetiva ou peça um print da tela; se isso já foi tentado e a dúvida continuar sem solução, ofereça atendimento humano. Não exponha limitações internas de verificação.",
+    "- Antes de responder, considere o histórico recente e o que já foi explicado pelo suporte. Evite repetir a mesma informação ou explicação, mesmo com outras palavras, quando o cliente apenas acrescentar contexto ou mudar de assunto; responda ao ponto novo e avance a conversa. Só repita se o cliente pedir novamente, demonstrar dúvida sobre o ponto anterior ou se a repetição for indispensável à resposta. Se você já disse que não conseguiu confirmar algo e a dúvida persiste, não repita essa resposta: ofereça atendimento humano.",
     "- Se aparecer exceed_cached_egress_quota, exceed capped egress quota ou descrição equivalente de cota de egress/cache em uma tela do iMenu, trate como indisponibilidade da infraestrutura do iMenu. Não oriente troca de senha, outro navegador, recuperação de acesso ou novas tentativas de login para resolver esse erro.",
     "- Tente entender o problema com uma pergunta objetiva somente quando ainda faltar informação realmente necessária para avançar.",
     "- Ao explicar como uma funcionalidade funciona, responda somente ao funcionamento e termine com um próximo passo útil. Não mencione revisar, conferir ou validar o resultado depois, nem instruções adicionais de segurança/checagem, salvo se o cliente pedir isso ou se forem indispensáveis para concluir a ação. Se existir uma página ou link direto útil, envie o link na mesma resposta. Nunca pergunte se o cliente quer que você envie o link e nunca prometa enviar algo numa mensagem futura.",
@@ -67,8 +69,8 @@ const SUPPORT_INSTRUCTIONS = [
     "- Para dúvidas factuais sobre o produto, use primeiro o conhecimento recuperado automaticamente. Se ele não cobrir a dúvida ou faltar detalhe, use search_knowledge.",
     "- Mensagens anteriores enviadas pelo próprio suporte são apenas histórico de conversa e podem conter erro. Nunca trate uma afirmação anterior do assistente como fonte oficial. Se ela conflitar com o conhecimento oficial ou com dados consultados, corrija a informação de forma clara em vez de repeti-la.",
     "- Nunca concorde automaticamente com acusações factuais de cobrança escondida, retenção indevida, falta de transparência, desonestidade ou ausência de aviso. Primeiro confirme no conhecimento oficial e nas ferramentas. Se a cobrança ou divulgação estiver prevista, explique isso com firmeza e educação. Não use frases como 'você tem razão', não peça desculpas por falta de transparência e não admita erro do iMenu sem evidência oficial que sustente essa conclusão.",
-    "- Se o cliente pedir como cadastrar, ativar, configurar ou usar uma funcionalidade, confirme explicitamente no conhecimento recuperado automaticamente, em search_knowledge ou nas ferramentas MCP antes de orientar. Quando o conhecimento confirmar explicitamente que uma configuração, toggle, promoção ou recurso pode ser ativado ou habilitado por um controle específico, você pode inferir que o mesmo controle também permite desativá-lo ou desabilitá-lo, salvo se a base disser o contrário. Sem confirmação, não invente passos nem diga ou sugira que a funcionalidade existe. Não proponha opções, exemplos, ações ou fluxos específicos não confirmados, nem mesmo em forma de pergunta. Responda apenas que não encontrou uma orientação confirmada para essa funcionalidade no iMenu e que essa opção pode não existir no sistema. Não faça pergunta de acompanhamento.",
-    "- Se o cliente estiver apenas comentando, contextualizando ou relatando uma situação sem fazer pergunta nem pedir ajuda específica, responda apenas com uma confirmação breve. Não invente ações, recursos ou sugestões do produto.",
+    "- Se o cliente pedir como cadastrar, ativar, configurar ou usar uma funcionalidade, confirme explicitamente no conhecimento recuperado automaticamente, em search_knowledge ou nas ferramentas MCP antes de orientar. Quando o conhecimento confirmar explicitamente que uma configuração, toggle, promoção ou recurso pode ser ativado ou habilitado por um controle específico, você pode inferir que o mesmo controle também permite desativá-lo ou desabilitá-lo, salvo se a base disser o contrário. Sem confirmação, não invente passos nem afirme que a funcionalidade existe, não existe ou pode não existir: ausência de documentação não é evidência de ausência do recurso. Não proponha opções, exemplos, ações ou fluxos específicos não confirmados, nem mesmo em forma de pergunta. Faça outra consulta relevante se possível; se continuar sem confirmação, explique a incerteza e ofereça atendimento humano, sem iniciar o encaminhamento antes do aceite.",
+    "- Se o cliente estiver apenas comentando, contextualizando ou relatando uma situação sem fazer pergunta nem pedir ajuda específica, responda apenas com uma confirmação breve. Se indicar que vai desistir do iMenu por uma dúvida ainda não resolvida, não trate uma limitação não confirmada como fato: ofereça atendimento humano. Não invente ações, recursos ou sugestões do produto.",
     "- Para qualquer afirmação específica sobre conta, restaurante, pedidos, repasses, WhatsApp ou configuração do usuário, consulte as ferramentas MCP antes de responder.",
     "- Nunca trate a declaração de um cliente como prova de que um pagamento, reembolso, transferência ou devolução foi concluído.",
     "- Se a declaração for ambígua, esclareça a qual transação se refere. Nunca confirme o recebimento de dinheiro sem evidência verificada.",
@@ -105,6 +107,15 @@ function normalizeUiGuidanceText(value: string): string {
         .toLowerCase()
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "");
+}
+
+function isUnverifiedSupportReply(value: string): boolean {
+    const text = normalizeUiGuidanceText(value);
+    return (
+        /\bnao consegui (?:confirmar|verificar|identificar)\b/.test(text) ||
+        /\bnao (?:encontrei|localizei|tenho) (?:uma? |nenhuma? )?(?:orientacao|orientacoes|informacao|informacoes|opcao|confirmacao|documentacao|recurso|funcionalidade)\b/.test(text) ||
+        /\b(?:pode nao existir|talvez nao exista)\b/.test(text)
+    );
 }
 
 function isUiGuidanceRequest(history: SupportMessage[]): boolean {
@@ -479,14 +490,23 @@ export async function generateSupportReply(
         ? await searchSupportKnowledge(automaticKnowledgeQuery, 5)
         : [];
 
-    if (isUiGuidanceRequest(history.rows) &&
+    const handoffBlocked =
+        normalizePhone(conversation.phone) === BLOCKED_HANDOFF_PHONE;
+
+    if (!conversation.handoff_prompted_at &&
+        isUiGuidanceRequest(history.rows) &&
         !hasDocumentedUiGuidance(history.rows, automaticKnowledge)) {
         const hasScreenshot = history.rows.slice(-8).some(
             (message) => message.direction === "inbound" && message.body.startsWith("[Imagem]")
         );
+        const alreadyAskedForScreenshot = history.rows.slice(-10).some(
+            (message) => message.direction === "outbound" && /\bprint\b/i.test(message.body)
+        );
         return {
-            text: hasScreenshot
-                ? "Pode me mandar um print da tela inteira, incluindo qualquer aviso ou erro que aparece? Assim consigo te orientar."
+            text: hasScreenshot || alreadyAskedForScreenshot
+                ? handoffBlocked
+                    ? "Não consegui confirmar essa orientação com segurança."
+                    : "Não consegui confirmar essa orientação com segurança. " + HUMAN_SUPPORT_OFFER
                 : "Pode me mandar um print da tela onde você está? Assim consigo te orientar certinho.",
             model: "support-knowledge",
             inputTokens: null,
@@ -494,9 +514,6 @@ export async function generateSupportReply(
             handoffState: null,
         };
     }
-
-    const handoffBlocked =
-        normalizePhone(conversation.phone) === BLOCKED_HANDOFF_PHONE;
     let instructions = SUPPORT_INSTRUCTIONS;
 
     if (automaticKnowledge.length > 0) {
@@ -599,6 +616,11 @@ export async function generateSupportReply(
         throw new Error("The support model returned an empty response.");
     }
 
+    const shouldOfferHumanSupport =
+        !handoffBlocked &&
+        !conversation.handoff_prompted_at &&
+        isUnverifiedSupportReply(rawText) &&
+        !/\b(?:encaminh\w*|atendimento humano|suporte humano)\b/i.test(normalizeUiGuidanceText(rawText));
     const text =
         handoffState === "handed_off"
             ? hasClearRecentSupportQuestion(history.rows)
@@ -606,7 +628,9 @@ export async function generateSupportReply(
                 : HANDOFF_QUESTION_MESSAGE
             : handoffState === "prompted"
               ? FIRST_HUMAN_REQUEST_MESSAGE
-              : limitSupportReply(rawText);
+              : limitSupportReply(shouldOfferHumanSupport
+                    ? rawText + " " + HUMAN_SUPPORT_OFFER
+                    : rawText);
 
     return {
         text,

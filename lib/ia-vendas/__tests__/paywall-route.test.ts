@@ -19,16 +19,23 @@ const report = { headline: "Mais vendas", summary: "Resumo gratuito", opportunit
   { id: "one", title: "Prévia", action_ids: [first] },
   { id: "two", title: "OPORTUNIDADE PRIVADA", action_ids: [second] },
 ], review_items: [{ title: "REVISÃO PRIVADA" }], sales_snapshot: { private: true } };
-let plus = false, analysis = true;
+let plus = false, analysis = true, used = false;
 beforeEach(() => {
   jest.clearAllMocks();
   plus = false;
   analysis = true;
-  (query as jest.Mock).mockImplementation(async (sql: string) => ({
-    rows: sql.includes("restaurant_addons") ? (plus ? [{ status: "active" }] : [])
+  used = false;
+  (apply as jest.Mock).mockReset().mockImplementation(async (_restaurant, id) => {
+    used = true;
+    return { id, status: "applied" };
+  });
+  (query as jest.Mock).mockImplementation(async (sql: string, params: any[] = []) => ({
+    rows: sql.includes("SELECT EXISTS") ? [{ used }]
+      : sql.startsWith("SELECT kind") ? [{ kind: analysis ? "analysis" : "chat" }]
+      : sql.includes("restaurant_addons") ? (plus ? [{ status: "active" }] : [])
       : sql.includes("FILTER (WHERE kind='chat')") ? [{ tokens: 0, images: 0 }]
       : sql.startsWith("SELECT id,kind,title") ? [{ id: conversation, kind: "analysis" }]
-      : sql.startsWith("SELECT * FROM public.ia_vendas_actions") ? [first, second].map(id => ({ id, conversation_id: conversation, status: "pending", attempts: 0, operations: [] }))
+      : sql.startsWith("SELECT * FROM public.ia_vendas_actions") ? [first, second].filter(id => !sql.includes("AND id=$2 ") || id === params[1]).map(id => ({ id, conversation_id: conversation, status: "pending", attempts: 0, operations: [] }))
       : sql.includes("(result-'batch')") ? [{ id: "run", result: { report, reply: "TRANSCRIÇÃO PRIVADA" } }]
       : sql.startsWith("SELECT m.*") ? [{ id: "msg", content: "CONVERSA PRIVADA", attachment_ids: [], cards: [] }]
       : [],
@@ -82,8 +89,9 @@ test.each(["apply", "undo", "reject"])("direct %s requests cannot bypass the ana
   expect(await response.json()).toMatchObject({ code: "IA_PLUS_REQUIRED" });
   expect(apply).not.toHaveBeenCalled();
 });
-test("free account cannot apply an Assistente IA proposal", async () => {
+test("free account cannot apply a second Assistente IA proposal", async () => {
   analysis = false;
+  used = true;
   const response = await POST(new Request("https://example.test/api/ia-vendas", {
     method: "POST",
     body: JSON.stringify({ command: "apply", ids: [first, second] }),
@@ -91,6 +99,24 @@ test("free account cannot apply an Assistente IA proposal", async () => {
   expect(response.status).toBe(402);
   expect(await response.json()).toMatchObject({ code: "IA_PLUS_REQUIRED" });
   expect(apply).not.toHaveBeenCalled();
+});
+test("a free account applies one Assistente IA proposal then locks the next", async () => {
+  analysis = false;
+  const request = () => new Request("https://example.test/api/ia-vendas", {
+    method: "POST", body: JSON.stringify({ command: "apply", ids: [first, second] }),
+  });
+  expect((await POST(request())).status).toBe(402);
+  expect(apply).toHaveBeenCalledTimes(1);
+});
+test("a failed application leaves the first free application available", async () => {
+  analysis = false;
+  (apply as jest.Mock).mockRejectedValueOnce(new Error("temporary"));
+  const request = () => new Request("https://example.test/api/ia-vendas", {
+    method: "POST", body: JSON.stringify({ command: "apply", ids: [first, second] }),
+  });
+  const response = await POST(request());
+  expect(response.status).toBe(200);
+  expect((await response.json()).results.map((r: any) => r.ok)).toEqual([false, true]);
 });
 
 test("Plus can apply a reviewed analysis proposal", async () => {

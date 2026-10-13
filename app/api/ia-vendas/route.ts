@@ -8,8 +8,8 @@ import { authorize, failure } from "@/lib/ia-vendas/http";
 import { SalesError, type Action } from "@/lib/ia-vendas/types";
 import { isUuid } from "@/lib/ia-vendas/catalog";
 import { signedAttachment } from "@/lib/ia-vendas/files";
-import { apply, execute } from "@/lib/ia-vendas/actions";
-import { applyImages, publishImage } from "@/lib/ia-vendas/images";
+import { execute } from "@/lib/ia-vendas/actions";
+import { applyProposal } from "@/lib/ia-vendas/application";
 import { imageUrl } from "@/lib/ia-vendas/data";
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -294,7 +294,7 @@ export async function POST(request: Request) {
           [restaurant, selected.map((a) => a.conversation_id)],
         )
       ).rowCount;
-      if (analysisAction || body.command === "apply")
+      if (analysisAction)
         await requireIaPlus(restaurant);
     }
     if (selected.length !== new Set(body.ids).size)
@@ -337,18 +337,7 @@ export async function POST(request: Request) {
               );
             });
           } else await execute(restaurant, id, true);
-        } else if (a.status === "applied") {
-          /* idempotent */
-        } else if (a.image_jobs) await applyImages(restaurant, id);
-        else {
-          if (
-            !["pending", "failed", "applying"].includes(a.status) ||
-            a.attempts >= 2
-          )
-            throw new SalesError("Peça uma proposta atualizada.", 409);
-          if (a.image) await publishImage(restaurant, a);
-          await apply(restaurant, id);
-        }
+        } else await applyProposal(restaurant, id);
         results.push({ id, ok: true });
       } catch (e) {
         if (e instanceof IaPlusRequired) throw e;

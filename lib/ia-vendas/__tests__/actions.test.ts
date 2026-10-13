@@ -1,6 +1,7 @@
 import { propose, execute, apply } from "../actions";
 import { query, withTransaction } from "@/lib/database/sql";
 import { metrics } from "../data";
+import { IaPlusRequired } from "../access";
 jest.mock("@/lib/database/sql", () => ({
   query: jest.fn(),
   withTransaction: jest.fn(),
@@ -11,17 +12,20 @@ jest.mock("../data", () => ({
 }));
 const restaurant = "11111111-1111-4111-8111-111111111111",
   id = "22222222-2222-4222-8222-222222222222";
-let calls: { sql: string; params: any[] }[], current: any, action: any;
+let calls: { sql: string; params: any[] }[], current: any, action: any, plus: boolean, used: boolean;
 const c = {
   query: jest.fn(async (sql: string, params: any[] = []) => {
     calls.push({ sql, params });
+    if (sql.includes("restaurant_addons")) return { rows: plus ? [{ status: "active" }] : [] };
+    if (sql.includes("SELECT EXISTS")) return { rows: [{ used }] };
+    if (sql.startsWith("SELECT kind")) return { rows: [{ kind: "chat" }] };
     if (sql.includes("SELECT t.*"))
       return {
         rows: current ? [structuredClone(current)] : [],
         rowCount: current ? 1 : 0,
       };
     if (sql.includes("SELECT * FROM public.ia_vendas_actions"))
-      return { rows: [structuredClone(action)] };
+      return { rows: [{ ...structuredClone(action), id: params[1] }] };
     if (sql.includes("count(*) n")) return { rows: [{ n: 0 }] };
     if (sql.includes("INSERT INTO public.ia_vendas_actions"))
       return {
@@ -29,17 +33,21 @@ const c = {
       };
     if (sql.includes("UPDATE public.items"))
       return { rows: [{ ...current, price_cents: params[2] }] };
-    if (sql.includes("UPDATE public.ia_vendas_actions"))
+    if (sql.includes("UPDATE public.ia_vendas_actions")) {
+      if (params[2] === "applied") used = true;
       return {
         rows: [
           { ...action, status: params[2], operations: JSON.parse(params[3]) },
         ],
       };
+    }
     return { rows: [], rowCount: 0 };
   }),
 };
 beforeEach(() => {
   calls = [];
+  plus = true;
+  used = false;
   current = {
     id,
     restaurant_id: restaurant,
@@ -50,6 +58,7 @@ beforeEach(() => {
   action = {
     id,
     restaurant_id: restaurant,
+    conversation_id: restaurant,
     status: "applying",
     operations: [
       {
@@ -64,6 +73,41 @@ beforeEach(() => {
   };
   (withTransaction as jest.Mock).mockImplementation(async (fn) => fn(c));
   (metrics as jest.Mock).mockResolvedValue({ orders: 10, products: [] });
+});
+test("failed application leaves the free application available", async () => {
+  plus = false;
+  current.price_cents = 1200;
+  await expect(execute(restaurant, id, false)).rejects.toThrow("registro mudou");
+  expect(used).toBe(false);
+  current.price_cents = 1000;
+  await expect(execute(restaurant, id, false)).resolves.toMatchObject({ status: "applied" });
+  expect(used).toBe(true);
+});
+test("concurrent free applications recheck the allowance after the transaction lock", async () => {
+  plus = false;
+  let queue = Promise.resolve();
+  (withTransaction as jest.Mock).mockImplementation((fn) => {
+    const next = queue.then(() => fn(c));
+    queue = next.catch(() => undefined);
+    return next;
+  });
+  const results = await Promise.allSettled([
+    execute(restaurant, id, false),
+    execute(restaurant, "33333333-3333-4333-8333-333333333333", false),
+  ]);
+  expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+  expect((results.find((r) => r.status === "rejected") as PromiseRejectedResult).reason).toBeInstanceOf(IaPlusRequired);
+  expect(calls.filter((r) => r.sql.includes("UPDATE public.items"))).toHaveLength(1);
+  const lock = calls.findIndex((r) => r.sql.includes("pg_advisory_xact_lock"));
+  const allowance = calls.findIndex((r) => r.sql.includes("SELECT EXISTS"));
+  expect(allowance).toBeGreaterThan(lock);
+});
+test("an applied proposal remains idempotent even after the free allowance was used", async () => {
+  plus = false;
+  used = true;
+  action.status = "applied";
+  await expect(execute(restaurant, id, false)).resolves.toMatchObject({ status: "applied" });
+  expect(calls.some((r) => r.sql.includes("UPDATE public.items"))).toBe(false);
 });
 test("proposing never writes business tables", async () => {
   const p = await propose(restaurant, id, id, {

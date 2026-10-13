@@ -22,7 +22,7 @@ async function api(path: string, body?: Data) {
 }
 let version = 0;
 type State = {
-  access: { plus: boolean; tokens_remaining: number | null; images_remaining: number | null } | null;
+  access: { plus: boolean; free_applications_remaining: number | null; tokens_remaining: number | null; images_remaining: number | null } | null;
   upgradeRequired: boolean;
   clearUpgrade: () => void;
   restaurant_id: string | null;
@@ -244,7 +244,7 @@ export const useSalesStore = create<State>((set, get) => ({
     } catch (e) {
       if ((e as Error & { code?: string }).code === "IA_PLUS_REQUIRED") {
         await get().load(current.restaurant_id, current.conversation_id || undefined);
-        set({ upgradeRequired: true, error: null });
+        set({ upgradeRequired: command !== "apply", error: command === "apply" ? (e as Error).message : null });
       } else set({ error: (e as Error).message });
       return null;
     } finally {

@@ -148,6 +148,7 @@ test("locked assistant proposals show the IA Plus lock only on apply actions", (
       disabled={false}
       onAction={jest.fn()}
       locked
+      lockedLabel="Aplicar com IA Plus"
       onUpgrade={jest.fn()}
       compact
     />,
@@ -155,9 +156,16 @@ test("locked assistant proposals show the IA Plus lock only on apply actions", (
   expect(html).toContain("Essa é uma função do plano iMenu IA Plus");
   expect(html).toContain("lucide-lock");
   expect(html).toContain("ml-1");
-  expect(html).toContain(">Aplicar<");
+  expect(html).toContain(">Aplicar com IA Plus<");
   expect(html).toContain('data-ia-apply-id="proposal"');
   expect(html).toContain(">Descartar<");
+});
+test("the first free application is offered without a paywall or padlock", () => {
+  const html = renderToStaticMarkup(<ActionCard action={action} refs={{}} disabled={false} onAction={jest.fn()} freeApply />);
+  expect(html).toContain(">Aplicar<");
+  expect(html).toContain("Primeira aplicação grátis");
+  expect(html).not.toContain("lucide-lock");
+  expect(html).not.toContain("Essa é uma função do plano");
 });
 
 test("locked Vendas IA keeps the action history button unlocked", () => {
@@ -532,3 +540,4 @@ test("support WhatsApp badge shows the support number and opens WhatsApp", () =>
   expect(html).toContain("https://wa.me/5519997235394");
   expect(html).toContain("Abrir WhatsApp do suporte");
 });
+

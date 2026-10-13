@@ -257,6 +257,8 @@ export default function SalesPage() {
           )
         : sales.messages;
   const locked = sales.access?.plus !== true;
+  const freeApply = !isAnalysis && locked && sales.access?.free_applications_remaining === 1;
+  const applyLocked = locked && !freeApply;
   const freeLimitReached = !isAnalysis && sales.access && !sales.access.plus && (sales.upgradeRequired || Number(sales.access.tokens_remaining) <= 0);
   const openLockedApply = (ids: string[] = []) => {
     const actionIds = [...new Set(ids.filter(Boolean))];
@@ -335,7 +337,7 @@ export default function SalesPage() {
         else setPlusModal("sales");
         return;
       }
-      if (!isAnalysis && locked && command === "apply") { openLockedApply(ids); return; }
+      if (!isAnalysis && applyLocked && command === "apply") { openLockedApply(ids); return; }
       void sales.command(command, { ids });
     },
     selectedBatchActions = sales.actions.filter((action) =>
@@ -507,7 +509,9 @@ export default function SalesPage() {
                             refs={sales.references}
                             disabled={disabled}
                             onAction={onAction}
-                            locked={locked}
+                            locked={applyLocked}
+                            freeApply={freeApply}
+                            lockedLabel={!isAnalysis ? "Aplicar com IA Plus" : undefined}
                             onUpgrade={openLockedApply}
                           />
                         );
@@ -561,7 +565,9 @@ export default function SalesPage() {
                             refs={sales.references}
                             disabled={disabled}
                             onAction={onAction}
-                            locked={locked}
+                            locked={applyLocked}
+                            freeApply={freeApply}
+                            lockedLabel={!isAnalysis ? "Aplicar com IA Plus" : undefined}
                             onUpgrade={openLockedApply}
                           />
                         );
