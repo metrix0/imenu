@@ -29,9 +29,7 @@ export default function ToggleOptionCard({
     return (
         <div
             data-ui="toggle-option-card"
-            className={`flex min-h-[68px] items-center justify-between gap-4 rounded-lg border border-gray-200 p-4 transition-colors ${
-                checked ? "bg-brand/5" : "bg-white"
-            } ${disabled ? "opacity-60" : ""} ${className}`}
+            className={`flex min-h-[68px] items-center justify-between gap-4 rounded-lg border border-gray-200 bg-white p-4 transition-colors ${disabled ? "opacity-60" : ""} ${className}`}
         >
             <div className="flex min-w-0 items-center gap-3">
                 {icon && (
