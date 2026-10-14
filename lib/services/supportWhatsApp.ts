@@ -406,8 +406,8 @@ async function syncSentBlastHistory(
                    AND c.sender = $3
                  ORDER BY r.sent_at DESC LIMIT 20
              )
-             INSERT INTO support_messages (conversation_id, direction, body, dedupe_key, send_status, sender_kind, created_at)
-             SELECT $1::uuid, 'outbound', b.message, 'support:blast-recipient:' || b.id::text, 'sent', 'automated', b.sent_at
+             INSERT INTO support_messages (conversation_id, direction, body, dedupe_key, send_status, created_at)
+             SELECT $1::uuid, 'outbound', b.message, 'support:blast-recipient:' || b.id::text, 'sent', b.sent_at
              FROM recent_blasts b
              WHERE NOT EXISTS (
                  SELECT 1 FROM support_messages m
@@ -478,7 +478,7 @@ async function prepareConversation(input: {
 
                 for (const message of history) {
                     await query(
-                        "INSERT INTO support_messages (conversation_id, direction, body, provider_message_id, send_status, sender_kind, created_at) VALUES ($1, $2, $3, $4, $5, $6, to_timestamp($7)) ON CONFLICT (provider_message_id) WHERE provider_message_id IS NOT NULL DO NOTHING",
+                        "INSERT INTO support_messages (conversation_id, direction, body, provider_message_id, send_status, created_at) VALUES ($1, $2, $3, $4, $5, to_timestamp($6)) ON CONFLICT (provider_message_id) WHERE provider_message_id IS NOT NULL DO NOTHING",
                         [
                             conversation.id,
                             message.fromMe ? "outbound" : "inbound",
@@ -488,7 +488,6 @@ async function prepareConversation(input: {
                                 message.id
                             ),
                             message.fromMe ? "sent" : "received",
-                            message.fromMe ? "unknown" : "customer",
                             message.timestamp,
                         ]
                     );
@@ -786,7 +785,7 @@ async function sendTrackedSupportText(input: {
 
     if (!messageId) {
         const inserted = await query<{ id: string }>(
-            "INSERT INTO support_messages (conversation_id, direction, body, dedupe_key, send_status, sender_kind, model, input_tokens, output_tokens) VALUES ($1, 'outbound', $2, $3, 'pending', 'ai', $4, $5, $6) RETURNING id",
+            "INSERT INTO support_messages (conversation_id, direction, body, dedupe_key, send_status, model, input_tokens, output_tokens) VALUES ($1, 'outbound', $2, $3, 'pending', $4, $5, $6) RETURNING id",
             [
                 input.conversationId,
                 body,
@@ -858,7 +857,7 @@ export async function markSupportHumanTakeover(input: {
     const conversationId = result.rows[0]?.id;
     if (conversationId && input.body?.trim()) {
         await query(
-            "INSERT INTO support_messages (conversation_id, direction, body, send_status, sender_kind) VALUES ($1, 'outbound', $2, 'sent', 'human')",
+            "INSERT INTO support_messages (conversation_id, direction, body, send_status) VALUES ($1, 'outbound', $2, 'sent')",
             [conversationId, input.body.trim()]
         );
     }
@@ -953,7 +952,7 @@ export async function processSupportIncomingWhatsAppMessage(input: {
     }
 
     await query(
-        "INSERT INTO support_messages (conversation_id, direction, body, provider_message_id, send_status, sender_kind) VALUES ($1, 'inbound', $2, $3, 'received', 'customer') ON CONFLICT (provider_message_id) WHERE provider_message_id IS NOT NULL DO NOTHING",
+        "INSERT INTO support_messages (conversation_id, direction, body, provider_message_id, send_status) VALUES ($1, 'inbound', $2, $3, 'received') ON CONFLICT (provider_message_id) WHERE provider_message_id IS NOT NULL DO NOTHING",
         [conversation.id, messageBody, storageMessageId]
     );
 
