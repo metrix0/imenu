@@ -1,3 +1,4 @@
+import { getVpsDomainStatus, usesVpsDomains } from "@/lib/services/vpsDomains";
 import { query } from "@/lib/database/sql";
 import { NextResponse } from "next/server";
 
@@ -143,7 +144,7 @@ export async function GET(
     context: { params: Promise<{ id: string }> }
 ) {
     const { id } = await context.params;
-    const token = process.env.VERCEL_TOKEN;
+    const token = process.env.VERCEL_TOKEN || "";
 
     if (!id) {
         return NextResponse.json(
@@ -152,7 +153,7 @@ export async function GET(
         );
     }
 
-    if (!token) {
+    if (!token && !usesVpsDomains()) {
         return NextResponse.json(
             { error: "A conexão de domínios ainda não foi configurada." },
             { status: 503 }
@@ -190,6 +191,12 @@ export async function GET(
                 },
                 { headers: { "Cache-Control": "no-store" } }
             );
+        }
+
+        if (usesVpsDomains()) {
+            return NextResponse.json(await getVpsDomainStatus(domain), {
+                headers: { "Cache-Control": "no-store" },
+            });
         }
 
         const headers = {
@@ -267,7 +274,7 @@ export async function POST(
     context: { params: Promise<{ id: string }> }
 ) {
     const { id } = await context.params;
-    const token = process.env.VERCEL_TOKEN;
+    const token = process.env.VERCEL_TOKEN || "";
 
     if (!id) {
         return NextResponse.json(
@@ -276,7 +283,7 @@ export async function POST(
         );
     }
 
-    if (!token) {
+    if (!token && !usesVpsDomains()) {
         return NextResponse.json(
             { error: "A conexão de domínios ainda não foi configurada." },
             { status: 503 }
@@ -341,6 +348,15 @@ export async function POST(
                 { error: "Este domínio já está sendo usado por outra loja." },
                 { status: 409 }
             );
+        }
+
+        if (usesVpsDomains()) {
+            const status = await getVpsDomainStatus(domain);
+            await query(
+                "UPDATE public.restaurants SET custom_domain = $2, updated_at = NOW() WHERE id = $1",
+                [id, domain]
+            );
+            return NextResponse.json({ success: true, ...status });
         }
 
         const headers = {
@@ -425,7 +441,7 @@ export async function DELETE(
     context: { params: Promise<{ id: string }> }
 ) {
     const { id } = await context.params;
-    const token = process.env.VERCEL_TOKEN;
+    const token = process.env.VERCEL_TOKEN || "";
 
     if (!id) {
         return NextResponse.json(
@@ -434,7 +450,7 @@ export async function DELETE(
         );
     }
 
-    if (!token) {
+    if (!token && !usesVpsDomains()) {
         return NextResponse.json(
             { error: "A conexão de domínios ainda não foi configurada." },
             { status: 503 }
@@ -459,7 +475,7 @@ export async function DELETE(
         }
 
         const domain = normalizeDomain(restaurant.custom_domain);
-        if (domain) {
+        if (domain && !usesVpsDomains()) {
             const removeResponse = await fetch(
                 vercelUrl(
                     `/v9/projects/{projectId}/domains/${encodeURIComponent(domain)}`

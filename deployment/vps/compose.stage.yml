@@ -1,0 +1,25 @@
+name: imenu-stage-app
+services:
+  app:
+    image: imenu-stage-app:latest
+    container_name: imenu-stage-app
+    restart: unless-stopped
+    init: true
+    env_file: ${IMENU_STAGE_ENV_FILE:?Set an absolute private environment file path}
+    networks: [supabase]
+    ports: ["127.0.0.1:13000:3000"]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 15s
+      start_period: 30s
+      retries: 3
+    mem_limit: 2g
+    cpus: 3
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+networks:
+  supabase:
+    external: true
+    name: imenu-stage_default

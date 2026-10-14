@@ -1,0 +1,22 @@
+# Prepare only. Activate after the approved DNS/TLS cutover.
+{
+    email {$ACME_EMAIL}
+    on_demand_tls {
+        ask http://app:3000/api/internal/domain-allowed
+    }
+}
+{$IMENU_API_DOMAIN} {
+    @api path /auth/* /rest/* /storage/* /realtime/* /functions/* /graphql/*
+    handle @api {
+        reverse_proxy api-gw:8000
+    }
+    handle {
+        respond "Not found" 404
+    }
+}
+https:// {
+    tls {
+        on_demand
+    }
+    reverse_proxy app:3000
+}
