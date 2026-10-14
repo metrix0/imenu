@@ -74,6 +74,16 @@ const automaticPromotionRuleSchema = {
       required: ["type", "item_id", "quantity"],
       additionalProperties: false,
     },
+    {
+      type: "object",
+      properties: {
+        type: { type: "string", enum: ["category"] },
+        category_id: UUID_SCHEMA,
+        quantity: { type: "integer", minimum: 1, maximum: 99 },
+      },
+      required: ["type", "category_id", "quantity"],
+      additionalProperties: false,
+    },
   ],
 };
 const automaticPromotionBenefitSchema = {

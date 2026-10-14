@@ -115,6 +115,25 @@ it("reconstructs paid extras and preserves the validated loyalty object", async 
   expect(result.items[1]).toBe(reward);
 });
 
+it("checks category membership against the catalog rather than untrusted cart values", async () => {
+  const category = "40000000-0000-4000-8000-000000000001";
+  const other = "40000000-0000-4000-8000-000000000002";
+  const client = { query: jest.fn().mockResolvedValue({ rows: [
+    { id: itemId, name: "Item", category_id: category, price_cents: 5000, is_available: true },
+  ] }) };
+  const good = await automaticOrderPricing(client as any, {
+    ...input, promotions: [{ ...promotion, rules: [{ type: "category", category_id: category, quantity: 1 }] }],
+    items: [{ ...input.items[0], category_id: other }],
+  });
+  expect(good.result.discount_cents).toBe(500);
+  expect(client.query.mock.calls[0][0]).toContain("i.category_id");
+  const bad = await automaticOrderPricing(client as any, {
+    ...input, promotions: [{ ...promotion, rules: [{ type: "category", category_id: other, quantity: 1 }] }],
+    items: [{ ...input.items[0], category_id: other }],
+  });
+  expect(bad.result.promotion).toBeNull();
+});
+
 it("rejects unavailable extras before inserting an order", async () => {
   const client = {
     query: jest

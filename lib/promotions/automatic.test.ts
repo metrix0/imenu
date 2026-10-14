@@ -3,6 +3,7 @@ import {
   parseAutomaticPromotions,
   promotionAvailable,
   promotionCartSubtotal,
+  promotionDescription,
   validateAutomaticPromotion,
   type AutomaticPromotion,
   type PromotionBenefit,
@@ -11,6 +12,8 @@ import {
 
 const burger = "10000000-0000-4000-8000-000000000001";
 const drink = "10000000-0000-4000-8000-000000000002";
+const foodCategory = "40000000-0000-4000-8000-000000000001";
+const drinkCategory = "40000000-0000-4000-8000-000000000002";
 const tuesday = new Date("2026-09-08T15:00:00Z");
 const offer = (
   rules: PromotionRule[] = [],
@@ -33,8 +36,8 @@ const item = (id = burger, unit = 5000, qty = 1) => ({
   total_cents: unit * qty,
 });
 const products = [
-  { id: burger, name: "Hambúrguer", price_cents: 5000, is_available: true },
-  { id: drink, name: "Suco", price_cents: 1000, is_available: true },
+  { id: burger, name: "Hambúrguer", price_cents: 5000, is_available: true, category_id: foodCategory },
+  { id: drink, name: "Suco", price_cents: 1000, is_available: true, category_id: drinkCategory },
 ];
 const calculate = (p: AutomaticPromotion[], extra: Record<string, any> = {}) =>
   evaluateAutomaticPromotions(p, {
@@ -272,6 +275,27 @@ describe("automatic promotion rules and totals", () => {
         .promotion,
     ).toBeNull();
   });
+  it("qualifies only the purchased category while keeping percent discounts on the whole cart", () => {
+    const p = offer(
+      [{ type: "category", category_id: foodCategory, quantity: 2 }],
+      [{ type: "percent", value: 10 }],
+    );
+    expect(calculate([p]).promotion).toBeNull();
+    expect(calculate([p], { items: [item(), item(), item(drink, 1000)], subtotal_cents: 11000 }).discount_cents).toBe(1100);
+    expect(calculate([p], { items: [item(), item(drink, 1000)], subtotal_cents: 6000 }).promotion).toBeNull();
+    expect(calculate([p], { items: [item(), { ...item(), is_reward: true }] }).promotion).toBeNull();
+    expect(calculate([p], { items: [item(burger, 5000, 2)], products: products.map((i) => ({ ...i, is_available: false })), subtotal_cents: 10000 }).promotion).toBeNull();
+  });
+  it("counts split pizza flavor portions toward a category rule", () => {
+    const p = offer([{ type: "category", category_id: foodCategory, quantity: 1 }], [{ type: "fixed", cents: 500 }]);
+    const pizza = { ...item(), pizza: { flavors: [{ item_id: burger }, { item_id: drink }] } };
+    expect(calculate([p], { items: [pizza] }).promotion).toBeNull();
+    expect(calculate([p], { items: [pizza, pizza], subtotal_cents: 10000 }).discount_cents).toBe(500);
+  });
+  it("shows the selected category name in the promotion description", () => {
+    const p = offer([{ type: "category", category_id: foodCategory, quantity: 1 }]);
+    expect(promotionDescription(p, products, [{ id: foodCategory, name: "Lanches" }]).conditions).toContain("categoria Lanches");
+  });
   it("discounts the free base product while keeping paid extras and extra units", () => {
     const p = offer(
       [{ type: "product", item_id: burger, quantity: 1 }],
@@ -414,6 +438,9 @@ describe("automatic promotion rules and totals", () => {
   });
   it("rejects invalid configuration instead of turning malformed rules into unconditional discounts", () => {
     expect(validateAutomaticPromotion(offer())).toBeNull();
+    expect(validateAutomaticPromotion(offer([{ type: "category", category_id: foodCategory, quantity: 1 }]))).toBeNull();
+    expect(validateAutomaticPromotion(offer([{ type: "category", category_id: "", quantity: 1 }]))).not.toBeNull();
+    expect(validateAutomaticPromotion(offer([{ type: "category", category_id: foodCategory, quantity: 0 }]))).not.toBeNull();
     expect(
       validateAutomaticPromotion(offer([{ type: "weekdays", days: [] }])),
     ).not.toBeNull();

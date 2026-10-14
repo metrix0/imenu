@@ -85,6 +85,20 @@ export async function PUT(request: Request) {
         ),
       ),
     ];
+    const categoryIds = [...new Set(
+      promotion.rules.flatMap((r) => r.type === "category" ? [r.category_id] : []),
+    )];
+    if (categoryIds.length) {
+      const categories = await query(
+        "SELECT id FROM categories WHERE restaurant_id = $1 AND id = ANY($2::uuid[])",
+        [body.restaurantId, categoryIds],
+      );
+      if (categories.rows.length !== categoryIds.length)
+        return NextResponse.json(
+          { error: "Uma categoria foi removida ou não pertence ao restaurante." },
+          { status: 400 },
+        );
+    }
     if (ids.length) {
       const products = await query(
         "SELECT id FROM items WHERE restaurant_id = $1 AND id = ANY($2::uuid[])",

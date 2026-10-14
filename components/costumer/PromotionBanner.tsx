@@ -9,13 +9,15 @@ import {
 export default function PromotionBanner({
   promotion,
   products,
+  categories = [],
   applied = false,
 }: {
   promotion: AutomaticPromotion;
   products: Pick<PromotionProduct, "id" | "name">[];
+  categories?: { id: string; name: string }[];
   applied?: boolean;
 }) {
-  const description = promotionDescription(promotion, products);
+  const description = promotionDescription(promotion, products, categories);
   return (
     <div
       className={`flex min-w-0 items-start gap-3 rounded-2xl border p-4 sm:p-5 transition-colors duration-300 ${applied ? "border-green-200 bg-green-50" : "border-brand/20 bg-brand/5"}`}

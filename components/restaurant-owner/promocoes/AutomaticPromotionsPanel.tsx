@@ -35,6 +35,7 @@ const ruleOptions = [
   { value: "weekdays", label: "Dias da semana" },
   { value: "minimum", label: "Valor do pedido" },
   { value: "product", label: "Comprar produto" },
+  { value: "category", label: "Comprar categoria" },
 ];
 const benefitOptions = [
   { value: "delivery", label: "Entrega grátis" },
@@ -69,6 +70,7 @@ export default function AutomaticPromotionsPanel({
 }) {
   const [promotions, setPromotions] = useState<AutomaticPromotion[]>([]);
   const [products, setProducts] = useState<PromotionProduct[]>([]);
+  const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -108,17 +110,24 @@ export default function AutomaticPromotionsPanel({
     setLoading(true);
     setLoadError(false);
     try {
-      const [list, result] = await Promise.all([
+      const [list, result, categoryResult] = await Promise.all([
         api("GET"),
         supabase
           .from("items")
-          .select("id, name, price_cents, is_available")
+          .select("id, name, price_cents, is_available, category_id")
           .eq("restaurant_id", restaurantId)
           .order("name"),
+        supabase
+          .from("categories")
+          .select("id, name")
+          .eq("restaurant_id", restaurantId)
+          .order("position"),
       ]);
       if (result.error) throw result.error;
+      if (categoryResult.error) throw categoryResult.error;
       setPromotions(list);
       setProducts(result.data || []);
+      setCategories(categoryResult.data || []);
     } catch {
       setLoadError(true);
     } finally {
@@ -165,6 +174,10 @@ export default function AutomaticPromotionsPanel({
       benefits: [{ type: "delivery" }],
     });
   };
+  const categoryOptions = [
+    { value: "", label: "Selecione a categoria" },
+    ...categories.map((category) => ({ value: category.id, label: category.name })),
+  ];
   const productOptions = [
     { value: "", label: "Selecione o produto" },
     ...products.map((p) => ({
@@ -196,6 +209,35 @@ export default function AutomaticPromotionsPanel({
         options={productOptions}
         value={value.item_id}
         onChange={(e) => onChange({ ...value, item_id: e.target.value })}
+        className={controlClass}
+      />
+      <Input
+        aria-label="Quantidade"
+        title="Quantidade"
+        type="number"
+        inputMode="numeric"
+        min={1}
+        max={99}
+        value={value.quantity || ""}
+        onChange={(e) =>
+          onChange({ ...value, quantity: Number(e.target.value) })
+        }
+        className={controlClass}
+      />
+    </div>
+  );
+
+  const categoryPicker = (
+    value: { category_id: string; quantity: number },
+    onChange: (value: { category_id: string; quantity: number }) => void,
+  ) => (
+    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_5.5rem] gap-3">
+      <Dropdown
+        custom
+        aria-label="Categoria"
+        options={categoryOptions}
+        value={value.category_id}
+        onChange={(e) => onChange({ ...value, category_id: e.target.value })}
         className={controlClass}
       />
       <Input
@@ -300,7 +342,9 @@ export default function AutomaticPromotionsPanel({
                                   cents: 4000,
                                   comparison: "gte",
                                 }
-                              : { type: "product", item_id: "", quantity: 1 },
+                              : e.target.value === "category"
+                                ? { type: "category", category_id: "", quantity: 1 }
+                                : { type: "product", item_id: "", quantity: 1 },
                         )
                       }
                       className={controlClass}
@@ -381,6 +425,10 @@ export default function AutomaticPromotionsPanel({
                   {rule.type === "product" &&
                     productPicker(rule, (value) =>
                       updateRule(index, { type: "product", ...value }),
+                    )}
+                  {rule.type === "category" &&
+                    categoryPicker(rule, (value) =>
+                      updateRule(index, { type: "category", ...value }),
                     )}
                 </div>
               ))}
@@ -529,7 +577,7 @@ export default function AutomaticPromotionsPanel({
             />
             {editing.show_on_menu && (
               <div className="pt-2 pb-3">
-                <PromotionBanner promotion={editing} products={products} />
+                <PromotionBanner promotion={editing} products={products} categories={categories} />
               </div>
             )}
             <button
@@ -625,7 +673,7 @@ export default function AutomaticPromotionsPanel({
         </div>
       )}
       {promotions.map((p) => {
-        const description = promotionDescription(p, products);
+        const description = promotionDescription(p, products, categories);
         return (
           <PromotionCard
             key={p.id}
