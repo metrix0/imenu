@@ -144,7 +144,7 @@ export default function Footer() {
                 </div>
 
                 <div className="flex gap-4 2xl:gap-8 text-sm 2xl:text-xl flex-wrap w-full md:w-auto justify-center md:justify-end">
-                    <a className="hover:text-gray-800 cursor-pointer" onClick={() => router.replace("/restaurante/dados/termos-e-condicoes")}>Termos e Condições</a>
+                    <a className="hover:text-gray-800 cursor-pointer" onClick={() => router.replace("/restaurante/dados/termos")}>Termos e Condições</a>
                     <a className="hover:text-gray-800 cursor-pointer" onClick={() => router.replace("/restaurante/dados/privacidade")}>Privacidade</a>
                 </div>
 
