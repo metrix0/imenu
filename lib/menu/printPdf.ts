@@ -84,96 +84,191 @@ function brl(value: number): string {
 
 export function buildPrintableMenuPdf(input: MenuPdfInput): Buffer {
     const restaurant = printable(input.restaurantName) || "Restaurante";
-    const pages: string[][] = [];
-    let commands: string[] = [];
-    let y = 0;
+    const categories = input.categories
+        .map((category) => ({
+            name: category.name || "Outros",
+            items: category.items.filter((item) => item.name.trim() && Number.isFinite(item.price_cents)),
+        }))
+        .filter((category) => category.items.length > 0);
 
-    function emit(command: string) {
-        commands.push(command);
-    }
+    type Layout = { columns: 1 | 2; compact: boolean };
+    const renderLayout = ({ columns, compact }: Layout): string[][] => {
+        const pages: string[][] = [];
+        let commands: string[] = [];
+        let column = 0;
+        let y = 0;
+        let top = 0;
 
-    function line(x1: number, top1: number, x2: number, top2: number, shade = 0.88, thickness = 0.6) {
-        emit(`${shade} G ${thickness} w ${x1.toFixed(2)} ${(PAGE_HEIGHT - top1).toFixed(2)} m ${x2.toFixed(2)} ${(PAGE_HEIGHT - top2).toFixed(2)} l S`);
-    }
+        const gutter = columns === 2 ? 24 : 0;
+        const columnWidth = (RIGHT - LEFT - gutter) / columns;
+        const headingSize = (columns === 2 ? 12.6 : 15) * (compact ? 0.92 : 1);
+        const itemSize = (columns === 2 ? 10.1 : 11.5) * (compact ? 0.91 : 1);
+        const descriptionSize = (columns === 2 ? 8.35 : 9.2) * (compact ? 0.91 : 1);
+        const headingLine = headingSize * 1.28;
+        const itemLine = itemSize * 1.36;
+        const descriptionLine = descriptionSize * 1.42;
+        const rowPadding = compact ? 14 : 20;
+        const sectionPadding = compact ? 13 : 19;
+        const bottom = compact ? 773 : CONTENT_BOTTOM;
 
-    function text(value: string, x: number, top: number, size: number, bold = false, shade = 0.17) {
-        const hex = textHex(value);
-        if (!hex) return;
-        emit(`${shade} g BT /${bold ? "F2" : "F1"} ${size} Tf 1 0 0 1 ${x.toFixed(2)} ${(PAGE_HEIGHT - top).toFixed(2)} Tm <${hex}> Tj ET`);
-    }
+        const x = () => LEFT + column * (columnWidth + gutter);
+        const right = () => x() + columnWidth;
+        const itemTextWidth = columnWidth - (columns === 2 ? 76 : 92);
 
-    function page() {
-        commands = [];
-        pages.push(commands);
-        y = 0;
-        emit("0.84 0.24 0.06 rg 52 806 32 3 re f");
-        text("CARDÁPIO", LEFT, 66, 10, true, 0.38);
-        const titleLines = wrapText(restaurant, RIGHT - LEFT, 25);
-        for (const title of titleLines.slice(0, 2)) {
-            text(title, LEFT, 106 + y, 25, true, 0.11);
-            y += 30;
-        }
-        y += 100;
-        line(LEFT, y, RIGHT, y, 0.83);
-        y += 27;
-    }
+        const emit = (command: string) => commands.push(command);
 
-    function requireSpace(height: number) {
-        if (y + height > CONTENT_BOTTOM) page();
-    }
+        const drawLine = (x1: number, top1: number, x2: number, top2: number, shade = 0.88, thickness = 0.6) => {
+            emit(`${shade} G ${thickness} w ${x1.toFixed(2)} ${(PAGE_HEIGHT - top1).toFixed(2)} m ${x2.toFixed(2)} ${(PAGE_HEIGHT - top2).toFixed(2)} l S`);
+        };
 
-    page();
-    let printed = 0;
-    for (const category of input.categories) {
-        const items = category.items.filter((item) => item.name.trim() && Number.isFinite(item.price_cents));
-        if (!items.length) continue;
+        const drawText = (value: string, atX: number, atTop: number, fontSize: number, bold = false, shade = 0.17) => {
+            const hex = textHex(value);
+            if (!hex) return;
+            emit(`${shade} g BT /${bold ? "F2" : "F1"} ${fontSize.toFixed(2)} Tf 1 0 0 1 ${atX.toFixed(2)} ${(PAGE_HEIGHT - atTop).toFixed(2)} Tm <${hex}> Tj ET`);
+        };
 
-        const titleLines = wrapText(category.name || "Outros", RIGHT - LEFT, 15);
-        const categoryHeight = titleLines.length * 19 + 15;
-        const firstName = wrapText(items[0].name, ITEM_WIDTH, 11.5);
-        requireSpace(categoryHeight + firstName.length * 16 + 18);
-        for (const categoryLine of titleLines) {
-            text(categoryLine, LEFT, y + 8, 15, true, 0.16);
-            y += 19;
-        }
-        y += 12;
-
-        for (const item of items) {
-            const nameLines = wrapText(item.name, ITEM_WIDTH, 11.5);
-            const descriptionLines = item.description
-                ? wrapText(item.description, ITEM_WIDTH, 9.2)
-                : [];
-            const rowHeight = nameLines.length * 16 + descriptionLines.length * 13 + 21;
-            requireSpace(rowHeight);
-            line(LEFT, y, RIGHT, y, 0.94, 0.45);
-            const start = y + 18;
-            for (let index = 0; index < nameLines.length; index++) {
-                text(nameLines[index], LEFT, start + index * 16, 11.5, true, 0.13);
+        const newPage = () => {
+            commands = [];
+            pages.push(commands);
+            column = 0;
+            if (pages.length === 1) {
+                emit("0.84 0.24 0.06 rg 52 806 32 3 re f");
+                drawText("CARDÁPIO", LEFT, 66, 10, true, 0.38);
+                const titles = wrapText(restaurant, RIGHT - LEFT, 25).slice(0, 2);
+                titles.forEach((title, index) => drawText(title, LEFT, 106 + index * 30, 25, true, 0.11));
+                top = 165 + Math.max(0, titles.length - 1) * 30;
+                drawLine(LEFT, top - 20, RIGHT, top - 20, 0.83);
+            } else {
+                top = 62;
+                drawLine(LEFT, 45, RIGHT, 45, 0.9);
             }
-            const price = brl(item.price_cents);
-            text(price, RIGHT - widthOf(price, 11), start, 11, true, 0.14);
-            for (let index = 0; index < descriptionLines.length; index++) {
-                text(descriptionLines[index], LEFT, start + nameLines.length * 16 + index * 13, 9.2, false, 0.42);
+            y = top;
+            if (columns === 2) {
+                const center = LEFT + columnWidth + gutter / 2;
+                drawLine(center, top - 6, center, bottom, 0.93, 0.5);
             }
-            y += rowHeight;
-            printed++;
+        };
+
+        const nextColumn = () => {
+            if (columns === 2 && column === 0) {
+                column = 1;
+                y = top;
+            } else {
+                newPage();
+            }
+        };
+
+        const headingHeight = (name: string) =>
+            wrapText(name, columnWidth, headingSize).length * headingLine + sectionPadding;
+
+        const drawHeading = (name: string, continuation: boolean) => {
+            const label = continuation ? `${name} (continuação)` : name;
+            const lines = wrapText(label, columnWidth - 7, headingSize);
+            const height = lines.length * headingLine + sectionPadding;
+            if (y + height + itemLine + rowPadding > bottom) nextColumn();
+
+            const start = y + headingLine - 1;
+            for (let index = 0; index < lines.length; index++) {
+                drawText(lines[index], x(), start + index * headingLine, headingSize, true, 0.16);
+            }
+            y += height;
+        };
+
+        const moveWithinCategory = (name: string) => {
+            nextColumn();
+            drawHeading(name, true);
+        };
+
+        newPage();
+        for (const category of categories) {
+            drawHeading(category.name, false);
+            for (const item of category.items) {
+                const description = item.description
+                    ? wrapText(item.description, columnWidth - 2, descriptionSize)
+                    : [];
+                let descriptionOffset = 0;
+                let firstSegment = true;
+
+                do {
+                    const name = firstSegment ? item.name : `${item.name} (continuação)`;
+                    const nameLines = wrapText(name, itemTextWidth, itemSize);
+                    const baseHeight = rowPadding + nameLines.length * itemLine;
+                    const remaining = description.length - descriptionOffset;
+                    const fullHeight = baseHeight + remaining * descriptionLine;
+                    const maxItemHeight = bottom - 62 - headingHeight(category.name) - 12;
+
+                    // Keep ordinary items together; split only unusually long descriptions.
+                    if (y + fullHeight > bottom && fullHeight <= maxItemHeight) {
+                        moveWithinCategory(category.name);
+                        continue;
+                    }
+                    if (y + baseHeight + (remaining ? descriptionLine : 0) > bottom) {
+                        moveWithinCategory(category.name);
+                        continue;
+                    }
+
+                    const count = Math.min(
+                        remaining,
+                        Math.max(0, Math.floor((bottom - y - baseHeight) / descriptionLine)),
+                    );
+                    drawLine(x(), y, right(), y, 0.94, 0.45);
+                    const firstBaseline = y + 14;
+                    nameLines.forEach((part, index) => {
+                        drawText(part, x(), firstBaseline + index * itemLine, itemSize, true, 0.13);
+                    });
+                    if (firstSegment) {
+                        const price = brl(item.price_cents);
+                        drawText(price, right() - widthOf(price, itemSize), firstBaseline, itemSize, true, 0.14);
+                    }
+                    for (let index = 0; index < count; index++) {
+                        drawText(
+                            description[descriptionOffset + index],
+                            x(),
+                            firstBaseline + nameLines.length * itemLine + index * descriptionLine,
+                            descriptionSize,
+                            false,
+                            0.42,
+                        );
+                    }
+                    descriptionOffset += count;
+                    y += baseHeight + count * descriptionLine;
+                    firstSegment = false;
+                    if (descriptionOffset < description.length) {
+                        moveWithinCategory(category.name);
+                    }
+                } while (descriptionOffset < description.length);
+            }
+            y += sectionPadding;
         }
-        y += 17;
-    }
 
-    if (printed === 0) {
-        text("Nenhum produto disponível no cardápio.", LEFT, y + 10, 11, false, 0.4);
-    }
+        if (categories.length === 0) {
+            drawText("Nenhum produto disponível no cardápio.", LEFT, y + 10, 11, false, 0.4);
+        }
 
-    const allPages = pages.length;
-    for (let index = 0; index < allPages; index++) {
-        const current = commands;
-        commands = pages[index];
-        line(LEFT, 787, RIGHT, 787, 0.85);
-        text(restaurant, LEFT, 807, 8.5, false, 0.4);
-        const number = `${index + 1} / ${allPages}`;
-        text(number, RIGHT - widthOf(number, 8.5), 807, 8.5, false, 0.4);
-        commands = current;
+        for (let index = 0; index < pages.length; index++) {
+            commands = pages[index];
+            drawLine(LEFT, 792, RIGHT, 792, 0.87);
+            const number = `${index + 1} / ${pages.length}`;
+            drawText(number, RIGHT - widthOf(number, 8.5), 809, 8.5, false, 0.4);
+        }
+        return pages;
+    };
+
+    // Preserve comfortable type when possible. Compress only menus exceeding two A4 pages.
+    let pages = renderLayout({ columns: 1, compact: false });
+    if (pages.length > 2) {
+        const alternatives: Layout[] = [
+            { columns: 1, compact: true },
+            { columns: 2, compact: false },
+            { columns: 2, compact: true },
+        ];
+        for (const layout of alternatives) {
+            const trial = renderLayout(layout);
+            if (trial.length < pages.length || trial.length <= 2) {
+                pages = trial;
+            }
+            if (pages.length <= 2) break;
+        }
     }
 
     // Object offsets refer to byte positions, not JavaScript string lengths.
@@ -183,7 +278,7 @@ export function buildPrintableMenuPdf(input: MenuPdfInput): Buffer {
     };
     addObject("<< /Type /Catalog /Pages 2 0 R >>");
     const pageRefs = pages.map((_, index) => `${5 + index * 2} 0 R`).join(" ");
-    addObject(`<< /Type /Pages /Kids [${pageRefs}] /Count ${allPages} >>`);
+    addObject(`<< /Type /Pages /Kids [${pageRefs}] /Count ${pages.length} >>`);
     addObject("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>");
     addObject("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>");
 
