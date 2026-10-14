@@ -292,9 +292,28 @@ describe("automatic promotion rules and totals", () => {
     expect(calculate([p], { items: [pizza] }).promotion).toBeNull();
     expect(calculate([p], { items: [pizza, pizza], subtotal_cents: 10000 }).discount_cents).toBe(500);
   });
-  it("shows the selected category name in the promotion description", () => {
-    const p = offer([{ type: "category", category_id: foodCategory, quantity: 1 }]);
-    expect(promotionDescription(p, products, [{ id: foodCategory, name: "Lanches" }]).conditions).toContain("categoria Lanches");
+  it("describes category and weekday rules concisely regardless of their order", () => {
+    const category = { type: "category", category_id: foodCategory, quantity: 1 } as const;
+    const weekdays = { type: "weekdays", days: [4, 3, 5] };
+    const names = [{ id: foodCategory, name: "PROMOÇÕES DO MÊS" }];
+    for (const rules of [[category, weekdays], [weekdays, category]] as PromotionRule[][]) {
+      const text = promotionDescription(offer(rules), products, names).conditions;
+      expect(text).toBe("para PROMOÇÕES DO MÊS às quartas, quintas e sextas");
+      expect(`Válida ${text}.`).toBe("Válida para PROMOÇÕES DO MÊS às quartas, quintas e sextas.");
+    }
+  });
+  it("makes multi-product category requirements explicit", () => {
+    const p = offer([{ type: "category", category_id: foodCategory, quantity: 3 }]);
+    expect(promotionDescription(p, products, [{ id: foodCategory, name: "Lanches" }]).conditions)
+      .toBe("na compra de 3 produtos da categoria Lanches");
+  });
+  it("uses short weekday names and the right weekend preposition", () => {
+    expect(promotionDescription(offer([{ type: "weekdays", days: [2, 1] }]), products).conditions)
+      .toBe("às segundas e terças");
+    expect(promotionDescription(offer([{ type: "weekdays", days: [0, 6] }]), products).conditions)
+      .toBe("aos sábados e domingos");
+    expect(promotionDescription(offer([{ type: "weekdays", days: [3, 0] }]), products).conditions)
+      .not.toMatch(/feira/i);
   });
   it("discounts the free base product while keeping paid extras and extra units", () => {
     const p = offer(

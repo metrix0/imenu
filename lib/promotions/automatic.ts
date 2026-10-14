@@ -72,11 +72,11 @@ export type PromotionResult = {
 
 export const WEEKDAYS = [
   "domingo",
-  "segunda-feira",
-  "terça-feira",
-  "quarta-feira",
-  "quinta-feira",
-  "sexta-feira",
+  "segunda",
+  "terça",
+  "quarta",
+  "quinta",
+  "sexta",
   "sábado",
 ];
 export const PROMOTION_TIMEZONE = "America/Sao_Paulo";
@@ -183,6 +183,18 @@ function joinTexts(values: string[]) {
     : `${values.slice(0, -1).join(", ")} e ${values.at(-1)}`;
 }
 
+function describePromotionDays(days: number[]) {
+  const selected = [...new Set(days)].sort((a, b) => ((a + 6) % 7) - ((b + 6) % 7));
+  const labels = selected.map((day) => `${WEEKDAYS[day]}s`);
+  if (selected.every((day) => day >= 1 && day <= 5))
+    return `às ${joinTexts(labels)}`;
+  if (selected.every((day) => day === 0 || day === 6))
+    return `aos ${joinTexts(labels)}`;
+  return joinTexts(selected.map((day) =>
+    `${day === 0 || day === 6 ? "aos" : "às"} ${WEEKDAYS[day]}s`,
+  ));
+}
+
 export function promotionDescription(
   p: AutomaticPromotion,
   products: Pick<PromotionProduct, "id" | "name">[],
@@ -196,26 +208,13 @@ export function promotionDescription(
     r.type === "weekdays"
       ? r.days.length === 7
         ? "todos os dias"
-        : joinTexts(
-            [...new Set(r.days)]
-              .sort((a, b) => ((a + 6) % 7) - ((b + 6) % 7))
-              .map(
-                (d) =>
-                  [
-                    "aos domingos",
-                    "às segundas-feiras",
-                    "às terças-feiras",
-                    "às quartas-feiras",
-                    "às quintas-feiras",
-                    "às sextas-feiras",
-                    "aos sábados",
-                  ][d],
-              ),
-          )
+        : describePromotionDays(r.days)
       : r.type === "minimum"
         ? `em pedidos ${r.comparison === "gt" ? "acima de" : "a partir de"} ${formatPrice(r.cents)}`
         : r.type === "category"
-          ? `na compra de ${r.quantity}× da categoria ${categoryName(r.category_id)}`
+          ? r.quantity === 1
+            ? `para ${categoryName(r.category_id)}`
+            : `na compra de ${r.quantity} produtos da categoria ${categoryName(r.category_id)}`
           : `na compra de ${r.quantity}× ${name(r.item_id)}`,
   );
   const benefits = p.benefits.map((b) =>
@@ -228,7 +227,12 @@ export function promotionDescription(
           : `${b.quantity}× ${name(b.item_id)} grátis`,
   );
   return {
-    conditions: rules.length ? joinTexts(rules) : "todos os dias",
+    conditions: rules.length
+      ? [
+          joinTexts(rules.filter((_, i) => p.rules[i].type !== "weekdays")),
+          joinTexts(rules.filter((_, i) => p.rules[i].type === "weekdays")),
+        ].filter(Boolean).join(" ")
+      : "todos os dias",
     benefits: joinTexts(benefits),
   };
 }
