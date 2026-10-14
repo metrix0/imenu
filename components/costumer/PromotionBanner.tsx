@@ -44,7 +44,7 @@ export default function PromotionBanner({
           {description.benefits.charAt(0).toUpperCase() +
             description.benefits.slice(1)}
         </p>
-        <p className="mt-1 text-sm leading-relaxed text-gray-600">
+        <p className="mt-1 whitespace-pre-line text-sm leading-relaxed text-gray-600">
           Válida {description.conditions}.
         </p>
       </div>

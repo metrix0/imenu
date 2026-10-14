@@ -678,7 +678,7 @@ export default function AutomaticPromotionsPanel({
           <PromotionCard
             key={p.id}
             title={p.name}
-            description={<>{description.benefits} · {description.conditions}</>}
+            description={<>{description.benefits} · <span className="whitespace-pre-line">{description.conditions}</span></>}
             active={p.active}
             disabled={saving}
             onToggle={() => void save({ ...p, active: !p.active })}

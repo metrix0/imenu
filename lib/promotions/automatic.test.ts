@@ -314,6 +314,22 @@ describe("automatic promotion rules and totals", () => {
       .toBe("aos sábados e domingos");
     expect(promotionDescription(offer([{ type: "weekdays", days: [3, 0] }]), products).conditions)
       .not.toMatch(/feira/i);
+    expect(promotionDescription(offer([{ type: "weekdays", days: [3, 4, 5, 6] }]), products).conditions)
+      .toBe("às quartas, quintas, sextas e sábados");
+    expect(promotionDescription(offer([{ type: "weekdays", days: [0, 3, 4] }]), products).conditions)
+      .toBe("às quartas e quintas e aos domingos");
+  });
+  it("lists multiple required products on separate lines with a single introduction", () => {
+    const rules: PromotionRule[] = [
+      { type: "product", item_id: burger, quantity: 1 },
+      { type: "product", item_id: drink, quantity: 2 },
+    ];
+    expect(promotionDescription(offer(rules), products).conditions)
+      .toBe("na compra de\n1× Hambúrguer\n2× Suco");
+    expect(promotionDescription(offer([...rules, { type: "weekdays", days: [3, 4, 5, 6] }]), products).conditions)
+      .toBe("na compra de\n1× Hambúrguer\n2× Suco\nàs quartas, quintas, sextas e sábados");
+    expect(promotionDescription(offer([rules[0]]), products).conditions)
+      .toBe("na compra de 1× Hambúrguer");
   });
   it("discounts the free base product while keeping paid extras and extra units", () => {
     const p = offer(

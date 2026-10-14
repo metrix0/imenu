@@ -186,13 +186,11 @@ function joinTexts(values: string[]) {
 function describePromotionDays(days: number[]) {
   const selected = [...new Set(days)].sort((a, b) => ((a + 6) % 7) - ((b + 6) % 7));
   const labels = selected.map((day) => `${WEEKDAYS[day]}s`);
-  if (selected.every((day) => day >= 1 && day <= 5))
-    return `às ${joinTexts(labels)}`;
   if (selected.every((day) => day === 0 || day === 6))
     return `aos ${joinTexts(labels)}`;
-  return joinTexts(selected.map((day) =>
-    `${day === 0 || day === 6 ? "aos" : "às"} ${WEEKDAYS[day]}s`,
-  ));
+  if (!selected.includes(0))
+    return `às ${joinTexts(labels)}`;
+  return `às ${joinTexts(selected.filter((day) => day !== 0).map((day) => `${WEEKDAYS[day]}s`))} e aos domingos`;
 }
 
 export function promotionDescription(
@@ -226,13 +224,22 @@ export function promotionDescription(
           ? `${formatPrice(b.cents)} de desconto`
           : `${b.quantity}× ${name(b.item_id)} grátis`,
   );
+  const productLines = rules.filter((_, i) => p.rules[i].type === "product");
+  const weekdays = rules.filter((_, i) => p.rules[i].type === "weekdays");
   return {
-    conditions: rules.length
+    conditions: productLines.length > 1
       ? [
-          joinTexts(rules.filter((_, i) => p.rules[i].type !== "weekdays")),
-          joinTexts(rules.filter((_, i) => p.rules[i].type === "weekdays")),
-        ].filter(Boolean).join(" ")
-      : "todos os dias",
+          "na compra de",
+          ...productLines.map((text) => text.replace(/^na compra de /, "")),
+          ...rules.filter((_, i) => p.rules[i].type !== "product" && p.rules[i].type !== "weekdays"),
+          ...weekdays,
+        ].join("\n")
+      : rules.length
+        ? [
+            joinTexts(rules.filter((_, i) => p.rules[i].type !== "weekdays")),
+            joinTexts(weekdays),
+          ].filter(Boolean).join(" ")
+        : "todos os dias",
     benefits: joinTexts(benefits),
   };
 }
