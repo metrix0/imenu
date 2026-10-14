@@ -161,9 +161,8 @@ export function buildPrintableMenuPdf(input: MenuPdfInput): Buffer {
         const headingHeight = (name: string) =>
             wrapText(name, columnWidth, headingSize).length * headingLine + sectionPadding;
 
-        const drawHeading = (name: string, continuation: boolean) => {
-            const label = continuation ? `${name} (continuação)` : name;
-            const lines = wrapText(label, columnWidth - 7, headingSize);
+        const drawHeading = (name: string) => {
+            const lines = wrapText(name, columnWidth - 7, headingSize);
             const height = lines.length * headingLine + sectionPadding;
             if (y + height + itemLine + rowPadding > bottom) nextColumn();
 
@@ -174,14 +173,13 @@ export function buildPrintableMenuPdf(input: MenuPdfInput): Buffer {
             y += height;
         };
 
-        const moveWithinCategory = (name: string) => {
+        const moveWithinCategory = () => {
             nextColumn();
-            drawHeading(name, true);
         };
 
         newPage();
         for (const category of categories) {
-            drawHeading(category.name, false);
+            drawHeading(category.name);
             for (const item of category.items) {
                 const description = item.description
                     ? wrapText(item.description, columnWidth - 2, descriptionSize)
@@ -199,11 +197,11 @@ export function buildPrintableMenuPdf(input: MenuPdfInput): Buffer {
 
                     // Keep ordinary items together; split only unusually long descriptions.
                     if (y + fullHeight > bottom && fullHeight <= maxItemHeight) {
-                        moveWithinCategory(category.name);
+                        moveWithinCategory();
                         continue;
                     }
                     if (y + baseHeight + (remaining ? descriptionLine : 0) > bottom) {
-                        moveWithinCategory(category.name);
+                        moveWithinCategory();
                         continue;
                     }
 
@@ -234,7 +232,7 @@ export function buildPrintableMenuPdf(input: MenuPdfInput): Buffer {
                     y += baseHeight + count * descriptionLine;
                     firstSegment = false;
                     if (descriptionOffset < description.length) {
-                        moveWithinCategory(category.name);
+                        moveWithinCategory();
                     }
                 } while (descriptionOffset < description.length);
             }
