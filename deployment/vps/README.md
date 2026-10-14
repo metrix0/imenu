@@ -18,11 +18,11 @@ Production DNS, Vercel main, provider webhooks, and source Supabase remain uncha
 - Two Vault secrets recreated from decrypted source values using destination encryption.
 - Realtime publication includes orders, printer_queue_signals, whatsapp_connections.
 - storage-maintenance function copied. Runtime dependency cache warmed, then outbound network removed.
-- Payments, WAHA, AI provider credentials and Vercel domain credentials are disabled in staging. External network access is blocked.
+- Payments, WAHA, AI provider credentials and Vercel domain credentials are disabled in staging. External network access is blocked except for the Auth-only outbound network used for Google OAuth discovery.
 
 ## Build and access
 
-Build with deployment/vps/Dockerfile and a private BuildKit secret named build_env. It must contain shell-quoted environment assignments. The image runs the existing IA regression tests, TypeScript, and Next production build. Never put .env files or credentials in the build context or Git.
+Build with deployment/vps/Dockerfile and a private BuildKit secret named build_env. It must contain shell-quoted environment assignments. Pass BUILD_PUBLIC_CONFIG_SHA256 as a build argument containing the SHA256 of the sorted NEXT_PUBLIC_ configuration. BuildKit secret changes alone do not invalidate cached build layers; the public fingerprint forces browser configuration to rebuild. Never include private keys in that fingerprint. The image runs the existing IA regression tests, TypeScript, and Next production build. Never put .env files or credentials in the build context or Git.
 
 Run compose.stage.yml with IMENU_STAGE_ENV_FILE set to the private runtime environment file. DATABASE_SSL=false is only for the isolated local Docker connection. The existing Vercel SSL behavior remains the default.
 
@@ -40,8 +40,8 @@ GET /api/printer/config exposes only the public Supabase URL and an anon/publish
 
 ## Remaining work before cutover
 
-1. Obtain the existing legacy JWT signing secret and verify both existing anon and service-role signatures before reusing them. Existing sessions and printer login continuity are NOT yet proven.
-2. Configure the existing Google OAuth client ID/secret and SMTP settings. Preserve current redirect URLs and ADD test/new callback URLs before removing anything. Source requires email confirmation.
+1. Original legacy JWT secret recovered; original anon and service-role signatures verified and keys reused. Password login, refresh, user lookup, RLS reads, and recovery-link generation passed. Existing real-user session continuity and installed printer continuity still require end-to-end validation. NEXT_PUBLIC_SUPABASE_AUTH_STORAGE_KEY preserves sb-mjogdsnxbwhbqcoijrwt-auth-token for the browser when the API hostname changes; leave unset to retain the default behavior on Vercel.
+2. Existing Google OAuth client ID/secret configured and authorize redirect verified. ADD http://localhost:8000/auth/v1/callback in the existing Google Cloud OAuth client before a full tunneled login test; preserve the managed Supabase callback. Original JWT issuer preserved. SMTP host/port/user/sender recovered, but Supabase hides the stored password and no Resend key was present in the local app envs. Obtain the existing Resend SMTP key before real email delivery tests. Staging still captures email in Mailpit; source requires email confirmation.
 3. Prepare and test a printer release that retrieves the public backend config instead of using the hardcoded managed URL. Preserve its existing auth storage key. Do not release it to customers without the rollout decision.
 4. Test Google login, email signup/reset delivery, authenticated dashboard/order flow, Realtime reconnect, printer claim/ack/retry/idempotency, and browser push in an isolated test tenant. Never send a test to a real printer or make a real payout.
 5. Validate and deploy the TLS reverse proxy on a protected temporary hostname. Restore dynamic custom domain routing, redirects/canonical behavior, and Storage public/private downloads. DNS/ACME account information is still needed for production TLS.

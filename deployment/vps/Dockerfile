@@ -6,7 +6,8 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --include=dev
 COPY --chown=node:node . .
-RUN --mount=type=secret,id=build_env,required=true bash -c 'set -a; source /run/secrets/build_env; set +a; npx jest lib/ia-vendas/__tests__ --runInBand && npx tsc --noEmit && npx next build'
+ARG BUILD_PUBLIC_CONFIG_SHA256
+RUN --mount=type=secret,id=build_env,required=true test -n "$BUILD_PUBLIC_CONFIG_SHA256" && bash -c 'set -a; source /run/secrets/build_env; set +a; npx jest lib/ia-vendas/__tests__ --runInBand && npx tsc --noEmit && npx next build'
 RUN chown -R node:node /app/.next /app/.cache
 ENV NODE_ENV=production
 USER node
