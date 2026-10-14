@@ -149,6 +149,7 @@ export async function releaseExpiredSupportHandoffs(
                 handoff_prompted_at = NULL,
                 updated_at = NOW()
             WHERE mode = 'human'
+              AND (ai_paused_until IS NULL OR ai_paused_until <= NOW())
               AND (
                     human_started_at <= NOW() - INTERVAL '12 hours'
                     OR last_human_reply_at <= NOW() - INTERVAL '30 minutes'
