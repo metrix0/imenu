@@ -216,6 +216,7 @@ export default function ConfiguracoesPage() {
     const [isSavingOrderScheduling, setIsSavingOrderScheduling] =
         useState(false);
     const [isSavingVitrine, setIsSavingVitrine] = useState(false);
+    const [isExportingMenu, setIsExportingMenu] = useState(false);
     const [vitrineAccess, setVitrineAccess] = useState(false);
     const [showVitrineQr, setShowVitrineQr] = useState(false);
     const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -460,6 +461,48 @@ export default function ConfiguracoesPage() {
             setToast({ message: "Erro ao salvar o Modo Vitrine.", type: "error" });
         } finally {
             setIsSavingVitrine(false);
+        }
+    };
+
+    const exportPrintableMenu = async () => {
+        if (!restaurant || isExportingMenu) return;
+        if (!vitrineAccess) {
+            router.push("/painel/planos");
+            return;
+        }
+
+        setIsExportingMenu(true);
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session?.access_token) throw new Error("Sua sessão expirou. Entre novamente.");
+            const response = await fetch(
+                `/api/menu/export-pdf?restaurantId=${encodeURIComponent(restaurant.id)}`,
+                { headers: { Authorization: `Bearer ${session.access_token}` } },
+            );
+            if (!response.ok) {
+                const result = await response.json().catch(() => null);
+                throw new Error(result?.error || "Não foi possível exportar o cardápio.");
+            }
+
+            const file = await response.blob();
+            const url = URL.createObjectURL(file);
+            try {
+                const link = document.createElement("a");
+                link.href = url;
+                link.download = `cardapio-${(restaurant.url_slug || "imenu").replace(/[^a-zA-Z0-9_-]/g, "-")}.pdf`;
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+            } finally {
+                window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+            }
+        } catch (error) {
+            setToast({
+                message: error instanceof Error ? error.message : "Erro ao exportar cardápio.",
+                type: "error",
+            });
+        } finally {
+            setIsExportingMenu(false);
         }
     };
 
@@ -965,6 +1008,47 @@ export default function ConfiguracoesPage() {
                                     </Button>
                                 </div>
                             )}
+                        </Card>
+                    )}
+
+                    {restaurant && (
+                        <Card className="border border-gray-200 shadow-sm">
+                            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                                <div>
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <h2 className="text-xl font-medium text-gray-900">
+                                            Exportar Cardápio para Impressão
+                                        </h2>
+                                        <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${vitrineAccess ? "bg-green-50 text-green-700" : "bg-orange-50 text-orange-800"}`}>
+                                            <FontAwesomeIcon icon={vitrineAccess ? faCheck : faLock} />
+                                            {vitrineAccess ? "Plano ativo" : "Incluso no iMenu QR ou IA Plus"}
+                                        </span>
+                                    </div>
+                                    <p className="mt-2 text-sm text-gray-500">
+                                        Baixe um PDF pronto para imprimir, com suas categorias, produtos, descrições e preços.
+                                    </p>
+                                </div>
+                                <div className="flex shrink-0 items-start">
+                                    {vitrineAccess ? (
+                                        <Button
+                                            variant="secondary"
+                                            onClick={() => void exportPrintableMenu()}
+                                            loading={isExportingMenu}
+                                            className="gap-2"
+                                        >
+                                            <FontAwesomeIcon icon={faDownload} />
+                                            Exportar PDF
+                                        </Button>
+                                    ) : (
+                                        <Tooltip text="Disponível com iMenu QR ou IA Plus. Assine um dos planos para exportar o cardápio." parentClassName="!block">
+                                            <Button onClick={() => router.push("/painel/planos")} className="gap-2">
+                                                Desbloquear exportação
+                                                <FontAwesomeIcon icon={faLock} />
+                                            </Button>
+                                        </Tooltip>
+                                    )}
+                                </div>
+                            </div>
                         </Card>
                     )}
 
