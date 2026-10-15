@@ -18,7 +18,7 @@ Production DNS, Vercel main, provider webhooks, and source Supabase remain uncha
 - Two Vault secrets recreated from decrypted source values using destination encryption.
 - Realtime publication includes orders, printer_queue_signals, whatsapp_connections.
 - storage-maintenance function copied. Runtime dependency cache warmed, then outbound network removed.
-- Staging payments: the existing Asaas API credentials and all five Fixie proxy URLs have been restored to the private staging runtime/build environments, and the app alone has outbound access through the existing staging Caddy egress network. The Supabase database network remains internal, payouts and schedulers remain disabled, and production DNS/webhooks remain unchanged. Mercado Pago staging Pix still requires replacing the `staging-disabled` access-token placeholder with the authorized private token before it can authenticate. WAHA, other AI/provider secrets and Vercel domain credentials remain disabled in staging.
+- Staging payments: the existing Asaas API credentials and all five Fixie proxy URLs have been restored to the private staging runtime/build environments, and the app alone has outbound access through the existing staging Caddy egress network. The Supabase database network remains internal, payouts and schedulers remain disabled, and production DNS/webhooks remain unchanged. The original Mercado Pago access token is now configured in private staging environment files and authenticated successfully in a read-only API check (HTTP 200); real Pix charge creation and payment webhooks have not been tested. WAHA, other AI/provider secrets and Vercel domain credentials remain disabled in staging.
 
 ## Build and access
 
@@ -44,7 +44,7 @@ Production DNS, Vercel main, provider webhooks, and source Supabase remain uncha
 - Two Vault secrets recreated from decrypted source values using destination encryption.
 - Realtime publication includes orders, printer_queue_signals, whatsapp_connections.
 - storage-maintenance function copied. Runtime dependency cache warmed, then outbound network removed.
-- Staging payments: the existing Asaas API credentials and all five Fixie proxy URLs have been restored to the private staging runtime/build environments, and the app alone has outbound access through the existing staging Caddy egress network. The Supabase database network remains internal, payouts and schedulers remain disabled, and production DNS/webhooks remain unchanged. Mercado Pago staging Pix still requires replacing the `staging-disabled` access-token placeholder with the authorized private token before it can authenticate. WAHA, other AI/provider secrets and Vercel domain credentials remain disabled in staging.
+- Staging payments: the existing Asaas API credentials and all five Fixie proxy URLs have been restored to the private staging runtime/build environments, and the app alone has outbound access through the existing staging Caddy egress network. The Supabase database network remains internal, payouts and schedulers remain disabled, and production DNS/webhooks remain unchanged. The original Mercado Pago access token is now configured in private staging environment files and authenticated successfully in a read-only API check (HTTP 200); real Pix charge creation and payment webhooks have not been tested. WAHA, other AI/provider secrets and Vercel domain credentials remain disabled in staging.
 
 ## Build and access
 
