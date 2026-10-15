@@ -12,7 +12,7 @@ RUN_ENV="$BASE/secrets/app-stage.env"
 COMPOSE="$BASE/app/deployment/vps/compose.stage.yml"
 mkdir -p "$STATE"
 exec 9>"$STATE/deploy.lock"
-flock -n 9 || { echo "Another staging deployment is active"; exit 0; }
+flock -n 9 || { echo "Another staging deployment is active" >&2; exit 75; }
 
 [[ -f "$BUILD_ENV" && -f "$RUN_ENV" && -f "$COMPOSE" ]] || { echo "Missing staging configuration" >&2; exit 1; }
 [[ "$(docker network inspect imenu-stage_default --format '{{.Internal}}')" == true ]] || { echo "Staging network is not isolated" >&2; exit 1; }
@@ -22,24 +22,54 @@ export GIT_TERMINAL_PROMPT=0
 export IMENU_STAGE_ENV_FILE="$RUN_ENV"
 
 if [[ "$#" -eq 1 && "$1" == --check ]]; then
-  git ls-remote "$REMOTE" refs/heads/preview
-  echo "Current deployed SHA: $(cat "$STATE/deployed-sha" 2>/dev/null || echo unrecorded)"
+  git -c http.version=HTTP/1.1 ls-remote "$REMOTE" refs/heads/preview
+  echo "Deployed: $(cat "$STATE/deployed-sha" 2>/dev/null || echo unrecorded)"
+  echo "Failed: $(cat "$STATE/failed-sha" 2>/dev/null || echo none)"
   echo "Staging configuration and isolation OK"
   exit 0
 fi
-[[ "$#" -eq 0 ]] || { echo "Unexpected argument" >&2; exit 2; }
-
-if [[ ! -d "$SOURCE/.git" ]]; then
-  git clone --quiet --depth 1 --single-branch --branch preview "$REMOTE" "$SOURCE"
+retry=false
+if [[ "$#" -eq 2 && "$1" == --retry ]]; then
+  retry=true
+  sha="$2"
+elif [[ "$#" -eq 1 ]]; then
+  sha="$1"
 else
-  [[ "$(git -C "$SOURCE" remote get-url origin)" == "$REMOTE" ]] || { echo "Unexpected repository remote" >&2; exit 1; }
-  git -C "$SOURCE" fetch --quiet --depth 1 origin preview
-  git -C "$SOURCE" reset --hard --quiet FETCH_HEAD
+  echo "Expected preview SHA or --retry SHA" >&2
+  exit 2
 fi
-sha="$(git -C "$SOURCE" rev-parse HEAD)"
-[[ "$sha" =~ ^[0-9a-f]{40}$ ]] || exit 1
+[[ "$sha" =~ ^[0-9a-f]{40}$ ]] || { echo "Invalid SHA" >&2; exit 2; }
+remote_sha="$(git -c http.version=HTTP/1.1 ls-remote "$REMOTE" refs/heads/preview | cut -f1)"
+[[ "$remote_sha" =~ ^[0-9a-f]{40}$ ]] || { echo "Cannot resolve preview HEAD" >&2; exit 1; }
+if [[ "$remote_sha" != "$sha" ]]; then
+  echo "Skipping obsolete commit $sha; preview now points to $remote_sha"
+  exit 0
+fi
 if [[ "$(cat "$STATE/deployed-sha" 2>/dev/null || true)" == "$sha" ]] && [[ "$(docker inspect imenu-stage-app --format '{{.State.Health.Status}}')" == healthy ]]; then
   echo "Already deployed and healthy: $sha"
+  exit 0
+fi
+if [[ "$retry" != true && "$(cat "$STATE/failed-sha" 2>/dev/null || true)" == "$sha" ]]; then
+  echo "Commit $sha previously failed; manual --retry required" >&2
+  exit 1
+fi
+trap 'rc=$?; if [[ "$rc" -ne 0 ]]; then printf "%s\n" "$sha" >"$STATE/failed-sha"; echo "Recorded failed preview SHA: $sha" >&2; fi' EXIT
+
+
+if [[ -d "$SOURCE/.git" ]] && ! git -C "$SOURCE" rev-parse --verify HEAD >/dev/null 2>&1; then
+  rm -rf -- "$SOURCE"
+fi
+if [[ ! -d "$SOURCE/.git" ]]; then
+  git -c http.version=HTTP/1.1 clone --quiet --filter=blob:none --depth 1 --single-branch --branch preview "$REMOTE" "$SOURCE"
+else
+  [[ "$(git -C "$SOURCE" remote get-url origin)" == "$REMOTE" ]] || { echo "Unexpected repository remote" >&2; exit 1; }
+  git -C "$SOURCE" -c http.version=HTTP/1.1 fetch --quiet --depth 1 origin preview
+  git -C "$SOURCE" reset --hard --quiet FETCH_HEAD
+fi
+actual="$(git -C "$SOURCE" rev-parse HEAD)"
+if [[ "$actual" != "$sha" ]]; then
+  echo "Checkout advanced to $actual; skipping obsolete $sha"
+  trap - EXIT
   exit 0
 fi
 
@@ -98,5 +128,6 @@ if [[ "$healthy" != true ]]; then
   exit 1
 fi
 printf '%s\n' "$sha" >"$STATE/deployed-sha"
+rm -f -- "$STATE/failed-sha"
 docker image rm "$candidate" >/dev/null 2>&1 || true
 echo "Deployed healthy preview staging: $sha"
