@@ -16,7 +16,7 @@ import { PRODUCT_DIMENSIONS } from "../products";
 import { potential } from "../peers";
 import { LIMITS } from "../config";
 import { query, withTransaction } from "@/lib/database/sql";
-import { context, measure } from "../data";
+import { context, measure, readData } from "../data";
 import { beginRun, recordTokens, finishRun } from "../runs";
 import { propose } from "../actions";
 import { applyProposal } from "../application";
@@ -213,6 +213,24 @@ test("assistant offers targeted reads and a compact field guide", async () => {
   expect(request.input[0].content).toContain("Campos disponíveis");
   expect(request.input[0].content).toContain("items: ");
   expect(request.input[0].content).not.toContain('"nullable":false');
+});
+
+test("deep analysis retains the original full-field 50-row read_data tool", async () => {
+  const rows = Array.from({ length: 50 }, (_, i) => ({ id: `item-${i}`, name: `Produto ${i}` }));
+  (readData as jest.Mock).mockResolvedValueOnce({ rows, has_more: true, next_offset: 50 });
+  const call = (name: string, call_id: string) => ({
+    type: "function_call", name, arguments: JSON.stringify(name === "read_data" ? { entity: "items", offset: 0 } : {}), call_id,
+  });
+  create
+    .mockResolvedValueOnce({ status: "completed", output: [call("read_data", "analysis-read")], usage: { input_tokens: 1000, output_tokens: 100 } })
+    .mockResolvedValueOnce({ status: "completed", output: [call("measure_actions", "analysis-measure")], usage: { input_tokens: 1000, output_tokens: 100 } })
+    .mockResolvedValueOnce({ status: "completed", output: [], output_text: JSON.stringify(result()), usage: { input_tokens: 1000, output_tokens: 100 } });
+  await runChat(args);
+  const readTool = create.mock.calls[0][0].tools.find((item: any) => item.name === "read_data");
+  expect(Object.keys(readTool.parameters.properties).sort()).toEqual(["entity", "offset"]);
+  expect(readData).toHaveBeenCalledWith("owner", "items", 0);
+  const toolOutput = create.mock.calls[1][0].input.find((item: any) => item.type === "function_call_output" && item.call_id === "analysis-read");
+  expect(JSON.parse(toolOutput.output).rows).toHaveLength(50);
 });
 
 test.each([true, false])("every leading product is required through immediate and queued analysis (immediate=%s)", async (immediate) => {

@@ -53,13 +53,10 @@ const imageProps = {
 const tools = [
   tool(
     "read_data",
-    "Ler dados comerciais do restaurante. Use limit pequeno e fields/ids para consultas pontuais; use limit=50 e omita fields para registros completos. Paginação por offset.",
+    "Ler dados comerciais do próprio restaurante; páginas de 50 registros.",
     {
       entity: { type: "string", enum: Object.keys(FIELDS) },
       offset: { type: "integer" },
-      limit: { type: "integer", minimum: 1, maximum: 50 },
-      ids: { type: "array", items: text, maxItems: 50 },
-      fields: { type: "array", items: text },
     },
     ["entity"],
   ),
@@ -162,7 +159,22 @@ const tools = [
 ];
 
 const assistantTools = [
-  ...tools,
+  ...tools.map((definition) =>
+    definition.name === "read_data"
+      ? tool(
+          "read_data",
+          "Ler dados comerciais do restaurante. Use limit pequeno e fields/ids para consultas pontuais; use limit=50 e omita fields para registros completos. Paginação por offset.",
+          {
+            entity: { type: "string", enum: Object.keys(FIELDS) },
+            offset: { type: "integer" },
+            limit: { type: "integer", minimum: 1, maximum: 50 },
+            ids: { type: "array", items: text, maxItems: 50 },
+            fields: { type: "array", items: text },
+          },
+          ["entity"],
+        )
+      : definition,
+  ),
   tool(
     "search_imenu_knowledge",
     "Consultar a mesma base de conhecimento curada usada pelo suporte oficial do iMenu. Use para funcionamento do produto, configuração, preços, termos, políticas e orientações do sistema.",
@@ -712,11 +724,13 @@ export async function runChat(args: {
             });
             switch (call.name) {
               case "read_data":
-                result = await readData(restaurant, p.entity, p.offset || 0, false, undefined, {
-                  limit: p.limit ?? 15,
-                  ids: p.ids,
-                  fields: p.fields,
-                });
+                result = deep
+                  ? await readData(restaurant, p.entity, p.offset || 0)
+                  : await readData(restaurant, p.entity, p.offset || 0, false, undefined, {
+                      limit: p.limit ?? 15,
+                      ids: p.ids,
+                      fields: p.fields,
+                    });
                 break;
               case "sales_metrics":
                 result = await metrics(
