@@ -47,7 +47,7 @@ export function GET(request: Request) {
         return NextResponse.json({ error: "Printer connection unavailable" }, { status: 503 });
     }
     return NextResponse.json(
-        { supabaseUrl: url.replace(/\/+$/, ""), supabaseAnonKey: key, updates: updatePolicy(new URL(request.url).searchParams.get("edition") === "legacy", new URL(request.url).origin) },
+        { supabaseUrl: url.replace(/\/+$/, ""), supabaseAnonKey: key, updates: updatePolicy(new URL(request.url).searchParams.get("edition") === "legacy", process.env.IMENU_PUBLIC_URL?.trim() || new URL(request.url).origin) },
         { headers: { "Cache-Control": "no-store, max-age=0" } }
     );
 }
