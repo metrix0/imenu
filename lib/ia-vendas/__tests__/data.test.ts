@@ -73,3 +73,46 @@ test("normal reads retain 50-row pagination", async () => {
   expect(page.has_more).toBe(true);
   expect((query as jest.Mock).mock.calls[0][0]).toContain("LIMIT 51 OFFSET $2");
 });
+
+test("selective reads fetch only requested fields and IDs", async () => {
+  const id = "11111111-1111-4111-8111-111111111111";
+  (query as jest.Mock).mockResolvedValue({
+    rows: [{ id, name: "Pernil Burger", is_available: true }],
+  });
+  const result = await readData("restaurant", "items", 0, false, undefined, {
+    ids: [id], fields: ["name", "is_available"], limit: 2,
+  });
+  const [sql, params] = (query as jest.Mock).mock.calls[0];
+  expect(sql).toContain("SELECT t.id,t.name,t.is_available FROM public.items");
+  expect(sql).toContain("t.id=ANY($3::uuid[])");
+  expect(sql).toContain("LIMIT 3 OFFSET $2");
+  expect(params).toEqual(["restaurant", 0, [id]]);
+  expect(result).toEqual({
+    rows: [{ id, name: "Pernil Burger", is_available: true }],
+    has_more: false, next_offset: 2,
+  });
+});
+
+test("selective reads reject invalid fields, IDs and limits before querying", async () => {
+  (query as jest.Mock).mockClear();
+  await expect(readData("restaurant", "items", 0, false, undefined, {
+    fields: ["owner_password"],
+  })).rejects.toThrow("Campos inválidos.");
+  await expect(readData("restaurant", "items", 0, false, undefined, {
+    ids: ["not-a-uuid"],
+  })).rejects.toThrow("Identificadores inválidos.");
+  await expect(readData("restaurant", "items", 0, false, undefined, {
+    limit: 51,
+  })).rejects.toThrow("Limite de registros inválido.");
+  expect(query).not.toHaveBeenCalled();
+});
+
+test("full records remain available up to 50 at a time", async () => {
+  (query as jest.Mock).mockResolvedValue({
+    rows: Array.from({ length: 51 }, (_, i) => ({ id: i, image_path: null })),
+  });
+  const page = await readData("restaurant", "items", 0, false, undefined, { limit: 50 });
+  expect(page.rows).toHaveLength(50);
+  expect(page.has_more).toBe(true);
+  expect((query as jest.Mock).mock.calls[0][0]).toContain("LIMIT 51 OFFSET $2");
+});

@@ -2,7 +2,7 @@ import type { PoolClient } from "pg";
 import { query, withTransaction } from "@/lib/database/sql";
 import { createSupabaseServerClient } from "@/lib/database/supabaseServerClient";
 import { FIELDS } from "./fields";
-import { fields, key, scope } from "./catalog";
+import { fields, isUuid, key, scope } from "./catalog";
 import { SalesError, type Data } from "./types";
 import { productReviewTargets } from "./products";
 export function imageUrl(path: string | null, bucket = "menu-images") {
@@ -18,8 +18,24 @@ export async function readData(
   offset = 0,
   complete = false,
   client?: PoolClient,
+  options?: { ids?: string[]; fields?: string[]; limit?: number },
 ) {
-  const cols = [...new Set([key(entity), ...Object.keys(fields(entity))])],
+  const available = fields(entity);
+  const selectedFields = options?.fields;
+  if (selectedFields !== undefined && (
+    !Array.isArray(selectedFields) || !selectedFields.length ||
+    selectedFields.some((field) => typeof field !== "string" ||
+      (field !== key(entity) && !Object.hasOwn(available, field)))
+  )) throw new SalesError("Campos inválidos.");
+  const ids = options?.ids;
+  if (ids !== undefined && (
+    !Array.isArray(ids) || !ids.length || ids.length > 50 ||
+    ids.some((id) => typeof id !== "string" || !isUuid(id))
+  )) throw new SalesError("Identificadores inválidos.");
+  const limit = options?.limit ?? 50;
+  if (!Number.isInteger(limit) || limit < 1 || limit > 50)
+    throw new SalesError("Limite de registros inválido.");
+  const cols = [...new Set([key(entity), ...(selectedFields ?? Object.keys(available))])],
     order =
       {
         categories: "t.position,t.id",
@@ -34,20 +50,21 @@ export async function readData(
   const execute = client
     ? (sql: string, params: any[]) => client.query(sql, params)
     : query;
+  const filter = ids ? ` AND t.${key(entity)}=ANY($${complete ? 2 : 3}::uuid[])` : "";
   const rows = (
     await execute(
-      `SELECT ${cols.map((k) => `t.${k}`).join(",")} FROM public.${entity} t WHERE ${scope(entity)} ORDER BY ${order} ${complete ? "" : "LIMIT 51 OFFSET $2"}`,
-      complete ? [restaurant] : [restaurant, offset],
+      `SELECT ${cols.map((k) => `t.${k}`).join(",")} FROM public.${entity} t WHERE ${scope(entity)}${filter} ORDER BY ${order} ${complete ? "" : `LIMIT ${limit + 1} OFFSET $2`}`,
+      complete ? [restaurant, ...(ids ? [ids] : [])] : [restaurant, offset, ...(ids ? [ids] : [])],
     )
   ).rows;
   return {
     rows: rows
-      .slice(0, complete ? rows.length : 50)
+      .slice(0, complete ? rows.length : limit)
       .map((r) =>
-        entity === "items" ? { ...r, image_url: imageUrl(r.image_path) } : r,
+        entity === "items" && "image_path" in r ? { ...r, image_url: imageUrl(r.image_path) } : r,
       ),
-    has_more: !complete && rows.length > 50,
-    next_offset: offset + 50,
+    has_more: !complete && rows.length > limit,
+    next_offset: offset + limit,
   };
 }
 export const window28 = () => ({

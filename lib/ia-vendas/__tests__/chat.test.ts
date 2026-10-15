@@ -189,6 +189,32 @@ beforeEach(() => {
   });
   (propose as jest.Mock).mockResolvedValue({ id: "proposal", operations: [] });
 });
+test("assistant offers targeted reads and a compact field guide", async () => {
+  (query as jest.Mock).mockImplementation(async (sql: string) => ({
+    rows: sql.includes("SELECT * FROM public.ia_vendas_conversations")
+      ? [{ kind: "chat", summary: "" }]
+      : sql.includes("RETURNING id") ? [{ id: "user" }] : [],
+  }));
+  (context as jest.Mock).mockResolvedValue({
+    restaurant: { name: "Restaurante" },
+    items: { rows: [] }, categories: { rows: [] }, sales: {}, actions: [],
+  });
+  create.mockResolvedValueOnce({
+    status: "completed", output: [],
+    output_text: JSON.stringify({ reply: "OK", summary: "" }),
+    usage: { input_tokens: 100, output_tokens: 10 },
+  });
+  await runChat({ ...args, deep: false, text: "oi" });
+  const request = create.mock.calls[0][0];
+  const readTool = request.tools.find((item: any) => item.name === "read_data");
+  expect(readTool.parameters.properties).toHaveProperty("ids");
+  expect(readTool.parameters.properties).toHaveProperty("fields");
+  expect(readTool.parameters.properties.limit.maximum).toBe(50);
+  expect(request.input[0].content).toContain("Campos disponíveis");
+  expect(request.input[0].content).toContain("items: ");
+  expect(request.input[0].content).not.toContain('"nullable":false');
+});
+
 test.each([true, false])("every leading product is required through immediate and queued analysis (immediate=%s)", async (immediate) => {
   (context as jest.Mock).mockResolvedValue(namedContext());
   const research = (id: string) => ({ status: "completed", output: [{ type: "function_call", name: "measure_actions", arguments: "{}", call_id: id }], usage: { input_tokens: 1000, output_tokens: 100 } });
