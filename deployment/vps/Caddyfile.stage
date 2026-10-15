@@ -1,0 +1,45 @@
+{
+    admin off
+}
+
+vps-stage.imenuapp.com.br {
+    header X-Robots-Tag "noindex, nofollow"
+    @allowed remote_ip {$IMENU_STAGE_ALLOWED_IP}
+    handle @allowed {
+        reverse_proxy app:3000
+    }
+    handle {
+        respond "Forbidden" 403
+    }
+}
+
+api-vps-stage.imenuapp.com.br {
+    header X-Robots-Tag "noindex, nofollow"
+    @allowed remote_ip {$IMENU_STAGE_ALLOWED_IP} {$IMENU_STAGE_INTERNAL_CIDR}
+    handle @allowed {
+        @api path /auth/* /rest/* /storage/* /realtime/* /functions/* /graphql/*
+        handle @api {
+            reverse_proxy api-gw:8000
+        }
+        handle {
+            respond "Not found" 404
+        }
+    }
+    handle {
+        respond "Forbidden" 403
+    }
+}
+
+http://api.stage.invalid:8080 {
+    @api path /auth/* /rest/* /storage/* /realtime/* /functions/* /graphql/*
+    handle @api {
+        reverse_proxy api-gw:8000
+    }
+    handle {
+        respond "Not found" 404
+    }
+}
+
+http://:8080 {
+    reverse_proxy app:3000
+}

@@ -1,0 +1,30 @@
+name: imenu-stage-proxy
+services:
+  proxy:
+    image: caddy@sha256:685ae3d7c34d9b5f8caeddc5d14051db7bbd88ff1f5a2fa0c16bd8ca328fb7af
+    container_name: imenu-stage-proxy
+    restart: unless-stopped
+    env_file: ${IMENU_STAGE_PROXY_ENV_FILE:?Set absolute private proxy env file path}
+    ports:
+      - "127.0.0.1:18080:8080"
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ${IMENU_STAGE_SOURCE:?Set source directory}/deployment/vps/Caddyfile.stage:/etc/caddy/Caddyfile:ro
+      - /opt/imenu-migration/tls/data:/data
+      - /opt/imenu-migration/tls/config:/config
+    networks:
+      supabase:
+        aliases: [api-vps-stage.imenuapp.com.br]
+      acme: {}
+    mem_limit: 128m
+    cpus: 1
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+networks:
+  supabase:
+    external: true
+    name: imenu-stage_default
+  acme:
+    driver: bridge

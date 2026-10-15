@@ -9,7 +9,7 @@ Production DNS, Vercel main, provider webhooks, and source Supabase remain uncha
 - Supabase official Docker release: self-hosted/v0.8.2, commit 564eab8ad7840b13324f68b1bfac074ef8d51c21.
 - PostgreSQL 17; Auth, PostgREST, Realtime, Storage, Edge Runtime, Studio, Supavisor.
 - Isolated Docker network: imenu-stage_default (internal).
-- SSH key authentication only; firewall permits SSH. Database and dashboard are not public.
+- SSH key authentication only; firewall permits SSH and staging HTTP/HTTPS (80/443). Database and dashboard are not public.
 - App: imenu-stage-app; health endpoint checks PostgreSQL, Data API, and Auth.
 - Source snapshot: 20261014T165707Z. Restored 47 public tables, 1,912 users, 1,849 restaurants, 13,879 orders.
 - Copied 15,735 Storage files (982,433,988 bytes); file versions, object IDs, policies, bucket settings, and filesystem MIME/cache xattrs preserved.
@@ -30,6 +30,14 @@ The Windows task workspace is %LOCALAPPDATA%\iMenuMigration. It contains the pin
 
 Snapshot dump and checksum manifest are also saved in the private Windows workspace. That is a one-time backup, not a verified recurring backup service.
 
+## Protected VPS HTTPS staging
+
+- `vps-stage.imenuapp.com.br` and `api-vps-stage.imenuapp.com.br` have dedicated A records to the VPS and trusted automatically renewed Caddy certificates. These records do not change `www`, `preview`, or restaurant domains.
+- `Caddyfile.stage` and `compose.proxy-stage.yml` run the staging-only TLS proxy on ports 80/443 while preserving the existing localhost tunnel on port 18080. Only the configured external address may access the website/API, plus the isolated Docker subnet for backend API requests; blocked requests return 403. The website is marked `noindex`.
+- Put `IMENU_STAGE_ALLOWED_IP=<authorized-public-ip>/32` and `IMENU_STAGE_INTERNAL_CIDR=<isolated-docker-subnet>` in the private `/opt/imenu-migration/tls/stage-proxy.env` (never commit it). Set `IMENU_STAGE_SOURCE=/opt/imenu-migration/app` and `IMENU_STAGE_PROXY_ENV_FILE=/opt/imenu-migration/tls/stage-proxy.env` when running the proxy compose file. Update the external IP when the operator's address changes.
+- Caddy stores TLS certificates under `/opt/imenu-migration/tls/data` and `/opt/imenu-migration/tls/config`; include both in off-server backup plans. The isolated Docker network aliases the staging API hostname to Caddy, allowing internal HTTPS health checks without public egress. Both build and runtime `NEXT_PUBLIC_SUPABASE_URL` use `https://api-vps-stage.imenuapp.com.br`; rebuild the app when the public URL changes.
+- This is a staging-only proxy. The main `Caddyfile` is still a production template. Dynamic customer-domain certificates and routing must be validated separately before an authorized production cutover.
+
 ## Prepared app compatibility
 
 CUSTOM_DOMAIN_PROVIDER=vps selects the VPS domain backend; VPS_PUBLIC_IP sets its A record target. The default provider remains Vercel. Domain checks reject mixed A addresses and stale AAAA records. Caddyfile is a future TLS template, not an active public proxy.
@@ -44,7 +52,7 @@ GET /api/printer/config exposes only the public Supabase URL and an anon/publish
 2. Existing Google OAuth client ID/secret configured and authorize redirect verified. ADD http://localhost:8000/auth/v1/callback in the existing Google Cloud OAuth client before a full tunneled login test; preserve the managed Supabase callback. Original JWT issuer preserved. SMTP host/port/user/sender recovered, but Supabase hides the stored password and no Resend key was present in the local app envs. Obtain the existing Resend SMTP key before real email delivery tests. Staging still captures email in Mailpit; source requires email confirmation.
 3. Prepare and test a printer release that retrieves the public backend config instead of using the hardcoded managed URL. Preserve its existing auth storage key. Do not release it to customers without the rollout decision.
 4. Test Google login, email signup/reset delivery, authenticated dashboard/order flow, Realtime reconnect, printer claim/ack/retry/idempotency, and browser push in an isolated test tenant. Never send a test to a real printer or make a real payout.
-5. Validate and deploy the TLS reverse proxy on a protected temporary hostname. Restore dynamic custom domain routing, redirects/canonical behavior, and Storage public/private downloads. DNS/ACME account information is still needed for production TLS.
+5. Protected staging HTTPS is deployed and verified with trusted certificates, redirects, access restrictions, and app/API health. Before cutover, validate dynamic customer-domain certificates/routing, canonical redirects, and public/private Storage downloads on the production-ready configuration. Production DNS and certificate account details are still required.
 6. Recreate the five Vercel schedules in UTC on the VPS: daily-payout 0 14 * * *; reconcile-payouts 5 15 * * *; addon-expiry-whatsapp 0 18 * * *; ia-vendas-analysis 0 0 * * *; storage-cleanup 30 4 * * *. Keep them DISABLED until cutover; do not duplicate the six database jobs.
 7. Replace old project and preview URLs inside destination cron commands; preserve schedules and Vault authorization. Check pg_net/webhook side effects before enabling outbound access.
 8. Configure encrypted recurring off-server backups for database, Storage with xattrs, private configuration, and TLS state; test recovery. Configure external uptime alerts, bounded logs, security updates, disk alerts, and restart behavior.
