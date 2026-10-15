@@ -124,7 +124,7 @@ export async function uploadFullMenuImageAI(
     const uploadFile = file.type.startsWith("image/")
         ? await imageFileToPdf(file)
         : file;
-    const key = `${crypto.randomUUID()}-${uploadFile.name}`;
+    const key = `${crypto.randomUUID()}-${uploadFile.name.replace(/[^A-Za-z0-9._-]/g, "_")}`;
 
     const { data, error } = await supabase.storage
         .from("full-menu-images-ai")
