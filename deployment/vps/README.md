@@ -18,13 +18,39 @@ Production DNS, Vercel main, provider webhooks, and source Supabase remain uncha
 - Two Vault secrets recreated from decrypted source values using destination encryption.
 - Realtime publication includes orders, printer_queue_signals, whatsapp_connections.
 - storage-maintenance function copied. Runtime dependency cache warmed, then outbound network removed.
-- Payments, WAHA, AI provider credentials and Vercel domain credentials are disabled in staging. External network access is blocked except for the Auth-only outbound network used for Google OAuth discovery.
+- Staging payments: the existing Asaas API credentials and all five Fixie proxy URLs have been restored to the private staging runtime/build environments, and the app alone has outbound access through the existing staging Caddy egress network. The Supabase database network remains internal, payouts and schedulers remain disabled, and production DNS/webhooks remain unchanged. Mercado Pago staging Pix still requires replacing the `staging-disabled` access-token placeholder with the authorized private token before it can authenticate. WAHA, other AI/provider secrets and Vercel domain credentials remain disabled in staging.
 
 ## Build and access
 
 Build with deployment/vps/Dockerfile and a private BuildKit secret named build_env. It must contain shell-quoted environment assignments. Pass BUILD_PUBLIC_CONFIG_SHA256 as a build argument containing the SHA256 of the sorted NEXT_PUBLIC_ configuration. BuildKit secret changes alone do not invalidate cached build layers; the public fingerprint forces browser configuration to rebuild. Never include private keys in that fingerprint. The image runs the existing IA regression tests, TypeScript, and Next production build. Never put .env files or credentials in the build context or Git.
 
-Run compose.stage.yml with IMENU_STAGE_ENV_FILE set to the private runtime environment file. DATABASE_SSL=false is only for the isolated local Docker connection. The existing Vercel SSL behavior remains the default.
+Run compose.stage.yml with IMENU_STAGE_ENV_FILE set to the private runtime environment file. The app connects to the private `imenu-stage_default` network and the existing outward-facing `imenu-stage-proxy_acme` network; database containers remain internal. Restored payment credentials belong only in the private runtime/build env files, never Git. Quote literal `# iMenu VPS migration — staging only
+
+Production DNS, Vercel main, provider webhooks, and source Supabase remain unchanged. Do not activate production or schedulers without explicit approval.
+
+## Current installation
+
+- KingHost: Ubuntu 24.04, 6 vCPU, 8 GB RAM, 170 GB disk.
+- Server workspace: /opt/imenu-migration.
+- Supabase official Docker release: self-hosted/v0.8.2, commit 564eab8ad7840b13324f68b1bfac074ef8d51c21.
+- PostgreSQL 17; Auth, PostgREST, Realtime, Storage, Edge Runtime, Studio, Supavisor.
+- Isolated Docker network: imenu-stage_default (internal).
+- SSH key authentication only; firewall permits SSH and staging HTTP/HTTPS (80/443). Database and dashboard are not public.
+- App: imenu-stage-app; health endpoint checks PostgreSQL, Data API, and Auth.
+- Source snapshot: 20261014T165707Z. Restored 47 public tables, 1,912 users, 1,849 restaurants, 13,879 orders.
+- Copied 15,735 Storage files (982,433,988 bytes); file versions, object IDs, policies, bucket settings, and filesystem MIME/cache xattrs preserved.
+- All 47 public table counts matched the snapshot. Ten sampled downloads across five buckets matched copied SHA256 values.
+- Six source database cron jobs copied INACTIVE; cron.launch_active_jobs=off.
+- Two Vault secrets recreated from decrypted source values using destination encryption.
+- Realtime publication includes orders, printer_queue_signals, whatsapp_connections.
+- storage-maintenance function copied. Runtime dependency cache warmed, then outbound network removed.
+- Staging payments: the existing Asaas API credentials and all five Fixie proxy URLs have been restored to the private staging runtime/build environments, and the app alone has outbound access through the existing staging Caddy egress network. The Supabase database network remains internal, payouts and schedulers remain disabled, and production DNS/webhooks remain unchanged. Mercado Pago staging Pix still requires replacing the `staging-disabled` access-token placeholder with the authorized private token before it can authenticate. WAHA, other AI/provider secrets and Vercel domain credentials remain disabled in staging.
+
+## Build and access
+
+Build with deployment/vps/Dockerfile and a private BuildKit secret named build_env. It must contain shell-quoted environment assignments. Pass BUILD_PUBLIC_CONFIG_SHA256 as a build argument containing the SHA256 of the sorted NEXT_PUBLIC_ configuration. BuildKit secret changes alone do not invalidate cached build layers; the public fingerprint forces browser configuration to rebuild. Never include private keys in that fingerprint. The image runs the existing IA regression tests, TypeScript, and Next production build. Never put .env files or credentials in the build context or Git.
+
+ in Asaas credentials correctly for Compose env parsing and shell-quote the BuildKit env. DATABASE_SSL=false is only for the isolated local Docker connection. The existing Vercel SSL behavior remains the default.
 
 The Windows task workspace is %LOCALAPPDATA%\iMenuMigration. It contains the pinned SSH host key, private SSH key, ssh_exec.py, and stage_tunnel.py. Keep its private ACL. The tunnel provides app at http://localhost:13000, Supabase at http://supabase.localhost:8000, and captured mail at http://localhost:18025. Do not expose these ports publicly.
 

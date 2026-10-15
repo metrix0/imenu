@@ -6,7 +6,7 @@ services:
     restart: unless-stopped
     init: true
     env_file: ${IMENU_STAGE_ENV_FILE:?Set an absolute private environment file path}
-    networks: [supabase]
+    networks: [supabase, egress]
     ports: ["127.0.0.1:13000:3000"]
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
@@ -23,3 +23,6 @@ networks:
   supabase:
     external: true
     name: imenu-stage_default
+  egress:
+    external: true
+    name: imenu-stage-proxy_acme
