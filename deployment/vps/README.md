@@ -35,7 +35,7 @@ Caddy has trusted certificates, HTTP redirects, noindex and operator-IP restrict
 | Menu/order/stock | Verified | Isolated offline order through app; stock decrement; fixture cleanup |
 | Realtime | Verified | Authenticated order INSERT and fresh connection subscription passed; wait for setAuth before subscribing |
 | Printer queue | Verified | Atomic claim, duplicate rejection, retry, acknowledgement, history, receipt and reprint checks |
-| Printer executable | Preview build verified | imenu-printer preview installer built successfully without publishing; physical printer test and customer rollout still pending |
+| Printer executable | Preview build verified | Both current Windows and Windows 7 legacy preview installers built successfully without publishing; legacy saved-session and staging-config overrides verified; physical printer test and customer rollout still pending |
 | Signup/recovery emails | Verified with capture | Confirmation link creates session; recovery email captured locally |
 | External SMTP | Verified | Resend TLS/auth and message accepted by official Resend delivery simulator; no customer recipient |
 | Google OAuth | Configured, full login unverified | Staging callback is https://api-vps-stage.imenuapp.com.br/auth/v1/callback; last recorded Google error was redirect_uri_mismatch; Cloud client registration and complete login must be verified |
@@ -43,7 +43,7 @@ Caddy has trusted certificates, HTTP redirects, noindex and operator-IP restrict
 | WAHA | Read-only verified | Existing external service queried; sessions not started/stopped/migrated and no WhatsApp sent |
 | Asaas / Fixie / Mercado Pago | Authentication verified | Original credentials restored privately; real charge, payout and paid-webhook flow not performed |
 | Webhook credentials | Restored in staging | WAHA HMAC and Asaas token reject unsigned requests; Mercado Pago re-fetches payment from provider and validates reference/amount; malformed ID rejected before provider fetch |
-| Push notifications | Keys preserved | Real device delivery/permission test remains pending |
+| Push notifications | Original key pair verified | PKCS8 newline formatting corrected without re-keying; derived public key and JWT sign/verify passed; real-device delivery/permission test remains pending |
 | Five Vercel schedules | Prepared, disabled | UTC schedules preserved; PRODUCTION_JOBS_ENABLED absent; payouts disabled |
 | Six database schedules | Prepared, disabled | cron.launch_active_jobs=off and zero active jobs |
 | Automatic preview deployment | Implemented | Restricted SSH identity; exact preview SHA; health gate; no main/production deploy |
@@ -62,7 +62,7 @@ Caddy has trusted certificates, HTTP redirects, noindex and operator-IP restrict
 
 Build with deployment/vps/Dockerfile, private BuildKit secret build_env, and BUILD_PUBLIC_CONFIG_SHA256. Hash the sorted NEXT_PUBLIC_ configuration only: secret-file changes alone do not invalidate BuildKit cache. Never put private values in public build arguments.
 
-Runtime: IMENU_STAGE_ENV_FILE=/opt/imenu-migration/secrets/app-stage.env. Keep shell-quoted app-build.env separate from the Compose env file. DATABASE_SSL=false applies only to the private Docker database.
+Runtime: IMENU_STAGE_ENV_FILE=/opt/imenu-migration/secrets/app-stage.env. Keep shell-quoted app-build.env separate from the Compose env file. Preserve the PKCS8 private push key with literal backslash-n line separators for the existing runtime normalizer; do not flatten the PEM or generate a replacement key. DATABASE_SSL=false applies only to the private Docker database.
 
 The GitHub staging workflow uses the restricted imenu-stage-deploy SSH identity and host fingerprint. The server deploy script builds exact preview HEAD, uses that commit's compose file, preserves the previous image/compose/SHA, checks health, and automatically restores the old image if startup fails. It never applies migrations or restores a database.
 
@@ -90,7 +90,7 @@ Detailed machine-readable checks remain private under /opt/imenu-migration/ops: 
 
 1. Complete Google OAuth on the registered staging callback and verify login/session continuation. Do not replace the working managed Supabase callback.
 2. Validate a physical printer and real-device push. The successful preview build/queue tests are not physical print proof. Do not publish a customer printer release without rollout approval.
-3. Finish controlled provider acceptance without a real payout or customer message. A successful provider authentication/read does not prove a paid order or notification delivery.
+3. Finish full authenticated dashboard/browser acceptance; the connected local browser was unavailable during the final pass. Finish controlled provider acceptance without a real payout or customer message. A successful provider authentication/read does not prove a paid order or notification delivery.
 4. Verify final production API/custom-domain certificates, redirects, deployment and rollback configuration while keeping current production traffic in place.
 5. Obtain explicit cutover approval and a maintenance window. Take a fresh source backup, pause/drain source writers and schedules, buffer/reconcile payment and WhatsApp webhooks, then restore latest schema/Auth/data and synchronize new/changed/deleted Storage objects. The test copy is stale.
 6. Reapply the tested security changes after restoring the source; rewrite destination-only URLs and cron targets to the final owned API hostname. Rebuild public browser settings.
