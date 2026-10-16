@@ -63,6 +63,7 @@ async function references(
   for (const p of value.automatic_promotions || [])
     for (const r of [...p.rules, ...p.benefits])
       if (r.item_id) refs.push(["items", r.item_id]);
+      else if (r.category_id) refs.push(["categories", r.category_id]);
   for (const id of value.reward_subitem_ids || []) refs.push(["subitems", id]);
   for (const [parent, id] of refs)
     if (

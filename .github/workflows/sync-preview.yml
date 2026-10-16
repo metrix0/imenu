@@ -12,6 +12,7 @@ on:
   workflow_dispatch:
 
 permissions:
+  actions: write
   contents: write
   statuses: write
 
@@ -140,6 +141,7 @@ jobs:
             git rebase origin/preview
 
             if git -c http.version=HTTP/1.1 push origin HEAD:preview; then
+              echo "updated=true" >> "$GITHUB_OUTPUT"
               exit 0
             fi
 
@@ -175,3 +177,9 @@ jobs:
           post_status printer-receiver-resolve "$RELEASE_OUTCOME"
           post_status printer-receiver-download "$DOWNLOAD_OUTCOME"
           post_status printer-receiver-commit "$COMMIT_OUTCOME"
+      - name: Trigger VPS staging after preview synchronization
+        if: ${{ always() && (needs.sync-preview.result == 'success' || steps.commit_preview.outputs.updated == 'true') }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run deploy-vps-preview.yml --repo "${{ github.repository }}" --ref preview

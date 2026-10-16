@@ -338,12 +338,16 @@ function listChangeSummary(
 function promotionRule(rule: Data, refs: Record<string, string>) {
   if (rule.type === "weekdays")
     return `dias: ${(Array.isArray(rule.days) ? rule.days : [])
-      .map((day: unknown) => weekdayNames[Number(day)] || String(day))
+      .map((day: unknown) =>
+        (weekdayNames[Number(day)] || String(day)).replace("-feira", ""),
+      )
       .join(", ")}`;
   if (rule.type === "minimum")
     return `${rule.comparison === "gt" ? "acima de" : "a partir de"} ${money(Number(rule.cents) || 0)}`;
   if (rule.type === "product")
     return `${Number(rule.quantity) || 0}× ${refs[String(rule.item_id)] || "produto"}`;
+  if (rule.type === "category")
+    return `${Number(rule.quantity) || 0}× da categoria ${refs[String(rule.category_id)] || "categoria"}`;
   return "regra";
 }
 

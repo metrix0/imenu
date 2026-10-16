@@ -79,6 +79,20 @@ it("rejects product references belonging to another restaurant", async () => {
   expect(withTransaction).not.toHaveBeenCalled();
 });
 
+it("rejects category references belonging to another restaurant", async () => {
+  const categoryId = "40000000-0000-4000-8000-000000000001";
+  const response = await PUT(request("PUT", {
+    restaurantId,
+    promotion: { ...promotion, rules: [{ type: "category", category_id: categoryId, quantity: 1 }] },
+  }));
+  expect(response.status).toBe(400);
+  expect(query).toHaveBeenCalledWith(
+    expect.stringContaining("FROM categories WHERE restaurant_id = $1"),
+    [restaurantId, [categoryId]],
+  );
+  expect(withTransaction).not.toHaveBeenCalled();
+});
+
 it("updates one promotion while preserving other promotions under a row lock", async () => {
   const other = {
     ...promotion,

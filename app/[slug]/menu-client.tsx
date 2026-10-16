@@ -153,7 +153,10 @@ export default function MenuClientPage({
     }) : undefined;
     const visiblePromotions = promotionNow ? automaticPromotions.filter(p => p.show_on_menu &&
         promotionAvailable(p, isTableOrder ? "mesa" : "delivery", promotionNow) &&
-        [...p.rules, ...p.benefits].every(r => r.type !== "product" || promotionProducts.some(item => item.id === r.item_id && item.is_available))) : [];
+        [...p.rules, ...p.benefits].every(r =>
+            r.type === "product" ? promotionProducts.some(item => item.id === r.item_id && item.is_available)
+            : r.type === "category" ? promotionProducts.some(item => item.category_id === r.category_id && item.is_available)
+            : true)) : [];
     const selectedTable = tableOrder?.tables.find(
         (table) => table.id === selectedTableId
     );
@@ -1047,7 +1050,7 @@ export default function MenuClientPage({
 
             {!readOnly && !debouncedSearch && visiblePromotions.length > 0 && (
                 <div className="mt-8 mx-5 md:mx-48 2xl:mx-80 space-y-3">
-                    {visiblePromotions.map(p => <PromotionBanner key={p.id} promotion={p} products={promotionProducts} applied={promotionResult?.promotion?.id === p.id} />)}
+                    {visiblePromotions.map(p => <PromotionBanner key={p.id} promotion={p} products={promotionProducts} categories={categories} applied={promotionResult?.promotion?.id === p.id} />)}
                 </div>
             )}
 

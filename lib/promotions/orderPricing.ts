@@ -42,6 +42,7 @@ export async function automaticOrderPricing(
   const productIds = [
     ...new Set([
       ...input.items.map((i) => String(i.item_id || i.base_item_id || "")),
+      ...input.items.flatMap((i) => (i.pizza?.flavors || []).map((f: { item_id: string }) => String(f.item_id))),
       ...applicable.flatMap((p) =>
         [...p.rules, ...p.benefits].flatMap((r) =>
           r.type === "product" ? [r.item_id] : [],
@@ -59,7 +60,7 @@ export async function automaticOrderPricing(
     ),
   ];
   const productRows = await client.query(
-    `SELECT i.id, i.name, i.price_cents, i.is_available,
+    `SELECT i.id, i.name, i.price_cents, i.is_available, i.category_id,
         CASE WHEN p.id IS NOT NULL THEN jsonb_build_object('type', p.type, 'value', p.value) ELSE NULL END AS promotion
         FROM items i LEFT JOIN promotions p ON p.item_id = i.id AND p.starts_at <= $3 AND (p.ends_at >= $3 OR p.ends_at IS NULL)
         WHERE i.restaurant_id = $1 AND i.id = ANY($2::uuid[])`,

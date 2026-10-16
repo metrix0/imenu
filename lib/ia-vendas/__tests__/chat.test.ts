@@ -16,7 +16,7 @@ import { PRODUCT_DIMENSIONS } from "../products";
 import { potential } from "../peers";
 import { LIMITS } from "../config";
 import { query, withTransaction } from "@/lib/database/sql";
-import { context, measure } from "../data";
+import { context, measure, readData } from "../data";
 import { beginRun, recordTokens, finishRun } from "../runs";
 import { propose } from "../actions";
 import { applyProposal } from "../application";
@@ -189,6 +189,50 @@ beforeEach(() => {
   });
   (propose as jest.Mock).mockResolvedValue({ id: "proposal", operations: [] });
 });
+test("assistant offers targeted reads and a compact field guide", async () => {
+  (query as jest.Mock).mockImplementation(async (sql: string) => ({
+    rows: sql.includes("SELECT * FROM public.ia_vendas_conversations")
+      ? [{ kind: "chat", summary: "" }]
+      : sql.includes("RETURNING id") ? [{ id: "user" }] : [],
+  }));
+  (context as jest.Mock).mockResolvedValue({
+    restaurant: { name: "Restaurante" },
+    items: { rows: [] }, categories: { rows: [] }, sales: {}, actions: [],
+  });
+  create.mockResolvedValueOnce({
+    status: "completed", output: [],
+    output_text: JSON.stringify({ reply: "OK", summary: "" }),
+    usage: { input_tokens: 100, output_tokens: 10 },
+  });
+  await runChat({ ...args, deep: false, text: "oi" });
+  const request = create.mock.calls[0][0];
+  const readTool = request.tools.find((item: any) => item.name === "read_data");
+  expect(readTool.parameters.properties).toHaveProperty("ids");
+  expect(readTool.parameters.properties).toHaveProperty("fields");
+  expect(readTool.parameters.properties.limit.maximum).toBe(50);
+  expect(request.input[0].content).toContain("Campos disponíveis");
+  expect(request.input[0].content).toContain("items: ");
+  expect(request.input[0].content).not.toContain('"nullable":false');
+});
+
+test("deep analysis retains the original full-field 50-row read_data tool", async () => {
+  const rows = Array.from({ length: 50 }, (_, i) => ({ id: `item-${i}`, name: `Produto ${i}` }));
+  (readData as jest.Mock).mockResolvedValueOnce({ rows, has_more: true, next_offset: 50 });
+  const call = (name: string, call_id: string) => ({
+    type: "function_call", name, arguments: JSON.stringify(name === "read_data" ? { entity: "items", offset: 0 } : {}), call_id,
+  });
+  create
+    .mockResolvedValueOnce({ status: "completed", output: [call("read_data", "analysis-read")], usage: { input_tokens: 1000, output_tokens: 100 } })
+    .mockResolvedValueOnce({ status: "completed", output: [call("measure_actions", "analysis-measure")], usage: { input_tokens: 1000, output_tokens: 100 } })
+    .mockResolvedValueOnce({ status: "completed", output: [], output_text: JSON.stringify(result()), usage: { input_tokens: 1000, output_tokens: 100 } });
+  await runChat(args);
+  const readTool = create.mock.calls[0][0].tools.find((item: any) => item.name === "read_data");
+  expect(Object.keys(readTool.parameters.properties).sort()).toEqual(["entity", "offset"]);
+  expect(readData).toHaveBeenCalledWith("owner", "items", 0);
+  const toolOutput = create.mock.calls[1][0].input.find((item: any) => item.type === "function_call_output" && item.call_id === "analysis-read");
+  expect(JSON.parse(toolOutput.output).rows).toHaveLength(50);
+});
+
 test.each([true, false])("every leading product is required through immediate and queued analysis (immediate=%s)", async (immediate) => {
   (context as jest.Mock).mockResolvedValue(namedContext());
   const research = (id: string) => ({ status: "completed", output: [{ type: "function_call", name: "measure_actions", arguments: "{}", call_id: id }], usage: { input_tokens: 1000, output_tokens: 100 } });

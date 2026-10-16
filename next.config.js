@@ -16,6 +16,11 @@ const nextConfig = {
   async redirects() {
     return [
       {
+        source: '/restaurante/dados/termos-e-condicoes',
+        destination: '/restaurante/dados/termos',
+        permanent: true
+      },
+      {
         source: '/saborosas-massas-947',
         destination: '/saborosas-massas',
         permanent: false

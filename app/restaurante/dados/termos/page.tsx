@@ -119,7 +119,7 @@ export default function TermosPage() {
 
             <h2 className="text-2xl font-semibold mt-6 mb-2">11. Foro</h2>
             <p>
-                Fica eleito o foro de Porto Alegre – RS para resolução de disputas.
+                Fica eleito o foro de Limeira – SP para resolução de disputas.
             </p>
         </div>
     );

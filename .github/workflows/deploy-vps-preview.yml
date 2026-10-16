@@ -1,0 +1,59 @@
+name: Deploy VPS staging
+
+on:
+  push:
+    branches: [preview]
+  workflow_dispatch:
+    inputs:
+      retry_failed:
+        description: Retry this commit even if its previous deployment failed
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-vps-preview
+  cancel-in-progress: false
+
+jobs:
+  deploy-staging:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 115
+    steps:
+      - name: Prepare restricted SSH authentication
+        shell: bash
+        env:
+          DEPLOY_KEY: ${{ secrets.IMENU_STAGE_DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$DEPLOY_KEY" ]]; then
+            echo '::error::Missing IMENU_STAGE_DEPLOY_SSH_KEY repository secret'
+            exit 1
+          fi
+          umask 077
+          printf '%s\n' "$DEPLOY_KEY" > "$RUNNER_TEMP/imenu-stage-key"
+          ssh-keygen -y -f "$RUNNER_TEMP/imenu-stage-key" >/dev/null
+          ssh-keyscan -T 10 -t ed25519 177.153.39.121 > "$RUNNER_TEMP/imenu-stage-known-hosts" 2>/dev/null
+          if [[ "$(ssh-keygen -lf "$RUNNER_TEMP/imenu-stage-known-hosts" -E sha256 | awk '{print $2}')" != 'SHA256:0fLaqBmpn4izsgcsNcTtO0zh81QJ1Mn2aDB1XbI1WqY' ]]; then
+            echo '::error::VPS SSH host key fingerprint mismatch'
+            exit 1
+          fi
+
+      - name: Deploy exact preview commit
+        shell: bash
+        env:
+          TARGET_SHA: ${{ github.sha }}
+          RETRY_FAILED: ${{ inputs.retry_failed || false }}
+        run: |
+          set -euo pipefail
+          request="$TARGET_SHA"
+          if [[ "$RETRY_FAILED" == true && '${{ github.event_name }}' == workflow_dispatch ]]; then
+            request="retry:$TARGET_SHA"
+          fi
+          ssh -F /dev/null -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$RUNNER_TEMP/imenu-stage-known-hosts" \
+            -o ConnectTimeout=20 -o ServerAliveInterval=30 -o ServerAliveCountMax=6 \
+            -i "$RUNNER_TEMP/imenu-stage-key" \
+            imenu-stage-deploy@177.153.39.121 "$request"

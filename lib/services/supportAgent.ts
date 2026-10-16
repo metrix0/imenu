@@ -9,6 +9,7 @@ import {
 type SupportMessage = {
     direction: "inbound" | "outbound";
     body: string;
+    sender: "customer" | "human" | "automated" | "unknown";
 };
 
 type SupportConversation = {
@@ -55,7 +56,7 @@ const SUPPORT_INSTRUCTIONS = [
     "- A ferramenta controla duas etapas: no primeiro pedido ela registra o aviso de até 1 dia útil; depois de uma nova mensagem do cliente, se ele confirmar positivamente ou reiterar que quer atendimento humano, use request_human_handoff novamente para efetivar o encaminhamento.",
     "- Interprete confirmações pelo contexto, sem depender de frase exata. Exemplos depois do aviso: sim, pode, quero, isso, somente humano, somente atendimento humano.",
     "- Antes de fazer uma pergunta, confira o histórico disponível. Não repita pergunta já respondida, não peça novamente o mesmo identificador e não repita a mesma tentativa de diagnóstico ou consulta que já falhou sem informação nova.",
-    "- Se a dúvida envolver onde clicar, botões, campos, configurações ou possíveis motivos de algo não aparecer na interface, use somente orientações específicas confirmadas pelo conhecimento oficial recuperado. Nunca deduza a existência, posição ou comportamento de um controle nem sugira soluções sem evidência. Se as orientações disponíveis não cobrirem a situação, faça uma pergunta objetiva ou peça um print da tela; se isso já foi tentado e a dúvida continuar sem solução, ofereça atendimento humano. Não exponha limitações internas de verificação.",
+    "Em dúvidas sobre a interface, use primeiro o relato do cliente, o histórico e as orientações oficiais. Não peça prints por padrão. Solicite uma imagem somente se um detalhe visual específico for indispensável para avançar e não estiver no histórico; não repita pedidos já atendidos. Nunca invente controles ou passos não confirmados.",
     "- Antes de responder, considere o histórico recente e o que já foi explicado pelo suporte. Evite repetir a mesma informação ou explicação, mesmo com outras palavras, quando o cliente apenas acrescentar contexto ou mudar de assunto; responda ao ponto novo e avance a conversa. Só repita se o cliente pedir novamente, demonstrar dúvida sobre o ponto anterior ou se a repetição for indispensável à resposta. Se você já disse que não conseguiu confirmar algo e a dúvida persiste, não repita essa resposta: ofereça atendimento humano.",
     "- Se aparecer exceed_cached_egress_quota, exceed capped egress quota ou descrição equivalente de cota de egress/cache em uma tela do iMenu, trate como indisponibilidade da infraestrutura do iMenu. Não oriente troca de senha, outro navegador, recuperação de acesso ou novas tentativas de login para resolver esse erro.",
     "- Tente entender o problema com uma pergunta objetiva somente quando ainda faltar informação realmente necessária para avançar.",
@@ -66,8 +67,8 @@ const SUPPORT_INSTRUCTIONS = [
     "- Só informe preço ou taxa de um recurso quando o cliente perguntar especificamente por esse recurso. Para valores e links de recursos, use o conhecimento recuperado automaticamente quando ele trouxer a informação; caso contrário, use search_knowledge antes de responder.",
     "- Em dúvidas sobre Pix Online em que o cliente pergunte se a chave Pix cadastrada aparece para o cliente, por que aparece João Vitor Almeida ou outro nome como recebedor, se isso é normal ou como funciona a intermediação, na primeira vez que essa dúvida surgir na conversa explique explicitamente e de forma curta: \"Esse é o padrão utilizado pelos sistemas de cardápio digital. Serve para que possamos validar o pagamento sem que você precise verificar o comprovante.\" Complete apenas com o fluxo relevante confirmado pela base de conhecimento. Se essa explicação já tiver sido dada no histórico recente, não a repita: responda somente ao novo ponto levantado. Só repita se o cliente perguntar novamente especificamente por que funciona assim ou demonstrar que continua confuso sobre esse ponto.",
     "- Em dúvidas de impressão ou problemas de impressora, mencione o iMenu Printer. Fora desses assuntos, nunca cite o iMenu Printer.",
-    "- Para dúvidas factuais sobre o produto, use primeiro o conhecimento recuperado automaticamente. Se ele não cobrir a dúvida ou faltar detalhe, use search_knowledge.",
-    "- Mensagens anteriores enviadas pelo próprio suporte são apenas histórico de conversa e podem conter erro. Nunca trate uma afirmação anterior do assistente como fonte oficial. Se ela conflitar com o conhecimento oficial ou com dados consultados, corrija a informação de forma clara em vez de repeti-la.",
+    "Para dúvidas factuais sobre o produto, use primeiro o conhecimento recuperado automaticamente. Se ele não cobrir especificamente a dúvida, faça uma busca adicional e direcionada com search_knowledge usando termos diferentes e relevantes à última pergunta, antes de concluir que não há informação suficiente. Não repita buscas idênticas; não invente passos se a nova busca também não confirmar.",
+    "O histórico distingue mensagens de atendentes humanos de respostas automáticas, quando a origem é identificável. Respeite as orientações dos atendentes e não diga ao cliente que a equipe deu instruções erradas. Se houver incompatibilidade factual comprovada, explique o funcionamento correto de forma neutra, sem culpar o atendente. Mensagens automáticas anteriores e mensagens de origem incerta podem conter erros e não são fonte oficial.",
     "- Nunca concorde automaticamente com acusações factuais de cobrança escondida, retenção indevida, falta de transparência, desonestidade ou ausência de aviso. Primeiro confirme no conhecimento oficial e nas ferramentas. Se a cobrança ou divulgação estiver prevista, explique isso com firmeza e educação. Não use frases como 'você tem razão', não peça desculpas por falta de transparência e não admita erro do iMenu sem evidência oficial que sustente essa conclusão.",
     "- Se o cliente pedir como cadastrar, ativar, configurar ou usar uma funcionalidade, confirme explicitamente no conhecimento recuperado automaticamente, em search_knowledge ou nas ferramentas MCP antes de orientar. Quando o conhecimento confirmar explicitamente que uma configuração, toggle, promoção ou recurso pode ser ativado ou habilitado por um controle específico, você pode inferir que o mesmo controle também permite desativá-lo ou desabilitá-lo, salvo se a base disser o contrário. Sem confirmação, não invente passos nem afirme que a funcionalidade existe, não existe ou pode não existir: ausência de documentação não é evidência de ausência do recurso. Não proponha opções, exemplos, ações ou fluxos específicos não confirmados, nem mesmo em forma de pergunta. Faça outra consulta relevante se possível; se continuar sem confirmação, explique a incerteza e ofereça atendimento humano, sem iniciar o encaminhamento antes do aceite.",
     "- Se o cliente estiver apenas comentando, contextualizando ou relatando uma situação sem fazer pergunta nem pedir ajuda específica, responda apenas com uma confirmação breve. Se indicar que vai desistir do iMenu por uma dúvida ainda não resolvida, não trate uma limitação não confirmada como fato: ofereça atendimento humano. Não invente ações, recursos ou sugestões do produto.",
@@ -93,12 +94,28 @@ function normalizePhone(value: string | null): string {
 }
 
 function buildAutomaticKnowledgeQuery(history: SupportMessage[]): string {
-    return history
-        .slice(-8)
+    return [...history]
         .reverse()
-        .map((message) => message.body.slice(0, 500))
-        .join(" ")
-        .trim();
+        .find((message) => message.direction === "inbound")
+        ?.body.trim().slice(0, 500) || "";
+}
+
+function buildContextualKnowledgeQuery(history: SupportMessage[]): string {
+    const inbound = history.filter((message) => message.direction === "inbound");
+    const latest = inbound.at(-1)?.body.trim() || "";
+    const normalized = normalizeUiGuidanceText(latest);
+    const isFollowUp =
+        (normalized.split(/\s+/).length <= 3 &&
+            /\b(como|onde|isso|essa|esse|depois|agora|e|sim|nao)\b/.test(normalized)) ||
+        (latest.length <= 180 &&
+            /\b(isso|essa|esse|dessa|desse|assim|ai|la|ja|tambem|novamente|anterior|continua|mesmo)\b/.test(normalized));
+    if (!isFollowUp) return "";
+
+    const previous = inbound.slice(-5, -1).reverse().find((message) =>
+        message.body.trim().length >= 15 &&
+        !/^\[midia enviada\]$/i.test(normalizeUiGuidanceText(message.body))
+    );
+    return previous ? (previous.body.slice(0, 280) + " " + latest.slice(0, 150)).trim() : "";
 }
 
 
@@ -116,45 +133,6 @@ function isUnverifiedSupportReply(value: string): boolean {
         /\bnao (?:encontrei|localizei|tenho) (?:uma? |nenhuma? )?(?:orientacao|orientacoes|informacao|informacoes|opcao|confirmacao|documentacao|recurso|funcionalidade)\b/.test(text) ||
         /\b(?:pode nao existir|talvez nao exista)\b/.test(text)
     );
-}
-
-function isUiGuidanceRequest(history: SupportMessage[]): boolean {
-    const latestInbound = [...history]
-        .reverse()
-        .find((message) => message.direction === "inbound")?.body || "";
-    const message = normalizeUiGuidanceText(latestInbound);
-    const context = normalizeUiGuidanceText(
-        history.slice(-8).map((item) => item.body).join(" ")
-    );
-
-    return (
-        /\b(onde|como|qual botao|nao aparece|nao encontro|nao consigo|sumiu|desapareceu)\b/.test(message) &&
-        /\b(tela|botao|clique|clicar|apertar|aperta|salvar|salvo|campo|aba|painel|configuracao|configuracoes|opcao|menu)\b/.test(context)
-    );
-}
-
-function hasDocumentedUiGuidance(
-    history: SupportMessage[],
-    knowledge: Array<{ title: string; content: string }>
-): boolean {
-    const context = normalizeUiGuidanceText(
-        history.slice(-8).map((message) => message.body).join(" ")
-    );
-
-    return knowledge.some((item) => {
-        const titleMatchesContext = normalizeUiGuidanceText(item.title)
-            .split(/[^a-z0-9]+/)
-            .some(
-                (term) =>
-                    term.length >= 6 &&
-                    !["imenu", "painel", "pagina", "automatico", "aberta"].includes(term) &&
-                    context.includes(term)
-            );
-        const describesUi = /\b(acesse|clique|toque|abra|botao|aba|campo|tela|salvar|salvas|salvo|salvamento|configurar|ativar)\b/.test(
-            normalizeUiGuidanceText(item.content)
-        );
-        return titleMatchesContext && describesUi;
-    });
 }
 
 function limitSupportReply(value: string): string {
@@ -469,7 +447,7 @@ export async function generateSupportReply(
 
     const [history, conversationResult, incidentResult] = await Promise.all([
         query<SupportMessage>(
-            "SELECT direction, body FROM (SELECT direction, body, created_at FROM support_messages WHERE conversation_id = $1 ORDER BY created_at DESC LIMIT 30) recent ORDER BY created_at ASC",
+            "SELECT direction, body, CASE WHEN direction = 'inbound' THEN 'customer' WHEN model IS NOT NULL OR dedupe_key IS NOT NULL THEN 'automated' WHEN provider_message_id IS NULL THEN 'human' ELSE 'unknown' END AS sender FROM (SELECT direction, body, model, dedupe_key, provider_message_id, created_at FROM support_messages WHERE conversation_id = $1 ORDER BY created_at DESC LIMIT 30) recent ORDER BY created_at ASC",
             [conversationId]
         ),
         query<SupportConversation>(
@@ -486,34 +464,24 @@ export async function generateSupportReply(
     if (!conversation) throw new Error("Support conversation not found.");
 
     const automaticKnowledgeQuery = buildAutomaticKnowledgeQuery(history.rows);
-    const automaticKnowledge = automaticKnowledgeQuery
+    const contextualKnowledgeQuery = buildContextualKnowledgeQuery(history.rows);
+    const primaryKnowledge = automaticKnowledgeQuery
         ? await searchSupportKnowledge(automaticKnowledgeQuery, 5)
         : [];
+    const contextualKnowledge = contextualKnowledgeQuery
+        ? await searchSupportKnowledge(contextualKnowledgeQuery, 3)
+        : [];
+    const automaticKnowledge = [
+        ...primaryKnowledge.slice(0, contextualKnowledgeQuery ? 3 : 5),
+        ...contextualKnowledge.filter(
+            (item) => !primaryKnowledge.some((primary) => primary.id === item.id)
+        ),
+        ...(contextualKnowledgeQuery ? primaryKnowledge.slice(3) : []),
+    ].slice(0, 5);
 
     const handoffBlocked =
         normalizePhone(conversation.phone) === BLOCKED_HANDOFF_PHONE;
 
-    if (!conversation.handoff_prompted_at &&
-        isUiGuidanceRequest(history.rows) &&
-        !hasDocumentedUiGuidance(history.rows, automaticKnowledge)) {
-        const hasScreenshot = history.rows.slice(-8).some(
-            (message) => message.direction === "inbound" && message.body.startsWith("[Imagem]")
-        );
-        const alreadyAskedForScreenshot = history.rows.slice(-10).some(
-            (message) => message.direction === "outbound" && /\bprint\b/i.test(message.body)
-        );
-        return {
-            text: hasScreenshot || alreadyAskedForScreenshot
-                ? handoffBlocked
-                    ? "Não consegui confirmar essa orientação com segurança."
-                    : "Não consegui confirmar essa orientação com segurança. " + HUMAN_SUPPORT_OFFER
-                : "Pode me mandar um print da tela onde você está? Assim consigo te orientar certinho.",
-            model: "support-knowledge",
-            inputTokens: null,
-            outputTokens: null,
-            handoffState: null,
-        };
-    }
     let instructions = SUPPORT_INSTRUCTIONS;
 
     if (automaticKnowledge.length > 0) {
@@ -560,7 +528,13 @@ export async function generateSupportReply(
                     message.direction === "inbound"
                         ? ("user" as const)
                         : ("assistant" as const),
-                content: message.body,
+                content: message.direction === "inbound"
+                    ? message.body
+                    : (message.sender === "human"
+                        ? "[Mensagem do atendente humano do iMenu]\n"
+                        : message.sender === "automated"
+                          ? "[Resposta automática anterior do iMenu]\n"
+                          : "[Mensagem anterior de origem não confirmada]\n") + message.body,
             })),
             tools: [
                 {

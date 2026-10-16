@@ -3,7 +3,8 @@ import { formatPrice, promotionPrice } from "@/lib/utils/formatPrice";
 export type PromotionRule =
   | { type: "weekdays"; days: number[] }
   | { type: "minimum"; cents: number; comparison: "gte" | "gt" }
-  | { type: "product"; item_id: string; quantity: number };
+  | { type: "product"; item_id: string; quantity: number }
+  | { type: "category"; category_id: string; quantity: number };
 
 export type PromotionBenefit =
   | { type: "delivery" }
@@ -40,6 +41,7 @@ export type PromotionProduct = {
   name: string;
   price_cents: number;
   is_available: boolean;
+  category_id?: string | null;
   promotion?: any;
 };
 
@@ -70,11 +72,11 @@ export type PromotionResult = {
 
 export const WEEKDAYS = [
   "domingo",
-  "segunda-feira",
-  "terça-feira",
-  "quarta-feira",
-  "quinta-feira",
-  "sexta-feira",
+  "segunda",
+  "terça",
+  "quarta",
+  "quinta",
+  "sexta",
   "sábado",
 ];
 export const PROMOTION_TIMEZONE = "America/Sao_Paulo";
@@ -128,6 +130,9 @@ export function validateAutomaticPromotion(value: unknown): string | null {
     } else if (rule.type === "product") {
       if (!isUuid(rule.item_id) || !positiveInteger(rule.quantity, 99))
         return "Selecione o produto e a quantidade da regra.";
+    } else if (rule.type === "category") {
+      if (!isUuid(rule.category_id) || !positiveInteger(rule.quantity, 99))
+        return "Selecione a categoria e a quantidade da regra.";
     } else return "Tipo de regra inválido.";
   }
   for (const benefit of p.benefits) {
@@ -178,35 +183,37 @@ function joinTexts(values: string[]) {
     : `${values.slice(0, -1).join(", ")} e ${values.at(-1)}`;
 }
 
+function describePromotionDays(days: number[]) {
+  const selected = [...new Set(days)].sort((a, b) => ((a + 6) % 7) - ((b + 6) % 7));
+  const labels = selected.map((day) => `${WEEKDAYS[day]}s`);
+  if (selected.every((day) => day === 0 || day === 6))
+    return `aos ${joinTexts(labels)}`;
+  if (!selected.includes(0))
+    return `às ${joinTexts(labels)}`;
+  return `às ${joinTexts(selected.filter((day) => day !== 0).map((day) => `${WEEKDAYS[day]}s`))} e aos domingos`;
+}
+
 export function promotionDescription(
   p: AutomaticPromotion,
   products: Pick<PromotionProduct, "id" | "name">[],
+  categories: { id: string; name: string }[] = [],
 ) {
   const name = (id: string) =>
     products.find((p) => p.id === id)?.name || "produto indisponível";
+  const categoryName = (id: string) =>
+    categories.find((c) => c.id === id)?.name || "categoria indisponível";
   const rules = p.rules.map((r) =>
     r.type === "weekdays"
       ? r.days.length === 7
         ? "todos os dias"
-        : joinTexts(
-            [...new Set(r.days)]
-              .sort((a, b) => ((a + 6) % 7) - ((b + 6) % 7))
-              .map(
-                (d) =>
-                  [
-                    "aos domingos",
-                    "às segundas-feiras",
-                    "às terças-feiras",
-                    "às quartas-feiras",
-                    "às quintas-feiras",
-                    "às sextas-feiras",
-                    "aos sábados",
-                  ][d],
-              ),
-          )
+        : describePromotionDays(r.days)
       : r.type === "minimum"
         ? `em pedidos ${r.comparison === "gt" ? "acima de" : "a partir de"} ${formatPrice(r.cents)}`
-        : `na compra de ${r.quantity}× ${name(r.item_id)}`,
+        : r.type === "category"
+          ? r.quantity === 1
+            ? `para ${categoryName(r.category_id)}`
+            : `na compra de ${r.quantity} produtos da categoria ${categoryName(r.category_id)}`
+          : `na compra de ${r.quantity}× ${name(r.item_id)}`,
   );
   const benefits = p.benefits.map((b) =>
     b.type === "delivery"
@@ -217,8 +224,22 @@ export function promotionDescription(
           ? `${formatPrice(b.cents)} de desconto`
           : `${b.quantity}× ${name(b.item_id)} grátis`,
   );
+  const productLines = rules.filter((_, i) => p.rules[i].type === "product");
+  const weekdays = rules.filter((_, i) => p.rules[i].type === "weekdays");
   return {
-    conditions: rules.length ? joinTexts(rules) : "todos os dias",
+    conditions: productLines.length > 1
+      ? [
+          "na compra de",
+          ...productLines.map((text) => text.replace(/^na compra de /, "")),
+          ...rules.filter((_, i) => p.rules[i].type !== "product" && p.rules[i].type !== "weekdays"),
+          ...weekdays,
+        ].join("\n")
+      : rules.length
+        ? [
+            joinTexts(rules.filter((_, i) => p.rules[i].type !== "weekdays")),
+            joinTexts(weekdays),
+          ].filter(Boolean).join(" ")
+        : "todos os dias",
     benefits: joinTexts(benefits),
   };
 }
@@ -293,24 +314,45 @@ export function evaluateAutomaticPromotions(
     );
 
     const quantities = new Map<string, number>();
+    const categoryQuantities = new Map<string, number>();
     for (const item of paidItems) {
       if (item.pizza?.flavors.length) {
         const portion = item.qty / item.pizza.flavors.length;
         for (const flavor of item.pizza.flavors) {
           quantities.set(flavor.item_id, (quantities.get(flavor.item_id) || 0) + portion);
+          const categoryId = input.products.find(
+            (product) => product.id === flavor.item_id && product.is_available,
+          )?.category_id;
+          if (categoryId)
+            categoryQuantities.set(
+              categoryId, (categoryQuantities.get(categoryId) || 0) + portion,
+            );
         }
         continue;
       }
       const itemId = item.base_item_id || (item as any).item_id || (item as any).id;
       quantities.set(itemId, (quantities.get(itemId) || 0) + item.qty);
+      const categoryId = input.products.find(
+        (product) => product.id === itemId && product.is_available,
+      )?.category_id;
+      if (categoryId)
+        categoryQuantities.set(
+          categoryId, (categoryQuantities.get(categoryId) || 0) + item.qty,
+        );
     }
 
     const required = new Map<string, number>();
+    const requiredCategories = new Map<string, number>();
     for (const rule of p.rules) {
       if (rule.type === "product") {
         required.set(
           rule.item_id,
           (required.get(rule.item_id) || 0) + rule.quantity,
+        );
+      } else if (rule.type === "category") {
+        requiredCategories.set(
+          rule.category_id,
+          (requiredCategories.get(rule.category_id) || 0) + rule.quantity,
         );
       }
     }
@@ -320,6 +362,9 @@ export function evaluateAutomaticPromotions(
         ([id, qty]) =>
           (quantities.get(id) || 0) + 1e-9 < qty ||
           !input.products.some((product) => product.id === id && product.is_available),
+      ) ||
+      [...requiredCategories].some(
+        ([id, qty]) => (categoryQuantities.get(id) || 0) + 1e-9 < qty,
       )
     )
       continue;

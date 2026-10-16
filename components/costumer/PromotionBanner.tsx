@@ -9,13 +9,15 @@ import {
 export default function PromotionBanner({
   promotion,
   products,
+  categories = [],
   applied = false,
 }: {
   promotion: AutomaticPromotion;
   products: Pick<PromotionProduct, "id" | "name">[];
+  categories?: { id: string; name: string }[];
   applied?: boolean;
 }) {
-  const description = promotionDescription(promotion, products);
+  const description = promotionDescription(promotion, products, categories);
   return (
     <div
       className={`flex min-w-0 items-start gap-3 rounded-2xl border p-4 sm:p-5 transition-colors duration-300 ${applied ? "border-green-200 bg-green-50" : "border-brand/20 bg-brand/5"}`}
@@ -42,7 +44,7 @@ export default function PromotionBanner({
           {description.benefits.charAt(0).toUpperCase() +
             description.benefits.slice(1)}
         </p>
-        <p className="mt-1 text-sm leading-relaxed text-gray-600">
+        <p className="mt-1 whitespace-pre-line text-sm leading-relaxed text-gray-600">
           Válida {description.conditions}.
         </p>
       </div>
