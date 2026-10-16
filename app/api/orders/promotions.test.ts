@@ -179,6 +179,22 @@ it("stores the total discount in the printer-compatible field and preserves the 
   expect(writes.some((sql) => sql.includes("stock_quantity"))).toBe(true);
 });
 
+it("uses the public origin for PIX webhooks behind the VPS proxy", async () => {
+  const previous = process.env.NEXT_PUBLIC_BASE_URL;
+  process.env.NEXT_PUBLIC_BASE_URL = "https://www.imenuapp.com.br";
+  try {
+    expect((await send({ paymentMethod: "pix" })).status).toBe(200);
+    expect(createMercadoPagoPixCharge).toHaveBeenCalledWith(
+      expect.objectContaining({
+        notificationUrl: "https://www.imenuapp.com.br/api/webhooks/mercadopago",
+      }),
+    );
+  } finally {
+    if (previous === undefined) delete process.env.NEXT_PUBLIC_BASE_URL;
+    else process.env.NEXT_PUBLIC_BASE_URL = previous;
+  }
+});
+
 it("charges PIX using the final server total", async () => {
   const response = await send({ paymentMethod: "pix" });
   expect(response.status).toBe(200);

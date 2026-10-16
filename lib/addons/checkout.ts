@@ -312,7 +312,7 @@ export async function checkoutAddon(request: Request, product: AddonProduct) {
         }
 
         const preserveAccess = renew && prepaidAccess;
-        const origin = new URL(request.url).origin;
+        const origin = process.env.NEXT_PUBLIC_BASE_URL || new URL(request.url).origin;
 
         if (paymentMethod === "pix") {
             await cancelPendingAsaasSubscription(addon);
