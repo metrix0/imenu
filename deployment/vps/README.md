@@ -1,6 +1,6 @@
-# iMenu VPS — staging checklist and cutover gate
+# iMenu VPS — production migration and operations
 
-Production has NOT been migrated. Do not switch www, preview, customer domains, provider callbacks, printer releases or production schedulers without the user's explicit cutover approval.
+Production migrated on 2026-10-16 with the user's approval. www.imenuapp.com.br and api.imenuapp.com.br now serve the KingHost VPS. The apex redirects to www. The managed source database is read-only and its six database jobs are disabled. Do not restore the source over the live destination or reverse DNS without reconciling destination writes.
 
 ## Verified staging installation
 
@@ -12,7 +12,7 @@ Protected staging:
 - https://vps-stage.imenuapp.com.br
 - https://api-vps-stage.imenuapp.com.br
 
-Caddy has trusted certificates, HTTP redirects, noindex and operator-IP restrictions; external non-allowlisted website requests return 403. The authenticated MCP gateway returns 401 without credentials. The website/API allowlist must not be removed to make a test pass. Internal Docker calls are allowed separately. Public production/custom-domain Caddy configuration remains a template.
+Caddy has trusted certificates, HTTP redirects, noindex and operator-IP restrictions; external non-allowlisted website requests return 403. The authenticated MCP gateway returns 401 without credentials. The website/API allowlist must not be removed to make a test pass. Internal Docker calls are allowed separately. Production Caddy uses ops/cutover/Caddyfile.live; protected staging and the authenticated private MCP route remain enabled.
 
 ## Global checklist
 
@@ -22,31 +22,31 @@ Caddy has trusted certificates, HTTP redirects, noindex and operator-IP restrict
 | --- | --- | --- |
 | OS, SSH key, firewall, Docker | Verified | Key-only SSH; private DB/admin; running services healthy |
 | Pinned Supabase stack | Verified | Official release and persistent volumes |
-| Initial database migration | Verified | 47 public tables; initial snapshot 20261014T165707Z |
+| Final database migration | Verified | Frozen source snapshot 20261016T130243Z; 47 public tables with zero count mismatches; 1,976 Auth users, 1,911 restaurants, 14,189 orders at cutover |
 | Auth accounts and password hashes | Verified | Accounts restored; password login, refresh and getUser passed |
 | Original JWT/anon/service-role keys | Verified | Original signatures verified; no private key in browser output |
 | Browser/printer saved session key | Implemented and tested | Legacy sb-mjogdsnxbwhbqcoijrwt-auth-token retained |
-| Storage contents | Verified | All 15,735 unique objects / 982,433,988 bytes matched original SHA256; IDs/versions/xattrs preserved |
+| Storage contents | Verified | Final 16,284 objects / 1,094,703,536 bytes copied with zero failures; initial full SHA256 validation plus version-aware final delta; ten final API samples across five buckets matched SHA256; IDs/versions/xattrs preserved |
 | Public/private Storage access | Verified | Public downloads and private anonymous denial; owner-only object listing |
-| SQL functions, triggers, extensions, Vault | Restored | Two Vault secrets re-encrypted; cron definitions retained inactive |
+| SQL functions, triggers, extensions, Vault | Restored | Two Vault secrets refreshed; six original cron schedules copied with destination URL adjustment and activated only after source freeze |
 | Tenant isolation / RLS | Verified in staging | 14 previously unprotected tables hardened; anonymous private-data/write and cross-tenant access denied; owner update allowed |
 | Media, function search paths, Storage listing | Hardened | Owner media writes, fixed function search paths, restricted definer-trigger execution; advisor WARN/ERROR cleared |
-| Application build/regression | Verified | TypeScript, Next production build and 208 IA regression tests passed in prior successful deployments; CI reruns for changed application code |
+| Application build/regression | Verified | TypeScript, Next production build and 213 tests across 20 suites passed for production source 2764c6055403cec3e9e6db40ce3413d406faa09e; TypeScript and production build passed |
 | Menu/order/stock | Verified | Isolated offline order through app; stock decrement; fixture cleanup |
 | Realtime | Verified | Authenticated order INSERT and fresh connection subscription passed; wait for setAuth before subscribing |
 | Printer queue | Verified | Atomic claim, duplicate rejection, retry, acknowledgement, history, receipt and reprint checks |
-| Printer executable | Preview build verified | Both current Windows and Windows 7 legacy preview installers built successfully without publishing; legacy saved-session and staging-config overrides verified; physical printer test and customer rollout still pending |
+| Printer executable | Released and user tested | Primary release 1.4.2 installed by the user; order #71 reprinted successfully before database cutover. Restart the printer to refresh its backend configuration; post-cutover physical reprint is not yet confirmed |
 | Signup/recovery emails | Verified with capture | Confirmation link creates session; recovery email captured locally |
 | External SMTP | Verified | Resend TLS/auth and message accepted by official Resend delivery simulator; no customer recipient |
-| Google OAuth | Configured, full login unverified | Staging callback is https://api-vps-stage.imenuapp.com.br/auth/v1/callback; last recorded Google error was redirect_uri_mismatch; Cloud client registration and complete login must be verified |
+| Google OAuth | Final callback registered | Google client now includes https://api.imenuapp.com.br/auth/v1/callback; original managed and staging callbacks preserved. Full post-cutover browser login not independently observed |
 | AI providers | Credentials restored; live GPT verified | Minimal real gpt-5.6-luna response completed; no restaurant analysis generated/applied |
 | WAHA | Read-only verified | Existing external service queried; sessions not started/stopped/migrated and no WhatsApp sent |
 | Asaas / Fixie / Mercado Pago | Authentication verified | Original credentials restored privately; real charge, payout and paid-webhook flow not performed |
 | Webhook credentials | Restored in staging | WAHA HMAC and Asaas token reject unsigned requests; Mercado Pago re-fetches payment from provider and validates reference/amount; malformed ID rejected before provider fetch |
 | Push notifications | Original key pair verified | PKCS8 newline formatting corrected without re-keying; derived public key and JWT sign/verify passed; real-device delivery/permission test remains pending |
-| Five Vercel schedules | Prepared, disabled | UTC schedules preserved; PRODUCTION_JOBS_ENABLED absent; payouts disabled |
-| Six database schedules | Prepared, disabled | cron.launch_active_jobs=off and zero active jobs |
-| Automatic preview deployment | Implemented | Restricted SSH identity; exact preview SHA; health gate; no main/production deploy |
+| Five host schedules | Active | Original UTC schedules preserved; production environment and container selected; Persistent=false. Old Vercel config deployment was explicitly deferred by the user; managed source read-only blocks writes, including payout run creation before transfer execution |
+| Six database schedules | Active on VPS only | cron.launch_active_jobs=on; six active destination jobs; six source jobs disabled |
+| Automatic deployments | Staging implementation retained | Restricted SSH identity, exact preview SHA and health gate. Existing preview deployer refuses the production marker; production deployment automation requires follow-up before treating merges as VPS deployments |
 | Application rollback | Verified | Previous image restored healthy, current image restored healthy, database untouched |
 | Encrypted backups | Verified | Daily DB/Storage/config/TLS archive; seven server copies, fourteen PC copies; checksum-verified pull |
 | Recovery rehearsal | Verified within scope | Encrypted archive authenticated, all Storage files/xattrs checked, 47 public tables restored into temporary DB and counts compared with the backup snapshot; tampered archive rejected |
@@ -54,9 +54,9 @@ Caddy has trusted certificates, HTTP redirects, noindex and operator-IP restrict
 | Independent monitoring | Configured | Hourly ChatGPT VPS monitor reads private imenu_ops.health through MCP; works without the PC. This is supplementary, not a sub-minute uptime SLA |
 | MCP personal plugin | Verified | Connector initialization, real SQL read and transactional write/rollback; unauthorized gateway blocked |
 | Capacity/headroom | Bounded checks only | Successful bounded menu load and current resource checks; no 100% availability or 10x capacity claim |
-| Fresh final source sync | Deliberately pending | Source remains writable; repeat snapshot and file delta at approved maintenance window |
-| Production TLS/custom domains/callbacks | Deliberately pending | Validate final owned API hostname and dynamic customer routing before switch; no customer DNS changes here |
-| Production migration | NOT authorized/executed | Explicit approval required |
+| Fresh final source sync | Complete | Source frozen, final Auth/public/Storage restored, exact schema ACL entries restored from source dump and security hardening reapplied before reopening writes |
+| Production TLS/domains | Owned hosts verified | www returns 200, apex 308, API TLS valid; preview remains restricted. Domino customer domain was already NXDOMAIN; other unverified customer domains require separate DNS acceptance |
+| Production migration | Live and healthy | Production app and Supabase services healthy; 31 buffered webhooks replayed, zero pending; Auth password/refresh/getUser/RLS/recovery-link fixture passed and was removed |
 
 ## Build, deploy and rollback
 
@@ -86,13 +86,22 @@ The host monitor publishes a private SQL heartbeat to imenu_ops.health. That sch
 
 Detailed machine-readable checks remain private under /opt/imenu-migration/ops: integration-validation.json, integrity-security-validation.json, data-api-security-applied.json, rollback-validation.json, smtp-validation.json and health.json. Database recovery evidence is under backups/database-recovery-validation.json. Do not commit dumps, credentials, operator IP or private reports.
 
-## Remaining acceptance and approved cutover order
+## Post-cutover checks
 
-1. Complete Google OAuth on the registered staging callback and verify login/session continuation. Do not replace the working managed Supabase callback.
-2. Validate a physical printer and real-device push. The successful preview build/queue tests are not physical print proof. Do not publish a customer printer release without rollout approval.
-3. Finish full authenticated dashboard/browser acceptance; the connected local browser was unavailable during the final pass. Finish controlled provider acceptance without a real payout or customer message. A successful provider authentication/read does not prove a paid order or notification delivery.
-4. Verify final production API/custom-domain certificates, redirects, deployment and rollback configuration while keeping current production traffic in place.
-5. Obtain explicit cutover approval and a maintenance window. Take a fresh source backup, pause/drain source writers and schedules, buffer/reconcile payment and WhatsApp webhooks, then restore latest schema/Auth/data and synchronize new/changed/deleted Storage objects. The test copy is stale.
-6. Reapply the tested security changes after restoring the source; rewrite destination-only URLs and cron targets to the final owned API hostname. Rebuild public browser settings.
-7. Repeat counts/checksums, Auth, public/private files, order/stock, Realtime and printer tests. Keep exactly one writable backend while DNS propagates.
-8. Switch approved traffic/provider callbacks together; enable exactly one scheduler copy. Preserve source for the agreed rollback window and reconcile any VPS writes before routing back.
+1. Restart the physical printer so it reloads the backend configuration, then reprint order #71. Database reads alone cannot prove physical reprint delivery.
+2. Confirm final Google login and real-device push. Original VAPID keys were preserved and cryptographically checked.
+3. Deploy the user's edited Vercel configuration when ready to remove old Vercel schedules. Do not re-enable writes on the managed source.
+4. Complete production deployment automation and remove the obsolete staging production-marker guard only with explicit staging-environment checks. A GitHub merge currently does not deploy the VPS.
+5. Resolve customer-owned DNS separately; do not assume an unverified custom domain is operational.
+
+## Live production paths and validation
+
+Production source image: 2764c6055403cec3e9e6db40ce3413d406faa09e. Container: imenu-production-app. Compose: ops/cutover/compose.app.yml. Runtime secrets: secrets/app-production.env. Build secrets: secrets/app-production-build.env. The production runtime Compose env_file uses format: raw, preserving dollar signs in provider credentials.
+
+Caddy: ops/cutover/Caddyfile.live and ops/cutover/compose.proxy-live.yml. Supabase's private COMPOSE_FILE includes docker-compose.imenu-production.json. That overlay must be included in encrypted backups. Reproducible production-source and preview-checkout trees are excluded from backup archives.
+
+The monitor now checks the production container and its /api/health route while retaining required staging services. Validate with python3 /opt/imenu-migration/ops/monitor.py. Run encrypted backup with bash /opt/imenu-migration/ops/backup.sh; the PC pull verifies SHA256 without sending its decryption key to the VPS.
+
+Final cutover evidence remains private: ops/cutover/final-count-validation.json, ops/cutover/webhook-replay-validation.json, the final snapshot manifest, and final Storage copy report. No SQL, dumps, secrets or webhook payloads belong in GitHub.
+
+Validation performed: npx tsc --noEmit; 213 tests / 20 suites; npx next build; final table-count comparison; final Storage copy with zero failures and ten API checksum samples; Auth fixture login/refresh/getUser/RLS/recovery link and cleanup; production health; apex redirect; container health; six active destination database jobs; five enabled host timers. Do not run payout or customer-message jobs manually merely to test scheduling.
