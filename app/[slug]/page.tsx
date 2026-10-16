@@ -257,7 +257,7 @@ export default async function Page({
     supabase
       .from("items")
       .select(
-        "id, name, description, price_cents, image_path, is_available, position, category:category_id(id, name, position)",
+        "id, name, description, price_cents, image_path, is_available, position, category_id, category:category_id(id, name, position)",
       )
       .eq("restaurant_id", restaurant.id)
       .order("position", { ascending: true }),
