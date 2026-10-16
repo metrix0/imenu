@@ -1,7 +1,4 @@
 import * as https from "node:https";
-import { HttpsProxyAgent } from "https-proxy-agent";
-
-import { selectFixieUrl } from "@/lib/fixie";
 
 type AsaasErrorPayload = {
     errors?: Array<{ description?: string }>;
@@ -37,17 +34,6 @@ function getAsaasApiKey(): string {
     return apiKey;
 }
 
-function getFixieUrl(selectionKey: string): string {
-    const fixieUrl = selectFixieUrl(selectionKey);
-    if (!fixieUrl) {
-        throw new AsaasApiError(
-            "A conexão do iMenu QR Code Mesa com o Asaas ainda não foi configurada.",
-            503
-        );
-    }
-    return fixieUrl;
-}
-
 export async function asaasRequest<T>(
     path: string,
     init: RequestInit = {},
@@ -55,7 +41,6 @@ export async function asaasRequest<T>(
 ): Promise<T> {
     const target = new URL(`${getAsaasBaseUrl()}${path}`);
     const body = typeof init.body === "string" ? init.body : undefined;
-    const agent = new HttpsProxyAgent(getFixieUrl(`${path}:${body ?? ""}`));
     const headers: Record<string, string> = {
         accept: "application/json",
         access_token: getAsaasApiKey(),
@@ -79,7 +64,6 @@ export async function asaasRequest<T>(
             target,
             {
                 method: init.method || "GET",
-                agent,
                 headers,
                 timeout: timeoutMs,
             },
