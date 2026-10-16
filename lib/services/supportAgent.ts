@@ -108,14 +108,20 @@ function buildContextualKnowledgeQuery(history: SupportMessage[]): string {
         (normalized.split(/\s+/).length <= 3 &&
             /\b(como|onde|isso|essa|esse|depois|agora|e|sim|nao)\b/.test(normalized)) ||
         (latest.length <= 180 &&
-            /\b(isso|essa|esse|dessa|desse|assim|ai|la|ja|tambem|novamente|anterior|continua|mesmo)\b/.test(normalized));
+            (/\b(isso|essa|esse|dessa|desse|assim|ai|la|ja|tambem|novamente|anterior|continua|mesmo|mas|porem|entao|ainda)\b/.test(normalized) ||
+                /^como (?:falei|disse)\b|^so que\b/.test(normalized)));
     if (!isFollowUp) return "";
 
-    const previous = inbound.slice(-5, -1).reverse().find((message) =>
-        message.body.trim().length >= 15 &&
-        !/^\[midia enviada\]$/i.test(normalizeUiGuidanceText(message.body))
-    );
-    return previous ? (previous.body.slice(0, 280) + " " + latest.slice(0, 150)).trim() : "";
+    // Keep the latest message as the primary search. For follow-ups, recover
+    // the customer's preceding goal so short objections still find useful guidance.
+    const previous = inbound.slice(-4, -1)
+        .filter((message) =>
+            message.body.trim().length >= 15 &&
+            !/^\[midia enviada\]$/i.test(normalizeUiGuidanceText(message.body))
+        )
+        .map((message) => message.body.trim().slice(0, 180))
+        .join(" ");
+    return previous ? (previous + " " + latest.slice(0, 150)).trim().slice(0, 700) : "";
 }
 
 
