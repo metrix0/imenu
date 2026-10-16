@@ -8,25 +8,5 @@
     }
   },
   "crons": [
-    {
-      "path": "/api/cron/daily-payout",
-      "schedule": "0 14 * * *"
-    },
-    {
-      "path": "/api/cron/reconcile-payouts",
-      "schedule": "5 15 * * *"
-    },
-    {
-      "path": "/api/cron/addon-expiry-whatsapp",
-      "schedule": "0 18 * * *"
-    },
-    {
-      "path": "/api/cron/ia-vendas-analysis",
-      "schedule": "0 0 * * *"
-    },
-    {
-      "path": "/api/cron/storage-cleanup",
-      "schedule": "30 4 * * *"
-    }
   ]
 }
