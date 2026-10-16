@@ -1,11 +1,44 @@
-# Prepare only. Activate after the approved DNS/TLS cutover.
 {
-    email {$ACME_EMAIL}
+    admin off
     on_demand_tls {
-        ask http://app:3000/api/internal/domain-allowed
+        ask http://imenu-production-app:3000/api/internal/domain-allowed
     }
 }
-{$IMENU_API_DOMAIN} {
+
+vps-stage.imenuapp.com.br {
+    header X-Robots-Tag "noindex, nofollow"
+    @allowed remote_ip {$IMENU_STAGE_ALLOWED_IP}
+    handle @allowed {
+        reverse_proxy app:3000
+    }
+    handle {
+        respond "Forbidden" 403
+    }
+}
+
+api-vps-stage.imenuapp.com.br {
+    header X-Robots-Tag "noindex, nofollow"
+    @imenu_mcp path /mcp
+    handle @imenu_mcp {
+        reverse_proxy imenu-stage-mcp-gateway:8080
+    }
+
+    @allowed remote_ip {$IMENU_STAGE_ALLOWED_IP} {$IMENU_STAGE_INTERNAL_CIDR}
+    handle @allowed {
+        @api path /auth/* /rest/* /storage/* /realtime/* /functions/* /graphql/*
+        handle @api {
+            reverse_proxy api-gw:8000
+        }
+        handle {
+            respond "Not found" 404
+        }
+    }
+    handle {
+        respond "Forbidden" 403
+    }
+}
+
+http://api.stage.invalid:8080 {
     @api path /auth/* /rest/* /storage/* /realtime/* /functions/* /graphql/*
     handle @api {
         reverse_proxy api-gw:8000
@@ -14,9 +47,48 @@
         respond "Not found" 404
     }
 }
+
+http://:8080 {
+    reverse_proxy app:3000
+}
+
+api.imenuapp.com.br {
+    @api path /auth/* /rest/* /storage/* /realtime/* /functions/* /graphql/*
+    handle @api {
+        reverse_proxy api-gw:8000
+    }
+    handle {
+        respond "Not found" 404
+    }
+}
+
+www.imenuapp.com.br {
+    reverse_proxy imenu-production-app:3000
+}
+imenuapp.com.br {
+    redir https://www.imenuapp.com.br{uri} 308
+}
+www.dominoslimeira.com.br {
+    reverse_proxy imenu-production-app:3000
+}
+dominoslimeira.com.br {
+    redir https://www.dominoslimeira.com.br{uri} 308
+}
+
+preview.imenuapp.com.br {
+    header X-Robots-Tag "noindex, nofollow"
+    @allowed remote_ip {$IMENU_STAGE_ALLOWED_IP} {$IMENU_STAGE_INTERNAL_CIDR}
+    handle @allowed {
+        reverse_proxy app:3000
+    }
+    handle {
+        respond "Forbidden" 403
+    }
+}
+
 https:// {
     tls {
         on_demand
     }
-    reverse_proxy app:3000
+    reverse_proxy imenu-production-app:3000
 }
