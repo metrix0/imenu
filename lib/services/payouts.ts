@@ -1,9 +1,7 @@
 import { getMercadoPagoPixPayment } from "@/lib/mercadoPagoPix";
 import * as https from "node:https";
-import { HttpsProxyAgent } from "https-proxy-agent";
 
 import { query } from "@/lib/database/sql";
-import { selectFixieUrl } from "@/lib/fixie";
 import { calculateOnePercentPayout } from "@/lib/services/payoutSafety";
 
 const ASAAS_BASE_URL = (
@@ -95,12 +93,6 @@ export function getAsaasApiKey(): string | null {
     return process.env.ASAAS_API_KEY?.trim() || null;
 }
 
-function getFixieUrl(selectionKey: string): string {
-    const fixieUrl = selectFixieUrl(selectionKey);
-    if (!fixieUrl) throw new Error("FIXIE_URL não configurado para os repasses Asaas.");
-    return fixieUrl;
-}
-
 function parseJsonText(text: string): any {
     if (!text) return {};
 
@@ -113,21 +105,18 @@ function parseJsonText(text: string): any {
 
 async function asaasRequest<T>(
     path: string,
-    init: { method?: "GET" | "POST"; body?: string } = {},
-    selectionKey = `${path}:${init.body ?? ""}`
+    init: { method?: "GET" | "POST"; body?: string } = {}
 ): Promise<T> {
     const apiKey = getAsaasApiKey();
     if (!apiKey) throw new Error("ASAAS_API_KEY não configurada.");
 
     const target = new URL(`${ASAAS_BASE_URL}${path}`);
-    const agent = new HttpsProxyAgent(getFixieUrl(selectionKey));
 
     return new Promise((resolve, reject) => {
         const request = https.request(
             target,
             {
                 method: init.method || "GET",
-                agent,
                 headers: {
                     accept: "application/json",
                     access_token: apiKey,
@@ -314,12 +303,7 @@ async function getWaitingPayables(cutoffAt: Date): Promise<WaitingPayableRestaur
 }
 
 export async function getAsaasBalance(): Promise<number> {
-    const rotationDay = new Date().toISOString().slice(0, 10);
-    const payload = await asaasRequest<{ balance?: number }>(
-        "/finance/balance",
-        {},
-        `asaas-balance:${rotationDay}`
-    );
+    const payload = await asaasRequest<{ balance?: number }>("/finance/balance");
     const value = Number(payload.balance);
     if (!Number.isFinite(value)) throw new Error("Saldo inválido retornado pelo Asaas.");
     return Math.round(value * 100);
