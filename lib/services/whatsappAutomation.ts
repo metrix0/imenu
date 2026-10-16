@@ -797,6 +797,9 @@ export async function processIncomingWhatsAppMessage({
     messageId: string;
     customerName?: string | null;
 }): Promise<void> {
+    const phone = await resolveWahaChatPhone(sessionName, chatId);
+    if (phone === "5519997235394" || phone === "19997235394") return;
+
     const prepared = await withAdvisoryLock(`${restaurantId}:${chatId}`, () =>
         prepareConversation(restaurantId, chatId, customerName)
     );
