@@ -1,98 +1,98 @@
-# iMenu VPS migration — staging only
+# iMenu VPS — staging checklist and cutover gate
 
-Production DNS, Vercel main, provider webhooks, and source Supabase remain unchanged. Do not activate production or schedulers without explicit approval.
+Production has NOT been migrated. Do not switch www, preview, customer domains, provider callbacks, printer releases or production schedulers without the user's explicit cutover approval.
 
-## Current installation
+## Verified staging installation
 
-- KingHost: Ubuntu 24.04, 6 vCPU, 8 GB RAM, 170 GB disk.
-- Server workspace: /opt/imenu-migration.
-- Supabase official Docker release: self-hosted/v0.8.2, commit 564eab8ad7840b13324f68b1bfac074ef8d51c21.
-- PostgreSQL 17; Auth, PostgREST, Realtime, Storage, Edge Runtime, Studio, Supavisor.
-- Isolated Docker network: imenu-stage_default (internal).
-- SSH key authentication only; firewall permits SSH and staging HTTP/HTTPS (80/443). Database and dashboard are not public.
-- App: imenu-stage-app; health endpoint checks PostgreSQL, Data API, and Auth.
-- Source snapshot: 20261014T165707Z. Restored 47 public tables, 1,912 users, 1,849 restaurants, 13,879 orders.
-- Copied 15,735 Storage files (982,433,988 bytes); file versions, object IDs, policies, bucket settings, and filesystem MIME/cache xattrs preserved.
-- All 47 public table counts matched the snapshot. Ten sampled downloads across five buckets matched copied SHA256 values.
-- Six source database cron jobs copied INACTIVE; cron.launch_active_jobs=off.
-- Two Vault secrets recreated from decrypted source values using destination encryption.
-- Realtime publication includes orders, printer_queue_signals, whatsapp_connections.
-- storage-maintenance function copied. Runtime dependency cache warmed, then outbound network removed.
-- Staging payments: the existing Asaas API credentials and all five Fixie proxy URLs have been restored to the private staging runtime/build environments, and the app alone has outbound access through the existing staging Caddy egress network. The Supabase database network remains internal, payouts and schedulers remain disabled, and production DNS/webhooks remain unchanged. The original Mercado Pago access token is now configured in private staging environment files and authenticated successfully in a read-only API check (HTTP 200); real Pix charge creation and payment webhooks have not been tested. WAHA, other AI/provider secrets and Vercel domain credentials remain disabled in staging.
+KingHost 177.153.39.121: Ubuntu 24.04 LTS, 6 vCPU, 8 GB RAM, 170 GB contracted disk. Root workspace: /opt/imenu-migration. Official Supabase self-hosted/v0.8.2 at 564eab8ad7840b13324f68b1bfac074ef8d51c21, PostgreSQL 17. App/DB/Auth/Data API/Storage/Realtime/Edge Runtime/Studio/pooler run in Docker.
 
-## Build and access
+SSH requires a key and a pinned host fingerprint. PostgreSQL and Studio are private. The Supabase Docker network is internal. App and Auth have separately configured outbound access. Private environment files stay mode 600 and are excluded from Git/build context.
 
-Build with deployment/vps/Dockerfile and a private BuildKit secret named build_env. It must contain shell-quoted environment assignments. Pass BUILD_PUBLIC_CONFIG_SHA256 as a build argument containing the SHA256 of the sorted NEXT_PUBLIC_ configuration. BuildKit secret changes alone do not invalidate cached build layers; the public fingerprint forces browser configuration to rebuild. Never include private keys in that fingerprint. The image runs the existing IA regression tests, TypeScript, and Next production build. Never put .env files or credentials in the build context or Git.
+Protected staging:
+- https://vps-stage.imenuapp.com.br
+- https://api-vps-stage.imenuapp.com.br
 
-Run compose.stage.yml with IMENU_STAGE_ENV_FILE set to the private runtime environment file. The app connects to the private `imenu-stage_default` network and the existing outward-facing `imenu-stage-proxy_acme` network; database containers remain internal. Restored payment credentials belong only in the private runtime/build env files, never Git. Quote literal `# iMenu VPS migration — staging only
+Caddy has trusted certificates, HTTP redirects, noindex and operator-IP restrictions; external non-allowlisted website requests return 403. The authenticated MCP gateway returns 401 without credentials. The website/API allowlist must not be removed to make a test pass. Internal Docker calls are allowed separately. Public production/custom-domain Caddy configuration remains a template.
 
-Production DNS, Vercel main, provider webhooks, and source Supabase remain unchanged. Do not activate production or schedulers without explicit approval.
+## Global checklist
 
-## Current installation
+"Verified" means a concrete check passed; it does not mean every real-device or production flow has been exercised.
 
-- KingHost: Ubuntu 24.04, 6 vCPU, 8 GB RAM, 170 GB disk.
-- Server workspace: /opt/imenu-migration.
-- Supabase official Docker release: self-hosted/v0.8.2, commit 564eab8ad7840b13324f68b1bfac074ef8d51c21.
-- PostgreSQL 17; Auth, PostgREST, Realtime, Storage, Edge Runtime, Studio, Supavisor.
-- Isolated Docker network: imenu-stage_default (internal).
-- SSH key authentication only; firewall permits SSH and staging HTTP/HTTPS (80/443). Database and dashboard are not public.
-- App: imenu-stage-app; health endpoint checks PostgreSQL, Data API, and Auth.
-- Source snapshot: 20261014T165707Z. Restored 47 public tables, 1,912 users, 1,849 restaurants, 13,879 orders.
-- Copied 15,735 Storage files (982,433,988 bytes); file versions, object IDs, policies, bucket settings, and filesystem MIME/cache xattrs preserved.
-- All 47 public table counts matched the snapshot. Ten sampled downloads across five buckets matched copied SHA256 values.
-- Six source database cron jobs copied INACTIVE; cron.launch_active_jobs=off.
-- Two Vault secrets recreated from decrypted source values using destination encryption.
-- Realtime publication includes orders, printer_queue_signals, whatsapp_connections.
-- storage-maintenance function copied. Runtime dependency cache warmed, then outbound network removed.
-- Staging payments: the existing Asaas API credentials and all five Fixie proxy URLs have been restored to the private staging runtime/build environments, and the app alone has outbound access through the existing staging Caddy egress network. The Supabase database network remains internal, payouts and schedulers remain disabled, and production DNS/webhooks remain unchanged. The original Mercado Pago access token is now configured in private staging environment files and authenticated successfully in a read-only API check (HTTP 200); real Pix charge creation and payment webhooks have not been tested. WAHA, other AI/provider secrets and Vercel domain credentials remain disabled in staging.
+| Item | State | Evidence / remaining gate |
+| --- | --- | --- |
+| OS, SSH key, firewall, Docker | Verified | Key-only SSH; private DB/admin; running services healthy |
+| Pinned Supabase stack | Verified | Official release and persistent volumes |
+| Initial database migration | Verified | 47 public tables; initial snapshot 20261014T165707Z |
+| Auth accounts and password hashes | Verified | Accounts restored; password login, refresh and getUser passed |
+| Original JWT/anon/service-role keys | Verified | Original signatures verified; no private key in browser output |
+| Browser/printer saved session key | Implemented and tested | Legacy sb-mjogdsnxbwhbqcoijrwt-auth-token retained |
+| Storage contents | Verified | All 15,735 unique objects / 982,433,988 bytes matched original SHA256; IDs/versions/xattrs preserved |
+| Public/private Storage access | Verified | Public downloads and private anonymous denial; owner-only object listing |
+| SQL functions, triggers, extensions, Vault | Restored | Two Vault secrets re-encrypted; cron definitions retained inactive |
+| Tenant isolation / RLS | Verified in staging | 14 previously unprotected tables hardened; anonymous private-data/write and cross-tenant access denied; owner update allowed |
+| Media, function search paths, Storage listing | Hardened | Owner media writes, fixed function search paths, restricted definer-trigger execution; advisor WARN/ERROR cleared |
+| Application build/regression | Verified | TypeScript, Next production build and 208 IA regression tests passed in prior successful deployments; CI reruns for changed application code |
+| Menu/order/stock | Verified | Isolated offline order through app; stock decrement; fixture cleanup |
+| Realtime | Verified | Authenticated order INSERT and fresh connection subscription passed; wait for setAuth before subscribing |
+| Printer queue | Verified | Atomic claim, duplicate rejection, retry, acknowledgement, history, receipt and reprint checks |
+| Printer executable | Preview build verified | imenu-printer preview installer built successfully without publishing; physical printer test and customer rollout still pending |
+| Signup/recovery emails | Verified with capture | Confirmation link creates session; recovery email captured locally |
+| External SMTP | Verified | Resend TLS/auth and message accepted by official Resend delivery simulator; no customer recipient |
+| Google OAuth | Configured, full login unverified | Staging callback is https://api-vps-stage.imenuapp.com.br/auth/v1/callback; last recorded Google error was redirect_uri_mismatch; Cloud client registration and complete login must be verified |
+| AI providers | Credentials restored; live GPT verified | Minimal real gpt-5.6-luna response completed; no restaurant analysis generated/applied |
+| WAHA | Read-only verified | Existing external service queried; sessions not started/stopped/migrated and no WhatsApp sent |
+| Asaas / Fixie / Mercado Pago | Authentication verified | Original credentials restored privately; real charge, payout and paid-webhook flow not performed |
+| Webhook credentials | Restored in staging | WAHA HMAC and Asaas token reject unsigned requests; Mercado Pago re-fetches payment from provider and validates reference/amount; malformed ID rejected before provider fetch |
+| Push notifications | Keys preserved | Real device delivery/permission test remains pending |
+| Five Vercel schedules | Prepared, disabled | UTC schedules preserved; PRODUCTION_JOBS_ENABLED absent; payouts disabled |
+| Six database schedules | Prepared, disabled | cron.launch_active_jobs=off and zero active jobs |
+| Automatic preview deployment | Implemented | Restricted SSH identity; exact preview SHA; health gate; no main/production deploy |
+| Application rollback | Verified | Previous image restored healthy, current image restored healthy, database untouched |
+| Encrypted backups | Verified | Daily DB/Storage/config/TLS archive; seven server copies, fourteen PC copies; checksum-verified pull |
+| Recovery rehearsal | Verified within scope | Encrypted archive authenticated, all Storage files/xattrs checked, 47 public tables restored into temporary DB and counts compared with the backup snapshot; tampered archive rejected |
+| Local monitor / log bounds / security updates | Active | Five-minute checks; bounded Docker/journal logs; unattended upgrades enabled |
+| Independent monitoring | Configured | Hourly ChatGPT VPS monitor reads private imenu_ops.health through MCP; works without the PC. This is supplementary, not a sub-minute uptime SLA |
+| MCP personal plugin | Verified | Connector initialization, real SQL read and transactional write/rollback; unauthorized gateway blocked |
+| Capacity/headroom | Bounded checks only | Successful bounded menu load and current resource checks; no 100% availability or 10x capacity claim |
+| Fresh final source sync | Deliberately pending | Source remains writable; repeat snapshot and file delta at approved maintenance window |
+| Production TLS/custom domains/callbacks | Deliberately pending | Validate final owned API hostname and dynamic customer routing before switch; no customer DNS changes here |
+| Production migration | NOT authorized/executed | Explicit approval required |
 
-## Build and access
+## Build, deploy and rollback
 
-Build with deployment/vps/Dockerfile and a private BuildKit secret named build_env. It must contain shell-quoted environment assignments. Pass BUILD_PUBLIC_CONFIG_SHA256 as a build argument containing the SHA256 of the sorted NEXT_PUBLIC_ configuration. BuildKit secret changes alone do not invalidate cached build layers; the public fingerprint forces browser configuration to rebuild. Never include private keys in that fingerprint. The image runs the existing IA regression tests, TypeScript, and Next production build. Never put .env files or credentials in the build context or Git.
+Build with deployment/vps/Dockerfile, private BuildKit secret build_env, and BUILD_PUBLIC_CONFIG_SHA256. Hash the sorted NEXT_PUBLIC_ configuration only: secret-file changes alone do not invalidate BuildKit cache. Never put private values in public build arguments.
 
- in Asaas credentials correctly for Compose env parsing and shell-quote the BuildKit env. DATABASE_SSL=false is only for the isolated local Docker connection. The existing Vercel SSL behavior remains the default.
+Runtime: IMENU_STAGE_ENV_FILE=/opt/imenu-migration/secrets/app-stage.env. Keep shell-quoted app-build.env separate from the Compose env file. DATABASE_SSL=false applies only to the private Docker database.
 
-The Windows task workspace is %LOCALAPPDATA%\iMenuMigration. It contains the pinned SSH host key, private SSH key, ssh_exec.py, and stage_tunnel.py. Keep its private ACL. The tunnel provides app at http://localhost:13000, Supabase at http://supabase.localhost:8000, and captured mail at http://localhost:18025. Do not expose these ports publicly.
+The GitHub staging workflow uses the restricted imenu-stage-deploy SSH identity and host fingerprint. The server deploy script builds exact preview HEAD, uses that commit's compose file, preserves the previous image/compose/SHA, checks health, and automatically restores the old image if startup fails. It never applies migrations or restores a database.
 
-Snapshot dump and checksum manifest are also saved in the private Windows workspace. That is a one-time backup, not a verified recurring backup service.
+Manual application rollback:
+- Check: bash /opt/imenu-migration/ops/rollback-preview.sh --check
+- Restore previous staging app only: bash /opt/imenu-migration/ops/rollback-preview.sh --restore-previous
+- Keep database state. After a production switch, reversing DNS without reconciling new writes is not a data-safe rollback.
 
-## Protected VPS HTTPS staging
+Reapply staging security after a source restore, before exposing/restoring client traffic:
+python3 /opt/imenu-migration/ops/harden-data-api.py --apply-staging
 
-- `vps-stage.imenuapp.com.br` and `api-vps-stage.imenuapp.com.br` have dedicated A records to the VPS and trusted automatically renewed Caddy certificates. These records do not change `www`, `preview`, or restaurant domains.
-- `Caddyfile.stage` and `compose.proxy-stage.yml` run the staging-only TLS proxy on ports 80/443 while preserving the existing localhost tunnel on port 18080. Only the configured external address may access the website/API, plus the isolated Docker subnet for backend API requests; blocked requests return 403. The website is marked `noindex`.
-- Put `IMENU_STAGE_ALLOWED_IP=<authorized-public-ip>/32` and `IMENU_STAGE_INTERNAL_CIDR=<isolated-docker-subnet>` in the private `/opt/imenu-migration/tls/stage-proxy.env` (never commit it). Set `IMENU_STAGE_SOURCE=/opt/imenu-migration/app` and `IMENU_STAGE_PROXY_ENV_FILE=/opt/imenu-migration/tls/stage-proxy.env` when running the proxy compose file. Update the external IP when the operator's address changes.
-- Caddy stores TLS certificates under `/opt/imenu-migration/tls/data` and `/opt/imenu-migration/tls/config`; include both in off-server backup plans. The isolated Docker network aliases the staging API hostname to Caddy, allowing internal HTTPS health checks without public egress. Both build and runtime `NEXT_PUBLIC_SUPABASE_URL` use `https://api-vps-stage.imenuapp.com.br`; rebuild the app when the public URL changes.
-- This is a staging-only proxy. The main `Caddyfile` is still a production template. Dynamic customer-domain certificates and routing must be validated separately before an authorized production cutover.
+The script refuses a production marker or non-staging public API URL. It snapshots the original public policies and is idempotent. Apply it before changing staging URLs during the final cutover preparation. Server-only tables intentionally have RLS with no client policies.
 
-## Prepared app compatibility
+## Backup and monitoring operations
 
-CUSTOM_DOMAIN_PROVIDER=vps selects the VPS domain backend; VPS_PUBLIC_IP sets its A record target. The default provider remains Vercel. Domain checks reject mixed A addresses and stale AAAA records. Caddyfile is a future TLS template, not an active public proxy.
+Private Windows workspace: %LOCALAPPDATA%\iMenuMigration. The RSA backup private key stays on the PC. VPS archives use streaming RSA-OAEP/AES-256-GCM. The PC pull task now uses pythonw.exe, so it does not open a terminal every few minutes. PC pulls require that PC/user session to be available.
 
-IMENU_TLS_DOMAINS is an exact comma-separated allowlist for platform certificates. Other domains must already be registered in restaurants.custom_domain. /api/internal/domain-allowed rejects unknown names and fails closed on database errors.
+The server backup includes database.dump, globals, private settings, systemd units, Storage with xattrs, Edge Functions, operational scripts and TLS state. Daily consistency is a DB snapshot plus a file archive, not an atomic live DB/files snapshot. Pause writers for the final migration snapshot.
 
-GET /api/printer/config exposes only the public Supabase URL and an anon/publishable key. It must never expose a service-role or secret API key. This endpoint alone does not change already installed printers.
+The host monitor publishes a private SQL heartbeat to imenu_ops.health. That schema is not exposed by PostgREST and grants no access to anon/authenticated. A separate hourly ChatGPT task checks it via the existing authenticated MCP connector, remains silent while healthy, and reports confirmed/stale/connection failures separately. Verify actual notification receipt; do not claim a future alert has already been delivered.
 
-## Remaining work before cutover
+Detailed machine-readable checks remain private under /opt/imenu-migration/ops: integration-validation.json, integrity-security-validation.json, data-api-security-applied.json, rollback-validation.json, smtp-validation.json and health.json. Database recovery evidence is under backups/database-recovery-validation.json. Do not commit dumps, credentials, operator IP or private reports.
 
-1. Original legacy JWT secret recovered; original anon and service-role signatures verified and keys reused. Password login, refresh, user lookup, RLS reads, and recovery-link generation passed. Existing real-user session continuity and installed printer continuity still require end-to-end validation. NEXT_PUBLIC_SUPABASE_AUTH_STORAGE_KEY preserves sb-mjogdsnxbwhbqcoijrwt-auth-token for the browser when the API hostname changes; leave unset to retain the default behavior on Vercel.
-2. Existing Google OAuth client ID/secret configured and authorize redirect verified. ADD http://localhost:8000/auth/v1/callback in the existing Google Cloud OAuth client before a full tunneled login test; preserve the managed Supabase callback. Original JWT issuer preserved. SMTP host/port/user/sender recovered, but Supabase hides the stored password and no Resend key was present in the local app envs. Obtain the existing Resend SMTP key before real email delivery tests. Staging still captures email in Mailpit; source requires email confirmation.
-3. Prepare and test a printer release that retrieves the public backend config instead of using the hardcoded managed URL. Preserve its existing auth storage key. Do not release it to customers without the rollout decision.
-4. Test Google login, email signup/reset delivery, authenticated dashboard/order flow, Realtime reconnect, printer claim/ack/retry/idempotency, and browser push in an isolated test tenant. Never send a test to a real printer or make a real payout.
-5. Protected staging HTTPS is deployed and verified with trusted certificates, redirects, access restrictions, and app/API health. Before cutover, validate dynamic customer-domain certificates/routing, canonical redirects, and public/private Storage downloads on the production-ready configuration. Production DNS and certificate account details are still required.
-6. Recreate the five Vercel schedules in UTC on the VPS: daily-payout 0 14 * * *; reconcile-payouts 5 15 * * *; addon-expiry-whatsapp 0 18 * * *; ia-vendas-analysis 0 0 * * *; storage-cleanup 30 4 * * *. Keep them DISABLED until cutover; do not duplicate the six database jobs.
-7. Replace old project and preview URLs inside destination cron commands; preserve schedules and Vault authorization. Check pg_net/webhook side effects before enabling outbound access.
-8. Configure encrypted recurring off-server backups for database, Storage with xattrs, private configuration, and TLS state; test recovery. Configure external uptime alerts, bounded logs, security updates, disk alerts, and restart behavior.
-9. Check resource usage and bounded load against the copied database. A single VPS does not provide a 100% availability guarantee.
+## Remaining acceptance and approved cutover order
 
-## Approved-cutover procedure — not executed
-
-Supabase continues receiving production writes while this copy is tested. Do not use the stale staging database as the final production database.
-
-- Obtain explicit approval and agree on a short maintenance window.
-- Drain printing/background jobs; pause source writers and source schedules, and buffer/reconcile payment and WhatsApp webhooks. DNS propagation must not allow writes into two independent databases.
-- Take a fresh full source snapshot and external backup. Restore the latest schema/auth/public/Storage metadata into the destination; incrementally synchronize new/changed/deleted files using versions and checksums.
-- Rewrite only destination Storage URL prefixes to the final owned API hostname. Preserve paths, private bucket rules, IDs, users, tokens, and VAPID keys.
-- Repeat row counts, checksums, Auth, RLS, file downloads, order flow, printer, and webhook checks.
-- Switch traffic/DNS and provider callbacks together with the final backend configuration; enable exactly one copy of each scheduler.
-- Monitor errors, latency, queue age, payouts, memory, disk, and delivery retries. Keep the source available during transition.
-- Rollback must reconcile any writes received on the VPS before routing back; merely changing DNS back can lose new orders.
+1. Complete Google OAuth on the registered staging callback and verify login/session continuation. Do not replace the working managed Supabase callback.
+2. Validate a physical printer and real-device push. The successful preview build/queue tests are not physical print proof. Do not publish a customer printer release without rollout approval.
+3. Finish controlled provider acceptance without a real payout or customer message. A successful provider authentication/read does not prove a paid order or notification delivery.
+4. Verify final production API/custom-domain certificates, redirects, deployment and rollback configuration while keeping current production traffic in place.
+5. Obtain explicit cutover approval and a maintenance window. Take a fresh source backup, pause/drain source writers and schedules, buffer/reconcile payment and WhatsApp webhooks, then restore latest schema/Auth/data and synchronize new/changed/deleted Storage objects. The test copy is stale.
+6. Reapply the tested security changes after restoring the source; rewrite destination-only URLs and cron targets to the final owned API hostname. Rebuild public browser settings.
+7. Repeat counts/checksums, Auth, public/private files, order/stock, Realtime and printer tests. Keep exactly one writable backend while DNS propagates.
+8. Switch approved traffic/provider callbacks together; enable exactly one scheduler copy. Preserve source for the agreed rollback window and reconcile any VPS writes before routing back.

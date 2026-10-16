@@ -258,6 +258,10 @@ export async function POST(req: Request) {
         return NextResponse.json({ ok: true });
     }
 
+    if (!/^\d+$/.test(paymentId)) {
+        return NextResponse.json({ error: "Identificador de pagamento inválido." }, { status: 400 });
+    }
+
     try {
         const payment = await getMercadoPagoPixPayment({
             id: paymentId,

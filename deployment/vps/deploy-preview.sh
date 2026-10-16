@@ -100,6 +100,15 @@ if ! docker build --build-arg "BUILD_PUBLIC_CONFIG_SHA256=$fingerprint" --secret
   exit 1
 fi
 
+candidate_compose="$SOURCE/deployment/vps/compose.stage.yml"
+[[ -f "$candidate_compose" ]] || { echo "Candidate compose file missing" >&2; exit 1; }
+if [[ -f "$STATE/active-compose.yml" ]]; then
+  cp "$STATE/active-compose.yml" "$STATE/rollback-compose.yml"
+else
+  cp "$COMPOSE" "$STATE/rollback-compose.yml"
+fi
+if [[ -f "$STATE/deployed-sha" ]]; then cp "$STATE/deployed-sha" "$STATE/rollback-sha"; fi
+COMPOSE="$candidate_compose"
 old_image="$(docker inspect imenu-stage-app --format '{{.Image}}')"
 docker tag "$old_image" imenu-stage-app:rollback
 docker tag "$candidate" imenu-stage-app:latest
@@ -107,7 +116,7 @@ docker tag "$candidate" imenu-stage-app:latest
 rollback() {
   echo "Restoring previous staging image" >&2
   docker tag imenu-stage-app:rollback imenu-stage-app:latest
-  docker compose -f "$COMPOSE" up -d --no-deps --force-recreate app >&2 || true
+  docker compose -f "$STATE/rollback-compose.yml" up -d --no-deps --force-recreate app >&2 || true
 }
 if ! docker compose -f "$COMPOSE" up -d --no-deps --force-recreate app; then
   rollback
@@ -127,6 +136,7 @@ if [[ "$healthy" != true ]]; then
   echo "New staging image was not healthy; previous image restored" >&2
   exit 1
 fi
+cp "$candidate_compose" "$STATE/active-compose.yml"
 printf '%s\n' "$sha" >"$STATE/deployed-sha"
 rm -f -- "$STATE/failed-sha"
 docker image rm "$candidate" >/dev/null 2>&1 || true
