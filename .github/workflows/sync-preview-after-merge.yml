@@ -7,6 +7,7 @@ on:
       - main
 
 permissions:
+  actions: write
   contents: write
 
 jobs:
@@ -25,3 +26,8 @@ jobs:
 
       - name: Reset preview to main
         run: git push origin HEAD:preview --force
+
+      - name: Trigger VPS staging deployment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run deploy-vps-preview.yml --repo "${{ github.repository }}" --ref preview
