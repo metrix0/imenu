@@ -40,6 +40,19 @@ it("creates new Pix with Mercado Pago and preserves the checkout response fields
     expect(getPayZuPixCharge).not.toHaveBeenCalled();
     expect(setMercadoPagoQrTablePending).toHaveBeenCalledWith(expect.objectContaining({ paymentId: "123" }));
 });
+it("uses the public origin for addon PIX webhooks behind the VPS proxy", async () => {
+    const previous = process.env.NEXT_PUBLIC_BASE_URL;
+    process.env.NEXT_PUBLIC_BASE_URL = "https://www.imenuapp.com.br";
+    try {
+        expect((await send()).status).toBe(200);
+        expect(createMercadoPagoPixCharge).toHaveBeenCalledWith(expect.objectContaining({
+            notificationUrl: "https://www.imenuapp.com.br/api/webhooks/mercadopago",
+        }));
+    } finally {
+        if (previous === undefined) delete process.env.NEXT_PUBLIC_BASE_URL;
+        else process.env.NEXT_PUBLIC_BASE_URL = previous;
+    }
+});
 it("uses a stable creation key when a request is repeated before its payment ID is saved", async () => {
     await send(); await send();
     const calls = (createMercadoPagoPixCharge as jest.Mock).mock.calls;

@@ -1164,7 +1164,7 @@ export async function POST(request: Request) {
                 amount: total / 100,
                 notificationUrl: new URL(
                     "/api/webhooks/mercadopago",
-                    request.url
+                    process.env.NEXT_PUBLIC_BASE_URL || request.url
                 ).toString(),
                 externalReference: orderId.toString(),
                 payerName: customer_name ?? null,
