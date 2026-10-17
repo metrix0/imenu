@@ -277,7 +277,7 @@ export default function CartModal({
     const scheduledOptionsKey = `${scheduleDate}|${scheduledOptions.map((option) => option.value).join("|")}`;
     const selectedScheduledOption = scheduledOptions.find(
         (option) => option.value === scheduled_for
-    ) ?? scheduledOptions[0];
+    ) ?? (preorderOnly ? undefined : scheduledOptions[0]);
 
     useEffect(() => {
         if (isTableOrder) {
