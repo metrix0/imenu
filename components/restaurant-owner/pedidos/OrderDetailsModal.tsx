@@ -56,7 +56,6 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
     const [isLoading, setIsLoading] = useState(true);
     const [isUpdating, setIsUpdating] = useState(false);
     const [details, setDetails] = useState<OrderDetail | null>(null);
-    const [preorderOnly, setPreorderOnly] = useState(false);
     const [showRefundConfirmation, setShowRefundConfirmation] = useState(false);
     const isTableOrder = details?.is_delivery === "mesa" || order?.is_delivery === "mesa";
     const isPickup = isTableOrder || details?.is_delivery === "retirada" || order?.is_delivery === "retirada";
@@ -119,9 +118,7 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
     const scheduledDate = details?.scheduled_for ? new Date(details.scheduled_for) : null;
     const isScheduled = !isTableOrder && Boolean(scheduledDate && !Number.isNaN(scheduledDate.getTime()));
     const scheduledLabel = isScheduled && scheduledDate
-        ? preorderOnly
-            ? `${scheduledDate.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" })} (horário a combinar)`
-            : `${scheduledDate.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} (${formatScheduledRelativeTime(scheduledDate)})`
+        ? `${scheduledDate.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} (${formatScheduledRelativeTime(scheduledDate)})`
         : null;
     const etaRange = !isScheduled ? formatEtaRange(details?.delivery_eta) : null;
 
@@ -179,12 +176,6 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
 
             if (error) throw error;
             setDetails(data as any);
-            const { data: restaurant } = await supabase
-                .from("restaurants")
-                .select("preorder_only")
-                .eq("id", data.restaurant_id)
-                .maybeSingle();
-            setPreorderOnly(restaurant?.preorder_only === true);
         } catch (err) {
             console.error("Erro ao carregar detalhes:", err);
         } finally {
