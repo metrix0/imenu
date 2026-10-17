@@ -562,7 +562,7 @@ export default function LandingPage() {
                                 ["SEO", "check", "Não otimizado"],
                                 ["Acompanhamento do pedido", "Acompanhamento em tempo real via Página e Whatsapp", "Clientes ficam perdidos"],
                                 ["Taxa por Transação", "SEM TAXAS. Apenas Pix Online: 0.99% por pedido.", "5%, 15%, 30%"],
-                                ["Scan de Cardápio com IA", "Pronto em segundos", "Manual"],
+                                ["Scanear Cardápio com IA", "Envie Fotos, PDFs ou Links e tenha o cardápio pronto em segundos", "Manual"],
                                 ["Dados para análise", "Clicks, Visualizações do Cardápio, $ médio do Carrinho, Clicks por Plataforma, etc", "Limitado"],
                                 ["Calcular Taxa de Entrega", "Pelo Raio (KM) ou Bairro", "Configurações confusas"],
                                 ["Fotos em Alta qualidade", "check", "Baixa qualidade"],
