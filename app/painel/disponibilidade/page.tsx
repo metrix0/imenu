@@ -12,6 +12,7 @@ export default function DisponibilidadePage() {
     const { restaurantId, setRestaurantId } = useCreationStore();
     const [availability, setAvailability] = useState<Availability>({});
     const [preorderOnly, setPreorderOnly] = useState(false);
+    const [openPreorderConfirmationSignal, setOpenPreorderConfirmationSignal] = useState(0);
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [saveError, setSaveError] = useState(false);
@@ -178,7 +179,10 @@ export default function DisponibilidadePage() {
                         Defina quando sua loja estará aberta para receber pedidos. Trabalha só com encomendas?{" "}
                         <button
                             type="button"
-                            onClick={() => document.getElementById("preorder-mode")?.scrollIntoView({ behavior: "smooth", block: "center" })}
+                            onClick={() => {
+                                document.getElementById("preorder-mode")?.scrollIntoView({ behavior: "smooth", block: "center" });
+                                if (!preorderOnly) window.setTimeout(() => setOpenPreorderConfirmationSignal((value) => value + 1), 400);
+                            }}
                             className="cursor-pointer font-medium text-brand underline hover:underline"
                         >
                             Clique aqui
@@ -201,7 +205,7 @@ export default function DisponibilidadePage() {
                 </div>
             </div>}
             <div id="preorder-mode" className="mt-6 scroll-mt-24">
-                <PreorderModeToggle restaurantId={restaurantId} enabled={preorderOnly} onChange={setPreorderOnly} />
+                <PreorderModeToggle restaurantId={restaurantId} enabled={preorderOnly} onChange={setPreorderOnly} openConfirmationSignal={openPreorderConfirmationSignal} />
             </div>
         </div>
     );
