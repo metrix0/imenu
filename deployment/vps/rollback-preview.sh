@@ -4,20 +4,21 @@ set -Eeuo pipefail
 umask 077
 BASE=/opt/imenu-migration
 STATE="$BASE/ops/preview-deploy-state"
-[[ ! -e "$BASE/ops/PRODUCTION_JOBS_ENABLED" ]] || { echo "Production marker present; refusing" >&2; exit 1; }
 exec 9>"$STATE/deploy.lock"
 flock -n 9 || { echo "Deployment in progress" >&2; exit 75; }
+exec 8>"$BASE/ops/application-build.lock"
+flock -n 8 || { echo "Application build or maintenance in progress" >&2; exit 75; }
 previous="$(docker image inspect imenu-stage-app:rollback --format '{{.Id}}')"
 current="$(docker inspect imenu-stage-app --format '{{.Image}}')"
 if [[ "${1:---check}" == --check ]]; then
   echo "Current staging image: $current"
   echo "Previous staging image: $previous"
-  echo "Database untouched; production jobs remain disabled"
+  echo "Database and production services untouched"
   exit 0
 fi
 [[ "$#" -eq 1 && "$1" == --restore-previous ]] || exit 2
 compose="$STATE/rollback-compose.yml"
-[[ -f "$compose" ]] || compose="$BASE/app/deployment/vps/compose.stage.yml"
+[[ -f "$compose" ]] || compose="$BASE/ops/config/compose.stage.yml"
 export IMENU_STAGE_ENV_FILE="$BASE/secrets/app-stage.env"
 docker tag "$current" imenu-stage-app:before-manual-rollback
 docker tag "$previous" imenu-stage-app:latest

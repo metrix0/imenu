@@ -18,6 +18,12 @@ vps-stage.imenuapp.com.br {
 
 api-vps-stage.imenuapp.com.br {
     header X-Robots-Tag "noindex, nofollow"
+    @imenu_deploy path /deploy-mcp /deploy-mcp/mcp
+    handle @imenu_deploy {
+        rewrite * /mcp
+        reverse_proxy 172.18.0.1:18793
+    }
+
     @imenu_mcp path /mcp
     handle @imenu_mcp {
         reverse_proxy imenu-stage-mcp-gateway:8080
@@ -91,4 +97,8 @@ https:// {
         on_demand
     }
     reverse_proxy imenu-production-app:3000
+}
+
+waha.imenuapp.com.br {
+    reverse_proxy imenu-kinghost-waha:3000
 }
