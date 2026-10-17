@@ -1,6 +1,8 @@
 // app/api/restaurants/delete-restaurant/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { normalizeBlastPhone } from "@/lib/services/supportBlast";
+import { deleteWahaSession } from "@/lib/services/wahaClient";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL; // Usando NEXT_PUBLIC para consistência
 const SUPABASE_SERVICE_ROLE = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -18,17 +20,24 @@ export const revalidate = 0;
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
-        // Adicionando userId para verificação de segurança, embora não seja estritamente necessário
-        // já que o Service Role Key ignora RLS.
         const { restaurantId } = body;
 
         if (!restaurantId) return NextResponse.json({ error: "restaurantId is required" }, { status: 400 });
 
-        // carregar restaurante (logo)
+        const token = req.headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1];
+        if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+        const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+        if (authError || !user) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+
+        // Only the authenticated owner may remove a restaurant and its WAHA session.
         const { data: restaurant, error: restErr } = await supabaseAdmin
             .from("restaurants")
-            .select("id, logo_url")
+            .select("id, logo_url, phone, store_whatsapp")
             .eq("id", restaurantId)
+            .eq("user_id", user.id)
             .maybeSingle();
 
         if (restErr) {
@@ -44,6 +53,41 @@ export async function POST(req: NextRequest) {
             // Se o restaurante não foi encontrado, mas não houve erro, consideramos sucesso
             // ou retornamos um 404 (depende do caso de uso). No caso de exclusão, 404 é ok.
             return NextResponse.json({ success: true, message: "Restaurante já deletado ou não encontrado." });
+        }
+
+        // Cancel queued outreach before deleting the account's restaurant data.
+        const phones = [...new Set([
+            user.user_metadata?.phone,
+            restaurant.phone,
+            restaurant.store_whatsapp,
+        ].map((phone) => normalizeBlastPhone(String(phone || ""))).filter((phone): phone is string => Boolean(phone)))];
+
+        if (phones.length) {
+            const { error: cancelError } = await supabaseAdmin
+                .from("support_blast_recipients")
+                .update({ status: "cancelled", error: "Conta excluída." })
+                .in("phone", phones)
+                .in("status", ["pending", "processing"]);
+            if (cancelError) throw cancelError;
+        }
+
+        const { data: connection, error: connectionError } = await supabaseAdmin
+            .from("whatsapp_connections")
+            .select("session_name")
+            .eq("restaurant_id", restaurantId)
+            .maybeSingle();
+        if (connectionError) throw connectionError;
+
+        // Prevent WAHA status webhooks from restarting the session during deletion.
+        if (connection?.session_name) {
+            const { error: stateError } = await supabaseAdmin
+                .from("whatsapp_connections")
+                .update({ desired_state: "disconnected", status: "STOPPED" })
+                .eq("restaurant_id", restaurantId);
+            if (stateError) throw stateError;
+
+            // WAHA sessions survive database cascades. Delete the real session first.
+            await deleteWahaSession(connection.session_name);
         }
 
         // 1) Remover menus e banners

@@ -370,6 +370,18 @@ async function sendRecipient(item: ClaimedRecipient): Promise<"sent" | "skipped"
             throw new Error("Número não existe no WhatsApp.");
         }
         const resolvedChatId = contact.chatId || chatId;
+        // Deletion may cancel a recipient after the queue worker claimed it.
+        const active = await query(
+            "SELECT 1 FROM support_blast_recipients WHERE id = $1 AND status = 'processing'",
+            [item.id]
+        );
+        if (!active.rowCount) {
+            await query(
+                "UPDATE whatsapp_outbound_messages SET status = 'failed', last_error = 'Envio cancelado.', updated_at = NOW() WHERE dedupe_key = $1",
+                [dedupeKey]
+            );
+            return "skipped";
+        }
         try {
             await sendWahaText(session.session_name, resolvedChatId, item.message);
         } catch (firstError) {

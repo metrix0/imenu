@@ -352,6 +352,18 @@ export async function logoutWahaSession(sessionName: string): Promise<void> {
     );
 }
 
+export async function deleteWahaSession(sessionName: string): Promise<void> {
+    try {
+        await wahaRequest<void>(
+            `/api/sessions/${encodeURIComponent(sessionName)}`,
+            { method: "DELETE" }
+        );
+    } catch (error) {
+        if (isWahaHttpErrorStatus(error, 404)) return;
+        throw error;
+    }
+}
+
 export async function getWahaQrCode(
     sessionName: string
 ): Promise<string | null> {
