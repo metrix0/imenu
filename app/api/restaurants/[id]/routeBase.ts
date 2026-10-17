@@ -95,7 +95,7 @@ export async function PATCH(
 
     try {
         const currentResult = await query(
-            `SELECT id, url_slug FROM public.restaurants WHERE id = $1 LIMIT 1`,
+            `SELECT id, url_slug, preorder_only FROM public.restaurants WHERE id = $1 LIMIT 1`,
             [id]
         );
 
@@ -107,6 +107,21 @@ export async function PATCH(
         }
 
         const currentRestaurant = currentResult.rows[0];
+        if (body.preorder_only !== undefined && typeof body.preorder_only !== "boolean") {
+            return NextResponse.json({ error: "Modo encomendas inválido." }, { status: 400 });
+        }
+        if (body.preorder_only === true) {
+            body.allow_future_order_scheduling = true;
+        }
+        if (
+            (body.preorder_only ?? currentRestaurant.preorder_only) === true &&
+            body.allow_future_order_scheduling === false
+        ) {
+            return NextResponse.json(
+                { error: "Encomendas exigem agendamento para dias futuros." },
+                { status: 400 },
+            );
+        }
         const hasExplicitSlug = Object.prototype.hasOwnProperty.call(
             body,
             "url_slug"
@@ -146,6 +161,8 @@ export async function PATCH(
             address: "address",
             delivery_fee_json: "delivery_fee_json",
             availability_json: "availability_json",
+            preorder_only: "preorder_only",
+            allow_future_order_scheduling: "allow_future_order_scheduling",
             name: "name",
             phone: "phone",
             store_whatsapp: "store_whatsapp",

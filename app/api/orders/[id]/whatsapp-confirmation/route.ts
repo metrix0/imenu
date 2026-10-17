@@ -8,7 +8,7 @@ function formatMoney(value: unknown): string {
     return `R$ ${(safeCents / 100).toFixed(2).replace(".", ",")}`;
 }
 
-function formatDateTime(value: unknown): string {
+function formatDateTime(value: unknown, dateOnly = false): string {
     const date = new Date(String(value ?? ""));
     if (Number.isNaN(date.getTime())) return "";
 
@@ -17,8 +17,7 @@ function formatDateTime(value: unknown): string {
         day: "2-digit",
         month: "2-digit",
         year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
+        ...(dateOnly ? {} : { hour: "2-digit", minute: "2-digit" } as const),
     }).format(date);
 }
 
@@ -83,6 +82,7 @@ type OrderRow = {
     store_whatsapp: string | null;
     restaurant_phone: string | null;
     force_whatsapp_order_confirmation: boolean;
+    preorder_only: boolean;
 };
 
 type OrderItemRow = {
@@ -122,12 +122,12 @@ function buildComanda(
     ];
 
     if (order.scheduled_for) {
-        const scheduledLabel = formatDateTime(order.scheduled_for);
+        const scheduledLabel = formatDateTime(order.scheduled_for, order.preorder_only);
         if (scheduledLabel) {
             lines.push(
                 separator,
                 "📅 *AGENDADO*",
-                `⏰ *${pickup ? "RETIRADA" : "ENTREGA"}: ${scheduledLabel}*`,
+                `${order.preorder_only ? "📅" : "⏰"} *${pickup ? "RETIRADA" : "ENTREGA"}: ${scheduledLabel}${order.preorder_only ? " (horário a combinar)" : ""}*`,
                 separator,
             );
         }
@@ -242,7 +242,8 @@ export async function GET(
                     orders.total_cents,
                     restaurants.store_whatsapp,
                     restaurants.phone AS restaurant_phone,
-                    restaurants.force_whatsapp_order_confirmation
+                    restaurants.force_whatsapp_order_confirmation,
+                    restaurants.preorder_only
                 FROM orders
                 JOIN restaurants
                   ON restaurants.id = orders.restaurant_id

@@ -141,6 +141,7 @@ export default function CartModal({
     const todayInput = formatDateInputValue(new Date());
     const [scheduleDate, setScheduleDate] = useState(todayInput);
     const allowFutureScheduling = restaurant?.allow_future_order_scheduling === true;
+    const preorderOnly = restaurant?.preorder_only === true;
     const scheduleDateOptions = Array.from({ length: 60 }, (_, index) => {
         const date = new Date();
         date.setHours(12, 0, 0, 0);
@@ -164,6 +165,11 @@ export default function CartModal({
     const troco = useCheckoutStore((s: any) => String(s.troco ?? ""));
 
     const schedulingState = (() => {
+        if (preorderOnly) {
+            const requestedDate = dateFromInput(scheduleDate);
+            requestedDate.setHours(23, 59, 0, 0);
+            return { options: [{ value: requestedDate.toISOString(), label: "A combinar" }], isOpenNow: false };
+        }
         const availability = restaurant?.availability_json;
         if (!availability) {
             return {
@@ -259,13 +265,13 @@ export default function CartModal({
     })();
     const scheduledOptions = schedulingState.options;
     const selectedDateIsToday = scheduleDate === todayInput;
-    const mustSchedule =
+    const mustSchedule = preorderOnly || (
         selectedDateIsToday &&
         scheduledOptions.length > 0 &&
-        !schedulingState.isOpenNow;
-    const hasSchedulingChoice = allowFutureScheduling || scheduledOptions.length > 0;
+        !schedulingState.isOpenNow);
+    const hasSchedulingChoice = preorderOnly || allowFutureScheduling || scheduledOptions.length > 0;
     const showSchedulePicker =
-        mustSchedule || showOptionalSchedule || (!mustSchedule && Boolean(scheduled_for));
+        preorderOnly || mustSchedule || showOptionalSchedule || (!mustSchedule && Boolean(scheduled_for));
     const scheduledOptionsKey = `${scheduleDate}|${scheduledOptions.map((option) => option.value).join("|")}`;
     const selectedScheduledOption = scheduledOptions.find(
         (option) => option.value === scheduled_for
@@ -1309,7 +1315,9 @@ export default function CartModal({
                                                     Pedido agendado
                                                 </h2>
                                                 <p className="mt-1 text-sm text-green-800 2xl:text-base">
-                                                    {allowFutureScheduling
+                                                    {preorderOnly
+                                                        ? `Escolha o dia para ${isPickup ? "retirar" : "receber"} seu pedido. O horário será combinado com o estabelecimento.`
+                                                        : allowFutureScheduling
                                                         ? `Escolha o dia e horário para ${isPickup ? "retirar" : "receber"} seu pedido.`
                                                         : `Escolha o horário para ${isPickup ? "retirar" : "receber"} seu pedido hoje.`}
                                                 </p>
@@ -1331,7 +1339,7 @@ export default function CartModal({
                                             )}
                                         </div>
 
-                                        {allowFutureScheduling && (
+                                        {(allowFutureScheduling || preorderOnly) && (
                                             <div className="mt-4">
                                                 <div className="mb-1.5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-green-800">
                                                     <FontAwesomeIcon icon={faCalendarDays} />
@@ -1353,7 +1361,9 @@ export default function CartModal({
                                             </div>
                                         )}
 
-                                        {scheduledOptions.length > 0 ? (
+                                        {preorderOnly ? (
+                                            <p className="mt-3 rounded-lg bg-white px-4 py-3 text-sm text-gray-600">Horário de entrega ou retirada a combinar com o estabelecimento.</p>
+                                        ) : scheduledOptions.length > 0 ? (
                                             <div className="relative mt-3">
                                                 <button
                                                     type="button"

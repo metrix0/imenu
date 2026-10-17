@@ -390,6 +390,17 @@ export async function POST(request: Request) {
             throw new OrderRequestError("QR Code de mesa inválido.");
         }
 
+        const preorderResult = !isTableOrder
+            ? await query(
+                  "SELECT preorder_only FROM public.restaurants WHERE id = $1 LIMIT 1",
+                  [restaurantId],
+              )
+            : null;
+        const preorderOnly = preorderResult?.rows[0]?.preorder_only === true;
+        if (preorderOnly && !scheduled_for) {
+            throw new OrderRequestError("Selecione a data da encomenda.");
+        }
+
         let scheduledFor: Date | null = null;
         if (!isTableOrder && scheduled_for) {
             const parsedScheduledFor = new Date(scheduled_for);

@@ -41,6 +41,7 @@ type Restaurant = {
     phone?: string | null;
     force_whatsapp_order_confirmation?: boolean | null;
     allow_future_order_scheduling?: boolean | null;
+    preorder_only?: boolean | null;
     vitrine_enabled?: boolean;
 };
 
@@ -291,7 +292,7 @@ export default function ConfiguracoesPage() {
                     const { data: restData } = await supabase
                         .from("restaurants")
                         .select(
-                            "id, name, url_slug, user_id, phone, force_whatsapp_order_confirmation, allow_future_order_scheduling, vitrine_enabled",
+                            "id, name, url_slug, user_id, phone, force_whatsapp_order_confirmation, allow_future_order_scheduling, preorder_only, vitrine_enabled",
                         )
                         .eq("id", targetId)
                         .single();
@@ -397,7 +398,7 @@ export default function ConfiguracoesPage() {
     };
 
     const saveOrderSchedulingMode = async (allowFuture: boolean) => {
-        if (!restaurant || isSavingOrderScheduling) return;
+        if (!restaurant || isSavingOrderScheduling || restaurant.preorder_only) return;
 
         setIsSavingOrderScheduling(true);
         const { error } = await supabase
@@ -848,7 +849,7 @@ export default function ConfiguracoesPage() {
 
                         <ChoiceCardGroup
                             value={allowFutureOrderScheduling ? "future" : "today"}
-                            disabled={isSavingOrderScheduling}
+                            disabled={isSavingOrderScheduling || restaurant?.preorder_only === true}
                             onChange={(value) => void saveOrderSchedulingMode(value === "future")}
                             className="sm:grid-cols-2"
                             options={[
@@ -857,6 +858,7 @@ export default function ConfiguracoesPage() {
                             ]}
                         />
 
+                        {restaurant?.preorder_only && <p className="mt-3 text-sm text-gray-500">Dias futuros está ativado automaticamente pelo modo Encomendas. Para alterar, desative o modo em Horários.</p>}
                         {isSavingOrderScheduling && (
                             <SaveStatus status="saving" className="mt-3" />
                         )}

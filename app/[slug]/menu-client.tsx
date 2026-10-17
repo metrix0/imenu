@@ -887,7 +887,7 @@ export default function MenuClientPage({
                     </div>
 
                     <p className="text-gray-600 text-xs 2xl:text-[1rem] mt-1 border-b border-gray-200 pb-2">
-                        {(isRestaurantOpen && !closedForToday) ? "Aberto" : "Fechado" }
+                        {restaurant.preorder_only && !isTableOrder ? "Aceitando encomendas" : (isRestaurantOpen && !closedForToday) ? "Aberto" : "Fechado" }
                         {readOnly ? " • Somente visualização" : isTableOrder ? (
                             <> • {selectedTable?.name || tableOrder?.tableName || "Atendimento na mesa"}</>
                         ) : (
@@ -940,7 +940,7 @@ export default function MenuClientPage({
             </div>
             )}
 
-            {!readOnly && availabilityChecked && (!isRestaurantOpen || closedForToday) &&
+            {!readOnly && !restaurant.preorder_only && availabilityChecked && (!isRestaurantOpen || closedForToday) &&
                 (closedForToday || openingHoursSlots.length > 0 ||
                     (warningOpening !== null && warningOpening.getTime() > Date.now())) && (
                 <WarningBox icon={icons.faTriangleExclamation} className="mt-10 mx-5 md:mx-48 2xl:mx-80">
@@ -1348,7 +1348,9 @@ export default function MenuClientPage({
                         </div>
                     )}
 
-                    <section className="mt-6">
+                    {restaurant.preorder_only ? (
+                        <p className="mt-6 text-sm text-gray-600">Trabalhamos com encomendas para a data escolhida. O horário de entrega ou retirada será combinado.</p>
+                    ) : <section className="mt-6">
                         <h3 className="text-base font-semibold 2xl:text-xl">Horários de atendimento</h3>
                         <div className="mt-3 divide-y divide-gray-100 rounded-xl border border-gray-200 px-4">
                             {RESTAURANT_INFO_DAYS.map(({ day, label }) => {
@@ -1367,7 +1369,7 @@ export default function MenuClientPage({
                                 );
                             })}
                         </div>
-                    </section>
+                    </section>}
 
                     <section className="mt-6">
                         <h3 className="text-base font-semibold 2xl:text-xl">Formas de pagamento</h3>
