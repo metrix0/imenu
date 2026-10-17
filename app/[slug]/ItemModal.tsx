@@ -301,7 +301,7 @@ export default function ItemModal({
     const canOrderNow =
         isRestaurantOpen ||
         canScheduleToday ||
-        restaurant.allow_future_order_scheduling === true || restaurant.preorder_only === true;
+        restaurant.allow_future_order_scheduling === true;
     const disabledReason = !canOrderNow
         ? "O restaurante está fechado no momento."
         : missingRequired
