@@ -17,6 +17,20 @@ export type BlogArticleDefinition = {
 
 export const BLOG_ARTICLES: BlogArticleDefinition[] = [
     {
+        slug: "sistema-de-encomendas-online",
+        title: "Sistema de encomendas online: como receber pedidos agendados e organizar sua produção",
+        shortTitle: "Sistema de encomendas online",
+        metaTitle: "Sistema de Encomendas Online Grátis | iMenu",
+        metaDescription:
+            "Receba encomendas online de bolos, doces, salgados e delivery com dia, horário e antecedência mínima. Veja como ativar o Modo Encomendas grátis no iMenu.",
+        excerpt:
+            "Chega de negociar toda encomenda pelo WhatsApp: organize seu cardápio, defina dias e horários disponíveis e receba pedidos agendados com antecedência.",
+        category: "Gestão",
+        readingTime: "12 min de leitura",
+        publishedAt: "2026-10-17",
+        updatedAt: "2026-10-17",
+    },
+    {
         slug: "dominio-proprio-cardapio-digital",
         title: "Como usar domínio próprio no cardápio digital do iMenu: passo a passo",
         shortTitle: "Domínio próprio no cardápio digital",
