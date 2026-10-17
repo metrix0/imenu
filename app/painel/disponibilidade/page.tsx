@@ -175,11 +175,11 @@ export default function DisponibilidadePage() {
                         <h1 className="text-3xl font-bold text-gray-900">Horários de Funcionamento</h1>
                     </div>
                     <p className="text-gray-500 mt-1 min-[1800px]:text-lg">
-                        Defina quando sua loja estará aberta para receber pedidos. Trabalha com encomendas?{" "}
+                        Defina quando sua loja estará aberta para receber pedidos. Trabalha só com encomendas?{" "}
                         <button
                             type="button"
                             onClick={() => document.getElementById("preorder-mode")?.scrollIntoView({ behavior: "smooth", block: "center" })}
-                            className="cursor-pointer font-medium text-brand hover:underline"
+                            className="cursor-pointer font-medium text-brand underline hover:underline"
                         >
                             Clique aqui
                         </button>
