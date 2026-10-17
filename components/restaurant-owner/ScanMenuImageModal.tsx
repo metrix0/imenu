@@ -92,6 +92,7 @@ function ScanModal({
 
     const [uploads, setUploads] = useState<SelectedUpload[]>([]);
     const [menuUrl, setMenuUrl] = useState("");
+    const [showLinkField, setShowLinkField] = useState(false);
     const [toast, setToast] = useState<{
         message: string;
         type: "success" | "error";
@@ -293,10 +294,10 @@ function ScanModal({
     }
 
     async function handleContinue() {
-        if (menuUrl.trim()) {
-            if (uploads.length > 0) {
+        if (showLinkField) {
+            if (!menuUrl.trim()) {
                 setToast({
-                    message: "Escolha fotos/PDF ou um link para analisar, não os dois juntos.",
+                    message: "Cole o link público do seu cardápio.",
                     type: "error",
                 });
                 return;
@@ -556,7 +557,30 @@ function ScanModal({
             <Modal height={700} open={open} onClose={onClose}>
                 <div className="p-6 w-full max-w-3xl 2xl:max-w-4xl overflow-y-auto">
                     {!scanResult && (
-                        <div className="space-y-6">
+                        <div className="space-y-4">
+                            {showLinkField ? (
+                                <div className="rounded-lg p-4">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setMenuUrl("");
+                                            setShowLinkField(false);
+                                        }}
+                                        className="mb-5 inline-flex cursor-pointer items-center gap-2 text-sm font-medium text-brand hover:underline"
+                                    >
+                                        ← Usar fotos ou PDF
+                                    </button>
+                                    <Input
+                                        type="url"
+                                        label="Link público do cardápio"
+                                        placeholder="https://exemplo.com/cardapio"
+                                        value={menuUrl}
+                                        onChange={(event) => setMenuUrl(event.target.value)}
+                                        maxLength={2048}
+                                        autoFocus
+                                    />
+                                </div>
+                            ) : (
                             <div className="rounded-lg p-4 2xl:text-xl">
                                 <div className="mb-6">
                                     <p className="font-semibold 2xl:mb-2">
@@ -665,25 +689,27 @@ function ScanModal({
                                         )}
                                     </div>
                                 </div>
+                                {uploads.length === 0 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowLinkField(true)}
+                                        className="inline-flex cursor-pointer items-center gap-2 text-sm font-medium text-brand hover:underline"
+                                    >
+                                        <FontAwesomeIcon icon={icons.faLink} />
+                                        Importar por link
+                                    </button>
+                                )}
                             </div>
+                            )}
 
-                            <div className="flex items-center gap-3 px-4" aria-hidden="true">
-                                <span className="h-px flex-1 bg-gray-200" />
-                                <span className="text-xs font-medium text-gray-500">ou use um link</span>
-                                <span className="h-px flex-1 bg-gray-200" />
-                            </div>
-                            <div className="space-y-2 px-4">
-                                <Input
-                                    type="url"
-                                    label="Link público do cardápio"
-                                    placeholder="https://exemplo.com/cardapio"
-                                    value={menuUrl}
-                                    onChange={(event) => setMenuUrl(event.target.value)}
-                                    maxLength={2048}
-                                />
-                                <p className="text-xs text-gray-500">
-                                    Sites que exigem login ou bloqueiam leitura automática, incluindo iFood, não são compatíveis.
-                                </p>
+                            <div className="h-10 px-4" aria-live="polite">
+                                {isScanning && (
+                                    <LoadingBar
+                                        key={String(isScanning)}
+                                        durationSeconds={13}
+                                        showLabel={true}
+                                    />
+                                )}
                             </div>
 
                             <div className="flex justify-end gap-2">
@@ -840,15 +866,6 @@ function ScanModal({
                         </div>
                     )}
 
-                    {isScanning && (
-                        <div className="mt-4">
-                            <LoadingBar
-                                key={String(isScanning)}
-                                durationSeconds={13}
-                                showLabel={true}
-                            />
-                        </div>
-                    )}
                 </div>
             </Modal>
 
