@@ -21,7 +21,7 @@ if [[ "${1:-}" == --production ]]; then
   STATE="$BASE/ops/production-deploy-state"
   BUILD_ENV="$BASE/secrets/app-production-build.env"
   RUN_ENV="$BASE/secrets/app-production.env"
-  COMPOSE="$BASE/ops/cutover/compose.app.yml"
+  COMPOSE="$BASE/ops/config/compose.production.yml"
   APP_CONTAINER=imenu-production-app
   IMAGE=imenu-production-app
   STABLE=final
@@ -42,6 +42,12 @@ if env.get("NEXT_PUBLIC_SUPABASE_URL","").strip("'\\\"")!=expected:
 PY
 exec 8>"$BASE/ops/application-build.lock"
 flock 8
+cleanup_storage() {
+  if [[ -x "$BASE/ops/docker-retention.sh" ]]; then
+    "$BASE/ops/docker-retention.sh" --build-lock-held || echo "Storage cleanup failed; check imenu-docker-retention.service" >&2
+  fi
+}
+trap cleanup_storage EXIT
 docker inspect "$APP_CONTAINER" >/dev/null
 export GIT_TERMINAL_PROMPT=0
 export IMENU_STAGE_ENV_FILE="$RUN_ENV"
@@ -78,7 +84,7 @@ if [[ "$retry" != true && "$(cat "$STATE/failed-sha" 2>/dev/null || true)" == "$
   echo "Commit $sha previously failed; manual --retry required" >&2
   exit 1
 fi
-trap 'rc=$?; if [[ "$rc" -ne 0 ]]; then printf "%s\n" "$sha" >"$STATE/failed-sha"; echo "Recorded failed preview SHA: $sha" >&2; fi' EXIT
+trap 'rc=$?; if [[ "$rc" -ne 0 ]]; then printf "%s\n" "$sha" >"$STATE/failed-sha"; echo "Recorded failed preview SHA: $sha" >&2; fi; cleanup_storage; exit "$rc"' EXIT
 
 
 if [[ -d "$SOURCE/.git" ]] && ! git -C "$SOURCE" rev-parse --verify HEAD >/dev/null 2>&1; then
@@ -94,7 +100,7 @@ fi
 actual="$(git -C "$SOURCE" rev-parse HEAD)"
 if [[ "$actual" != "$sha" ]]; then
   echo "Checkout advanced to $actual; skipping obsolete $sha"
-  trap - EXIT
+  trap cleanup_storage EXIT
   exit 0
 fi
 
@@ -118,6 +124,9 @@ PY
 )"
 short_sha="$(printf '%s' "$sha" | cut -c1-12)"
 candidate="$IMAGE:$BRANCH-$short_sha"
+cleanup_storage
+available="$(df --output=avail -B1 "$BASE" | tail -1)"
+(( available >= 16106127360 )) || { echo "Less than 15 GiB free; refusing application build" >&2; exit 1; }
 echo "Building $BRANCH $sha"
 if ! docker build --build-arg "BUILD_PUBLIC_CONFIG_SHA256=$fingerprint" --secret "id=build_env,src=$BUILD_ENV" -f "$SOURCE/deployment/vps/Dockerfile" -t "$candidate" "$SOURCE" >"$STATE/build.log" 2>&1; then
   echo "Staging build failed" >&2
@@ -126,7 +135,11 @@ if ! docker build --build-arg "BUILD_PUBLIC_CONFIG_SHA256=$fingerprint" --secret
 fi
 
 candidate_compose="$COMPOSE"
-if [[ "$BRANCH" == preview ]]; then candidate_compose="$SOURCE/deployment/vps/compose.stage.yml"; fi
+if [[ "$BRANCH" == preview ]]; then
+  candidate_compose="$SOURCE/deployment/vps/compose.stage.yml"
+elif [[ -f "$SOURCE/deployment/vps/compose.production.yml" ]]; then
+  candidate_compose="$SOURCE/deployment/vps/compose.production.yml"
+fi
 [[ -f "$candidate_compose" ]] || { echo "Candidate compose file missing" >&2; exit 1; }
 if [[ -f "$STATE/active-compose.yml" ]]; then
   cp "$STATE/active-compose.yml" "$STATE/rollback-compose.yml"
@@ -136,7 +149,7 @@ fi
 if [[ -f "$STATE/deployed-sha" ]]; then cp "$STATE/deployed-sha" "$STATE/rollback-sha"; fi
 COMPOSE="$candidate_compose"
 current_head="$(git -c http.version=HTTP/1.1 ls-remote "$REMOTE" refs/heads/"$BRANCH" | cut -f1)"
-if [[ "$current_head" != "$sha" ]]; then echo "Branch advanced during build; leaving current app running"; trap - EXIT; exit 0; fi
+if [[ "$current_head" != "$sha" ]]; then echo "Branch advanced during build; leaving current app running"; trap cleanup_storage EXIT; exit 0; fi
 old_image="$(docker inspect "$APP_CONTAINER" --format '{{.Image}}')"
 docker tag "$old_image" "$IMAGE:rollback"
 docker tag "$candidate" "$IMAGE:$STABLE"

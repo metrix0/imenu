@@ -2,12 +2,12 @@
 const nextConfig = {
   serverExternalPackages: ['ogg-opus-decoder'],
   images: {
-    // Serve stored images directly while Vercel image optimization is unavailable.
+    // Serve stored images directly from Supabase Storage.
     unoptimized: true,
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: 'mjogdsnxbwhbqcoijrwt.supabase.co',
+        hostname: 'api.imenuapp.com.br',
         pathname: '/storage/v1/object/public/**',
       },
     ],
