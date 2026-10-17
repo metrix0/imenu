@@ -36,6 +36,9 @@ export type Restaurant = {
     allowed_payment_methods?: string[] | null;
     pickup_enabled?: boolean;
     allow_future_order_scheduling?: boolean;
+    preorder_only?: boolean;
+    preorder_availability_json?: any;
+    preorder_min_days?: number;
 };
 
 export type Menu = {

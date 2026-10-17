@@ -293,10 +293,15 @@ export default function LandingPage() {
                     <h2 className="mt-4 leading-normal text-gray-500 md:mt-0 md:leading-7 min-[1400px]:text-lg min-[1400px]:leading-8 2xl:text-[1.4rem]">
                         Cardápio digital para Restaurantes e Delivery. Pronto em 3
                         minutos com{" "}
-                        <u>
-                            <span className="md:hidden">IA</span>
-                            <span className="hidden md:inline">Inteligência Artificial</span>
-                        </u>.
+                        <Tooltip
+                            text="Nossa IA lê fotos, PDFs e links de cardápios e gera seu cardápio em segundos!"
+                            position="top"
+                        >
+                            <u className="cursor-pointer">
+                                <span className="md:hidden">IA</span>
+                                <span className="hidden md:inline">Inteligência Artificial</span>
+                            </u>
+                        </Tooltip>.
                     </h2>
                     <div className="mt-5 hidden flex-wrap items-center gap-x-2.5 gap-y-1 text-base leading-normal font-normal text-gray-500 md:flex md:leading-7 min-[1400px]:text-lg min-[1400px]:leading-8 2xl:text-[1.4rem]">
                         {["Grátis", "Sem cartão", "Sem limites de Pedidos", "Sem taxas"].map((benefit) => (
@@ -446,7 +451,7 @@ export default function LandingPage() {
                                     <div className="z-50 text-gray-500 min-[1400px]:text-lg 2xl:text-xl">
                                         A{" "}
                                         <Tooltip
-                                            text="Nossa IA realiza o scan da foto ou PDF do seu cardápio."
+                                            text="Nossa IA lê fotos, PDFs e links de cardápios e gera seu cardápio em segundos!"
                                             position="right"
                                         >
                                             <u className="cursor-pointer">
@@ -562,7 +567,7 @@ export default function LandingPage() {
                                 ["SEO", "check", "Não otimizado"],
                                 ["Acompanhamento do pedido", "Acompanhamento em tempo real via Página e Whatsapp", "Clientes ficam perdidos"],
                                 ["Taxa por Transação", "SEM TAXAS. Apenas Pix Online: 0.99% por pedido.", "5%, 15%, 30%"],
-                                ["Scan de Cardápio com IA", "Pronto em segundos", "Manual"],
+                                ["Scanear Cardápio com IA", "Envie Fotos, PDFs ou Links e tenha o cardápio pronto em segundos", "Manual"],
                                 ["Dados para análise", "Clicks, Visualizações do Cardápio, $ médio do Carrinho, Clicks por Plataforma, etc", "Limitado"],
                                 ["Calcular Taxa de Entrega", "Pelo Raio (KM) ou Bairro", "Configurações confusas"],
                                 ["Fotos em Alta qualidade", "check", "Baixa qualidade"],
@@ -581,6 +586,7 @@ export default function LandingPage() {
                                 ["Modo Vitrine (cardápio sem pedidos)", "Incluso no iMenu QR ou IA Plus", "Varia por plataforma"],
                                 ["App para garçom", "check", "Pago"],
                                 ["Agendamento de pedido", "check", "Não"],
+                                ["Modo Encomenda", "check", "Não"],
                                 ["Dividir Pizza em vários sabores", "check", "Não tem ou máximo 2"],
                                 ["Relatórios e Analytics", "check", "Limitado"],
                                 ["Sem bugs", "Correção garantida em 2 dias úteis", "Correção leva meses"],

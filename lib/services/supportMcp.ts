@@ -278,7 +278,7 @@ export async function searchSupportKnowledge(search: string, limit = 8) {
                           " THEN 1 ELSE 0 END"
                   )
                   .join(" + ")
-            : "0";
+            : "0::integer";
     const safeLimit = Math.min(8, Math.max(1, limit));
     const limitParameter = patterns.length + 1;
 

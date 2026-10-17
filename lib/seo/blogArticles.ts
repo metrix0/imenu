@@ -17,6 +17,20 @@ export type BlogArticleDefinition = {
 
 export const BLOG_ARTICLES: BlogArticleDefinition[] = [
     {
+        slug: "sistema-de-encomendas-online",
+        title: "Sistema de encomendas online: como receber pedidos agendados e organizar sua produção",
+        shortTitle: "Sistema de encomendas online",
+        metaTitle: "Sistema de Encomendas Online Grátis | iMenu",
+        metaDescription:
+            "Receba encomendas online de bolos, doces, salgados e delivery com dia, horário e antecedência mínima. Veja como ativar o Modo Encomendas grátis no iMenu.",
+        excerpt:
+            "Chega de negociar toda encomenda pelo WhatsApp: organize seu cardápio, defina dias e horários disponíveis e receba pedidos agendados com antecedência.",
+        category: "Gestão",
+        readingTime: "12 min de leitura",
+        publishedAt: "2026-10-17",
+        updatedAt: "2026-10-17",
+    },
+    {
         slug: "dominio-proprio-cardapio-digital",
         title: "Como usar domínio próprio no cardápio digital do iMenu: passo a passo",
         shortTitle: "Domínio próprio no cardápio digital",
@@ -172,17 +186,17 @@ export const BLOG_ARTICLES: BlogArticleDefinition[] = [
     },
     {
         slug: "criar-cardapio-com-ia",
-        title: "Como criar cardápio com IA a partir de foto ou PDF",
+        title: "Como criar cardápio com IA a partir de fotos, PDFs ou links",
         shortTitle: "Criar cardápio com IA",
-        metaTitle: "Como criar cardápio com IA por foto ou PDF | iMenu",
+        metaTitle: "Criar Cardápio com IA por Foto, PDF ou Link | iMenu",
         metaDescription:
-            "Aprenda a digitalizar um cardápio com IA usando fotos ou PDFs, revisar categorias, produtos, descrições e preços e publicar mais rápido.",
+            "Aprenda a criar um cardápio com IA usando fotos, PDFs ou links públicos, revisar categorias, produtos, descrições e preços e publicar mais rápido.",
         excerpt:
-            "Transforme o material que você já tem em uma estrutura de cardápio digital e revise o resultado antes de colocar os produtos no ar.",
+            "Importe produtos e categorias de fotos, PDFs ou links públicos de cardápios e revise antes de publicar.",
         category: "Cardápio",
         readingTime: "10 min de leitura",
         publishedAt: "2026-08-17",
-        updatedAt: "2026-08-17",
+        updatedAt: "2026-10-17",
     },
     {
         slug: "programa-fidelidade-restaurante",

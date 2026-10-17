@@ -3,7 +3,7 @@
 import { useState, ReactNode, useEffect, useRef, useCallback } from "react";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { icons } from "@/lib/utils/fontawesome";
-import { faGripVertical, faStar } from "@fortawesome/free-solid-svg-icons";
+import { faClock, faGripVertical, faStar } from "@fortawesome/free-solid-svg-icons";
 import { supabase } from "@/lib/database/supabaseClient";
 import Tooltip from "@/components/ui/Tooltip";
 import MenuItemRow, { MenuItemType } from "./MenuItemRow";
@@ -250,14 +250,14 @@ export default function CategorySection({
                 </div>
             )}
 
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-2 px-1">
-                <div className="flex items-center gap-3">
+            <div className="mb-3 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 px-1 md:flex md:flex-wrap md:justify-between">
+                <div className="flex min-w-0 items-center gap-3">
                     {dragHandle && (
                         <div className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 p-1">
                             {dragHandle}
                         </div>
                     )}
-                    <h3 className="min-w-0 break-words text-xl font-bold tracking-tight text-gray-800">{category.name}</h3>
+                    <h3 className="min-w-0 truncate text-xl font-bold text-gray-800 tracking-tight md:overflow-visible md:whitespace-normal md:text-clip md:break-words" title={category.name}>{category.name}</h3>
                     {isFeatured && (
                         <Tooltip text="A primeira categoria é destacada no cardápio." position="right" showOnClick>
                             <FontAwesomeIcon icon={faStar} className="text-brand text-sm cursor-help" />
@@ -265,13 +265,16 @@ export default function CategorySection({
                     )}
                 </div>
 
-                <div className="flex shrink-0 flex-wrap items-center justify-end gap-x-3 gap-y-1">
+                <div className="flex shrink-0 items-center justify-end gap-3">
                     {categoryScheduleLabel(category.availability_schedule) && (
-                        <span className="max-w-[220px] truncate text-xs text-gray-500" title={categoryScheduleDetails(category.availability_schedule) || undefined}>
+                        <span className="hidden max-w-[220px] truncate text-xs text-gray-500 md:inline" title={categoryScheduleDetails(category.availability_schedule) || undefined}>
                             {categoryScheduleLabel(category.availability_schedule)}
                         </span>
                     )}
-                    <button onClick={onEditCategory} className="cursor-pointer text-xs font-medium text-gray-400 transition-colors hover:text-brand 2xl:text-base">
+                    <button onClick={onEditCategory} className="whitespace-nowrap text-xs 2xl:text-base font-medium text-gray-400 hover:text-brand transition-colors cursor-pointer">
+                        {categoryScheduleLabel(category.availability_schedule) && (
+                            <FontAwesomeIcon icon={faClock} className="mr-1.5 text-xs md:hidden" aria-label="Categoria agendada" />
+                        )}
                         Editar categoria
                     </button>
                 </div>

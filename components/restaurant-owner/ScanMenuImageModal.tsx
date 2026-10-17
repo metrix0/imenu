@@ -9,6 +9,8 @@ import {
     useState,
 } from "react";
 import Button from "@/components/ui/Button";
+import Input from "@/components/ui/Input";
+import { supabase } from "@/lib/database/supabaseClient";
 import Modal from "@/components/ui/Modal";
 import Dropdown from "@/components/ui/Dropdown";
 import Toast from "@/components/ui/Toast";
@@ -17,6 +19,7 @@ import { uploadFullMenuImageAI } from "@/lib/database/uploadFullMenuImageAI";
 import Loader from "@/components/ui/Loader";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { icons } from "@/lib/utils/fontawesome";
+import { faCamera, faImages } from "@fortawesome/free-solid-svg-icons";
 
 type ScannedItem = {
     name: string;
@@ -89,6 +92,8 @@ function ScanModal({
     const previewUrlsRef = useRef<Set<string>>(new Set());
 
     const [uploads, setUploads] = useState<SelectedUpload[]>([]);
+    const [menuUrl, setMenuUrl] = useState("");
+    const [showLinkField, setShowLinkField] = useState(false);
     const [toast, setToast] = useState<{
         message: string;
         type: "success" | "error";
@@ -234,14 +239,23 @@ function ScanModal({
         }
     }
 
-    async function callAiScan(urls: string[]) {
+    async function callAiScan(urls: string[], pastedMenuUrl?: string) {
         setIsScanning(true);
 
         try {
+            const headers: Record<string, string> = { "Content-Type": "application/json" };
+            if (pastedMenuUrl !== undefined) {
+                const { data: { session } } = await supabase.auth.getSession();
+                if (!session?.access_token) {
+                    setToast({ message: "Entre na sua conta para importar por link.", type: "error" });
+                    return null;
+                }
+                headers.Authorization = `Bearer ${session.access_token}`;
+            }
             const response = await fetch("/api/scan-menu", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ restaurantId, urls }),
+                headers,
+                body: JSON.stringify({ restaurantId, urls, ...(pastedMenuUrl !== undefined ? { menuUrl: pastedMenuUrl } : {}) }),
             });
             const json = await response.json();
 
@@ -271,7 +285,29 @@ function ScanModal({
         }
     }
 
+    function showScanResult(aiResult: ScannedResult) {
+        setScanResult(aiResult);
+        const newMap: Record<string, CategoryMapping> = {};
+        (aiResult.categories || []).forEach((category) => {
+            newMap[category.name] = { mappedId: null, createNew: true };
+        });
+        setCategoryMap(newMap);
+    }
+
     async function handleContinue() {
+        if (showLinkField) {
+            if (!menuUrl.trim()) {
+                setToast({
+                    message: "Cole o link público do seu cardápio.",
+                    type: "error",
+                });
+                return;
+            }
+            const aiResult = await callAiScan([], menuUrl.trim());
+            if (aiResult) showScanResult(aiResult);
+            return;
+        }
+
         if (uploads.length === 0) {
             setToast({
                 message: "Adicione ao menos 1 foto",
@@ -333,16 +369,7 @@ function ScanModal({
         const aiResult = await callAiScan(publicUrls);
         if (!aiResult) return;
 
-        setScanResult(aiResult);
-
-        const newMap: Record<string, CategoryMapping> = {};
-        (aiResult.categories || []).forEach((category) => {
-            newMap[category.name] = {
-                mappedId: null,
-                createNew: true,
-            };
-        });
-        setCategoryMap(newMap);
+        showScanResult(aiResult);
     }
 
     async function handleSaveAll() {
@@ -531,11 +558,34 @@ function ScanModal({
             <Modal height={700} open={open} onClose={onClose}>
                 <div className="p-6 w-full max-w-3xl 2xl:max-w-4xl overflow-y-auto">
                     {!scanResult && (
-                        <div className="space-y-6">
+                        <div className="space-y-4">
+                            {showLinkField ? (
+                                <div className="rounded-lg p-4">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setMenuUrl("");
+                                            setShowLinkField(false);
+                                        }}
+                                        className="mb-5 inline-flex cursor-pointer items-center gap-2 text-sm font-medium text-brand hover:underline"
+                                    >
+                                        ← Usar fotos ou PDF
+                                    </button>
+                                    <Input
+                                        type="url"
+                                        label="Link público do cardápio"
+                                        placeholder="https://exemplo.com/cardapio"
+                                        value={menuUrl}
+                                        onChange={(event) => setMenuUrl(event.target.value)}
+                                        maxLength={2048}
+                                        autoFocus
+                                    />
+                                </div>
+                            ) : (
                             <div className="rounded-lg p-4 2xl:text-xl">
                                 <div className="mb-6">
                                     <p className="font-semibold 2xl:mb-2">
-                                        Adicione seu Cardápio
+                                        Adicione fotos ou PDF
                                     </p>
                                     <p className="text-sm text-gray-500 2xl:text-base">
                                         JPG, PNG, PDF. <b>Use os arquivos de imagem do seu cardápio para melhores resultados.</b> Limite: 8 PDFs e/ou imagens.
@@ -543,7 +593,7 @@ function ScanModal({
                                 </div>
 
                                 <div className="flex items-center justify-between gap-8">
-                                    <div className="flex gap-2 mb-4">
+                                    <div className="mb-4 flex flex-wrap gap-2">
                                         <input
                                             ref={fileInputRef}
                                             type="file"
@@ -560,14 +610,31 @@ function ScanModal({
                                             variant="secondary"
                                             onClick={openFilePicker}
                                         >
-                                            Adicionar fotos
+                                            <span className="inline-flex items-center gap-2">
+                                                <FontAwesomeIcon icon={faImages} />
+                                                Adicionar fotos
+                                            </span>
                                         </Button>
                                         <Button
                                             variant="secondary"
                                             onClick={openCamera}
                                         >
-                                            Abrir câmera
+                                            <span className="inline-flex items-center gap-2">
+                                                <FontAwesomeIcon icon={faCamera} />
+                                                Abrir câmera
+                                            </span>
                                         </Button>
+                                        {uploads.length === 0 && (
+                                            <Button
+                                                variant="secondary"
+                                                onClick={() => setShowLinkField(true)}
+                                            >
+                                                <span className="inline-flex items-center gap-2">
+                                                    <FontAwesomeIcon icon={icons.faLink} />
+                                                    Importar cardápio usando um Link
+                                                </span>
+                                            </Button>
+                                        )}
                                     </div>
                                 </div>
 
@@ -626,7 +693,7 @@ function ScanModal({
                                                     );
                                                 }}
                                                 className={`rounded-lg border-dashed border-2 flex items-center justify-center flex-shrink-0
-                                                    ${uploads.length === 0 ? "w-full h-38" : "w-28 h-28 2xl:w-36 2xl:h-36"}
+                                                    ${uploads.length === 0 ? "w-full h-28" : "w-28 h-28 2xl:w-36 2xl:h-36"}
                                                     ${isDraggingImage ? "border-brand text-brand" : "border-gray-300 text-gray-500"}`}
                                             >
                                                 <button
@@ -640,6 +707,17 @@ function ScanModal({
                                         )}
                                     </div>
                                 </div>
+                            </div>
+                            )}
+
+                            <div className="h-10 px-4" aria-live="polite">
+                                {isScanning && (
+                                    <LoadingBar
+                                        key={String(isScanning)}
+                                        durationSeconds={13}
+                                        showLabel={true}
+                                    />
+                                )}
                             </div>
 
                             <div className="flex justify-end gap-2">
@@ -796,15 +874,6 @@ function ScanModal({
                         </div>
                     )}
 
-                    {isScanning && (
-                        <div className="mt-4">
-                            <LoadingBar
-                                key={String(isScanning)}
-                                durationSeconds={13}
-                                showLabel={true}
-                            />
-                        </div>
-                    )}
                 </div>
             </Modal>
 

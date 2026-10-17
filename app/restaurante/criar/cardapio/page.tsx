@@ -14,6 +14,7 @@ import { MenuItemType } from "@/components/restaurant-owner/cardapio/MenuItemRow
 import ScanMenuModal from "@/components/restaurant-owner/ScanMenuImageModal";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { faPlus, faWandMagicSparkles } from "@fortawesome/free-solid-svg-icons";
+import Badge from "@/components/ui/Badge";
 
 type Category = { id: string; name: string; position: number };
 
@@ -145,7 +146,15 @@ export default function CriarCardapioPage() {
                                 Scanear Cardápio com IA
                             </span>
                             <span className="relative mt-1 max-w-sm text-sm leading-5 text-white/80">
-                                Envie fotos do seu cardápio e deixe a IA criar produtos e categorias para você.
+                                <span className="flex flex-nowrap items-center gap-1.5 whitespace-nowrap">
+                                    <span>Envie</span>
+                                    {["Fotos", "Imagens", "PDF", "Links"].map((format) => (
+                                        <Badge key={format} variant="brand" className="!px-1.5">{format}</Badge>
+                                    ))}
+                                </span>
+                                <span className="mt-1 block">
+                                    e deixe a IA criar produtos e categorias para você.
+                                </span>
                             </span>
                             <span className="relative mt-auto pt-5 text-sm font-semibold text-white/95 transition-transform duration-200 group-hover:translate-x-1">
                                 Criar com IA →

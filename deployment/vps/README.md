@@ -46,7 +46,7 @@ Caddy has trusted certificates, HTTP redirects, noindex and operator-IP restrict
 | Push notifications | Original key pair verified | PKCS8 newline formatting corrected without re-keying; derived public key and JWT sign/verify passed; real-device delivery/permission test remains pending |
 | Five host schedules | Active | Original UTC schedules preserved; production environment and container selected; Persistent=false. Old Vercel config deployment was explicitly deferred by the user; managed source read-only blocks writes, including payout run creation before transfer execution |
 | Six database schedules | Active on VPS only | cron.launch_active_jobs=on; six active destination jobs; six source jobs disabled |
-| Automatic deployments | Production and staging configured | Production systemd timer checks main every 60 seconds and deploys exact HEAD; restricted preview SSH workflow retained. Separate environment, image, state and lock per target; shared build lock; health failure restores prior image |
+| Automatic deployments | GitHub-triggered production and staging | GitHub Actions deploys new main commits using a dedicated, restricted production SSH identity; preview keeps its independent SSH workflow. Existing build, health, rollback, and shared build locks remain. The old production polling timer is removed after the first verified GitHub-triggered deployment. |
 | Application rollback | Verified | Previous image restored healthy, current image restored healthy, database untouched |
 | Encrypted backups | Verified | Daily DB/Storage/config/TLS archive; seven server copies, fourteen PC copies; checksum-verified pull |
 | Recovery rehearsal | Verified within scope | Encrypted archive authenticated, all Storage files/xattrs checked, 47 public tables restored into temporary DB and counts compared with the backup snapshot; tampered archive rejected |
@@ -91,7 +91,7 @@ Detailed machine-readable checks remain private under /opt/imenu-migration/ops: 
 1. Restart the physical printer so it reloads the backend configuration, then reprint order #71. Database reads alone cannot prove physical reprint delivery.
 2. Confirm final Google login and real-device push. Original VAPID keys were preserved and cryptographically checked.
 3. Deploy the user's edited Vercel configuration when ready to remove old Vercel schedules. Do not re-enable writes on the managed source.
-4. Production merges deploy automatically through imenu-production-deploy.timer, checked every 60 seconds. Inspect systemctl status imenu-production-deploy.service and journalctl -u imenu-production-deploy.service. A failed SHA requires an explicit retry; newer commits are considered normally.
+4. Production commits trigger .github/workflows/deploy-vps-production.yml immediately. Verify GitHub Actions and ops/production-deploy-state/deployed-sha. Failed SHAs require explicit retries; newer commits supersede waiting deployments.
 5. Resolve customer-owned DNS separately; do not assume an unverified custom domain is operational.
 
 ## Live production paths and validation
@@ -110,7 +110,7 @@ Validation performed: npx tsc --noEmit; 213 tests / 20 suites; npx next build; f
 
 deployment/vps/deploy-preview.sh defaults to preview; --production selects main, imenu-production-app, production-checkout, production-deploy-state and the existing private production Compose file. Both modes reject a mismatched public API URL. Builds are serialized across targets. The production marker is required for production and no longer blocks isolated staging deployments.
 
-Install poll-production.sh under /opt/imenu-migration/ops and the service/timer from deployment/vps/systemd under /etc/systemd/system. Run systemctl daemon-reload and systemctl enable --now imenu-production-deploy.timer. The timer is independent of the operator PC and GitHub secrets. A successful merge is detected within approximately one minute plus build time; no deployment changes SQL, Storage, Auth, schedules or DNS.
+Install github-production-deploy-hook.sh as a root-owned, root-only executable under /opt/imenu-migration/ops, and github-production-deploy-ssh.sh as a root-owned executable at /usr/local/bin/imenu-production-deploy-ssh. Give a dedicated imenu-production-deploy user a restricted, forced-command SSH key and sudo permission only for the production hook. Set the matching private key in GitHub Actions secret IMENU_PROD_DEPLOY_SSH_KEY. New main commits trigger .github/workflows/deploy-vps-production.yml; queued older commits are superseded without interrupting an active build. The production hook retires the legacy timer/service only after GitHub has successfully requested a healthy deployment. No application deployment changes SQL, Storage, Auth, schedules or DNS.
 
 The build runs the existing IA Vendas regression suite, TypeScript check and Next production build before replacing the app. Branch HEAD is checked again after the build, so an obsolete build leaves the current app running. A healthy existing deployed SHA is a no-op. A startup failure restores the previous image and Compose file. Failed commits are recorded to prevent endless rebuilds. After investigating a failed production build, retry with bash /opt/imenu-migration/ops/deploy-preview.sh --production --retry FULL_MAIN_SHA.
 
