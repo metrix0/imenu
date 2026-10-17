@@ -7,7 +7,9 @@ case "$request" in
     exec /usr/bin/sudo -n /opt/imenu-migration/ops/deploy-prebuilt-production.sh public-build-env
     ;;
 esac
-if [[ "$request" =~ ^upload:([0-9a-f]{40})$ ]]; then
+if [[ "$request" =~ ^pull:([0-9a-f]{40}):([0-9a-f]{64})$ ]]; then
+  exec /usr/bin/sudo -n /opt/imenu-migration/ops/deploy-prebuilt-production.sh pull "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}"
+elif [[ "$request" =~ ^upload:([0-9a-f]{40})$ ]]; then
   exec /usr/bin/sudo -n /opt/imenu-migration/ops/deploy-prebuilt-production.sh upload "${BASH_REMATCH[1]}"
 elif [[ "$request" =~ ^activate:([0-9a-f]{40})$ ]]; then
   exec /usr/bin/sudo -n /opt/imenu-migration/ops/deploy-prebuilt-production.sh activate "${BASH_REMATCH[1]}"

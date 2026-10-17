@@ -12,6 +12,8 @@ import {
     type WahaSession,
 } from "@/lib/services/wahaClient";
 
+import { pairingStartedAtForStatus, withWhatsAppPairingLock } from "@/lib/services/whatsappPairingCleanup";
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -32,11 +34,12 @@ type ConnectionRow = {
     last_restart_at: string | null;
     last_event_at: string | null;
     last_error: string | null;
+    pairing_started_at: string | null;
     updated_at: string;
 };
 
 const CONNECTION_SELECT =
-    "restaurant_id,session_name,desired_state,status,status_data,phone,push_name,qr_code_data,qr_updated_at,last_connected_at,last_disconnected_at,last_restart_at,last_event_at,last_error,updated_at" as const;
+    "restaurant_id,session_name,desired_state,status,status_data,phone,push_name,qr_code_data,qr_updated_at,last_connected_at,last_disconnected_at,last_restart_at,last_event_at,last_error,pairing_started_at,updated_at" as const;
 
 function parseConnectionRow(value: unknown): ConnectionRow {
     if (!value || typeof value !== "object") {
@@ -121,6 +124,9 @@ async function updateFromWahaSession({
         last_event_at: now,
         last_error: null,
         updated_at: now,
+        pairing_started_at: pairingStartedAtForStatus(
+            status, connection?.pairing_started_at, now
+        ),
     };
 
     const phone = extractWahaPhone(session.me?.id);
@@ -151,6 +157,7 @@ async function updateFromWahaSession({
         connection.status === status &&
         connection.status_data === null &&
         connection.last_error === null &&
+        connection.pairing_started_at === update.pairing_started_at &&
         (!phone || connection.phone === phone) &&
         (!session.me?.pushName || connection.push_name === session.me.pushName) &&
         connection.qr_code_data === update.qr_code_data &&
@@ -205,53 +212,55 @@ export async function GET(request: NextRequest) {
             request,
             restaurantId
         );
-        let connection = await readConnection(supabase, restaurantId);
+        return await withWhatsAppPairingLock(restaurantId, async () => {
+            let connection = await readConnection(supabase, restaurantId);
 
-        // Status checks must be read-only. Updating the WAHA session config while
-        // merely opening this page can restart a healthy GOWS session and make the
-        // UI incorrectly return to QR mode.
-        if (connection?.desired_state === "connected") {
-            try {
-                const session = await getWahaSession(connection.session_name);
+            // Status checks must be read-only. Updating the WAHA session config while
+            // merely opening this page can restart a healthy GOWS session and make the
+            // UI incorrectly return to QR mode.
+            if (connection?.desired_state === "connected") {
+                try {
+                    const session = await getWahaSession(connection.session_name);
 
-                if (session) {
-                    connection = await updateFromWahaSession({
-                        supabase,
-                        restaurantId,
-                        sessionName: connection.session_name,
-                        session,
-                        connection,
-                    });
-                } else {
-                    const now = new Date().toISOString();
-                    const { error } = await supabase
-                        .from("whatsapp_connections")
-                        .update({
-                            status: "FAILED",
-                            qr_code_data: null,
-                            qr_updated_at: null,
-                            last_disconnected_at: now,
-                            last_event_at: now,
-                            last_error:
-                                "A sessão não foi encontrada no servidor do WhatsApp.",
-                            updated_at: now,
-                        })
-                        .eq("restaurant_id", restaurantId);
+                    if (session) {
+                        connection = await updateFromWahaSession({
+                            supabase,
+                            restaurantId,
+                            sessionName: connection.session_name,
+                            session,
+                            connection,
+                        });
+                    } else {
+                        const now = new Date().toISOString();
+                        const { error } = await supabase
+                            .from("whatsapp_connections")
+                            .update({
+                                status: "FAILED",
+                                qr_code_data: null,
+                                qr_updated_at: null,
+                                last_disconnected_at: now,
+                                last_event_at: now,
+                                last_error:
+                                    "A sessão não foi encontrada no servidor do WhatsApp.",
+                                updated_at: now,
+                            })
+                            .eq("restaurant_id", restaurantId);
 
-                    if (error) throw error;
-                    connection = await readConnection(supabase, restaurantId);
+                        if (error) throw error;
+                        connection = await readConnection(supabase, restaurantId);
+                    }
+                } catch (error) {
+                    // A temporary WAHA/API outage must not overwrite a valid connected
+                    // state in Supabase. Realtime or the next page load will reconcile it.
+                    console.warn(
+                        "[WHATSAPP_CONNECTION] Read-only WAHA reconciliation failed:",
+                        error
+                    );
                 }
-            } catch (error) {
-                // A temporary WAHA/API outage must not overwrite a valid connected
-                // state in Supabase. Realtime or the next page load will reconcile it.
-                console.warn(
-                    "[WHATSAPP_CONNECTION] Read-only WAHA reconciliation failed:",
-                    error
-                );
             }
-        }
 
-        return NextResponse.json({ restaurant, connection });
+            return NextResponse.json({ restaurant, connection });
+        });
     } catch (error) {
         return jsonError(error);
     }
@@ -277,102 +286,107 @@ export async function POST(request: NextRequest) {
             request,
             restaurantId
         );
-        const existing = await readConnection(supabase, restaurantId);
-        const sessionName =
-            existing?.session_name || buildWahaSessionName(restaurantId);
-        const now = new Date().toISOString();
+        return await withWhatsAppPairingLock(restaurantId, async () => {
+            const existing = await readConnection(supabase, restaurantId);
+            const sessionName =
+                existing?.session_name || buildWahaSessionName(restaurantId);
+            const now = new Date().toISOString();
 
-        if (action === "disconnect") {
-            const { error } = await supabase
+            if (action === "disconnect") {
+                const { error } = await supabase
+                    .from("whatsapp_connections")
+                    .upsert(
+                        {
+                            restaurant_id: restaurantId,
+                            session_name: sessionName,
+                            desired_state: "disconnected",
+                            pairing_started_at: null,
+                            status: "STOPPED",
+                            qr_code_data: null,
+                            qr_updated_at: null,
+                            last_disconnected_at: now,
+                            last_error: null,
+                            updated_at: now,
+                        },
+                        { onConflict: "restaurant_id" }
+                    );
+
+                if (error) throw error;
+
+                try {
+                    await logoutWahaSession(sessionName);
+                } catch (logoutError) {
+                    console.warn(
+                        "[WHATSAPP_CONNECTION] WAHA logout returned an error:",
+                        logoutError
+                    );
+                }
+
+                return NextResponse.json({
+                    restaurant,
+                    connection: await readConnection(supabase, restaurantId),
+                });
+            }
+
+            const { error: startingError } = await supabase
                 .from("whatsapp_connections")
                 .upsert(
                     {
                         restaurant_id: restaurantId,
                         session_name: sessionName,
-                        desired_state: "disconnected",
-                        status: "STOPPED",
+                        desired_state: "connected",
+                        pairing_started_at: now,
+                        status: "STARTING",
                         qr_code_data: null,
                         qr_updated_at: null,
-                        last_disconnected_at: now,
+                        last_restart_at:
+                            action === "refresh_qr" || action === "reconnect"
+                                ? now
+                                : existing?.last_restart_at,
                         last_error: null,
                         updated_at: now,
                     },
                     { onConflict: "restaurant_id" }
                 );
 
-            if (error) throw error;
+            if (startingError) throw startingError;
 
-            try {
-                await logoutWahaSession(sessionName);
-            } catch (logoutError) {
-                console.warn(
-                    "[WHATSAPP_CONNECTION] WAHA logout returned an error:",
-                    logoutError
-                );
+            if (action === "refresh_qr") {
+                try {
+                    await logoutWahaSession(sessionName);
+                } catch (logoutError) {
+                    console.warn(
+                        "[WHATSAPP_CONNECTION] Old WAHA session was already absent:",
+                        logoutError
+                    );
+                }
             }
 
-            return NextResponse.json({
-                restaurant,
-                connection: await readConnection(supabase, restaurantId),
+            let session: WahaSession;
+            if (action === "reconnect") {
+                const savedSession = await getWahaSession(sessionName);
+                session = savedSession
+                    ? await restartWahaSession(sessionName)
+                    : await ensureWahaSession(restaurantId, sessionName);
+            } else {
+                session = await ensureWahaSession(restaurantId, sessionName);
+            }
+
+            if (session.status === "STARTING") {
+                await new Promise((resolve) => setTimeout(resolve, 700));
+                session = (await getWahaSession(sessionName)) || session;
+            }
+
+            const connection = await updateFromWahaSession({
+                supabase,
+                restaurantId,
+                sessionName,
+                session,
+                connection: await readConnection(supabase, restaurantId) || undefined,
             });
-        }
 
-        const { error: startingError } = await supabase
-            .from("whatsapp_connections")
-            .upsert(
-                {
-                    restaurant_id: restaurantId,
-                    session_name: sessionName,
-                    desired_state: "connected",
-                    status: "STARTING",
-                    qr_code_data: null,
-                    qr_updated_at: null,
-                    last_restart_at:
-                        action === "refresh_qr" || action === "reconnect"
-                            ? now
-                            : existing?.last_restart_at,
-                    last_error: null,
-                    updated_at: now,
-                },
-                { onConflict: "restaurant_id" }
-            );
-
-        if (startingError) throw startingError;
-
-        if (action === "refresh_qr") {
-            try {
-                await logoutWahaSession(sessionName);
-            } catch (logoutError) {
-                console.warn(
-                    "[WHATSAPP_CONNECTION] Old WAHA session was already absent:",
-                    logoutError
-                );
-            }
-        }
-
-        let session: WahaSession;
-        if (action === "reconnect") {
-            const savedSession = await getWahaSession(sessionName);
-            session = savedSession
-                ? await restartWahaSession(sessionName)
-                : await ensureWahaSession(restaurantId, sessionName);
-        } else {
-            session = await ensureWahaSession(restaurantId, sessionName);
-        }
-
-        if (session.status === "STARTING") {
-            await new Promise((resolve) => setTimeout(resolve, 700));
-            session = (await getWahaSession(sessionName)) || session;
-        }
-
-        const connection = await updateFromWahaSession({
-            supabase,
-            restaurantId,
-            sessionName,
-            session,
+            return NextResponse.json({ restaurant, connection });
         });
-
-        return NextResponse.json({ restaurant, connection });
     } catch (error) {
         return jsonError(error);
     }

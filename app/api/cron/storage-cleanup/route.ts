@@ -3,6 +3,8 @@ import sharp from "sharp";
 
 import { createSupabaseServerClient } from "@/lib/database/supabaseServerClient";
 
+import { cleanupExpiredWhatsAppPairing } from "@/lib/services/whatsappPairingCleanup";
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -292,6 +294,7 @@ export async function GET(request: Request) {
     }
 
     try {
+        const whatsappPairing = await cleanupExpiredWhatsAppPairing();
         const supabase = createSupabaseServerClient();
 
         const [items, itemMedia, actions, restaurants] = await Promise.all([
@@ -365,6 +368,7 @@ export async function GET(request: Request) {
                 0
             ),
             visuals,
+            whatsappPairing,
         });
     } catch (error) {
         console.error("[storage-cleanup] Failed:", error);

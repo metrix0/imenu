@@ -61,6 +61,9 @@ case "${1:-}" in
   upload|activate|retry)
     [[ "$#" -eq 2 ]] || exit 2
     ;;
+  pull)
+    [[ "$#" -eq 3 && "$3" =~ ^[0-9a-f]{64}$ ]] || exit 2
+    ;;
   *) echo "Invalid prebuilt deployment request" >&2; exit 2 ;;
 esac
 action="$1"
@@ -68,6 +71,44 @@ sha="$2"
 [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || exit 2
 [[ -f "$BASE/ops/PRODUCTION_JOBS_ENABLED" && -f "$BUILD_ENV" && -f "$COMPOSE" ]] || exit 1
 mkdir -p "$STATE" "$RELEASES"
+
+if [[ "$action" == pull ]]; then
+  # GitHub Actions supplies a short-lived HTTPS artifact URL over SSH stdin.
+  # Never accept arbitrary URLs, follow redirects, or persist the signed URL.
+  IFS= read -r signed_url || { echo "Missing artifact URL" >&2; exit 2; }
+  python3 - "$signed_url" <<'PY'
+import sys
+from urllib.parse import urlsplit
+u = urlsplit(sys.argv[1])
+host = (u.hostname or "").lower()
+allowed = host.endswith(".blob.core.windows.net") or host.endswith(".actions.githubusercontent.com")
+if (u.scheme != "https" or not allowed or u.username or u.password or u.port not in (None, 443)
+        or u.fragment or len(sys.argv[1]) > 8192):
+    raise SystemExit("Untrusted GitHub artifact URL")
+PY
+  tmpzip="$(mktemp "$RELEASES/.github-artifact-XXXXXXXX.zip")"
+  tmptar="$(mktemp "$RELEASES/.github-release-XXXXXXXX.tar.zst")"
+  trap 'rm -f -- "$tmpzip" "$tmptar"' EXIT
+  curl --fail --silent --show-error --proto '=https' --max-redirs 0 \
+    --connect-timeout 15 --max-time 180 --retry 2 --output "$tmpzip" "$signed_url"
+  (( $(stat -c %s "$tmpzip") < 1073741824 )) || { echo "Artifact too large" >&2; exit 1; }
+  python3 - "$tmpzip" "$tmptar" <<'PY'
+import shutil, sys, zipfile
+with zipfile.ZipFile(sys.argv[1]) as archive:
+    files = [info for info in archive.infolist() if not info.is_dir()]
+    if len(files) != 1 or files[0].filename != "production-release.tar.zst" or not (0 < files[0].file_size < 1073741824):
+        raise SystemExit("Unexpected GitHub artifact structure")
+    with archive.open(files[0]) as source, open(sys.argv[2], "wb") as destination:
+        shutil.copyfileobj(source, destination, 1024 * 1024)
+PY
+  [[ "$(sha256sum "$tmptar" | cut -d ' ' -f1)" == "$3" ]] || {
+    echo "Artifact SHA256 mismatch" >&2
+    exit 1
+  }
+  echo "Verified GitHub artifact SHA256; installing release"
+  /usr/bin/bash "$0" upload "$sha" < "$tmptar"
+  exit 0
+fi
 
 if [[ "$action" == upload ]]; then
   exec 9>"$STATE/upload.lock"

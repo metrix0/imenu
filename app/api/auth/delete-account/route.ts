@@ -36,6 +36,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // Never remove Auth while a restaurant (and potentially WAHA) still exists.
+    const { count, error: restaurantsError } = await supabaseAdmin
+      .from("restaurants")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id);
+    if (restaurantsError) {
+      return NextResponse.json({ error: "Unable to check restaurants" }, { status: 500 });
+    }
+    if (count) {
+      return NextResponse.json({ error: "Delete owned restaurants first" }, { status: 409 });
+    }
+
     // 2. Deleta o usuário pelo Admin
     const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(user.id);
 

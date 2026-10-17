@@ -201,11 +201,14 @@ function sessionConfig(
     };
 }
 export async function getWahaSession(
-    sessionName: string
+    sessionName: string,
+    timeoutMs = 20_000
 ): Promise<WahaSession | null> {
     try {
         return await wahaRequest<WahaSession>(
-            `/api/sessions/${encodeURIComponent(sessionName)}`
+            `/api/sessions/${encodeURIComponent(sessionName)}`,
+            {},
+            timeoutMs
         );
     } catch (error) {
         if (error instanceof WahaHttpError && error.status === 404) {
@@ -345,11 +348,37 @@ export async function restartWahaSession(
     );
 }
 
+// Stop preserves the session's saved authorization; logout/delete do not.
+export async function stopWahaSession(sessionName: string): Promise<void> {
+    try {
+        await wahaRequest<void>(
+            `/api/sessions/${encodeURIComponent(sessionName)}/stop`,
+            { method: "POST" },
+            5_000
+        );
+    } catch (error) {
+        if (isWahaHttpErrorStatus(error, 404)) return;
+        throw error;
+    }
+}
+
 export async function logoutWahaSession(sessionName: string): Promise<void> {
     await wahaRequest<void>(
         `/api/sessions/${encodeURIComponent(sessionName)}/logout`,
         { method: "POST" }
     );
+}
+
+export async function deleteWahaSession(sessionName: string): Promise<void> {
+    try {
+        await wahaRequest<void>(
+            `/api/sessions/${encodeURIComponent(sessionName)}`,
+            { method: "DELETE" }
+        );
+    } catch (error) {
+        if (isWahaHttpErrorStatus(error, 404)) return;
+        throw error;
+    }
 }
 
 export async function getWahaQrCode(

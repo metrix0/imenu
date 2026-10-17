@@ -239,64 +239,99 @@ const KNOWLEDGE_STOP_WORDS = new Set([
 ]);
 
 export async function searchSupportKnowledge(search: string, limit = 8) {
-    const trimmedSearch = search.trim();
+    const trimmedSearch = search.trim().slice(0, 500);
     if (!trimmedSearch) return [];
 
+    // Preserve all meaningful terms, including names at the end of the question.
     const terms = [
         ...new Set(
-            normalizeSupportText(trimmedSearch)
-                .split(" ")
-                .filter(
-                    (term) =>
-                        term.length >= 3 &&
-                        !KNOWLEDGE_STOP_WORDS.has(term)
-                )
+            (trimmedSearch.match(/[\p{L}\p{N}]+/gu) || []).filter(
+                (term) =>
+                    term.length >= 3 &&
+                    !KNOWLEDGE_STOP_WORDS.has(normalizeSupportText(term))
+            )
         ),
-    ].slice(0, 8);
-
-    const patterns = [
-        "%" + trimmedSearch + "%",
-        ...terms.map((term) => "%" + term + "%"),
     ];
-    const clauses = patterns.map(
-        (_, index) =>
-            "(title ILIKE $" +
-            String(index + 1) +
-            " OR content ILIKE $" +
-            String(index + 1) +
-            ")"
-    );
-    const scoreExpression =
-        terms.length > 0
-            ? terms
-                  .map(
-                      (_, index) =>
-                          "CASE WHEN title ILIKE $" +
-                          String(index + 2) +
-                          " THEN 3 WHEN content ILIKE $" +
-                          String(index + 2) +
-                          " THEN 1 ELSE 0 END"
-                  )
-                  .join(" + ")
-            : "0::integer";
     const safeLimit = Math.min(8, Math.max(1, limit));
-    const limitParameter = patterns.length + 1;
 
-    const result = await query<{
+    type KnowledgeResult = {
         id: string;
         title: string;
         content: string;
-    }>(
-        "SELECT id, title, content FROM support_knowledge WHERE enabled = true AND (" +
-            clauses.join(" OR ") +
-            ") ORDER BY CASE WHEN title ILIKE $1 THEN 0 WHEN content ILIKE $1 THEN 1 ELSE 2 END, (" +
-            scoreExpression +
-            ") DESC, updated_at DESC LIMIT $" +
-            String(limitParameter),
-        [...patterns, safeLimit]
+    };
+
+    const fullText = terms.length
+        ? await query<KnowledgeResult & { relevance: number }>(
+              `
+                  WITH search_query AS (
+                      SELECT websearch_to_tsquery('portuguese', $1) AS words
+                  )
+                  SELECT k.id, k.title, k.content,
+                         ts_rank_cd(document.doc, sq.words, 32) AS relevance
+                  FROM support_knowledge k
+                  CROSS JOIN search_query sq
+                  CROSS JOIN LATERAL (
+                      SELECT setweight(to_tsvector('portuguese', COALESCE(k.title, '')), 'A') ||
+                             setweight(to_tsvector('portuguese', COALESCE(k.content, '')), 'D') AS doc
+                  ) document
+                  WHERE k.enabled = true AND document.doc @@ sq.words
+                  ORDER BY relevance DESC, k.updated_at DESC
+                  LIMIT $2
+              `,
+              [terms.join(" OR "), safeLimit]
+          )
+        : { rows: [] as (KnowledgeResult & { relevance: number })[] };
+
+    // Use literal matches when full-text results are insufficient or weak.
+    if (
+        fullText.rows.length >= safeLimit &&
+        Number(fullText.rows[0].relevance) >= 0.1
+    ) {
+        return fullText.rows.map(({ id, title, content }) => ({
+            id,
+            title,
+            content,
+        }));
+    }
+
+    const fallback = await query<KnowledgeResult>(
+        `
+            SELECT k.id, k.title, k.content
+            FROM support_knowledge k
+            WHERE k.enabled = true AND (
+                k.title ILIKE $1 OR k.content ILIKE $1
+                OR EXISTS (
+                    SELECT 1 FROM unnest($2::text[]) AS term
+                    WHERE k.title ILIKE '%' || term || '%'
+                       OR k.content ILIKE '%' || term || '%'
+                )
+            )
+            ORDER BY
+                (k.title ILIKE $1) DESC,
+                (k.content ILIKE $1) DESC,
+                (
+                    SELECT COALESCE(SUM(
+                        CASE WHEN k.title ILIKE '%' || term || '%' THEN 3
+                             WHEN k.content ILIKE '%' || term || '%' THEN 1
+                             ELSE 0 END
+                    ), 0)
+                    FROM unnest($2::text[]) AS term
+                ) DESC,
+                k.updated_at DESC
+            LIMIT $3
+        `,
+        ["%" + trimmedSearch + "%", terms, safeLimit]
     );
 
-    return result.rows;
+    const seen = new Set<string>();
+    return [...fullText.rows, ...fallback.rows]
+        .filter((item) => {
+            if (seen.has(item.id)) return false;
+            seen.add(item.id);
+            return true;
+        })
+        .slice(0, safeLimit)
+        .map(({ id, title, content }) => ({ id, title, content }));
 }
 
 function phoneCandidates(value: string | null): string[] {

@@ -612,15 +612,26 @@ export default function ConfiguracoesPage() {
                 data: { session },
             } = await supabase.auth.getSession();
 
-            if (restaurant) {
-                await fetch("/api/restaurants/delete-restaurant", {
+            if (!session?.access_token) throw new Error("Sessão expirada.");
+
+            const { data: ownedRestaurants, error: restaurantsError } = await supabase
+                .from("restaurants")
+                .select("id")
+                .eq("user_id", user.id);
+            if (restaurantsError) throw restaurantsError;
+
+            for (const owned of ownedRestaurants || []) {
+                const restaurantResponse = await fetch("/api/restaurants/delete-restaurant", {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        restaurantId: restaurant.id,
-                        userId: user.id,
-                    }),
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${session.access_token}`,
+                    },
+                    body: JSON.stringify({ restaurantId: owned.id }),
                 });
+                if (!restaurantResponse.ok) {
+                    throw new Error("Não foi possível excluir o restaurante e desconectar seu WhatsApp.");
+                }
             }
 
             const response = await fetch("/api/auth/delete-account", {
