@@ -1,8 +1,6 @@
 name: Deploy VPS staging
 
 on:
-  push:
-    branches: [preview]
   workflow_dispatch:
     inputs:
       retry_failed:
@@ -22,7 +20,23 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 115
     steps:
+      - name: Check phone toggle before any VPS work
+        id: gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          state="$(curl -fsS --retry 2 --max-time 10 https://johnvitor.com/api/preview-deploy-status)" || {
+            echo '::warning::Phone toggle unavailable; staging deployment skipped'
+            exit 0
+          }
+          if [[ "$state" == ON ]]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Staging deployment disabled; no SSH or build started"
+          fi
+
       - name: Prepare restricted SSH authentication
+        if: steps.gate.outputs.enabled == 'true'
         shell: bash
         env:
           DEPLOY_KEY: ${{ secrets.IMENU_STAGE_DEPLOY_SSH_KEY }}
@@ -42,6 +56,7 @@ jobs:
           fi
 
       - name: Deploy exact preview commit
+        if: steps.gate.outputs.enabled == 'true'
         shell: bash
         env:
           TARGET_SHA: ${{ github.sha }}

@@ -1,0 +1,31 @@
+name: Dispatch VPS preview when enabled
+
+on:
+  push:
+    branches: [preview]
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  dispatch-when-enabled:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - name: Check phone toggle and dispatch latest preview
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          state="$(curl -fsS --retry 2 --max-time 10 https://johnvitor.com/api/preview-deploy-status)" || {
+            echo '::warning::Phone toggle unavailable; no deployment dispatched'
+            exit 0
+          }
+          if [[ "$state" != ON ]]; then
+            echo "Preview deployment OFF; not dispatching"
+            exit 0
+          fi
+          gh api --method POST "repos/$GH_REPO/actions/workflows/deploy-vps-preview.yml/dispatches" -f ref=preview
