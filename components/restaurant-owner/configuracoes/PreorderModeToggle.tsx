@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Switch from "@/components/ui/Switch";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import SaveStatus from "@/components/ui/SaveStatus";
@@ -12,10 +12,18 @@ type Props = {
     restaurantId: string | null;
     enabled: boolean;
     onChange: (enabled: boolean) => void;
+    openConfirmationSignal?: number;
 };
 
-export default function PreorderModeToggle({ restaurantId, enabled, onChange }: Props) {
+export default function PreorderModeToggle({ restaurantId, enabled, onChange, openConfirmationSignal = 0 }: Props) {
     const [confirmOpen, setConfirmOpen] = useState(false);
+    const seenConfirmationSignal = useRef(openConfirmationSignal);
+
+    useEffect(() => {
+        if (openConfirmationSignal === seenConfirmationSignal.current) return;
+        seenConfirmationSignal.current = openConfirmationSignal;
+        if (!enabled) setConfirmOpen(true);
+    }, [openConfirmationSignal, enabled]);
     const [saving, setSaving] = useState(false);
     const [savingSettings, setSavingSettings] = useState(false);
     const [error, setError] = useState<string | null>(null);
