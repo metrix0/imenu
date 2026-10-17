@@ -7,7 +7,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const MAX_ATTEMPTS = 3;
+const MAX_ATTEMPTS = 5;
 
 type PrinterRequest = {
     action?: string;
@@ -57,7 +57,7 @@ export async function POST(request: Request) {
                      ORDER BY created_at ASC LIMIT 1`,
                     [restaurantId]
                 );
-                return ok({ job: result.rows[0] ?? null });
+                return ok({ job: result.rows[0] ?? null, max_print_attempts: MAX_ATTEMPTS });
             }
             case "claim_job": {
                 const id = uuid(body.job_id);
