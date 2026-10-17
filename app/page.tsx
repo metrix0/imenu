@@ -294,7 +294,7 @@ export default function LandingPage() {
                         Cardápio digital para Restaurantes e Delivery. Pronto em 3
                         minutos com{" "}
                         <Tooltip
-                            text="Nossa IA lê fotos, PDFs e links de cardápios."
+                            text="Nossa IA lê fotos, PDFs e links de cardápios e gera seu cardápio em segundos!"
                             position="top"
                         >
                             <u className="cursor-pointer">
@@ -451,7 +451,7 @@ export default function LandingPage() {
                                     <div className="z-50 text-gray-500 min-[1400px]:text-lg 2xl:text-xl">
                                         A{" "}
                                         <Tooltip
-                                            text="Nossa IA lê fotos, PDFs e links de cardápios."
+                                            text="Nossa IA lê fotos, PDFs e links de cardápios e gera seu cardápio em segundos!"
                                             position="right"
                                         >
                                             <u className="cursor-pointer">
