@@ -8,6 +8,7 @@ on:
       - .legacy-printer-release-trigger.json
 
 permissions:
+  actions: write
   contents: write
   statuses: write
 
@@ -113,6 +114,7 @@ jobs:
             git rebase origin/preview
 
             if git -c http.version=HTTP/1.1 push origin HEAD:preview; then
+              echo "updated=true" >> "$GITHUB_OUTPUT"
               exit 0
             fi
 
@@ -148,3 +150,21 @@ jobs:
           post_status legacy-printer-preview-resolve "$RELEASE_OUTCOME"
           post_status legacy-printer-preview-download "$DOWNLOAD_OUTCOME"
           post_status legacy-printer-preview-commit "$COMMIT_OUTCOME"
+
+      - name: Dispatch VPS preview after printer update
+        if: ${{ steps.commit_preview.outputs.updated == 'true' }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          state="$(curl -fsS --retry 2 --max-time 10 https://johnvitor.com/api/preview-deploy-status)" || {
+            echo '::warning::Phone toggle unavailable; deployment not dispatched'
+            exit 0
+          }
+          if [[ "$state" != ON ]]; then
+            echo "Preview deployment OFF; not dispatching"
+            exit 0
+          fi
+          gh api --method POST "repos/$GH_REPO/actions/workflows/deploy-vps-preview.yml/dispatches" -f ref=preview

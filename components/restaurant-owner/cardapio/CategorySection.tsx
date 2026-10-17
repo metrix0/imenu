@@ -7,9 +7,11 @@ import { faGripVertical, faStar } from "@fortawesome/free-solid-svg-icons";
 import { supabase } from "@/lib/database/supabaseClient";
 import Tooltip from "@/components/ui/Tooltip";
 import MenuItemRow, { MenuItemType } from "./MenuItemRow";
+import { categoryScheduleDetails, categoryScheduleLabel } from "@/lib/menu/categorySchedule";
+import type { Category } from "@/lib/types/types";
 
 interface CategorySectionProps {
-    category: { id: string; name: string };
+    category: Category;
     items: MenuItemType[];
     restaurantId: string;
     onRefresh: () => void;
@@ -248,14 +250,14 @@ export default function CategorySection({
                 </div>
             )}
 
-            <div className="flex items-center justify-between mb-3 px-1">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2 px-1">
                 <div className="flex items-center gap-3">
                     {dragHandle && (
                         <div className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 p-1">
                             {dragHandle}
                         </div>
                     )}
-                    <h3 className="text-xl font-bold text-gray-800 tracking-tight">{category.name}</h3>
+                    <h3 className="min-w-0 break-words text-xl font-bold tracking-tight text-gray-800">{category.name}</h3>
                     {isFeatured && (
                         <Tooltip text="A primeira categoria é destacada no cardápio." position="right" showOnClick>
                             <FontAwesomeIcon icon={faStar} className="text-brand text-sm cursor-help" />
@@ -263,9 +265,16 @@ export default function CategorySection({
                     )}
                 </div>
 
-                <button onClick={onEditCategory} className="text-xs 2xl:text-base font-medium text-gray-400 hover:text-brand transition-colors cursor-pointer">
-                    Editar categoria
-                </button>
+                <div className="flex shrink-0 flex-wrap items-center justify-end gap-x-3 gap-y-1">
+                    {categoryScheduleLabel(category.availability_schedule) && (
+                        <span className="max-w-[220px] truncate text-xs text-gray-500" title={categoryScheduleDetails(category.availability_schedule) || undefined}>
+                            {categoryScheduleLabel(category.availability_schedule)}
+                        </span>
+                    )}
+                    <button onClick={onEditCategory} className="cursor-pointer text-xs font-medium text-gray-400 transition-colors hover:text-brand 2xl:text-base">
+                        Editar categoria
+                    </button>
+                </div>
             </div>
 
             <div className="bg-white border border-gray-200 rounded-xl 2xl:mt-4 overflow-hidden shadow-sm 2xl:shadow-lg">
