@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Trash2 } from "lucide-react";
+import { BadgeX } from "lucide-react";
 import { Item, Promotion } from "@/lib/types/types";
 import Dropdown from "@/components/ui/Dropdown";
 import Input from "@/components/ui/Input";
@@ -58,21 +58,21 @@ export default function PromotionRow({ item, checked, onToggle, onChange }: {
                     </div>
                 </div>
             </div>
-            <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)_40px] items-end gap-3 sm:grid-cols-[minmax(100px,1fr)_90px_minmax(0,1.6fr)_40px]">
+            <div className="grid min-w-0 grid-cols-2 items-end gap-3 sm:grid-cols-[minmax(100px,1fr)_90px_minmax(0,1.6fr)] xl:grid-cols-[minmax(100px,1fr)_90px_minmax(0,1.6fr)_auto]">
                 <Dropdown label="Desconto" aria-label={`Tipo de desconto de ${item.name}`} value={type}
                     options={[{ label: "Percentual", value: "percent" }, { label: "Valor fixo", value: "fixed" }]}
                     onChange={event => { const next = event.target.value as "fixed" | "percent"; setType(next); commit(next); }} />
                 <Input label={type === "percent" ? "Valor (%)" : "Valor (R$)"} aria-label={`Desconto de ${item.name}`}
                     type="number" inputMode="decimal" min={0} max={type === "percent" ? 100 : item.price_cents / 100} step={type === "percent" ? 1 : 0.01}
                     value={value} onChange={event => setValue(Number(event.target.value || 0))} onBlur={() => commit()} />
-                <div className="col-span-2 row-start-2 sm:col-span-1 sm:row-start-auto">
+                <div className="col-span-2 sm:col-span-1">
                     <DateRangePicker label="Validade" presets={[]} allowFuture allowOpenEnd allowClear emptyLabel="Sem data final"
                         value={{ startDate: startsAt?.slice(0, 10) ?? "", endDate: endsAt?.startsWith("3000-") ? "" : endsAt?.slice(0, 10) ?? "" }}
                         onChange={range => { const start = range.startDate || null; const end = range.endDate || null; setStartsAt(start); setEndsAt(end); commit(type, start, end); }} />
                 </div>
-                <Button variant="secondary" disabled={!item.promotion} aria-label={`Remover promoção de ${item.name}`} title="Remover promoção"
-                    className="col-start-3 row-start-1 !h-11 !w-10 !px-0 text-red-600 sm:col-start-auto sm:row-start-auto"
-                    onClick={() => onChange({ active: false } as Promotion)}><Trash2 size={16} /></Button>
+                <Button variant="secondary" disabled={!item.promotion} aria-label={`Remover promoção de ${item.name}`} title="Remove apenas a promoção; o produto continua no cardápio"
+                    className="col-span-2 !h-11 justify-self-end gap-2 whitespace-nowrap text-gray-600 sm:col-span-3 xl:col-span-1 xl:justify-self-auto"
+                    onClick={() => onChange({ active: false } as Promotion)}><BadgeX size={16} />Remover promoção</Button>
             </div>
         </div>
     );
