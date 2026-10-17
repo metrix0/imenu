@@ -23,6 +23,8 @@ import {
     processSupportIncomingWhatsAppMessage,
 } from "@/lib/services/supportWhatsApp";
 
+import { pairingStartedAtForStatus, withWhatsAppPairingLock } from "@/lib/services/whatsappPairingCleanup";
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -51,6 +53,7 @@ type ConnectionRow = {
     qr_code_data: string | null;
     qr_updated_at: string | null;
     last_error: string | null;
+    pairing_started_at: string | null;
     last_restart_at: string | null;
     last_connected_at: string | null;
     last_disconnected_at: string | null;
@@ -267,7 +270,7 @@ async function getConnection(
     const { data, error } = await supabase
         .from("whatsapp_connections")
         .select(
-            "restaurant_id,session_name,desired_state,status,status_data,phone,push_name,qr_code_data,qr_updated_at,last_error,last_restart_at,last_connected_at,last_disconnected_at,last_event_at"
+            "restaurant_id,session_name,desired_state,status,status_data,phone,push_name,qr_code_data,qr_updated_at,last_error,last_restart_at,last_connected_at,last_disconnected_at,last_event_at,pairing_started_at"
         )
         .eq("session_name", sessionName)
         .maybeSingle();
@@ -312,6 +315,9 @@ async function updateSessionStatus({
         status_data: payload.data || null,
         last_event_at: now,
         updated_at: now,
+        pairing_started_at: pairingStartedAtForStatus(
+            status, connection.pairing_started_at, now
+        ),
     };
 
     if (event.me?.id) update.phone = extractWahaPhone(event.me.id);
@@ -342,6 +348,8 @@ async function updateSessionStatus({
     // QR codes, contact details and reconnection, without writing duplicate rows.
     const hasMeaningfulChange =
         connection.status !== status ||
+        (update.pairing_started_at !== undefined &&
+            connection.pairing_started_at !== update.pairing_started_at) ||
         JSON.stringify(connection.status_data ?? null) !== JSON.stringify(update.status_data) ||
         (update.phone !== undefined && connection.phone !== update.phone) ||
         (update.push_name !== undefined && connection.push_name !== update.push_name) ||
@@ -529,7 +537,12 @@ export async function POST(request: NextRequest) {
         }
 
         if (eventName === "session.status") {
-            await updateSessionStatus({ event, connection, supabase });
+            await withWhatsAppPairingLock(connection.restaurant_id, async () => {
+                const current = await getConnection(sessionName, supabase);
+                if (current?.desired_state === "connected") {
+                    await updateSessionStatus({ event, connection: current, supabase });
+                }
+            });
             return NextResponse.json({ ok: true });
         }
 
