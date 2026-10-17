@@ -17,6 +17,20 @@ export type BlogArticleDefinition = {
 
 export const BLOG_ARTICLES: BlogArticleDefinition[] = [
     {
+        slug: "dominio-proprio-cardapio-digital",
+        title: "Como usar domínio próprio no cardápio digital do iMenu: passo a passo",
+        shortTitle: "Domínio próprio no cardápio digital",
+        metaTitle: "Domínio Próprio no Cardápio Digital: Como Usar | iMenu",
+        metaDescription:
+            "Aprenda a colocar seu domínio próprio no cardápio digital do iMenu. Veja o passo a passo, a configuração DNS, exemplos e dicas para seu delivery.",
+        excerpt:
+            "Seu delivery pode usar um endereço com a marca do restaurante. Saiba como conectar domínio ou subdomínio, configurar o DNS e testar o cardápio.",
+        category: "Cardápio",
+        readingTime: "11 min de leitura",
+        publishedAt: "2026-10-17",
+        updatedAt: "2026-10-17",
+    },
+    {
         slug: "cardapio-vitrine",
         title: "Cardápio Vitrine: mostre seus produtos sem receber pedidos online",
         shortTitle: "Cardápio Vitrine: consulta sem pedidos",
