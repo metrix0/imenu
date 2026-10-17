@@ -171,14 +171,16 @@ export default function OrganizeCategoriesModal({
 
     return (
         <Modal height={580}
+            fixedHeight
             open={open}
             onClose={() => {
                 if (!saving) onClose();
             }}
-            className="max-w-lg"
+            className="max-w-lg !overflow-hidden"
+            bodyClassName="flex min-h-0 flex-1 flex-col !overflow-hidden"
         >
-            <div className="p-5 sm:p-6">
-                <div className="mb-5">
+            <div className="flex h-full min-h-0 flex-col p-5 sm:p-6">
+                <div className="mb-5 shrink-0">
                     <h2 className="text-xl font-bold text-gray-900">
                         Organizar categorias
                     </h2>
@@ -187,7 +189,7 @@ export default function OrganizeCategoriesModal({
                     </p>
                 </div>
 
-                <div className="max-h-[55dvh] space-y-2 overflow-y-auto pr-1">
+                <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
                     {orderedCategories.map((category, index) => (
                         <div
                             key={category.id}
@@ -242,7 +244,7 @@ export default function OrganizeCategoriesModal({
                     ))}
                 </div>
 
-                <div className="mt-6 flex justify-end gap-3">
+                <div className="mt-6 flex shrink-0 justify-end gap-3">
                     <Button
                         variant="secondary"
                         onClick={onClose}
