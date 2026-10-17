@@ -106,6 +106,10 @@ Final cutover evidence remains private: ops/cutover/final-count-validation.json,
 
 Validation performed: npx tsc --noEmit; 213 tests / 20 suites; npx next build; final table-count comparison; final Storage copy with zero failures and ten API checksum samples; Auth fixture login/refresh/getUser/RLS/recovery link and cleanup; production health; apex redirect; container health; six active destination database jobs; five enabled host timers. Do not run payout or customer-message jobs manually merely to test scheduling.
 
+## Prebuilt production deployment
+
+Production GitHub Actions builds Next.js standalone with only the production NEXT_PUBLIC_ settings obtained over the restricted deploy SSH identity (no private runtime secrets on GitHub). It transfers a compressed standalone release to the VPS and activates it using the existing production image, environment, networks, health checks and rollback; no VPS-side Docker build, image export or image unpack. The existing production container image retains Puppeteer/Chromium runtime dependencies. Release verification checks commit and public configuration hashes; the previous release (or original image on the first switch) is restored if health checks fail. Manual retry uses workflow_dispatch retry_failed or retry-prebuilt:SHA. Staging continues using its existing Docker build path.
+
 ## Automatic production deployment
 
 deployment/vps/deploy-preview.sh defaults to preview; --production selects main, imenu-production-app, production-checkout, production-deploy-state and the existing private production Compose file. Both modes reject a mismatched public API URL. Builds are serialized across targets. The production marker is required for production and no longer blocks isolated staging deployments.

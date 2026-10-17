@@ -1,5 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Enable standalone only for the VPS prebuilt release; leave other deployments unchanged.
+  ...(process.env.IMENU_STANDALONE_BUILD === '1' ? { output: 'standalone' } : {}),
   serverExternalPackages: ['ogg-opus-decoder'],
   images: {
     // Serve stored images directly from Supabase Storage.
