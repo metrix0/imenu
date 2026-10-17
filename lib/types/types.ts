@@ -51,6 +51,7 @@ export type Category = {
     id: string;
     name: string;
     position: number;
+    availability_schedule?: import("@/lib/menu/categorySchedule").CategorySchedule;
 };
 
 export type Item = {

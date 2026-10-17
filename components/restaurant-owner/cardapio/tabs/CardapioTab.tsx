@@ -16,8 +16,7 @@ import Dropdown from "@/components/ui/Dropdown";
 import CategorySection from "@/components/restaurant-owner/cardapio/CategorySection";
 import OrganizeCategoriesModal from "@/components/restaurant-owner/cardapio/OrganizeCategoriesModal";
 import { MenuItemType } from "@/components/restaurant-owner/cardapio/MenuItemRow";
-
-type Category = { id: string; name: string; position: number };
+import type { Category } from "@/lib/types/types";
 
 interface CardapioTabProps {
     categories: Category[];

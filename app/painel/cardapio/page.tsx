@@ -16,8 +16,7 @@ import ManageCategoryModal from "@/components/restaurant-owner/cardapio/ManageCa
 import ItemDetailsModal from "@/components/restaurant-owner/cardapio/ItemDetailsModal";
 import ScanMenuModal from "@/components/restaurant-owner/ScanMenuImageModal";
 import { MenuItemType } from "@/components/restaurant-owner/cardapio/MenuItemRow";
-
-type Category = { id: string; name: string; position: number };
+import type { Category } from "@/lib/types/types";
 
 const TABS = [
     "Cardápio",
@@ -39,10 +38,7 @@ export default function MenuManagerPage() {
     } | null>(null);
 
     const [isCatModalOpen, setIsCatModalOpen] = useState(false);
-    const [categoryToEdit, setCategoryToEdit] = useState<{
-        id: string;
-        name: string;
-    } | null>(null);
+    const [categoryToEdit, setCategoryToEdit] = useState<Category | null>(null);
     const [isItemDetailsOpen, setIsItemDetailsOpen] = useState(false);
     const [itemToEditDetails, setItemToEditDetails] =
         useState<MenuItemType | null>(null);

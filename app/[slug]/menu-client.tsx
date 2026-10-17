@@ -26,6 +26,7 @@ import type { QrTableMenuContext } from "@/lib/qr-table/types";
 import PromotionBanner from "@/components/costumer/PromotionBanner";
 import { evaluateAutomaticPromotions, parseAutomaticPromotions, promotionAvailable, promotionCartSubtotal } from "@/lib/promotions/automatic";
 import { parseNeighborhoodDeliveryRules } from "@/lib/delivery/neighborhood";
+import { isCategoryAvailable } from "@/lib/menu/categorySchedule";
 
 const RESTAURANT_INFO_DAYS = [
     { day: 1, label: "Segunda-feira" },
@@ -68,8 +69,9 @@ function formatStoreWhatsapp(value: unknown) {
 export default function MenuClientPage({
                                            slug,
                                            restaurant,
-                                           categories,
-                                           itemsByCategory,
+                                           categories: sourceCategories,
+                                           itemsByCategory: sourceItemsByCategory,
+                                           initialMenuTime,
     selectedCouponCode,
     openedProductId,
     tableOrder,
@@ -79,12 +81,33 @@ export default function MenuClientPage({
     restaurant: Restaurant;
     categories: Category[];
     itemsByCategory: ItemsByCategory;
+    initialMenuTime?: string;
     openedProductId?: string | null;
     selectedCouponCode?: string | null;
     tableOrder?: QrTableMenuContext | null;
     readOnly?: boolean;
 }) {
     const router = useRouter();
+    const [menuTime, setMenuTime] = useState(initialMenuTime ?? new Date().toISOString());
+    const categories = sourceCategories.filter(category =>
+        isCategoryAvailable(category.availability_schedule, new Date(menuTime)),
+    );
+    const visibleCategoryIds = new Set(categories.map(category => category.id));
+    const itemsByCategory: ItemsByCategory = Object.fromEntries(
+        Object.entries(sourceItemsByCategory).filter(([id]) => visibleCategoryIds.has(id)),
+    );
+
+    useEffect(() => {
+        const refresh = () => setMenuTime(new Date().toISOString());
+        const timer = window.setInterval(refresh, 30_000);
+        window.addEventListener("focus", refresh);
+        document.addEventListener("visibilitychange", refresh);
+        return () => {
+            window.clearInterval(timer);
+            window.removeEventListener("focus", refresh);
+            document.removeEventListener("visibilitychange", refresh);
+        };
+    }, []);
 
     const [historyOpen, setHistoryOpen] = useState(false);
     const [restaurantInfoOpen, setRestaurantInfoOpen] = useState(false);
@@ -113,6 +136,12 @@ export default function MenuClientPage({
         loading: boolean;
         error?: string;
     } | null>(null);
+    useEffect(() => {
+        if (openedItem && !Object.values(itemsByCategory).some(items =>
+            items.some(item => item.id === openedItem.item.id))) {
+            setOpenedItem(null);
+        }
+    }, [menuTime]);
     const [restaurantCartWarningVisible, setRestaurantCartWarningVisible] = useState(false);
     const [orderId, setOrderId] = useState<string | null>(null);
     const [closedForToday, setClosedForToday] = useState(false);
@@ -120,6 +149,11 @@ export default function MenuClientPage({
     const [searchOpen, setSearchOpen] = useState(false);
     const [showMobileSearch, setShowMobileSearch] = useState(false);
     const [activeTab, setActiveTab] = useState(categories[0]?.name ?? "");
+    useEffect(() => {
+        if (!categories.some(category => category.name === activeTab)) {
+            setActiveTab(categories[0]?.name ?? "");
+        }
+    }, [menuTime]);
     const [manualScrollLock, setManualScrollLock] = useState(false);
     const [debouncedSearch, setDebouncedSearch] = useState("");
     const [couponUsed, setCouponUsed] = useState("");

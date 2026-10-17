@@ -251,7 +251,7 @@ export default async function Page({
       .maybeSingle(),
     supabase
       .from("categories")
-      .select("id, name, position")
+      .select("id, name, position, availability_schedule")
       .eq("restaurant_id", restaurant.id)
       .order("position", { ascending: true }),
     supabase
@@ -412,6 +412,7 @@ export default async function Page({
           restaurant={restaurant}
           categories={categoriesWithItems}
           itemsByCategory={itemsByCategory}
+          initialMenuTime={now}
           openedProductId={p.p}
           selectedCouponCode={readOnly || tableOrder ? undefined : p.c?.toUpperCase()}
           tableOrder={tableOrder}
