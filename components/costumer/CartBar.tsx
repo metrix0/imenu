@@ -303,10 +303,6 @@ export default function CartBar({
     async function createOrder() {
         const cart = useCartStore.getState();
         const checkout = useCheckoutStore.getState();
-        if (!isTableOrder && restaurant.preorder_only === true && !checkout.scheduled_for) {
-            setOrderWarning({ message: "Selecione a data da encomenda." });
-            return;
-        }
         const pickup = !isTableOrder && Boolean((checkout as any).is_pickup);
         const shouldReturnToGarcom =
             isTableOrder &&

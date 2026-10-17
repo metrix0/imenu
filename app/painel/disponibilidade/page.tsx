@@ -174,7 +174,16 @@ export default function DisponibilidadePage() {
                     <div className="flex items-center gap-2">
                         <h1 className="text-3xl font-bold text-gray-900">Horários de Funcionamento</h1>
                     </div>
-                    <p className="text-gray-500 mt-1 min-[1800px]:text-lg">Defina quando sua loja estará aberta para receber pedidos.</p>
+                    <p className="text-gray-500 mt-1 min-[1800px]:text-lg">
+                        Defina quando sua loja estará aberta para receber pedidos. Trabalha com encomendas?{" "}
+                        <button
+                            type="button"
+                            onClick={() => document.getElementById("preorder-mode")?.scrollIntoView({ behavior: "smooth", block: "center" })}
+                            className="cursor-pointer font-medium text-brand hover:underline"
+                        >
+                            Clique aqui
+                        </button>
+                    </p>
                 </div>
                 
                 <div className="text-sm font-medium h-6 flex items-center">
@@ -182,7 +191,6 @@ export default function DisponibilidadePage() {
                 </div>
             </div>
 
-            <PreorderModeToggle restaurantId={restaurantId} enabled={preorderOnly} onChange={setPreorderOnly} />
             {!preorderOnly && <p className="mb-3 text-xs text-gray-500 md:hidden">Deslize a grade para os lados para ver todos os dias.</p>}
             {!preorderOnly && <div tabIndex={0} role="region" aria-label="Grade de horários da semana" className="bg-white border border-gray-200 rounded-xl py-4 pl-3 pr-4 sm:py-6 sm:pl-5 sm:pr-6 overflow-x-auto -mx-2 sm:mx-0">
                 <div className="min-w-[700px]">
@@ -192,6 +200,9 @@ export default function DisponibilidadePage() {
                     />
                 </div>
             </div>}
+            <div id="preorder-mode" className="mt-6 scroll-mt-24">
+                <PreorderModeToggle restaurantId={restaurantId} enabled={preorderOnly} onChange={setPreorderOnly} />
+            </div>
         </div>
     );
 }
