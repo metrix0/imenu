@@ -146,6 +146,13 @@ export default function ComoMontarCardapioDeliveryPage() {
 
             <BlogSection id="categorias" title="Organize categorias na ordem em que o cliente decide">
                 <p>
+                    Já tem um cardápio em outro site público? Você pode{" "}
+                    <Link href="/blog/criar-cardapio-com-ia" className="font-semibold text-brand underline">
+                        importar por link com IA no iMenu
+                    </Link>
+                    , ou usar fotos e PDFs para começar. Depois revise produtos, categorias e preços.
+                </p>
+                <p>
                     A arquitetura depende do negócio, mas deve responder rápido: “o que
                     vocês vendem?”, “qual é o mais pedido?”, “o que acompanha?” e “como
                     completo minha refeição?”. Evite categorias internas como “Cozinha 1”

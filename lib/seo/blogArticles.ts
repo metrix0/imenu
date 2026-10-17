@@ -172,17 +172,17 @@ export const BLOG_ARTICLES: BlogArticleDefinition[] = [
     },
     {
         slug: "criar-cardapio-com-ia",
-        title: "Como criar cardápio com IA a partir de foto ou PDF",
+        title: "Como criar cardápio com IA a partir de fotos, PDFs ou links",
         shortTitle: "Criar cardápio com IA",
-        metaTitle: "Como criar cardápio com IA por foto ou PDF | iMenu",
+        metaTitle: "Criar Cardápio com IA por Foto, PDF ou Link | iMenu",
         metaDescription:
-            "Aprenda a digitalizar um cardápio com IA usando fotos ou PDFs, revisar categorias, produtos, descrições e preços e publicar mais rápido.",
+            "Aprenda a criar um cardápio com IA usando fotos, PDFs ou links públicos, revisar categorias, produtos, descrições e preços e publicar mais rápido.",
         excerpt:
-            "Transforme o material que você já tem em uma estrutura de cardápio digital e revise o resultado antes de colocar os produtos no ar.",
+            "Importe produtos e categorias de fotos, PDFs ou links públicos de cardápios e revise antes de publicar.",
         category: "Cardápio",
         readingTime: "10 min de leitura",
         publishedAt: "2026-08-17",
-        updatedAt: "2026-08-17",
+        updatedAt: "2026-10-17",
     },
     {
         slug: "programa-fidelidade-restaurante",

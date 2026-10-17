@@ -446,7 +446,7 @@ export default function LandingPage() {
                                     <div className="z-50 text-gray-500 min-[1400px]:text-lg 2xl:text-xl">
                                         A{" "}
                                         <Tooltip
-                                            text="Nossa IA realiza o scan da foto ou PDF do seu cardápio."
+                                            text="Nossa IA lê fotos, PDFs e links públicos de cardápios compatíveis."
                                             position="right"
                                         >
                                             <u className="cursor-pointer">

@@ -18,7 +18,7 @@ export const metadata = createBlogArticleMetadata(article);
 
 const sections = [
     { id: "como-funciona", label: "Como funciona" },
-    { id: "arquivos", label: "Fotos e PDFs" },
+    { id: "arquivos", label: "Fotos, PDFs e links" },
     { id: "passo-a-passo", label: "Passo a passo" },
     { id: "revisao", label: "O que revisar" },
     { id: "quando-usar", label: "Quando vale a pena" },
@@ -31,12 +31,12 @@ const faq = [
     {
         question: "Dá para criar um cardápio digital com inteligência artificial?",
         answer:
-            "Sim. Uma IA pode analisar fotos ou PDFs do cardápio, identificar categorias e produtos e transformar esse conteúdo em uma estrutura digital que depois deve ser revisada antes de publicar.",
+            "Sim. A IA pode analisar fotos, PDFs e links de cardápios públicos compatíveis, identificar categorias e produtos e organizar o conteúdo para revisão antes de publicar.",
     },
     {
         question: "A IA consegue ler preço e descrição do cardápio?",
         answer:
-            "Ela pode detectar nome, descrição, preço e categoria quando essas informações estão legíveis. A qualidade do resultado depende do arquivo, então a revisão humana continua importante.",
+            "Ela pode detectar nome, descrição, preço e categoria quando essas informações estão acessíveis e legíveis. Revise o resultado antes de publicar.",
     },
     {
         question: "Posso tirar foto do cardápio impresso?",
@@ -46,7 +46,12 @@ const faq = [
     {
         question: "Quantos arquivos posso enviar no Scan com IA do iMenu?",
         answer:
-            "O fluxo atual aceita até quatro PDFs e/ou imagens por análise. Para melhores resultados, o próprio painel recomenda usar arquivos de imagem do cardápio quando possível.",
+            "O iMenu aceita até oito PDFs e/ou imagens por análise. Como alternativa, você pode colar o link de um cardápio público compatível.",
+    },
+    {
+        question: "Posso importar meu cardápio pelo link?",
+        answer:
+            "Sim, se a página for pública e permitir leitura automática. Sites que exigem login ou bloqueiam a leitura, inclusive o iFood, ainda não são compatíveis.",
     },
 ];
 
@@ -56,7 +61,7 @@ export default function CriarCardapioComIaPage() {
             article={article}
             icon={faWandMagicSparkles}
             takeaways={[
-                "Um processo para transformar foto ou PDF em cardápio digital mais rápido",
+                "Como importar cardápios com IA usando fotos, PDFs ou links públicos",
                 "Um checklist de qualidade para melhorar a leitura da inteligência artificial",
                 "Os pontos que precisam ser revisados antes de colocar o cardápio no ar",
             ]}
@@ -84,7 +89,7 @@ export default function CriarCardapioComIaPage() {
                 </p>
                 <div className="grid gap-4 md:grid-cols-3">
                     {[
-                        ["1. Enviar", "Adicione fotos ou PDFs do cardápio que já existe."],
+                        ["1. Enviar", "Adicione fotos ou PDFs, ou cole o link público do cardápio."],
                         ["2. Detectar", "A IA identifica categorias, produtos, descrições e preços que consegue ler."],
                         ["3. Organizar", "Revise as categorias detectadas, salve e ajuste o que precisar no cardápio."],
                     ].map(([title, description]) => (
@@ -100,7 +105,7 @@ export default function CriarCardapioComIaPage() {
                 </BlogCallout>
             </BlogSection>
 
-            <BlogSection id="arquivos" title="Qual arquivo funciona melhor para digitalizar um cardápio">
+            <BlogSection id="arquivos" title="Fotos, PDFs ou links: como importar seu cardápio">
                 <p>
                     A qualidade da entrada influencia diretamente a leitura. Um arquivo
                     bonito para impressão nem sempre é o arquivo mais fácil para uma IA
@@ -120,8 +125,14 @@ export default function CriarCardapioComIaPage() {
                 />
                 <p>
                     No iMenu, o Scan com IA aceita <strong>JPG, PNG e PDF</strong> e permite
-                    selecionar até quatro arquivos por análise. Também é possível abrir a
-                    câmera do celular diretamente pelo fluxo de cadastro.
+                    selecionar até oito arquivos por análise. Também é possível abrir a
+                    câmera do celular ou escolher <strong>Link do cardápio</strong>.
+                </p>
+                <p>
+                    Para importar por link, cole uma página pública que exiba produtos.
+                    Sites que exigem login, bloqueiam leitura automática ou carregam
+                    conteúdo inacessível ao importador podem não funcionar. Links do
+                    iFood ainda não são compatíveis.
                 </p>
             </BlogSection>
 
@@ -133,16 +144,16 @@ export default function CriarCardapioComIaPage() {
                             description: "Entre na área de gerenciamento do cardápio do restaurante e abra o recurso de Scan com IA.",
                         },
                         {
-                            title: "Adicione os arquivos",
-                            description: "Selecione até quatro imagens ou PDFs. No celular, você também pode abrir a câmera e fotografar o material.",
+                            title: "Envie arquivos ou cole o link",
+                            description: "Selecione até oito imagens ou PDFs, use a câmera ou cole um link público compatível na opção Link do cardápio.",
                         },
                         {
                             title: "Aguarde o envio",
-                            description: "Os arquivos precisam terminar de carregar antes da análise. Se algum falhar, remova e envie novamente.",
+                            description: "Aguarde os uploads terminarem ou, se usou link, confirme que o site está público e permite leitura automática.",
                         },
                         {
                             title: "Inicie o Scan com IA",
-                            description: "O sistema analisa os arquivos e retorna categorias e itens detectados no material.",
+                            description: "O sistema analisa os arquivos ou o conteúdo acessível do link e identifica itens e categorias.",
                         },
                         {
                             title: "Mapeie as categorias",
@@ -189,8 +200,8 @@ export default function CriarCardapioComIaPage() {
             <BlogSection id="quando-usar" title="Quando o Scan de cardápio com IA mais economiza tempo">
                 <BlogSubheading>Restaurante migrando de outro sistema</BlogSubheading>
                 <p>
-                    Se você já possui um cardápio exportado, PDF, arte ou material impresso,
-                    o scan evita reconstruir manualmente a primeira versão.
+                    Se você já possui um cardápio em outro site público, PDF, arte ou
+                    material impresso, o scan evita reconstruir manualmente a primeira versão.
                 </p>
                 <BlogSubheading>Cardápio grande</BlogSubheading>
                 <p>

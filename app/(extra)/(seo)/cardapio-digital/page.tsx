@@ -260,9 +260,9 @@ export default function Page() {
                                     Leitura automática de cardápio com IA
                                 </h3>
                                 <p className="leading-relaxed text-gray-600">
-                                    Envie uma foto ou PDF do seu cardápio e o iMenu converte
-                                    automaticamente em um cardápio digital estruturado, com
-                                    categorias, produtos e preços.
+                                    Envie fotos, imagens ou PDFs, ou cole o link de um cardápio
+                                    público compatível. A IA identifica produtos, categorias e
+                                    preços para você revisar antes de salvar.
                                 </p>
                             </div>
                         </div>

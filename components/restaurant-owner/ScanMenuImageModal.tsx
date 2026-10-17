@@ -9,6 +9,8 @@ import {
     useState,
 } from "react";
 import Button from "@/components/ui/Button";
+import Input from "@/components/ui/Input";
+import { supabase } from "@/lib/database/supabaseClient";
 import Modal from "@/components/ui/Modal";
 import Dropdown from "@/components/ui/Dropdown";
 import Toast from "@/components/ui/Toast";
@@ -89,6 +91,8 @@ function ScanModal({
     const previewUrlsRef = useRef<Set<string>>(new Set());
 
     const [uploads, setUploads] = useState<SelectedUpload[]>([]);
+    const [inputMode, setInputMode] = useState<"files" | "link">("files");
+    const [menuUrl, setMenuUrl] = useState("");
     const [toast, setToast] = useState<{
         message: string;
         type: "success" | "error";
@@ -234,14 +238,23 @@ function ScanModal({
         }
     }
 
-    async function callAiScan(urls: string[]) {
+    async function callAiScan(urls: string[], pastedMenuUrl?: string) {
         setIsScanning(true);
 
         try {
+            const headers: Record<string, string> = { "Content-Type": "application/json" };
+            if (pastedMenuUrl !== undefined) {
+                const { data: { session } } = await supabase.auth.getSession();
+                if (!session?.access_token) {
+                    setToast({ message: "Entre na sua conta para importar por link.", type: "error" });
+                    return null;
+                }
+                headers.Authorization = `Bearer ${session.access_token}`;
+            }
             const response = await fetch("/api/scan-menu", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ restaurantId, urls }),
+                headers,
+                body: JSON.stringify({ restaurantId, urls, ...(pastedMenuUrl !== undefined ? { menuUrl: pastedMenuUrl } : {}) }),
             });
             const json = await response.json();
 
@@ -271,7 +284,26 @@ function ScanModal({
         }
     }
 
+    function showScanResult(aiResult: ScannedResult) {
+        setScanResult(aiResult);
+        const newMap: Record<string, CategoryMapping> = {};
+        (aiResult.categories || []).forEach((category) => {
+            newMap[category.name] = { mappedId: null, createNew: true };
+        });
+        setCategoryMap(newMap);
+    }
+
     async function handleContinue() {
+        if (inputMode === "link") {
+            if (!menuUrl.trim()) {
+                setToast({ message: "Cole o link público do seu cardápio.", type: "error" });
+                return;
+            }
+            const aiResult = await callAiScan([], menuUrl.trim());
+            if (aiResult) showScanResult(aiResult);
+            return;
+        }
+
         if (uploads.length === 0) {
             setToast({
                 message: "Adicione ao menos 1 foto",
@@ -333,16 +365,7 @@ function ScanModal({
         const aiResult = await callAiScan(publicUrls);
         if (!aiResult) return;
 
-        setScanResult(aiResult);
-
-        const newMap: Record<string, CategoryMapping> = {};
-        (aiResult.categories || []).forEach((category) => {
-            newMap[category.name] = {
-                mappedId: null,
-                createNew: true,
-            };
-        });
-        setCategoryMap(newMap);
+        showScanResult(aiResult);
     }
 
     async function handleSaveAll() {
@@ -532,6 +555,29 @@ function ScanModal({
                 <div className="p-6 w-full max-w-3xl 2xl:max-w-4xl overflow-y-auto">
                     {!scanResult && (
                         <div className="space-y-6">
+                            <div className="flex flex-wrap gap-2 border-b border-gray-200 pb-3">
+                                <button
+                                    type="button"
+                                    onClick={() => setInputMode("files")}
+                                    aria-pressed={inputMode === "files"}
+                                    className={inputMode === "files"
+                                        ? "cursor-pointer rounded-lg border border-brand bg-brand/10 px-4 py-2 text-sm font-semibold text-brand"
+                                        : "cursor-pointer rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"}
+                                >
+                                    Fotos e PDF
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setInputMode("link")}
+                                    aria-pressed={inputMode === "link"}
+                                    className={inputMode === "link"
+                                        ? "cursor-pointer rounded-lg border border-brand bg-brand/10 px-4 py-2 text-sm font-semibold text-brand"
+                                        : "cursor-pointer rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"}
+                                >
+                                    Link do cardápio
+                                </button>
+                            </div>
+                            {inputMode === "files" ? (
                             <div className="rounded-lg p-4 2xl:text-xl">
                                 <div className="mb-6">
                                     <p className="font-semibold 2xl:mb-2">
@@ -641,6 +687,22 @@ function ScanModal({
                                     </div>
                                 </div>
                             </div>
+                            ) : (
+                                <div className="rounded-lg p-4 space-y-3">
+                                    <Input
+                                        type="url"
+                                        label="Link público do cardápio"
+                                        placeholder="https://exemplo.com/cardapio"
+                                        value={menuUrl}
+                                        onChange={(event) => setMenuUrl(event.target.value)}
+                                        maxLength={2048}
+                                    />
+                                    <p className="text-sm text-gray-500">
+                                        Cole o link de um cardápio público. Sites que exigem login,
+                                        bloqueiam leitura automática ou links do iFood ainda não são compatíveis.
+                                    </p>
+                                </div>
+                            )}
 
                             <div className="flex justify-end gap-2">
                                 <Button variant="secondary" onClick={onClose}>
