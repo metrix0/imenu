@@ -250,14 +250,14 @@ export default function CategorySection({
                 </div>
             )}
 
-            <div className="mb-3 flex items-center justify-between px-1 md:flex-wrap md:gap-2">
-                <div className="flex items-center gap-3">
+            <div className="mb-3 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 px-1 md:flex md:flex-wrap md:justify-between">
+                <div className="flex min-w-0 items-center gap-3">
                     {dragHandle && (
                         <div className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 p-1">
                             {dragHandle}
                         </div>
                     )}
-                    <h3 className="text-xl font-bold text-gray-800 tracking-tight md:min-w-0 md:break-words">{category.name}</h3>
+                    <h3 className="min-w-0 truncate text-xl font-bold text-gray-800 tracking-tight md:overflow-visible md:whitespace-normal md:text-clip md:break-words" title={category.name}>{category.name}</h3>
                     {isFeatured && (
                         <Tooltip text="A primeira categoria é destacada no cardápio." position="right" showOnClick>
                             <FontAwesomeIcon icon={faStar} className="text-brand text-sm cursor-help" />
@@ -271,7 +271,7 @@ export default function CategorySection({
                             {categoryScheduleLabel(category.availability_schedule)}
                         </span>
                     )}
-                    <button onClick={onEditCategory} className="text-xs 2xl:text-base font-medium text-gray-400 hover:text-brand transition-colors cursor-pointer">
+                    <button onClick={onEditCategory} className="whitespace-nowrap text-xs 2xl:text-base font-medium text-gray-400 hover:text-brand transition-colors cursor-pointer">
                         {categoryScheduleLabel(category.availability_schedule) && (
                             <FontAwesomeIcon icon={faClock} className="mr-1.5 text-xs md:hidden" aria-label="Categoria agendada" />
                         )}
