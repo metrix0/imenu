@@ -37,7 +37,9 @@ export default function PreorderModeToggle({ restaurantId, enabled, onChange }: 
             setConfirmOpen(false);
         } catch (err) {
             console.error("Erro ao atualizar modo encomendas:", err);
-            setError(err instanceof Error ? err.message : "Não foi possível salvar. Tente novamente.");
+            setError(err && typeof err === "object" && "message" in err && typeof err.message === "string"
+                ? err.message
+                : "Não foi possível salvar. Tente novamente.");
         } finally {
             setSaving(false);
         }
