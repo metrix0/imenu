@@ -1,0 +1,111 @@
+name: Deploy VPS production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      retry_failed:
+        description: Retry this commit after a failed production deployment
+        type: boolean
+        default: false
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: deploy-vps-production
+  cancel-in-progress: false
+
+jobs:
+  deploy-production:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 115
+    steps:
+      - name: Check latest main commit
+        id: gate
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TARGET_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          latest="$(gh api "repos/$GH_REPO/branches/main" --jq '.commit.sha')"
+          if [[ "$latest" != "$TARGET_SHA" ]]; then
+            echo "Skipping superseded commit $TARGET_SHA; main is $latest"
+            exit 0
+          fi
+          echo "enabled=true" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare restricted production SSH authentication
+        if: steps.gate.outputs.enabled == 'true'
+        shell: bash
+        env:
+          DEPLOY_KEY: ${{ secrets.IMENU_PROD_DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$DEPLOY_KEY" ]]; then
+            echo '::error::Missing IMENU_PROD_DEPLOY_SSH_KEY repository secret'
+            exit 1
+          fi
+          umask 077
+          printf '%s\n' "$DEPLOY_KEY" > "$RUNNER_TEMP/imenu-prod-key"
+          ssh-keygen -y -f "$RUNNER_TEMP/imenu-prod-key" >/dev/null
+          ssh-keyscan -T 10 -t ed25519 177.153.39.121 > "$RUNNER_TEMP/imenu-prod-known-hosts" 2>/dev/null
+          if [[ "$(ssh-keygen -lf "$RUNNER_TEMP/imenu-prod-known-hosts" -E sha256 | awk '{print $2}')" != 'SHA256:0fLaqBmpn4izsgcsNcTtO0zh81QJ1Mn2aDB1XbI1WqY' ]]; then
+            echo '::error::VPS SSH host key fingerprint mismatch'
+            exit 1
+          fi
+
+      - name: Deploy exact main commit
+        if: steps.gate.outputs.enabled == 'true'
+        shell: bash
+        env:
+          TARGET_SHA: ${{ github.sha }}
+          RETRY_FAILED: ${{ inputs.retry_failed || false }}
+        run: |
+          set -euo pipefail
+          request="$TARGET_SHA"
+          if [[ "$RETRY_FAILED" == true && '${{ github.event_name }}' == workflow_dispatch ]]; then
+            request="retry:$TARGET_SHA"
+          fi
+          for attempt in $(seq 1 20); do
+            rc=0
+            ssh -F /dev/null -o BatchMode=yes -o StrictHostKeyChecking=yes \
+              -o UserKnownHostsFile="$RUNNER_TEMP/imenu-prod-known-hosts" \
+              -o ConnectTimeout=20 -o ServerAliveInterval=30 -o ServerAliveCountMax=6 \
+              -i "$RUNNER_TEMP/imenu-prod-key" \
+              imenu-production-deploy@177.153.39.121 "$request" || rc=$?
+            if [[ "$rc" -eq 0 ]]; then exit 0; fi
+            if [[ "$rc" -ne 75 ]]; then exit "$rc"; fi
+            echo "Another production deployment owns the lock; retrying ($attempt/20)"
+            sleep 30
+          done
+          echo '::error::Production deployment lock remained busy'
+          exit 75
+
+      - name: Catch up to latest main commit
+        if: ${{ always() && steps.gate.outcome == 'success' }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TARGET_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          latest="$(gh api "repos/$GH_REPO/branches/main" --jq '.commit.sha')"
+          if [[ "$latest" == "$TARGET_SHA" ]]; then
+            echo "Main HEAD unchanged; no follow-up deployment needed"
+            exit 0
+          fi
+          pending="$(gh api "repos/$GH_REPO/actions/workflows/deploy-vps-production.yml/runs?branch=main&per_page=20" \
+            --jq ".workflow_runs[] | select(.head_sha == \"$latest\" and (.status == \"pending\" or .status == \"queued\" or .status == \"in_progress\" or .status == \"waiting\" or .status == \"requested\")) | .id")"
+          if [[ -n "$pending" ]]; then
+            echo "Latest main $latest already has a pending or active deployment"
+            exit 0
+          fi
+          echo "Main advanced to $latest; dispatching latest production deployment"
+          gh api --method POST "repos/$GH_REPO/actions/workflows/deploy-vps-production.yml/dispatches" -f ref=main
