@@ -581,6 +581,7 @@ export default function LandingPage() {
                                 ["Modo Vitrine (cardápio sem pedidos)", "Incluso no iMenu QR ou IA Plus", "Varia por plataforma"],
                                 ["App para garçom", "check", "Pago"],
                                 ["Agendamento de pedido", "check", "Não"],
+                                ["Modo Encomenda", "check", "Não"],
                                 ["Dividir Pizza em vários sabores", "check", "Não tem ou máximo 2"],
                                 ["Relatórios e Analytics", "check", "Limitado"],
                                 ["Sem bugs", "Correção garantida em 2 dias úteis", "Correção leva meses"],
