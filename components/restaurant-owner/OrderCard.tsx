@@ -19,7 +19,7 @@ import Card from "@/components/ui/Card";
 import Tooltip from "@/components/ui/Tooltip";
 import { supabase } from "@/lib/database/supabaseClient";
 
-const futureSchedulingByRestaurant = new Map<string, PromiseLike<boolean>>();
+const futureSchedulingByRestaurant = new Map<string, PromiseLike<{ future: boolean; preorder: boolean }>>();
 
 function getFutureSchedulingSetting(restaurantId: string) {
     const cached = futureSchedulingByRestaurant.get(restaurantId);
@@ -27,10 +27,10 @@ function getFutureSchedulingSetting(restaurantId: string) {
 
     const request = supabase
         .from("restaurants")
-        .select("allow_future_order_scheduling")
+        .select("allow_future_order_scheduling,preorder_only")
         .eq("id", restaurantId)
         .single()
-        .then(({ data }) => data?.allow_future_order_scheduling === true);
+        .then(({ data }) => ({ future: data?.allow_future_order_scheduling === true, preorder: data?.preorder_only === true }));
 
     futureSchedulingByRestaurant.set(restaurantId, request);
     return request;
@@ -128,6 +128,7 @@ export default function OrderCard({ order, onStatusChange, onViewOrder, delivery
     const [loading, setLoading] = useState(false);
     const [currentTime, setCurrentTime] = useState(() => Date.now());
     const [allowFutureOrderScheduling, setAllowFutureOrderScheduling] = useState(false);
+    const [preorderOnly, setPreorderOnly] = useState(false);
     const isTableOrder = order.is_delivery === "mesa";
     const isPickup = isTableOrder || order.is_delivery === "retirada";
 
@@ -135,8 +136,11 @@ export default function OrderCard({ order, onStatusChange, onViewOrder, delivery
         if (!order.restaurant_id) return;
 
         let active = true;
-        void getFutureSchedulingSetting(order.restaurant_id).then((enabled) => {
-            if (active) setAllowFutureOrderScheduling(enabled);
+        void getFutureSchedulingSetting(order.restaurant_id).then((settings) => {
+            if (active) {
+                setAllowFutureOrderScheduling(settings.future);
+                setPreorderOnly(settings.preorder);
+            }
         });
 
         return () => {
@@ -385,7 +389,9 @@ export default function OrderCard({ order, onStatusChange, onViewOrder, delivery
         ? scheduledDate.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })
         : "";
     const scheduledTooltip = isScheduled
-        ? `Pedido agendado para que ${isPickup ? "a retirada seja feita" : "a entrega seja feita"} às ${scheduledTime} (dia ${scheduledDay})`
+        ? preorderOnly
+            ? `Encomenda para o dia ${scheduledDay}. Horário a combinar.`
+            : `Pedido agendado para que ${isPickup ? "a retirada seja feita" : "a entrega seja feita"} às ${scheduledTime} (dia ${scheduledDay})`
         : "";
     const scheduledRelativeTime = scheduledDate
         ? formatScheduledRelativeTime((scheduledDate.getTime() - currentTime) / 60000)
@@ -438,7 +444,7 @@ export default function OrderCard({ order, onStatusChange, onViewOrder, delivery
                     {isScheduled ? (
                         <TimeInfo
                             text={scheduledTooltip}
-                            time={scheduledTime}
+                            time={preorderOnly ? scheduledDay : scheduledTime}
                             scheduled
                         />
                     ) : (
@@ -480,8 +486,10 @@ export default function OrderCard({ order, onStatusChange, onViewOrder, delivery
                         <div className="mb-3 flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2 text-xs font-bold text-green-700 min-[1800px]:text-base">
                             <FontAwesomeIcon icon={faCalendarDays} />
                             <span>
-                                Agendado para {allowFutureOrderScheduling ? `${scheduledDay} ` : ""}{scheduledTime}{" "}
-                                <span className="font-medium">({scheduledRelativeTime})</span>
+                                {preorderOnly ? `Encomenda para ${scheduledDay} (horário a combinar)` : <>
+                                    Agendado para {allowFutureOrderScheduling ? `${scheduledDay} ` : ""}{scheduledTime}{" "}
+                                    <span className="font-medium">({scheduledRelativeTime})</span>
+                                </>}
                             </span>
                         </div>
                     ) : null}
