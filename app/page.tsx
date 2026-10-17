@@ -293,10 +293,15 @@ export default function LandingPage() {
                     <h2 className="mt-4 leading-normal text-gray-500 md:mt-0 md:leading-7 min-[1400px]:text-lg min-[1400px]:leading-8 2xl:text-[1.4rem]">
                         Cardápio digital para Restaurantes e Delivery. Pronto em 3
                         minutos com{" "}
-                        <u>
-                            <span className="md:hidden">IA</span>
-                            <span className="hidden md:inline">Inteligência Artificial</span>
-                        </u>.
+                        <Tooltip
+                            text="Nossa IA lê fotos, PDFs e links de cardápios."
+                            position="top"
+                        >
+                            <u className="cursor-pointer">
+                                <span className="md:hidden">IA</span>
+                                <span className="hidden md:inline">Inteligência Artificial</span>
+                            </u>
+                        </Tooltip>.
                     </h2>
                     <div className="mt-5 hidden flex-wrap items-center gap-x-2.5 gap-y-1 text-base leading-normal font-normal text-gray-500 md:flex md:leading-7 min-[1400px]:text-lg min-[1400px]:leading-8 2xl:text-[1.4rem]">
                         {["Grátis", "Sem cartão", "Sem limites de Pedidos", "Sem taxas"].map((benefit) => (
@@ -446,7 +451,7 @@ export default function LandingPage() {
                                     <div className="z-50 text-gray-500 min-[1400px]:text-lg 2xl:text-xl">
                                         A{" "}
                                         <Tooltip
-                                            text="Nossa IA lê fotos, PDFs e links públicos de cardápios compatíveis."
+                                            text="Nossa IA lê fotos, PDFs e links de cardápios."
                                             position="right"
                                         >
                                             <u className="cursor-pointer">
