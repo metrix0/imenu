@@ -111,6 +111,7 @@ jobs:
           test -f .next/standalone/server.js
 
       - name: Package only the production standalone release
+        id: packed-release
         if: steps.gate.outputs.enabled == 'true'
         shell: bash
         env:
@@ -128,6 +129,18 @@ jobs:
           PY
           tar -C .next/standalone -I 'zstd -T0 -3' -cf "$RUNNER_TEMP/production-release.tar.zst" .
           ls -lh "$RUNNER_TEMP/production-release.tar.zst"
+          echo "sha256=$(sha256sum "$RUNNER_TEMP/production-release.tar.zst" | cut -d ' ' -f1)" >> "$GITHUB_OUTPUT"
+
+      - name: Upload prebuilt release to GitHub artifact storage
+        id: release-artifact
+        if: steps.gate.outputs.enabled == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-release
+          path: ${{ runner.temp }}/production-release.tar.zst
+          compression-level: 0
+          retention-days: 1
+          if-no-files-found: error
 
       - name: Transfer and activate prebuilt release
         if: steps.gate.outputs.enabled == 'true'
@@ -137,6 +150,8 @@ jobs:
           RETRY_FAILED: ${{ inputs.retry_failed || false }}
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
+          ARTIFACT_ID: ${{ steps.release-artifact.outputs.artifact-id }}
+          ARCHIVE_SHA256: ${{ steps.packed-release.outputs.sha256 }}
         run: |
           set -euo pipefail
           latest="$(gh api "repos/$GH_REPO/branches/main" --jq '.commit.sha')"
@@ -148,8 +163,27 @@ jobs:
             -o UserKnownHostsFile="$RUNNER_TEMP/imenu-prod-known-hosts" \
             -o ConnectTimeout=20 -o ServerAliveInterval=30 -o ServerAliveCountMax=6 \
             -i "$RUNNER_TEMP/imenu-prod-key")
-          ssh "${ssh_options[@]}" imenu-production-deploy@177.153.39.121 \
-            "upload:$TARGET_SHA" < "$RUNNER_TEMP/production-release.tar.zst"
+          [[ "$ARTIFACT_ID" =~ ^[0-9]+$ && "$ARCHIVE_SHA256" =~ ^[0-9a-f]{64}$ ]] || {
+            echo '::error::Missing artifact ID or archive checksum'
+            exit 1
+          }
+          # Authenticated GitHub API returns a short-lived, signed HTTPS artifact URL.
+          # Pass it to the VPS over SSH stdin; no GitHub API token or large file travels over SSH.
+          status="$(curl -sS -D "$RUNNER_TEMP/artifact-headers" -o /dev/null -w '%{http_code}' \
+            --connect-timeout 15 --max-time 30 \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "https://api.github.com/repos/$GH_REPO/actions/artifacts/$ARTIFACT_ID/zip")"
+          if [[ "$status" != 302 ]]; then
+            echo "::error::GitHub artifact API returned HTTP $status instead of a signed redirect"
+            exit 1
+          fi
+          signed_url="$(awk 'tolower($1) == "location:" {sub(/\r$/, "", $2); print $2}' "$RUNNER_TEMP/artifact-headers" | tail -n 1)"
+          [[ "$signed_url" == https://* ]] || { echo '::error::Missing signed artifact URL'; exit 1; }
+          printf '%s\n' "$signed_url" | ssh "${ssh_options[@]}" \
+            imenu-production-deploy@177.153.39.121 "pull:$TARGET_SHA:$ARCHIVE_SHA256"
+          echo "Prebuilt artifact downloaded directly to the VPS via HTTPS"
           request="activate:$TARGET_SHA"
           if [[ "$RETRY_FAILED" == true && '${{ github.event_name }}' == workflow_dispatch ]]; then
             request="retry-prebuilt:$TARGET_SHA"
