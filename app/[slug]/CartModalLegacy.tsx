@@ -1423,7 +1423,7 @@ export default function CartModal({
                                             </div>
                                         ) : (
                                             <p className="mt-3 rounded-lg bg-white px-4 py-3 text-sm text-gray-500">
-                                                Não há horários disponíveis para este dia.
+                                                {preorderOnly ? "Não há horários disponíveis para este dia." : "O restaurante não possui horários disponíveis neste dia."}
                                             </p>
                                         )}
                                     </div>
