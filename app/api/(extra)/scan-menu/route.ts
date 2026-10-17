@@ -758,6 +758,7 @@ export async function POST(req: Request) {
         );
     }
 
+    let isLinkImport = false;
     try {
         const { urls, restaurantId, menuUrl } = (await req.json()) as ScanRequest;
 
@@ -770,6 +771,7 @@ export async function POST(req: Request) {
 
         let pageText: string | undefined;
         if (menuUrl !== undefined) {
+            isLinkImport = true;
             if (typeof menuUrl !== "string" || (Array.isArray(urls) && urls.length > 0)) {
                 return NextResponse.json(
                     { error: "Informe apenas um link de cardápio válido." },
@@ -815,9 +817,12 @@ export async function POST(req: Request) {
         if (parsed.items.length === 0) {
             return NextResponse.json(
                 {
-                    error: "Nenhum produto foi identificado.",
-                    details:
-                        "Tente enviar imagens mais nítidas ou dividir o PDF em menos páginas.",
+                    error: isLinkImport
+                        ? "Não encontramos produtos legíveis nesse link. Tente fotos ou PDF do cardápio."
+                        : "Nenhum produto foi identificado.",
+                    details: isLinkImport
+                        ? "A página pode carregar os produtos de forma restrita ou não apresentar os valores."
+                        : "Tente enviar imagens mais nítidas ou dividir o PDF em menos páginas.",
                 },
                 { status: 422 }
             );
@@ -860,7 +865,9 @@ export async function POST(req: Request) {
                     ? "O limite da API de IA foi atingido. Entre em contato conosco por Whatsapp!"
                     : isAuthError
                       ? "A chave da API de IA não foi aceita. Entre em contato conosco por Whatsapp!"
-                      : "Não foi possível analisar o cardápio. Entre em contato conosco por Whatsapp!",
+                      : isLinkImport
+                        ? "Não foi possível importar esse link. Tente fotos ou PDF do cardápio."
+                        : "Não foi possível analisar o cardápio. Entre em contato conosco por Whatsapp!",
                 details: message,
             },
             { status: isQuotaError || isAuthError ? 503 : 500 }

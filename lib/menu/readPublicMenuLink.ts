@@ -1,4 +1,5 @@
 import { lookup } from "node:dns/promises";
+import puppeteer from "puppeteer";
 import { get as httpGet } from "node:http";
 import { get as httpsGet } from "node:https";
 import { BlockList, isIP } from "node:net";
@@ -147,47 +148,81 @@ function decodePage(response: PageResponse): string {
     }
 }
 
-function decodeEntities(text: string): string {
-    const entities: Record<string, string> = {
-        amp: "&", lt: "<", gt: ">", quot: '"', apos: "'",
-        nbsp: " ", mdash: "—", ndash: "–", bull: "•",
-        hellip: "…", rsquo: "’", ldquo: "“", rdquo: "”",
-    };
-    return text.replace(/&(#(?:x[0-9a-f]+|\d+)|[a-z]+);/gi, (match, entity: string) => {
-        if (entity.startsWith("#")) {
-            const hex = entity[1]?.toLowerCase() === "x";
-            const value = parseInt(entity.slice(hex ? 2 : 1), hex ? 16 : 10);
-            return value > 0 && value <= 0x10ffff ? String.fromCodePoint(value) : match;
-        }
-        return entities[entity.toLowerCase()] ?? match;
+// Render every public HTML menu the same way, including sites that hydrate their menu with JavaScript.
+// Only the validated origin may make requests; Chromium resolves it to the checked public IP.
+async function renderPublicPage(url: URL): Promise<string> {
+    const publicIp = await resolvePublicIpv4(url.hostname);
+    const browser = await puppeteer.launch({
+        headless: true,
+        args: [
+            "--no-sandbox",
+            "--disable-setuid-sandbox",
+            `--host-resolver-rules=MAP ${url.hostname} ${publicIp}, MAP * ~NOTFOUND`,
+        ],
     });
-}
 
-function extractMenuText(html: string): string {
-    const embeddedData = Array.from(
-        html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi)
-    )
-        .filter((match) => /application\/ld\+json|__NEXT_DATA__/i.test(match[1]))
-        .map((match) => match[2].trim())
-        .filter(Boolean)
-        .join("\n")
-        .slice(0, 50_000);
+    try {
+        const page = await browser.newPage();
+        await page.setRequestInterception(true);
+        page.on("request", (request) => {
+            try {
+                const requested = validateUrl(request.url());
+                if (requested.hostname.toLowerCase() !== url.hostname.toLowerCase()) {
+                    void request.abort();
+                    return;
+                }
+                // Product text doesn't require downloading images, fonts or videos.
+                if (["image", "font", "media"].includes(request.resourceType())) {
+                    void request.abort();
+                    return;
+                }
+                void request.continue();
+            } catch {
+                void request.abort();
+            }
+        });
 
-    const visibleText = html
-        .replace(/<!--[\s\S]*?-->/g, " ")
-        .replace(/<(?:script|style|svg|noscript|template)\b[^>]*>[\s\S]*?<\/(?:script|style|svg|noscript|template)\s*>/gi, " ")
-        .replace(/<\/(?:p|div|li|tr|h[1-6]|section|article|header)>|<br\s*\/?>/gi, "\n")
-        .replace(/<[^>]*>/g, " ")
-        .replace(/[ \t]+/g, " ")
-        .replace(/\n[ \t]+/g, "\n")
-        .replace(/\n{3,}/g, "\n\n")
-        .trim();
+        const response = await page.goto(url.toString(), {
+            waitUntil: "domcontentloaded",
+            timeout: 20_000,
+        });
+        if (!response || response.status() >= 400) {
+            throw new MenuLinkError(
+                "Não foi possível abrir este cardápio automaticamente. Tente fotos ou PDF."
+            );
+        }
 
-    return (
-        "Texto visível da página:\n" +
-        decodeEntities(visibleText).slice(0, MAX_TEXT_LENGTH - 55_000) +
-        (embeddedData ? "\nDados estruturados da página:\n" + embeddedData : "")
-    ).slice(0, MAX_TEXT_LENGTH);
+        // Some menus fetch products only after React/Vue hydration or another async request.
+        await page.waitForNetworkIdle({ idleTime: 1200, timeout: 12_000 }).catch(() => undefined);
+        const first = await page.evaluate(() => document.body?.innerText || "");
+        await new Promise((resolve) => setTimeout(resolve, 1200));
+        const second = await page.evaluate(() => document.body?.innerText || "");
+        const visibleText = second.length >= first.length ? second : first;
+        const html = await page.content();
+        // Include published structured data as a generic fallback for pages whose
+        // menu is present in hydration payloads but not visible as ordinary text.
+        const structured = Array.from(html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi))
+            .filter((match) =>
+                /application\/ld\+json|__NEXT_DATA__/i.test(match[1]) ||
+                /self\.__next_f\.push/.test(match[2])
+            )
+            .map((match) => match[2].trim())
+            .filter(Boolean)
+            .sort((a, b) =>
+                Number(/price|product|item|menu|cardápio|categoria/i.test(b)) -
+                Number(/price|product|item|menu|cardápio|categoria/i.test(a))
+            )
+            .join("\n")
+            .slice(0, 75_000);
+
+        return (
+            "Texto visível após carregar a página:\n" +
+            visibleText.slice(0, MAX_TEXT_LENGTH - 75_100) +
+            (structured ? "\nDados estruturados:\n" + structured : "")
+        ).slice(0, MAX_TEXT_LENGTH);
+    } finally {
+        await browser.close();
+    }
 }
 
 export async function readPublicMenuLink(raw: string): Promise<string> {
@@ -221,9 +256,19 @@ export async function readPublicMenuLink(raw: string): Promise<string> {
             );
         }
         const content = decodePage(response);
-        const text = /html|xhtml/i.test(response.contentType)
-            ? extractMenuText(content)
-            : content.slice(0, MAX_TEXT_LENGTH);
+        let text: string;
+        if (/html|xhtml/i.test(response.contentType)) {
+            try {
+                text = await renderPublicPage(url);
+            } catch (error) {
+                if (error instanceof MenuLinkError) throw error;
+                throw new MenuLinkError(
+                    "Não foi possível carregar o cardápio deste site. Tente fotos ou PDF."
+                );
+            }
+        } else {
+            text = content.slice(0, MAX_TEXT_LENGTH);
+        }
         if (text.trim().length < 80) {
             throw new MenuLinkError(
                 "Não encontramos conteúdo suficiente nesse link. Envie fotos ou PDF do cardápio."

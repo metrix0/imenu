@@ -146,13 +146,15 @@ export default function CriarCardapioPage() {
                                 Scanear Cardápio com IA
                             </span>
                             <span className="relative mt-1 max-w-sm text-sm leading-5 text-white/80">
-                                Envie
-                                <span className="my-1 flex flex-wrap gap-1.5">
+                                <span className="flex flex-nowrap items-center gap-1.5 whitespace-nowrap">
+                                    <span>Envie</span>
                                     {["Fotos", "Imagens", "PDF", "Links"].map((format) => (
-                                        <Badge key={format} variant="brand">{format}</Badge>
+                                        <Badge key={format} variant="brand" className="!px-1.5">{format}</Badge>
                                     ))}
                                 </span>
-                                e deixe a IA criar produtos e categorias para você.
+                                <span className="mt-1 block">
+                                    e deixe a IA criar produtos e categorias para você.
+                                </span>
                             </span>
                             <span className="relative mt-auto pt-5 text-sm font-semibold text-white/95 transition-transform duration-200 group-hover:translate-x-1">
                                 Criar com IA →

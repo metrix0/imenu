@@ -91,7 +91,6 @@ function ScanModal({
     const previewUrlsRef = useRef<Set<string>>(new Set());
 
     const [uploads, setUploads] = useState<SelectedUpload[]>([]);
-    const [inputMode, setInputMode] = useState<"files" | "link">("files");
     const [menuUrl, setMenuUrl] = useState("");
     const [toast, setToast] = useState<{
         message: string;
@@ -294,9 +293,12 @@ function ScanModal({
     }
 
     async function handleContinue() {
-        if (inputMode === "link") {
-            if (!menuUrl.trim()) {
-                setToast({ message: "Cole o link público do seu cardápio.", type: "error" });
+        if (menuUrl.trim()) {
+            if (uploads.length > 0) {
+                setToast({
+                    message: "Escolha fotos/PDF ou um link para analisar, não os dois juntos.",
+                    type: "error",
+                });
                 return;
             }
             const aiResult = await callAiScan([], menuUrl.trim());
@@ -555,33 +557,10 @@ function ScanModal({
                 <div className="p-6 w-full max-w-3xl 2xl:max-w-4xl overflow-y-auto">
                     {!scanResult && (
                         <div className="space-y-6">
-                            <div className="flex flex-wrap gap-2 border-b border-gray-200 pb-3">
-                                <button
-                                    type="button"
-                                    onClick={() => setInputMode("files")}
-                                    aria-pressed={inputMode === "files"}
-                                    className={inputMode === "files"
-                                        ? "cursor-pointer rounded-lg border border-brand bg-brand/10 px-4 py-2 text-sm font-semibold text-brand"
-                                        : "cursor-pointer rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"}
-                                >
-                                    Fotos e PDF
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setInputMode("link")}
-                                    aria-pressed={inputMode === "link"}
-                                    className={inputMode === "link"
-                                        ? "cursor-pointer rounded-lg border border-brand bg-brand/10 px-4 py-2 text-sm font-semibold text-brand"
-                                        : "cursor-pointer rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"}
-                                >
-                                    Link do cardápio
-                                </button>
-                            </div>
-                            {inputMode === "files" ? (
                             <div className="rounded-lg p-4 2xl:text-xl">
                                 <div className="mb-6">
                                     <p className="font-semibold 2xl:mb-2">
-                                        Adicione seu Cardápio
+                                        Adicione fotos ou PDF
                                     </p>
                                     <p className="text-sm text-gray-500 2xl:text-base">
                                         JPG, PNG, PDF. <b>Use os arquivos de imagem do seu cardápio para melhores resultados.</b> Limite: 8 PDFs e/ou imagens.
@@ -672,7 +651,7 @@ function ScanModal({
                                                     );
                                                 }}
                                                 className={`rounded-lg border-dashed border-2 flex items-center justify-center flex-shrink-0
-                                                    ${uploads.length === 0 ? "w-full h-38" : "w-28 h-28 2xl:w-36 2xl:h-36"}
+                                                    ${uploads.length === 0 ? "w-full h-28" : "w-28 h-28 2xl:w-36 2xl:h-36"}
                                                     ${isDraggingImage ? "border-brand text-brand" : "border-gray-300 text-gray-500"}`}
                                             >
                                                 <button
@@ -687,22 +666,25 @@ function ScanModal({
                                     </div>
                                 </div>
                             </div>
-                            ) : (
-                                <div className="rounded-lg p-4 space-y-3">
-                                    <Input
-                                        type="url"
-                                        label="Link público do cardápio"
-                                        placeholder="https://exemplo.com/cardapio"
-                                        value={menuUrl}
-                                        onChange={(event) => setMenuUrl(event.target.value)}
-                                        maxLength={2048}
-                                    />
-                                    <p className="text-sm text-gray-500">
-                                        Cole o link de um cardápio público. Sites que exigem login,
-                                        bloqueiam leitura automática ou links do iFood ainda não são compatíveis.
-                                    </p>
-                                </div>
-                            )}
+
+                            <div className="flex items-center gap-3 px-4" aria-hidden="true">
+                                <span className="h-px flex-1 bg-gray-200" />
+                                <span className="text-xs font-medium text-gray-500">ou use um link</span>
+                                <span className="h-px flex-1 bg-gray-200" />
+                            </div>
+                            <div className="space-y-2 px-4">
+                                <Input
+                                    type="url"
+                                    label="Link público do cardápio"
+                                    placeholder="https://exemplo.com/cardapio"
+                                    value={menuUrl}
+                                    onChange={(event) => setMenuUrl(event.target.value)}
+                                    maxLength={2048}
+                                />
+                                <p className="text-xs text-gray-500">
+                                    Sites que exigem login ou bloqueiam leitura automática, incluindo iFood, não são compatíveis.
+                                </p>
+                            </div>
 
                             <div className="flex justify-end gap-2">
                                 <Button variant="secondary" onClick={onClose}>
