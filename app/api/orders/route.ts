@@ -390,6 +390,16 @@ export async function POST(request: Request) {
             throw new OrderRequestError("QR Code de mesa inválido.");
         }
 
+        const preorderSettings = !isTableOrder
+            ? (await query(
+                "SELECT preorder_only, preorder_availability_json, preorder_min_days FROM public.restaurants WHERE id = $1 LIMIT 1",
+                [restaurantId]
+            )).rows[0]
+            : null;
+        if (preorderSettings?.preorder_only === true && !scheduled_for) {
+            throw new OrderRequestError("É obrigatório agendar a data e o horário da encomenda.");
+        }
+
         let scheduledFor: Date | null = null;
         if (!isTableOrder && scheduled_for) {
             const parsedScheduledFor = new Date(scheduled_for);
@@ -402,6 +412,51 @@ export async function POST(request: Request) {
                 );
             }
             scheduledFor = parsedScheduledFor;
+        }
+
+        if (preorderSettings?.preorder_only === true && scheduledFor) {
+            // Validate the same weekly schedule and minimum advance days used by the checkout.
+            const timeFormatter = new Intl.DateTimeFormat("en-US", {
+                timeZone: "America/Sao_Paulo",
+                weekday: "short",
+                year: "numeric",
+                month: "2-digit",
+                day: "2-digit",
+                hour: "2-digit",
+                minute: "2-digit",
+                hourCycle: "h23",
+            });
+            const zonedParts = (date: Date) =>
+                Object.fromEntries(timeFormatter.formatToParts(date).map(({ type, value }) => [type, value]));
+            const nowParts = zonedParts(new Date());
+            const scheduledParts = zonedParts(scheduledFor);
+            const dateDay = (parts: Record<string, string>) =>
+                Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day));
+            const daysAhead = (dateDay(scheduledParts) - dateDay(nowParts)) / 86_400_000;
+            if (daysAhead < preorderSettings.preorder_min_days) {
+                throw new OrderRequestError("A data não respeita a antecedência mínima para encomendas.");
+            }
+
+            const weekDay = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+                .indexOf(scheduledParts.weekday);
+            const requestedMinutes = Number(scheduledParts.hour) * 60 + Number(scheduledParts.minute);
+            const windows = preorderSettings.preorder_availability_json?.[String(weekDay)];
+            const minuteValue = (time: string) => {
+                const parts = /^(\d{2}):(\d{2})$/.exec(time);
+                if (!parts) return -1;
+                return Number(parts[1]) * 60 + Number(parts[2]);
+            };
+            const validSlot = Array.isArray(windows) && windows.some((slot: { open?: string; close?: string }) => {
+                const start = minuteValue(String(slot.open ?? ""));
+                const end = slot.close === "00:00" || slot.close === "24:00"
+                    ? 1439
+                    : minuteValue(String(slot.close ?? ""));
+                return start >= 0 && end >= start && requestedMinutes >= start &&
+                    requestedMinutes <= end && (requestedMinutes - start) % 15 === 0;
+            });
+            if (!validSlot) {
+                throw new OrderRequestError("Horário indisponível para encomendas. Selecione outro horário.");
+            }
         }
 
         const isPickup =

@@ -139,12 +139,18 @@ export default function CartModal({
     const [showOptionalSchedule, setShowOptionalSchedule] = useState(false);
     const [scheduleDropdownOpen, setScheduleDropdownOpen] = useState(false);
     const todayInput = formatDateInputValue(new Date());
-    const [scheduleDate, setScheduleDate] = useState(todayInput);
-    const allowFutureScheduling = restaurant?.allow_future_order_scheduling === true;
-    const scheduleDateOptions = Array.from({ length: 60 }, (_, index) => {
+    const preorderOnly = restaurant?.preorder_only === true && !isTableOrder;
+    const minAdvanceDays = preorderOnly ? Math.max(0, Math.min(59, Number(restaurant?.preorder_min_days) || 0)) : 0;
+    const [scheduleDate, setScheduleDate] = useState(() => {
+        const firstDate = new Date();
+        firstDate.setDate(firstDate.getDate() + minAdvanceDays);
+        return formatDateInputValue(firstDate);
+    });
+    const allowFutureScheduling = restaurant?.allow_future_order_scheduling === true || preorderOnly;
+    const scheduleDateOptions = Array.from({ length: 60 - minAdvanceDays }, (_, index) => {
         const date = new Date();
         date.setHours(12, 0, 0, 0);
-        date.setDate(date.getDate() + index);
+        date.setDate(date.getDate() + minAdvanceDays + index);
         const value = formatDateInputValue(date);
         const dateLabel = date.toLocaleDateString("pt-BR", {
             weekday: "short",
@@ -153,7 +159,7 @@ export default function CartModal({
         });
         return {
             value,
-            label: index === 0 ? `Hoje • ${dateLabel}` : dateLabel,
+            label: minAdvanceDays === 0 && index === 0 ? `Hoje • ${dateLabel}` : dateLabel,
         };
     });
     const coupon_code = useCheckoutStore((s) => s.coupon_code);
@@ -164,7 +170,9 @@ export default function CartModal({
     const troco = useCheckoutStore((s: any) => String(s.troco ?? ""));
 
     const schedulingState = (() => {
-        const availability = restaurant?.availability_json;
+        const availability = preorderOnly
+            ? restaurant?.preorder_availability_json
+            : restaurant?.availability_json;
         if (!availability) {
             return {
                 options: [] as { value: string; label: string }[],
@@ -178,7 +186,7 @@ export default function CartModal({
             : now;
         const isToday = formatDateInputValue(targetDate) === todayInput;
 
-        if (isToday && restaurant?.is_closed) {
+        if (isToday && restaurant?.is_closed && !preorderOnly) {
             const closedDate = new Date(restaurant.is_closed);
             const businessToday = new Date();
             if (businessToday.getHours() < 4) {
@@ -259,17 +267,17 @@ export default function CartModal({
     })();
     const scheduledOptions = schedulingState.options;
     const selectedDateIsToday = scheduleDate === todayInput;
-    const mustSchedule =
+    const mustSchedule = preorderOnly || (
         selectedDateIsToday &&
         scheduledOptions.length > 0 &&
-        !schedulingState.isOpenNow;
-    const hasSchedulingChoice = allowFutureScheduling || scheduledOptions.length > 0;
+        !schedulingState.isOpenNow);
+    const hasSchedulingChoice = preorderOnly || allowFutureScheduling || scheduledOptions.length > 0;
     const showSchedulePicker =
         mustSchedule || showOptionalSchedule || (!mustSchedule && Boolean(scheduled_for));
     const scheduledOptionsKey = `${scheduleDate}|${scheduledOptions.map((option) => option.value).join("|")}`;
     const selectedScheduledOption = scheduledOptions.find(
         (option) => option.value === scheduled_for
-    ) ?? scheduledOptions[0];
+    ) ?? (preorderOnly ? undefined : scheduledOptions[0]);
 
     useEffect(() => {
         if (isTableOrder) {
@@ -294,7 +302,11 @@ export default function CartModal({
 
         if (mustSchedule) {
             if (!selectedIsValid) {
-                setField("scheduled_for", scheduledOptions[0].value);
+                if (preorderOnly) {
+                    if (scheduled_for) setField("scheduled_for", null);
+                } else {
+                    setField("scheduled_for", scheduledOptions[0].value);
+                }
             }
             return;
         }
@@ -307,7 +319,7 @@ export default function CartModal({
         if (scheduled_for && !selectedIsValid) {
             setField("scheduled_for", null);
         }
-    }, [scheduledOptionsKey, scheduled_for, mustSchedule, isTableOrder, allowFutureScheduling, showOptionalSchedule]);
+    }, [scheduledOptionsKey, scheduled_for, mustSchedule, isTableOrder, allowFutureScheduling, preorderOnly, showOptionalSchedule]);
 
     const restaurantAddress = (() => {
         const rawAddress = restaurant?.address;
@@ -1364,7 +1376,7 @@ export default function CartModal({
                                                 >
                                                     <span className="flex items-center gap-3">
                                                         <FontAwesomeIcon icon={icons.faClock} className="text-green-700" />
-                                                        {selectedScheduledOption?.label}
+                                                        {preorderOnly && !scheduled_for ? "Selecione um horário" : selectedScheduledOption?.label}
                                                     </span>
                                                     <FontAwesomeIcon
                                                         icon={icons.faChevronDown}
@@ -1411,7 +1423,7 @@ export default function CartModal({
                                             </div>
                                         ) : (
                                             <p className="mt-3 rounded-lg bg-white px-4 py-3 text-sm text-gray-500">
-                                                O restaurante não possui horários disponíveis neste dia.
+                                                {preorderOnly ? "Não há horários disponíveis para este dia." : "O restaurante não possui horários disponíveis neste dia."}
                                             </p>
                                         )}
                                     </div>
