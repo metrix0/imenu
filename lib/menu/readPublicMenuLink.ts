@@ -86,6 +86,7 @@ async function getPage(url: URL): Promise<PageResponse> {
     return new Promise((resolve, reject) => {
         const get = url.protocol === "https:" ? httpsGet : httpGet;
         const request = get(url, {
+            family: 4,
             timeout: 15_000,
             headers: {
                 Accept: "text/html,application/xhtml+xml,application/json;q=0.9",

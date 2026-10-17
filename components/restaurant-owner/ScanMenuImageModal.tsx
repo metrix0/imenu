@@ -19,6 +19,7 @@ import { uploadFullMenuImageAI } from "@/lib/database/uploadFullMenuImageAI";
 import Loader from "@/components/ui/Loader";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { icons } from "@/lib/utils/fontawesome";
+import { faCamera, faImages } from "@fortawesome/free-solid-svg-icons";
 
 type ScannedItem = {
     name: string;
@@ -592,7 +593,7 @@ function ScanModal({
                                 </div>
 
                                 <div className="flex items-center justify-between gap-8">
-                                    <div className="flex gap-2 mb-4">
+                                    <div className="mb-4 flex flex-wrap gap-2">
                                         <input
                                             ref={fileInputRef}
                                             type="file"
@@ -609,14 +610,31 @@ function ScanModal({
                                             variant="secondary"
                                             onClick={openFilePicker}
                                         >
-                                            Adicionar fotos
+                                            <span className="inline-flex items-center gap-2">
+                                                <FontAwesomeIcon icon={faImages} />
+                                                Adicionar fotos
+                                            </span>
                                         </Button>
                                         <Button
                                             variant="secondary"
                                             onClick={openCamera}
                                         >
-                                            Abrir câmera
+                                            <span className="inline-flex items-center gap-2">
+                                                <FontAwesomeIcon icon={faCamera} />
+                                                Abrir câmera
+                                            </span>
                                         </Button>
+                                        {uploads.length === 0 && (
+                                            <Button
+                                                variant="secondary"
+                                                onClick={() => setShowLinkField(true)}
+                                            >
+                                                <span className="inline-flex items-center gap-2">
+                                                    <FontAwesomeIcon icon={icons.faLink} />
+                                                    Importar cardápio usando um Link
+                                                </span>
+                                            </Button>
+                                        )}
                                     </div>
                                 </div>
 
@@ -689,16 +707,6 @@ function ScanModal({
                                         )}
                                     </div>
                                 </div>
-                                {uploads.length === 0 && (
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowLinkField(true)}
-                                        className="inline-flex cursor-pointer items-center gap-2 text-sm font-medium text-brand hover:underline"
-                                    >
-                                        <FontAwesomeIcon icon={icons.faLink} />
-                                        Importar por link
-                                    </button>
-                                )}
                             </div>
                             )}
 
