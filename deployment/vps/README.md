@@ -40,12 +40,12 @@ Caddy has trusted certificates, HTTP redirects, noindex and operator-IP restrict
 | External SMTP | Verified | Resend TLS/auth and message accepted by official Resend delivery simulator; no customer recipient |
 | Google OAuth | Final callback registered | Google client now includes https://api.imenuapp.com.br/auth/v1/callback; original managed and staging callbacks preserved. Full post-cutover browser login not independently observed |
 | AI providers | Credentials restored; live GPT verified | Minimal real gpt-5.6-luna response completed; no restaurant analysis generated/applied |
-| WAHA | Read-only verified | Existing external service queried; sessions not started/stopped/migrated and no WhatsApp sent |
+| WAHA | Local service | imenu-kinghost-waha persists sessions under waha/sessions; included in encrypted backups and required monitoring. |
 | Asaas / Fixie / Mercado Pago | Authentication verified | Original credentials restored privately; real charge, payout and paid-webhook flow not performed |
 | Webhook credentials | Restored in staging | WAHA HMAC and Asaas token reject unsigned requests; Mercado Pago re-fetches payment from provider and validates reference/amount; malformed ID rejected before provider fetch |
 | Push notifications | Original key pair verified | PKCS8 newline formatting corrected without re-keying; derived public key and JWT sign/verify passed; real-device delivery/permission test remains pending |
 | Five host schedules | Active | Original UTC schedules preserved; production environment and container selected; Persistent=false. Old Vercel config deployment was explicitly deferred by the user; managed source read-only blocks writes, including payout run creation before transfer execution |
-| Six database schedules | Active on VPS only | cron.launch_active_jobs=on; six active destination jobs; six source jobs disabled |
+| Seven database schedules | Active on VPS only | Seven live jobs; the six original managed-source jobs remain disabled. Production HTTP jobs call www; Storage cleanup retains 24 hours of AI import images and allows a 30-second HTTP timeout. |
 | Automatic deployments | GitHub-triggered production and staging | GitHub Actions deploys new main commits using a dedicated, restricted production SSH identity; preview keeps its independent SSH workflow. Existing build, health, rollback, and shared build locks remain. The old production polling timer is removed after the first verified GitHub-triggered deployment. |
 | Application rollback | Verified | Previous image restored healthy, current image restored healthy, database untouched |
 | Encrypted backups | Verified | Daily DB/Storage/config/TLS archive; seven server copies, fourteen PC copies; checksum-verified pull |
@@ -96,7 +96,7 @@ Detailed machine-readable checks remain private under /opt/imenu-migration/ops: 
 
 ## Live production paths and validation
 
-Production source image: 2764c6055403cec3e9e6db40ce3413d406faa09e. Container: imenu-production-app. Compose: ops/cutover/compose.app.yml. Runtime secrets: secrets/app-production.env. Build secrets: secrets/app-production-build.env. The production runtime Compose env_file uses format: raw, preserving dollar signs in provider credentials.
+Cutover source image (historical): 2764c6055403cec3e9e6db40ce3413d406faa09e. Current image SHA is recorded in ops/production-deploy-state/deployed-sha. Container: imenu-production-app. Compose: ops/cutover/compose.app.yml. Runtime secrets: secrets/app-production.env. Build secrets: secrets/app-production-build.env. The production runtime Compose env_file uses format: raw, preserving dollar signs in provider credentials.
 
 Caddy: ops/cutover/Caddyfile.live and ops/cutover/compose.proxy-live.yml. Supabase's private COMPOSE_FILE includes docker-compose.imenu-production.json. That overlay must be included in encrypted backups. Reproducible production-source and preview-checkout trees are excluded from backup archives.
 
@@ -105,6 +105,10 @@ The monitor now checks the production container and its /api/health route while 
 Final cutover evidence remains private: ops/cutover/final-count-validation.json, ops/cutover/webhook-replay-validation.json, the final snapshot manifest, and final Storage copy report. No SQL, dumps, secrets or webhook payloads belong in GitHub.
 
 Validation performed: npx tsc --noEmit; 213 tests / 20 suites; npx next build; final table-count comparison; final Storage copy with zero failures and ten API checksum samples; Auth fixture login/refresh/getUser/RLS/recovery link and cleanup; production health; apex redirect; container health; six active destination database jobs; five enabled host timers. Do not run payout or customer-message jobs manually merely to test scheduling.
+
+## Prebuilt production deployment
+
+Production GitHub Actions builds Next.js standalone with only the production NEXT_PUBLIC_ settings obtained over the restricted deploy SSH identity (no private runtime secrets on GitHub). It transfers a compressed standalone release to the VPS and activates it using the existing production image, environment, networks, health checks and rollback; no VPS-side Docker build, image export or image unpack. The existing production container image retains Puppeteer/Chromium runtime dependencies. Release verification checks commit and public configuration hashes; the previous release (or original image on the first switch) is restored if health checks fail. Manual retry uses workflow_dispatch retry_failed or retry-prebuilt:SHA. Staging continues using its existing Docker build path.
 
 ## Automatic production deployment
 
@@ -115,3 +119,35 @@ Install github-production-deploy-hook.sh as a root-owned, root-only executable u
 The build runs the existing IA Vendas regression suite, TypeScript check and Next production build before replacing the app. Branch HEAD is checked again after the build, so an obsolete build leaves the current app running. A healthy existing deployed SHA is a no-op. A startup failure restores the previous image and Compose file. Failed commits are recorded to prevent endless rebuilds. After investigating a failed production build, retry with bash /opt/imenu-migration/ops/deploy-preview.sh --production --retry FULL_MAIN_SHA.
 
 Production deployer state: ops/production-deploy-state. Build log: ops/production-deploy-state/build.log. Git source is reproducible and excluded from encrypted backups; deployed SHA and rollback state remain in the backup.
+
+## Storage retention and current configuration
+
+Preview intentionally shares production database, Auth and Storage data. Only its application container/configuration is separate. Changes made through preview can affect live restaurants.
+
+Install docker-retention.sh under ops and the matching systemd service/timer under /etc/systemd/system. The 15-minute timer skips active builds. Deployment invokes the same cleanup before and after builds under the shared application-build.lock, including failed builds, and refuses to start with less than 15 GiB free. Docker build cache is pruned toward 8 GB with 40 GB free-space headroom; referenced/shared layers can keep Docker's displayed aggregate above that target. Only obsolete application image tags and unreferenced image/cache data are removed. All container images and the latest/final, rollback and staging before-manual-rollback images are protected. No volumes are pruned. Inspect imenu-docker-retention.service failures and retain the disk alert.
+
+The Dockerfile uses separate build/runtime stages. Tests and TypeScript remain build requirements; development-only dependencies, source trees, Next build cache and ownership-change layers are excluded from the runtime image. Puppeteer browser files, public assets and design-system.html remain available.
+
+Maintained configuration sources:
+- deployment/vps/Caddyfile -> ops/config/Caddyfile
+- deployment/vps/compose.stage.yml -> ops/config/compose.stage.yml
+- deployment/vps/compose.production.yml -> ops/config/compose.production.yml
+- deployment/vps/compose.proxy-live.yml -> ops/config/compose.proxy-live.yml
+- deployment/vps/compose.mcp-gateway.yml -> ops/mcp-bridge/compose.gateway.yml
+- deployment/vps/backup.sh and monitor.py -> ops/
+
+Production deployment uses the maintained production Compose file from its exact source commit when present. Keep private environment files outside Git. Do not recreate the entire Supabase stack to apply an application/proxy-only change. The base Supabase staging overlay disables cron; the production overlay must be last in COMPOSE_FILE to enable it. The observed order is docker-compose.yml:docker-compose.imenu-stage.yml:docker-compose.imenu-auth.json:docker-compose.imenu-ops.json:docker-compose.imenu-production.json.
+
+Existing imenu-stage container/network/volume names and /opt/imenu-migration paths remain compatibility identifiers, not unused resources. Renaming them requires a separate coordinated data/mount/connector migration. api.imenuapp.com.br is the active Supabase endpoint. The preserved Auth storage key is required for existing sessions. Vercel domain support and environment tooling remain compatibility paths; PayZu/Fixie variables still have code dependencies.
+
+The backup includes WAHA session/configuration files along with DB, Storage, secrets, systemd units, ops and TLS; seven encrypted server copies remain the retention policy. WAHA SQLite databases use online snapshots and pass quick_check before archiving; WAL/SHM files and nested historical WAHA backups are excluded. Individual session snapshots and the main database are not a single atomic cross-service snapshot. Restore private WAHA sessions before restarting the same WhatsApp service; never activate a second instance against the same session store. Monitoring requires WAHA and the MCP gateway, uses the same usable-space disk calculation as df, and reports failures through the existing private health heartbeat.
+
+Historical cutover files are recovery evidence. Keep encrypted accepted backups and active deployed/rollback state; do not delete historical secret copies or snapshots merely because their names look obsolete.
+
+The VPS operations gateway queues preview-only deploy/rollback units with systemd --no-block. It releases its lock probe before the rollback precheck and lets the scripts acquire their own locks. The production marker does not block these preview-only operations. Backup systemd coverage includes service/timer drop-in directories, including the restricted gateway Docker client and application-lock configuration.
+
+SQLite durability flushes are disabled only on disposable staging copies to avoid hundreds of redundant journal flushes. Every copied database must still pass quick_check; archives are encrypted and checksummed before becoming the latest backup. Live session databases remain read-only to the snapshot helper.
+
+Before starting the restricted VPS operations service after a restore, recreate its shared lock file with touch /opt/imenu-migration/ops/application-build.lock and chmod 600 on that file. Backup archives intentionally exclude lock files; the normal deploy/rollback scripts also create this lock when run by the operator.
+
+Live Storage directory-list changes during tar are accepted only when tar exits 1 and every diagnostic identifies an existing directory inside Storage. Changed regular files, unreadable files, other warnings and encryption failures still reject the archive. This does not make the live database/files archive atomic.

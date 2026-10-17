@@ -1,0 +1,11 @@
+[Unit]
+Description=iMenu bounded Docker cache and application image retention
+After=docker.service
+Requires=docker.service
+[Service]
+Type=oneshot
+ExecStart=/opt/imenu-migration/ops/docker-retention.sh
+TimeoutStartSec=30min
+Nice=10
+IOSchedulingClass=idle
+UMask=0077

@@ -35,7 +35,7 @@
 | Storage         | **Supabase Storage**             |
 | Payments        | **Mercado Pago**                 |
 | Location        | **Google GeoCoding, Nominatim**  |
-| Deployment      | **Vercel**                       |
+| Deployment      | **KingHost VPS / Docker**                       |
 | Language        | **Only PT-BR, no i18n**          |
 | UX Prototyping  | **Figma**                        |
 | UI Prototyping  | **Photoshop**                    |

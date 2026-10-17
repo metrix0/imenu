@@ -22,7 +22,18 @@ jobs:
   deploy-production:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
-    timeout-minutes: 115
+    timeout-minutes: 35
+    env:
+      CI: "true"
+      NEXT_TELEMETRY_DISABLED: "1"
+      IMENU_STANDALONE_BUILD: "1"
+      PUPPETEER_SKIP_DOWNLOAD: "1"
+      DATABASE_URL: "postgresql://ci:ci@127.0.0.1:5432/ci"
+      SUPABASE_URL: "https://api.imenuapp.com.br"
+      SUPABASE_ANON_KEY: "build-placeholder"
+      SUPABASE_SERVICE_ROLE_KEY: "build-placeholder"
+      OPENAI_API_KEY: "build-placeholder"
+      MERCADO_PAGO_ACCESS_TOKEN: "build-placeholder"
     steps:
       - name: Check latest main commit
         id: gate
@@ -60,28 +71,95 @@ jobs:
             exit 1
           fi
 
-      - name: Deploy exact main commit
+      - name: Load production public build settings
+        if: steps.gate.outputs.enabled == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -F /dev/null -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$RUNNER_TEMP/imenu-prod-known-hosts" \
+            -o ConnectTimeout=20 -i "$RUNNER_TEMP/imenu-prod-key" \
+            imenu-production-deploy@177.153.39.121 public-build-env > "$RUNNER_TEMP/production-public.env"
+          grep -qx 'NEXT_PUBLIC_SUPABASE_URL=https://api.imenuapp.com.br' "$RUNNER_TEMP/production-public.env"
+          cat "$RUNNER_TEMP/production-public.env" >> "$GITHUB_ENV"
+          echo "Production public build settings loaded"
+
+      - name: Checkout exact main commit
+        if: steps.gate.outputs.enabled == 'true'
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        if: steps.gate.outputs.enabled == 'true'
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        if: steps.gate.outputs.enabled == 'true'
+        run: npm ci --no-audit --no-fund
+
+      - name: Validate and build Next.js standalone
+        if: steps.gate.outputs.enabled == 'true'
+        run: |
+          set -euo pipefail
+          npx jest lib/ia-vendas/__tests__ --runInBand
+          npx tsc --noEmit
+          npx next build
+          test -f .next/standalone/server.js
+
+      - name: Package only the production standalone release
+        if: steps.gate.outputs.enabled == 'true'
+        shell: bash
+        env:
+          TARGET_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p .next/standalone/.next/cache
+          cp -a .next/static .next/standalone/.next/static
+          cp -a public .next/standalone/public
+          printf '%s\n' "$TARGET_SHA" > .next/standalone/.imenu-commit-sha
+          python3 - <<'PY' > .next/standalone/.imenu-public-config-sha256
+          import hashlib, json, os
+          public = {k: v for k, v in os.environ.items() if k.startswith("NEXT_PUBLIC_")}
+          print(hashlib.sha256(json.dumps(public, sort_keys=True).encode()).hexdigest())
+          PY
+          tar -C .next/standalone -I 'zstd -T0 -3' -cf "$RUNNER_TEMP/production-release.tar.zst" .
+          ls -lh "$RUNNER_TEMP/production-release.tar.zst"
+
+      - name: Transfer and activate prebuilt release
         if: steps.gate.outputs.enabled == 'true'
         shell: bash
         env:
           TARGET_SHA: ${{ github.sha }}
           RETRY_FAILED: ${{ inputs.retry_failed || false }}
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          request="$TARGET_SHA"
+          latest="$(gh api "repos/$GH_REPO/branches/main" --jq '.commit.sha')"
+          if [[ "$latest" != "$TARGET_SHA" ]]; then
+            echo "Skipping obsolete release $TARGET_SHA; main is $latest"
+            exit 0
+          fi
+          ssh_options=(-F /dev/null -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$RUNNER_TEMP/imenu-prod-known-hosts" \
+            -o ConnectTimeout=20 -o ServerAliveInterval=30 -o ServerAliveCountMax=6 \
+            -i "$RUNNER_TEMP/imenu-prod-key")
+          ssh "${ssh_options[@]}" imenu-production-deploy@177.153.39.121 \
+            "upload:$TARGET_SHA" < "$RUNNER_TEMP/production-release.tar.zst"
+          request="activate:$TARGET_SHA"
           if [[ "$RETRY_FAILED" == true && '${{ github.event_name }}' == workflow_dispatch ]]; then
-            request="retry:$TARGET_SHA"
+            request="retry-prebuilt:$TARGET_SHA"
           fi
           for attempt in $(seq 1 20); do
             rc=0
-            ssh -F /dev/null -o BatchMode=yes -o StrictHostKeyChecking=yes \
-              -o UserKnownHostsFile="$RUNNER_TEMP/imenu-prod-known-hosts" \
-              -o ConnectTimeout=20 -o ServerAliveInterval=30 -o ServerAliveCountMax=6 \
-              -i "$RUNNER_TEMP/imenu-prod-key" \
-              imenu-production-deploy@177.153.39.121 "$request" || rc=$?
+            ssh "${ssh_options[@]}" imenu-production-deploy@177.153.39.121 "$request" || rc=$?
             if [[ "$rc" -eq 0 ]]; then exit 0; fi
             if [[ "$rc" -ne 75 ]]; then exit "$rc"; fi
-            echo "Another production deployment owns the lock; retrying ($attempt/20)"
+            echo "Production deploy lock busy; retrying ($attempt/20)"
             sleep 30
           done
           echo '::error::Production deployment lock remained busy'
