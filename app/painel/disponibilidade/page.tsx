@@ -6,10 +6,12 @@ import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore"; 
 import Loader from "@/components/ui/Loader";
 import SaveStatus from "@/components/ui/SaveStatus";
 import WeeklyScheduleClick, { Availability } from "@/components/restaurant-owner/configuracoes/WeeklyScheduleClick";
+import PreorderModeToggle from "@/components/restaurant-owner/configuracoes/PreorderModeToggle";
 
 export default function DisponibilidadePage() {
     const { restaurantId, setRestaurantId } = useCreationStore();
     const [availability, setAvailability] = useState<Availability>({});
+    const [preorderOnly, setPreorderOnly] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [saveError, setSaveError] = useState(false);
@@ -104,12 +106,13 @@ export default function DisponibilidadePage() {
             if (targetId) {
                 const { data: restaurant } = await supabase
                     .from("restaurants")
-                    .select("availability_json")
+                    .select("availability_json,preorder_only")
                     .eq("id", targetId)
                     .single();
 
                 if (restaurant) {
                     setAvailability(restaurant.availability_json || {});
+                    setPreorderOnly(restaurant.preorder_only === true);
                 }
             }
             setIsLoading(false);
@@ -179,15 +182,16 @@ export default function DisponibilidadePage() {
                 </div>
             </div>
 
-            <p className="mb-3 text-xs text-gray-500 md:hidden">Deslize a grade para os lados para ver todos os dias.</p>
-            <div tabIndex={0} role="region" aria-label="Grade de horários da semana" className="bg-white border border-gray-200 rounded-xl py-4 pl-3 pr-4 sm:py-6 sm:pl-5 sm:pr-6 overflow-x-auto -mx-2 sm:mx-0">
+            <PreorderModeToggle restaurantId={restaurantId} enabled={preorderOnly} onChange={setPreorderOnly} />
+            {!preorderOnly && <p className="mb-3 text-xs text-gray-500 md:hidden">Deslize a grade para os lados para ver todos os dias.</p>}
+            {!preorderOnly && <div tabIndex={0} role="region" aria-label="Grade de horários da semana" className="bg-white border border-gray-200 rounded-xl py-4 pl-3 pr-4 sm:py-6 sm:pl-5 sm:pr-6 overflow-x-auto -mx-2 sm:mx-0">
                 <div className="min-w-[700px]">
                     <WeeklyScheduleClick 
                         value={availability} 
                         onChange={handleScheduleChange} 
                     />
                 </div>
-            </div>
+            </div>}
         </div>
     );
 }
