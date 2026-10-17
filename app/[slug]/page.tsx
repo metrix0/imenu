@@ -194,7 +194,6 @@ export default async function Page({
     address: any;
     force_whatsapp_order_confirmation?: boolean;
     allow_future_order_scheduling?: boolean;
-    preorder_only?: boolean;
   } = {
     id: restaurantData.id,
     pizza_settings: restaurantData.pizza_settings,
@@ -226,7 +225,6 @@ export default async function Page({
       restaurantData.force_whatsapp_order_confirmation === true,
     allow_future_order_scheduling:
       restaurantData.allow_future_order_scheduling === true,
-    preorder_only: restaurantData.preorder_only === true,
   };
 
   // These reads only depend on the restaurant and do not depend on each other.
