@@ -116,7 +116,7 @@ export async function POST(request: Request) {
                 return ok({ recovered: result.rows.length });
             }
             case "history": {
-                const limit = Math.min(30, Math.max(1, Number(body.limit) || 15));
+                const limit = Math.min(50, Math.max(1, Number(body.limit) || 15));
                 const result = await query(
                     `SELECT p.order_id, p.status, p.created_at, p.printed_at,
                             o.display_id, o.customer_name
