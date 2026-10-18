@@ -4,13 +4,13 @@ on:
   workflow_dispatch:
     inputs:
       retry_failed:
-        description: Retry this commit even if its previous deployment failed
+        description: Retry a failed preview release
         type: boolean
         default: false
 
 permissions:
   actions: write
-  contents: read
+  contents: write
 
 concurrency:
   group: deploy-vps-preview
@@ -18,98 +18,10 @@ concurrency:
 
 jobs:
   deploy-staging:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 115
-    steps:
-      - name: Check phone toggle and latest preview commit
-        id: gate
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          TARGET_SHA: ${{ github.sha }}
-        run: |
-          set -euo pipefail
-          state="$(curl -fsS --retry 2 --max-time 10 https://johnvitor.com/api/preview-deploy-status)" || {
-            echo '::warning::Phone toggle unavailable; staging deployment skipped'
-            exit 0
-          }
-          if [[ "$state" != ON ]]; then
-            echo "Staging deployment disabled; no SSH or build started"
-            exit 0
-          fi
-          latest="$(gh api "repos/$GH_REPO/branches/preview" --jq '.commit.sha')"
-          if [[ "$latest" != "$TARGET_SHA" ]]; then
-            echo "Skipping superseded commit $TARGET_SHA; preview is $latest"
-            exit 0
-          fi
-          echo "enabled=true" >> "$GITHUB_OUTPUT"
-
-      - name: Prepare restricted SSH authentication
-        if: steps.gate.outputs.enabled == 'true'
-        shell: bash
-        env:
-          DEPLOY_KEY: ${{ secrets.IMENU_STAGE_DEPLOY_SSH_KEY }}
-        run: |
-          set -euo pipefail
-          if [[ -z "$DEPLOY_KEY" ]]; then
-            echo '::error::Missing IMENU_STAGE_DEPLOY_SSH_KEY repository secret'
-            exit 1
-          fi
-          umask 077
-          printf '%s\n' "$DEPLOY_KEY" > "$RUNNER_TEMP/imenu-stage-key"
-          ssh-keygen -y -f "$RUNNER_TEMP/imenu-stage-key" >/dev/null
-          ssh-keyscan -T 10 -t ed25519 177.153.39.121 > "$RUNNER_TEMP/imenu-stage-known-hosts" 2>/dev/null
-          if [[ "$(ssh-keygen -lf "$RUNNER_TEMP/imenu-stage-known-hosts" -E sha256 | awk '{print $2}')" != 'SHA256:0fLaqBmpn4izsgcsNcTtO0zh81QJ1Mn2aDB1XbI1WqY' ]]; then
-            echo '::error::VPS SSH host key fingerprint mismatch'
-            exit 1
-          fi
-
-      - name: Deploy exact preview commit
-        if: steps.gate.outputs.enabled == 'true'
-        shell: bash
-        env:
-          TARGET_SHA: ${{ github.sha }}
-          RETRY_FAILED: ${{ inputs.retry_failed || false }}
-        run: |
-          set -euo pipefail
-          request="$TARGET_SHA"
-          if [[ "$RETRY_FAILED" == true && '${{ github.event_name }}' == workflow_dispatch ]]; then
-            request="retry:$TARGET_SHA"
-          fi
-          ssh -F /dev/null -o BatchMode=yes -o StrictHostKeyChecking=yes \
-            -o UserKnownHostsFile="$RUNNER_TEMP/imenu-stage-known-hosts" \
-            -o ConnectTimeout=20 -o ServerAliveInterval=30 -o ServerAliveCountMax=6 \
-            -i "$RUNNER_TEMP/imenu-stage-key" \
-            imenu-stage-deploy@177.153.39.121 "$request"
-
-      - name: Catch up to latest preview commit
-        if: ${{ always() && steps.gate.outcome == 'success' }}
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          TARGET_SHA: ${{ github.sha }}
-        run: |
-          set -euo pipefail
-          latest="$(gh api "repos/$GH_REPO/branches/preview" --jq '.commit.sha')"
-          if [[ "$latest" == "$TARGET_SHA" ]]; then
-            echo "Preview HEAD unchanged; no catch-up needed"
-            exit 0
-          fi
-          state="$(curl -fsS --retry 2 --max-time 10 https://johnvitor.com/api/preview-deploy-status)" || {
-            echo '::warning::Phone toggle unavailable; no follow-up deployment'
-            exit 0
-          }
-          if [[ "$state" != ON ]]; then
-            echo "Phone toggle OFF; no follow-up deployment"
-            exit 0
-          fi
-          pending="$(gh api "repos/$GH_REPO/actions/workflows/deploy-vps-preview.yml/runs?branch=preview&per_page=20" \
-            --jq ".workflow_runs[] | select(.head_sha == \"$latest\" and (.status == \"pending\" or .status == \"queued\" or .status == \"in_progress\" or .status == \"waiting\" or .status == \"requested\")) | .id")"
-          if [[ -n "$pending" ]]; then
-            echo "Latest preview $latest already has a pending or active deployment"
-            exit 0
-          fi
-          echo "Preview advanced to $latest; queueing latest deployment"
-          gh api --method POST "repos/$GH_REPO/actions/workflows/deploy-vps-preview.yml/dispatches" -f ref=preview
+    if: github.ref == 'refs/heads/preview'
+    uses: ./.github/workflows/deploy-vps-release.yml
+    with:
+      target: preview
+      retry_failed: ${{ inputs.retry_failed || false }}
+    secrets:
+      deploy_key: ${{ secrets.IMENU_STAGE_DEPLOY_SSH_KEY }}

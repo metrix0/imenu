@@ -2,6 +2,9 @@
 # Restricted SSH commands for the production deployment identity.
 set -Eeuo pipefail
 request="${SSH_ORIGINAL_COMMAND:-}"
+if [[ "$request" == release-* ]]; then
+  exec /usr/bin/bash /usr/local/libexec/imenu-release-deploy-ssh production
+fi
 case "$request" in
   public-build-env)
     exec /usr/bin/sudo -n /opt/imenu-migration/ops/deploy-prebuilt-production.sh public-build-env
@@ -20,3 +23,4 @@ elif [[ "$request" =~ ^[0-9a-f]{40}$ || "$request" =~ ^retry:[0-9a-f]{40}$ ]]; t
 fi
 echo "Invalid production deployment request" >&2
 exit 2
+

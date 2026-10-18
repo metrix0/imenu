@@ -1,0 +1,262 @@
+name: Shared VPS release
+
+on:
+  workflow_call:
+    inputs:
+      target:
+        type: string
+        required: true
+      retry_failed:
+        type: boolean
+        default: false
+      verify_only:
+        type: boolean
+        default: false
+    secrets:
+      deploy_key:
+        required: true
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      CI: "true"
+      NEXT_TELEMETRY_DISABLED: "1"
+      IMENU_STANDALONE_BUILD: "1"
+      PUPPETEER_SKIP_DOWNLOAD: "1"
+      DATABASE_URL: "postgresql://ci:ci@127.0.0.1:5432/ci"
+      SUPABASE_ANON_KEY: "build-placeholder"
+      SUPABASE_SERVICE_ROLE_KEY: "build-placeholder"
+      OPENAI_API_KEY: "build-placeholder"
+      MERCADO_PAGO_ACCESS_TOKEN: "build-placeholder"
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TARGET: ${{ inputs.target }}
+      TARGET_SHA: ${{ github.sha }}
+      VERIFY_ONLY: ${{ inputs.verify_only }}
+      RETRY_FAILED: ${{ inputs.retry_failed }}
+    steps:
+      - name: Gate environment, latest commit and preview toggle
+        id: gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$TARGET" in
+            production) branch=main; user=imenu-production-deploy; api=https://api.imenuapp.com.br ;;
+            preview) branch=preview; user=imenu-stage-deploy; api=https://api-vps-stage.imenuapp.com.br ;;
+            *) exit 2 ;;
+          esac
+          echo "DEPLOY_BRANCH=$branch" >> "$GITHUB_ENV"
+          echo "DEPLOY_USER=$user" >> "$GITHUB_ENV"
+          echo "SUPABASE_URL=$api" >> "$GITHUB_ENV"
+          if [[ "$VERIFY_ONLY" != true ]]; then
+            [[ "$GITHUB_REF" == "refs/heads/$branch" ]] || exit 2
+            latest="$(gh api "repos/$GH_REPO/branches/$branch" --jq .commit.sha)"
+            [[ "$latest" == "$TARGET_SHA" ]] || { echo 'Superseded commit; skipped'; exit 0; }
+            if [[ "$TARGET" == preview ]]; then
+              state="$(curl -fsS --retry 2 --max-time 10 https://johnvitor.com/api/preview-deploy-status)" || { echo 'Toggle unavailable; skipped'; exit 0; }
+              [[ "$state" == ON ]] || { echo 'Preview OFF; skipped'; exit 0; }
+            fi
+          fi
+          echo "enabled=true" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare restricted SSH authentication
+        if: steps.gate.outputs.enabled == 'true'
+        env:
+          DEPLOY_KEY: ${{ secrets.deploy_key }}
+        run: |
+          set -euo pipefail
+          test -n "$DEPLOY_KEY"
+          umask 077
+          printf '%s\n' "$DEPLOY_KEY" > "$RUNNER_TEMP/deploy-key"
+          ssh-keygen -y -f "$RUNNER_TEMP/deploy-key" >/dev/null
+          ssh-keyscan -T 10 -t ed25519 177.153.39.121 > "$RUNNER_TEMP/known-hosts" 2>/dev/null
+          [[ "$(ssh-keygen -lf "$RUNNER_TEMP/known-hosts" -E sha256 | awk '{print $2}')" == 'SHA256:0fLaqBmpn4izsgcsNcTtO0zh81QJ1Mn2aDB1XbI1WqY' ]]
+          cat > "$RUNNER_TEMP/deploy-ssh" <<'SH'
+          #!/usr/bin/env bash
+          exec ssh -F /dev/null -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$RUNNER_TEMP/known-hosts" -o ConnectTimeout=20 \
+            -o ServerAliveInterval=15 -o ServerAliveCountMax=6 \
+            -i "$RUNNER_TEMP/deploy-key" "$DEPLOY_USER@177.153.39.121" "$@"
+          SH
+          chmod 700 "$RUNNER_TEMP/deploy-ssh"
+          "$RUNNER_TEMP/deploy-ssh" release-build-env > "$RUNNER_TEMP/public.env"
+          grep -qx "NEXT_PUBLIC_SUPABASE_URL=$SUPABASE_URL" "$RUNNER_TEMP/public.env"
+          cat "$RUNNER_TEMP/public.env" >> "$GITHUB_ENV"
+          echo "PUBLIC_CONFIG_HASH=$(python3 - <<'PY'
+          import hashlib,json,pathlib,os
+          values=dict(l.split('=',1) for l in pathlib.Path(os.environ['RUNNER_TEMP'],'public.env').read_text().splitlines())
+          print(hashlib.sha256(json.dumps(values,sort_keys=True).encode()).hexdigest())
+          PY
+          )" >> "$GITHUB_ENV"
+
+      - name: Checkout exact source
+        if: steps.gate.outputs.enabled == 'true'
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Validate deployment scripts and rollback behavior
+        if: steps.gate.outputs.enabled == 'true'
+        run: |
+          set -euo pipefail
+          for script in deployment/vps/deploy-prebuilt*.sh deployment/vps/github*deploy-ssh.sh deployment/vps/rollback-preview.sh; do bash -n "$script"; done
+          python3 deployment/vps/tests/test_prebuilt_deploy.py
+
+      - name: Setup Node.js
+        if: steps.gate.outputs.enabled == 'true'
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Restore Next.js build cache
+        if: steps.gate.outputs.enabled == 'true'
+        uses: actions/cache@v4
+        with:
+          path: .next/cache
+          key: next-vps-${{ runner.os }}-${{ inputs.target }}-${{ env.PUBLIC_CONFIG_HASH }}-${{ hashFiles('package-lock.json') }}-${{ github.sha }}
+          restore-keys: |
+            next-vps-${{ runner.os }}-${{ inputs.target }}-${{ env.PUBLIC_CONFIG_HASH }}-${{ hashFiles('package-lock.json') }}-
+
+      - name: Install dependencies
+        if: steps.gate.outputs.enabled == 'true'
+        run: npm ci --no-audit --no-fund
+
+      - name: Test, typecheck and build standalone
+        if: steps.gate.outputs.enabled == 'true'
+        run: |
+          set -euo pipefail
+          npx jest lib/ia-vendas/__tests__ --runInBand
+          npx tsc --noEmit
+          npx next build
+          test -f .next/standalone/server.js
+
+      - name: Package standalone release
+        if: steps.gate.outputs.enabled == 'true'
+        run: |
+          set -euo pipefail
+          mkdir -p .next/standalone/.next/cache
+          cp -a .next/static .next/standalone/.next/static
+          cp -a public .next/standalone/public
+          # Keep the existing design-system URL available in the standalone runtime.
+          cp design-system.html .next/standalone/design-system.html
+          printf '%s\n' "$TARGET_SHA" > .next/standalone/.imenu-commit-sha
+          printf '%s\n' "$PUBLIC_CONFIG_HASH" > .next/standalone/.imenu-public-config-sha256
+          python3 - <<'PYASSET'
+          import hashlib,json,pathlib
+          root=pathlib.Path('.next/standalone')
+          assets=[]
+          for p in sorted((root/'public/downloads').glob('*.exe')):
+              with p.open('rb') as f: digest=hashlib.file_digest(f,'sha256').hexdigest()
+              assets.append({'path':str(p.relative_to(root)),'sha256':digest,'size':p.stat().st_size})
+          (root/'.imenu-public-assets.json').write_text(json.dumps(assets))
+          PYASSET
+          mode="$("$RUNNER_TEMP/deploy-ssh" release-assets-ready < .next/standalone/.imenu-public-assets.json)"
+          case "$mode" in
+            READY)
+              python3 - <<'PYASSET'
+          import json,pathlib
+          root=pathlib.Path('.next/standalone')
+          for item in json.loads((root/'.imenu-public-assets.json').read_text()):
+              (root/item['path']).unlink()
+          PYASSET
+              echo 'Unchanged printer installers verified on VPS; omitted from transfer'
+              ;;
+            FULL) echo 'Installer cache miss; sending complete release' ;;
+            *) echo 'Unexpected asset cache response'; exit 1 ;;
+          esac
+          tar -C .next/standalone -I 'zstd -T0 -3' -cf "$RUNNER_TEMP/release.tar.zst" .
+          echo "ARCHIVE_SHA256=$(sha256sum "$RUNNER_TEMP/release.tar.zst" | cut -d ' ' -f1)" >> "$GITHUB_ENV"
+          ls -lh "$RUNNER_TEMP/release.tar.zst"
+
+      - name: Recheck latest commit before transfer
+        id: current
+        if: steps.gate.outputs.enabled == 'true'
+        run: |
+          set -euo pipefail
+          if [[ "$VERIFY_ONLY" != true ]]; then
+            latest="$(gh api "repos/$GH_REPO/branches/$DEPLOY_BRANCH" --jq .commit.sha)"
+            [[ "$latest" == "$TARGET_SHA" ]] || { echo 'Build superseded; skipped'; exit 0; }
+            if [[ "$TARGET" == preview ]]; then
+              [[ "$(curl -fsS --max-time 10 https://johnvitor.com/api/preview-deploy-status)" == ON ]] || { echo 'Preview OFF; skipped'; exit 0; }
+            fi
+          fi
+          echo 'enabled=true' >> "$GITHUB_OUTPUT"
+
+      - name: Upload private draft release to GitHub Releases
+        if: steps.current.outputs.enabled == 'true'
+        run: |
+          set -euo pipefail
+          tag="imenu-deploy-$TARGET-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          echo "RELEASE_TAG=$tag" >> "$GITHUB_ENV"
+          # Draft releases are private even for a public repository; never publish them.
+          gh api --method POST "repos/$GH_REPO/releases" \
+            -f tag_name="$tag" -f target_commitish="$TARGET_SHA" \
+            -f name="$tag" -F draft=true -F prerelease=true > "$RUNNER_TEMP/release.json"
+          id="$(jq -r .id "$RUNNER_TEMP/release.json")"
+          [[ "$id" =~ ^[0-9]+$ ]]
+          echo "RELEASE_ID=$id" >> "$GITHUB_ENV"
+          curl -fsS --connect-timeout 15 --max-time 120 \
+            -H "Authorization: Bearer $GH_TOKEN" -H 'Content-Type: application/octet-stream' \
+            --data-binary @"$RUNNER_TEMP/release.tar.zst" \
+            "https://uploads.github.com/repos/$GH_REPO/releases/$id/assets?name=release.tar.zst" > "$RUNNER_TEMP/asset.json"
+          asset="$(jq -r .id "$RUNNER_TEMP/asset.json")"
+          [[ "$asset" =~ ^[0-9]+$ ]]
+          echo "RELEASE_ASSET_ID=$asset" >> "$GITHUB_ENV"
+
+      - name: Download via Releases CDN, verify and activate
+        if: steps.current.outputs.enabled == 'true'
+        run: |
+          set -euo pipefail
+          status="$(curl -sS -D "$RUNNER_TEMP/asset-headers" -o /dev/null -w '%{http_code}' \
+            --connect-timeout 15 --max-time 30 -H "Authorization: Bearer $GH_TOKEN" \
+            -H 'Accept: application/octet-stream' \
+            "https://api.github.com/repos/$GH_REPO/releases/assets/$RELEASE_ASSET_ID")"
+          [[ "$status" == 302 ]] || { echo "Expected Releases redirect; got HTTP $status"; exit 1; }
+          signed_url="$(awk 'tolower($1)=="location:" {sub(/\r$/,"",$2); print $2}' "$RUNNER_TEMP/asset-headers" | tail -1)"
+          [[ "$signed_url" == https://release-assets.githubusercontent.com/* ]] || { echo 'Unexpected release CDN'; exit 1; }
+          echo "::add-mask::$signed_url"
+          printf '%s\n' "$signed_url" | "$RUNNER_TEMP/deploy-ssh" "release-pull:$TARGET_SHA:$ARCHIVE_SHA256"
+          action=activate
+          [[ "$RETRY_FAILED" != true ]] || action=retry
+          [[ "$VERIFY_ONLY" != true ]] || action=verify
+          for attempt in $(seq 1 12); do
+            rc=0
+            "$RUNNER_TEMP/deploy-ssh" "release-$action:$TARGET_SHA" || rc=$?
+            [[ "$rc" -ne 75 ]] && exit "$rc"
+            echo "Deployment lock busy; retry $attempt/12"
+            sleep 5
+          done
+          exit 75
+
+      - name: Delete temporary private draft release
+        if: ${{ always() && env.RELEASE_TAG != '' }}
+        run: |
+          set -euo pipefail
+          id="${RELEASE_ID:-}"
+          if [[ -z "$id" ]]; then
+            id="$(gh api "repos/$GH_REPO/releases?per_page=100" --jq ".[] | select(.draft and .tag_name == \"$RELEASE_TAG\") | .id")"
+          fi
+          if [[ -n "$id" ]]; then gh api --method DELETE "repos/$GH_REPO/releases/$id"; fi
+          rm -f "$RUNNER_TEMP/deploy-key" "$RUNNER_TEMP/asset-headers"
+
+      - name: Catch up to newest commit
+        if: ${{ always() && inputs.verify_only == false && steps.gate.outcome == 'success' && env.DEPLOY_BRANCH != '' }}
+        run: |
+          set -euo pipefail
+          latest="$(gh api "repos/$GH_REPO/branches/$DEPLOY_BRANCH" --jq .commit.sha)"
+          [[ "$latest" != "$TARGET_SHA" ]] || exit 0
+          if [[ "$TARGET" == preview ]]; then
+            [[ "$(curl -fsS --max-time 10 https://johnvitor.com/api/preview-deploy-status)" == ON ]] || exit 0
+          fi
+          workflow="deploy-vps-$TARGET.yml"
+          pending="$(gh api "repos/$GH_REPO/actions/workflows/$workflow/runs?branch=$DEPLOY_BRANCH&per_page=30" \
+            --jq ".workflow_runs[] | select(.head_sha == \"$latest\" and .status != \"completed\") | .id")"
+          [[ -z "$pending" ]] || exit 0
+          gh api --method POST "repos/$GH_REPO/actions/workflows/$workflow/dispatches" -f ref="$DEPLOY_BRANCH"

@@ -60,11 +60,11 @@ Caddy has trusted certificates, HTTP redirects, noindex and operator-IP restrict
 
 ## Build, deploy and rollback
 
-Build with deployment/vps/Dockerfile, private BuildKit secret build_env, and BUILD_PUBLIC_CONFIG_SHA256. Hash the sorted NEXT_PUBLIC_ configuration only: secret-file changes alone do not invalidate BuildKit cache. Never put private values in public build arguments.
+Normal deployments use the shared GitHub-built release system below. For an explicit legacy recovery build only, use deployment/vps/Dockerfile, private BuildKit secret build_env, and BUILD_PUBLIC_CONFIG_SHA256. Hash the sorted NEXT_PUBLIC_ configuration only: secret-file changes alone do not invalidate BuildKit cache. Never put private values in public build arguments.
 
 Runtime: IMENU_STAGE_ENV_FILE=/opt/imenu-migration/secrets/app-stage.env. Keep shell-quoted app-build.env separate from the Compose env file. Preserve the PKCS8 private push key with literal backslash-n line separators for the existing runtime normalizer; do not flatten the PEM or generate a replacement key. DATABASE_SSL=false applies only to the private Docker database.
 
-The GitHub staging workflow uses the restricted imenu-stage-deploy SSH identity and host fingerprint. The server deploy script builds exact preview HEAD, uses that commit's compose file, preserves the previous image/compose/SHA, checks health, and automatically restores the old image if startup fails. It never applies migrations or restores a database.
+The GitHub staging workflow uses the restricted imenu-stage-deploy SSH identity and host fingerprint. It builds exact preview HEAD on GitHub and uses the shared standalone receiver, preserving the previous application configuration and checking health before and after activation. It never applies migrations or restores a database.
 
 Manual application rollback:
 - Check: bash /opt/imenu-migration/ops/rollback-preview.sh --check
@@ -106,19 +106,35 @@ Final cutover evidence remains private: ops/cutover/final-count-validation.json,
 
 Validation performed: npx tsc --noEmit; 213 tests / 20 suites; npx next build; final table-count comparison; final Storage copy with zero failures and ten API checksum samples; Auth fixture login/refresh/getUser/RLS/recovery link and cleanup; production health; apex redirect; container health; six active destination database jobs; five enabled host timers. Do not run payout or customer-message jobs manually merely to test scheduling.
 
-## Prebuilt production deployment
+## Shared GitHub-built releases (preview and production)
 
-Production GitHub Actions builds Next.js standalone with only the production NEXT_PUBLIC_ settings obtained over the restricted deploy SSH identity (no private runtime secrets on GitHub). It uploads a compressed standalone release to GitHub Actions artifact storage, then sends a short-lived signed HTTPS artifact URL over the existing restricted SSH connection for direct VPS download. The VPS checks the archive SHA256 before activation using the existing production image, environment, networks, health checks and rollback; no VPS-side Docker build, image export or image unpack. The existing production container image retains Puppeteer/Chromium runtime dependencies. Release verification checks commit and public configuration hashes; the previous release (or original image on the first switch) is restored if health checks fail. Manual retry uses workflow_dispatch retry_failed or retry-prebuilt:SHA. Staging continues using its existing Docker build path.
+Both deployment workflows call `.github/workflows/deploy-vps-release.yml`. GitHub runs `npm ci`, the IA Vendas tests, TypeScript and the Next.js standalone build. npm downloads and the Next cache are reused; Next cache keys include the environment and public configuration hash. Runtime secrets never leave the VPS. All public assets, including printer installers, remain available. Printer installer hashes are checked against a content-addressed VPS cache. Matching installers are hard-linked into the extracted release and omitted from the archive; a cache miss sends the full archive and populates the cache. The first cache lookup can recover matching installers from the running application, so ordinary deployments do not resend roughly 147 MB of unchanged installers.
 
-## Automatic production deployment
+The compressed tar archive is uploaded to a **private draft GitHub Release**, never a published release or Actions artifact. GitHub obtains its short-lived `release-assets.githubusercontent.com` URL and passes only that URL plus the SHA256 over restricted SSH. No GitHub token is stored on the VPS. The VPS resumes interrupted HTTPS downloads, verifies SHA256, validates the embedded source/configuration hashes and extracts the release. Draft releases are deleted in the workflow's final cleanup, including failures. If a runner is forcibly lost before cleanup, remove only its `imenu-deploy-*` draft after confirming it is unused.
 
-deployment/vps/deploy-preview.sh defaults to preview; --production selects main, imenu-production-app, production-checkout, production-deploy-state and the existing private production Compose file. Both modes reject a mismatched public API URL. Builds are serialized across targets. The production marker is required for production and no longer blocks isolated staging deployments.
+`deployment/vps/deploy-prebuilt.sh` is the shared receiver. Its first argument selects `preview` or `production`; the forced SSH identity fixes that argument. Each environment retains its own build/runtime settings, source branch, deploy lock, release directory, cache and rollback state. The API URL must match the existing environment. Preview keeps the phone ON/OFF gate, checked before building, transferring and activating; production is independent of that toggle. A verify-only workflow builds and starts a temporary private container without changing the live application or ignoring the toggle for activation.
 
-Install github-production-deploy-hook.sh as a root-owned, root-only executable under /opt/imenu-migration/ops, and github-production-deploy-ssh.sh as a root-owned executable at /usr/local/bin/imenu-production-deploy-ssh. Give a dedicated imenu-production-deploy user a restricted, forced-command SSH key and sudo permission only for the production hook. Set the matching private key in GitHub Actions secret IMENU_PROD_DEPLOY_SSH_KEY. New main commits trigger .github/workflows/deploy-vps-production.yml; queued older commits are superseded without interrupting an active build. The production hook retires the legacy timer/service only after GitHub has successfully requested a healthy deployment. No application deployment changes SQL, Storage, Auth, schedules or DNS.
+Before activation, the receiver starts the actual server without publishing ports or adding the `app` network alias. It checks `/api/health`, the embedded commit, Sharp loading and Puppeteer ESM import/browser startup using the existing image's browser/runtime dependencies. Activation then recreates only the selected app. A complete previous Compose configuration, including its release mounts, is saved and health-verified on automatic recovery. Failed activation records the SHA; an explicit workflow retry is required. Interrupted activation attempts also recover the previous app when the process receives a catchable termination signal. No Docker build/export, SQL, database restore, Auth, Storage, scheduled job or DNS change is part of deployment.
 
-The build runs the existing IA Vendas regression suite, TypeScript check and Next production build before replacing the app. Branch HEAD is checked again after the build, so an obsolete build leaves the current app running. A healthy existing deployed SHA is a no-op. A startup failure restores the previous image and Compose file. Failed commits are recorded to prevent endless rebuilds. After investigating a failed production build, retry with bash /opt/imenu-migration/ops/deploy-preview.sh --production --retry FULL_MAIN_SHA.
+Production pushes/merges to `main` trigger the production wrapper immediately. Preview pushes retain the existing dispatch mechanism and phone toggle. Each wrapper keeps one active workflow plus the newest pending run (`cancel-in-progress: false`). Obsolete source SHAs are skipped, and a final catch-up check queues the newest branch HEAD if needed. No deployment polling timer is used.
 
-Production deployer state: ops/production-deploy-state. Build log: ops/production-deploy-state/build.log. Git source is reproducible and excluded from encrypted backups; deployed SHA and rollback state remain in the backup.
+Install root-owned files:
+- `deploy-prebuilt.sh` -> `/opt/imenu-migration/ops/deploy-prebuilt.sh` (0700).
+- `deploy-prebuilt-production.sh` -> `/opt/imenu-migration/ops/deploy-prebuilt-production.sh` (0700), a compatibility wrapper for existing production requests.
+- `github-release-deploy-ssh.sh` -> `/usr/local/libexec/imenu-release-deploy-ssh` (0755).
+- `github-deploy-ssh.sh` -> `/usr/local/libexec/imenu-stage-deploy-ssh` (0755).
+- `github-production-deploy-ssh.sh` -> `/usr/local/bin/imenu-production-deploy-ssh` (0755).
+- `rollback-preview.sh` -> `/opt/imenu-migration/ops/rollback-preview.sh` (0700).
+
+Keep the existing SSH identities, pinned host fingerprint and secrets `IMENU_STAGE_DEPLOY_SSH_KEY` / `IMENU_PROD_DEPLOY_SSH_KEY`. Grant each user sudo for the shared receiver **only with its own fixed environment**: `imenu-stage-deploy ... deploy-prebuilt.sh preview *` and `imenu-production-deploy ... deploy-prebuilt.sh production *`. Keep existing restricted legacy hooks as recovery compatibility; normal workflows use only the shared release commands. Install scripts before enabling the workflows. GitHub requires `contents: write` for draft assets and `actions: write` for catch-up dispatches.
+
+State lives under `ops/{preview,production}-deploy-state`, releases under `ops/{preview,production}-releases`, and writable Next caches under `ops/{preview,production}-next-cache`. Keep active and rollback releases; only unreferenced releases and transfer partials older than a day are cleaned after a successful deployment. The existing image stays pinned by ID in each candidate configuration; it supplies browser/system libraries without rebuilding it. Rebuild that runtime separately if system or browser dependencies change.
+
+Application-only rollback:
+- Preview: `bash /opt/imenu-migration/ops/rollback-preview.sh --check` or `--restore-previous` (automatically handles standalone versus legacy image state).
+- Production: `bash /opt/imenu-migration/ops/deploy-prebuilt.sh production check-rollback` or `rollback`.
+
+Run `python3 deployment/vps/tests/test_prebuilt_deploy.py` for receiver regression checks, plus `bash -n` on changed shell scripts and actionlint on deployment workflows. The workflow records each build/transfer step, and the VPS prints `TIMING` lines for download, verification/extraction, private preflight and activation. Use the recorded deployed SHA and successful health check to measure completion; a healthy old app alone does not prove that a new deployment succeeded.
 
 ## Storage retention and current configuration
 
@@ -136,7 +152,7 @@ Maintained configuration sources:
 - deployment/vps/compose.mcp-gateway.yml -> ops/mcp-bridge/compose.gateway.yml
 - deployment/vps/backup.sh and monitor.py -> ops/
 
-Production deployment uses the maintained production Compose file from its exact source commit when present. Keep private environment files outside Git. Do not recreate the entire Supabase stack to apply an application/proxy-only change. The base Supabase staging overlay disables cron; the production overlay must be last in COMPOSE_FILE to enable it. The observed order is docker-compose.yml:docker-compose.imenu-stage.yml:docker-compose.imenu-auth.json:docker-compose.imenu-ops.json:docker-compose.imenu-production.json.
+Shared standalone deployment uses the maintained per-environment Compose configuration under ops/config; the release overlay selects the verified archive and pins the existing runtime image. Keep private environment files outside Git. Do not recreate the entire Supabase stack to apply an application/proxy-only change. The base Supabase staging overlay disables cron; the production overlay must be last in COMPOSE_FILE to enable it. The observed order is docker-compose.yml:docker-compose.imenu-stage.yml:docker-compose.imenu-auth.json:docker-compose.imenu-ops.json:docker-compose.imenu-production.json.
 
 Existing imenu-stage container/network/volume names and /opt/imenu-migration paths remain compatibility identifiers, not unused resources. Renaming them requires a separate coordinated data/mount/connector migration. api.imenuapp.com.br is the active Supabase endpoint. The preserved Auth storage key is required for existing sessions. Vercel domain support and environment tooling remain compatibility paths; PayZu/Fixie variables still have code dependencies.
 
@@ -151,3 +167,4 @@ SQLite durability flushes are disabled only on disposable staging copies to avoi
 Before starting the restricted VPS operations service after a restore, recreate its shared lock file with touch /opt/imenu-migration/ops/application-build.lock and chmod 600 on that file. Backup archives intentionally exclude lock files; the normal deploy/rollback scripts also create this lock when run by the operator.
 
 Live Storage directory-list changes during tar are accepted only when tar exits 1 and every diagnostic identifies an existing directory inside Storage. Changed regular files, unreadable files, other warnings and encryption failures still reject the archive. This does not make the live database/files archive atomic.
+
