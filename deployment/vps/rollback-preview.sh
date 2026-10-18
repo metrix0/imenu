@@ -3,6 +3,14 @@
 set -Eeuo pipefail
 umask 077
 BASE=/opt/imenu-migration
+if [[ -f "$BASE/ops/preview-deploy-state/active-release.yml" ]]; then
+  case "${1:---check}" in
+    --check) action=check-rollback ;;
+    --restore-previous) action=rollback ;;
+    *) exit 2 ;;
+  esac
+  exec /usr/bin/bash "$BASE/ops/deploy-prebuilt.sh" preview "$action"
+fi
 STATE="$BASE/ops/preview-deploy-state"
 exec 9>"$STATE/deploy.lock"
 flock -n 9 || { echo "Deployment in progress" >&2; exit 75; }
@@ -40,3 +48,4 @@ docker tag "$current" imenu-stage-app:latest
 docker compose -f "$compose" up -d --no-deps --force-recreate app
 echo "Rollback candidate unhealthy; original application restored" >&2
 exit 1
+

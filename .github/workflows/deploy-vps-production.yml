@@ -6,13 +6,13 @@ on:
   workflow_dispatch:
     inputs:
       retry_failed:
-        description: Retry this commit after a failed production deployment
+        description: Retry a failed production release
         type: boolean
         default: false
 
 permissions:
   actions: write
-  contents: read
+  contents: write
 
 concurrency:
   group: deploy-vps-production
@@ -21,203 +21,9 @@ concurrency:
 jobs:
   deploy-production:
     if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 35
-    env:
-      CI: "true"
-      NEXT_TELEMETRY_DISABLED: "1"
-      IMENU_STANDALONE_BUILD: "1"
-      PUPPETEER_SKIP_DOWNLOAD: "1"
-      DATABASE_URL: "postgresql://ci:ci@127.0.0.1:5432/ci"
-      SUPABASE_URL: "https://api.imenuapp.com.br"
-      SUPABASE_ANON_KEY: "build-placeholder"
-      SUPABASE_SERVICE_ROLE_KEY: "build-placeholder"
-      OPENAI_API_KEY: "build-placeholder"
-      MERCADO_PAGO_ACCESS_TOKEN: "build-placeholder"
-    steps:
-      - name: Check latest main commit
-        id: gate
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          TARGET_SHA: ${{ github.sha }}
-        run: |
-          set -euo pipefail
-          latest="$(gh api "repos/$GH_REPO/branches/main" --jq '.commit.sha')"
-          if [[ "$latest" != "$TARGET_SHA" ]]; then
-            echo "Skipping superseded commit $TARGET_SHA; main is $latest"
-            exit 0
-          fi
-          echo "enabled=true" >> "$GITHUB_OUTPUT"
-
-      - name: Prepare restricted production SSH authentication
-        if: steps.gate.outputs.enabled == 'true'
-        shell: bash
-        env:
-          DEPLOY_KEY: ${{ secrets.IMENU_PROD_DEPLOY_SSH_KEY }}
-        run: |
-          set -euo pipefail
-          if [[ -z "$DEPLOY_KEY" ]]; then
-            echo '::error::Missing IMENU_PROD_DEPLOY_SSH_KEY repository secret'
-            exit 1
-          fi
-          umask 077
-          printf '%s\n' "$DEPLOY_KEY" > "$RUNNER_TEMP/imenu-prod-key"
-          ssh-keygen -y -f "$RUNNER_TEMP/imenu-prod-key" >/dev/null
-          ssh-keyscan -T 10 -t ed25519 177.153.39.121 > "$RUNNER_TEMP/imenu-prod-known-hosts" 2>/dev/null
-          if [[ "$(ssh-keygen -lf "$RUNNER_TEMP/imenu-prod-known-hosts" -E sha256 | awk '{print $2}')" != 'SHA256:0fLaqBmpn4izsgcsNcTtO0zh81QJ1Mn2aDB1XbI1WqY' ]]; then
-            echo '::error::VPS SSH host key fingerprint mismatch'
-            exit 1
-          fi
-
-      - name: Load production public build settings
-        if: steps.gate.outputs.enabled == 'true'
-        shell: bash
-        run: |
-          set -euo pipefail
-          ssh -F /dev/null -o BatchMode=yes -o StrictHostKeyChecking=yes \
-            -o UserKnownHostsFile="$RUNNER_TEMP/imenu-prod-known-hosts" \
-            -o ConnectTimeout=20 -i "$RUNNER_TEMP/imenu-prod-key" \
-            imenu-production-deploy@177.153.39.121 public-build-env > "$RUNNER_TEMP/production-public.env"
-          grep -qx 'NEXT_PUBLIC_SUPABASE_URL=https://api.imenuapp.com.br' "$RUNNER_TEMP/production-public.env"
-          cat "$RUNNER_TEMP/production-public.env" >> "$GITHUB_ENV"
-          echo "Production public build settings loaded"
-
-      - name: Checkout exact main commit
-        if: steps.gate.outputs.enabled == 'true'
-        uses: actions/checkout@v5
-        with:
-          persist-credentials: false
-
-      - name: Setup Node.js
-        if: steps.gate.outputs.enabled == 'true'
-        uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: npm
-
-      - name: Install dependencies
-        if: steps.gate.outputs.enabled == 'true'
-        run: npm ci --no-audit --no-fund
-
-      - name: Validate and build Next.js standalone
-        if: steps.gate.outputs.enabled == 'true'
-        run: |
-          set -euo pipefail
-          npx jest lib/ia-vendas/__tests__ --runInBand
-          npx tsc --noEmit
-          npx next build
-          test -f .next/standalone/server.js
-
-      - name: Package only the production standalone release
-        id: packed-release
-        if: steps.gate.outputs.enabled == 'true'
-        shell: bash
-        env:
-          TARGET_SHA: ${{ github.sha }}
-        run: |
-          set -euo pipefail
-          mkdir -p .next/standalone/.next/cache
-          cp -a .next/static .next/standalone/.next/static
-          cp -a public .next/standalone/public
-          printf '%s\n' "$TARGET_SHA" > .next/standalone/.imenu-commit-sha
-          python3 - <<'PY' > .next/standalone/.imenu-public-config-sha256
-          import hashlib, json, os
-          public = {k: v for k, v in os.environ.items() if k.startswith("NEXT_PUBLIC_")}
-          print(hashlib.sha256(json.dumps(public, sort_keys=True).encode()).hexdigest())
-          PY
-          tar -C .next/standalone -I 'zstd -T0 -3' -cf "$RUNNER_TEMP/production-release.tar.zst" .
-          ls -lh "$RUNNER_TEMP/production-release.tar.zst"
-          echo "sha256=$(sha256sum "$RUNNER_TEMP/production-release.tar.zst" | cut -d ' ' -f1)" >> "$GITHUB_OUTPUT"
-
-      - name: Upload prebuilt release to GitHub artifact storage
-        id: release-artifact
-        if: steps.gate.outputs.enabled == 'true'
-        uses: actions/upload-artifact@v4
-        with:
-          name: production-release
-          path: ${{ runner.temp }}/production-release.tar.zst
-          compression-level: 0
-          retention-days: 1
-          if-no-files-found: error
-
-      - name: Transfer and activate prebuilt release
-        if: steps.gate.outputs.enabled == 'true'
-        shell: bash
-        env:
-          TARGET_SHA: ${{ github.sha }}
-          RETRY_FAILED: ${{ inputs.retry_failed || false }}
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          ARTIFACT_ID: ${{ steps.release-artifact.outputs.artifact-id }}
-          ARCHIVE_SHA256: ${{ steps.packed-release.outputs.sha256 }}
-        run: |
-          set -euo pipefail
-          latest="$(gh api "repos/$GH_REPO/branches/main" --jq '.commit.sha')"
-          if [[ "$latest" != "$TARGET_SHA" ]]; then
-            echo "Skipping obsolete release $TARGET_SHA; main is $latest"
-            exit 0
-          fi
-          ssh_options=(-F /dev/null -o BatchMode=yes -o StrictHostKeyChecking=yes \
-            -o UserKnownHostsFile="$RUNNER_TEMP/imenu-prod-known-hosts" \
-            -o ConnectTimeout=20 -o ServerAliveInterval=30 -o ServerAliveCountMax=6 \
-            -i "$RUNNER_TEMP/imenu-prod-key")
-          [[ "$ARTIFACT_ID" =~ ^[0-9]+$ && "$ARCHIVE_SHA256" =~ ^[0-9a-f]{64}$ ]] || {
-            echo '::error::Missing artifact ID or archive checksum'
-            exit 1
-          }
-          # Authenticated GitHub API returns a short-lived, signed HTTPS artifact URL.
-          # Pass it to the VPS over SSH stdin; no GitHub API token or large file travels over SSH.
-          status="$(curl -sS -D "$RUNNER_TEMP/artifact-headers" -o /dev/null -w '%{http_code}' \
-            --connect-timeout 15 --max-time 30 \
-            -H "Authorization: Bearer $GH_TOKEN" \
-            -H 'Accept: application/vnd.github+json' \
-            -H 'X-GitHub-Api-Version: 2022-11-28' \
-            "https://api.github.com/repos/$GH_REPO/actions/artifacts/$ARTIFACT_ID/zip")"
-          if [[ "$status" != 302 ]]; then
-            echo "::error::GitHub artifact API returned HTTP $status instead of a signed redirect"
-            exit 1
-          fi
-          signed_url="$(awk 'tolower($1) == "location:" {sub(/\r$/, "", $2); print $2}' "$RUNNER_TEMP/artifact-headers" | tail -n 1)"
-          [[ "$signed_url" == https://* ]] || { echo '::error::Missing signed artifact URL'; exit 1; }
-          printf '%s\n' "$signed_url" | ssh "${ssh_options[@]}" \
-            imenu-production-deploy@177.153.39.121 "pull:$TARGET_SHA:$ARCHIVE_SHA256"
-          echo "Prebuilt artifact downloaded directly to the VPS via HTTPS"
-          request="activate:$TARGET_SHA"
-          if [[ "$RETRY_FAILED" == true && '${{ github.event_name }}' == workflow_dispatch ]]; then
-            request="retry-prebuilt:$TARGET_SHA"
-          fi
-          for attempt in $(seq 1 20); do
-            rc=0
-            ssh "${ssh_options[@]}" imenu-production-deploy@177.153.39.121 "$request" || rc=$?
-            if [[ "$rc" -eq 0 ]]; then exit 0; fi
-            if [[ "$rc" -ne 75 ]]; then exit "$rc"; fi
-            echo "Production deploy lock busy; retrying ($attempt/20)"
-            sleep 30
-          done
-          echo '::error::Production deployment lock remained busy'
-          exit 75
-
-      - name: Catch up to latest main commit
-        if: ${{ always() && steps.gate.outcome == 'success' }}
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          TARGET_SHA: ${{ github.sha }}
-        run: |
-          set -euo pipefail
-          latest="$(gh api "repos/$GH_REPO/branches/main" --jq '.commit.sha')"
-          if [[ "$latest" == "$TARGET_SHA" ]]; then
-            echo "Main HEAD unchanged; no follow-up deployment needed"
-            exit 0
-          fi
-          pending="$(gh api "repos/$GH_REPO/actions/workflows/deploy-vps-production.yml/runs?branch=main&per_page=20" \
-            --jq ".workflow_runs[] | select(.head_sha == \"$latest\" and (.status == \"pending\" or .status == \"queued\" or .status == \"in_progress\" or .status == \"waiting\" or .status == \"requested\")) | .id")"
-          if [[ -n "$pending" ]]; then
-            echo "Latest main $latest already has a pending or active deployment"
-            exit 0
-          fi
-          echo "Main advanced to $latest; dispatching latest production deployment"
-          gh api --method POST "repos/$GH_REPO/actions/workflows/deploy-vps-production.yml/dispatches" -f ref=main
+    uses: ./.github/workflows/deploy-vps-release.yml
+    with:
+      target: production
+      retry_failed: ${{ inputs.retry_failed || false }}
+    secrets:
+      deploy_key: ${{ secrets.IMENU_PROD_DEPLOY_SSH_KEY }}
