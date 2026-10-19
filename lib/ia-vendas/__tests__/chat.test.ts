@@ -215,6 +215,26 @@ test("assistant offers targeted reads and a compact field guide", async () => {
   expect(request.input[0].content).not.toContain('"nullable":false');
 });
 
+test.each([
+  [false, 1],
+  [true, LIMITS.imageBatch],
+])("Plus=%s image proposal tool allows %i images per batch", async (plus, maxJobs) => {
+  (aiAccess as jest.Mock).mockResolvedValueOnce({ plus });
+  (query as jest.Mock).mockImplementation(async (sql: string) => ({
+    rows: sql.includes("SELECT * FROM public.ia_vendas_conversations")
+      ? [{ kind: "chat", summary: "" }]
+      : sql.includes("RETURNING id") ? [{ id: "user" }] : [],
+  }));
+  create.mockResolvedValueOnce({
+    status: "completed", output: [],
+    output_text: JSON.stringify({ reply: "OK", summary: "" }),
+    usage: { input_tokens: 100, output_tokens: 10 },
+  });
+  await runChat({ ...args, deep: false, text: "Gere fotos" });
+  const proposalTool = create.mock.calls[0][0].tools.find((item: any) => item.name === "propose_images");
+  expect(proposalTool.parameters.properties.jobs.maxItems).toBe(maxJobs);
+});
+
 test("deep analysis retains the original full-field 50-row read_data tool", async () => {
   const rows = Array.from({ length: 50 }, (_, i) => ({ id: `item-${i}`, name: `Produto ${i}` }));
   (readData as jest.Mock).mockResolvedValueOnce({ rows, has_more: true, next_offset: 50 });

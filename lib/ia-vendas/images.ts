@@ -13,6 +13,7 @@ import {
 import { beginRun, finishRun, reserveImage, releaseImage } from "./runs";
 import { propose, claim } from "./actions";
 import { MODELS, LIMITS } from "./config";
+import { aiAccess, FREE_AI_IMAGES } from "./access";
 import { SalesError, object, type Data, type Action } from "./types";
 import { isUuid } from "./catalog";
 import { isSellableItem, productReviewTargets } from "./products";
@@ -299,8 +300,9 @@ export async function proposeImages(
   proposalId?: string,
 ) {
   const data = object(input);
-  if (!Array.isArray(data.jobs) || !data.jobs.length || data.jobs.length > LIMITS.imageBatch)
-    throw new SalesError(`Proponha até ${LIMITS.imageBatch} imagens por lote.`);
+  const maxJobs = (await aiAccess(restaurant)).plus ? LIMITS.imageBatch : FREE_AI_IMAGES;
+  if (!Array.isArray(data.jobs) || !data.jobs.length || data.jobs.length > maxJobs)
+    throw new SalesError(`Proponha até ${maxJobs} ${maxJobs === 1 ? "imagem" : "imagens"} por lote.`);
   if (proposalId) {
     const existing = (await query("SELECT * FROM public.ia_vendas_actions WHERE restaurant_id=$1 AND run_id=$2 AND id=$3", [restaurant, run, proposalId])).rows[0];
     if (existing) return existing;

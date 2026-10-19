@@ -1,5 +1,7 @@
 import { applyProposal } from "../application";
-import { aiAccess, IaImageLimitReached } from "../access";
+import { proposeImages } from "../images";
+import { LIMITS } from "../config";
+import { aiAccess } from "../access";
 import { query, withTransaction } from "@/lib/database/sql";
 import { saveFile, signedAttachment } from "../files";
 import OpenAI from "openai";
@@ -16,10 +18,11 @@ const run = "33333333-3333-4333-8333-333333333333";
 const proposal = "44444444-4444-4444-8444-444444444444";
 const item = { id: "55555555-5555-4555-8555-555555555555", name: "Prato", price_cents: 1000, image_path: null };
 const generate = jest.fn();
-let actions: Map<string, any>, imageCount: number, statements: string[];
+let actions: Map<string, any>, imageCount: number, statements: string[], plus: boolean;
 
 beforeEach(() => {
   imageCount = 0;
+  plus = false;
   statements = [];
   actions = new Map([[proposal, {
     id: proposal, restaurant_id: restaurant, conversation_id: conversation,
@@ -39,6 +42,7 @@ beforeEach(() => {
       action.status = "applying"; action.attempts += 1;
       return { rows: [action] };
     }
+    if (sql.includes("restaurant_addons")) return { rows: plus ? [{ status: "active" }] : [] };
     if (sql.includes("SELECT EXISTS")) return { rows: [{ used: false }] };
     if (sql.startsWith("SELECT kind")) return { rows: [{ kind: "chat" }] };
     if (sql.includes("sum(input_tokens + output_tokens)")) return { rows: [{ images: imageCount, tokens: 0 }] };
@@ -61,7 +65,9 @@ beforeEach(() => {
       const action = {
         id: params[6], restaurant_id: params[0], conversation_id: params[1],
         run_id: params[2], title: params[3], reason: params[4],
-        operations: JSON.parse(params[5]), status: "pending", attempts: 0,
+        operations: sql.includes("image_jobs") ? [] : JSON.parse(params[5]),
+        image_jobs: sql.includes("image_jobs") ? JSON.parse(params[5]) : undefined,
+        status: "pending", attempts: 0,
       };
       actions.set(action.id, action);
       return { rows: [action] };
@@ -100,15 +106,35 @@ test("an unrelated run cannot be reused for image approval", async () => {
   expect(generate).not.toHaveBeenCalled();
 });
 
-test("the second image still respects the free image quota and preserves its first preview", async () => {
+test("free users cannot start an existing multi-image batch", async () => {
   const action = actions.get(proposal);
   action.image_jobs.push({ ...action.image_jobs[0] });
   await expect(applyProposal(restaurant, proposal, conversation, "generate", run))
-    .rejects.toBeInstanceOf(IaImageLimitReached);
-  expect(action.status).toBe("failed");
-  expect(action.generated_actions).toHaveLength(1);
-  expect(imageCount).toBe(1);
-  expect(statements.some(sql => sql.startsWith("UPDATE public.ia_vendas_runs SET status="))).toBe(false);
+    .rejects.toThrow("apenas uma imagem por lote");
+  expect(action.status).toBe("pending");
+  expect(action.generated_actions).toHaveLength(0);
+  expect(generate).not.toHaveBeenCalled();
+  expect(imageCount).toBe(0);
+});
+
+test("free proposals accept one image but reject two before saving a batch", async () => {
+  const job = { target: "item", item_id: item.id, prompt: "Foto aprovada" };
+  await expect(proposeImages(restaurant, conversation, run, { jobs: [job, job] }))
+    .rejects.toThrow("até 1 imagem por lote");
+  expect(statements.some((sql) => sql.startsWith("INSERT INTO public.ia_vendas_actions"))).toBe(false);
+  const proposed = await proposeImages(restaurant, conversation, run, { jobs: [job] });
+  expect(proposed.image_jobs).toHaveLength(1);
+});
+
+test("IA Plus can still propose eight images per batch, but not nine", async () => {
+  plus = true;
+  const jobs = Array.from({ length: LIMITS.imageBatch }, () => ({
+    target: "item", item_id: item.id, prompt: "Foto aprovada",
+  }));
+  const proposed = await proposeImages(restaurant, conversation, run, { jobs });
+  expect(proposed.image_jobs).toHaveLength(LIMITS.imageBatch);
+  await expect(proposeImages(restaurant, conversation, run, { jobs: [...jobs, jobs[0]] }))
+    .rejects.toThrow("até 8 imagens por lote");
 });
 
 test("failed image generation releases its reserved quota", async () => {

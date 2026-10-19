@@ -1,6 +1,7 @@
 import {
   aiAccess,
   FREE_AI_MESSAGE_TOKENS,
+  FREE_AI_IMAGES,
   IaImageLimitReached,
   requireIaPlus,
   IaPlusRequired,
@@ -50,6 +51,22 @@ const imageProps = {
   prompt: text,
   attachment_id: text,
 };
+const imageProposalTool = (maxJobs: number) => tool(
+  "propose_images",
+  `Propor geração de até ${maxJobs} ${maxJobs === 1 ? "imagem" : "imagens"} após aprovação. Publicação exige aprovação posterior.`,
+  {
+    jobs: {
+      type: "array",
+      maxItems: maxJobs,
+      items: {
+        type: "object",
+        properties: imageProps,
+        required: ["target", "prompt"],
+      },
+    },
+  },
+  ["jobs"],
+);
 const tools = [
   tool(
     "read_data",
@@ -101,22 +118,7 @@ const tools = [
     imageProps,
     ["target", "prompt"],
   ),
-  tool(
-    "propose_images",
-    `Propor geração de até ${LIMITS.imageBatch} imagens após aprovação. Publicação exige aprovação posterior.`,
-    {
-      jobs: {
-        type: "array",
-        maxItems: LIMITS.imageBatch,
-        items: {
-          type: "object",
-          properties: imageProps,
-          required: ["target", "prompt"],
-        },
-      },
-    },
-    ["jobs"],
-  ),
+  imageProposalTool(LIMITS.imageBatch),
   tool(
     "estimate_revenue",
     "Uma faixa conjunta para 7 ou 28 dias. Inclua carrinho e melhorias de produtos na mesma chamada, depois de preparar as propostas. Para apresentação/combos envie item_ids: a receita é calculada pelas vendas reais e cada produto recebe uma única faixa de melhora. Nome, descrição, imagem e posição não somam ganhos separados; preços ,99 não têm ganho próprio.",
@@ -190,6 +192,10 @@ const assistantTools = [
     ["tab"],
   ),
 ];
+
+const freeAssistantTools = assistantTools.map((definition) =>
+  definition.name === "propose_images" ? imageProposalTool(FREE_AI_IMAGES) : definition,
+);
 
 const FREE_MESSAGE_LIMIT_MESSAGE =
   "Esta mensagem ficou grande demais para ser processada de uma vez. Envie o pedido em partes menores para continuar.";
@@ -616,7 +622,7 @@ export async function runChat(args: {
       const request: AnalysisRequest = {
           model: deep ? MODELS.analysis : MODELS.chat,
           input,
-          tools: !deep && conv.kind === "chat" ? assistantTools : tools,
+          tools: !deep && conv.kind === "chat" ? (freeAssistant ? freeAssistantTools : assistantTools) : tools,
           tool_choice:
             deep && !finalRound ? "required" : finalRound ? "none" : "auto",
           parallel_tool_calls: true,
