@@ -11,6 +11,7 @@ import { signedAttachment } from "@/lib/ia-vendas/files";
 import { execute } from "@/lib/ia-vendas/actions";
 import { applyProposal } from "@/lib/ia-vendas/application";
 import { imageUrl } from "@/lib/ia-vendas/data";
+import { LIMITS } from "@/lib/ia-vendas/config";
 export const runtime = "nodejs";
 export const maxDuration = 300;
 export async function GET(request: Request) {
@@ -301,7 +302,7 @@ export async function POST(request: Request) {
       throw new SalesError("Proposta não encontrada.", 404);
     if (
       body.command === "apply" &&
-      selected.reduce((n, a) => n + (a.image_jobs?.length || 0), 0) > 3
+      selected.reduce((n, a) => n + (a.image_jobs?.length || 0), 0) > LIMITS.imageBatch
     )
       throw new SalesError("Aplique um lote de imagens por vez.");
     const results = [];

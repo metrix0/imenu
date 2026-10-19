@@ -118,10 +118,7 @@ export async function reserveImage(restaurant: string, run: string) {
     if (!access.plus && Number(access.images_remaining) <= 0)
       throw new IaImageLimitReached();
     if (n >= LIMITS.images)
-      throw new SalesError(
-        "A geração de imagens atingiu a capacidade disponível.",
-        429,
-      );
+      throw new IaImageLimitReached(true);
     if (
       !(
         await c.query(
@@ -131,6 +128,15 @@ export async function reserveImage(restaurant: string, run: string) {
       ).rowCount
     )
       throw new SalesError("Geração expirada.", 409);
+  });
+}
+export async function releaseImage(restaurant: string, run: string) {
+  await withTransaction(async (c) => {
+    await c.query("SELECT pg_advisory_xact_lock(hashtextextended($1,1))", [restaurant]);
+    await c.query(
+      "UPDATE public.ia_vendas_runs SET image_count=greatest(image_count-1,0) WHERE restaurant_id=$1 AND id=$2",
+      [restaurant, run],
+    );
   });
 }
 export async function finishRun(

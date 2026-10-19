@@ -17,14 +17,14 @@ beforeEach(() => {
   addon = null;
   used = false;
   kind = "chat";
-  usage = { tokens: 0, reserved: 0, images: 0 };
+  usage = { tokens: 0, reserved: 0, images: 0, monthly_images: 0 };
   sql.mockImplementation(async (statement: string) => ({
     rows: statement.includes("SELECT EXISTS") ? [{ used }]
       : statement.startsWith("SELECT kind") ? [{ kind }]
       : statement.includes("restaurant_addons") ? (addon ? [addon] : [])
       : statement.includes("sum(input_tokens + output_tokens)") ? [usage]
       : statement.includes("sum(greatest") ? [{ input: 0, output: 0, recent: 0 }]
-      : statement.includes("sum(image_count),0) n") ? [{ n: usage.images }] : [],
+      : statement.includes("sum(image_count),0) n") ? [{ n: usage.monthly_images }] : [],
     rowCount: statement.startsWith("UPDATE public.ia_vendas_runs SET image_count") ? 1 : 0,
   }));
   (withTransaction as jest.Mock).mockImplementation(fn => fn({ query: sql }));
@@ -73,6 +73,7 @@ test("free tokens and images use the rolling seven-day window", async () => {
   expect(usageQuery).toContain(
     "sum(image_count) FILTER (WHERE created_at>=now()-interval '7 days')",
   );
+  expect(usageQuery).toContain("created_at>=date_trunc('month',now())");
 });
 test.each([
   ["active", null, true],
@@ -114,6 +115,17 @@ test("free image quota blocks the second generation; Plus keeps the existing cap
   await expect(blocked).rejects.not.toBeInstanceOf(IaPlusRequired);
   addon = { status: "active" };
   await expect(reserveImage("restaurant", "run")).resolves.toBeUndefined();
+});
+test("IA Plus allows 30 images per calendar month and blocks the 31st", async () => {
+  addon = { status: "active" };
+  usage.monthly_images = 29;
+  expect((await aiAccess("restaurant")).images_remaining).toBe(1);
+  await expect(reserveImage("restaurant", "run")).resolves.toBeUndefined();
+  usage.monthly_images = 30;
+  expect((await aiAccess("restaurant")).images_remaining).toBe(0);
+  await expect(reserveImage("restaurant", "run")).rejects.toThrow("30 imagens");
+  usage.monthly_images = 0;
+  expect((await aiAccess("restaurant")).images_remaining).toBe(30);
 });
 test("manual analysis remains available even after all free allowances are exhausted", async () => {
   usage = { tokens: 150_000, reserved: 0, images: 1 };

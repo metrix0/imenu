@@ -35,7 +35,7 @@ import {
   ActionPreview,
   DataCard,
 } from "@/components/restaurant-owner/ia-vendas/SalesWidgets";
-import type { Data } from "@/lib/ia-vendas/types";
+import type { Action, Data } from "@/lib/ia-vendas/types";
 import { IA_PLUS_FEATURE_MESSAGE } from "@/lib/addons/products";
 import { isPanelTabKey, type PanelTabKey } from "@/lib/ia-vendas/panelTabs";
 import { SupportWhatsappBadge } from "@/components/common/SupportButton";
@@ -259,6 +259,7 @@ export default function SalesPage() {
   const locked = sales.access?.plus !== true;
   const freeApply = !isAnalysis && locked && sales.access?.free_applications_remaining === 1;
   const applyLocked = locked && !freeApply;
+  const actionById = new Map(sales.actions.map((action) => [action.id, action]));
   const freeLimitReached = !isAnalysis && sales.access && !sales.access.plus && (sales.upgradeRequired || Number(sales.access.tokens_remaining) <= 0);
   const openLockedApply = (ids: string[] = []) => {
     const actionIds = [...new Set(ids.filter(Boolean))];
@@ -442,6 +443,9 @@ export default function SalesPage() {
                       )
                       .map((tab) => `tab:${tab}`),
                   ),
+                  nestedGenerated = new Set<string>(m.cards.flatMap((card) =>
+                    card.type === "action" ? actionById.get(card.id)?.generated_actions || [] : [],
+                  )),
                   pendingIds = m.cards
                     .filter((card) => card.type === "action")
                     .map((card) => card.id)
@@ -500,12 +504,15 @@ export default function SalesPage() {
                             ? sales.actions.find((a) => a.id === part.id)
                             : null,
                           marker = `action:${part.id}`;
-                        if (!action || placed.has(marker)) return null;
+                        if (!action || placed.has(marker) || nestedGenerated.has(action.id)) return null;
                         placed.add(marker);
                         return (
                           <ActionCard
                             key={marker}
                             action={action}
+                            generatedActions={(action.generated_actions || [])
+                              .map((id: string) => actionById.get(id))
+                              .filter((generated): generated is Action => !!generated)}
                             refs={sales.references}
                             disabled={disabled}
                             onAction={onAction}
@@ -557,11 +564,14 @@ export default function SalesPage() {
                         card.type === "action"
                           ? sales.actions.find((a) => a.id === card.id)
                           : null;
-                      if (action)
+                      if (action && !nestedGenerated.has(action.id))
                         return (
                           <ActionCard
                             key={i}
                             action={action}
+                            generatedActions={(action.generated_actions || [])
+                              .map((id: string) => actionById.get(id))
+                              .filter((generated): generated is Action => !!generated)}
                             refs={sales.references}
                             disabled={disabled}
                             onAction={onAction}
