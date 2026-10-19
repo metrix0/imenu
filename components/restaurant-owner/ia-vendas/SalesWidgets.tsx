@@ -1074,6 +1074,15 @@ export function ActionCard({
         )}
       </div>
   );
+  const generatedPreviewCards = imageBatch && generatedCount > 0 ? (
+    <div className="mt-4 grid gap-3 border-t border-[var(--panel-border)] pt-4">
+      <p className="text-xs font-medium text-[var(--panel-muted)]">Revisar imagens</p>
+      {generatedActions.map((generated) => (
+        <ActionCard key={generated.id} action={generated} refs={refs} disabled={disabled}
+          onAction={onAction} locked={locked} freeApply={freeApply} onUpgrade={onUpgrade} compact />
+      ))}
+    </div>
+  ) : null;
   if (compact) return (
     <article className={styles.action} aria-label={action.title}>
       <div className={styles.actionHeader}>
@@ -1094,24 +1103,7 @@ export function ActionCard({
           </div>
         </details>
       )}
-      {imageBatch && generatedCount > 0 && (
-        <div className="mt-4 grid gap-3 border-t border-[var(--panel-border)] pt-4">
-          <p className="text-xs font-medium text-[var(--panel-muted)]">Revisar imagens</p>
-          {generatedActions.map((generated) => (
-            <ActionCard
-              key={generated.id}
-              action={generated}
-              refs={refs}
-              disabled={disabled}
-              onAction={onAction}
-              locked={locked}
-              freeApply={freeApply}
-              onUpgrade={onUpgrade}
-              compact
-            />
-          ))}
-        </div>
-      )}
+      {generatedPreviewCards}
       {action.error && <p role="status" className="mt-3 text-xs text-red-700">{action.error}</p>}
       {actionButtons}
       {action.image_jobs && <p className="mt-2 text-xs text-[var(--panel-muted)]">{generatedCount ? publishableGeneratedActions.length ? "Revise cada prévia ou publique todas de uma vez." : "Todas as imagens foram revisadas." : "As imagens serão geradas para revisão antes de serem publicadas."}</p>}
@@ -1129,6 +1121,7 @@ export function ActionCard({
       </div>
       <p className="mb-2 text-sm text-gray-600">{action.reason}</p>
       <ActionPreview action={action} refs={refs} />
+      {generatedPreviewCards}
       {action.error && (
         <p role="status" className="mt-3 text-xs text-red-700">
           {action.error}

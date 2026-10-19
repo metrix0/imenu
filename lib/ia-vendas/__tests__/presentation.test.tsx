@@ -416,6 +416,14 @@ test("image batches use generation and publication language and keep generated p
   expect(afterGeneration).not.toContain(">Aplicar<");
   expect(afterGeneration).not.toContain("Gerar não publica");
 
+  const chatAfterGeneration = renderToStaticMarkup(
+    <ActionCard action={{ ...batch, status: "applied", generated_actions: [first.id, second.id] }}
+      generatedActions={[first, second]} refs={{}} disabled={false} onAction={jest.fn()} />,
+  );
+  expect(chatAfterGeneration).toContain("Revisar imagens");
+  expect(chatAfterGeneration.match(/Publicar imagem/g)).toHaveLength(2);
+  expect(chatAfterGeneration).toContain("Publicar todas");
+
   const partiallyPublished = renderToStaticMarkup(
     <ActionCard
       action={{ ...batch, status: "applied", generated_actions: [first.id, second.id] }}

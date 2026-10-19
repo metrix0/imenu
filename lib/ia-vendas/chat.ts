@@ -103,11 +103,11 @@ const tools = [
   ),
   tool(
     "propose_images",
-    "Propor geração de até 3 imagens após aprovação. Publicação exige aprovação posterior.",
+    `Propor geração de até ${LIMITS.imageBatch} imagens após aprovação. Publicação exige aprovação posterior.`,
     {
       jobs: {
         type: "array",
-        maxItems: 3,
+        maxItems: LIMITS.imageBatch,
         items: {
           type: "object",
           properties: imageProps,

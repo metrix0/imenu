@@ -2,6 +2,7 @@ import type { PoolClient } from "pg";
 import { query } from "@/lib/database/sql";
 import { hasQrTableAccess } from "@/lib/qr-table/types";
 import { SalesError } from "./types";
+import { LIMITS } from "./config";
 
 export const FREE_AI_TOKENS = 150_000;
 export const FREE_AI_IMAGES = 1;
@@ -11,8 +12,10 @@ export class IaPlusRequired extends SalesError {
   constructor(message = "Continue com o iMenu IA Plus para usar esta função.") { super(message, 402); }
 }
 export class IaImageLimitReached extends SalesError {
-  constructor() {
-    super("Seu limite semanal de geração de imagens foi atingido. Para gerar mais imagens, assine o iMenu IA Plus. Você ainda pode conversar e realizar outras tarefas pelo Assistente IA.");
+  constructor(plus = false) {
+    super(plus
+      ? "Seu limite mensal de 30 imagens do iMenu IA Plus foi atingido. Novas gerações estarão disponíveis no próximo mês."
+      : "Seu limite semanal de geração de imagens foi atingido. Para gerar mais imagens, assine o iMenu IA Plus. Você ainda pode conversar e realizar outras tarefas pelo Assistente IA.");
   }
 }
 export async function aiAccess(restaurant: string, client?: Pick<PoolClient, "query">) {
@@ -27,9 +30,10 @@ export async function aiAccess(restaurant: string, client?: Pick<PoolClient, "qu
   const usage = (await execute(`SELECT
     coalesce(sum(input_tokens + output_tokens) FILTER (WHERE kind='chat' AND status='completed' AND coalesce(result->>'quota_exempt','false')<>'true' AND created_at>=now()-interval '7 days'),0)::int tokens,
     coalesce(sum(reserved_input + reserved_output) FILTER (WHERE kind='chat' AND status='running' AND created_at>now()-interval '6 minutes'),0)::int reserved,
-    coalesce(sum(image_count) FILTER (WHERE created_at>=now()-interval '7 days'),0)::int images
+    coalesce(sum(image_count) FILTER (WHERE created_at>=now()-interval '7 days'),0)::int images,
+    coalesce(sum(image_count) FILTER (WHERE created_at>=date_trunc('month',now())),0)::int monthly_images
     FROM public.ia_vendas_runs WHERE restaurant_id=$1`, [restaurant])).rows[0];
-  return { plus, free_applications_remaining: plus ? null : usedApplication ? 0 : 1, reserved_tokens: Number(usage?.reserved || 0), tokens_remaining: plus ? null : Math.max(0, FREE_AI_TOKENS - Number(usage?.tokens || 0)), images_remaining: plus ? null : Math.max(0, FREE_AI_IMAGES - Number(usage?.images || 0)) };
+  return { plus, free_applications_remaining: plus ? null : usedApplication ? 0 : 1, reserved_tokens: Number(usage?.reserved || 0), tokens_remaining: plus ? null : Math.max(0, FREE_AI_TOKENS - Number(usage?.tokens || 0)), images_remaining: plus ? Math.max(0, LIMITS.images - Number(usage?.monthly_images || 0)) : Math.max(0, FREE_AI_IMAGES - Number(usage?.images || 0)) };
 }
 export async function requireApplicationAccess(restaurant: string, conversation: string, client?: Pick<PoolClient, "query">) {
   const execute = (sql: string, params: any[]) => client ? client.query(sql, params) : query(sql, params);

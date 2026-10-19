@@ -10,7 +10,7 @@ import {
   signedAttachment,
   type GeneratedImageProfile,
 } from "./files";
-import { beginRun, finishRun, reserveImage } from "./runs";
+import { beginRun, finishRun, reserveImage, releaseImage } from "./runs";
 import { propose, claim } from "./actions";
 import { MODELS, LIMITS } from "./config";
 import { SalesError, object, type Data, type Action } from "./types";
@@ -196,7 +196,9 @@ export async function previewImage(
       // square that still exceeds the final 500/640px product/logo sizes.
       size: generationSize as never,
     };
-  const result = reference
+  let saved: Awaited<ReturnType<typeof saveFile>>;
+  try {
+    const result = reference
     ? await ai.images.edit({
         ...args,
         image: await toFile(
@@ -217,14 +219,18 @@ export async function previewImage(
     : await ai.images.generate(args);
   if (!result.data?.[0]?.b64_json)
     throw new SalesError("A imagem não foi gerada.");
-  const saved = await saveFile(
+    saved = await saveFile(
     restaurant,
     `${input.target}.png`,
     "image/png",
     Buffer.from(result.data[0].b64_json, "base64"),
     "generated",
     t.profile,
-  );
+    );
+  } catch (error) {
+    await releaseImage(restaurant, run);
+    throw error;
+  }
   const after = `${restaurant}/ia-vendas/${saved.id}.webp`,
     before = t.row[t.field] || null;
   const current = await target(restaurant, input);
@@ -293,8 +299,8 @@ export async function proposeImages(
   proposalId?: string,
 ) {
   const data = object(input);
-  if (!Array.isArray(data.jobs) || !data.jobs.length || data.jobs.length > 3)
-    throw new SalesError("Proponha até três imagens por lote.");
+  if (!Array.isArray(data.jobs) || !data.jobs.length || data.jobs.length > LIMITS.imageBatch)
+    throw new SalesError(`Proponha até ${LIMITS.imageBatch} imagens por lote.`);
   if (proposalId) {
     const existing = (await query("SELECT * FROM public.ia_vendas_actions WHERE restaurant_id=$1 AND run_id=$2 AND id=$3", [restaurant, run, proposalId])).rows[0];
     if (existing) return existing;

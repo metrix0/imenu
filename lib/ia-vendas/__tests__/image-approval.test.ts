@@ -50,6 +50,10 @@ beforeEach(() => {
       imageCount += 1;
       return { rows: [], rowCount: 1 };
     }
+    if (sql.includes("SET image_count=greatest(image_count-1,0)")) {
+      imageCount = Math.max(0, imageCount - 1);
+      return { rows: [], rowCount: 1 };
+    }
     if (sql.startsWith("SELECT id,name,image_path")) return { rows: [item] };
     if (sql.includes("SELECT t.*")) return { rows: [item] };
     if (sql.includes("count(*) n")) return { rows: [{ n: 0 }] };
@@ -105,4 +109,11 @@ test("the second image still respects the free image quota and preserves its fir
   expect(action.generated_actions).toHaveLength(1);
   expect(imageCount).toBe(1);
   expect(statements.some(sql => sql.startsWith("UPDATE public.ia_vendas_runs SET status="))).toBe(false);
+});
+
+test("failed image generation releases its reserved quota", async () => {
+  generate.mockRejectedValueOnce(new Error("Generation failed"));
+  await expect(applyProposal(restaurant, proposal, conversation, "generate", run)).rejects.toThrow("Generation failed");
+  expect(imageCount).toBe(0);
+  expect(statements.some((sql) => sql.includes("SET image_count=greatest(image_count-1,0)"))).toBe(true);
 });
