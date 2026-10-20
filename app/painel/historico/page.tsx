@@ -11,6 +11,128 @@ import OrdersTable, { Order } from "@/components/restaurant-owner/pedidos/Orders
 import OrderDetailsModal from "@/components/restaurant-owner/pedidos/OrderDetailsModal";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import Toast from "@/components/ui/Toast";
+import Card from "@/components/ui/Card";
+import Input from "@/components/ui/Input";
+import { formatDate } from "@/lib/utils/dateRange";
+
+
+type CashTotals = { pix: number; card: number; cash: number };
+
+const CASH_PAGE_SIZE = 1000;
+const CASH_STATUSES = ["done", "paid", "preparing", "delivering"];
+const CASH_PAYMENT_METHODS = ["pix", "pix-entrega", "cartao", "trazer-maquininha", "dinheiro"];
+
+const formatCashTotal = (cents: number) =>
+    (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+function DailyCashClosing({ restaurantId, refreshKey }: {
+    restaurantId: string | null;
+    refreshKey: number;
+}) {
+    const [date, setDate] = useState(() => formatDate(new Date()));
+    const [totals, setTotals] = useState<CashTotals>({ pix: 0, card: 0, cash: 0 });
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(false);
+
+    useEffect(() => {
+        if (!restaurantId || !date) return;
+        let canceled = false;
+
+        const loadTotals = async () => {
+            setLoading(true);
+            setError(false);
+            try {
+                const [year, month, day] = date.split("-").map(Number);
+                const nextDate = new Date(Date.UTC(year, month - 1, day + 1)).toISOString().slice(0, 10);
+                const sums: CashTotals = { pix: 0, card: 0, cash: 0 };
+                let offset = 0;
+
+                while (true) {
+                    const { data, error: queryError } = await supabase
+                        .from("orders")
+                        .select("id, status, payment_method, total_cents")
+                        .eq("restaurant_id", restaurantId)
+                        .gte("created_at", date + "T00:00:00-03:00")
+                        .lt("created_at", nextDate + "T00:00:00-03:00")
+                        .in("status", CASH_STATUSES)
+                        .in("payment_method", CASH_PAYMENT_METHODS)
+                        .order("created_at", { ascending: true })
+                        .order("id", { ascending: true })
+                        .range(offset, offset + CASH_PAGE_SIZE - 1);
+
+                    if (canceled) return;
+                    if (queryError) throw queryError;
+
+                    for (const order of data || []) {
+                        const method = order.payment_method;
+                        // Payments on delivery only count after the order is concluded.
+                        if (order.status !== "done" && method !== "pix" && method !== "cartao") continue;
+                        const amount = Number(order.total_cents || 0);
+                        if (method === "pix" || method === "pix-entrega") sums.pix += amount;
+                        else if (method === "cartao" || method === "trazer-maquininha") sums.card += amount;
+                        else if (method === "dinheiro") sums.cash += amount;
+                    }
+
+                    if (!data || data.length < CASH_PAGE_SIZE) break;
+                    offset += CASH_PAGE_SIZE;
+                }
+
+                if (!canceled) setTotals(sums);
+            } catch (caught) {
+                console.error("Erro ao carregar fechamento de caixa:", caught);
+                if (!canceled) setError(true);
+            } finally {
+                if (!canceled) setLoading(false);
+            }
+        };
+
+        void loadTotals();
+        return () => { canceled = true; };
+    }, [restaurantId, date, refreshKey]);
+
+    const total = totals.pix + totals.card + totals.cash;
+
+    return (
+        <Card>
+            <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
+                <div>
+                    <h2 className="text-lg font-semibold text-gray-900">Fechamento de caixa</h2>
+                    <p className="mt-1 text-sm text-gray-500">
+                        Pedidos concluídos ou pagos no dia, sem cancelados.
+                    </p>
+                </div>
+                <div className="w-full sm:w-48">
+                    <Input label="Data" type="date" value={date} max={formatDate(new Date())} onChange={(event) => { if (event.target.value) setDate(event.target.value); }} />
+                </div>
+            </div>
+
+            {error ? (
+                <p className="text-sm text-red-600">Não foi possível carregar o fechamento de caixa.</p>
+            ) : loading ? (
+                <p className="py-4 text-sm text-gray-500" role="status">Calculando fechamento de caixa...</p>
+            ) : (
+                <>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                        {([
+                            { key: "pix", label: "Pix" },
+                            { key: "card", label: "Cartão" },
+                            { key: "cash", label: "Dinheiro" },
+                        ] as const).map(({ key, label }) => (
+                            <div key={key} className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                                <p className="text-sm text-gray-500">{label}</p>
+                                <p className="mt-1 text-xl font-semibold tabular-nums text-gray-900">{formatCashTotal(totals[key])}</p>
+                            </div>
+                        ))}
+                    </div>
+                    <div className="mt-4 flex items-center justify-between border-t border-gray-200 pt-4">
+                        <span className="font-medium text-gray-700">Total do dia</span>
+                        <span className="text-xl font-semibold tabular-nums text-gray-900">{formatCashTotal(total)}</span>
+                    </div>
+                </>
+            )}
+        </Card>
+    );
+}
 
 const PAGE_SIZE = 10;
 
@@ -22,6 +144,7 @@ export default function HistoricoPage() {
     // Paginação
     const [page, setPage] = useState(0);
     const [totalCount, setTotalCount] = useState(0);
+    const [cashRefreshKey, setCashRefreshKey] = useState(0);
     const requestId = useRef(0);
 
     // Filtros
@@ -110,6 +233,7 @@ export default function HistoricoPage() {
 
     // Callback chamado quando o modal altera status
     const handleOrderUpdate = () => {
+        setCashRefreshKey(value => value + 1);
         if (restaurantId) fetchOrders(restaurantId);
     };
 
@@ -133,6 +257,7 @@ export default function HistoricoPage() {
 
             setOrderToDelete(null);
             setToast({ message: "Pedido excluído.", type: "success" });
+            setCashRefreshKey(value => value + 1);
             if (page > 0 && orders.length === 1) {
                 setPage(page - 1);
             } else {
@@ -153,6 +278,8 @@ export default function HistoricoPage() {
             <div>
                 <h1 className="text-3xl font-bold text-gray-900">Histórico de Pedidos</h1>
             </div>
+
+            <DailyCashClosing restaurantId={restaurantId} refreshKey={cashRefreshKey} />
 
             <OrdersFilter
                 search={search} onSearchChange={setSearch}
