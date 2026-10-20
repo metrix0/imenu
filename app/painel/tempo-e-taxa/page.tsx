@@ -7,6 +7,7 @@ import DeliveryRules from "@/components/restaurant-owner/configuracoes/TempoeTax
 import AddressForm from "@/components/restaurant-owner/configuracoes/AddressForm";
 import Button from "@/components/ui/Button";
 import Switch from "@/components/ui/Switch";
+import ConfirmModal from "@/components/ui/ConfirmModal";
 import Loader from "@/components/ui/Loader";
 import { AddressData } from "@/lib/types/types";
 
@@ -17,6 +18,7 @@ export default function PainelTempoETaxaPage() {
     const [editingAddress, setEditingAddress] = useState(false);
     const [savingAddress, setSavingAddress] = useState(false);
     const [deliveryDisabled, setDeliveryDisabled] = useState(false);
+    const [confirmDisableOpen, setConfirmDisableOpen] = useState(false);
     const [savingDeliveryDisabled, setSavingDeliveryDisabled] = useState(false);
     const [deliveryError, setDeliveryError] = useState<string | null>(null);
 
@@ -113,6 +115,7 @@ export default function PainelTempoETaxaPage() {
             });
             if (!response.ok) throw new Error();
             setDeliveryDisabled(nextValue);
+            setConfirmDisableOpen(false);
         } catch {
             setDeliveryError("Não foi possível atualizar as entregas. Tente novamente.");
         } finally {
@@ -204,12 +207,23 @@ export default function PainelTempoETaxaPage() {
                             aria-label="Desativar entregas"
                             checked={deliveryDisabled}
                             disabled={savingDeliveryDisabled}
-                            onClick={() => void toggleDeliveryDisabled()}
+                            onClick={() => deliveryDisabled ? void toggleDeliveryDisabled() : setConfirmDisableOpen(true)}
                         />
                     </div>
                     {deliveryError && <p role="alert" className="mt-3 text-sm text-red-600">{deliveryError}</p>}
                 </div>
             </section>
+            <ConfirmModal
+                open={confirmDisableOpen}
+                onClose={() => { if (!savingDeliveryDisabled) setConfirmDisableOpen(false); }}
+                onConfirm={() => void toggleDeliveryDisabled()}
+                title="Desativar entregas?"
+                description="Ao confirmar, o cardápio aceitará apenas pedidos para retirada. Os clientes não poderão escolher entrega. Suas configurações de entrega serão preservadas para quando quiser reativá-las."
+                confirmLabel="Desativar entregas"
+                cancelLabel="Cancelar"
+                isLoading={savingDeliveryDisabled}
+                variant="danger"
+            />
         </div>
     );
 }
