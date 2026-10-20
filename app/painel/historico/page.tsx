@@ -15,6 +15,7 @@ import Link from "next/link";
 import { faArrowRight, faChartLine } from "@fortawesome/free-solid-svg-icons";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import Card from "@/components/ui/Card";
+import DateRangePicker from "@/components/ui/DateRangePicker";
 
 
 
@@ -78,7 +79,8 @@ function DailyCashClosing({ restaurantId, refreshKey }: {
     refreshKey: number;
 }) {
     const [dayOffset, setDayOffset] = useState(0);
-    const date = cashDateOffset(dayOffset);
+    const [selectedDate, setSelectedDate] = useState<string | null>(null);
+    const date = selectedDate ?? cashDateOffset(dayOffset);
     const [orders, setOrders] = useState<CashOrder[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
@@ -137,15 +139,24 @@ function DailyCashClosing({ restaurantId, refreshKey }: {
                         <button
                             key={day.value}
                             type="button"
-                            onClick={() => setDayOffset(day.value)}
-                            aria-pressed={dayOffset === day.value}
-                            className={dayOffset === day.value
+                            onClick={() => { setSelectedDate(null); setDayOffset(day.value); }}
+                            aria-pressed={selectedDate === null && dayOffset === day.value}
+                            className={selectedDate === null && dayOffset === day.value}
                                 ? "cursor-pointer rounded-md bg-[#f1f3f5] px-3 py-2 text-xs font-semibold text-gray-900"
                                 : "cursor-pointer rounded-md px-3 py-2 text-xs font-medium text-gray-500 hover:bg-gray-50"}
                         >
                             {day.label}
                         </button>
                     ))}
+                    <DateRangePicker
+                        label="Data"
+                        value={{ startDate: date, endDate: date }}
+                        onChange={range => { if (range.startDate) setSelectedDate(range.startDate); }}
+                        presets={[]}
+                        singleDate
+                        iconOnly
+                        active={selectedDate !== null}
+                    />
                 </div>
             </div>
 

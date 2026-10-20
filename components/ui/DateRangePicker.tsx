@@ -6,9 +6,10 @@ import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight } from "lucide-rea
 import Button from "./Button";
 import { DATE_FILTER_PRESETS, formatDate, formatRangeDate, parseDate, type DateRange, type DateFilterPreset } from "@/lib/utils/dateRange";
 
-export default function DateRangePicker({ value, onChange, presets = DATE_FILTER_PRESETS, allowClear = false, allowFuture = false, allowOpenEnd = false, label = "Período", emptyLabel = "Todo o período" }: {
+export default function DateRangePicker({ value, onChange, presets = DATE_FILTER_PRESETS, allowClear = false, allowFuture = false, allowOpenEnd = false, label = "Período", emptyLabel = "Todo o período", singleDate = false, iconOnly = false, active = false }: {
     value: DateRange; onChange: (range: DateRange) => void; presets?: DateFilterPreset[]; allowClear?: boolean;
     allowFuture?: boolean; allowOpenEnd?: boolean; label?: string; emptyLabel?: string;
+    singleDate?: boolean; iconOnly?: boolean; active?: boolean;
 }) {
     const [open, setOpen] = useState(false);
     const [mounted, setMounted] = useState(false);
@@ -48,6 +49,7 @@ export default function DateRangePicker({ value, onChange, presets = DATE_FILTER
     const toggle = () => { if (!open) { setDraft(value); setSelectingEnd(false); setHoverDate(""); setMonth(parseDate((allowFuture ? value.startDate || value.endDate : value.endDate) || today)); } setOpen(!open); };
     const apply = (range: DateRange) => { onChange(range); setOpen(false); trigger.current?.focus(); };
     const chooseDay = (date: string) => {
+        if (singleDate) { setDraft({ startDate: date, endDate: date }); setSelectingEnd(false); setHoverDate(""); return; }
         if (!selectingEnd) { setDraft({ startDate: date, endDate: date }); setSelectingEnd(true); }
         else { setDraft({ startDate: date < draft.startDate ? date : draft.startDate, endDate: date < draft.startDate ? draft.startDate : date }); setSelectingEnd(false); setHoverDate(""); }
     };
@@ -56,13 +58,18 @@ export default function DateRangePicker({ value, onChange, presets = DATE_FILTER
     const previewEnd = selectingEnd && hoverDate ? hoverDate : draft.endDate;
     const rangeStart = draft.startDate < previewEnd ? draft.startDate : previewEnd;
     const rangeEnd = draft.startDate > previewEnd ? draft.startDate : previewEnd;
-    return <div data-ui="field" className="flex min-w-0 flex-col gap-1.5">
-        <span data-ui="field-label" className="block text-xs font-medium leading-[18px] text-[#1d1d1d]">{label}</span>
+    return <div data-ui="field" className={iconOnly ? "flex shrink-0" : "flex min-w-0 flex-col gap-1.5"}>
+        <span data-ui="field-label" className={iconOnly ? "sr-only" : "block text-xs font-medium leading-[18px] text-[#1d1d1d]"}>{label}</span>
         <button ref={trigger} type="button" data-ui="dropdown-trigger" aria-label={`Selecionar ${label.toLowerCase()}`} aria-haspopup="dialog" aria-expanded={open}
-            className="flex h-11 w-full cursor-pointer items-center gap-3 rounded-[8px] border border-[#e2e5e9] bg-white px-3 text-left text-sm font-normal text-[#1d1d1d] outline-none transition-[border-color,background-color] duration-150 focus-visible:!outline-none" onClick={toggle}>
-            <CalendarDays size={14} className="shrink-0 text-gray-500" />
-            <span className="min-w-0 flex-1 truncate">{value.startDate && value.endDate ? `${formatRangeDate(value.startDate)} — ${formatRangeDate(value.endDate)}` : allowOpenEnd && value.startDate ? `A partir de ${formatRangeDate(value.startDate)}` : emptyLabel}</span>
-            <ChevronDown size={14} className={`transition-transform duration-150 ${open ? "rotate-180" : ""}`} />
+            aria-pressed={iconOnly ? active : undefined}
+            className={iconOnly
+                ? `flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-gray-500 transition-colors hover:bg-gray-50 ${active ? "bg-[#f1f3f5] text-gray-900" : ""}`
+                : "flex h-11 w-full cursor-pointer items-center gap-3 rounded-[8px] border border-[#e2e5e9] bg-white px-3 text-left text-sm font-normal text-[#1d1d1d] outline-none transition-[border-color,background-color] duration-150 focus-visible:!outline-none"} onClick={toggle}>
+            <CalendarDays size={14} className={iconOnly ? "shrink-0" : "shrink-0 text-gray-500"} />
+            {!iconOnly && <>
+                <span className="min-w-0 flex-1 truncate">{value.startDate && value.endDate ? `${formatRangeDate(value.startDate)} — ${formatRangeDate(value.endDate)}` : allowOpenEnd && value.startDate ? `A partir de ${formatRangeDate(value.startDate)}` : emptyLabel}</span>
+                <ChevronDown size={14} className={`transition-transform duration-150 ${open ? "rotate-180" : ""}`} />
+            </>}
         </button>
         {mounted && createPortal(<div ref={popup} style={{ ...position, animation: "none", scrollbarWidth: "none", transformOrigin: "top", transition: "opacity 180ms cubic-bezier(0.4, 0, 0.2, 1), transform 180ms cubic-bezier(0.4, 0, 0.2, 1)" }} className={`panel-essencial panel-date-picker [&::-webkit-scrollbar]:hidden ${active ? "scale-100 opacity-100" : "pointer-events-none scale-[0.985] opacity-0"}`} role="dialog" aria-label="Escolher período" aria-hidden={!open} inert={!open}
             onKeyDown={event => { if (event.key === "Escape") { event.stopPropagation(); setOpen(false); trigger.current?.focus(); } }}>
