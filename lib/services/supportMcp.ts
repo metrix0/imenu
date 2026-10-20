@@ -267,7 +267,11 @@ export async function searchSupportKnowledge(search: string, limit = 8) {
                       SELECT websearch_to_tsquery('portuguese', $1) AS words
                   )
                   SELECT k.id, k.title, k.content,
-                         ts_rank_cd(document.doc, sq.words, 32) AS relevance
+                         ts_rank_cd(document.doc, sq.words, 32) AS relevance,
+                          (SELECT COUNT(*) FROM unnest($3::text[]) AS term
+                           WHERE document.doc @@ plainto_tsquery('portuguese', term)) AS matched_terms,
+                          (SELECT COUNT(*) FROM unnest($3::text[]) AS term
+                           WHERE to_tsvector('portuguese', COALESCE(k.title, '')) @@ plainto_tsquery('portuguese', term)) AS title_matches
                   FROM support_knowledge k
                   CROSS JOIN search_query sq
                   CROSS JOIN LATERAL (
@@ -275,10 +279,10 @@ export async function searchSupportKnowledge(search: string, limit = 8) {
                              setweight(to_tsvector('portuguese', COALESCE(k.content, '')), 'D') AS doc
                   ) document
                   WHERE k.enabled = true AND document.doc @@ sq.words
-                  ORDER BY relevance DESC, k.updated_at DESC
+                  ORDER BY matched_terms DESC, title_matches DESC, relevance DESC, k.updated_at DESC
                   LIMIT $2
               `,
-              [terms.join(" OR "), safeLimit]
+              [terms.join(" OR "), safeLimit, terms]
           )
         : { rows: [] as (KnowledgeResult & { relevance: number })[] };
 
