@@ -3,9 +3,19 @@
 import { useState } from "react";
 import AnalyticsDashboard from "@/components/restaurant-owner/exibicoes/AnalyticsDashboard";
 import ConsumerPipelineDashboard from "@/components/restaurant-owner/exibicoes/ConsumerPipelineDashboard";
-import DateFilterBar, { getDateRangeForDays } from "@/components/restaurant-owner/exibicoes/DateFilterBar";
+import DateFilterBar, { getCurrentMonthRange, getDateRangeForDays, type DateFilterPreset } from "@/components/restaurant-owner/exibicoes/DateFilterBar";
 import Loader from "@/components/ui/Loader";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
+
+const ANALYTICS_DATE_PRESETS: DateFilterPreset[] = [
+    { label: "Hoje", getRange: () => getDateRangeForDays(1) },
+    { label: "Ontem", getRange: () => {
+        const yesterday = getDateRangeForDays(2).startDate;
+        return { startDate: yesterday, endDate: yesterday };
+    } },
+    { label: "Mês atual", getRange: getCurrentMonthRange },
+    { label: "30 dias", getRange: () => getDateRangeForDays(30) },
+];
 
 export default function AnalyticsPageContent() {
     const { restaurantId } = useCreationStore();
@@ -25,7 +35,7 @@ export default function AnalyticsPageContent() {
                 </div>
                 <div className="flex flex-wrap items-center justify-end gap-3">
                     <div className="w-full sm:w-[320px] [&_[data-ui=field-label]]:sr-only">
-                        <DateFilterBar startDate={startDate} endDate={endDate} onStartDateChange={setStartDate} onEndDateChange={setEndDate} showPresets />
+                        <DateFilterBar startDate={startDate} endDate={endDate} onStartDateChange={setStartDate} onEndDateChange={setEndDate} showPresets presets={ANALYTICS_DATE_PRESETS} />
                     </div>
                 </div>
             </div>
