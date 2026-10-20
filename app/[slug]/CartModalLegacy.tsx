@@ -106,8 +106,10 @@ export default function CartModal({
         pagamento,
         setField,
     } = useCheckoutStore();
-    const isPickup = useCheckoutStore((state: any) => Boolean(state.is_pickup));
+    const savedPickup = useCheckoutStore((state: any) => Boolean(state.is_pickup));
     const isTableOrder = Boolean(tableOrder);
+    const deliveryDisabled = !isTableOrder && restaurant?.delivery_disabled === true;
+    const isPickup = deliveryDisabled || savedPickup;
     const neighborhoodMode = Array.isArray(neighborhoodDeliveryRules);
     const normalizedNeighborhood = normalizeNeighborhoodName(bairro);
     const unknownNeighborhood = neighborhoodMode && Boolean(normalizedNeighborhood) &&
@@ -651,13 +653,22 @@ export default function CartModal({
     };
 
     useEffect(() => {
+        if (!deliveryDisabled || savedPickup) return;
+        useCheckoutStore.setState({ is_pickup: true } as any);
+        setField("delivery_fee_cents", "0");
+        setField("delivery_time_minutes", null);
+        setField("showAddressWarning", false);
+        if (coupon_type === "delivery") setField("coupon_discount_cents", 0);
+    }, [deliveryDisabled, savedPickup, coupon_type, setField]);
+
+    useEffect(() => {
         if (isTableOrder) return;
-        if (!hasRestaurantAddress && isPickup) {
+        if (!deliveryDisabled && !hasRestaurantAddress && isPickup) {
             useCheckoutStore.setState({ is_pickup: false } as any);
             setDeliveryFeeCents(null);
             setField("delivery_fee_cents", null);
         }
-    }, [hasRestaurantAddress, isPickup, isTableOrder]);
+    }, [deliveryDisabled, hasRestaurantAddress, isPickup, isTableOrder]);
 
     useEffect(() => {
         if (!restaurant?.id) return;
@@ -1156,7 +1167,15 @@ export default function CartModal({
                         </div>
                     ) : (
                         <>
-                    {hasRestaurantAddress && (
+                    {deliveryDisabled && (
+                        <div className="mb-5 rounded-xl border border-gray-200 bg-gray-50 p-4">
+                            <p className="font-semibold text-md 2xl:text-lg">{restaurant.name} aceita apenas retiradas.</p>
+                            {formattedRestaurantAddress && (
+                                <p className="mt-1 text-sm text-gray-500 2xl:text-base">{formattedRestaurantAddress}</p>
+                            )}
+                        </div>
+                    )}
+                    {!deliveryDisabled && hasRestaurantAddress && (
                         <label className={`mb-5 flex cursor-pointer items-center gap-3 rounded-xl border p-4 transition-colors ${isPickup ? "border-brand bg-brand/5" : "border-gray-200 bg-white hover:border-gray-300"}`}>
                             <input
                                 type="checkbox"
@@ -1177,6 +1196,7 @@ export default function CartModal({
                         </label>
                     )}
 
+                    {!deliveryDisabled && (
                     <fieldset
                         disabled={isPickup}
                         className={`transition-opacity ${isPickup ? "pointer-events-none opacity-40" : "opacity-100"}`}
@@ -1270,6 +1290,7 @@ export default function CartModal({
                             />
                         </div>
                     </fieldset>
+                    )}
 
                     <h2 className="font-semibold text-md mt-3 mb-5 md:text-sm 2xl:text-lg">
                         Informações pessoais

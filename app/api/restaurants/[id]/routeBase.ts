@@ -164,6 +164,7 @@ export async function PATCH(
             payment_info_type: "payment_info_type",
             allowed_payment_methods: "allowed_payment_methods",
             pickup_enabled: "pickup_enabled",
+            delivery_disabled: "delivery_disabled",
             prep_time_min_minutes: "prep_time_min_minutes",
             prep_time_max_minutes: "prep_time_max_minutes",
             prep_time_source: "prep_time_source",
@@ -198,6 +199,8 @@ export async function PATCH(
             if (dbColumn === "store_whatsapp" || dbColumn === "phone") {
                 value = normalizeStoredPhone(value);
             }
+
+            if (dbColumn === "delivery_disabled" && typeof value !== "boolean") continue;
 
             if (dbColumn === "creation_step") {
                 const step = Number(value);
@@ -279,6 +282,7 @@ export async function GET(
                 payment_info_type,
                 allowed_payment_methods,
                 pickup_enabled,
+                delivery_disabled,
                 creation_step,
                 first_time,
                 prep_time_min_minutes,

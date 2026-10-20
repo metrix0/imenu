@@ -392,10 +392,13 @@ export async function POST(request: Request) {
 
         const preorderSettings = !isTableOrder
             ? (await query(
-                "SELECT preorder_only, preorder_availability_json, preorder_min_days FROM public.restaurants WHERE id = $1 LIMIT 1",
+                "SELECT preorder_only, preorder_availability_json, preorder_min_days, delivery_disabled FROM public.restaurants WHERE id = $1 LIMIT 1",
                 [restaurantId]
             )).rows[0]
             : null;
+        if (preorderSettings?.delivery_disabled === true && is_delivery !== "retirada") {
+            throw new OrderRequestError("Este restaurante aceita apenas retiradas.");
+        }
         if (preorderSettings?.preorder_only === true && !scheduled_for) {
             throw new OrderRequestError("É obrigatório agendar a data e o horário da encomenda.");
         }

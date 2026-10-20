@@ -52,7 +52,7 @@ export default function CartBar({
 
     const checkoutState = useCheckoutStore((s) => s);
     const isTableOrder = Boolean(tableOrder);
-    const isPickup = Boolean((checkoutState as any).is_pickup);
+    const isPickup = !isTableOrder && (restaurant?.delivery_disabled === true || Boolean((checkoutState as any).is_pickup));
     const isContinueBlocked = useCheckoutStore(state => state.isContinueBlocked);
 
     useEffect(() => {
@@ -307,7 +307,7 @@ export default function CartBar({
             setOrderWarning({ message: "Selecione a data e o horário da encomenda." });
             return;
         }
-        const pickup = !isTableOrder && Boolean((checkout as any).is_pickup);
+        const pickup = !isTableOrder && (restaurant?.delivery_disabled === true || Boolean((checkout as any).is_pickup));
         const shouldReturnToGarcom =
             isTableOrder &&
             typeof window !== "undefined" &&

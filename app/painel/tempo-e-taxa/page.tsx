@@ -6,6 +6,7 @@ import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 import DeliveryRules from "@/components/restaurant-owner/configuracoes/TempoeTaxa";
 import AddressForm from "@/components/restaurant-owner/configuracoes/AddressForm";
 import Button from "@/components/ui/Button";
+import Switch from "@/components/ui/Switch";
 import Loader from "@/components/ui/Loader";
 import { AddressData } from "@/lib/types/types";
 
@@ -15,6 +16,9 @@ export default function PainelTempoETaxaPage() {
     const [address, setAddress] = useState<Partial<AddressData>>({});
     const [editingAddress, setEditingAddress] = useState(false);
     const [savingAddress, setSavingAddress] = useState(false);
+    const [deliveryDisabled, setDeliveryDisabled] = useState(false);
+    const [savingDeliveryDisabled, setSavingDeliveryDisabled] = useState(false);
+    const [deliveryError, setDeliveryError] = useState<string | null>(null);
 
     useEffect(() => {
         const load = async () => {
@@ -49,11 +53,12 @@ export default function PainelTempoETaxaPage() {
 
             const { data: restaurantData } = await supabase
                 .from("restaurants")
-                .select("address,latitude,longitude")
+                .select("address,latitude,longitude,delivery_disabled")
                 .eq("id", id)
                 .single();
 
             if (restaurantData) {
+                setDeliveryDisabled(restaurantData.delivery_disabled === true);
                 setAddress({
                     ...(restaurantData.address || {}),
                     latitude: restaurantData.latitude,
@@ -92,6 +97,26 @@ export default function PainelTempoETaxaPage() {
             throw caught instanceof Error ? caught : new Error(message);
         } finally {
             setSavingAddress(false);
+        }
+    };
+
+    const toggleDeliveryDisabled = async () => {
+        if (!restaurantId || savingDeliveryDisabled) return;
+        const nextValue = !deliveryDisabled;
+        setSavingDeliveryDisabled(true);
+        setDeliveryError(null);
+        try {
+            const response = await fetch(`/api/restaurants/${restaurantId}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ delivery_disabled: nextValue }),
+            });
+            if (!response.ok) throw new Error();
+            setDeliveryDisabled(nextValue);
+        } catch {
+            setDeliveryError("Não foi possível atualizar as entregas. Tente novamente.");
+        } finally {
+            setSavingDeliveryDisabled(false);
         }
     };
 
@@ -164,6 +189,24 @@ export default function PainelTempoETaxaPage() {
                         </button>
                     </div>
                 )}
+            </section>
+
+            <section className="mx-auto mt-10 max-w-2xl border-t border-gray-200 pt-8 2xl:max-w-3xl">
+                <div className="flex items-center justify-between gap-6">
+                    <div>
+                        <h2 className="text-xl font-semibold text-gray-900">Desativar entregas</h2>
+                        <p className="mt-1 text-sm text-gray-500">
+                            Quando ativado, o cardápio aceita apenas pedidos para retirada no restaurante.
+                        </p>
+                    </div>
+                    <Switch
+                        aria-label="Desativar entregas"
+                        checked={deliveryDisabled}
+                        disabled={savingDeliveryDisabled}
+                        onClick={() => void toggleDeliveryDisabled()}
+                    />
+                </div>
+                {deliveryError && <p role="alert" className="mt-3 text-sm text-red-600">{deliveryError}</p>}
             </section>
         </div>
     );

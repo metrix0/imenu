@@ -224,6 +224,7 @@ export default async function Page({
     allowed_payment_methods: restaurantData.allowed_payment_methods,
     address: restaurantData.address,
     pickup_enabled: restaurantData.pickup_enabled === true,
+    delivery_disabled: restaurantData.delivery_disabled === true,
     force_whatsapp_order_confirmation:
       restaurantData.force_whatsapp_order_confirmation === true,
     allow_future_order_scheduling:
