@@ -576,6 +576,7 @@ export default function LandingPage() {
                                 ["Sem marca d'água", "check", "Com marca d'água"],
                                 ["Link para WhatsApp e redes", "check", "Limitado"],
                                 ["Painel Financeiro", "check", "Limitado"],
+                                ["Fechamento de Caixa", "check", "Varia por plataforma"],
                                 ["Sistema em nuvem", "check", "Não"],
                                 ["Google Analytics Integrado", "check", "Limitado"],
                                 ["Pixel Meta (Facebook/Instagram) Integrado", "check", "Limitado"],
