@@ -46,7 +46,7 @@ function isTableOrder(value: unknown): boolean {
 
 function isPickupOrder(value: unknown): boolean {
     const normalized = String(value ?? "").trim().toLowerCase();
-    return ["retirada", "pickup", "balcao", "balcão", "false", "0"].includes(
+    return ["retirada", "pickup", "false", "0"].includes(
         normalized,
     );
 }
@@ -108,6 +108,7 @@ function buildComanda(
 ): string {
     const tableOrder = isTableOrder(order.is_delivery);
     const pickup = isPickupOrder(order.is_delivery);
+    const counterSale = ["balcao", "balcão"].includes(String(order.is_delivery ?? "").trim().toLowerCase());
     const separator = "--------------------------------";
     const subitemsByOrderItem = new Map<string, SubitemRow[]>();
 
@@ -135,7 +136,7 @@ function buildComanda(
 
     lines.push(
         `🕐 Hora: ${formatDateTime(order.created_at)}`,
-        `📦 Tipo: ${tableOrder ? "Mesa" : pickup ? "Retirada" : "Entrega"}`,
+        `📦 Tipo: ${tableOrder ? "Mesa" : counterSale ? "Balcão" : pickup ? "Retirada" : "Entrega"}`,
     );
 
     if (tableOrder) {
@@ -155,7 +156,7 @@ function buildComanda(
     }
 
     if (!tableOrder && order.payment_method) {
-        lines.push(`💳 Pagamento: ${paymentLabel(order.payment_method)}`);
+        lines.push(`💳 Pagamento: ${counterSale && order.payment_method === "pix-entrega" ? "Pix no balcão" : paymentLabel(order.payment_method)}`);
     }
 
     lines.push(separator);
@@ -192,7 +193,7 @@ function buildComanda(
 
     const subtotal = Number(order.subtotal_cents) || 0;
     const delivery =
-        pickup || tableOrder ? 0 : Number(order.delivery_cents) || 0;
+        pickup || tableOrder || counterSale ? 0 : Number(order.delivery_cents) || 0;
     const storedDiscount = Number(order.coupon_discount_cents) || 0;
     const total = Number(order.total_cents) || 0;
     const discount =

@@ -12,7 +12,8 @@ import {
     faChair,
     faUser,
     faPhone,
-    faBagShopping
+    faBagShopping,
+    faStore
 } from "@fortawesome/free-solid-svg-icons";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
@@ -130,6 +131,8 @@ export default function OrderCard({ order, onStatusChange, onViewOrder, delivery
     const [allowFutureOrderScheduling, setAllowFutureOrderScheduling] = useState(false);
     const isTableOrder = order.is_delivery === "mesa";
     const isPickup = isTableOrder || order.is_delivery === "retirada";
+    const isCounterOrder = order.is_delivery === "balcao";
+    const isReadyOnSite = isPickup || isCounterOrder;
 
     useEffect(() => {
         if (!order.restaurant_id) return;
@@ -329,14 +332,14 @@ export default function OrderCard({ order, onStatusChange, onViewOrder, delivery
             label: "Preparando", 
             color: "bg-blue-100 text-blue-800 border-blue-200", 
             borderColor: "border-l-blue-500",
-            btn: isPickup ? "Pronto" : "Enviado", 
+            btn: isReadyOnSite ? "Pronto" : "Enviado", 
             btnColor: "primary" 
         },
         delivering: {
-            label: isPickup ? "Pronto" : "Em Rota",
-            color: isPickup ? "bg-green-100 text-green-800 border-green-200" : "bg-purple-100 text-purple-800 border-purple-800",
-            borderColor: isPickup ? "border-l-green-500" : "border-l-purple-500",
-            btn: isTableOrder ? "Pago" : isPickup ? "Entregue" : "Concluir",
+            label: isReadyOnSite ? "Pronto" : "Em Rota",
+            color: isReadyOnSite ? "bg-green-100 text-green-800 border-green-200" : "bg-purple-100 text-purple-800 border-purple-800",
+            borderColor: isReadyOnSite ? "border-l-green-500" : "border-l-purple-500",
+            btn: isTableOrder ? "Pago" : isCounterOrder ? "Concluir" : isPickup ? "Entregue" : "Concluir",
             btnColor: "primary"
         },
         done: { 
@@ -365,7 +368,7 @@ export default function OrderCard({ order, onStatusChange, onViewOrder, delivery
     };
 
     const paymentMethod = order.payment_method || "";
-    const paymentLabel = paymentLabels[paymentMethod] || paymentMethod || "Pagamento";
+    const paymentLabel = isCounterOrder && paymentMethod === "pix-entrega" ? "Pix" : paymentLabels[paymentMethod] || paymentMethod || "Pagamento";
     const cashChangeObservation = order.order_items
         .map((item) => String(item.observation ?? ""))
         .map((observation) => observation.match(/Troco\s+para\s*:\s*[^\r\n]*/i)?.[0]?.trim())
@@ -390,7 +393,7 @@ export default function OrderCard({ order, onStatusChange, onViewOrder, delivery
     const scheduledRelativeTime = scheduledDate
         ? formatScheduledRelativeTime((scheduledDate.getTime() - currentTime) / 60000)
         : "";
-    const deliveryEtaTooltip = !isScheduled ? formatEtaRange(order.delivery_eta) : "";
+    const deliveryEtaTooltip = !isScheduled && !isCounterOrder ? formatEtaRange(order.delivery_eta) : "";
     const paymentBadge = (
         <div
             tabIndex={paymentMethod === "dinheiro" ? 0 : undefined}
@@ -512,15 +515,15 @@ export default function OrderCard({ order, onStatusChange, onViewOrder, delivery
                     {/* Dados de Entrega e Totais */}
                     <div className="text-sm space-y-1 min-[1800px]:space-y-2">
                         <div className="flex min-w-0 items-center gap-2 text-gray-600 font-medium">
-                            <FontAwesomeIcon icon={isTableOrder ? faChair : isPickup ? faBagShopping : faMapMarkerAlt} className="shrink-0 text-gray-400" />
+                            <FontAwesomeIcon icon={isTableOrder ? faChair : isCounterOrder ? faStore : isPickup ? faBagShopping : faMapMarkerAlt} className="shrink-0 text-gray-400" />
                             <span
                                 className="min-w-0 truncate"
-                                title={isTableOrder ? order.table_name_snapshot || "Mesa" : isPickup ? "Retirada no balcão" : order.customer_address || "Endereço não informado"}
+                                title={isTableOrder ? order.table_name_snapshot || "Mesa" : isCounterOrder ? "Balcão" : isPickup ? "Retirada no balcão" : order.customer_address || "Endereço não informado"}
                             >
-                                {isTableOrder ? order.table_name_snapshot || "Mesa" : isPickup ? "Retirada no balcão" : order.customer_address || "Endereço não informado"}
+                                {isTableOrder ? order.table_name_snapshot || "Mesa" : isCounterOrder ? "Balcão" : isPickup ? "Retirada no balcão" : order.customer_address || "Endereço não informado"}
                             </span>
                         </div>
-                        {!isPickup && (
+                        {!isReadyOnSite && (
                             <div className="flex justify-between text-gray-500 pt-2 min-[1800px]:text-base">
                                 <span>Taxa de Entrega</span>
                                 <span>{fmtMoney(order.delivery_cents)}</span>

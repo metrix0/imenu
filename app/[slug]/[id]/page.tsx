@@ -173,6 +173,7 @@ export default function PedidoPage({
 
     const isTableOrder = order.is_delivery === "mesa";
     const isPickup = isTableOrder || order.is_delivery === "retirada";
+    const isCounterOrder = order.is_delivery === "balcao";
     const paymentMethod = order.payment_method ?? order.paymentMethod;
 
     const iconMap: Record<string, any> = {
@@ -188,8 +189,8 @@ export default function PedidoPage({
         pending_physical_payment: "Aguardando confirmação do restaurante",
         paid: <><b>Pagamento aprovado</b>, aguardando confirmação do restaurante</>,
         preparing: "Preparando pedido",
-        delivering: isTableOrder ? "Pedido pronto" : isPickup ? "Pedido pronto para retirada" : "Pedido a caminho",
-        done: isTableOrder ? "Pedido concluído, bom apetite!" : isPickup ? "Pedido retirado, bom apetite!" : "Pedido entregue, bom apetite!",
+        delivering: isTableOrder ? "Pedido pronto" : isCounterOrder ? "Pedido pronto no balcão" : isPickup ? "Pedido pronto para retirada" : "Pedido a caminho",
+        done: isTableOrder ? "Pedido concluído, bom apetite!" : isCounterOrder ? "Venda concluída" : isPickup ? "Pedido retirado, bom apetite!" : "Pedido entregue, bom apetite!",
         canceled: (
             <>
                 Pedido cancelado pelo restaurante.
@@ -251,7 +252,7 @@ export default function PedidoPage({
         paymentMethod === "pix"
             ? "Pix"
             : paymentMethod === "pix-entrega"
-                ? isPickup ? "Pix na retirada" : "Pix na entrega"
+                ? isCounterOrder ? "Pix no balcão" : isPickup ? "Pix na retirada" : "Pix na entrega"
                 : paymentMethod === "cartao"
                     ? "Cartão"
                     : paymentMethod === "dinheiro"
@@ -267,11 +268,11 @@ export default function PedidoPage({
         <main className="p-6 max-w-xl mx-auto min-h-screen flex flex-col">
             <section className="p-5">
                 <h2 className="text-gray-500 text-lg 2xl:text-xl">
-                    {isTableOrder ? "Mesa" : isPickup ? "Previsão de retirada" : "Previsão de entrega"}
+                    {isTableOrder ? "Mesa" : isCounterOrder ? "Balcão" : isPickup ? "Previsão de retirada" : "Previsão de entrega"}
                 </h2>
                 <p className="flex items-center gap-2 font-semibold text-text text-2xl 2xl:text-3xl 2xl:mt-3 mt-1">
                     {isTableOrder && <FontAwesomeIcon icon={faChair} className="text-brand" />}
-                    {isTableOrder ? order.table_name_snapshot || "Mesa" : eta}
+                    {isTableOrder ? order.table_name_snapshot || "Mesa" : isCounterOrder ? "Venda presencial" : eta}
                 </p>
             </section>
 
@@ -380,7 +381,7 @@ export default function PedidoPage({
                 <p className="text-gray-500 text-sm 2xl:text-lg">
                     {paymentMethod === "pix" || paymentMethod === "cartao"
                         ? "Pago pelo site"
-                        : isPickup ? "Pagamento na retirada" : "Pagamento na entrega"}
+                        : isCounterOrder ? "Pagamento no balcão" : isPickup ? "Pagamento na retirada" : "Pagamento na entrega"}
                 </p>
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 2xl:text-lg">

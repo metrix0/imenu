@@ -89,7 +89,7 @@ export default function CreatePanelOrderModal({
     const [customerName, setCustomerName] = useState("");
     const [customerPhone, setCustomerPhone] = useState("");
     const [customerAddress, setCustomerAddress] = useState("");
-    const [selectedTableId, setSelectedTableId] = useState("");
+    const [selectedTableId, setSelectedTableId] = useState("balcao");
     const [paymentMethod, setPaymentMethod] = useState<"dinheiro" | "trazer-maquininha" | "pix-entrega">("dinheiro");
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [deliveryFeeInput, setDeliveryFeeInput] = useState("");
@@ -439,13 +439,14 @@ export default function CreatePanelOrderModal({
         () => tables.find((table) => table.id === selectedTableId) || null,
         [selectedTableId, tables]
     );
+    const isCounterOrder = selectedTableId === "balcao";
 
     const promotionResult = automaticPromotions.length ? evaluateAutomaticPromotions(automaticPromotions, {
         items: selectedItems, products: Object.values(itemsByCategory).flat(),
-        subtotal_cents: itemsTotalCents, delivery_cents: selectedTable ? 0 : deliveryFeeCents,
-        coupon_discount_cents: 0, channel: selectedTable ? "mesa" : "delivery", at: promotionNow,
+        subtotal_cents: itemsTotalCents, delivery_cents: selectedTable || isCounterOrder ? 0 : deliveryFeeCents,
+        coupon_discount_cents: 0, channel: selectedTable || isCounterOrder ? "mesa" : "delivery", at: promotionNow,
     }) : undefined;
-    const totalCents = promotionResult?.total_cents ?? itemsTotalCents + (selectedTable ? 0 : deliveryFeeCents);
+    const totalCents = promotionResult?.total_cents ?? itemsTotalCents + (selectedTable || isCounterOrder ? 0 : deliveryFeeCents);
 
     const selectedItemCount = useMemo(
         () => selectedItems.reduce((sum, item) => sum + item.qty, 0),
@@ -505,15 +506,15 @@ export default function CreatePanelOrderModal({
                 expected_promotion: { id: promotionResult?.promotion?.id || null, total_cents: totalCents },
                 customer_name: customerName.trim(),
                 customer_phone: customerPhone?.trim() || null,
-                customer_address: selectedTable
+                customer_address: selectedTable || isCounterOrder
                     ? null
                     : customerAddress?.trim() || null,
-                delivery_fee_cents: selectedTable ? 0 : deliveryFeeCents,
-                delivery_time_minutes: selectedTable ? 0 : 40,
+                delivery_fee_cents: selectedTable || isCounterOrder ? 0 : deliveryFeeCents,
+                delivery_time_minutes: selectedTable || isCounterOrder ? 0 : 40,
                 paymentMethod: selectedTable
                     ? undefined
                     : paymentMethod || "dinheiro",
-                is_delivery: selectedTable ? "mesa" : undefined,
+                is_delivery: selectedTable ? "mesa" : isCounterOrder ? "balcao" : undefined,
                 table_id: selectedTable?.id,
                 table_token: selectedTable?.public_token,
                 coupon_discount_cents: 0,
@@ -549,7 +550,7 @@ export default function CreatePanelOrderModal({
             setCustomerName("");
             setCustomerPhone("");
             setCustomerAddress("");
-            setSelectedTableId("");
+            setSelectedTableId("balcao");
             setDeliveryFeeInput("");
             setPaymentMethod("dinheiro");
             setExpandedItems({});
@@ -816,22 +817,21 @@ export default function CreatePanelOrderModal({
                                                 />
                                             </div>
 
-                                            {tables.length > 0 && (
-                                                <div className="relative w-full">
+                                            <div className="relative w-full">
                                                     <Dropdown
                                                         label="Destino do pedido" value={selectedTableId}
                                                         onChange={(e) => setSelectedTableId(e.target.value)}
                                                         className="w-full appearance-none rounded-xl border border-gray-200 bg-white px-4 py-3 pr-10 text-gray-700 outline-none transition hover:border-gray-300 focus:border-brand focus:ring-2 focus:ring-brand/10"
                                                     >
-                                                        <option value="">Entrega / balcão</option>
+                                                        <option value="balcao">Balcão</option>
+                                                        <option value="">Entrega / retirada</option>
                                                         {tables.map((table) => (
                                                             <option key={table.id} value={table.id}>
                                                                 {table.name}
                                                             </option>
                                                         ))}
                                                     </Dropdown>
-                                                </div>
-                                            )}
+                                            </div>
 
                                             {selectedTable ? (
                                                 <div className="rounded-xl border border-brand/20 bg-brand/5 px-4 py-3">
@@ -844,14 +844,14 @@ export default function CreatePanelOrderModal({
                                                 </div>
                                             ) : (
                                                 <>
-                                                    <Input
+                                                    {!isCounterOrder && <Input
                                                         value={customerAddress}
                                                         onChange={(e) => setCustomerAddress(e.target.value)}
                                                         label="Endereço (opcional)" placeholder="Endereço (opcional)"
                                                         className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/10"
-                                                    />
+                                                    />}
 
-                                                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                                                    <div className={isCounterOrder ? "grid grid-cols-1" : "grid grid-cols-1 gap-3 md:grid-cols-2"}>
                                                         <div className="relative w-full">
                                                             <Dropdown
                                                                 label="Tipo de Pagamento" value={paymentMethod}
@@ -866,13 +866,13 @@ export default function CreatePanelOrderModal({
                                                             </Dropdown>
                                                         </div>
 
-                                                        <Input
+                                                        {!isCounterOrder && <Input
                                                             value={deliveryFeeInput}
                                                             onChange={(e) => setDeliveryFeeInput(e.target.value)}
                                                             label="Taxa de entrega (opcional)" placeholder="Taxa de entrega (opcional)"
                                                             inputMode="decimal"
                                                             className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/10"
-                                                        />
+                                                        />}
                                                     </div>
                                                 </>
                                             )}

@@ -1,7 +1,7 @@
 "use client";
 
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
-import { faChair, faEye, faTrash } from "@fortawesome/free-solid-svg-icons";
+import { faChair, faEye, faTrash, faStore } from "@fortawesome/free-solid-svg-icons";
 import DataTable from "@/components/ui/DataTable";
 import Card from "@/components/ui/Card";
 import ListLoader from "@/components/ui/ListLoader";
@@ -92,17 +92,17 @@ export default function OrdersTable({ orders, isLoading, onViewOrder, onDeleteOr
                                             </span>
                                             {getStatusBadge(
                                                 order.status,
-                                                order.is_delivery === "mesa" || order.is_delivery === "retirada"
+                                                order.is_delivery === "mesa" || order.is_delivery === "retirada" || order.is_delivery === "balcao"
                                             )}
                                         </div>
                                         <div className="mt-2 flex min-w-0 items-center gap-2">
                                             <p className="min-w-0 truncate text-sm font-medium text-gray-800">
                                                 {order.customer_name}
                                             </p>
-                                            {order.is_delivery === "mesa" && (
+                                            {(order.is_delivery === "mesa" || order.is_delivery === "balcao") && (
                                                 <span className="flex shrink-0 items-center gap-1.5 text-xs font-medium text-brand">
-                                                    <FontAwesomeIcon icon={faChair} />
-                                                    {order.table_name_snapshot || "Mesa"}
+                                                    <FontAwesomeIcon icon={order.is_delivery === "balcao" ? faStore : faChair} />
+                                                    {order.is_delivery === "balcao" ? "Balcão" : order.table_name_snapshot || "Mesa"}
                                                 </span>
                                             )}
                                         </div>
@@ -157,10 +157,10 @@ export default function OrdersTable({ orders, isLoading, onViewOrder, onDeleteOr
                 <DataTable rows={orders} rowKey={order => order.id} loading={isLoading} onRowClick={onViewOrder}
                     emptyMessage="Nenhum pedido encontrado com estes filtros." columns={[
                         { key: "number", label: "Pedido", render: order => <span className="font-semibold">#{order.display_id || order.id.slice(0, 4)}</span> },
-                        { key: "customer", label: "Cliente", render: order => <div className="max-w-xs"><div className="font-medium">{order.customer_name}</div>{order.customer_address && <div className="mt-1 truncate text-xs text-gray-500" title={order.customer_address}>{order.customer_address}</div>}{order.is_delivery === "mesa" && <span className="inline-flex items-center gap-1 text-xs text-brand"><FontAwesomeIcon icon={faChair} />{order.table_name_snapshot || "Mesa"}</span>}</div> },
+                        { key: "customer", label: "Cliente", render: order => <div className="max-w-xs"><div className="font-medium">{order.customer_name}</div>{order.customer_address && <div className="mt-1 truncate text-xs text-gray-500" title={order.customer_address}>{order.customer_address}</div>}{(order.is_delivery === "mesa" || order.is_delivery === "balcao") && <span className="inline-flex items-center gap-1 text-xs text-brand"><FontAwesomeIcon icon={order.is_delivery === "balcao" ? faStore : faChair} />{order.is_delivery === "balcao" ? "Balcão" : order.table_name_snapshot || "Mesa"}</span>}</div> },
                         { key: "date", label: "Data", render: order => <span className="whitespace-nowrap text-gray-500">{fmtDate(order.created_at)}</span> },
                         { key: "total", label: "Valor", render: order => <span className="whitespace-nowrap font-medium">{fmtMoney(order.total_cents)}</span> },
-                        { key: "status", label: "Situação", render: order => getStatusBadge(order.status, order.is_delivery === "mesa" || order.is_delivery === "retirada") },
+                        { key: "status", label: "Situação", render: order => getStatusBadge(order.status, order.is_delivery === "mesa" || order.is_delivery === "retirada" || order.is_delivery === "balcao") },
                         { key: "action", label: "", render: order => <div className="flex items-center gap-1">
                             <button type="button" title="Ver detalhes" aria-label={"Ver detalhes do pedido #" + (order.display_id || order.id.slice(0, 4))} onClick={event => { event.stopPropagation(); onViewOrder?.(order); }} className="cursor-pointer rounded-md p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-brand"><FontAwesomeIcon icon={faEye} /></button>
                             {onDeleteOrder && <button type="button" title="Excluir pedido" aria-label={"Excluir pedido #" + (order.display_id || order.id.slice(0, 4))} onClick={event => { event.stopPropagation(); onDeleteOrder(order); }} className="cursor-pointer rounded-md p-2 text-gray-500 transition-colors hover:bg-red-50 hover:text-red-600"><FontAwesomeIcon icon={faTrash} /></button>}
