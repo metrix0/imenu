@@ -95,27 +95,35 @@ function DailyCashClosing({ restaurantId, refreshKey }: {
     const total = totals.pix + totals.card + totals.cash;
 
     return (
-        <section>
+        <section aria-labelledby="cash-closing-heading">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <h2 id="cash-closing-heading" className="text-xl font-semibold text-gray-900">Fechamento de Caixa</h2>
+                <span className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-medium text-gray-600">Hoje</span>
+            </div>
+
             {error ? (
                 <p className="text-sm text-red-600">Não foi possível carregar o fechamento de caixa.</p>
             ) : loading ? (
                 <p className="py-4 text-sm text-gray-500" role="status">Calculando fechamento de caixa...</p>
             ) : (
-                <>
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                        {([
-                            { key: "pix", label: "Pix" },
-                            { key: "card", label: "Cartão" },
-                            { key: "cash", label: "Dinheiro" },
-                            { key: "total", label: "Total" },
-                        ] as const).map(({ key, label }) => (
-                            <div key={key} className="rounded-lg border border-gray-200 bg-gray-50 p-4">
-                                <p className="text-sm text-gray-500">{label}</p>
-                                <p className="mt-1 text-xl font-semibold tabular-nums text-gray-900">{formatCashTotal(key === "total" ? total : totals[key])}</p>
-                            </div>
-                        ))}
-                    </div>
-                </>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    {([
+                        { key: "pix", label: "Pix" },
+                        { key: "card", label: "Cartão" },
+                        { key: "cash", label: "Dinheiro" },
+                        { key: "total", label: "Total" },
+                    ] as const).map(({ key, label }) => (
+                        <div
+                            key={key}
+                            className={`min-w-0 rounded-[10px] border p-5 ${key === "total" ? "border-brand/20 bg-brand/5" : "border-[#e2e5e9] bg-white"}`}
+                        >
+                            <p className={`text-sm font-medium ${key === "total" ? "text-brand" : "text-gray-500"}`}>{label}</p>
+                            <p className="mt-2 break-words text-xl font-semibold tracking-tight tabular-nums text-gray-900 2xl:text-2xl">
+                                {formatCashTotal(key === "total" ? total : totals[key])}
+                            </p>
+                        </div>
+                    ))}
+                </div>
             )}
         </section>
     );
@@ -266,8 +274,6 @@ export default function HistoricoPage() {
                 <h1 className="text-3xl font-bold text-gray-900">Histórico de Pedidos</h1>
             </div>
 
-            <DailyCashClosing restaurantId={restaurantId} refreshKey={cashRefreshKey} />
-
             <OrdersFilter
                 search={search} onSearchChange={setSearch}
                 range={range} onRangeChange={value => { setRange(value); setPage(0); }}
@@ -282,6 +288,8 @@ export default function HistoricoPage() {
             />
 
             {(totalCount > 0 || page > 0) && <Pagination page={page} pageCount={Math.ceil(totalCount / PAGE_SIZE)} onChange={setPage} disabled={isLoading} />}
+
+            <DailyCashClosing restaurantId={restaurantId} refreshKey={cashRefreshKey} />
 
             <Card className="overflow-hidden border-brand/20 bg-brand/5">
                 <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
