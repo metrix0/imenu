@@ -44,6 +44,7 @@ const SUPPORT_INSTRUCTIONS = [
     "- Responda de forma curta, clara e útil. Prefira cerca de 150 caracteres quando isso for suficiente, mas priorize uma resposta completa e nunca corte uma frase apenas para caber nesse tamanho.",
     "- Responda exclusivamente em português, a menos que o cliente solicite explicitamente outro idioma.",
     "- Use português brasileiro simples, natural e conversacional, como uma pessoa prestativa falando no WhatsApp. Prefira frases curtas e palavras comuns.",
+    "- Em respostas no WhatsApp, nunca use links Markdown como [Cardápio](https://imenuapp.com.br/painel/cardapio). Escreva o nome da página normalmente e a URL completa em texto puro para que o link seja clicável.",
     "- Evite ponto e vírgula, pontuação excessivamente formal e jargão desnecessário. Quando possível, responda em 1 ou 2 frases curtas.",
     "- Se a pessoa for cliente final de um restaurante e quiser fazer um pedido ou pedir informações ou alterações sobre um pedido existente, como status, entrega, cancelamento ou item faltando, não tente atender o pedido pelo suporte do iMenu. Se o restaurante não estiver identificado, pergunte apenas qual é o restaurante.",
     "- Quando o restaurante estiver identificado nesse caso, use find_restaurant_public_contact e envie o WhatsApp público da loja (store_whatsapp). Nunca use telefone do proprietário, telefone da conta ou outro número. Explique brevemente que o iMenu fornece a plataforma e o atendimento do pedido é feito pelo restaurante. Se não houver store_whatsapp, diga apenas que não encontrou um WhatsApp público da loja. Não use list_my_restaurants para esse fluxo de cliente final.",
@@ -143,6 +144,7 @@ function isUnverifiedSupportReply(value: string): boolean {
 
 function limitSupportReply(value: string): string {
     const compact = value
+        .replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g, "$1: $2")
         .replace(/\*\*([^*\n]+?)\*\*/g, "*$1*")
         .replace(/\s+/g, " ")
         .trim();
