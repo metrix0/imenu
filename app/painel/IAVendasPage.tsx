@@ -496,13 +496,7 @@ export default function SalesPage() {
                               />
                         );
                       if (part.type === "action") {
-                        const actionCard = m.cards.find(
-                            (card) =>
-                              card.type === "action" && card.id === part.id,
-                          ),
-                          action = actionCard
-                            ? sales.actions.find((a) => a.id === part.id)
-                            : null,
+                        const action = actionById.get(part.id),
                           marker = `action:${part.id}`;
                         if (!action || placed.has(marker) || nestedGenerated.has(action.id)) return null;
                         placed.add(marker);
