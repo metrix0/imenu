@@ -13,7 +13,7 @@ export default function DateRangePicker({ value, onChange, presets = DATE_FILTER
 }) {
     const [open, setOpen] = useState(false);
     const [mounted, setMounted] = useState(false);
-    const [active, setActive] = useState(false);
+    const [popupActive, setPopupActive] = useState(false);
     const [draft, setDraft] = useState(value);
     const [selectingEnd, setSelectingEnd] = useState(false);
     const [hoverDate, setHoverDate] = useState("");
@@ -26,10 +26,10 @@ export default function DateRangePicker({ value, onChange, presets = DATE_FILTER
         if (open) {
             setMounted(true);
             let secondFrame = 0;
-            const frame = requestAnimationFrame(() => { secondFrame = requestAnimationFrame(() => setActive(true)); });
+            const frame = requestAnimationFrame(() => { secondFrame = requestAnimationFrame(() => setPopupActive(true)); });
             return () => { cancelAnimationFrame(frame); cancelAnimationFrame(secondFrame); };
         }
-        setActive(false);
+        setPopupActive(false);
         const timer = window.setTimeout(() => setMounted(false), 180);
         return () => window.clearTimeout(timer);
     }, [open]);
@@ -71,7 +71,7 @@ export default function DateRangePicker({ value, onChange, presets = DATE_FILTER
                 <ChevronDown size={14} className={`transition-transform duration-150 ${open ? "rotate-180" : ""}`} />
             </>}
         </button>
-        {mounted && createPortal(<div ref={popup} style={{ ...position, animation: "none", scrollbarWidth: "none", transformOrigin: "top", transition: "opacity 180ms cubic-bezier(0.4, 0, 0.2, 1), transform 180ms cubic-bezier(0.4, 0, 0.2, 1)" }} className={`panel-essencial panel-date-picker [&::-webkit-scrollbar]:hidden ${active ? "scale-100 opacity-100" : "pointer-events-none scale-[0.985] opacity-0"}`} role="dialog" aria-label="Escolher período" aria-hidden={!open} inert={!open}
+        {mounted && createPortal(<div ref={popup} style={{ ...position, animation: "none", scrollbarWidth: "none", transformOrigin: "top", transition: "opacity 180ms cubic-bezier(0.4, 0, 0.2, 1), transform 180ms cubic-bezier(0.4, 0, 0.2, 1)" }} className={`panel-essencial panel-date-picker [&::-webkit-scrollbar]:hidden ${popupActive ? "scale-100 opacity-100" : "pointer-events-none scale-[0.985] opacity-0"}`} role="dialog" aria-label="Escolher período" aria-hidden={!open} inert={!open}
             onKeyDown={event => { if (event.key === "Escape") { event.stopPropagation(); setOpen(false); trigger.current?.focus(); } }}>
             {(presets.length > 0 || allowClear) && <div className="grid grid-cols-2 gap-2 border-b border-gray-200 p-4">
                 {presets.map(preset => <button key={preset.label} type="button" className="rounded-md border border-gray-200 px-3 py-2 text-left text-sm hover:bg-gray-50" onClick={() => apply(preset.getRange())}>{preset.label}</button>)}
