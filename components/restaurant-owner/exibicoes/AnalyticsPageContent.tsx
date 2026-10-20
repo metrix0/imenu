@@ -34,18 +34,20 @@ export default function AnalyticsPageContent() {
 
     return (
         <div className="mx-auto max-w-7xl space-y-6 pb-20">
-            <div className="panel-page-heading">
-                <h1>Analytics</h1>
-                <p className="mt-1 text-sm text-gray-500">Entenda vendas, pedidos e comportamento dos seus clientes.</p>
-            </div>
-            <div className="flex flex-wrap items-center justify-end gap-3">
-                <div className="flex flex-wrap justify-end gap-2">
-                    <Button type="button" variant={selectedShortcut === "today" ? "primary" : "secondary"} aria-pressed={selectedShortcut === "today"} className="h-11" onClick={() => applyRange(getDateRangeForDays(1), "today")}>Hoje</Button>
-                    <Button type="button" variant={selectedShortcut === "yesterday" ? "primary" : "secondary"} aria-pressed={selectedShortcut === "yesterday"} className="h-11" onClick={applyYesterday}>Ontem</Button>
-                    <Button type="button" variant={selectedShortcut === "month" ? "primary" : "secondary"} aria-pressed={selectedShortcut === "month"} className="h-11" onClick={() => applyRange(getCurrentMonthRange(), "month")}>Mês atual</Button>
+            <div className="flex flex-col gap-6 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between lg:gap-4">
+                <div className="panel-page-heading lg:mb-0!">
+                    <h1>Analytics</h1>
+                    <p className="mt-1 text-sm text-gray-500">Entenda vendas, pedidos e comportamento dos seus clientes.</p>
                 </div>
-                <div className="w-full sm:w-[320px] [&_[data-ui=field-label]]:sr-only">
-                    <DateFilterBar startDate={startDate} endDate={endDate} onStartDateChange={date => { setStartDate(date); setSelectedShortcut(null); }} onEndDateChange={date => { setEndDate(date); setSelectedShortcut(null); }} showPresets />
+                <div className="flex flex-wrap items-center justify-end gap-3">
+                    <div className="flex flex-wrap justify-end gap-2">
+                        <Button type="button" variant={selectedShortcut === "today" ? "primary" : "secondary"} aria-pressed={selectedShortcut === "today"} className="h-11" onClick={() => applyRange(getDateRangeForDays(1), "today")}>Hoje</Button>
+                        <Button type="button" variant={selectedShortcut === "yesterday" ? "primary" : "secondary"} aria-pressed={selectedShortcut === "yesterday"} className="h-11" onClick={applyYesterday}>Ontem</Button>
+                        <Button type="button" variant={selectedShortcut === "month" ? "primary" : "secondary"} aria-pressed={selectedShortcut === "month"} className="h-11" onClick={() => applyRange(getCurrentMonthRange(), "month")}>Mês atual</Button>
+                    </div>
+                    <div className="w-full sm:w-[320px] [&_[data-ui=field-label]]:sr-only">
+                        <DateFilterBar startDate={startDate} endDate={endDate} onStartDateChange={date => { setStartDate(date); setSelectedShortcut(null); }} onEndDateChange={date => { setEndDate(date); setSelectedShortcut(null); }} showPresets />
+                    </div>
                 </div>
             </div>
             <AnalyticsDashboard restaurantId={restaurantId} startDate={startDate} endDate={endDate} />
