@@ -12,6 +12,9 @@ import OrderDetailsModal from "@/components/restaurant-owner/pedidos/OrderDetail
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import Toast from "@/components/ui/Toast";
 import Link from "next/link";
+import { faArrowRight, faChartLine } from "@fortawesome/free-solid-svg-icons";
+import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
+import Card from "@/components/ui/Card";
 import { formatDate } from "@/lib/utils/dateRange";
 
 
@@ -93,34 +96,24 @@ function DailyCashClosing({ restaurantId, refreshKey }: {
 
     return (
         <section>
-            <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
-                <h2 className="text-lg font-semibold text-gray-900">Fechamento de caixa</h2>
-                <p className="text-sm text-gray-500">
-                    Quer saber mais? <Link href="/painel/analytics" className="font-medium text-[#d93d00] hover:underline">Veja na aba Analytics</Link>
-                </p>
-            </div>
-
             {error ? (
                 <p className="text-sm text-red-600">Não foi possível carregar o fechamento de caixa.</p>
             ) : loading ? (
                 <p className="py-4 text-sm text-gray-500" role="status">Calculando fechamento de caixa...</p>
             ) : (
                 <>
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                         {([
                             { key: "pix", label: "Pix" },
                             { key: "card", label: "Cartão" },
                             { key: "cash", label: "Dinheiro" },
+                            { key: "total", label: "Total" },
                         ] as const).map(({ key, label }) => (
                             <div key={key} className="rounded-lg border border-gray-200 bg-gray-50 p-4">
                                 <p className="text-sm text-gray-500">{label}</p>
-                                <p className="mt-1 text-xl font-semibold tabular-nums text-gray-900">{formatCashTotal(totals[key])}</p>
+                                <p className="mt-1 text-xl font-semibold tabular-nums text-gray-900">{formatCashTotal(key === "total" ? total : totals[key])}</p>
                             </div>
                         ))}
-                    </div>
-                    <div className="mt-4 flex items-center justify-between">
-                        <span className="font-medium text-gray-700">Total do dia</span>
-                        <span className="text-xl font-semibold tabular-nums text-gray-900">{formatCashTotal(total)}</span>
                     </div>
                 </>
             )}
@@ -289,6 +282,34 @@ export default function HistoricoPage() {
             />
 
             {(totalCount > 0 || page > 0) && <Pagination page={page} pageCount={Math.ceil(totalCount / PAGE_SIZE)} onChange={setPage} disabled={isLoading} />}
+
+            <Card className="overflow-hidden border-brand/20 bg-brand/5">
+                <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex min-w-0 items-start gap-4">
+                        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white text-xl text-brand shadow-sm">
+                            <FontAwesomeIcon icon={faChartLine} />
+                        </span>
+                        <div className="min-w-0 max-w-2xl">
+                            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">
+                                Analytics
+                            </p>
+                            <h2 className="mt-1 text-lg font-bold text-gray-900 2xl:text-xl">
+                                Quer entender melhor o que está por trás das vendas?
+                            </h2>
+                            <p className="mt-1 text-sm leading-6 text-gray-600 2xl:text-base">
+                                Descubra os itens mais pedidos, categorias que mais vendem, combinações de compra e outros indicadores do seu cardápio.
+                            </p>
+                        </div>
+                    </div>
+                    <Link
+                        href="/painel/analytics"
+                        className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-brand px-5 py-3 text-sm font-semibold text-white transition hover:brightness-95"
+                    >
+                        Abrir Analytics
+                        <FontAwesomeIcon icon={faArrowRight} />
+                    </Link>
+                </div>
+            </Card>
 
             <ConfirmModal
                 open={orderToDelete !== null}
