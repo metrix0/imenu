@@ -216,7 +216,7 @@ test("assistant offers targeted reads and a compact field guide", async () => {
 });
 
 test.each([
-  [false, 1],
+  [false, 3],
   [true, LIMITS.imageBatch],
 ])("Plus=%s image proposal tool allows %i images per batch", async (plus, maxJobs) => {
   (aiAccess as jest.Mock).mockResolvedValueOnce({ plus });
@@ -806,7 +806,7 @@ test("free chat turns an internal response limit into a normal assistant reply w
   expect(finished[3]).toBeUndefined();
 });
 
-test("weekly image exhaustion stops only image generation and does not trigger the global Plus limit", async () => {
+test("weekly image exhaustion appears as a saved assistant reply without blocking the chat", async () => {
   (args.send as jest.Mock).mockClear();
   (aiAccess as jest.Mock).mockResolvedValueOnce({ plus: false });
   (query as jest.Mock).mockImplementation(async (sql: string) => ({
@@ -837,13 +837,16 @@ test("weekly image exhaustion stops only image generation and does not trigger t
   await runChat({ ...args, deep: false });
 
   expect(create).toHaveBeenCalledTimes(1);
-  const errorEvent = (args.send as jest.Mock).mock.calls.find(
-    ([event]) => event === "error",
-  )?.[1];
-  expect(errorEvent?.message).toContain(
-    "Seu limite semanal de geração de imagens foi atingido",
+  expect(args.send).not.toHaveBeenCalledWith("error", expect.any(Object));
+  expect(args.send).toHaveBeenCalledWith("done", expect.any(Object));
+  const finished = (finishRun as jest.Mock).mock.calls.at(-1);
+  expect(finished[2].reply).toContain("Seu limite semanal de geração de imagens foi atingido");
+  expect(finished[2].quota_exempt).toBe(true);
+  expect(finished[3]).toBeUndefined();
+  const insertedReply = (withTransaction as jest.Mock).mock.calls.some(
+    ([fn]) => typeof fn === "function",
   );
-  expect(errorEvent?.code).toBeUndefined();
+  expect(insertedReply).toBe(true);
 });
 
 test.each(["Pode aplicar", "Aplicar", "Sim, pode aplicar!", "Pode publicar", "Aplique tudo"])("accepts explicit chat approval: %s", (text) => {

@@ -5,7 +5,7 @@ import { SalesError } from "./types";
 import { LIMITS } from "./config";
 
 export const FREE_AI_TOKENS = 150_000;
-export const FREE_AI_IMAGES = 1;
+export const FREE_AI_IMAGES = 3;
 export const FREE_AI_MESSAGE_TOKENS = 60_000;
 export class IaPlusRequired extends SalesError {
   code = "IA_PLUS_REQUIRED";

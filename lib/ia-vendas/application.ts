@@ -16,7 +16,7 @@ export async function applyProposal(restaurant: string, id: string, conversation
     throw new SalesError(intent === "publish" ? "Aprove a publicação no cartão da prévia escolhida." : "Esta proposta não é de geração de imagens.");
   if (action.status === "applied") return action;
   if ((action.image_jobs?.length || 0) > FREE_AI_IMAGES && !(await aiAccess(restaurant)).plus)
-    throw new SalesError("No acesso gratuito, gere apenas uma imagem por lote.");
+    throw new SalesError(`No acesso gratuito, gere até ${FREE_AI_IMAGES} imagens por lote.`);
   await requireApplicationAccess(restaurant, action.conversation_id);
   if (action.image_jobs) return { ...action, ...await applyImages(restaurant, id, existingRun) };
   if (!["pending", "failed", "applying"].includes(action.status) || action.attempts >= 2)

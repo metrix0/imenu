@@ -82,7 +82,7 @@ export default function IaPlusTermsPage() {
                         <ul className="mt-3 list-disc space-y-2 pl-5">
                             <li>
                                 No acesso gratuito, a capacidade de conversa é
-                                de 150.000 tokens e uma geração de imagem por
+                                de 150.000 tokens e três gerações de imagem por
                                 restaurante nos últimos sete dias. Essa janela é
                                 móvel: o uso deixa de contar quando completa sete
                                 dias, sem um dia único de reinício para todos.

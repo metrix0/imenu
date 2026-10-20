@@ -946,7 +946,8 @@ export async function runChat(args: {
     }
     if (
       (e instanceof IaMessageLimitReached ||
-        e instanceof IaResponseLimitReached) &&
+        e instanceof IaResponseLimitReached ||
+        (e instanceof IaImageLimitReached && !isDeep)) &&
       started &&
       userMessageId
     ) {
