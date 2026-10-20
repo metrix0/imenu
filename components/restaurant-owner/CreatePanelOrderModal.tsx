@@ -90,7 +90,7 @@ export default function CreatePanelOrderModal({
     const [customerPhone, setCustomerPhone] = useState("");
     const [customerAddress, setCustomerAddress] = useState("");
     const [selectedTableId, setSelectedTableId] = useState("");
-    const [paymentMethod, setPaymentMethod] = useState<"" | "dinheiro" | "trazer-maquininha">("");
+    const [paymentMethod, setPaymentMethod] = useState<"dinheiro" | "trazer-maquininha" | "pix-entrega">("dinheiro");
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [deliveryFeeInput, setDeliveryFeeInput] = useState("");
     const [isOrderInfoCollapsed, setIsOrderInfoCollapsed] = useState(false);
@@ -551,7 +551,7 @@ export default function CreatePanelOrderModal({
             setCustomerAddress("");
             setSelectedTableId("");
             setDeliveryFeeInput("");
-            setPaymentMethod("");
+            setPaymentMethod("dinheiro");
             setExpandedItems({});
             setSubcategoriesByItemId({});
             setLoadingSubcategoriesByItemId({});
@@ -854,15 +854,15 @@ export default function CreatePanelOrderModal({
                                                     <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                                                         <div className="relative w-full">
                                                             <Dropdown
-                                                                label="Pagamento (opcional)" value={paymentMethod}
+                                                                label="Tipo de Pagamento" value={paymentMethod}
                                                                 onChange={(e) =>
-                                                                    setPaymentMethod(e.target.value as "" | "dinheiro" | "trazer-maquininha")
+                                                                    setPaymentMethod(e.target.value as "dinheiro" | "trazer-maquininha" | "pix-entrega")
                                                                 }
                                                                 className="w-full appearance-none rounded-xl border border-gray-200 bg-white px-4 py-3 pr-10 text-gray-700 outline-none transition hover:border-gray-300 focus:border-brand focus:ring-2 focus:ring-brand/10"
                                                             >
-                                                                <option value="">Não informado</option>
                                                                 <option value="dinheiro">Dinheiro</option>
-                                                                <option value="trazer-maquininha">Trazer maquininha</option>
+                                                                <option value="trazer-maquininha">Cartão</option>
+                                                                <option value="pix-entrega">Pix</option>
                                                             </Dropdown>
                                                         </div>
 
