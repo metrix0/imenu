@@ -501,8 +501,15 @@ export default function CreatePanelOrderModal({
         setIsSubmitting(true);
 
         try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session?.access_token) {
+                setToast({ message: "Sua sessão expirou. Entre novamente.", type: "error" });
+                return;
+            }
+
             const body = {
                 restaurantId,
+                panel_order: true,
                 expected_promotion: { id: promotionResult?.promotion?.id || null, total_cents: totalCents },
                 customer_name: customerName.trim(),
                 customer_phone: customerPhone?.trim() || null,
@@ -533,7 +540,7 @@ export default function CreatePanelOrderModal({
 
             const res = await fetch("/api/orders", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
                 body: JSON.stringify(body),
             });
 
