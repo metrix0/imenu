@@ -12,6 +12,7 @@ import { PizzaPricingError, pizzaStockItemIds } from "@/lib/pizza/pricing";
 import type { AppliedPromotion } from "@/lib/promotions/automatic";
 import { promotionPrice } from "@/lib/utils/formatPrice";
 import { notifyOrderReady } from "@/lib/push/server";
+import { requireRestaurantOwner, RestaurantOwnerAuthError } from "@/lib/auth/restaurantOwner";
 
 export const dynamic = "force-dynamic";
 
@@ -263,6 +264,7 @@ export async function POST(request: Request) {
             table_token,
             table_id,
             expected_promotion,
+            panel_order,
         } = body;
 
         let items = requestedItems;
@@ -286,6 +288,10 @@ export async function POST(request: Request) {
 
         if (isTableOrder && !String(customer_name || "").trim()) {
             throw new OrderRequestError("Informe seu nome.");
+        }
+
+        if (panel_order === true) {
+            await requireRestaurantOwner(request, restaurantId);
         }
 
         if (stockCheckOnly) {
@@ -400,7 +406,7 @@ export async function POST(request: Request) {
         if (preorderSettings?.delivery_disabled === true && is_delivery !== "retirada" && !isCounterOrder) {
             throw new OrderRequestError("Este restaurante aceita apenas retiradas.");
         }
-        if (preorderSettings?.preorder_only === true && !scheduled_for) {
+        if (preorderSettings?.preorder_only === true && !scheduled_for && panel_order !== true) {
             throw new OrderRequestError("É obrigatório agendar a data e o horário da encomenda.");
         }
 
@@ -1284,6 +1290,9 @@ export async function POST(request: Request) {
         }
         if (error instanceof PromotionPricingError) {
             return NextResponse.json({ error: error.message }, { status: 400 });
+        }
+        if (error instanceof RestaurantOwnerAuthError) {
+            return NextResponse.json({ error: error.message }, { status: error.status });
         }
         if (error instanceof OrderRequestError) {
             return NextResponse.json(

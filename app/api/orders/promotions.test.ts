@@ -5,6 +5,7 @@ jest.mock("@/lib/push/server", () => ({ notifyOrderReady: jest.fn() }));
 import { POST } from "./route";
 import { query, withTransaction } from "@/lib/database/sql";
 import { createMercadoPagoPixCharge } from "@/lib/mercadoPagoPix";
+import { requireRestaurantOwner, RestaurantOwnerAuthError } from "@/lib/auth/restaurantOwner";
 import type { AutomaticPromotion } from "@/lib/promotions/automatic";
 
 jest.mock("@/lib/database/sql", () => ({
@@ -12,6 +13,10 @@ jest.mock("@/lib/database/sql", () => ({
   withTransaction: jest.fn(),
 }));
 jest.mock("@/lib/mercadoPagoPix", () => ({ createMercadoPagoPixCharge: jest.fn() }));
+jest.mock("@/lib/auth/restaurantOwner", () => ({
+  ...jest.requireActual("@/lib/auth/restaurantOwner"),
+  requireRestaurantOwner: jest.fn(),
+}));
 
 const restaurantId = "30000000-0000-4000-8000-000000000001";
 const itemId = "10000000-0000-4000-8000-000000000001";
@@ -56,6 +61,7 @@ let client: { query: jest.Mock };
 beforeEach(() => {
   (after as jest.Mock).mockReset();
   (notifyOrderReady as jest.Mock).mockReset();
+  (requireRestaurantOwner as jest.Mock).mockReset().mockResolvedValue({});
   offers = [offer];
   stock = 10;
   insert = null;
@@ -136,15 +142,60 @@ beforeEach(() => {
 });
 afterEach(() => jest.restoreAllMocks());
 
-const send = (patch: Record<string, any> = {}) =>
+const send = (patch: Record<string, any> = {}, headers: Record<string, string> = {}) =>
   POST(
     new Request("https://preview.imenuapp.com.br/api/orders", {
       method: "POST",
       body: JSON.stringify({ ...body, ...patch }),
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...headers },
     }),
   );
 const saved = () => insert as unknown as any[];
+
+const enablePreorders = () => {
+  (query as jest.Mock).mockImplementation(async (sql: string) =>
+    sql.includes("SELECT preorder_only, preorder_availability_json")
+      ? { rows: [{ preorder_only: true, delivery_disabled: false }] }
+      : { rows: [], rowCount: 1 },
+  );
+};
+
+it("requires a schedule for customer checkout in preorder-only mode", async () => {
+  enablePreorders();
+  const response = await send();
+  expect(response.status).toBe(400);
+  expect((await response.json()).error).toMatch(/agendar/);
+  expect(requireRestaurantOwner).not.toHaveBeenCalled();
+  expect(insert).toBeNull();
+});
+
+it("allows an unscheduled manual order for the authenticated restaurant owner", async () => {
+  enablePreorders();
+  const response = await send({ panel_order: true }, { Authorization: "Bearer owner-token" });
+  expect(response.status).toBe(200);
+  expect(requireRestaurantOwner).toHaveBeenCalledWith(expect.any(Request), restaurantId);
+  expect(insert).not.toBeNull();
+});
+
+it("rejects a manual-order flag without owner authentication", async () => {
+  enablePreorders();
+  (requireRestaurantOwner as jest.Mock).mockRejectedValueOnce(
+    new RestaurantOwnerAuthError("Não autenticado.", 401),
+  );
+  const response = await send({ panel_order: true });
+  expect(response.status).toBe(401);
+  expect(insert).toBeNull();
+});
+
+it("rejects a manual order for another restaurant", async () => {
+  enablePreorders();
+  (requireRestaurantOwner as jest.Mock).mockRejectedValueOnce(
+    new RestaurantOwnerAuthError("Acesso negado.", 403),
+  );
+  const response = await send({ panel_order: true }, { Authorization: "Bearer non-owner-token" });
+  expect(response.status).toBe(403);
+  expect(insert).toBeNull();
+});
 
 it("preserves orders with no automatic promotion", async () => {
   offers = [];
