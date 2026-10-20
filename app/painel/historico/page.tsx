@@ -11,8 +11,7 @@ import OrdersTable, { Order } from "@/components/restaurant-owner/pedidos/Orders
 import OrderDetailsModal from "@/components/restaurant-owner/pedidos/OrderDetailsModal";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import Toast from "@/components/ui/Toast";
-import Card from "@/components/ui/Card";
-import Input from "@/components/ui/Input";
+import Link from "next/link";
 import { formatDate } from "@/lib/utils/dateRange";
 
 
@@ -29,7 +28,7 @@ function DailyCashClosing({ restaurantId, refreshKey }: {
     restaurantId: string | null;
     refreshKey: number;
 }) {
-    const [date, setDate] = useState(() => formatDate(new Date()));
+    const date = formatDate(new Date());
     const [totals, setTotals] = useState<CashTotals>({ pix: 0, card: 0, cash: 0 });
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(false);
@@ -93,17 +92,12 @@ function DailyCashClosing({ restaurantId, refreshKey }: {
     const total = totals.pix + totals.card + totals.cash;
 
     return (
-        <Card>
-            <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
-                <div>
-                    <h2 className="text-lg font-semibold text-gray-900">Fechamento de caixa</h2>
-                    <p className="mt-1 text-sm text-gray-500">
-                        Pedidos concluídos ou pagos no dia, sem cancelados.
-                    </p>
-                </div>
-                <div className="w-full sm:w-48">
-                    <Input label="Data" type="date" value={date} max={formatDate(new Date())} onChange={(event) => { if (event.target.value) setDate(event.target.value); }} />
-                </div>
+        <section>
+            <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
+                <h2 className="text-lg font-semibold text-gray-900">Fechamento de caixa</h2>
+                <p className="text-sm text-gray-500">
+                    Quer saber mais? <Link href="/painel/analytics" className="font-medium text-[#d93d00] hover:underline">Veja na aba Analytics</Link>
+                </p>
             </div>
 
             {error ? (
@@ -124,13 +118,13 @@ function DailyCashClosing({ restaurantId, refreshKey }: {
                             </div>
                         ))}
                     </div>
-                    <div className="mt-4 flex items-center justify-between border-t border-gray-200 pt-4">
+                    <div className="mt-4 flex items-center justify-between">
                         <span className="font-medium text-gray-700">Total do dia</span>
                         <span className="text-xl font-semibold tabular-nums text-gray-900">{formatCashTotal(total)}</span>
                     </div>
                 </>
             )}
-        </Card>
+        </section>
     );
 }
 
