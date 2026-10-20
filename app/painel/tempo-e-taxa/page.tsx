@@ -191,22 +191,24 @@ export default function PainelTempoETaxaPage() {
                 )}
             </section>
 
-            <section className="mx-auto mt-10 max-w-2xl border-t border-gray-200 pt-8 2xl:max-w-3xl">
-                <div className="flex items-center justify-between gap-6">
-                    <div>
-                        <h2 className="text-xl font-semibold text-gray-900">Desativar entregas</h2>
-                        <p className="mt-1 text-sm text-gray-500">
-                            Quando ativado, o cardápio aceita apenas pedidos para retirada no restaurante.
-                        </p>
+            <section className="mx-auto mt-10 max-w-2xl 2xl:max-w-3xl">
+                <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+                    <div className="flex items-center justify-between gap-6">
+                        <div>
+                            <h2 className="text-xl font-semibold text-gray-900">Desativar entregas</h2>
+                            <p className="mt-1 text-sm text-gray-500">
+                                Quando ativado, o cardápio aceita apenas pedidos para retirada no restaurante.
+                            </p>
+                        </div>
+                        <Switch
+                            aria-label="Desativar entregas"
+                            checked={deliveryDisabled}
+                            disabled={savingDeliveryDisabled}
+                            onClick={() => void toggleDeliveryDisabled()}
+                        />
                     </div>
-                    <Switch
-                        aria-label="Desativar entregas"
-                        checked={deliveryDisabled}
-                        disabled={savingDeliveryDisabled}
-                        onClick={() => void toggleDeliveryDisabled()}
-                    />
+                    {deliveryError && <p role="alert" className="mt-3 text-sm text-red-600">{deliveryError}</p>}
                 </div>
-                {deliveryError && <p role="alert" className="mt-3 text-sm text-red-600">{deliveryError}</p>}
             </section>
         </div>
     );
