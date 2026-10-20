@@ -14,16 +14,18 @@ export default function AnalyticsPageContent() {
     const initialRange = getDateRangeForDays(7);
     const [startDate, setStartDate] = useState(initialRange.startDate);
     const [endDate, setEndDate] = useState(initialRange.endDate);
+    const [selectedShortcut, setSelectedShortcut] = useState<"today" | "yesterday" | "month" | null>(null);
 
-    const applyRange = (range: DateRange) => {
+    const applyRange = (range: DateRange, shortcut: "today" | "yesterday" | "month") => {
         setStartDate(range.startDate);
         setEndDate(range.endDate);
+        setSelectedShortcut(shortcut);
     };
     const applyYesterday = () => {
         const yesterday = new Date();
         yesterday.setDate(yesterday.getDate() - 1);
         const date = formatDate(yesterday);
-        applyRange({ startDate: date, endDate: date });
+        applyRange({ startDate: date, endDate: date }, "yesterday");
     };
 
     if (!restaurantId) {
@@ -36,13 +38,15 @@ export default function AnalyticsPageContent() {
                 <h1>Analytics</h1>
                 <p className="mt-1 text-sm text-gray-500">Entenda vendas, pedidos e comportamento dos seus clientes.</p>
             </div>
-            <div className="ml-auto flex max-w-full flex-wrap items-end gap-3">
-                <div className="flex flex-wrap gap-2">
-                    <Button type="button" variant="secondary" className="h-11" onClick={() => applyRange(getDateRangeForDays(1))}>Hoje</Button>
-                    <Button type="button" variant="secondary" className="h-11" onClick={applyYesterday}>Ontem</Button>
-                    <Button type="button" variant="secondary" className="h-11" onClick={() => applyRange(getCurrentMonthRange())}>Mês atual</Button>
+            <div className="flex flex-wrap items-center justify-end gap-3">
+                <div className="flex flex-wrap justify-end gap-2">
+                    <Button type="button" variant={selectedShortcut === "today" ? "primary" : "secondary"} aria-pressed={selectedShortcut === "today"} className="h-11" onClick={() => applyRange(getDateRangeForDays(1), "today")}>Hoje</Button>
+                    <Button type="button" variant={selectedShortcut === "yesterday" ? "primary" : "secondary"} aria-pressed={selectedShortcut === "yesterday"} className="h-11" onClick={applyYesterday}>Ontem</Button>
+                    <Button type="button" variant={selectedShortcut === "month" ? "primary" : "secondary"} aria-pressed={selectedShortcut === "month"} className="h-11" onClick={() => applyRange(getCurrentMonthRange(), "month")}>Mês atual</Button>
                 </div>
-                <DateFilterBar startDate={startDate} endDate={endDate} onStartDateChange={setStartDate} onEndDateChange={setEndDate} showPresets />
+                <div className="w-full sm:w-[320px] [&_[data-ui=field-label]]:sr-only">
+                    <DateFilterBar startDate={startDate} endDate={endDate} onStartDateChange={date => { setStartDate(date); setSelectedShortcut(null); }} onEndDateChange={date => { setEndDate(date); setSelectedShortcut(null); }} showPresets />
+                </div>
             </div>
             <AnalyticsDashboard restaurantId={restaurantId} startDate={startDate} endDate={endDate} />
             <section className="pt-2">
