@@ -59,6 +59,8 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
     const [showRefundConfirmation, setShowRefundConfirmation] = useState(false);
     const isTableOrder = details?.is_delivery === "mesa" || order?.is_delivery === "mesa";
     const isPickup = isTableOrder || details?.is_delivery === "retirada" || order?.is_delivery === "retirada";
+    const isCounterOrder = details?.is_delivery === "balcao" || order?.is_delivery === "balcao";
+    const isReadyOnSite = isPickup || isCounterOrder;
     const isPaidOnlinePix = details?.status === "paid" && details?.payment_method === "pix";
     const isPixRefundExpired =
         isPaidOnlinePix &&
@@ -120,7 +122,7 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
     const scheduledLabel = isScheduled && scheduledDate
         ? `${scheduledDate.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })} (${formatScheduledRelativeTime(scheduledDate)})`
         : null;
-    const etaRange = !isScheduled ? formatEtaRange(details?.delivery_eta) : null;
+    const etaRange = !isScheduled && !isCounterOrder ? formatEtaRange(details?.delivery_eta) : null;
 
     const wasOpenRef = useRef(isOpen);
 
@@ -218,10 +220,10 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
     const renderStatus = (status: string) => {
         const labels: Record<string, string> = {
             pending_online_payment: "À Pagar",
-            pending_physical_payment: isPickup ? "Pendente" : "Pendente (Pgt. Entrega)",
+            pending_physical_payment: isReadyOnSite ? "Pendente" : "Pendente (Pgt. Entrega)",
             paid: "Pendente (Pago)",
             preparing: "Preparando",
-            delivering: isPickup ? "Pronto" : "Em Rota",
+            delivering: isReadyOnSite ? "Pronto" : "Em Rota",
             done: "Concluído",
             canceled: "Cancelado",
             dinheiro: "Dinheiro",
@@ -230,13 +232,14 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
             pix: "Pix (Online)",
             "trazer-maquininha": "Maquininha",
             retirada: "Retirada",
+            balcao: "Balcão",
         };
         const colors: Record<string, string> = {
             pending_online_payment: "bg-yellow-100 text-yellow-800",
             pending_physical_payment: "bg-yellow-100 text-yellow-800",
             paid: "bg-yellow-100 text-yellow-800",
             preparing: "bg-blue-100 text-blue-800 border-blue-200",
-            delivering: isPickup ? "bg-green-100 text-green-800 border-green-200" : "bg-purple-100 text-purple-800",
+            delivering: isReadyOnSite ? "bg-green-100 text-green-800 border-green-200" : "bg-purple-100 text-purple-800",
             done: "bg-green-100 text-green-800 border-green-200",
             canceled: "bg-red-200 text-red-800 border-red-200",
             dinheiro: "bg-gray-200 text-gray-800",
@@ -245,6 +248,7 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
             pix: "bg-gray-200 text-gray-800",
             "trazer-maquininha": "bg-gray-200 text-gray-800",
             retirada: "bg-gray-200 text-gray-800 font-bold",
+            balcao: "bg-gray-200 text-gray-800 font-bold",
         };
         return (
             <span className={`2xl:text-base 2xl:px-3 px-2.5 py-0.5 rounded-full text-xs font-medium ${colors[status] || "bg-gray-100"}`}>
@@ -279,7 +283,7 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
 
         switch (details.status) {
             case "preparing":
-                return isPickup ? (
+                return isReadyOnSite ? (
                     <Button variant="primary" className="bg-green-600 hover:bg-green-700 border-green-600" onClick={() => handleStatusUpdate("delivering")}>
                         <FontAwesomeIcon icon={faCheck} className="mr-2" /> Pronto
                     </Button>
@@ -291,7 +295,7 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
             case "delivering":
                 return (
                     <Button variant="primary" className="bg-green-600 hover:bg-green-700 border-green-600" onClick={() => handleStatusUpdate("done")}>
-                        <FontAwesomeIcon icon={faCheck} className="mr-2" /> {isPickup ? "Entregue" : "Concluir Pedido"}
+                        <FontAwesomeIcon icon={faCheck} className="mr-2" /> {isCounterOrder ? "Concluir Pedido" : isPickup ? "Entregue" : "Concluir Pedido"}
                     </Button>
                 );
             default:
@@ -317,7 +321,7 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
                                         <FontAwesomeIcon icon={faChair} />
                                         {details?.table_name_snapshot || order.table_name_snapshot || "Mesa"}
                                     </span>
-                                ) : renderStatus(isPickup ? "retirada" : order.payment_method))}
+                                ) : renderStatus(isCounterOrder ? "balcao" : isPickup ? "retirada" : order.payment_method))}
                             </div>
                             <p className="text-xs text-gray-500 flex items-center gap-1 2xl:text-base">
                                 <FontAwesomeIcon icon={faClock} /> Realizado em {order && fmtDate(order.created_at)}
@@ -353,13 +357,15 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
                                         </div>
                                     </div>
                                     <div className="space-y-3 2xl:space-y-6">
-                                        <h4 className="text-sm 2xl:text-base font-bold text-gray-900 uppercase tracking-wider border-b border-gray-100 pb-1">{isTableOrder ? "Mesa" : isPickup ? "Retirada" : "Entrega"}</h4>
+                                        <h4 className="text-sm 2xl:text-base font-bold text-gray-900 uppercase tracking-wider border-b border-gray-100 pb-1">{isTableOrder ? "Mesa" : isCounterOrder ? "Balcão" : isPickup ? "Retirada" : "Entrega"}</h4>
                                         <div className="text-sm 2xl:text-[1.1rem]">
                                             {isTableOrder ? (
                                                 <p className="flex items-center gap-2 font-medium text-gray-600">
                                                     <FontAwesomeIcon icon={faChair} className="w-4 text-gray-400" />
                                                     {details.table_name_snapshot || "Mesa"}
                                                 </p>
+                                            ) : isCounterOrder ? (
+                                                <p className="text-gray-600 font-medium">Venda no balcão</p>
                                             ) : isPickup ? (
                                                 <p className="text-gray-600 font-medium">Retirada no balcão</p>
                                             ) : details.customer_address ? (
@@ -430,7 +436,7 @@ export default function OrderDetailsModal({ isOpen, onClose, order, onOrderUpdat
                                             <span>Subtotal</span>
                                             <span>{fmtMoney(details.subtotal_cents || 0)}</span>
                                         </div>
-                                        {!isTableOrder && (
+                                        {!isTableOrder && !isCounterOrder && (
                                             <div className="flex justify-between text-sm 2xl:text-base text-gray-500">
                                                 <span>{isPickup ? "Retirada" : "Taxa de Entrega"}</span>
                                                 <span>{fmtMoney(details.delivery_cents || 0)}</span>

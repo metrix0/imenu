@@ -1,5 +1,6 @@
 import {
   aiAccess,
+  FREE_AI_IMAGES,
   FREE_AI_MESSAGE_TOKENS,
   FREE_AI_TOKENS,
   IaImageLimitReached,
@@ -47,19 +48,22 @@ test("the first free application does not unlock Vendas IA", async () => {
   kind = "analysis";
   await expect(requireApplicationAccess("restaurant", "analysis")).rejects.toBeInstanceOf(IaPlusRequired);
 });
-test("a restaurant without Plus starts with 150,000 weekly tokens and one weekly image", async () => {
+test("a restaurant without Plus starts with 150,000 weekly tokens and three weekly images", async () => {
   expect(FREE_AI_TOKENS).toBe(150_000);
+  expect(FREE_AI_IMAGES).toBe(3);
   expect(FREE_AI_MESSAGE_TOKENS).toBe(60_000);
   expect(await aiAccess("restaurant")).toMatchObject({
     plus: false,
     tokens_remaining: 150_000,
-    images_remaining: 1,
+    images_remaining: 3,
   });
-  usage = { tokens: 149_500, images: 1, reserved: 0 };
+  usage = { tokens: 149_500, images: 2, reserved: 0 };
   expect(await aiAccess("restaurant")).toMatchObject({
     tokens_remaining: 500,
-    images_remaining: 0,
+    images_remaining: 1,
   });
+  usage.images = 3;
+  expect((await aiAccess("restaurant")).images_remaining).toBe(0);
   await expect(requireIaPlus("restaurant")).rejects.toBeInstanceOf(IaPlusRequired);
 });
 test("free tokens and images use the rolling seven-day window", async () => {
@@ -107,9 +111,12 @@ test("weekly token cap blocks new chat and image runs only after it is exhausted
     beginRun("restaurant", "conversation", "image-run", "image"),
   ).rejects.toBeInstanceOf(IaPlusRequired);
 });
-test("free image quota blocks the second generation; Plus keeps the existing capacity", async () => {
-  await expect(reserveImage("restaurant", "run")).resolves.toBeUndefined();
-  usage.images = 1;
+test("free image quota blocks the fourth generation; Plus keeps the existing capacity", async () => {
+  for (const usedImages of [0, 1, 2]) {
+    usage.images = usedImages;
+    await expect(reserveImage("restaurant", "run")).resolves.toBeUndefined();
+  }
+  usage.images = 3;
   const blocked = reserveImage("restaurant", "run");
   await expect(blocked).rejects.toBeInstanceOf(IaImageLimitReached);
   await expect(blocked).rejects.not.toBeInstanceOf(IaPlusRequired);

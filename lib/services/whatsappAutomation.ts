@@ -639,12 +639,13 @@ function isPickup(value: unknown): boolean {
 
 function getOrderStatusLabel(order: OrderStatusRow): string {
     const pickup = isPickup(order.is_delivery);
+    const counterSale = normalize(order.is_delivery) === "balcao";
     const labels: Record<string, string> = {
         pending_online_payment: "aguardando a confirmação do pagamento online",
         pending_physical_payment: "recebido e aguardando o preparo",
         preparing: "em preparo 👨‍🍳",
-        delivering: pickup ? "pronto para retirada ✅" : "a caminho da entrega 🛵",
-        done: pickup ? "retirado ✅" : "entregue ✅",
+        delivering: counterSale ? "pronto no balcão ✅" : pickup ? "pronto para retirada ✅" : "a caminho da entrega 🛵",
+        done: counterSale ? "concluído ✅" : pickup ? "retirado ✅" : "entregue ✅",
         canceled: "cancelado ❌",
     };
     return labels[order.status] || order.status;

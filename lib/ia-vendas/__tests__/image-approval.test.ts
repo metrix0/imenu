@@ -106,24 +106,24 @@ test("an unrelated run cannot be reused for image approval", async () => {
   expect(generate).not.toHaveBeenCalled();
 });
 
-test("free users cannot start an existing multi-image batch", async () => {
+test("free users cannot start an existing batch exceeding three images", async () => {
   const action = actions.get(proposal);
-  action.image_jobs.push({ ...action.image_jobs[0] });
+  action.image_jobs.push(...Array.from({ length: 3 }, () => ({ ...action.image_jobs[0] })));
   await expect(applyProposal(restaurant, proposal, conversation, "generate", run))
-    .rejects.toThrow("apenas uma imagem por lote");
+    .rejects.toThrow("até 3 imagens por lote");
   expect(action.status).toBe("pending");
   expect(action.generated_actions).toHaveLength(0);
   expect(generate).not.toHaveBeenCalled();
   expect(imageCount).toBe(0);
 });
 
-test("free proposals accept one image but reject two before saving a batch", async () => {
+test("free proposals accept three images but reject four before saving a batch", async () => {
   const job = { target: "item", item_id: item.id, prompt: "Foto aprovada" };
-  await expect(proposeImages(restaurant, conversation, run, { jobs: [job, job] }))
-    .rejects.toThrow("até 1 imagem por lote");
+  await expect(proposeImages(restaurant, conversation, run, { jobs: [job, job, job, job] }))
+    .rejects.toThrow("até 3 imagens por lote");
   expect(statements.some((sql) => sql.startsWith("INSERT INTO public.ia_vendas_actions"))).toBe(false);
-  const proposed = await proposeImages(restaurant, conversation, run, { jobs: [job] });
-  expect(proposed.image_jobs).toHaveLength(1);
+  const proposed = await proposeImages(restaurant, conversation, run, { jobs: [job, job, job] });
+  expect(proposed.image_jobs).toHaveLength(3);
 });
 
 test("IA Plus can still propose eight images per batch, but not nine", async () => {

@@ -271,6 +271,7 @@ export async function POST(request: Request) {
 
         const isTableOrder =
             String(is_delivery || "").toLowerCase() === "mesa";
+        const isCounterOrder = is_delivery === "balcao";
 
         if (
             !Array.isArray(items) ||
@@ -396,7 +397,7 @@ export async function POST(request: Request) {
                 [restaurantId]
             )).rows[0]
             : null;
-        if (preorderSettings?.delivery_disabled === true && is_delivery !== "retirada") {
+        if (preorderSettings?.delivery_disabled === true && is_delivery !== "retirada" && !isCounterOrder) {
             throw new OrderRequestError("Este restaurante aceita apenas retiradas.");
         }
         if (preorderSettings?.preorder_only === true && !scheduled_for) {
@@ -464,7 +465,7 @@ export async function POST(request: Request) {
 
         const isPickup =
             isTableOrder || is_delivery === "retirada";
-        const safeDeliveryFeeCents = isPickup
+        const safeDeliveryFeeCents = isPickup || isCounterOrder
             ? 0
             : Math.max(
                   Number(delivery_fee_cents) || 0,
@@ -642,7 +643,7 @@ export async function POST(request: Request) {
             );
         }
 
-        const deliveryTime = isTableOrder
+        const deliveryTime = isTableOrder || isCounterOrder
             ? 0
             : Math.max(Number(delivery_time_minutes) || 40, 0);
         const eta = scheduledFor ?? new Date(
@@ -725,7 +726,7 @@ export async function POST(request: Request) {
                         items: items.map((item: any) => item === rewardItem ? Object.assign(item, { is_reward: true }) : item),
                         subtotal_cents: subtotal, delivery_cents: safeDeliveryFeeCents,
                         coupon_discount_cents: safeCouponDiscount, coupon_type,
-                        channel: isTableOrder ? "mesa" : "delivery", pickup: isPickup,
+                        channel: isTableOrder || isCounterOrder ? "mesa" : "delivery", pickup: isPickup,
                         at: scheduledFor ?? new Date(),
                     });
                     if (expected_promotion && (pricing.result.promotion || expected_promotion.id) && (
@@ -983,7 +984,7 @@ export async function POST(request: Request) {
                                 total,
                                 String(customer_name || "").trim() || null,
                                 isTableOrder ? null : customer_phone ?? null,
-                                isPickup
+                                isPickup || isCounterOrder
                                     ? null
                                     : customer_address ??
                                       null,
@@ -992,6 +993,8 @@ export async function POST(request: Request) {
                                 isTableOrder ? null : paymentMethod,
                                 isTableOrder
                                     ? "mesa"
+                                    : isCounterOrder
+                                      ? "balcao"
                                     : isPickup
                                       ? "retirada"
                                     : is_delivery ??

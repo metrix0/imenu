@@ -435,11 +435,12 @@ export async function PATCH(
             return {
                 isTableOrder:
                     String(order.is_delivery || "").toLowerCase() === "mesa",
+                isCounterOrder: order.is_delivery === "balcao",
                 statusChanged: order.status !== status,
             };
         });
 
-        if (!updateResult.isTableOrder && updateResult.statusChanged) {
+        if (!updateResult.isTableOrder && !updateResult.isCounterOrder && updateResult.statusChanged) {
             void notifyOrderStatusUpdate(id, status).catch((error) => {
                 console.error(
                     "[ORDERS] Falha ao enviar atualização de status:",
