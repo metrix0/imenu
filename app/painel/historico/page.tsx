@@ -166,8 +166,8 @@ function DailyCashClosing({ restaurantId, refreshKey }: {
                 <p className="py-4 text-sm text-gray-500" role="status">Calculando fechamento de caixa...</p>
             ) : (
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                    <Card className="min-w-0 border-brand/20 bg-brand/5">
-                        <p className="text-sm font-medium text-gray-600">Total de vendas</p>
+                    <Card className="min-w-0">
+                        <p className="text-sm font-medium text-gray-500">Total de vendas</p>
                         <p className="mt-3 break-words text-2xl font-semibold tracking-tight tabular-nums text-gray-900 2xl:text-3xl">
                             {formatCashTotal(report.total)}
                         </p>
