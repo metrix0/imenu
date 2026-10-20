@@ -956,7 +956,7 @@ export default function MenuClientPage({
             </div>
             )}
 
-            {!readOnly && availabilityChecked && (!isRestaurantOpen || closedForToday) &&
+            {!readOnly && restaurant.preorder_only !== true && availabilityChecked && (!isRestaurantOpen || closedForToday) &&
                 (closedForToday || openingHoursSlots.length > 0 ||
                     (warningOpening !== null && warningOpening.getTime() > Date.now())) && (
                 <WarningBox icon={icons.faTriangleExclamation} className="mt-10 mx-5 md:mx-48 2xl:mx-80">
