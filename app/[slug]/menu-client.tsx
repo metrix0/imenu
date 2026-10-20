@@ -159,6 +159,10 @@ export default function MenuClientPage({
     const [couponUsed, setCouponUsed] = useState("");
     const isItemModalOpen = Boolean(openedItem);
     const isTableOrder = Boolean(tableOrder);
+    useEffect(() => {
+        if (isTableOrder || restaurant.delivery_disabled !== true) return;
+        useCheckoutStore.setState({ is_pickup: true, delivery_fee_cents: "0", delivery_time_minutes: null } as any);
+    }, [isTableOrder, restaurant.delivery_disabled]);
     const [selectedTableId, setSelectedTableId] = useState(
         tableOrder?.tableId || ""
     );
@@ -597,6 +601,8 @@ export default function MenuClientPage({
     })
 
 
+    const pickupStreet = [restaurant.address?.street, restaurant.address?.number].filter(Boolean).join(", ");
+
     const checkRestaurantAvailability = () => {
         setIsRestaurantOpen(false);
 
@@ -905,6 +911,16 @@ export default function MenuClientPage({
                                 <FontAwesomeIcon icon={faChair} />
                                 <span>Pedido direto da mesa</span>
                             </div>
+                        ) : restaurant.delivery_disabled === true ? (
+                            <div className="flex items-center gap-2 text-xs 2xl:text-[1rem] font-bold">
+                                <span>{`Retirada${pickupStreet ? ` ${pickupStreet}` : ""}`}</span>
+                                {deliveryText() && (
+                                    <>
+                                        <span>•</span>
+                                        <span>{deliveryText()}</span>
+                                    </>
+                                )}
+                            </div>
                         ) : (deliveryText() || taxText()) ? (
                             <div className="flex items-center gap-2 text-xs 2xl:text-[1rem] font-bold">
                                 <span>Entrega</span>
@@ -940,7 +956,7 @@ export default function MenuClientPage({
             </div>
             )}
 
-            {!readOnly && availabilityChecked && (!isRestaurantOpen || closedForToday) &&
+            {!readOnly && restaurant.preorder_only !== true && availabilityChecked && (!isRestaurantOpen || closedForToday) &&
                 (closedForToday || openingHoursSlots.length > 0 ||
                     (warningOpening !== null && warningOpening.getTime() > Date.now())) && (
                 <WarningBox icon={icons.faTriangleExclamation} className="mt-10 mx-5 md:mx-48 2xl:mx-80">
@@ -1377,7 +1393,7 @@ export default function MenuClientPage({
                                     key={method}
                                     className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm text-gray-700 2xl:text-base"
                                 >
-                                    {PAYMENT_METHOD_LABELS[method] || method}
+                                    {restaurant.delivery_disabled === true && method === "pix-entrega" ? "Pix (Na retirada)" : PAYMENT_METHOD_LABELS[method] || method}
                                 </span>
                             ))}
                         </div>

@@ -35,6 +35,8 @@ export type Restaurant = {
     store_whatsapp?: string | null;
     allowed_payment_methods?: string[] | null;
     pickup_enabled?: boolean;
+    delivery_disabled?: boolean;
+    address?: Partial<AddressData> | null;
     allow_future_order_scheduling?: boolean;
     preorder_only?: boolean;
     preorder_availability_json?: any;
