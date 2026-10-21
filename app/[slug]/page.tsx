@@ -466,14 +466,17 @@ export default async function Page({
           <a
             href="/"
             aria-label="Conhecer o iMenu"
-            className="mt-8 inline-flex items-center gap-2 text-xs text-gray-400 transition hover:opacity-70"
+            className="mt-8 inline-flex flex-col items-center gap-1 text-xs text-gray-400 transition hover:opacity-70"
           >
-            <span>Criado com</span>
-            <img
-              src="/logos/CombinationMarkLogo_Black.png"
-              alt="iMenu"
-              className="h-5 w-auto opacity-35"
-            />
+            <span className="inline-flex items-center gap-2">
+              <span>Criado com</span>
+              <img
+                src="/logos/CombinationMarkLogo_Black.png"
+                alt="iMenu"
+                className="h-5 w-auto opacity-35"
+              />
+            </span>
+            <span>Crie o seu gratuitamente</span>
           </a>
         </div>
       </footer>
