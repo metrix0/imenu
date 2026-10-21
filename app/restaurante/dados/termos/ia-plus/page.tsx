@@ -102,7 +102,7 @@ export default function IaPlusTermsPage() {
                             </li>
                             <li>
                                 No IA Plus, o Assistente está sujeito a tetos
-                                mensais de 1.500.000 tokens de entrada e 120.000
+                                mensais de 2.000.000 tokens de entrada e 120.000
                                 tokens de saída e à capacidade de até 50 gerações
                                 de imagem por restaurante no mês calendário.
                                 A contagem mensal usa o horário de referência do
