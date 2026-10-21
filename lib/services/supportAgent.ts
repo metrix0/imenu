@@ -45,6 +45,7 @@ const SUPPORT_INSTRUCTIONS = [
     "- Responda exclusivamente em português, a menos que o cliente solicite explicitamente outro idioma.",
     "- Use português brasileiro simples, natural e conversacional, como uma pessoa prestativa falando no WhatsApp. Prefira frases curtas e palavras comuns.",
     "- Em respostas no WhatsApp, nunca use links Markdown como [Cardápio](https://imenuapp.com.br/painel/cardapio). Escreva o nome da página normalmente e a URL completa em texto puro para que o link seja clicável.",
+    "- Não repita a mesma URL em respostas consecutivas. Depois de enviar um link, na próxima vez que indicar aquela página, mencione só o nome dela (ex.: na aba Cardápio), sem URL. Após uma resposta sua que mencione a página sem link, poderá enviar a URL novamente se for útil.",
     "- Evite ponto e vírgula, pontuação excessivamente formal e jargão desnecessário. Quando possível, responda em 1 ou 2 frases curtas.",
     "- Se a pessoa for cliente final de um restaurante e quiser fazer um pedido ou pedir informações ou alterações sobre um pedido existente, como status, entrega, cancelamento ou item faltando, não tente atender o pedido pelo suporte do iMenu. Se o restaurante não estiver identificado, pergunte apenas qual é o restaurante.",
     "- Quando o restaurante estiver identificado nesse caso, use find_restaurant_public_contact e envie o WhatsApp público da loja (store_whatsapp). Nunca use telefone do proprietário, telefone da conta ou outro número. Explique brevemente que o iMenu fornece a plataforma e o atendimento do pedido é feito pelo restaurante. Se não houver store_whatsapp, diga apenas que não encontrou um WhatsApp público da loja. Não use list_my_restaurants para esse fluxo de cliente final.",
@@ -61,7 +62,7 @@ const SUPPORT_INSTRUCTIONS = [
     "- Antes de responder, considere o histórico recente e o que já foi explicado pelo suporte. Evite repetir a mesma informação ou explicação, mesmo com outras palavras, quando o cliente apenas acrescentar contexto ou mudar de assunto; responda ao ponto novo e avance a conversa. Só repita se o cliente pedir novamente, demonstrar dúvida sobre o ponto anterior ou se a repetição for indispensável à resposta. Se você já disse que não conseguiu confirmar algo e a dúvida persiste, não repita essa resposta: ofereça atendimento humano.",
     "- Se aparecer exceed_cached_egress_quota, exceed capped egress quota ou descrição equivalente de cota de egress/cache em uma tela do iMenu, trate como indisponibilidade da infraestrutura do iMenu. Não oriente troca de senha, outro navegador, recuperação de acesso ou novas tentativas de login para resolver esse erro.",
     "- Tente entender o problema com uma pergunta objetiva somente quando ainda faltar informação realmente necessária para avançar.",
-    "- Ao explicar como uma funcionalidade funciona, responda somente ao funcionamento e termine com um próximo passo útil. Não mencione revisar, conferir ou validar o resultado depois, nem instruções adicionais de segurança/checagem, salvo se o cliente pedir isso ou se forem indispensáveis para concluir a ação. Se existir uma página ou link direto útil, envie o link na mesma resposta. Nunca pergunte se o cliente quer que você envie o link e nunca prometa enviar algo numa mensagem futura.",
+    "- Ao explicar como uma funcionalidade funciona, responda somente ao funcionamento e termine com um próximo passo útil. Não mencione revisar, conferir ou validar o resultado depois, nem instruções adicionais de segurança/checagem, salvo se o cliente pedir isso ou se forem indispensáveis para concluir a ação. Se existir uma página ou link direto útil que ainda não foi enviado, envie o link na mesma resposta. Nunca pergunte se o cliente quer que você envie o link e nunca prometa enviar algo numa mensagem futura.",
     "- Pergunte se a entrega é por Bairro ou KM somente quando a resposta depender da configuração de taxa, área de atendimento, endereço/CEP ou regras de entrega. Não faça essa pergunta para dúvidas sobre outros recursos apenas porque a mensagem menciona entrega.",
     "- Nunca atribua restrições aos recursos gratuitos do iMenu. Apenas quando a dúvida atual for especificamente sobre Assistente IA, Vendas IA (Análise de vendas), iMenu IA Plus, Modo Vitrine ou um limite desses recursos, explique os limites e diferenças confirmados na base de conhecimento. Não generalize essas condições para o iMenu inteiro nem sugira IA Plus em dúvidas sobre outros recursos.",
     "- Se a pergunta for genérica sobre preço, plano, mensalidade, custo, taxa, se é grátis ou gratuito, responda apenas: \"O cardápio digital do iMenu é totalmente gratuito, sem mensalidade, sem taxas por pedido e sem limite de pedidos.\" Nunca mencione Pix Online, QR Code Mesa, taxas de recursos opcionais, adicionais ou qualquer recurso pago sem o cliente perguntar especificamente por esse recurso.",
@@ -164,6 +165,71 @@ function limitSupportReply(value: string): string {
 
     // A very long single sentence is safer left intact than cut mid-sentence.
     return compact;
+}
+
+
+const SUPPORT_LINK_PATTERN = /https?:\/\/[^\s<>"']+/gi;
+
+function supportLinkKey(value: string): string | null {
+    try {
+        const url = new URL(value.replace(/[.,!?;:)\]]+$/, ""));
+        return url.hostname.toLowerCase().replace(/^www\./, "") +
+            (url.pathname.replace(/\/+$/, "").toLowerCase() || "/");
+    } catch {
+        return null;
+    }
+}
+
+function supportLinkReference(value: string): { text: string; label: string } {
+    try {
+        const url = new URL(value);
+        if (["imenuapp.com.br", "www.imenuapp.com.br"].includes(url.hostname.toLowerCase())) {
+            const parts = decodeURIComponent(url.pathname).split("/").filter(Boolean);
+            if (parts[0] === "painel") {
+                const slug = parts.at(-1) === "painel" ? "pedidos" : parts.at(-1) || "painel";
+                const names: Record<string, string> = {
+                    cardapio: "Cardápio",
+                    configuracoes: "Configurações",
+                    promocoes: "Promoções",
+                    historico: "Histórico",
+                    pedidos: "Pedidos",
+                    disponibilidade: "Horários",
+                };
+                const label = names[slug] || slug.replace(/-/g, " ").replace(/^./, (c) => c.toUpperCase());
+                return { text: "a aba " + label, label };
+            }
+        }
+    } catch {
+        // Keep an intelligible reference if a URL cannot be parsed.
+    }
+    return { text: "o link enviado anteriormente", label: "link enviado anteriormente" };
+}
+
+function avoidRepeatedSupportLinks(reply: string, history: SupportMessage[]): string {
+    return reply.replace(SUPPORT_LINK_PATTERN, (rawUrl) => {
+        const url = rawUrl.replace(/[.,!?;:)\]]+$/, "");
+        const suffix = rawUrl.slice(url.length);
+        const key = supportLinkKey(url);
+        if (!key) return rawUrl;
+
+        const lastSentIndex = history.findLastIndex(
+            (message) => message.direction === "outbound" &&
+                (message.body.match(SUPPORT_LINK_PATTERN) || [])
+                    .some((previous) => supportLinkKey(previous) === key)
+        );
+        if (lastSentIndex < 0) return rawUrl;
+
+        const reference = supportLinkReference(url);
+        const alreadyMentioned = history.slice(lastSentIndex + 1).some(
+            (message) => message.direction === "outbound" &&
+                normalizeUiGuidanceText(message.body).includes(
+                    normalizeUiGuidanceText(reference.label)
+                )
+        );
+        return (alreadyMentioned ? url : reference.text) + suffix;
+    })
+    .replace(/\b(?:em|na|no)\s+a aba /gi, "na aba ")
+    .replace(/\b(?:em|na|no)\s+a página /gi, "na página ");
 }
 
 function hasClearRecentSupportQuestion(history: SupportMessage[]): boolean {
@@ -612,9 +678,12 @@ export async function generateSupportReply(
                 : HANDOFF_QUESTION_MESSAGE
             : handoffState === "prompted"
               ? FIRST_HUMAN_REQUEST_MESSAGE
-              : limitSupportReply(shouldOfferHumanSupport
-                    ? rawText + " " + HUMAN_SUPPORT_OFFER
-                    : rawText);
+              : avoidRepeatedSupportLinks(
+                    limitSupportReply(shouldOfferHumanSupport
+                        ? rawText + " " + HUMAN_SUPPORT_OFFER
+                        : rawText),
+                    history.rows
+                );
 
     return {
         text,
