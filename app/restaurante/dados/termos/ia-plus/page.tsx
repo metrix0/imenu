@@ -21,7 +21,7 @@ export default function IaPlusTermsPage() {
                     Termos do iMenu IA Plus
                 </h1>
                 <p className="mt-3 text-sm text-gray-500">
-                    Última atualização: 4 de outubro de 2026
+                    Última atualização: 21 de outubro de 2026
                 </p>
 
                 <div className="mt-8 space-y-8 text-sm leading-7 text-gray-700 sm:text-base">
@@ -103,7 +103,7 @@ export default function IaPlusTermsPage() {
                             <li>
                                 No IA Plus, o Assistente está sujeito a tetos
                                 mensais de 1.500.000 tokens de entrada e 120.000
-                                tokens de saída e à capacidade de até 30 gerações
+                                tokens de saída e à capacidade de até 50 gerações
                                 de imagem por restaurante no mês calendário.
                                 A contagem mensal usa o horário de referência do
                                 servidor (UTC). Cada pedido de conversa aceita
