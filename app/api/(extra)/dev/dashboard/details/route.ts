@@ -588,7 +588,7 @@ export async function GET(request: Request) {
         const endAt = toTimestamp(bounds.end_at);
         const inactivityStart = endAt - 7 * DAY_MS;
         const historyStart = inactivityStart - 30 * DAY_MS;
-        const didNotActivateStart = endAt - 30 * DAY_MS;
+        const didNotActivateStart = endAt - 14 * DAY_MS;
 
         const [
             historyResult,

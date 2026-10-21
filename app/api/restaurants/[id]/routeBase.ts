@@ -219,6 +219,13 @@ export async function PATCH(
             );
         }
 
+        // Store the first successful completion of step 4 (not later profile edits).
+        if (body.creation_step === 4 && body.first_time === false) {
+            fieldsToUpdate.push(
+                "onboarding_completed_at = CASE WHEN first_time IS DISTINCT FROM FALSE THEN NOW() ELSE onboarding_completed_at END"
+            );
+        }
+
         const { rows } = await query(
             `
             UPDATE public.restaurants

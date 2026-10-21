@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 
-import { ABANDONED_BLAST_MESSAGE } from "@/lib/dev/abandonedBlast";
+import { ABANDONED_BLAST_MESSAGE, SINGLE_ORDER_DAY_RECOVERY_MESSAGE, NO_FIRST_ORDER_RECOVERY_MESSAGE } from "@/lib/dev/abandonedBlast";
 import { query } from "@/lib/database/sql";
 import { createSupportBlast, normalizeBlastPhone } from "@/lib/services/supportBlast";
 
@@ -28,8 +28,10 @@ function brazilClock(date: Date): { day: string; hour: number } {
     return { day: [part("year"), part("month"), part("day")].join("-"), hour: Number(part("hour")) };
 }
 
-function dailyCampaignId(day: string): string {
-    const hash = createHash("sha256").update("imenu:abandoned-blast:" + day).digest("hex");
+function dailyCampaignId(day: string, kind: "abandoned" | "single_day" | "no_first_order" = "abandoned"): string {
+    const key = kind === "abandoned" ? "imenu:abandoned-blast:" + day
+        : "imenu:abandoned-blast:" + kind + ":" + day;
+    const hash = createHash("sha256").update(key).digest("hex");
     return [hash.slice(0, 8), hash.slice(8, 12), "4" + hash.slice(13, 16), "8" + hash.slice(17, 20), hash.slice(20, 32)].join("-");
 }
 
@@ -39,7 +41,7 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
     }
 
-    // No backfill: only newly abandoned restaurants at the 20:00 São Paulo snapshot.
+    // Daily 20:00 São Paulo snapshot. No backfill for step-4 completion.
     const { day, hour } = brazilClock(new Date());
     if (hour !== 20) {
         return NextResponse.json({ skipped: "outside_sending_hour", day });
@@ -93,23 +95,82 @@ export async function GET(request: Request) {
             ORDER BY q.account_id, a.last_restaurant_order DESC, r.created_at DESC`
         );
 
+        const [singleDayCandidates, noOrderCandidates] = await Promise.all([
+            query<NewlyAbandoned>(`WITH clock AS (
+    SELECT (date_trunc('day', NOW() AT TIME ZONE 'America/Sao_Paulo')
+        + INTERVAL '20 hours') AT TIME ZONE 'America/Sao_Paulo' AS as_of
+), per_restaurant AS (
+    SELECT
+        COALESCE(r.user_id::text, r.id::text) AS account_id,
+        COALESCE(NULLIF(BTRIM(r.name), ''), 'Restaurante') AS restaurant_name,
+        COALESCE(
+            NULLIF(regexp_replace(COALESCE(r.phone, ''), '[^0-9]', '', 'g'), ''),
+            NULLIF(regexp_replace(COALESCE(u.raw_user_meta_data->>'phone', ''), '[^0-9]', '', 'g'), '')
+        ) AS owner_phone,
+        MAX(o.created_at) AS last_order_at
+    FROM restaurants r
+    JOIN orders o ON o.restaurant_id = r.id
+    CROSS JOIN clock
+    LEFT JOIN auth.users u ON u.id = r.user_id
+    WHERE r.creation_step = 4 AND r.first_time = false
+      AND o.table_id IS NULL
+      AND o.created_at >= clock.as_of - INTERVAL '14 days'
+      AND o.created_at < clock.as_of
+    GROUP BY r.id, r.user_id, r.name, r.phone, u.raw_user_meta_data
+    HAVING COUNT(DISTINCT (o.created_at AT TIME ZONE 'America/Sao_Paulo')::date) = 1
+)
+SELECT DISTINCT ON (account_id) account_id, restaurant_name, owner_phone
+FROM per_restaurant
+ORDER BY account_id, last_order_at DESC`),
+            query<NewlyAbandoned>(`WITH clock AS (
+    SELECT (date_trunc('day', NOW() AT TIME ZONE 'America/Sao_Paulo')
+        + INTERVAL '20 hours') AT TIME ZONE 'America/Sao_Paulo' AS as_of
+)
+SELECT DISTINCT ON (COALESCE(r.user_id, r.id))
+    COALESCE(r.user_id::text, r.id::text) AS account_id,
+    COALESCE(NULLIF(BTRIM(r.name), ''), 'Restaurante') AS restaurant_name,
+    COALESCE(
+        NULLIF(regexp_replace(COALESCE(r.phone, ''), '[^0-9]', '', 'g'), ''),
+        NULLIF(regexp_replace(COALESCE(u.raw_user_meta_data->>'phone', ''), '[^0-9]', '', 'g'), '')
+    ) AS owner_phone
+FROM restaurants r
+CROSS JOIN clock
+LEFT JOIN auth.users u ON u.id = r.user_id
+WHERE r.creation_step = 4 AND r.first_time = false
+  AND r.onboarding_completed_at >= clock.as_of - INTERVAL '48 hours'
+  AND r.onboarding_completed_at < clock.as_of - INTERVAL '24 hours'
+  AND NOT EXISTS (
+      SELECT 1 FROM orders o
+      JOIN restaurants other ON other.id = o.restaurant_id
+      WHERE COALESCE(other.user_id, other.id) = COALESCE(r.user_id, r.id)
+  )
+ORDER BY COALESCE(r.user_id, r.id), r.onboarding_completed_at DESC`),
+        ]);
+
+        const plans = [
+            { kind: "abandoned" as const, rows: candidates.rows, message: ABANDONED_BLAST_MESSAGE },
+            { kind: "single_day" as const, rows: singleDayCandidates.rows, message: SINGLE_ORDER_DAY_RECOVERY_MESSAGE },
+            { kind: "no_first_order" as const, rows: noOrderCandidates.rows, message: NO_FIRST_ORDER_RECOVERY_MESSAGE },
+        ];
+        const seenAccounts = new Set<string>();
         const uniquePhones = new Set<string>();
-        const recipients = candidates.rows.flatMap((row) => {
+        const recipients = plans.flatMap((plan) => plan.rows.flatMap((row) => {
             const phone = normalizeBlastPhone(row.owner_phone || "");
-            if (!phone || uniquePhones.has(phone)) return [];
+            if (!phone || seenAccounts.has(row.account_id) || uniquePhones.has(phone)) return [];
+            seenAccounts.add(row.account_id);
             uniquePhones.add(phone);
             return [{
+                kind: plan.kind,
                 phone,
-                message: ABANDONED_BLAST_MESSAGE.replaceAll("{{Nome Restaurante}}", row.restaurant_name),
+                message: plan.message.replaceAll("{{Nome Restaurante}}", row.restaurant_name),
             }];
-        });
-
+        }));
+        const eligible = plans.reduce((total, plan) => total + plan.rows.length, 0);
         if (!recipients.length) {
-            return NextResponse.json({ day, eligible: candidates.rows.length, queued: 0 });
+            return NextResponse.json({ day, eligible, queued: 0 });
         }
 
-        // Exclude contacts blasted in the last 30 days and those already queued
-        // (including manual and cadenced campaigns).
+        // Preserve the existing rolling 30-day safeguard across every campaign.
         const existing = await query<{ phone: string }>(
             `SELECT DISTINCT phone FROM support_blast_recipients
              WHERE phone = ANY($1::text[])
@@ -129,26 +190,26 @@ export async function GET(request: Request) {
         const blocked = new Set(existing.rows.map((row) => row.phone));
         const sendable = recipients.filter((recipient) => !blocked.has(recipient.phone));
 
-        if (!sendable.length) {
-            return NextResponse.json({
-                day, eligible: candidates.rows.length, queued: 0, skipped: recipients.length,
+        const campaigns: Array<{ kind: string; id: string }> = [];
+        for (const plan of plans) {
+            const selected = sendable.filter((recipient) => recipient.kind === plan.kind);
+            if (!selected.length) continue;
+            const id = await createSupportBlast({
+                campaignId: dailyCampaignId(day, plan.kind),
+                sender: "blast",
+                message: plan.message,
+                dailyLimit: null,
+                skipRecent: true,
+                recipients: selected.map(({ phone, message }) => ({ phone, message })),
             });
+            campaigns.push({ kind: plan.kind, id });
         }
-
-        // Daily stable campaign ID ensures retries cannot duplicate an existing campaign.
-        const campaignId = await createSupportBlast({
-            campaignId: dailyCampaignId(day),
-            sender: "blast",
-            message: ABANDONED_BLAST_MESSAGE,
-            dailyLimit: null,
-            skipRecent: true,
-            recipients: sendable,
-        });
 
         return NextResponse.json({
             day,
-            campaignId,
-            eligible: candidates.rows.length,
+            campaignId: campaigns.find((campaign) => campaign.kind === "abandoned")?.id || campaigns[0]?.id,
+            campaignIds: campaigns.map((campaign) => campaign.id),
+            eligible,
             queued: sendable.length,
             skipped: recipients.length - sendable.length,
         }, { headers: { "Cache-Control": "no-store" } });
