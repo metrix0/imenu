@@ -60,7 +60,7 @@ export async function beginRun(
     if (
       kind !== "analysis" &&
       (usage.recent >= 5 ||
-        usage.input + (kind === "image" ? 0 : LIMITS.runInput) > 1500000 ||
+        usage.input + (kind === "image" ? 0 : LIMITS.runInput) > 2_000_000 ||
         usage.output + (kind === "image" ? 0 : output) > 120000)
     )
       throw new SalesError(

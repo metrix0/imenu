@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { ABANDONED_BLAST_MESSAGE } from "@/lib/dev/abandonedBlast";
+import { ABANDONED_BLAST_MESSAGE, SINGLE_ORDER_DAY_RECOVERY_MESSAGE, NO_FIRST_ORDER_RECOVERY_MESSAGE } from "@/lib/dev/abandonedBlast";
 import { query, withTransaction } from "@/lib/database/sql";
 import {
     checkWahaPhoneExists,
@@ -305,7 +305,38 @@ async function sendRecipient(item: ClaimedRecipient): Promise<"sent" | "skipped"
         }
     }
 
-    const isAbandonedBlast = item.campaign_message === ABANDONED_BLAST_MESSAGE;
+    if (item.campaign_message === SINGLE_ORDER_DAY_RECOVERY_MESSAGE ||
+        item.campaign_message === NO_FIRST_ORDER_RECOVERY_MESSAGE) {
+        const accountIds = [...new Set(matched.rows.map((row) => row.account_id))];
+        if (!accountIds.length) {
+            await finishRecipient(item.id, "skipped_reactivated");
+            return "skipped";
+        }
+        const stillEligible = item.campaign_message === SINGLE_ORDER_DAY_RECOVERY_MESSAGE
+            ? await query(`SELECT 1 FROM orders o
+JOIN restaurants r ON r.id = o.restaurant_id
+WHERE COALESCE(r.user_id::text, r.id::text) = ANY($1::text[])
+  AND o.table_id IS NULL
+  AND o.created_at >= NOW() - INTERVAL '14 days'
+GROUP BY o.restaurant_id
+HAVING COUNT(DISTINCT (o.created_at AT TIME ZONE 'America/Sao_Paulo')::date) = 1
+LIMIT 1`, [accountIds])
+            : await query(`SELECT 1 FROM orders o
+JOIN restaurants r ON r.id = o.restaurant_id
+WHERE COALESCE(r.user_id::text, r.id::text) = ANY($1::text[])
+LIMIT 1`, [accountIds]);
+        const shouldSkip = item.campaign_message === SINGLE_ORDER_DAY_RECOVERY_MESSAGE
+            ? !stillEligible.rowCount : Boolean(stillEligible.rowCount);
+        if (shouldSkip) {
+            await finishRecipient(item.id, "skipped_reactivated");
+            return "skipped";
+        }
+    }
+
+    const isAbandonedBlast =
+        item.campaign_message === ABANDONED_BLAST_MESSAGE ||
+        item.campaign_message === SINGLE_ORDER_DAY_RECOVERY_MESSAGE ||
+        item.campaign_message === NO_FIRST_ORDER_RECOVERY_MESSAGE;
     if (item.skip_recent || isAbandonedBlast) {
         const recent = await query(
             `

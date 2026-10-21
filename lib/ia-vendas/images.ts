@@ -192,7 +192,7 @@ export async function previewImage(
       model: MODELS.image,
       prompt,
       n: 1,
-      quality: "medium" as const,
+      quality: "low" as const,
       // gpt-image-2 accepts custom dimensions; 816px is the smallest valid
       // square that still exceeds the final 500/640px product/logo sizes.
       size: generationSize as never,

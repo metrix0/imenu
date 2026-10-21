@@ -1466,7 +1466,7 @@ export default function DevDashboardPage() {
                                         Não ativaram
                                     </h2>
                                     <p className="mt-1 text-sm text-gray-500">
-                                        Tiveram pedidos ou tentativas em apenas 1 dia diferente nos últimos 30 dias, independentemente do status.
+                                        Tiveram pedidos ou tentativas em apenas 1 dia diferente nos últimos 14 dias, independentemente do status.
                                     </p>
                                 </div>
                                 <Button
