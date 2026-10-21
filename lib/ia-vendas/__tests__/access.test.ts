@@ -123,16 +123,16 @@ test("free image quota blocks the fourth generation; Plus keeps the existing cap
   addon = { status: "active" };
   await expect(reserveImage("restaurant", "run")).resolves.toBeUndefined();
 });
-test("IA Plus allows 30 images per calendar month and blocks the 31st", async () => {
+test("IA Plus allows 50 images per calendar month and blocks the 51st", async () => {
   addon = { status: "active" };
-  usage.monthly_images = 29;
+  usage.monthly_images = 49;
   expect((await aiAccess("restaurant")).images_remaining).toBe(1);
   await expect(reserveImage("restaurant", "run")).resolves.toBeUndefined();
-  usage.monthly_images = 30;
+  usage.monthly_images = 50;
   expect((await aiAccess("restaurant")).images_remaining).toBe(0);
-  await expect(reserveImage("restaurant", "run")).rejects.toThrow("30 imagens");
+  await expect(reserveImage("restaurant", "run")).rejects.toThrow("50 imagens");
   usage.monthly_images = 0;
-  expect((await aiAccess("restaurant")).images_remaining).toBe(30);
+  expect((await aiAccess("restaurant")).images_remaining).toBe(50);
 });
 test("manual analysis remains available even after all free allowances are exhausted", async () => {
   usage = { tokens: 150_000, reserved: 0, images: 1 };
