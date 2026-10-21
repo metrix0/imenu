@@ -3,6 +3,8 @@ import {
   ensureSalesAnalysisBridge,
   runChat,
   chatApproval,
+  compactAssistantContext,
+  focusedImageRequest,
 } from "../chat";
 import {
   aiAccess,
@@ -215,6 +217,36 @@ test("assistant offers targeted reads and a compact field guide", async () => {
   expect(request.input[0].content).not.toContain('"nullable":false');
 });
 
+test("assistant snapshot keeps useful data but omits heavy fields", () => {
+  const compact = compactAssistantContext({
+    items: { rows: Array.from({ length: 25 }, (_, i) => ({
+      id: `item-${i}`, name: `Item ${i}`, price_cents: 2500,
+      description: "Descrição integral", image_url: "long-image-url", unrelated_json: { deep: true },
+    })), has_more: false },
+    categories: { rows: [{ id: "cat", name: "Hambúrgueres", position: 1, unrelated_json: { deep: true } }] },
+    sales: { orders: 2, products: Array.from({ length: 30 }, (_, i) => ({ item_id: `item-${i}`, units: 2 })) },
+    actions: [], last_analysis: null,
+  });
+  expect(compact.items.rows).toHaveLength(15);
+  expect(compact.items.has_more).toBe(true);
+  expect(compact.items.rows[0]).toEqual({
+    id: "item-0", name: "Item 0", price_cents: 2500, description: "Descrição integral",
+  });
+  expect(compact.categories.rows).toEqual([{ id: "cat", name: "Hambúrgueres", position: 1 }]);
+  expect(compact.sales.orders).toBe(2);
+  expect(compact.sales.products).toHaveLength(20);
+  expect(compact.sales.products_truncated).toBe(true);
+});
+
+test.each([
+  ["Gere fotos para os meus produtos", true],
+  ["Gere fotos e altere o preço", false],
+  ["Como melhorar minhas vendas?", false],
+  ["Generate product images", true],
+])("image-only routing: %s", (message, expected) => {
+  expect(focusedImageRequest(message)).toBe(expected);
+});
+
 test.each([
   [false, 3],
   [true, LIMITS.imageBatch],
@@ -233,6 +265,7 @@ test.each([
   await runChat({ ...args, deep: false, text: "Gere fotos" });
   const proposalTool = create.mock.calls[0][0].tools.find((item: any) => item.name === "propose_images");
   expect(proposalTool.parameters.properties.jobs.maxItems).toBe(maxJobs);
+  expect(create.mock.calls[0][0].tools.some((tool: any) => tool.name === "propose_action")).toBe(false);
 });
 
 test("deep analysis retains the original full-field 50-row read_data tool", async () => {
