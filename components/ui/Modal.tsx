@@ -146,14 +146,15 @@ export default function Modal({
 
     return createPortal(
         <div className={`${panel ? "panel-essencial panel-modal" : ""} fixed inset-0 z-50 isolate flex min-h-[100dvh] w-screen items-center justify-center overflow-y-auto p-3 sm:p-6 ${panel ? "" : "2xl:p-8"}`}>
+            {/* Backdrop blur disabled: causes major scroll FPS drops in Chrome without GPU acceleration. */}
             <button
                 type="button"
                 aria-label="Fechar modal pelo fundo"
                 onClick={onClose}
                 className={`fixed inset-0 min-h-[100dvh] w-screen ${
                     panel
-                        ? "bg-[#1d1d1d]/40 backdrop-blur-[3px]"
-                        : "bg-black/40 backdrop-blur-sm"
+                        ? "bg-[#1d1d1d]/40"
+                        : "bg-black/40"
                 } transition-opacity duration-200 ${
                     active ? "opacity-100" : "opacity-0"
                 }`}
