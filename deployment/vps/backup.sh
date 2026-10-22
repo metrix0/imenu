@@ -27,38 +27,31 @@ if [[ -d "$root/waha" ]]; then
   python3 "$root/ops/snapshot-waha.py" "$root/waha" "$work/waha"
   extras+=(-C "$work" waha)
 fi
-printf '{"created_at":"%s","kind":"%s","database":"postgres","consistency":"database snapshot; online WAHA SQLite snapshots; storage copied during archive"}\n' "$stamp" "$kind" > "$work/metadata.json"
+printf '{"created_at":"%s","kind":"%s","database":"postgres","consistency":"database snapshot; online WAHA SQLite snapshots; Storage staged before archive"}\n' "$stamp" "$kind" > "$work/metadata.json"
+# Stage mutable Storage separately so tar never archives files while they are changing.
+storage="$root/supabase/docker/volumes/storage"
+storage_snapshot="$work/supabase/docker/volumes/storage"
+mkdir -p "$storage_snapshot"
+for attempt in 1 2 3; do
+  if rsync -aX --delete -- "$storage/" "$storage_snapshot/"; then
+    break
+  fi
+  if (( attempt == 3 )); then echo STORAGE_SNAPSHOT_FAILED >&2; exit 1; fi
+  sleep 2
+done
 out="$root/backups/imenu-$stamp.enc"
 set +e
-LC_ALL=C tar --xattrs --xattrs-include='user.*' --exclude='ops/temp-*' --exclude='ops/preview-checkout' --exclude='ops/production-source' --exclude='ops/production-checkout' --exclude='ops/preview-deploy-state/build.log' --exclude='ops/build.log' --exclude='ops/health.json' --exclude='ops/*.lock' --exclude='ops/__pycache__' -czf - -C "$work" database.dump globals.sql metadata.json systemd \
+LC_ALL=C tar --xattrs --xattrs-include='user.*' --exclude='ops/temp-*' --exclude='ops/preview-checkout' --exclude='ops/production-source' --exclude='ops/production-checkout' --exclude='ops/preview-deploy-state' --exclude='ops/production-deploy-state' --exclude='ops/preview-next-cache' --exclude='ops/production-next-cache' --exclude='ops/preview-releases' --exclude='ops/production-releases' --exclude='ops/deploy-upgrade-backup' --exclude='ops/release-assets' --exclude='ops/maintenance-before-*' --exclude='ops/*.log' --exclude='ops/health.json' --exclude='ops/operational-alert-state.json' --exclude='ops/*.lock' --exclude='ops/__pycache__' -czf - -C "$work" database.dump globals.sql metadata.json systemd \
  -C "$root" secrets supabase/docker/.env supabase/docker/docker-compose.imenu-stage.yml \
- supabase/docker/docker-compose.imenu-auth.json supabase/docker/docker-compose.imenu-ops.json supabase/docker/docker-compose.imenu-production.json supabase/docker/volumes/storage \
- supabase/docker/volumes/functions ops "${extras[@]}" 2>"$work/tar-warnings.log" \
+ supabase/docker/docker-compose.imenu-auth.json supabase/docker/docker-compose.imenu-ops.json supabase/docker/docker-compose.imenu-production.json \
+ supabase/docker/volumes/functions ops "${extras[@]}" -C "$work" supabase/docker/volumes/storage 2>"$work/tar-warnings.log" \
  | python3 "$root/ops/encrypt_backup.py" "$root/secrets/backup-recipient.pub.pem" > "$out.part"
 statuses=("${PIPESTATUS[@]}")
 set -e
 if [[ "${statuses[1]}" -ne 0 ]]; then echo BACKUP_ENCRYPTION_FAILED >&2; exit 1; fi
-if [[ "${statuses[0]}" -eq 1 ]]; then
-python3 - "$root" "$work/tar-warnings.log" <<'TAR_CHECK'
-import pathlib,sys
-root=pathlib.Path(sys.argv[1]).resolve()
-storage=(root/"supabase/docker/volumes/storage").resolve()
-messages=pathlib.Path(sys.argv[2]).read_text().splitlines()
-if not messages:
-    raise SystemExit("Tar reported a changed source without diagnostic details")
-prefix="tar: "
-suffix=": file changed as we read it"
-for message in messages:
-    if not message.startswith(prefix) or not message.endswith(suffix):
-        raise SystemExit("Backup rejected an unexpected tar warning")
-    name=message[len(prefix):-len(suffix)]
-    path=(root/name).resolve()
-    if not path.is_relative_to(storage) or not path.is_dir():
-        raise SystemExit("Backup rejected a changed file or non-Storage source")
-print("STORAGE_DIRECTORY_CHANGES_ACCEPTED count="+str(len(messages)))
-TAR_CHECK
-elif [[ "${statuses[0]}" -ne 0 ]]; then
+if [[ "${statuses[0]}" -ne 0 ]]; then
   cat "$work/tar-warnings.log" >&2
+  echo BACKUP_ARCHIVE_FAILED >&2
   exit 1
 fi
 mv "$out.part" "$out"

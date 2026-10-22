@@ -1,0 +1,8 @@
+[Unit]
+Description=iMenu daily encrypted backup
+[Timer]
+OnCalendar=*-*-* 03:00:00 America/Sao_Paulo
+Persistent=true
+RandomizedDelaySec=0
+[Install]
+WantedBy=timers.target
