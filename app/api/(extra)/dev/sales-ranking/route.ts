@@ -1,3 +1,4 @@
+import { parseRange, type RangeKey } from "@/lib/dev/dashboardMetrics";
 import { NextResponse } from "next/server";
 import { authorize } from "@/lib/dev/authorize";
 
@@ -7,8 +8,6 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const TIME_ZONE = "America/Sao_Paulo";
-const RANGE_KEYS = ["7d", "this_week", "last_week", "30d", "90d"] as const;
-type RangeKey = (typeof RANGE_KEYS)[number];
 
 type BoundsRow = {
     start_at: string | Date;
@@ -33,11 +32,6 @@ type GrowthMetricsRow = {
     activated_users_10_in_14d_30d: number | string;
 };
 
-function parseRange(value: string | null): RangeKey {
-    return RANGE_KEYS.includes(value as RangeKey)
-        ? (value as RangeKey)
-        : "7d";
-}
 
 function toIso(value: string | Date): string {
     return value instanceof Date ? value.toISOString() : new Date(value).toISOString();

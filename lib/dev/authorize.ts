@@ -24,7 +24,10 @@ function getSupabasePublicConfig(): { url: string; anonKey: string } {
     return { url, anonKey };
 }
 
-export async function authorize(request: Request): Promise<NextResponse | null> {
+export async function authorize(
+    request: Request,
+    onDenied?: (user: { id: string; email?: string | null }) => void
+): Promise<NextResponse | null> {
     const accessToken = getBearerToken(request);
 
     if (!accessToken) {
@@ -53,6 +56,7 @@ export async function authorize(request: Request): Promise<NextResponse | null> 
     }
 
     if (user.email?.trim().toLowerCase() !== ALLOWED_DEV_EMAIL) {
+        onDenied?.({ id: user.id, email: user.email });
         return NextResponse.json({ error: "Acesso negado." }, { status: 403 });
     }
 

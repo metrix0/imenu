@@ -1,3 +1,4 @@
+import { getPostHogConfig, postHogApiHost } from "@/lib/analytics/posthogQuery";
 import { CONSUMER_EVENTS } from "@/lib/analytics/consumerEvents";
 import { SEO_TRAFFIC_EVENTS } from "@/lib/analytics/seoTraffic";
 import { PUBLIC_CONTENT_PAGES } from "@/lib/seo/publicContent";
@@ -58,23 +59,14 @@ type PageViewTimeline = {
     publicContentPageViews: SeriesPoint[];
 };
 
-function postHogApiHost(value: string): string {
-    return value
-        .trim()
-        .replace(/\/+$/, "")
-        .replace("://us.i.posthog.com", "://us.posthog.com")
-        .replace("://eu.i.posthog.com", "://eu.posthog.com");
-}
-
 export async function loadPostHogMetrics(
     startAt: number,
     endAt: number
 ): Promise<PostHogMetrics> {
-    const personalApiKey = process.env.POSTHOG_PERSONAL_API_KEY?.trim();
-    const projectId = process.env.POSTHOG_PROJECT_ID?.trim();
-    const rawHost =
-        process.env.POSTHOG_API_HOST?.trim() ||
-        process.env.NEXT_PUBLIC_POSTHOG_HOST?.trim();
+    const config = getPostHogConfig();
+    const personalApiKey = config?.personalApiKey;
+    const projectId = config?.projectId;
+    const rawHost = config?.rawHost;
 
     if (!personalApiKey || !projectId || !rawHost) {
         return {
@@ -213,11 +205,10 @@ export async function loadPostHogPanelTabUsage(
     startAt: number,
     endAt: number
 ): Promise<PanelTabUsage> {
-    const personalApiKey = process.env.POSTHOG_PERSONAL_API_KEY?.trim();
-    const projectId = process.env.POSTHOG_PROJECT_ID?.trim();
-    const rawHost =
-        process.env.POSTHOG_API_HOST?.trim() ||
-        process.env.NEXT_PUBLIC_POSTHOG_HOST?.trim();
+    const config = getPostHogConfig();
+    const personalApiKey = config?.personalApiKey;
+    const projectId = config?.projectId;
+    const rawHost = config?.rawHost;
 
     if (!personalApiKey || !projectId || !rawHost) {
         return { available: false, totalOpens: 0, tabs: [] };
@@ -296,11 +287,10 @@ export async function loadPostHogSeoTraffic(
     startAt: number,
     endAt: number
 ): Promise<SeoTrafficMetrics> {
-    const personalApiKey = process.env.POSTHOG_PERSONAL_API_KEY?.trim();
-    const projectId = process.env.POSTHOG_PROJECT_ID?.trim();
-    const rawHost =
-        process.env.POSTHOG_API_HOST?.trim() ||
-        process.env.NEXT_PUBLIC_POSTHOG_HOST?.trim();
+    const config = getPostHogConfig();
+    const personalApiKey = config?.personalApiKey;
+    const projectId = config?.projectId;
+    const rawHost = config?.rawHost;
     const emptyPages = PUBLIC_CONTENT_PAGES.map((page) => ({
         ...page,
         visitors: 0,
@@ -402,11 +392,10 @@ export async function loadPostHogSeoTraffic(
 export async function loadPostHogPageViewTimeline(
     buckets: Bucket[]
 ): Promise<PageViewTimeline> {
-    const personalApiKey = process.env.POSTHOG_PERSONAL_API_KEY?.trim();
-    const projectId = process.env.POSTHOG_PROJECT_ID?.trim();
-    const rawHost =
-        process.env.POSTHOG_API_HOST?.trim() ||
-        process.env.NEXT_PUBLIC_POSTHOG_HOST?.trim();
+    const config = getPostHogConfig();
+    const personalApiKey = config?.personalApiKey;
+    const projectId = config?.projectId;
+    const rawHost = config?.rawHost;
 
     if (!personalApiKey || !projectId || !rawHost || !buckets.length) {
         return {
@@ -515,11 +504,10 @@ export async function loadPostHogPageViewTimeline(
 export async function loadPostHogConsumerTimeline(
     buckets: Bucket[]
 ): Promise<ConsumerTimeline> {
-    const personalApiKey = process.env.POSTHOG_PERSONAL_API_KEY?.trim();
-    const projectId = process.env.POSTHOG_PROJECT_ID?.trim();
-    const rawHost =
-        process.env.POSTHOG_API_HOST?.trim() ||
-        process.env.NEXT_PUBLIC_POSTHOG_HOST?.trim();
+    const config = getPostHogConfig();
+    const personalApiKey = config?.personalApiKey;
+    const projectId = config?.projectId;
+    const rawHost = config?.rawHost;
 
     if (!personalApiKey || !projectId || !rawHost || !buckets.length) {
         return {

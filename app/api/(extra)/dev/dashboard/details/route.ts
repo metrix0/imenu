@@ -1,3 +1,4 @@
+import { parseRange, toTimestamp, normalizePhone, ordersInside, distinctAccountSet, accountsWithMinPurchaseDays, isHandledOrder, customerQualifiedAccounts, type RangeKey } from "@/lib/dev/dashboardMetrics";
 import { NextResponse } from "next/server";
 import { authorize } from "@/lib/dev/authorize";
 
@@ -11,9 +12,6 @@ export const maxDuration = 60;
 
 const TIME_ZONE = "America/Sao_Paulo";
 const DAY_MS = 24 * 60 * 60 * 1000;
-const RANGE_KEYS = ["7d", "this_week", "last_week", "30d", "90d"] as const;
-
-type RangeKey = (typeof RANGE_KEYS)[number];
 
 type BoundsRow = {
     start_at: string | Date;
@@ -101,25 +99,8 @@ type PixPayerRow = {
     active: boolean;
 };
 
-function parseRange(value: string | null): RangeKey {
-    return RANGE_KEYS.includes(value as RangeKey)
-        ? (value as RangeKey)
-        : "7d";
-}
 
-function toTimestamp(value: string | Date): number {
-    return value instanceof Date ? value.getTime() : new Date(value).getTime();
-}
 
-function normalizePhone(value: string | null): string | null {
-    let digits = String(value || "").replace(/\D/g, "");
-
-    if (digits.startsWith("55") && (digits.length === 12 || digits.length === 13)) {
-        digits = digits.slice(2);
-    }
-
-    return digits.length >= 10 ? digits : null;
-}
 
 function normalizeOrder(row: OrderRow): NormalizedOrder {
     return {
@@ -131,73 +112,12 @@ function normalizeOrder(row: OrderRow): NormalizedOrder {
     };
 }
 
-function ordersInside(
-    orders: NormalizedOrder[],
-    start: number,
-    end: number
-): NormalizedOrder[] {
-    return orders.filter((order) => order.createdAt >= start && order.createdAt < end);
-}
 
-function distinctAccountSet(orders: NormalizedOrder[]): Set<string> {
-    return new Set(orders.map((order) => order.accountId));
-}
 
-const PURCHASE_DAY_FORMATTER = new Intl.DateTimeFormat("en-CA", {
-    timeZone: TIME_ZONE,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-});
 
-function purchaseDayKey(timestamp: number): string {
-    return PURCHASE_DAY_FORMATTER.format(new Date(timestamp));
-}
 
-function accountsWithMinPurchaseDays(
-    orders: NormalizedOrder[],
-    minimumDays: number
-): Set<string> {
-    const daysByAccount = new Map<string, Set<string>>();
 
-    for (const order of orders) {
-        if (order.status !== "done") continue;
-        const days = daysByAccount.get(order.accountId) || new Set<string>();
-        days.add(purchaseDayKey(order.createdAt));
-        daysByAccount.set(order.accountId, days);
-    }
 
-    return new Set(
-        [...daysByAccount.entries()]
-            .filter(([, days]) => days.size >= minimumDays)
-            .map(([accountId]) => accountId)
-    );
-}
-
-function isHandledOrder(order: NormalizedOrder): boolean {
-    return order.status !== "canceled" && order.status !== "pending_online_payment";
-}
-
-function customerQualifiedAccounts(orders: NormalizedOrder[]): Set<string> {
-    const groups = new Map<string, { count: number; clients: Set<string> }>();
-
-    for (const order of orders) {
-        if (!isHandledOrder(order) || !order.customerKey) continue;
-        const group = groups.get(order.accountId) || {
-            count: 0,
-            clients: new Set<string>(),
-        };
-        group.count += 1;
-        group.clients.add(order.customerKey);
-        groups.set(order.accountId, group);
-    }
-
-    return new Set(
-        [...groups.entries()]
-            .filter(([, group]) => group.count >= 4 && group.clients.size >= 4)
-            .map(([accountId]) => accountId)
-    );
-}
 
 export async function GET(request: Request) {
     try {

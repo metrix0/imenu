@@ -16,7 +16,7 @@ const request = (authorization?: string) => new Request("https://example.com/api
     headers: authorization ? { authorization } : {},
 });
 
-function mockUser(user: { email?: string } | null, error: Error | null = null) {
+function mockUser(user: { email?: string; id?: string } | null, error: Error | null = null) {
     mockCreateClient.mockReturnValue({
         auth: {
             getUser: jest.fn(async () => ({ data: { user }, error })),
@@ -75,4 +75,19 @@ it("keeps existing missing-Supabase-config behavior", async () => {
     await expect(authorize(request("Bearer token"))).rejects.toThrow(
         "Supabase public environment variables are missing."
     );
+});
+
+it("preserves denied developer access logging when a route requests it", async () => {
+    const logDenied = jest.fn();
+    mockUser({ id: "other-user", email: "external@example.com" });
+    const response = await authorize(request("Bearer token"), logDenied);
+    expect(response?.status).toBe(403);
+    expect(logDenied).toHaveBeenCalledWith({
+        id: "other-user",
+        email: "external@example.com",
+    });
+    logDenied.mockClear();
+    mockUser({ id: "authorized", email: "joaovralmeida@hotmail.com" });
+    expect(await authorize(request("Bearer token"), logDenied)).toBeNull();
+    expect(logDenied).not.toHaveBeenCalled();
 });

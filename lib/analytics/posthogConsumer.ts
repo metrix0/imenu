@@ -1,3 +1,4 @@
+import { getPostHogConfig, runPostHogQuery } from "@/lib/analytics/posthogQuery";
 import { CONSUMER_EVENTS } from "@/lib/analytics/consumerEvents";
 import type { ConsumerTrackingMetrics } from "@/lib/analytics/consumerPipeline";
 
@@ -27,14 +28,6 @@ type ConsumerPostHogMetrics = ConsumerTrackingMetrics & {
     sources: ConsumerTrafficSource[];
 };
 
-function apiHost(value: string): string {
-    return value
-        .trim()
-        .replace(/\/+$/, "")
-        .replace("://us.i.posthog.com", "://us.posthog.com")
-        .replace("://eu.i.posthog.com", "://eu.posthog.com");
-}
-
 function hogqlString(value: string): string {
     return `'${value.replace(/\\/g, "\\\\").replace(/'/g, "\\'")}'`;
 }
@@ -59,46 +52,10 @@ async function runHogQL(
     personalApiKey: string,
     hogql: string
 ): Promise<unknown[][]> {
-    const response = await fetch(
-        `${apiHost(host)}/api/projects/${encodeURIComponent(projectId)}/query/`,
-        {
-            method: "POST",
-            headers: {
-                Authorization: `Bearer ${personalApiKey}`,
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                query: {
-                    kind: "HogQLQuery",
-                    query: hogql,
-                },
-            }),
-            signal: AbortSignal.timeout(15_000),
-            cache: "no-store",
-        }
-    );
-
-    if (!response.ok) {
-        const errorBody = (await response.text()).trim();
-        const details = errorBody ? `: ${errorBody.slice(0, 800)}` : "";
-        throw new Error(
-            `PostHog query failed with ${response.status}${details}`
-        );
-    }
-
-    const payload = (await response.json()) as { results?: unknown[][] };
-    return payload.results || [];
-}
-
-function getPostHogConfig() {
-    const personalApiKey = process.env.POSTHOG_PERSONAL_API_KEY?.trim();
-    const projectId = process.env.POSTHOG_PROJECT_ID?.trim();
-    const rawHost =
-        process.env.POSTHOG_API_HOST?.trim() ||
-        process.env.NEXT_PUBLIC_POSTHOG_HOST?.trim();
-
-    if (!personalApiKey || !projectId || !rawHost) return null;
-    return { personalApiKey, projectId, rawHost };
+    return runPostHogQuery(hogql, {
+        config: { rawHost: host, projectId, personalApiKey },
+        detailedErrors: true,
+    });
 }
 
 function restaurantEventFilter(filter?: ConsumerPostHogFilter): string {
