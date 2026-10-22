@@ -18,9 +18,9 @@ jobs:
       CI: "true"
       NEXT_TELEMETRY_DISABLED: "1"
       DATABASE_URL: "postgresql://ci:ci@127.0.0.1:5432/ci"
-      NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co"
+      NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:39201"
       NEXT_PUBLIC_SUPABASE_ANON_KEY: "ci-placeholder"
-      SUPABASE_URL: "https://example.supabase.co"
+      SUPABASE_URL: "http://127.0.0.1:39201"
       SUPABASE_ANON_KEY: "ci-placeholder"
       SUPABASE_SERVICE_ROLE_KEY: "ci-placeholder"
       OPENAI_API_KEY: "ci-placeholder"
@@ -47,3 +47,10 @@ jobs:
 
       - name: Build
         run: npx next build
+
+      - name: Browser E2E — signup, menu, pickup checkout, payment selection
+        run: |
+          if command -v google-chrome >/dev/null; then
+            export PUPPETEER_EXECUTABLE_PATH="$(command -v google-chrome)"
+          fi
+          node e2e/checkout.cjs
