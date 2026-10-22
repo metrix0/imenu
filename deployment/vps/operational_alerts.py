@@ -25,6 +25,39 @@ METRICS = {
     "billing_webhooks_stuck": (1, "unprocessed billing webhooks"),
     "payout_failed_today": (1, "failed payout automation runs"),
 }
+# Escalate customer-impacting failures; resource pressure and maintenance
+# warnings keep the normal notification title.
+CRITICAL_OPERATIONS = {
+    "orders_unnotified",
+    "printer_queue_delayed",
+    "printer_recent_failures",
+    "wa_webhooks_stuck",
+    "wa_webhooks_failed",
+    "wa_outbound_failed",
+    "billing_webhooks_stuck",
+    "payout_failed_today",
+}
+CRITICAL_CONTAINERS = {
+    "imenu-production-app",
+    "supabase-db",
+    "supabase-auth",
+    "supabase-envoy",
+    "supabase-rest",
+    "supabase-storage",
+    "imenu-kinghost-waha",
+}
+
+
+def is_critical(key):
+    if key == "host:application-health" or key == "host:memory-over-90-percent":
+        return True
+    if key.startswith("host:container:"):
+        return key.removeprefix("host:container:") in CRITICAL_CONTAINERS
+    if key.startswith("operation:"):
+        return key.removeprefix("operation:") in CRITICAL_OPERATIONS
+    return key in {"cron_failed:daily-payout", "cron_failed:reconcile-payouts"}
+
+
 TIMERS = (
     "addon-expiry-whatsapp", "daily-payout", "ia-vendas-analysis",
     "reconcile-payouts", "storage-cleanup",
@@ -160,16 +193,20 @@ def inspect(root, host_alerts, dry_run=False):
                  if value["streak"] == 0 and value["notified"]]
     notification_error = None
     if not dry_run:
-        for title, items, acknowledged in [
-            ("iMenu: operational alert", new_alarms, True),
-            ("iMenu: recovered", recovered, False),
+        critical_alarms = [key for key in new_alarms if is_critical(key)]
+        normal_alarms = [key for key in new_alarms if not is_critical(key)]
+        for title, items, acknowledged, critical in [
+            ("TRIGGER ALARM · iMenu: critical alert", critical_alarms, True, True),
+            ("iMenu: operational alert", normal_alarms, True, False),
+            ("iMenu: recovered", recovered, False, False),
         ]:
             if not items:
                 continue
             lines = [key + ((" (" + str(entries[key]["value"]) + ")") if acknowledged else "")
                      for key in sorted(items)]
+            message = "\n".join((["TRIGGER ALARM"] if critical else []) + lines)
             try:
-                notify(root, title, "\n".join(lines))
+                notify(root, title, message)
                 for key in items:
                     entries[key]["notified"] = acknowledged
             except (OSError, RuntimeError) as error:
