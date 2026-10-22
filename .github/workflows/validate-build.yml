@@ -46,6 +46,9 @@ jobs:
       - name: IA Vendas regression tests
         run: npx jest lib/ia-vendas/__tests__ --runInBand
 
+      - name: Printer download regression tests
+        run: npx jest lib/printer/__tests__/download-redirect.test.ts --runInBand
+
       - name: Typecheck
         run: npx tsc --noEmit
 

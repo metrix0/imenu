@@ -19,3 +19,6 @@ out
 .env.sentry-build-plugin
 .vercel
 .env*.local
+
+# Printer installers are served from GitHub Releases via stable iMenu redirects.
+/public/downloads/*.exe

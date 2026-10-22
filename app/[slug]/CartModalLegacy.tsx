@@ -24,6 +24,7 @@ import {formatPriceNoRS, formatPrice, promotionPrice} from "@/lib/utils/formatPr
 import { supabase } from "@/lib/database/supabaseClient";
 import { MenuItemType } from "@/components/restaurant-owner/cardapio/MenuItemRow";
 import { Item } from "@/lib/types/types";
+import { StartingPriceLabel } from "./StartingPriceLabels";
 import type { QrTableMenuContext } from "@/lib/qr-table/types";
 import {
     findSimilarNeighborhoodDeliveryRule,
@@ -1069,7 +1070,7 @@ export default function CartModal({
                                         </div>
                                     </div>
                                     <p className="text-sm font-semibold mt-2 ">
-                                        {formatPrice(item.price_cents)}
+                                        <StartingPriceLabel itemId={item.id} />{formatPrice(item.price_cents)}
                                     </p>
                                     <p className="text-sm mt-1 leading-tight line-clamp-2">
                                         {item.name}

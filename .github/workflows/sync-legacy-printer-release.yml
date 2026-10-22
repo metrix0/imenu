@@ -45,7 +45,7 @@ jobs:
           echo "updated_at=$UPDATED_AT" >> "$GITHUB_OUTPUT"
           echo "release_url=$RELEASE_URL" >> "$GITHUB_OUTPUT"
 
-      - name: Download legacy installer and update metadata
+      - name: Verify GitHub legacy installer and update metadata
         id: download
         shell: bash
         env:
@@ -55,31 +55,20 @@ jobs:
         run: |
           set -euo pipefail
 
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || exit 1
           FILE_NAME="iMenu Impressora Legacy Setup ${VERSION}.exe"
           export FILE_NAME
           mkdir -p public/downloads
 
-          curl --fail --location --retry 5 --retry-delay 3 "$RELEASE_URL" -o "public/downloads/$FILE_NAME"
-
-          find public/downloads -maxdepth 1 -type f \
-            -name 'iMenu Impressora Legacy Setup *.exe' \
-            ! -name "$FILE_NAME" \
-            -delete
-
-          SIZE="$(stat -c%s "public/downloads/$FILE_NAME")"
-          if [ "$SIZE" -lt 1000000 ]; then
-            echo "Downloaded legacy installer is unexpectedly small: $SIZE bytes"
+          RELEASE_JSON="$(curl --fail --silent --show-error --location --retry 5 --retry-delay 3 "https://api.github.com/repos/metrix0/imenu-printer-windows7-legacy/releases/tags/v${VERSION}")"
+          ASSET_SIZE="$(printf '%s' "$RELEASE_JSON" | jq -r --arg url "$RELEASE_URL" '[.assets[] | select(.browser_download_url == $url) | .size] | first // 0')"
+          if [ "$ASSET_SIZE" -lt 1000000 ]; then
+            echo "GitHub legacy release is missing the specified installer: $RELEASE_URL"
             exit 1
           fi
 
-          MAGIC="$(head -c 2 "public/downloads/$FILE_NAME")"
-          if [ "$MAGIC" != "MZ" ]; then
-            echo "Downloaded legacy file is not a Windows executable."
-            exit 1
-          fi
-
+          # Preserve the URL expected by already installed legacy clients.
           ENCODED_NAME="$(python -c 'import os, urllib.parse; print(urllib.parse.quote(os.environ["FILE_NAME"]))')"
-
           jq -n \
             --arg version "${VERSION} Legacy" \
             --arg updatedAt "$UPDATED_AT" \
@@ -95,13 +84,12 @@ jobs:
         run: |
           set -euo pipefail
 
-          FILE_NAME="iMenu Impressora Legacy Setup ${VERSION}.exe"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git config http.version HTTP/1.1
           git config http.postBuffer 524288000
 
-          git add -A -- public/downloads
+          git add -- public/downloads/imenu-printer-legacy.json
 
           if git diff --cached --quiet; then
             exit 0

@@ -15,6 +15,7 @@ import { captureConsumerEvent } from "@/lib/analytics/captureConsumerEvent";
 import { CONSUMER_EVENTS } from "@/lib/analytics/consumerEvents";
 
 import SearchModal from "./SearchModal";
+import { StartingPriceLabel } from "./StartingPriceLabels";
 import { isPizzaItem, parsePizzaSettings, pricePizza } from "@/lib/pizza/pricing";
 
 type Props = {
@@ -422,8 +423,8 @@ export default function ItemModal({
                     )}
 
                     <p className="text-[18px] font-semibold 2xl:text-lg">
-                        {pizzaQuote ? <><span className="block text-xs font-normal text-gray-500">Preço Final</span>{formatPrice(unitTotal)}</> : (item.promotion && item.promotion.value > 0) ? <><span className={"text-green"}>{formatPrice(promotionPrice(item) || item.price_cents)}</span> <span className={"font-normal text-gray-400 line-through text-xs"}>{formatPrice(item.price_cents)}</span></>
-                            : formatPrice(item.price_cents)
+                        {pizzaQuote ? <><span className="block text-xs font-normal text-gray-500">Preço Final</span>{formatPrice(unitTotal)}</> : (item.promotion && item.promotion.value > 0) ? <><span className={"text-green"}><StartingPriceLabel itemId={shownItem.id} />{formatPrice(promotionPrice(item) || item.price_cents)}</span> <span className={"font-normal text-gray-400 line-through text-xs"}>{formatPrice(item.price_cents)}</span></>
+                            : <><StartingPriceLabel itemId={shownItem.id} />{formatPrice(item.price_cents)}</>
                         }
                     </p>
                 </div>
