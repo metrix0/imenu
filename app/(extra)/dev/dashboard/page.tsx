@@ -15,7 +15,7 @@ import {
 import { Bar, Line } from "react-chartjs-2";
 
 import ConsumerPipelineCard from "@/components/analytics/ConsumerPipelineCard";
-import SalesRankingSection from "@/components/analytics/SalesRankingSection";
+import SalesRankingSection from "@/components/dev/SalesRankingSection";
 import IaAssistantConversationsSection from "@/components/dev/IaAssistantConversationsSection";
 import Button from "@/components/ui/Button";
 import InfoTooltip from "@/components/ui/Tooltip";

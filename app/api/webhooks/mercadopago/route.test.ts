@@ -1,11 +1,11 @@
 import { POST } from "./route";
 import { query, withTransaction } from "@/lib/database/sql";
-import { getMercadoPagoPixPayment } from "@/lib/mercadoPagoPix";
+import { getMercadoPagoPixPayment } from "@/lib/payments/mercadoPagoPix";
 import { activateMercadoPagoQrTablePrepaid } from "@/lib/qr-table/mercadoPagoBilling";
 import { notifyOrderReady } from "@/lib/push/server";
 
 jest.mock("@/lib/database/sql", () => ({ query: jest.fn(), withTransaction: jest.fn() }));
-jest.mock("@/lib/mercadoPagoPix", () => ({ getMercadoPagoPixPayment: jest.fn(), isMercadoPagoPixFailureStatus: jest.fn() }));
+jest.mock("@/lib/payments/mercadoPagoPix", () => ({ getMercadoPagoPixPayment: jest.fn(), isMercadoPagoPixFailureStatus: jest.fn() }));
 jest.mock("@/lib/qr-table/mercadoPagoBilling", () => ({ activateMercadoPagoQrTablePrepaid: jest.fn(), saveMercadoPagoQrTablePayment: jest.fn(), markMercadoPagoQrTablePaymentFailure: jest.fn() }));
 jest.mock("@/lib/database/supabaseServerClient", () => ({ createSupabaseServerClient: jest.fn() }));
 jest.mock("@/lib/push/server", () => ({ notifyOrderReady: jest.fn() }));

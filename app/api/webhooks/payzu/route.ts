@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { query } from "@/lib/database/sql";
 import { createSupabaseServerClient } from "@/lib/database/supabaseServerClient";
-import { getPayZuPixCharge, type PayZuTransaction } from "@/lib/payzu";
+import { getPayZuPixCharge, type PayZuTransaction } from "@/lib/payments/payzu";
 import {
     activatePayZuQrTablePrepaid,
     markPayZuQrTablePaymentFailure,

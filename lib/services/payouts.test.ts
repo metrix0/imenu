@@ -1,8 +1,8 @@
 import { query } from "@/lib/database/sql";
-import { getMercadoPagoPixPayment } from "@/lib/mercadoPagoPix";
+import { getMercadoPagoPixPayment } from "@/lib/payments/mercadoPagoPix";
 import { createPayoutPlan } from "./payouts";
 jest.mock("@/lib/database/sql", () => ({ query: jest.fn() }));
-jest.mock("@/lib/mercadoPagoPix", () => ({ getMercadoPagoPixPayment: jest.fn() }));
+jest.mock("@/lib/payments/mercadoPagoPix", () => ({ getMercadoPagoPixPayment: jest.fn() }));
 beforeEach(() => {
     jest.clearAllMocks();
     (query as jest.Mock).mockResolvedValue({ rows: [{ restaurant_id: "r", restaurant_name: "R", payment_info: "pix@example.com", payment_info_type: "EMAIL", gross_cents: 10000, pix_order_count: 2,
