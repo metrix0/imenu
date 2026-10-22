@@ -14,7 +14,7 @@ import {
 } from "chart.js";
 import { Bar, Line } from "react-chartjs-2";
 
-import ConsumerPipelineCard from "@/components/analytics/ConsumerPipelineCard";
+import ConsumerPipelineCard from "@/components/common/analytics/ConsumerPipelineCard";
 import SalesRankingSection from "@/components/dev/SalesRankingSection";
 import IaAssistantConversationsSection from "@/components/dev/IaAssistantConversationsSection";
 import Button from "@/components/ui/Button";
