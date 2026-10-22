@@ -459,14 +459,17 @@ export default function PedidoPage({
                     type="button"
                     onClick={() => router.push("/")}
                     aria-label="Conhecer o iMenu"
-                    className="inline-flex cursor-pointer items-center gap-2 text-xs text-gray-400 transition hover:opacity-70 2xl:text-base"
+                    className="inline-flex cursor-pointer flex-col items-center gap-1 text-xs text-gray-400 transition hover:opacity-70 2xl:text-base"
                 >
-                    <span>Criado com</span>
-                    <img
-                        src="/logos/CombinationMarkLogo_Black.png"
-                        alt="iMenu"
-                        className="h-5 w-auto opacity-35 2xl:h-7"
-                    />
+                    <span className="inline-flex items-center gap-2">
+                        <span>Criado com</span>
+                        <img
+                            src="/logos/CombinationMarkLogo_Black.png"
+                            alt="iMenu"
+                            className="h-5 w-auto opacity-35 2xl:h-7"
+                        />
+                    </span>
+                    <span>Crie o seu gratuitamente</span>
                 </button>
             </div>
         </main>

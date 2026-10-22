@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -73,6 +73,7 @@ function isEmailConfirmed(user: AuthUser): boolean {
 
 export default function AdminLogin() {
     const router = useRouter();
+    const callbackSessionPromise = useRef<Promise<AuthUser | null> | null>(null);
     const { setRestaurantId, setEmail, setRestaurantSlug } =
         useCreationStore();
     const [email, setLocalEmail] = useState("");
@@ -128,20 +129,57 @@ export default function AdminLogin() {
     useEffect(() => {
         let active = true;
 
-        void supabase.auth.getSession().then(async ({ data }) => {
-            if (!active || !data.session?.user) return;
+        if (!callbackSessionPromise.current) {
+            const hash = new URLSearchParams(window.location.hash.slice(1));
 
-            try {
-                await redirectUser(data.session.user);
-            } catch (caught) {
+            if (hash.get("type") === "magiclink") {
+                const accessToken = hash.get("access_token");
+                const refreshToken = hash.get("refresh_token");
+
+                // The shared client intentionally disables automatic URL auth.
+                // Remove the credentials from the address bar and persist them.
+                window.history.replaceState(
+                    null,
+                    document.title,
+                    `${window.location.pathname}${window.location.search}`
+                );
+
+                callbackSessionPromise.current = (async () => {
+                    if (!accessToken || !refreshToken) {
+                        throw new Error("Link de acesso inválido.");
+                    }
+
+                    const { data, error } = await supabase.auth.setSession({
+                        access_token: accessToken,
+                        refresh_token: refreshToken,
+                    });
+
+                    if (error || !data.session?.user) {
+                        throw new Error("Link de acesso inválido ou expirado.");
+                    }
+
+                    return data.session.user;
+                })();
+            } else {
+                callbackSessionPromise.current = supabase.auth
+                    .getSession()
+                    .then(({ data }) => data.session?.user ?? null);
+            }
+        }
+
+        void callbackSessionPromise.current
+            .then(async (user) => {
+                if (!active || !user) return;
+                await redirectUser(user);
+            })
+            .catch((caught) => {
                 if (!active) return;
                 setError(
                     caught instanceof Error
                         ? caught.message
                         : "Não foi possível entrar."
                 );
-            }
-        });
+            });
 
         return () => {
             active = false;

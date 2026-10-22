@@ -137,8 +137,26 @@ export async function GET(request: Request) {
         }
 
         const digits = search.replace(/\D/g, "");
+        const phoneDigits =
+            digits.startsWith("55") &&
+            (digits.length === 12 ||
+                digits.length === 13 ||
+                search.startsWith("+55"))
+                ? digits.slice(2)
+                : digits;
+        const phoneVariants = phoneDigits ? [phoneDigits] : [];
+
+        // Older Brazilian mobile numbers may omit the ninth digit after DDD.
+        if (/^\d{2}9\d{8}$/.test(phoneDigits)) {
+            phoneVariants.push(phoneDigits.slice(0, 2) + phoneDigits.slice(3));
+        } else if (/^\d{2}[6-9]\d{7}$/.test(phoneDigits)) {
+            phoneVariants.push(
+                phoneDigits.slice(0, 2) + "9" + phoneDigits.slice(2)
+            );
+        }
+
         const namePattern = `%${search}%`;
-        const phonePattern = digits ? `%${digits}%` : "";
+        const phonePatterns = phoneVariants.map((phone) => `%${phone}%`);
         const idPattern = `${search}%`;
 
         const result = await query<RestaurantResult>(
@@ -155,22 +173,20 @@ export async function GET(request: Request) {
                     r.id::text ILIKE $3
                     OR r.name ILIKE $1
                     OR (
-                        $2 <> ''
-                        AND regexp_replace(
+                        regexp_replace(
                             COALESCE(r.phone, ''),
                             '[^0-9]',
                             '',
                             'g'
-                        ) LIKE $2
+                        ) LIKE ANY($2::text[])
                     )
                     OR (
-                        $2 <> ''
-                        AND regexp_replace(
+                        regexp_replace(
                             COALESCE(r.store_whatsapp, ''),
                             '[^0-9]',
                             '',
                             'g'
-                        ) LIKE $2
+                        ) LIKE ANY($2::text[])
                     )
                 ORDER BY
                     CASE
@@ -181,7 +197,7 @@ export async function GET(request: Request) {
                     r.name ASC
                 LIMIT 30
             `,
-            [namePattern, phonePattern, idPattern, search]
+            [namePattern, phonePatterns, idPattern, search]
         );
 
         return NextResponse.json(

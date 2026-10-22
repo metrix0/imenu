@@ -712,6 +712,43 @@ function isKnownInfrastructureQuotaError(body: string): boolean {
     );
 }
 
+// A new WhatsApp ID is not a new question when the same short message
+// repeats after the bot already responded. Keep genuine new messages working.
+async function hasRepliedToRepeatedShortMessage(
+    conversationId: string,
+    messageId: string,
+    body: string
+): Promise<boolean> {
+    const result = await query<{ already_answered: boolean }>(
+        `SELECT EXISTS (
+            SELECT 1 FROM support_messages previous
+            WHERE previous.conversation_id = $1
+              AND previous.direction = 'inbound'
+              AND previous.body = $3
+              AND previous.provider_message_id IS DISTINCT FROM $2
+              AND previous.created_at >= NOW() - INTERVAL '30 minutes'
+              AND EXISTS (
+                  SELECT 1 FROM support_messages reply
+                  WHERE reply.conversation_id = $1
+                    AND reply.direction = 'outbound'
+                    AND reply.send_status = 'sent'
+                    AND reply.dedupe_key IS NOT NULL
+                    AND reply.created_at > previous.created_at
+              )
+              AND NOT EXISTS (
+                  SELECT 1 FROM support_messages different
+                  WHERE different.conversation_id = $1
+                    AND different.direction = 'inbound'
+                    AND different.body <> $3
+                    AND different.created_at > previous.created_at
+                    AND different.provider_message_id IS DISTINCT FROM $2
+              )
+        ) AS already_answered`,
+        [conversationId, messageId, body]
+    );
+    return result.rows[0]?.already_answered === true;
+}
+
 async function isLatestInboundMessage(
     conversationId: string,
     messageId: string
@@ -999,6 +1036,21 @@ export async function processSupportIncomingWhatsAppMessage(input: {
                 storageMessageId
             ))
         ) {
+            return;
+        }
+
+        if (
+            !input.hasMedia &&
+            [...originalBody].length <= 12 &&
+            (await hasRepliedToRepeatedShortMessage(
+                conversation.id,
+                storageMessageId,
+                messageBody
+            ))
+        ) {
+            console.info("[SUPPORT_WHATSAPP] repeated_short_message_ignored", {
+                restaurantId: conversation.restaurant_id,
+            });
             return;
         }
 
