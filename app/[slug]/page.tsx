@@ -307,20 +307,28 @@ export default async function Page({
       const groupIds = groups.map((group: any) => group.id);
 
       if (groupIds.length > 0) {
-        const { data: availableSubitems, error: availableSubitemsError } =
-          await supabase
-            .from("subitems")
-            .select("item_subcategory_id, price_cents")
-            .in("item_subcategory_id", groupIds)
-            .eq("is_available", true);
+        const pricesByGroupId = new Map<string, number[]>();
+        const pageSize = 1000;
+        let loadedAllPages = true;
 
-        if (availableSubitemsError) {
-          console.error(
-            "Erro ao verificar opções dos complementos obrigatórios:",
-            availableSubitemsError,
-          );
-        } else {
-          const pricesByGroupId = new Map<string, number[]>();
+        for (let offset = 0; ; offset += pageSize) {
+          const { data: availableSubitems, error: availableSubitemsError } =
+            await supabase
+              .from("subitems")
+              .select("item_subcategory_id, price_cents")
+              .in("item_subcategory_id", groupIds)
+              .eq("is_available", true)
+              .order("id", { ascending: true })
+              .range(offset, offset + pageSize - 1);
+
+          if (availableSubitemsError) {
+            console.error(
+              "Erro ao verificar opções dos complementos obrigatórios:",
+              availableSubitemsError,
+            );
+            loadedAllPages = false;
+            break;
+          }
 
           (availableSubitems || []).forEach((subitem: any) => {
             const prices =
@@ -329,6 +337,10 @@ export default async function Page({
             pricesByGroupId.set(subitem.item_subcategory_id, prices);
           });
 
+          if ((availableSubitems?.length ?? 0) < pageSize) break;
+        }
+
+        if (loadedAllPages) {
           groups.forEach((group: any) => {
             const prices = pricesByGroupId.get(group.id) || [];
 
