@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { Restaurant, Item, Subitem, Subcategory, CartItem, PizzaCatalogItem, Category, ItemsByCategory } from "@/lib/types/types";
 import { useCartStore } from "@/lib/stores/costumer/cartStore";
+import PizzaSizeAndBorderPicker, { isPizzaSizeBorderGroup } from "@/components/pizza/PizzaSizeAndBorderPicker";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { icons } from "@/lib/utils/fontawesome";
 import {formatPrice, formatPriceNoRS, promotionPrice} from "@/lib/utils/formatPrice";
@@ -461,6 +462,11 @@ export default function ItemModal({
                         const isSingle =
                             sc.max_select === 1 || sc.max_select === 0;
 
+                        if (!readOnly && isPizzaSizeBorderGroup(sc.name, sc.subitems)) {
+                            return <PizzaSizeAndBorderPicker key={sc.id} options={sc.subitems}
+                                selectedId={set?.values().next().value}
+                                onSelect={option => setSelected(previous => ({ ...previous, [sc.id]: new Set([option.id]) }))} />;
+                        }
                         return (
                             <div
                                 key={sc.id}
