@@ -4,6 +4,7 @@
 - Do only what the user explicitly requests. Do not alter unrelated code, behavior, data, naming, formatting, or architecture. Make the smallest correct change and reuse existing mechanisms.
 - For investigation, explanation, or suggestions: inspect and report; **do not edit** unless expressly asked to implement.
 - Inspect the actual relevant implementation, schema, state, and logs before concluding. Never invent findings or claim validation not performed.
+- For bug fixes, reproduce or verify the failure before editing. Fix the underlying cause, not just the symptom. Never implement speculative fixes.
 - Keep answers brief and direct unless details are requested. Do not unnecessarily ask for information already available.
 
 ## Access and source of truth
@@ -19,6 +20,7 @@
 - Read `docs/ai-design-guidelines.md` first; inspect the actual affected page and existing `components/` and `components/ui/` patterns.
 - `design-system.html` remains the authoritative visual reference. Consult the full artifact when the concise guide is insufficient, ambiguous, stale, or when introducing/modifying a visual pattern. Do not invent a competing design pattern.
 - Reuse existing components, utilities, styles, spacing, and interactions; preserve unrelated UI behavior.
+- For UI changes, compare the rendered result against the existing design and verify affected interactions and screen sizes. Passing tests/builds alone does not prove visual correctness.
 
 ## Changes, validation, and delivery
 1. Locate and inspect only relevant code/DB/logs on the correct source branch; assess dependent behavior.
