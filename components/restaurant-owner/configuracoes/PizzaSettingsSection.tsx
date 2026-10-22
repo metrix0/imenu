@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { Category, PizzaSettings } from "@/lib/types/types";
-import { DEFAULT_PIZZA_SETTINGS, MAX_PIZZA_FLAVORS } from "@/lib/pizza/pricing";
+import { DEFAULT_PIZZA_SETTINGS, MAX_PIZZA_FLAVORS, parsePizzaSettings } from "@/lib/pizza/pricing";
 import { supabase } from "@/lib/database/supabaseClient";
 import Card from "@/components/ui/Card";
 import Switch from "@/components/ui/Switch";
@@ -18,23 +18,25 @@ export default function PizzaSettingsSection({ restaurantId }: { restaurantId: s
     const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
     const [error, setError] = useState("");
 
-    const request = async (body?: PizzaSettings) => {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) throw new Error("Sessão expirada. Entre novamente.");
-        const response = await fetch(`/api/restaurants/${restaurantId}/pizza`, {
-            method: body ? "PATCH" : "GET",
-            headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
-            ...(body ? { body: JSON.stringify(body) } : {}),
-        });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error);
-        return data;
-    };
     const load = async () => {
         try {
             setError("");
-            const data = await request();
-            setSettings(data.settings); setCategories(data.categories); setLoaded(true);
+            const [restaurantResult, categoriesResult] = await Promise.all([
+                supabase.from("restaurants").select("pizza_settings").eq("id", restaurantId).single(),
+                supabase.from("categories").select("id, name, position").eq("restaurant_id", restaurantId).order("position").order("id"),
+            ]);
+            if (restaurantResult.error) throw restaurantResult.error;
+            if (categoriesResult.error) throw categoriesResult.error;
+
+            const availableCategories = categoriesResult.data || [];
+            const categoryIds = new Set(availableCategories.map(category => category.id));
+            const currentSettings = parsePizzaSettings(restaurantResult.data.pizza_settings);
+            setSettings({
+                ...currentSettings,
+                category_ids: currentSettings.category_ids.filter(id => categoryIds.has(id)),
+            });
+            setCategories(availableCategories);
+            setLoaded(true);
         } catch (e) { setError(e instanceof Error ? e.message : "Erro ao carregar o Modo Pizza."); }
     };
     useEffect(() => { void load(); }, [restaurantId]);
@@ -42,8 +44,17 @@ export default function PizzaSettingsSection({ restaurantId }: { restaurantId: s
         if (status === "saving") return;
         setStatus("saving"); setError("");
         try {
-            const data = await request(next);
-            setSettings(data.settings); setStatus("saved");
+            if (next.category_ids.some(id => !categories.some(category => category.id === id))) {
+                throw new Error("Escolha apenas categorias deste restaurante.");
+            }
+            const { data, error: saveError } = await supabase.from("restaurants")
+                .update({ pizza_settings: next, updated_at: new Date().toISOString() })
+                .eq("id", restaurantId)
+                .select("pizza_settings")
+                .single();
+            if (saveError) throw saveError;
+            setSettings(parsePizzaSettings(data.pizza_settings));
+            setStatus("saved");
         } catch (e) { setStatus("error"); setError(e instanceof Error ? e.message : "Erro ao salvar."); }
     };
 

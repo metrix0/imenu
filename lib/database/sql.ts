@@ -1,5 +1,5 @@
 import type { PoolClient } from "pg";
-import { pool } from "./db";
+import { connectWithMetrics } from "./db";
 
 const advisoryLockQueues = new Map<string, Promise<void>>();
 
@@ -7,7 +7,7 @@ export async function query<T = any>(
     text: string,
     params?: any[]
 ): Promise<{ rows: T[]; rowCount: number }> {
-    const client = await pool.connect();
+    const client = await connectWithMetrics();
 
     try {
         const result = await client.query(text, params);
@@ -24,7 +24,7 @@ export async function query<T = any>(
 export async function withTransaction<T>(
     callback: (client: PoolClient) => Promise<T>
 ): Promise<T> {
-    const client = await pool.connect();
+    const client = await connectWithMetrics();
 
     try {
         await client.query("BEGIN");
