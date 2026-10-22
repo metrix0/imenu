@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 
 import Button from "@/components/ui/Button";
-import PizzaSizeAndBorderPicker, { isPizzaSizeBorderGroup } from "@/components/pizza/PizzaSizeAndBorderPicker";
 import Input from "@/components/ui/Input";
 import Loader from "@/components/ui/Loader";
 import Textarea from "@/components/ui/Textarea";
@@ -716,11 +715,6 @@ export default function PanelItemConfiguratorModal({
                                         group.max_select === 1 ||
                                         group.max_select === 0;
 
-                                    if (isPizzaSizeBorderGroup(group.name, group.subitems)) {
-                                        return <PizzaSizeAndBorderPicker key={group.id} options={group.subitems}
-                                            selectedId={currentSet.values().next().value}
-                                            onSelect={option => setSelected(previous => ({ ...previous, [group.id]: new Set([option.id]) }))} />;
-                                    }
                                     return (
                                         <section
                                             key={group.id}
