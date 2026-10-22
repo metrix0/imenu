@@ -37,29 +37,7 @@ As funcionalidades disponíveis a cada restaurante dependem da configuração e 
 
 O projeto utiliza tanto chamadas ao Supabase sujeitas às políticas de acesso quanto rotas de API e consultas PostgreSQL no servidor. Não presuma que todas as operações passam por um único desses caminhos.
 
-## Começando
-
-### Requisitos
-
-- **Node.js 22**, versão utilizada no pipeline de CI, e npm.
-- Acesso autorizado às variáveis de ambiente necessárias à aplicação, ao banco e às integrações utilizadas.
-- Acesso aos serviços de desenvolvimento configurados para o projeto.
-
-### Execução local
-
-```bash
-git clone https://github.com/metrix0/imenu.git
-cd imenu
-git switch preview
-npm ci
-npm run dev
-```
-
-A aplicação fica disponível em **http://localhost:3000**, desde que as variáveis e dependências externas exigidas pelas rotas estejam configuradas.
-
-Crie seu `.env.local` com os valores obtidos pelos canais autorizados do projeto. **Não copie credenciais de produção, publique segredos no repositório ou presuma que integrações externas funcionam sem configuração.** Não há um arquivo de exemplo de ambiente na raiz; consulte a equipe responsável antes de configurar novos ambientes.
-
-### Validação
+## Validação
 
 ```bash
 npm test -- --runInBand
