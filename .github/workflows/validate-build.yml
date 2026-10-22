@@ -49,6 +49,9 @@ jobs:
       - name: Printer download regression tests
         run: npx jest lib/printer/__tests__/download-redirect.test.ts --runInBand
 
+      - name: Dev dashboard and support refactor tests
+        run: npx jest lib/dev/__tests__ --runInBand
+
       - name: Typecheck
         run: npx tsc --noEmit
 
