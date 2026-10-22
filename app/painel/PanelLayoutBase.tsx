@@ -111,7 +111,7 @@ export default function PainelLayout({
     const params = useParams();
     const pathname = usePathname();
     const router = useRouter();
-    const { restaurantId } = useCreationStore();
+    const restaurantId = useCreationStore(state => state.restaurantId);
     const supportButtonRef = useRef<SupportButtonRef>(null);
     const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
     const productPageViewRef = useRef<string | null>(null);
@@ -233,7 +233,13 @@ export default function PainelLayout({
     }, [targetRestaurantId, pathname]);
 
     useEffect(() => {
-        const updateScheduleNow = () => setScheduleNow(new Date());
+        const updateScheduleNow = () => setScheduleNow(previous => {
+            const next = new Date();
+            return isStoreOpenBySchedule(availability, previous) === isStoreOpenBySchedule(availability, next)
+                ? previous
+                : next;
+        });
+        updateScheduleNow();
         const interval = window.setInterval(updateScheduleNow, 30_000);
         window.addEventListener("focus", updateScheduleNow);
 
@@ -241,7 +247,7 @@ export default function PainelLayout({
             window.clearInterval(interval);
             window.removeEventListener("focus", updateScheduleNow);
         };
-    }, []);
+    }, [availability]);
 
     useEffect(() => {
         const checkAuth = async () => {
@@ -686,7 +692,7 @@ export default function PainelLayout({
 
                 <aside
                     data-expanded={expanded}
-                    className={`panel-sidebar fixed z-20 hidden h-full flex-col border-r border-gray-200 bg-white transition-all duration-300 md:flex ${
+                    className={`panel-sidebar fixed z-20 hidden h-full flex-col border-r border-gray-200 bg-white transition-[width] duration-300 md:flex ${
                         expanded ? "w-60 2xl:w-70" : "w-[4.5rem] 2xl:w-20"
                     }`}
                 >
@@ -696,7 +702,7 @@ export default function PainelLayout({
                             aria-label="Ir para o painel"
                             aria-hidden={!expanded}
                             tabIndex={expanded ? 0 : -1}
-                            className={`panel-sidebar-logo origin-left overflow-hidden transition-all duration-300 ${
+                            className={`panel-sidebar-logo origin-left overflow-hidden transition-[width,transform,opacity] duration-300 ${
                                 expanded
                                     ? "w-[108px] scale-100 opacity-100"
                                     : "pointer-events-none w-0 scale-75 opacity-0"
@@ -726,7 +732,7 @@ export default function PainelLayout({
                     </div>
 
                     <div
-                        className={`panel-sidebar-status mt-1 pb-2 transition-all duration-300 2xl:mt-6 ${
+                        className={`panel-sidebar-status mt-1 pb-2 transition-[width,padding] duration-300 2xl:mt-6 ${
                             expanded
                                 ? "w-full px-4"
                                 : "w-[4.5rem] self-start 2xl:w-20"
@@ -801,7 +807,7 @@ export default function PainelLayout({
                                         )}
                                     </div>
                                     <span
-                                        className={`overflow-hidden whitespace-nowrap text-sm transition-all duration-300 2xl:text-lg ${
+                                        className={`overflow-hidden whitespace-nowrap text-sm transition-[width,opacity] duration-300 2xl:text-lg ${
                                             expanded
                                                 ? `ml-0 w-auto opacity-100 ${item.isNew ? "shrink-0" : ""}`
                                                 : "ml-0 w-0 opacity-0"
@@ -829,7 +835,7 @@ export default function PainelLayout({
                                 />
                             </div>
                             <span
-                                className={`overflow-hidden whitespace-nowrap text-sm transition-all duration-300 2xl:text-lg ${
+                                className={`overflow-hidden whitespace-nowrap text-sm transition-[width,opacity] duration-300 2xl:text-lg ${
                                     expanded
                                         ? "w-auto opacity-100"
                                         : "w-0 opacity-0"

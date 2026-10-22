@@ -413,6 +413,7 @@ export default async function Page({
           `}</style>
         )}
 
+        <StartingPriceLabels items={Array.from(startingPriceItemIds)}>
         <MenuClientPage
           slug={slug}
           readOnly={readOnly}
@@ -424,17 +425,8 @@ export default async function Page({
           selectedCouponCode={readOnly || tableOrder ? undefined : p.c?.toUpperCase()}
           tableOrder={tableOrder}
         />
+        </StartingPriceLabels>
       </div>
-
-      <StartingPriceLabels
-        items={allItems
-          .filter((item) => startingPriceItemIds.has(item.id))
-          .map((item) => ({
-            id: item.id,
-            name: item.name,
-            imageUrl: item.image_public_url,
-          }))}
-      />
 
       <footer className="w-full bg-white px-6 pb-32 pt-8 text-center md:pb-40">
         <div className="mx-auto flex max-w-md flex-col items-center">

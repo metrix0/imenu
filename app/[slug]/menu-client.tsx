@@ -1,7 +1,7 @@
 // app/[slug]/menu-client.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Image from "next/image";
 import { useRouter, usePathname } from "next/navigation";
 import { Restaurant, Menu, Category, ItemsByCategory, Item, Subitem, Subcategory } from "@/lib/types/types";
@@ -21,6 +21,7 @@ import CartModal from "./CartModal"
 import WarningBox from "@/components/ui/WarningBox";
 import Tabs from "@/components/ui/Tabs";
 import SearchModal from "./SearchModal";
+import { StartingPriceLabel } from "./StartingPriceLabels";
 import HistoryModal from "@/components/costumer/HistoryModal";
 import type { QrTableMenuContext } from "@/lib/qr-table/types";
 import PromotionBanner from "@/components/costumer/PromotionBanner";
@@ -89,13 +90,16 @@ export default function MenuClientPage({
 }) {
     const router = useRouter();
     const [menuTime, setMenuTime] = useState(initialMenuTime ?? new Date().toISOString());
-    const categories = sourceCategories.filter(category =>
-        isCategoryAvailable(category.availability_schedule, new Date(menuTime)),
-    );
-    const visibleCategoryIds = new Set(categories.map(category => category.id));
-    const itemsByCategory: ItemsByCategory = Object.fromEntries(
-        Object.entries(sourceItemsByCategory).filter(([id]) => visibleCategoryIds.has(id)),
-    );
+    const categoryTime = sourceCategories.some(category => category.availability_schedule != null) ? menuTime : null;
+    const categories = useMemo(() => sourceCategories.filter(category =>
+        isCategoryAvailable(category.availability_schedule, new Date(categoryTime ?? initialMenuTime ?? Date.now())),
+    ), [sourceCategories, categoryTime, initialMenuTime]);
+    const itemsByCategory: ItemsByCategory = useMemo(() => {
+        const visibleCategoryIds = new Set(categories.map(category => category.id));
+        return Object.fromEntries(
+            Object.entries(sourceItemsByCategory).filter(([id]) => visibleCategoryIds.has(id)),
+        );
+    }, [sourceItemsByCategory, categories]);
 
     useEffect(() => {
         const refresh = () => setMenuTime(new Date().toISOString());
@@ -167,7 +171,9 @@ export default function MenuClientPage({
         tableOrder?.tableId || ""
     );
     const promotionCart = useCartStore(s => s.items);
-    const promotionCheckout = useCheckoutStore(s => s);
+    const promotionScheduledFor = useCheckoutStore(s => s.scheduled_for);
+    const promotionDeliveryFee = useCheckoutStore(s => s.delivery_fee_cents);
+    const promotionIsPickup = useCheckoutStore(s => Boolean((s as any).is_pickup));
     const [promotionNow, setPromotionNow] = useState<Date | null>(null);
     const automaticPromotions = parseAutomaticPromotions(restaurant.automatic_promotions);
     const promotionProducts = Object.values(itemsByCategory).flat();
@@ -179,14 +185,14 @@ export default function MenuClientPage({
         window.addEventListener("focus", update);
         return () => { window.clearInterval(timer); window.removeEventListener("focus", update); };
     }, [restaurant.automatic_promotions]);
-    const promotionDate = !isTableOrder && promotionCheckout.scheduled_for ? new Date(promotionCheckout.scheduled_for) : promotionNow;
+    const promotionDate = !isTableOrder && promotionScheduledFor ? new Date(promotionScheduledFor) : promotionNow;
     const promotionResult = automaticPromotions.length && promotionDate ? evaluateAutomaticPromotions(automaticPromotions, {
         items: promotionCart, products: promotionProducts,
         subtotal_cents: promotionCartSubtotal(promotionCart),
-        delivery_cents: Number(promotionCheckout.delivery_fee_cents) || 0,
-        coupon_discount_cents: Number(promotionCheckout.coupon_discount_cents) || 0,
-        coupon_type: promotionCheckout.coupon_type,
-        pickup: Boolean((promotionCheckout as any).is_pickup),
+        delivery_cents: Number(promotionDeliveryFee) || 0,
+        coupon_discount_cents: Number(coupon_discount_cents) || 0,
+        coupon_type,
+        pickup: Boolean(promotionIsPickup),
         channel: isTableOrder ? "mesa" : "delivery", at: promotionDate,
     }) : undefined;
     const visiblePromotions = promotionNow ? automaticPromotions.filter(p => p.show_on_menu &&
@@ -718,9 +724,12 @@ export default function MenuClientPage({
     useEffect(() => {
         const onScroll = () => {
             const threshold = window.innerHeight * 0.30;
-            setShowMobileSearch(window.scrollY > threshold);
+            setShowMobileSearch(current => {
+                const next = window.scrollY > threshold;
+                return current === next ? current : next;
+            });
         };
-        window.addEventListener("scroll", onScroll);
+        window.addEventListener("scroll", onScroll, { passive: true });
         return () => window.removeEventListener("scroll", onScroll);
     }, []);
 
@@ -768,7 +777,7 @@ export default function MenuClientPage({
                     if (e.isIntersecting) {
                         const id = e.target.getAttribute("data-cat")!;
                         const cat = categories.find((c) => c.id.toString() === id);
-                        if (cat) setActiveTab(cat.name);
+                        if (cat) setActiveTab(current => current === cat.name ? current : cat.name);
                     }
                 });
             },
@@ -1167,8 +1176,8 @@ export default function MenuClientPage({
 
                                         <div className="mt-3 flex flex-col h-[55px] justify-start ">
                                             <p className="font-semibold text-sm 2xl:text-lg">
-                                                {(item.promotion && item.promotion.value > 0) ? <><span className={"text-green"}>{formatPrice(promotionPrice(item) || item.price_cents)}</span> <span className={"font-normal text-gray-400 line-through text-xs"}>{formatPrice(item.price_cents)}</span></>
-                                                    : formatPrice(item.price_cents)
+                                                {(item.promotion && item.promotion.value > 0) ? <><span className={"text-green"}><StartingPriceLabel itemId={item.id} />{formatPrice(promotionPrice(item) || item.price_cents)}</span> <span className={"font-normal text-gray-400 line-through text-xs"}>{formatPrice(item.price_cents)}</span></>
+                                                    : <><StartingPriceLabel itemId={item.id} />{formatPrice(item.price_cents)}</>
                                                 }
                                             </p>
 
@@ -1208,8 +1217,8 @@ export default function MenuClientPage({
                                             </p>
 
                                             <p className="text-sm 2xl:text-lg font-bold mt-2">
-                                                {(item.promotion && item.promotion.value > 0) ? <><span className={"text-green"}>{formatPrice(promotionPrice(item) || item.price_cents)}</span> <span className={"font-normal text-gray-400 line-through text-xs"}>{formatPrice(item.price_cents)}</span></>
-                                                    : formatPrice(item.price_cents)
+                                                {(item.promotion && item.promotion.value > 0) ? <><span className={"text-green"}><StartingPriceLabel itemId={item.id} />{formatPrice(promotionPrice(item) || item.price_cents)}</span> <span className={"font-normal text-gray-400 line-through text-xs"}>{formatPrice(item.price_cents)}</span></>
+                                                    : <><StartingPriceLabel itemId={item.id} />{formatPrice(item.price_cents)}</>
                                                     }
                                             </p>
                                         </div>
