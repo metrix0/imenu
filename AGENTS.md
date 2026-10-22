@@ -16,6 +16,18 @@
 - **Never use the Vercel plugin without explicit permission.** **Never use Remote Desktop Commander/Controller without asking permission first.** If permission is given for RDC, first read `C:\Users\Usuario\AI-Apps\READMEAI.md` once.
 - If essential GitHub/iMenu Supabase/iMenu VPS access is missing, stop and identify exactly what must be reconnected. If only secrets/envs prevent testing, finish and commit the otherwise-complete implementation and report what is needed.
 
+## Code organization (for new work only)
+- Before creating a file or folder, inspect the existing structure and search for reusable implementations. Prefer extending existing code over creating duplicated logic, components, helpers, or parallel implementations. Put new files alongside the feature they serve; create a new folder only when no suitable existing one exists.
+- **`lib/`**: Do not add new `.ts` files directly at the root of `lib/`. Organize new logic by feature, using existing folders such as `ia-vendas/`, `pizza/`, `payments/`, `qr-table/`, `menu/`, `promotions/`, `addons/`, `delivery/`, `push/`, `seo/`, and `printer/` as appropriate.
+  - `services/`: business operations and external-service workflows; `api/`: API/integration clients and communication helpers; `database/`: database clients, queries, and storage operations.
+  - `utils/`: generic helpers genuinely reusable across features, **not** feature-specific logic; `stores/`: state management grouped by feature; `types/`: types shared across features.
+  - `auth/`: authentication and authorization; `analytics/`: event tracking, metrics, and analytics logic; `dev/`: developer dashboard and development-only utilities.
+- **`components/`**: Preserve existing directories and their purposes:
+  - `restaurant-owner/<feature>/`: restaurant management UI, organized by existing feature folders; `costumer/`: customer-facing ordering UI (retain the repository's existing spelling).
+  - `dev/`: developer dashboard UI; `payments/`: payment UI; `auth/`: authentication UI; `landing/`: marketing and landing-page UI.
+  - `ui/`: reusable UI primitives (buttons, inputs, modals, etc.); `common/`: shared components, providers, and cross-feature analytics/tracking components (`common/analytics/`).
+- Prefer existing feature subfolders over new top-level categories. These rules guide future additions only: do **not** relocate or reorganize existing files unless expressly requested.
+
 ## Frontend/UI, when applicable
 - Read `docs/ai-design-guidelines.md` first; inspect the actual affected page and existing `components/` and `components/ui/` patterns.
 - `design-system.html` remains the authoritative visual reference. Consult the full artifact when the concise guide is insufficient, ambiguous, stale, or when introducing/modifying a visual pattern. Do not invent a competing design pattern.
