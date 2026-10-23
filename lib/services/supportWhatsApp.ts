@@ -216,6 +216,10 @@ function phoneCandidates(value: string | null): string[] {
     return [...values];
 }
 
+function isPermanentlyManualSupportPhone(phone: string | null): boolean {
+    return phoneCandidates(phone).includes("5511988576886");
+}
+
 async function findSingleRestaurantId(
     phone: string | null
 ): Promise<string | null> {
@@ -452,18 +456,23 @@ async function prepareConversation(input: {
         );
 
         const current = existing.rows[0] || null;
+        const permanentlyManual =
+            isPermanentlyManualSupportPhone(resolvedPhone) ||
+            isPermanentlyManualSupportPhone(current?.phone || null) ||
+            input.chatId === "99389989204047@lid";
         const restaurantId =
             current?.restaurant_id ||
             (await findSingleRestaurantId(resolvedPhone));
 
         if (!current) {
             const inserted = await query<ConversationRow>(
-                "INSERT INTO support_conversations (chat_id, phone, customer_name, restaurant_id, mode, last_inbound_at, updated_at) VALUES ($1, $2, $3, $4, 'ai', NOW(), NOW()) RETURNING id, chat_id, phone, customer_name, restaurant_id, mode, handoff_prompted_at",
+                "INSERT INTO support_conversations (chat_id, phone, customer_name, restaurant_id, mode, ai_paused_until, last_inbound_at, updated_at) VALUES ($1, $2, $3, $4, CASE WHEN $5::boolean THEN 'human' ELSE 'ai' END, CASE WHEN $5::boolean THEN 'infinity'::timestamptz ELSE NULL END, NOW(), NOW()) RETURNING id, chat_id, phone, customer_name, restaurant_id, mode, handoff_prompted_at",
                 [
                     conversationChatId,
                     resolvedPhone,
                     input.customerName,
                     restaurantId,
+                    permanentlyManual,
                 ]
             );
             const conversation = inserted.rows[0];
@@ -504,12 +513,13 @@ async function prepareConversation(input: {
         }
 
         const updated = await query<ConversationRow>(
-            "UPDATE support_conversations SET phone = COALESCE($2, phone), customer_name = COALESCE($3, customer_name), restaurant_id = COALESCE(restaurant_id, $4), last_inbound_at = NOW(), updated_at = NOW() WHERE id = $1 RETURNING id, chat_id, phone, customer_name, restaurant_id, mode, handoff_prompted_at",
+            "UPDATE support_conversations SET phone = COALESCE($2, phone), customer_name = COALESCE($3, customer_name), restaurant_id = COALESCE(restaurant_id, $4), mode = CASE WHEN $5::boolean THEN 'human' ELSE mode END, ai_paused_until = CASE WHEN $5::boolean THEN 'infinity'::timestamptz ELSE ai_paused_until END, last_inbound_at = NOW(), updated_at = NOW() WHERE id = $1 RETURNING id, chat_id, phone, customer_name, restaurant_id, mode, handoff_prompted_at",
             [
                 current.id,
                 resolvedPhone,
                 input.customerName,
                 restaurantId,
+                permanentlyManual,
             ]
         );
         await syncSentBlastHistory(updated.rows[0].id, resolvedPhone, input.sessionName);
