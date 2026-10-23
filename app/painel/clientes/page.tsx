@@ -44,8 +44,6 @@ export default function ClientesPage() {
     [error, setError] = useState(""),
     [search, setSearch] = useState(""),
     [segment, setSegment] = useState(""),
-    [orderFilter, setOrderFilter] = useState(""),
-    [marketingFilter, setMarketingFilter] = useState(""),
     [sortKey, setSortKey] = useState("last"),
     [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc"),
     [page, setPage] = useState(1),
@@ -61,7 +59,7 @@ export default function ClientesPage() {
     setRows([]);
     const timer = setTimeout(() => {
       void crmRequest(
-        `/api/customers?search=${encodeURIComponent(search)}&segment=${encodeURIComponent(segment)}&orders=${encodeURIComponent(orderFilter)}&marketing=${encodeURIComponent(marketingFilter)}&sort=${encodeURIComponent(`${sortKey}:${sortDirection}`)}&page=${page}`,
+        `/api/customers?search=${encodeURIComponent(search)}&segment=${encodeURIComponent(segment)}&sort=${encodeURIComponent(`${sortKey}:${sortDirection}`)}&page=${page}`,
         id,
         { signal: controller.signal },
       )
@@ -80,7 +78,7 @@ export default function ClientesPage() {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [id, search, segment, orderFilter, marketingFilter, sortKey, sortDirection, page]);
+  }, [id, search, segment, sortKey, sortDirection, page]);
   useEffect(() => {
     setDetails(null);
     setDetailsError("");
@@ -114,8 +112,8 @@ export default function ClientesPage() {
           Conheça quem compra de você e acompanhe cada relacionamento.
         </p>
       </div>
-      <div className="grid grid-cols-1 items-end gap-4 sm:grid-cols-2 lg:grid-cols-[minmax(220px,1.3fr)_repeat(3,minmax(170px,1fr))]">
-        <div className="sm:col-span-2 lg:col-span-1">
+      <div className="grid grid-cols-1 items-end gap-4 sm:grid-cols-[minmax(0,1.5fr)_minmax(180px,1fr)]">
+        <div className="min-w-0">
           <Input
             label="Buscar cliente"
             placeholder="Nome ou celular"
@@ -139,34 +137,6 @@ export default function ClientesPage() {
             ...CUSTOMER_SEGMENTS.map((x) => ({ value: x, label: x })),
           ]}
         />
-        <Dropdown
-          label="Pedidos"
-          value={orderFilter}
-          onChange={(e) => {
-            setOrderFilter(e.target.value);
-            setPage(1);
-          }}
-          options={[
-            { value: "", label: "Qualquer quantidade" },
-            { value: "none", label: "Nenhum pedido" },
-            { value: "few", label: "1 a 2 pedidos" },
-            { value: "regular", label: "3 a 9 pedidos" },
-            { value: "tenPlus", label: "10 ou mais" },
-          ]}
-        />
-        <Dropdown
-          label="Marketing"
-          value={marketingFilter}
-          onChange={(e) => {
-            setMarketingFilter(e.target.value);
-            setPage(1);
-          }}
-          options={[
-            { value: "", label: "Todos" },
-            { value: "consented", label: "Autorizado" },
-            { value: "notConsented", label: "Não autorizado" },
-          ]}
-        />
       </div>
       {error ? (
         <p role="alert" className="text-sm text-red-600">
@@ -182,7 +152,7 @@ export default function ClientesPage() {
         rowKey={(r) => r.phone}
         onRowClick={setSelected}
         emptyMessage={
-          search || segment || orderFilter || marketingFilter
+          search || segment
             ? "Nenhum cliente encontrado com estes filtros."
             : "Seus clientes aparecerão aqui automaticamente quando fizerem pedidos."
         }
@@ -207,7 +177,7 @@ export default function ClientesPage() {
             render: (r) => (
               <Badge
                 variant={
-                  r.segment === "VIP"
+                  r.segment === "Destaque"
                     ? "brand"
                     : r.segment === "Em risco"
                       ? "warning"
@@ -253,7 +223,7 @@ export default function ClientesPage() {
         )}
       </div>
       <p className="text-xs leading-relaxed text-gray-500">
-        Novo: até 2 pedidos · Frequente: 3 ou mais · VIP: 10 pedidos ou R$ 1.000
+        Novo: até 2 pedidos · Frequente: 3 ou mais · Destaque: 10 pedidos ou R$ 1.000
         em compras · Em risco: 30 dias sem comprar · Inativo: 60 dias. A
         inatividade tem prioridade. Pedidos cancelados e PIX pendentes não
         entram nas métricas.

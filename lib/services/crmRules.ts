@@ -91,9 +91,9 @@ export function readAutomationSettings(value: unknown): AutomationSettings {
   ) as AutomationSettings;
 }
 export const CUSTOMER_SEGMENTS = [
-  "Novo",
+  "Destaque",
   "Frequente",
-  "VIP",
+  "Novo",
   "Em risco",
   "Inativo",
 ] as const;
@@ -109,7 +109,7 @@ export function customerSegment(
     : Infinity;
   if (age >= 60) return "Inativo";
   if (age >= 30) return "Em risco";
-  if (count >= 10 || spending >= 100000) return "VIP";
+  if (count >= 10 || spending >= 100000) return "Destaque";
   if (count >= 3) return "Frequente";
   return "Novo";
 }

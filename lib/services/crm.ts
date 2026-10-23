@@ -26,7 +26,7 @@ export async function listCustomers(
 ) {
   const sortColumns: Record<string, string> = {
     name: "name",
-    segment: "segment",
+    segment: "CASE segment WHEN 'Destaque' THEN 1 WHEN 'Frequente' THEN 2 WHEN 'Novo' THEN 3 WHEN 'Em risco' THEN 4 WHEN 'Inativo' THEN 5 ELSE 6 END",
     orders: "order_count",
     spent: "spending_cents",
     ticket: "average_ticket_cents",
@@ -47,7 +47,7 @@ export async function listCustomers(
               coalesce(m.average_ticket_cents,0) average_ticket_cents, m.last_purchase,
               CASE WHEN m.last_purchase IS NULL OR m.last_purchase <= now()-interval '60 days' THEN 'Inativo'
                 WHEN m.last_purchase <= now()-interval '30 days' THEN 'Em risco'
-                WHEN m.order_count>=10 OR m.spending_cents>=100000 THEN 'VIP'
+                WHEN m.order_count>=10 OR m.spending_cents>=100000 THEN 'Destaque'
                 WHEN m.order_count>=3 THEN 'Frequente' ELSE 'Novo' END segment
             FROM customers c LEFT JOIN metrics m USING (phone) WHERE c.restaurant_id=$1
         ) SELECT *,count(*) OVER() total FROM customers_with_metrics
