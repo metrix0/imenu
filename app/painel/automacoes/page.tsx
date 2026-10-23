@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
+import PageBadge from "@/components/ui/PageBadge";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 import { crmRequest } from "@/lib/api/crm";
 import {
@@ -17,7 +17,7 @@ import Switch from "@/components/ui/Switch";
 import Button from "@/components/ui/Button";
 import WarningBox from "@/components/ui/WarningBox";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
-import { faArrowRight, faPlus, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
+import { faArrowRight, faPlus, faRobot, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
 import { TemplateEditor, VariablePicker, type TemplateEditorHandle, type TemplateVariable } from "@/components/ui/WhatsAppTemplateEditor";
 const descriptions: Record<AutomationKind, (days: number) => string> = {
   cart: () => "Clientes com produtos no carrinho sem movimentação há pelo menos 30 minutos recebem uma mensagem no WhatsApp, com a imagem do item de maior preço quando disponível.",
@@ -119,12 +119,9 @@ export default function AutomacoesPage() {
           {!connected ? (
             <WarningBox icon={faTriangleExclamation}>
               Conecte seu{" "}
-              <Link
-                href="/painel/robo-whatsapp"
-                className="font-medium text-brand underline"
-              >
-                WhatsApp
-              </Link>{" "}
+              <PageBadge href="/painel/robo-whatsapp" icon={faRobot}>
+                Robô WhatsApp
+              </PageBadge>{" "}
               para realizar os envios. Você já pode configurar as mensagens.
             </WarningBox>
           ) : null}
