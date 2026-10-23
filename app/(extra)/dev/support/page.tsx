@@ -1222,6 +1222,7 @@ export default function DevSupportPage() {
                                                         recipient.status === "skipped_recent" ? "Ignorado (7 dias)" :
                                                         recipient.status === "skipped_monthly" ? "Ignorado (envio recente/neste mês)" :
                                                         recipient.status === "skipped_30d" ? "Ignorado (últimos 30 dias)" :
+                                                        recipient.status === "skipped_60d" ? "Ignorado (últimos 60 dias)" :
                                                         recipient.status === "skipped_reactivated" ? "Ignorado (voltou a receber pedidos)" :
                                                         recipient.status === "cancelled" ? "Interrompido" :
                                                         recipient.status === "processing" ? "Enviando" :
