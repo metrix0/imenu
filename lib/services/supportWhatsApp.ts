@@ -149,6 +149,7 @@ export async function releaseExpiredSupportHandoffs(
                 handoff_prompted_at = NULL,
                 updated_at = NOW()
             WHERE mode = 'human'
+              AND NOT blacklisted
               AND (ai_paused_until IS NULL OR ai_paused_until <= NOW())
               AND (
                     human_started_at <= NOW() - INTERVAL '12 hours'
@@ -216,8 +217,63 @@ function phoneCandidates(value: string | null): string[] {
     return [...values];
 }
 
-function isPermanentlyManualSupportPhone(phone: string | null): boolean {
-    return phoneCandidates(phone).includes("5511988576886");
+type SupportContactRules = {
+    phone: string | null;
+    blacklisted: boolean;
+    blockedHandoff: boolean;
+    unresolvedLid: boolean;
+};
+
+// Resolve LIDs before matching phone aliases. If a previously unseen LID cannot
+// be resolved, fail closed: no message history, media or AI processing.
+async function getSupportContactRules(
+    sessionName: string,
+    chatId: string
+): Promise<SupportContactRules> {
+    const scopedChatId = getSupportScopedValue(sessionName, chatId);
+    const existing = await query<{ phone: string | null }>(
+        "SELECT phone FROM support_conversations WHERE chat_id = $1 LIMIT 1",
+        [scopedChatId]
+    );
+    const resolved = await resolveWahaChatPhone(sessionName, chatId);
+    const phone = resolved ||
+        existing.rows[0]?.phone ||
+        (!chatId.endsWith("@lid") ? chatId.split("@")[0].replace(/\D/g, "") : null) ||
+        null;
+    const candidates = phoneCandidates(phone);
+    const flags = await query<{ blacklisted: boolean; blocked_handoff: boolean }>(
+        `SELECT COALESCE(bool_or(blacklisted), false) AS blacklisted,
+                COALESCE(bool_or(blocked_handoff), false) AS blocked_handoff
+         FROM support_conversations
+         WHERE chat_id = $2
+            OR regexp_replace(COALESCE(phone, ''), '[^0-9]', '', 'g') = ANY($1::text[])`,
+        [candidates, scopedChatId]
+    );
+    return {
+        phone,
+        blacklisted: flags.rows[0]?.blacklisted || false,
+        blockedHandoff: flags.rows[0]?.blocked_handoff || false,
+        unresolvedLid: chatId.endsWith("@lid") && !candidates.length,
+    };
+}
+
+async function isSupportConversationBlacklisted(conversationId: string): Promise<boolean> {
+    const current = await query<{ phone: string | null; blacklisted: boolean }>(
+        "SELECT phone, blacklisted FROM support_conversations WHERE id = $1 LIMIT 1",
+        [conversationId]
+    );
+    const conversation = current.rows[0];
+    if (!conversation || conversation.blacklisted) return true;
+    const candidates = phoneCandidates(conversation.phone);
+    if (!candidates.length) return true;
+    const blocked = await query(
+        `SELECT 1 FROM support_conversations
+         WHERE blacklisted
+           AND regexp_replace(COALESCE(phone, ''), '[^0-9]', '', 'g') = ANY($1::text[])
+         LIMIT 1`,
+        [candidates]
+    );
+    return blocked.rowCount > 0;
 }
 
 async function findSingleRestaurantId(
@@ -435,6 +491,7 @@ async function prepareConversation(input: {
     chatId: string;
     customerName: string | null;
     currentMessageId: string;
+    rules: SupportContactRules;
 }): Promise<ConversationRow> {
     const conversationChatId = getSupportScopedValue(
         input.sessionName,
@@ -442,10 +499,7 @@ async function prepareConversation(input: {
     );
 
     return withAdvisoryLock("support:" + conversationChatId, async () => {
-        const resolvedPhone =
-            (await resolveWahaChatPhone(input.sessionName, input.chatId)) ||
-            String(input.chatId).split("@")[0].replace(/\D/g, "") ||
-            null;
+        const resolvedPhone = input.rules.phone;
 
         await releaseExpiredSupportHandoffs(conversationChatId);
         await resetExpiredSupportHandoffPrompt(conversationChatId);
@@ -456,23 +510,19 @@ async function prepareConversation(input: {
         );
 
         const current = existing.rows[0] || null;
-        const permanentlyManual =
-            isPermanentlyManualSupportPhone(resolvedPhone) ||
-            isPermanentlyManualSupportPhone(current?.phone || null) ||
-            input.chatId === "99389989204047@lid";
         const restaurantId =
             current?.restaurant_id ||
             (await findSingleRestaurantId(resolvedPhone));
 
         if (!current) {
             const inserted = await query<ConversationRow>(
-                "INSERT INTO support_conversations (chat_id, phone, customer_name, restaurant_id, mode, ai_paused_until, last_inbound_at, updated_at) VALUES ($1, $2, $3, $4, CASE WHEN $5::boolean THEN 'human' ELSE 'ai' END, CASE WHEN $5::boolean THEN 'infinity'::timestamptz ELSE NULL END, NOW(), NOW()) RETURNING id, chat_id, phone, customer_name, restaurant_id, mode, handoff_prompted_at",
+                "INSERT INTO support_conversations (chat_id, phone, customer_name, restaurant_id, blocked_handoff, last_inbound_at, updated_at) VALUES ($1, $2, $3, $4, $5, NOW(), NOW()) RETURNING id, chat_id, phone, customer_name, restaurant_id, mode, handoff_prompted_at",
                 [
                     conversationChatId,
                     resolvedPhone,
                     input.customerName,
                     restaurantId,
-                    permanentlyManual,
+                    input.rules.blockedHandoff,
                 ]
             );
             const conversation = inserted.rows[0];
@@ -513,13 +563,13 @@ async function prepareConversation(input: {
         }
 
         const updated = await query<ConversationRow>(
-            "UPDATE support_conversations SET phone = COALESCE($2, phone), customer_name = COALESCE($3, customer_name), restaurant_id = COALESCE(restaurant_id, $4), mode = CASE WHEN $5::boolean THEN 'human' ELSE mode END, ai_paused_until = CASE WHEN $5::boolean THEN 'infinity'::timestamptz ELSE ai_paused_until END, last_inbound_at = NOW(), updated_at = NOW() WHERE id = $1 RETURNING id, chat_id, phone, customer_name, restaurant_id, mode, handoff_prompted_at",
+            "UPDATE support_conversations SET phone = COALESCE($2, phone), customer_name = COALESCE($3, customer_name), restaurant_id = COALESCE(restaurant_id, $4), blocked_handoff = blocked_handoff OR $5, last_inbound_at = NOW(), updated_at = NOW() WHERE id = $1 RETURNING id, chat_id, phone, customer_name, restaurant_id, mode, handoff_prompted_at",
             [
                 current.id,
                 resolvedPhone,
                 input.customerName,
                 restaurantId,
-                permanentlyManual,
+                input.rules.blockedHandoff,
             ]
         );
         await syncSentBlastHistory(updated.rows[0].id, resolvedPhone, input.sessionName);
@@ -818,6 +868,7 @@ async function sendTrackedSupportText(input: {
     inputTokens?: number | null;
     outputTokens?: number | null;
 }): Promise<void> {
+    if (await isSupportConversationBlacklisted(input.conversationId)) return;
     const existing = await query<{
         id: string;
         body: string;
@@ -848,6 +899,11 @@ async function sendTrackedSupportText(input: {
     }
 
     try {
+        // Close the window where this contact could be blacklisted mid-reply.
+        if (await isSupportConversationBlacklisted(input.conversationId)) {
+            await query("DELETE FROM support_messages WHERE id = $1 AND send_status = 'pending'", [messageId]);
+            return;
+        }
         await sendWahaText(input.sessionName, input.chatId, body);
         await query(
             "UPDATE support_messages SET send_status = 'sent', error = NULL WHERE id = $1",
@@ -919,11 +975,14 @@ export async function processSupportIncomingWhatsAppMessage(input: {
     customerName: string | null;
     botEnabled: boolean;
 }): Promise<void> {
+    const rules = await getSupportContactRules(input.sessionName, input.chatId);
+    if (rules.blacklisted || rules.unresolvedLid) return;
     const conversation = await prepareConversation({
         sessionName: input.sessionName,
         chatId: input.chatId,
         customerName: input.customerName,
         currentMessageId: input.messageId,
+        rules,
     });
     const storageMessageId = getSupportScopedValue(
         input.sessionName,
@@ -1166,6 +1225,7 @@ export async function processSupportIncomingWhatsAppMessage(input: {
             }
 
             try {
+                if (await isSupportConversationBlacklisted(conversation.id)) return;
                 const reply = await generateSupportReplyWithRetry(
                     conversation.id
                 );

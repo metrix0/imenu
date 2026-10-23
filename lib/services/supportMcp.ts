@@ -8,14 +8,14 @@ type SupportConversation = {
     phone: string | null;
     restaurant_id: string | null;
     handoff_prompted_at: string | null;
+    blacklisted: boolean;
+    blocked_handoff: boolean;
 };
 
 type DataColumn = {
     column_name: string;
     data_type: string;
 };
-
-const BLOCKED_HANDOFF_PHONE = "5511913519119";
 
 const BLOCKED_TABLES = new Set([
     "owner_push_subscriptions",
@@ -398,7 +398,7 @@ async function getConversation(
     conversationId: string
 ): Promise<SupportConversation> {
     const result = await query<SupportConversation>(
-        "SELECT id, phone, restaurant_id, handoff_prompted_at FROM support_conversations WHERE id = $1 LIMIT 1",
+        "SELECT id, phone, restaurant_id, handoff_prompted_at, blacklisted, blocked_handoff FROM support_conversations WHERE id = $1 LIMIT 1",
         [conversationId]
     );
 
@@ -783,6 +783,7 @@ export async function executeSupportMcpTool(
             ? (rawArgs as Record<string, unknown>)
             : {};
     const conversation = await getConversation(conversationId);
+    if (conversation.blacklisted) return { error: "Contato bloqueado para atendimento automático." };
 
     if (name === "search_knowledge") {
         const search = String(args.query || "").trim();
@@ -877,11 +878,7 @@ export async function executeSupportMcpTool(
     }
 
     if (name === "request_human_handoff") {
-        if (
-            phoneCandidates(conversation.phone).includes(
-                BLOCKED_HANDOFF_PHONE
-            )
-        ) {
+        if (conversation.blocked_handoff) {
             return {
                 state: "blocked",
                 handed_off: false,
