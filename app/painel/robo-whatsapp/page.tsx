@@ -29,6 +29,8 @@ import Card from "@/components/ui/Card";
 import Loader from "@/components/ui/Loader";
 import Toast from "@/components/ui/Toast";
 import WarningBox from "@/components/ui/WarningBox";
+import SaveStatus from "@/components/ui/SaveStatus";
+import { useAutoSave } from "@/lib/utils/useAutoSave";
 import { TemplateEditor, VariablePicker, type TemplateEditorHandle, type TemplateVariable } from "@/components/ui/WhatsAppTemplateEditor";
 import { supabase } from "@/lib/database/supabaseClient";
 import type {
@@ -216,7 +218,6 @@ export default function RoboWhatsAppPage() {
     const { restaurantId, setRestaurantId } = useCreationStore();
     const editorRefs = useRef<Record<string, TemplateEditorHandle | null>>({});
     const [loading, setLoading] = useState(true);
-    const [saving, setSaving] = useState(false);
     const [whatsAppAction, setWhatsAppAction] = useState<
         "connect" | "reconnect" | "refresh_qr" | "disconnect" | null
     >(null);
@@ -249,9 +250,35 @@ export default function RoboWhatsAppPage() {
         return session;
     };
 
+    const { status: saveStatus, error: saveError, schedule: scheduleSave, reset: resetSave } = useAutoSave<WhatsAppMessageTemplates>(restaurantId, async (snapshot) => {
+        if (!restaurantId) throw new Error("Restaurante não encontrado.");
+        if (Object.values(snapshot).some((message) => !message.trim() || message.length > 4000)) {
+            throw new Error("Preencha as mensagens com até 4.000 caracteres para salvar automaticamente.");
+        }
+        const session = await getAuthenticatedSession();
+        if (!session) throw new Error("Sua sessão expirou. Entre novamente.");
+        const response = await fetch(
+            `/api/whatsapp/settings?restaurantId=${encodeURIComponent(restaurantId)}`,
+            {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${session.access_token}`,
+                },
+                body: JSON.stringify({ templates: snapshot }),
+            }
+        );
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Erro ao salvar mensagens.");
+    });
+
     useEffect(() => {
+        let active = true;
+        setLoading(true);
+        setTemplates(null);
         const loadPage = async () => {
             const session = await getAuthenticatedSession();
+            if (!active) return;
             if (!session?.user) {
                 setLoading(false);
                 return;
@@ -264,6 +291,7 @@ export default function RoboWhatsAppPage() {
                     .select("id")
                     .eq("user_id", session.user.id)
                     .single();
+                if (!active) return;
                 if (!data) {
                     setLoading(false);
                     return;
@@ -287,6 +315,7 @@ export default function RoboWhatsAppPage() {
 
             const connectionData = await connectionResponse.json().catch(() => ({}));
             const settingsData = await settingsResponse.json().catch(() => ({}));
+            if (!active) return;
 
             if (connectionResponse.ok) {
                 setRestaurant(connectionData.restaurant);
@@ -302,6 +331,7 @@ export default function RoboWhatsAppPage() {
                 setTemplates(settingsData.templates);
                 setVariables(settingsData.variables || []);
                 setHandoffs(settingsData.conversations || []);
+                resetSave("saved");
             } else {
                 showMessage(
                     settingsData.error || "Não foi possível carregar as mensagens do robô.",
@@ -312,8 +342,13 @@ export default function RoboWhatsAppPage() {
             setLoading(false);
         };
 
-        void loadPage();
-    }, [restaurantId, setRestaurantId]);
+        void loadPage().catch((error) => {
+            if (!active) return;
+            showMessage(error instanceof Error ? error.message : "Não foi possível carregar o robô WhatsApp.", "error");
+            setLoading(false);
+        });
+        return () => { active = false; };
+    }, [restaurantId, setRestaurantId, resetSave]);
 
     useEffect(() => {
         if (!restaurantId) return;
@@ -414,35 +449,11 @@ export default function RoboWhatsAppPage() {
         }
     };
 
-    const saveTemplates = async () => {
-        if (!restaurantId || !templates || saving) return;
-        const session = await getAuthenticatedSession();
-        if (!session) return;
-        setSaving(true);
-        try {
-            const response = await fetch(
-                `/api/whatsapp/settings?restaurantId=${encodeURIComponent(restaurantId)}`,
-                {
-                    method: "PUT",
-                    headers: {
-                        "Content-Type": "application/json",
-                        Authorization: `Bearer ${session.access_token}`,
-                    },
-                    body: JSON.stringify({ templates }),
-                }
-            );
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.error || "Erro ao salvar mensagens.");
-            setTemplates(data.templates);
-            showMessage("Mensagens salvas com sucesso!", "success");
-        } catch (error) {
-            showMessage(
-                error instanceof Error ? error.message : "Erro ao salvar mensagens.",
-                "error"
-            );
-        } finally {
-            setSaving(false);
-        }
+    const updateTemplate = (key: WhatsAppTemplateKey, value: string) => {
+        if (!templates) return;
+        const next = { ...templates, [key]: value };
+        setTemplates(next);
+        scheduleSave(next);
     };
 
     const status = useMemo(() => connectionPresentation(connection), [connection]);
@@ -459,8 +470,8 @@ export default function RoboWhatsAppPage() {
 
     if (loading) {
         return (
-            <div className="flex h-64 items-center justify-center">
-                <Loader />
+            <div role="status" aria-label="Carregando robô WhatsApp" className="flex justify-center p-10">
+                <Loader className="border-t-brand" />
             </div>
         );
     }
@@ -686,10 +697,9 @@ export default function RoboWhatsAppPage() {
                                     Personalize as mensagens principais.
                                 </p>
                             </div>
-                            <Button onClick={saveTemplates} loading={saving}>
-                                Salvar mensagens
-                            </Button>
+                            <SaveStatus status={saveStatus} className="self-start" />
                         </div>
+                        {saveError ? <p role="alert" className="mt-3 text-sm text-red-600">{saveError}</p> : null}
 
                         <div className="mt-6 divide-y divide-gray-200 rounded-lg border border-gray-200">
                             {TEMPLATE_FIELDS.map((field) => {
@@ -736,16 +746,7 @@ export default function RoboWhatsAppPage() {
                                                         value={templates[field.key]}
                                                         variables={variables}
                                                         ariaLabel={`Mensagem: ${field.title}`}
-                                                        onChange={(value) =>
-                                                            setTemplates((current) =>
-                                                                current
-                                                                    ? {
-                                                                          ...current,
-                                                                          [field.key]: value,
-                                                                      }
-                                                                    : current
-                                                            )
-                                                        }
+                                                        onChange={(value) => updateTemplate(field.key, value)}
                                                     />
                                                     <button
                                                         type="button"

@@ -135,29 +135,22 @@ export async function PUT(request: NextRequest) {
             );
         }
 
-        if (Object.keys(overrides).length === 0) {
-            await query(
-                `DELETE FROM whatsapp_bot_settings WHERE restaurant_id = $1`,
-                [restaurantId]
-            );
-        } else {
-            await query(
-                `
-                    INSERT INTO whatsapp_bot_settings (
-                        restaurant_id,
-                        message_templates,
-                        updated_at
-                    )
-                    VALUES ($1, $2::jsonb, NOW())
-                    ON CONFLICT (restaurant_id)
-                    DO UPDATE SET
-                        message_templates = EXCLUDED.message_templates,
-                        updated_at = NOW()
-                `,
-                [restaurantId, JSON.stringify(overrides)]
-            );
-        }
-
+        // Empty overrides restore the defaults without deleting automation settings.
+        await query(
+            `
+                INSERT INTO whatsapp_bot_settings (
+                    restaurant_id,
+                    message_templates,
+                    updated_at
+                )
+                VALUES ($1, $2::jsonb, NOW())
+                ON CONFLICT (restaurant_id)
+                DO UPDATE SET
+                    message_templates = EXCLUDED.message_templates,
+                    updated_at = NOW()
+            `,
+            [restaurantId, JSON.stringify(overrides)]
+        );
         return NextResponse.json({
             ok: true,
             templates: mergeWhatsAppTemplates(overrides),

@@ -31,6 +31,7 @@
 
 ## Frontend/UI, when applicable
 - **Before editing UI**, inspect the shared component directory and at least one comparable existing page. Identify the components to reuse before writing code.
+- **Settings save automatically by default.** Reuse `components/ui/SaveStatus.tsx` for saving, saved, and error feedback, following `app/painel/loja/page.tsx` and `app/painel/disponibilidade/page.tsx`. Do not introduce a manual save button unless the user explicitly requests it; older screens with save buttons are not the default pattern. Identify the reference page's saving behavior before implementation and verify that edits persist without a save click. Debounce text edits, serialize writes so older requests cannot overwrite newer edits, and do not save on initial load or report failed/pending changes as saved.
 - Read `docs/ai-design-guidelines.md` first; inspect the actual affected page and existing `components/` and `components/ui/` patterns.
 - `design-system.html` remains the authoritative visual reference. Consult the full artifact when the concise guide is insufficient, ambiguous, stale, or when introducing/modifying a visual pattern. Do not invent a competing design pattern.
 - Reuse existing components, utilities, styles, spacing, and interactions; preserve unrelated UI behavior.

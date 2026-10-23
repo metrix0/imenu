@@ -17,7 +17,9 @@ import Badge from "@/components/ui/Badge";
 import Input from "@/components/ui/Input";
 import Dropdown from "@/components/ui/Dropdown";
 import Switch from "@/components/ui/Switch";
-import Button from "@/components/ui/Button";
+import SaveStatus from "@/components/ui/SaveStatus";
+import Loader from "@/components/ui/Loader";
+import { useAutoSave } from "@/lib/utils/useAutoSave";
 import WarningBox from "@/components/ui/WarningBox";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { faPlus, faRobot, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
@@ -54,10 +56,18 @@ export default function AutomacoesPage() {
     [offers, setOffers] = useState<{ value: string; label: string }[]>([]),
     [connected, setConnected] = useState(false),
     [restaurantName, setRestaurantName] = useState(""),
-    [error, setError] = useState(""),
-    [saved, setSaved] = useState(false),
-    [saving, setSaving] = useState(false),
-    [dirty, setDirty] = useState(false);
+    [error, setError] = useState("");
+  const { status: saveStatus, error: saveError, schedule: scheduleSave, reset: resetSave } = useAutoSave<AutomationSettings>(id, async (snapshot) => {
+    if (!id) throw new Error("Restaurante não encontrado.");
+    if (AUTOMATION_KINDS.some((kind) => !snapshot[kind].message.trim()))
+      throw new Error("Preencha as mensagens antes de salvar automaticamente.");
+    if (!Number.isInteger(snapshot.reactivation.days) || snapshot.reactivation.days < 1 || snapshot.reactivation.days > 365)
+      throw new Error("Informe de 1 a 365 dias para a reativação.");
+    await crmRequest("/api/automations", id, {
+      method: "PUT",
+      body: JSON.stringify(snapshot),
+    });
+  });
   const editorRefs = useRef<Record<AutomationKind, TemplateEditorHandle | null>>({ cart: null, reactivation: null, habit: null });
   const [openVariables, setOpenVariables] = useState<AutomationKind | null>(null);
   const [history, setHistory] = useState<HistoryRow[]>([]);
@@ -104,43 +114,33 @@ export default function AutomacoesPage() {
     const controller = new AbortController();
     void crmRequest("/api/automations", id, { signal: controller.signal })
       .then((data) => {
+        if (controller.signal.aborted) return;
         setSettings(data.settings);
         setOffers(data.offers);
         setConnected(data.connected);
         setRestaurantName(data.restaurantName);
-        setDirty(false);
+        resetSave("saved");
       })
       .catch((e) => {
         if (!controller.signal.aborted) setError(e.message);
       });
     return () => controller.abort();
-  }, [id]);
+  }, [id, resetSave]);
   function update(
     kind: AutomationKind,
     patch: Partial<AutomationSettings[AutomationKind]>,
   ) {
-    setSettings((s) => (s ? { ...s, [kind]: { ...s[kind], ...patch } } : s));
-    setDirty(true);
-    setSaved(false);
+    if (!settings) return;
+    const next = { ...settings, [kind]: { ...settings[kind], ...patch } };
+    setSettings(next);
+    scheduleSave(next);
   }
-  async function save() {
-    if (!id || !settings || saving) return;
-    setSaving(true);
-    setError("");
-    setSaved(false);
-    try {
-      const data = await crmRequest("/api/automations", id, {
-        method: "PUT",
-        body: JSON.stringify(settings),
-      });
-      setSettings(data.settings);
-      setSaved(true);
-      setDirty(false);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Não foi possível salvar.");
-    } finally {
-      setSaving(false);
-    }
+  if (!settings && !error) {
+    return (
+      <div role="status" aria-label="Carregando automações" className="flex justify-center p-10">
+        <Loader className="border-t-brand" />
+      </div>
+    );
   }
   return (
     <div className="mx-auto max-w-6xl space-y-6 px-4 pb-20 pt-8 sm:px-6">
@@ -151,26 +151,12 @@ export default function AutomacoesPage() {
             Transforme boas lembranças em novos pedidos pelo WhatsApp.
           </p>
         </div>
-        <Button
-          loading={saving}
-          disabled={!settings || !dirty}
-          onClick={() => void save()}
-        >
-          Salvar alterações
-        </Button>
+        <SaveStatus status={saveStatus} className="self-start" />
       </div>
-      {error ? (
+      {error || saveError ? (
         <p role="alert" className="text-sm text-red-600">
-          {error}
+          {error || saveError}
         </p>
-      ) : null}
-      {saved ? (
-        <p role="status" className="text-sm text-green-700">
-          Automações salvas.
-        </p>
-      ) : null}
-      {!settings && !error ? (
-        <p className="text-sm text-gray-500">Carregando automações...</p>
       ) : null}
       {settings ? (
         <>
