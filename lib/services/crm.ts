@@ -20,7 +20,21 @@ export async function listCustomers(
   search = "",
   segment = "",
   page = 1,
+  orders = "",
+  marketing = "",
+  sort = "last:desc",
 ) {
+  const sortColumns: Record<string, string> = {
+    name: "name",
+    segment: "segment",
+    orders: "order_count",
+    spent: "spending_cents",
+    ticket: "average_ticket_cents",
+    last: "last_purchase",
+  };
+  const [field, direction] = sort.split(":");
+  const sortColumn = sortColumns[field] || sortColumns.last;
+  const sortDirection = direction === "asc" ? "ASC" : "DESC";
   const result = await query<CustomerRow & { total: string }>(
     `
         WITH metrics AS (
@@ -39,11 +53,19 @@ export async function listCustomers(
         ) SELECT *,count(*) OVER() total FROM customers_with_metrics
         WHERE ($2='' OR name ILIKE '%'||$2||'%' OR phone LIKE '%'||$2||'%')
           AND ($3='' OR segment=$3)
-        ORDER BY last_purchase DESC NULLS LAST,phone LIMIT 25 OFFSET $4`,
+          AND ($4='' OR ($4='none' AND order_count=0)
+            OR ($4='few' AND order_count BETWEEN 1 AND 2)
+            OR ($4='regular' AND order_count BETWEEN 3 AND 9)
+            OR ($4='tenPlus' AND order_count>=10))
+          AND ($5='' OR ($5='consented' AND marketing_consent IS TRUE AND opted_out_at IS NULL)
+            OR ($5='notConsented' AND (marketing_consent IS NOT TRUE OR opted_out_at IS NOT NULL)))
+        ORDER BY ${sortColumn} ${sortDirection} NULLS LAST,phone LIMIT 25 OFFSET $6`,
     [
       restaurantId,
       search.slice(0, 100),
       CUSTOMER_SEGMENTS.includes(segment as CustomerSegment) ? segment : "",
+      ["none", "few", "regular", "tenPlus"].includes(orders) ? orders : "",
+      ["consented", "notConsented"].includes(marketing) ? marketing : "",
       (page - 1) * 25,
     ],
   );

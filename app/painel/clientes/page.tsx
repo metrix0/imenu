@@ -7,7 +7,8 @@ import type { CustomerRow } from "@/lib/services/crm";
 import DataTable from "@/components/ui/DataTable";
 import Input from "@/components/ui/Input";
 import Dropdown from "@/components/ui/Dropdown";
-import Button from "@/components/ui/Button";
+import Pagination from "@/components/ui/Pagination";
+import { Search } from "lucide-react";
 import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
 import HybridModal from "@/components/ui/HybridModal";
@@ -43,6 +44,10 @@ export default function ClientesPage() {
     [error, setError] = useState(""),
     [search, setSearch] = useState(""),
     [segment, setSegment] = useState(""),
+    [orderFilter, setOrderFilter] = useState(""),
+    [marketingFilter, setMarketingFilter] = useState(""),
+    [sortKey, setSortKey] = useState("last"),
+    [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc"),
     [page, setPage] = useState(1),
     [total, setTotal] = useState(0);
   const [selected, setSelected] = useState<CustomerRow | null>(null),
@@ -56,7 +61,7 @@ export default function ClientesPage() {
     setRows([]);
     const timer = setTimeout(() => {
       void crmRequest(
-        `/api/customers?search=${encodeURIComponent(search)}&segment=${encodeURIComponent(segment)}&page=${page}`,
+        `/api/customers?search=${encodeURIComponent(search)}&segment=${encodeURIComponent(segment)}&orders=${encodeURIComponent(orderFilter)}&marketing=${encodeURIComponent(marketingFilter)}&sort=${encodeURIComponent(`${sortKey}:${sortDirection}`)}&page=${page}`,
         id,
         { signal: controller.signal },
       )
@@ -75,7 +80,7 @@ export default function ClientesPage() {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [id, search, segment, page]);
+  }, [id, search, segment, orderFilter, marketingFilter, sortKey, sortDirection, page]);
   useEffect(() => {
     setDetails(null);
     setDetailsError("");
@@ -92,6 +97,15 @@ export default function ClientesPage() {
       });
     return () => controller.abort();
   }, [id, selected]);
+  const handleSort = (key: string) => {
+    if (key === sortKey) {
+      setSortDirection((current) => current === "asc" ? "desc" : "asc");
+    } else {
+      setSortKey(key);
+      setSortDirection(key === "name" || key === "segment" ? "asc" : "desc");
+    }
+    setPage(1);
+  };
   return (
     <div className="mx-auto max-w-6xl space-y-6 px-4 pb-20 pt-8 sm:px-6">
       <div>
@@ -100,11 +114,12 @@ export default function ClientesPage() {
           Conheça quem compra de você e acompanhe cada relacionamento.
         </p>
       </div>
-      <Card className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div className="w-full sm:max-w-sm">
+      <div className="grid grid-cols-1 items-end gap-4 sm:grid-cols-2 lg:grid-cols-[minmax(220px,1.3fr)_repeat(3,minmax(170px,1fr))]">
+        <div className="sm:col-span-2 lg:col-span-1">
           <Input
             label="Buscar cliente"
             placeholder="Nome ou celular"
+            icon={<Search size={16} />}
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
@@ -112,21 +127,47 @@ export default function ClientesPage() {
             }}
           />
         </div>
-        <div className="w-full sm:w-56">
-          <Dropdown
-            label="Classificação"
-            value={segment}
-            onChange={(e) => {
-              setSegment(e.target.value);
-              setPage(1);
-            }}
-            options={[
-              { value: "", label: "Todos os clientes" },
-              ...CUSTOMER_SEGMENTS.map((x) => ({ value: x, label: x })),
-            ]}
-          />
-        </div>
-      </Card>
+        <Dropdown
+          label="Classificação"
+          value={segment}
+          onChange={(e) => {
+            setSegment(e.target.value);
+            setPage(1);
+          }}
+          options={[
+            { value: "", label: "Todos os clientes" },
+            ...CUSTOMER_SEGMENTS.map((x) => ({ value: x, label: x })),
+          ]}
+        />
+        <Dropdown
+          label="Pedidos"
+          value={orderFilter}
+          onChange={(e) => {
+            setOrderFilter(e.target.value);
+            setPage(1);
+          }}
+          options={[
+            { value: "", label: "Qualquer quantidade" },
+            { value: "none", label: "Nenhum pedido" },
+            { value: "few", label: "1 a 2 pedidos" },
+            { value: "regular", label: "3 a 9 pedidos" },
+            { value: "tenPlus", label: "10 ou mais" },
+          ]}
+        />
+        <Dropdown
+          label="Marketing"
+          value={marketingFilter}
+          onChange={(e) => {
+            setMarketingFilter(e.target.value);
+            setPage(1);
+          }}
+          options={[
+            { value: "", label: "Todos" },
+            { value: "consented", label: "Autorizado" },
+            { value: "notConsented", label: "Não autorizado" },
+          ]}
+        />
+      </div>
       {error ? (
         <p role="alert" className="text-sm text-red-600">
           {error}
@@ -134,17 +175,21 @@ export default function ClientesPage() {
       ) : null}
       <DataTable
         loading={loading}
+        sortKey={sortKey}
+        sortDirection={sortDirection}
+        onSort={handleSort}
         rows={rows}
         rowKey={(r) => r.phone}
         onRowClick={setSelected}
         emptyMessage={
-          search || segment
+          search || segment || orderFilter || marketingFilter
             ? "Nenhum cliente encontrado com estes filtros."
             : "Seus clientes aparecerão aqui automaticamente quando fizerem pedidos."
         }
         columns={[
           {
             key: "name",
+            sortable: true,
             label: "Cliente",
             render: (r) => (
               <div>
@@ -157,6 +202,7 @@ export default function ClientesPage() {
           },
           {
             key: "segment",
+            sortable: true,
             label: "Classificação",
             render: (r) => (
               <Badge
@@ -174,44 +220,37 @@ export default function ClientesPage() {
               </Badge>
             ),
           },
-          { key: "orders", label: "Pedidos", render: (r) => r.order_count },
+          { key: "orders", label: "Pedidos", sortable: true, render: (r) => r.order_count },
           {
             key: "spent",
+            sortable: true,
             label: "Total gasto",
             render: (r) => formatPrice(r.spending_cents),
           },
           {
             key: "ticket",
+            sortable: true,
             label: "Ticket médio",
             render: (r) => formatPrice(r.average_ticket_cents),
           },
           {
             key: "last",
+            sortable: true,
             label: "Última compra",
             render: (r) => date(r.last_purchase),
           },
         ]}
       />
-      <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-gray-500">
-        <span>
-          {total} cliente{total === 1 ? "" : "s"} · Página {page}
-        </span>
-        <div className="flex gap-2">
-          <Button
-            variant="secondary"
-            disabled={page === 1 || loading}
-            onClick={() => setPage((p) => p - 1)}
-          >
-            Anterior
-          </Button>
-          <Button
-            variant="secondary"
-            disabled={page * 25 >= total || loading}
-            onClick={() => setPage((p) => p + 1)}
-          >
-            Próxima
-          </Button>
-        </div>
+      <div className="text-center text-sm text-gray-500">
+        {total} cliente{total === 1 ? "" : "s"}
+        {(total > 0 || page > 1) && (
+          <Pagination
+            page={page - 1}
+            pageCount={Math.ceil(total / 25)}
+            onChange={(nextPage) => setPage(nextPage + 1)}
+            disabled={loading}
+          />
+        )}
       </div>
       <p className="text-xs leading-relaxed text-gray-500">
         Novo: até 2 pedidos · Frequente: 3 ou mais · VIP: 10 pedidos ou R$ 1.000
