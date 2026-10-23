@@ -177,7 +177,7 @@ export default function AutomacoesPage() {
           {!connected ? (
             <WarningBox icon={faTriangleExclamation} className="w-fit max-w-full">
               Conecte seu{" "}
-              <PageBadge href="/painel/robo-whatsapp" icon={faRobot}>
+              <PageBadge href="/painel/robo-whatsapp" icon={faRobot} tone="inherit">
                 Robô WhatsApp
               </PageBadge>{" "}
               para realizar os envios. Você já pode configurar as mensagens.
