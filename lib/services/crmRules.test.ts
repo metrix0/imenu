@@ -4,6 +4,8 @@ import {
   habitDue,
   purchaseHabits,
   readAutomationSettings,
+  automationDailyShares,
+  DEFAULT_AUTOMATION_DAILY_LIMIT,
   legacyCheckoutAddress,
 } from "./crmRules";
 describe("CRM rules", () => {
@@ -25,20 +27,38 @@ describe("CRM rules", () => {
       "Frequente",
     );
   });
-  test("merchant input cannot raise caps or shorten cooldowns", () => {
-    const value = readAutomationSettings({
+  test("shared daily cap defaults to 10, ignores old per-type limits and protects cooldowns", () => {
+    const settings = readAutomationSettings({
+      dailyTotalLimit: 18,
+      habit: { enabled: true, dailyLimit: 999, cooldownDays: 1 },
       reactivation: { enabled: true, days: 365, dailyLimit: 999, cooldownDays: 1 },
-      cart: { dailyLimit: 999, cooldownDays: 0 },
+      cart: { enabled: true, dailyLimit: 999, cooldownDays: 0 },
     });
-    expect(value.reactivation).toMatchObject({
-      enabled: true,
-      days: 30,
-      dailyLimit: 2,
-      cooldownDays: 120,
+    expect(settings.dailyTotalLimit).toBe(18);
+    expect(settings.reactivation).toMatchObject({ enabled: true, days: 30, cooldownDays: 120 });
+    expect(settings.cart).toMatchObject({ enabled: true, cooldownDays: 7 });
+    expect(settings.cart).not.toHaveProperty("dailyLimit");
+    expect(readAutomationSettings(null).dailyTotalLimit).toBe(DEFAULT_AUTOMATION_DAILY_LIMIT);
+    expect(readAutomationSettings({ dailyTotalLimit: 9999 }).dailyTotalLimit).toBe(1000);
+    expect(readAutomationSettings({ dailyTotalLimit: -4 }).dailyTotalLimit).toBe(1);
+  });
+  test("active automation weights distribute budget using largest remainders", () => {
+    const settings = readAutomationSettings({
+      dailyTotalLimit: 18,
+      habit: { enabled: true },
+      reactivation: { enabled: true },
+      cart: { enabled: true },
     });
-    expect(value.cart).toMatchObject({ dailyLimit: 7, cooldownDays: 7 });
-    expect(value.habit.enabled).toBe(false);
-    expect(readAutomationSettings({ reactivation: { days: 1 } }).reactivation.days).toBe(30);
+    expect(automationDailyShares(settings)).toEqual({ cart: 6, reactivation: 4, habit: 8 });
+    settings.dailyTotalLimit = 9;
+    expect(automationDailyShares(settings)).toEqual({ cart: 3, reactivation: 2, habit: 4 });
+    settings.dailyTotalLimit = 10;
+    expect(automationDailyShares(settings)).toEqual({ cart: 3, reactivation: 2, habit: 5 });
+    settings.cart.enabled = false;
+    settings.dailyTotalLimit = 12;
+    expect(automationDailyShares(settings)).toEqual({ cart: 0, reactivation: 4, habit: 8 });
+    settings.habit.enabled = false;
+    expect(automationDailyShares(settings)).toEqual({ cart: 0, reactivation: 12, habit: 0 });
   });
   test("profile habits use the same distinct-day weekday/hour rule as automation", () => {
     const dates = [

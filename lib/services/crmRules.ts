@@ -3,23 +3,29 @@ export type AutomationRule = {
   enabled: boolean;
   message: string;
   days: number;
-  dailyLimit: number;
   cooldownDays: number;
   offer: string;
 };
-export type AutomationSettings = Record<AutomationKind, AutomationRule>;
+export type AutomationSettings = Record<AutomationKind, AutomationRule> & { dailyTotalLimit: number };
+export const DEFAULT_AUTOMATION_DAILY_LIMIT = 10;
+export const MAX_AUTOMATION_DAILY_LIMIT = 1000;
+export const AUTOMATION_PRIORITY: Record<AutomationKind, number> = {
+  habit: 8,
+  reactivation: 4,
+  cart: 6,
+};
 export const AUTOMATION_LABELS: Record<AutomationKind, string> = {
   cart: "Recuperação de carrinho",
   reactivation: "Reativação de clientes",
   habit: "Hábitos de compra",
 };
 export const DEFAULT_AUTOMATIONS: AutomationSettings = {
+  dailyTotalLimit: DEFAULT_AUTOMATION_DAILY_LIMIT,
   cart: {
     enabled: false,
     message:
       "Oi, {{nome}}! Seus favoritos ficaram no carrinho da {{restaurante}}. Que tal finalizar seu pedido? 😋",
     days: 1,
-    dailyLimit: 7,
     cooldownDays: 7,
     offer: "",
   },
@@ -28,7 +34,6 @@ export const DEFAULT_AUTOMATIONS: AutomationSettings = {
     message:
       "Oi, {{nome}}! Estamos com saudade de você na {{restaurante}}. Que tal pedir algo gostoso hoje? 🍔",
     days: 30,
-    dailyLimit: 2,
     cooldownDays: 120,
     offer: "",
   },
@@ -37,14 +42,33 @@ export const DEFAULT_AUTOMATIONS: AutomationSettings = {
     message:
       "Oi, {{nome}}! Sua hora favorita de pedir na {{restaurante}} está chegando. Já escolheu o que vai querer hoje? 😋",
     days: 1,
-    dailyLimit: 2,
     cooldownDays: 7,
     offer: "",
   },
 };
-export const AUTOMATION_KINDS = Object.keys(
-  DEFAULT_AUTOMATIONS,
-) as AutomationKind[];
+export const AUTOMATION_KINDS: AutomationKind[] = ["cart", "reactivation", "habit"];
+
+// Largest-remainder distribution. Shares are soft reservations: unused
+// capacity can be spent by any enabled automation after the first pass.
+export function automationDailyShares(settings: AutomationSettings): Record<AutomationKind, number> {
+  const shares: Record<AutomationKind, number> = { cart: 0, reactivation: 0, habit: 0 };
+  const order: AutomationKind[] = ["habit", "reactivation", "cart"];
+  const active = order.filter((kind) => settings[kind].enabled);
+  const weightSum = active.reduce((sum, kind) => sum + AUTOMATION_PRIORITY[kind], 0);
+  if (!weightSum) return shares;
+
+  const remainders = active.map((kind) => {
+    const exact = (settings.dailyTotalLimit * AUTOMATION_PRIORITY[kind]) / weightSum;
+    shares[kind] = Math.floor(exact);
+    return { kind, fraction: exact - shares[kind] };
+  });
+  remainders.sort((a, b) => b.fraction - a.fraction || order.indexOf(a.kind) - order.indexOf(b.kind));
+  let remaining = settings.dailyTotalLimit - active.reduce((sum, kind) => sum + shares[kind], 0);
+  for (let i = 0; remaining > 0; i++, remaining--) {
+    shares[remainders[i % remainders.length].kind]++;
+  }
+  return shares;
+}
 export function normalizeCustomerPhone(value: unknown): string | null {
   const phone = String(value ?? "").replace(/\D/g, "");
   if (/^55\d{10,11}$/.test(phone)) return phone;
@@ -53,7 +77,12 @@ export function normalizeCustomerPhone(value: unknown): string | null {
 export function readAutomationSettings(value: unknown): AutomationSettings {
   const source =
     value && typeof value === "object" ? (value as Record<string, any>) : {};
-  return Object.fromEntries(
+  return {
+    dailyTotalLimit: Math.max(
+      1,
+      Math.min(MAX_AUTOMATION_DAILY_LIMIT, Math.floor(Number(source.dailyTotalLimit) || DEFAULT_AUTOMATION_DAILY_LIMIT)),
+    ),
+    ...Object.fromEntries(
     AUTOMATION_KINDS.map((kind) => {
       const base = DEFAULT_AUTOMATIONS[kind],
         rule = source[kind] || {};
@@ -69,13 +98,6 @@ export function readAutomationSettings(value: unknown): AutomationSettings {
           days: kind === "reactivation"
             ? base.days
             : Math.max(1, Math.min(365, Math.floor(Number(rule.days) || base.days))),
-          dailyLimit: Math.max(
-            1,
-            Math.min(
-              base.dailyLimit,
-              Math.floor(Number(rule.dailyLimit) || base.dailyLimit),
-            ),
-          ),
           cooldownDays: Math.max(
             base.cooldownDays,
             Math.min(
@@ -87,7 +109,8 @@ export function readAutomationSettings(value: unknown): AutomationSettings {
         },
       ];
     }),
-  ) as AutomationSettings;
+    ),
+  } as AutomationSettings;
 }
 export const CUSTOMER_SEGMENTS = [
   "Destaque",

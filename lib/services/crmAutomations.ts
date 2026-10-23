@@ -16,6 +16,7 @@ import {
 import {
   AUTOMATION_KINDS,
   readAutomationSettings,
+  automationDailyShares,
   habitDue,
   normalizeCustomerPhone,
   type AutomationKind,
@@ -277,6 +278,8 @@ async function claim(
   rule: AutomationRule,
   c: Candidate,
   offer: string,
+  sharedLimit: number,
+  kindLimit: number,
 ): Promise<string | null> {
   return withTransaction(async (client) => {
     await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [
@@ -290,7 +293,8 @@ async function claim(
       `
          INSERT INTO whatsapp_outbound_messages(dedupe_key,restaurant_id,chat_id,message_type,status,automation_type,customer_phone,checkout_session_id,context)
          SELECT $1,$2,$3,'text','sending',$4,$5,$6,jsonb_build_object('offer',$7::text)
-         WHERE (SELECT count(*) FROM whatsapp_outbound_messages WHERE restaurant_id=$2 AND automation_type=$4 AND status IN ('sent','sending','failed') AND created_at>=date_trunc('day',now() AT TIME ZONE 'America/Sao_Paulo') AT TIME ZONE 'America/Sao_Paulo')<$8
+         WHERE (SELECT count(*) FROM whatsapp_outbound_messages WHERE restaurant_id=$2 AND automation_type IN ('cart','reactivation','habit') AND status IN ('sent','sending','failed') AND created_at>=date_trunc('day',now() AT TIME ZONE 'America/Sao_Paulo') AT TIME ZONE 'America/Sao_Paulo')<$8
+          AND (SELECT count(*) FROM whatsapp_outbound_messages WHERE restaurant_id=$2 AND automation_type=$4 AND status IN ('sent','sending','failed') AND created_at>=date_trunc('day',now() AT TIME ZONE 'America/Sao_Paulo') AT TIME ZONE 'America/Sao_Paulo')<$11
          AND NOT EXISTS(SELECT 1 FROM whatsapp_outbound_messages WHERE restaurant_id=$2 AND customer_phone=$5 AND automation_type=$4 AND status IN ('sent','sending','failed') AND created_at>now()-($9::int*interval '1 day'))
          AND NOT EXISTS(SELECT 1 FROM whatsapp_outbound_messages WHERE restaurant_id=$2 AND customer_phone=$5 AND automation_type IN ('cart','habit','reactivation') AND status IN ('sent','sending','failed') AND created_at>now()-interval '24 hours')
          AND NOT EXISTS(SELECT 1 FROM whatsapp_conversations WHERE restaurant_id=$2 AND chat_id=$3 AND (mode='storm' OR (mode='human' AND (human_until IS NULL OR human_until>now()))))
@@ -310,9 +314,10 @@ async function claim(
         c.phone,
         c.session_id || null,
         offer,
-        rule.dailyLimit,
+        sharedLimit,
         rule.cooldownDays,
         rule.days,
+        kindLimit,
       ],
     );
     return result.rows[0]?.dedupe_key || null;
@@ -322,71 +327,113 @@ export async function processCustomerAutomations() {
   const restaurants = await query(
     `SELECT s.restaurant_id,s.automations,r.name,r.url_slug,w.session_name FROM whatsapp_bot_settings s JOIN restaurants r ON r.id=s.restaurant_id JOIN whatsapp_connections w ON w.restaurant_id=s.restaurant_id WHERE w.status='WORKING' AND w.desired_state='connected' AND (s.automations->'cart'->>'enabled'='true' OR s.automations->'habit'->>'enabled'='true' OR s.automations->'reactivation'->>'enabled'='true') ORDER BY s.restaurant_id`,
   );
-  let sent = 0,
-    failed = 0;
+  let sent = 0, failed = 0;
   const started = Date.now();
+  const priorityOrder: AutomationKind[] = ["habit", "reactivation", "cart"];
   for (const r of restaurants.rows) {
     const settings = readAutomationSettings(r.automations);
-    for (const kind of AUTOMATION_KINDS) {
-      const rule = settings[kind];
-      if (!rule.enabled) continue;
-      const budget = await query(
-        "SELECT count(*)::int n FROM whatsapp_outbound_messages WHERE restaurant_id=$1 AND automation_type=$2 AND status IN ('sent','sending','failed') AND created_at>=date_trunc('day',now() AT TIME ZONE 'America/Sao_Paulo') AT TIME ZONE 'America/Sao_Paulo'",
-        [r.restaurant_id, kind],
-      );
-      if (Number(budget.rows[0]?.n) >= rule.dailyLimit) continue;
-      const offers = rule.offer ? await automationOffers(r.restaurant_id) : [];
-      if (rule.offer && !offers.some((o) => o.value === rule.offer)) continue;
-      for (const c of await candidates(r.restaurant_id, kind, rule)) {
-        if (Date.now() - started > 45000) return { sent, failed };
-        const key = await claim(r.restaurant_id, kind, rule, c, rule.offer);
-        if (!key) continue;
-        const chat = `${c.phone}@c.us`;
-        let delivered = false;
-        try {
-          const text =
-            rule.message
-              .replaceAll("{{nome}}", c.name || "Cliente")
-              .replaceAll("{{restaurante}}", r.name) +
-            "\n\nPara não receber mais ofertas, responda SAIR.";
-          if (kind === "cart" && c.image_path) {
-            const { data } = createSupabaseServerClient()
-              .storage.from("menu-images")
-              .getPublicUrl(c.image_path);
-            await sendWahaImage(r.session_name, chat, data.publicUrl, text);
-          } else await sendWahaText(r.session_name, chat, text);
-          delivered = true;
-          await query(
-            "UPDATE whatsapp_outbound_messages SET status='sent',sent_at=now(),updated_at=now() WHERE dedupe_key=$1",
-            [key],
-          );
-          await sendWahaList(
-            r.session_name,
-            chat,
-            [
-              {
-                title: rule.offer ? "Quero a promoção" : "Ver cardápio",
-                rowId: rule.offer ? "crm_offer" : "menu_link",
-              },
-            ],
-            { button: rule.offer ? "Quero a promoção" : "Ver cardápio" },
-          );
-          sent++;
-        } catch (error) {
-          failed++;
-          await query(
-            "UPDATE whatsapp_outbound_messages SET status=$2,last_error=$3,updated_at=now() WHERE dedupe_key=$1",
-            [
-              key,
-              delivered ? "sent" : "failed",
-              error instanceof Error
-                ? error.message.slice(0, 300)
-                : "Falha no envio",
-            ],
+    const shares = automationDailyShares(settings);
+    const totals = await query<{ automation_type: AutomationKind; n: number }>(
+      `SELECT automation_type,count(*)::int n FROM whatsapp_outbound_messages
+       WHERE restaurant_id=$1 AND automation_type IN ('cart','reactivation','habit')
+         AND status IN ('sent','sending','failed')
+         AND created_at>=date_trunc('day',now() AT TIME ZONE 'America/Sao_Paulo') AT TIME ZONE 'America/Sao_Paulo')
+       GROUP BY automation_type`,
+      [r.restaurant_id],
+    );
+    const used: Record<AutomationKind, number> = { cart: 0, reactivation: 0, habit: 0 };
+    for (const row of totals.rows) {
+      if (AUTOMATION_KINDS.includes(row.automation_type)) used[row.automation_type] = Number(row.n);
+    }
+    let totalUsed = AUTOMATION_KINDS.reduce((total, kind) => total + used[kind], 0);
+    if (totalUsed >= settings.dailyTotalLimit) continue;
+
+    // Process the proportional shares first; then let enabled modes use any
+    // capacity left by modes without eligible customers.
+    const pool = new Map<AutomationKind, Candidate[]>();
+    const cursor: Record<AutomationKind, number> = { cart: 0, reactivation: 0, habit: 0 };
+    for (const distributed of [true, false]) {
+      for (const kind of priorityOrder) {
+        const rule = settings[kind];
+        if (!rule.enabled) continue;
+        const kindLimit = distributed ? shares[kind] : settings.dailyTotalLimit;
+        if (used[kind] >= kindLimit || totalUsed >= settings.dailyTotalLimit) continue;
+        if (!pool.has(kind)) {
+          const offers = rule.offer ? await automationOffers(r.restaurant_id) : [];
+          pool.set(
+            kind,
+            rule.offer && !offers.some((offer) => offer.value === rule.offer)
+              ? []
+              : await candidates(r.restaurant_id, kind, rule),
           );
         }
-        // A bounded worker; daily caps are persisted and enforced across concurrent calls.
-        if (sent + failed >= 20) return { sent, failed };
+        const eligible = pool.get(kind)!;
+        while (
+          used[kind] < kindLimit &&
+          totalUsed < settings.dailyTotalLimit &&
+          cursor[kind] < eligible.length
+        ) {
+          if (Date.now() - started > 45000) return { sent, failed };
+          const c = eligible[cursor[kind]++];
+          // The shared AND kind limits are checked again in the same
+          // advisory-locked transaction to prevent concurrent over-sending.
+          const key = await claim(
+            r.restaurant_id,
+            kind,
+            rule,
+            c,
+            rule.offer,
+            settings.dailyTotalLimit,
+            kindLimit,
+          );
+          if (!key) continue;
+          used[kind]++;
+          totalUsed++;
+          const chat = `${c.phone}@c.us`;
+          let delivered = false;
+          try {
+            const text =
+              rule.message
+                .replaceAll("{{nome}}", c.name || "Cliente")
+                .replaceAll("{{restaurante}}", r.name) +
+              "\n\nPara não receber mais ofertas, responda SAIR.";
+            if (kind === "cart" && c.image_path) {
+              const { data } = createSupabaseServerClient()
+                .storage.from("menu-images")
+                .getPublicUrl(c.image_path);
+              await sendWahaImage(r.session_name, chat, data.publicUrl, text);
+            } else await sendWahaText(r.session_name, chat, text);
+            delivered = true;
+            await query(
+              "UPDATE whatsapp_outbound_messages SET status='sent',sent_at=now(),updated_at=now() WHERE dedupe_key=$1",
+              [key],
+            );
+            await sendWahaList(
+              r.session_name,
+              chat,
+              [
+                {
+                  title: rule.offer ? "Quero a promoção" : "Ver cardápio",
+                  rowId: rule.offer ? "crm_offer" : "menu_link",
+                },
+              ],
+              { button: rule.offer ? "Quero a promoção" : "Ver cardápio" },
+            );
+            sent++;
+          } catch (error) {
+            failed++;
+            await query(
+              "UPDATE whatsapp_outbound_messages SET status=$2,last_error=$3,updated_at=now() WHERE dedupe_key=$1",
+              [
+                key,
+                delivered ? "sent" : "failed",
+                error instanceof Error ? error.message.slice(0, 300) : "Falha no envio",
+              ],
+            );
+          }
+          // Failed claims also consume capacity; cap 20 attempts per invocation.
+          if (sent + failed >= 20) return { sent, failed };
+        }
       }
     }
   }

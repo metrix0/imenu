@@ -7,10 +7,12 @@ import {
   AUTOMATION_KINDS,
   AUTOMATION_LABELS,
   readAutomationSettings,
+  MAX_AUTOMATION_DAILY_LIMIT,
   type AutomationSettings,
   type AutomationKind,
 } from "@/lib/services/crmRules";
 import Card from "@/components/ui/Card";
+import Input from "@/components/ui/Input";
 import DataTable from "@/components/ui/DataTable";
 import Pagination from "@/components/ui/Pagination";
 import Badge from "@/components/ui/Badge";
@@ -58,6 +60,7 @@ export default function AutomacoesPage() {
     [offers, setOffers] = useState<{ value: string; label: string }[]>([]),
     [connected, setConnected] = useState(false),
     [restaurantName, setRestaurantName] = useState(""),
+    [dailyLimitDraft, setDailyLimitDraft] = useState("10"),
     [error, setError] = useState("");
   const { status: saveStatus, error: saveError, schedule: scheduleSave, reset: resetSave } = useAutoSave<AutomationSettings>(id, async (snapshot) => {
     if (!id) throw new Error("Restaurante não encontrado.");
@@ -108,6 +111,7 @@ export default function AutomacoesPage() {
   useEffect(() => {
     setSettings(null);
     setRestaurantName("");
+    setDailyLimitDraft("10");
     setOpenVariables(null);
     setError("");
     if (!id) return;
@@ -119,6 +123,7 @@ export default function AutomacoesPage() {
         setOffers(data.offers);
         setConnected(data.connected);
         setRestaurantName(data.restaurantName);
+        setDailyLimitDraft(String(data.settings.dailyTotalLimit));
         resetSave("saved");
       })
       .catch((e) => {
@@ -132,6 +137,12 @@ export default function AutomacoesPage() {
   ) {
     if (!settings) return;
     const next = { ...settings, [kind]: { ...settings[kind], ...patch } };
+    setSettings(next);
+    scheduleSave(next);
+  }
+  function updateDailyLimit(total: number) {
+    if (!settings || total === settings.dailyTotalLimit) return;
+    const next = { ...settings, dailyTotalLimit: total };
     setSettings(next);
     scheduleSave(next);
   }
@@ -314,6 +325,44 @@ export default function AutomacoesPage() {
             recuperação do carrinho. Responder SAIR cancela os próximos envios.
             As respostas usam menus e ações definidas.
           </p>
+          <Card className="space-y-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-lg font-semibold text-gray-900">Limite diário de mensagens</h2>
+              <Badge variant="warning">Não recomendado</Badge>
+            </div>
+            <p className="max-w-3xl text-sm leading-relaxed text-gray-600">
+              As três automações compartilham este limite diário por restaurante.
+              O sistema distribui os envios entre as automações ativas na proporção 8:4:6
+              (hábitos, reativação e carrinho), aproveitando a capacidade não utilizada.
+              Aumentar o limite pode elevar o risco de restrições ou bloqueio do número pelo WhatsApp.
+              Não existe quantidade garantidamente segura em conexões não oficiais.
+            </p>
+            <div className="max-w-xs">
+              <Input
+                label="Máximo total de mensagens por dia"
+                type="number"
+                min={1}
+                max={MAX_AUTOMATION_DAILY_LIMIT}
+                step={1}
+                value={dailyLimitDraft}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  if (!/^\d{0,4}$/.test(value)) return;
+                  setDailyLimitDraft(value);
+                  const total = Number(value);
+                  if (value !== "" && total >= 1 && total <= MAX_AUTOMATION_DAILY_LIMIT) {
+                    updateDailyLimit(total);
+                  }
+                }}
+                onBlur={() => {
+                  const total = Number(dailyLimitDraft);
+                  if (!dailyLimitDraft || !Number.isInteger(total) || total < 1 || total > MAX_AUTOMATION_DAILY_LIMIT) {
+                    setDailyLimitDraft(String(settings.dailyTotalLimit));
+                  }
+                }}
+              />
+            </div>
+          </Card>
         </>
       ) : null}
     </div>
