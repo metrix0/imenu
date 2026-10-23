@@ -477,10 +477,13 @@ export async function getWahaRecentTextHistory(
     sessionName: string,
     chatId: string,
     currentMessageId: string,
-    limit = 5
+    limit = 5,
+    timeoutMs = 20_000
 ): Promise<WahaTextHistoryMessage[]> {
     const messages = await wahaRequest<WahaTextHistoryMessage[]>(
-        `/api/${encodeURIComponent(sessionName)}/chats/${encodeURIComponent(chatId)}/messages?limit=${limit + 1}&downloadMedia=false`
+        `/api/${encodeURIComponent(sessionName)}/chats/${encodeURIComponent(chatId)}/messages?limit=${limit + 1}&downloadMedia=false`,
+        {},
+        timeoutMs
     );
 
     return [...messages]
@@ -507,6 +510,24 @@ export async function getWahaRecentTextHistory(
             ...message,
             body: message.body.trim(),
         }));
+}
+
+export async function findWahaSentTextSince(
+    sessionName: string,
+    chatId: string,
+    text: string,
+    startedAtMs: number
+): Promise<WahaTextHistoryMessage | null> {
+    // This endpoint reads WAHA's own outbound message history, including
+    // messages whose HTTP send returned only a timeout to the caller.
+    const history = await getWahaRecentTextHistory(sessionName, chatId, "", 30, 3_000);
+    const expected = text.trim();
+    return history.find((message) =>
+        message.fromMe &&
+        message.body === expected &&
+        message.timestamp * 1000 >= startedAtMs - 2_000 &&
+        message.timestamp * 1000 <= Date.now() + 2_000
+    ) || null;
 }
 
 export async function getWahaMessageMedia(

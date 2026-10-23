@@ -1,5 +1,5 @@
 import sharp from "sharp";
-import { sendWahaImage } from "./wahaClient";
+import { findWahaSentTextSince, sendWahaImage } from "./wahaClient";
 const originalFetch = global.fetch;
 afterEach(() => {
   global.fetch = originalFetch;
@@ -37,4 +37,32 @@ test("cart images are bounded and converted to WAHA JPEG attachments", async () 
     (await sharp(Buffer.from(payload.file.data, "base64")).metadata()).format,
   ).toBe("jpeg");
   expect(payload.caption).toBe("Seu pedido");
+});
+
+test("WAHA confirmation matches only a recent outgoing message with the exact text", async () => {
+  process.env.WAHA_API_URL = "http://waha.test";
+  process.env.WAHA_API_KEY = "test-only";
+  const started = Date.now();
+  const timestamp = Math.floor(started / 1000);
+  const messages = [
+    { id: "old", timestamp: timestamp - 120, fromMe: true, body: "Olá! 👋" },
+    { id: "incoming", timestamp, fromMe: false, body: "Olá! 👋" },
+    { id: "other", timestamp, fromMe: true, body: "Outra mensagem" },
+    { id: "confirmed", timestamp: timestamp + 1, fromMe: true, body: "Olá! 👋" },
+  ];
+  global.fetch = jest.fn().mockResolvedValue(
+    new Response(JSON.stringify(messages), { status: 200 })
+  );
+  const confirmed = await findWahaSentTextSince("session", "123@lid", "Olá! 👋", started);
+  expect(confirmed?.id).toBe("confirmed");
+});
+
+test("WAHA confirmation is unknown when its recent history has no matching outgoing text", async () => {
+  process.env.WAHA_API_URL = "http://waha.test";
+  process.env.WAHA_API_KEY = "test-only";
+  const started = Date.now();
+  global.fetch = jest.fn().mockResolvedValue(
+    new Response(JSON.stringify([{ id: "inbound", timestamp: Math.floor(started / 1000), fromMe: false, body: "Bem-vindo" }]), { status: 200 })
+  );
+  await expect(findWahaSentTextSince("session", "123@lid", "Bem-vindo", started)).resolves.toBeNull();
 });
