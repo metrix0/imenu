@@ -86,6 +86,28 @@ The host monitor publishes a private SQL heartbeat to imenu_ops.health. That sch
 
 Detailed machine-readable checks remain private under /opt/imenu-migration/ops: integration-validation.json, integrity-security-validation.json, data-api-security-applied.json, rollback-validation.json, smtp-validation.json and health.json. Database recovery evidence is under backups/database-recovery-validation.json. Do not commit dumps, credentials, operator IP or private reports.
 
+### Disk I/O forensic recorder (host service)
+
+The host's `imenu-io-forensics.service` runs `/opt/imenu-migration/ops/io_forensics.py` independently of application releases, so it observes both production and preview. It samples `/proc/diskstats`, disk/memory pressure, per-PID and per-Docker-cgroup I/O counters every **10 seconds**, keeping a two-minute RAM-only prelude. It does **not** run `iotop`, BPF tracing, `docker stats`, or SQL on every sample. Incident detection needs two consecutive samples with disk latency >=100 ms and >=5 I/Os, or elevated I/O pressure; extreme pressure triggers immediately. Once triggered it records blocked processes/kernel wait channels, per-process and container I/O deltas, and a **single time-bounded, aggregate-only** `pg_stat_activity` wait-count query (no query text or customer records). It writes one JSON file **after the stall recovers**, or best-effort on graceful shutdown.
+
+Private evidence: `/opt/imenu-migration/ops/io-forensics/io-incident-*.json`, mode 0600, root-owned directory 0700. Maximum 12 retained incidents, up to 15 minutes of sampled data per incident, two-minute cooldown. A systemd memory limit of 64 MiB, 5% CPU quota, low I/O priority, and strict capture-on-trigger behavior protect production. The existing five-minute `monitor.py` reports `io-forensics-inactive` if the service stops. The recorder itself does not restart PostgreSQL, deploy, modify queries, or contact any provider.
+
+Install/update the maintained files on the VPS (root access via @iMenu VPS / Deploy only):
+
+```sh
+install -m 0700 deployment/vps/io_forensics.py /opt/imenu-migration/ops/io_forensics.py
+install -m 0644 deployment/vps/systemd/imenu-io-forensics.service /etc/systemd/system/imenu-io-forensics.service
+install -m 0700 deployment/vps/monitor.py /opt/imenu-migration/ops/monitor.py
+install -d -m 0700 /opt/imenu-migration/ops/io-forensics
+systemctl daemon-reload
+systemctl enable --now imenu-io-forensics.service
+python3 /opt/imenu-migration/ops/io_forensics.py --once
+systemctl is-active imenu-io-forensics.service
+journalctl -u imenu-io-forensics.service -n 30 --no-pager
+```
+
+Validate `python3 -m unittest discover -s deployment/vps/tests -p 'test_io_forensics.py' -v` and inspect actual service status, CPU/memory and collector stdout. A simulated incident test checks trigger, persisted sample metadata, permissions, cooldown and retention. This evidence can attribute VPS processes and Docker containers, or support a provider-side inference when local I/O is low, but **cannot definitively expose KingHost's physical storage**.
+
 ## Post-cutover checks
 
 1. Restart the physical printer so it reloads the backend configuration, then reprint order #71. Database reads alone cannot prove physical reprint delivery.
