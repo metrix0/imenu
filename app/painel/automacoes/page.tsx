@@ -14,7 +14,6 @@ import Card from "@/components/ui/Card";
 import DataTable from "@/components/ui/DataTable";
 import Pagination from "@/components/ui/Pagination";
 import Badge from "@/components/ui/Badge";
-import Input from "@/components/ui/Input";
 import Dropdown from "@/components/ui/Dropdown";
 import Switch from "@/components/ui/Switch";
 import SaveStatus from "@/components/ui/SaveStatus";
@@ -61,8 +60,6 @@ export default function AutomacoesPage() {
     if (!id) throw new Error("Restaurante não encontrado.");
     if (AUTOMATION_KINDS.some((kind) => !snapshot[kind].message.trim()))
       throw new Error("Preencha as mensagens antes de salvar automaticamente.");
-    if (!Number.isInteger(snapshot.reactivation.days) || snapshot.reactivation.days < 1 || snapshot.reactivation.days > 365)
-      throw new Error("Informe de 1 a 365 dias para a reativação.");
     await crmRequest("/api/automations", id, {
       method: "PUT",
       body: JSON.stringify(snapshot),
@@ -241,20 +238,6 @@ export default function AutomacoesPage() {
                       onClick={() => update(kind, { enabled: !rule.enabled })}
                     />
                   </div>
-                  {kind === "reactivation" ? (
-                    <div className="max-w-xs">
-                      <Input
-                        type="number"
-                        min={1}
-                        max={365}
-                        label="Dias sem fazer pedidos"
-                        value={rule.days}
-                        onChange={(e) =>
-                          update(kind, { days: Number(e.target.value) })
-                        }
-                      />
-                    </div>
-                  ) : null}
                   <div className="grid gap-5 lg:grid-cols-2">
                     <div className="min-w-0">
                       <p className="mb-2 text-sm font-medium text-gray-700">Mensagem</p>
@@ -311,6 +294,7 @@ export default function AutomacoesPage() {
                       Até {rule.dailyLimit} envios por dia neste restaurante
                     </span>
                     <span>Intervalo por cliente: {rule.cooldownDays} dias</span>
+                    {kind === "reactivation" ? <span>Dias sem fazer pedidos: {rule.days}</span> : null}
                     {kind === "habit" ? <span>Horário de Brasília</span> : null}
                   </div>
                 </Card>

@@ -66,10 +66,9 @@ export function readAutomationSettings(value: unknown): AutomationSettings {
             typeof rule.message === "string" && rule.message.trim()
               ? rule.message.trim().slice(0, 1500)
               : base.message,
-          days: Math.max(
-            1,
-            Math.min(365, Math.floor(Number(rule.days) || base.days)),
-          ),
+          days: kind === "reactivation"
+            ? base.days
+            : Math.max(1, Math.min(365, Math.floor(Number(rule.days) || base.days))),
           dailyLimit: Math.max(
             1,
             Math.min(

@@ -27,16 +27,18 @@ describe("CRM rules", () => {
   });
   test("merchant input cannot raise caps or shorten cooldowns", () => {
     const value = readAutomationSettings({
-      reactivation: { enabled: true, dailyLimit: 999, cooldownDays: 1 },
+      reactivation: { enabled: true, days: 365, dailyLimit: 999, cooldownDays: 1 },
       cart: { dailyLimit: 999, cooldownDays: 0 },
     });
     expect(value.reactivation).toMatchObject({
       enabled: true,
+      days: 30,
       dailyLimit: 2,
       cooldownDays: 120,
     });
     expect(value.cart).toMatchObject({ dailyLimit: 7, cooldownDays: 7 });
     expect(value.habit.enabled).toBe(false);
+    expect(readAutomationSettings({ reactivation: { days: 1 } }).reactivation.days).toBe(30);
   });
   test("profile habits use the same distinct-day weekday/hour rule as automation", () => {
     const dates = [
