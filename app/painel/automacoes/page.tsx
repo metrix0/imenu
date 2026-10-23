@@ -161,7 +161,7 @@ export default function AutomacoesPage() {
       {settings ? (
         <>
           {!connected ? (
-            <WarningBox icon={faTriangleExclamation} className="w-fit max-w-full">
+            <WarningBox icon={faTriangleExclamation} className="w-fit max-w-full !p-4">
               Conecte seu{" "}
               <PageBadge href="/painel/robo-whatsapp" icon={faRobot} tone="inherit">
                 Robô WhatsApp
