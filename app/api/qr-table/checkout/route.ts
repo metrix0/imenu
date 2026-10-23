@@ -1,6 +1,5 @@
-import { NextResponse } from "next/server";
+import { ADDON_PRODUCTS } from "@/lib/addons/products";
+import { checkoutAddon } from "@/lib/addons/checkout";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export async function POST() {
-  return NextResponse.json({ error: "O iMenu QR Code Mesa é gratuito. Acesse Mesas para começar." }, { status: 410 });
-}
+export async function POST(request: Request) { return checkoutAddon(request, ADDON_PRODUCTS.qr_code_mesa); }

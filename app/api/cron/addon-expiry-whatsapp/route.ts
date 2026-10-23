@@ -178,7 +178,21 @@ export async function GET(request: Request) {
                   )
               )
           )
-          AND ra.product_key = 'ia_plus'
+          AND (
+              ra.product_key <> 'qr_code_mesa'
+              OR NOT EXISTS (
+                  SELECT 1 FROM public.restaurant_addons plus
+                  WHERE plus.restaurant_id = ra.restaurant_id
+                    AND plus.product_key = 'ia_plus'
+                    AND (
+                        plus.status = 'active'
+                        OR (
+                            plus.status IN ('canceled', 'past_due')
+                            AND plus.current_period_ends_at > NOW()
+                        )
+                    )
+              )
+          )
         ORDER BY ra.restaurant_id, ra.product_key
         `
     );

@@ -1,6 +1,5 @@
-import { NextResponse } from "next/server";
+import { ADDON_PRODUCTS } from "@/lib/addons/products";
+import { reconcileAddon } from "@/lib/addons/reconcile";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export async function POST() {
-  return NextResponse.json({ error: "O iMenu QR Code Mesa agora é gratuito. Não há pagamento a confirmar." }, { status: 410 });
-}
+export async function POST(request: Request) { return reconcileAddon(request, ADDON_PRODUCTS.qr_code_mesa); }

@@ -1,5 +1,5 @@
 export const ADDON_PRODUCTS = {
-  qr_code_mesa: { key: "qr_code_mesa", name: "iMenu QR Code Mesa", priceCents: 0, referencePrefix: "qr-table" },
+  qr_code_mesa: { key: "qr_code_mesa", name: "iMenu QR Code Mesa", priceCents: 500, referencePrefix: "qr-table" },
   ia_plus: { key: "ia_plus", name: "iMenu IA Plus", priceCents: 4999, referencePrefix: "ia-plus" },
 } as const;
 export type AddonProduct = (typeof ADDON_PRODUCTS)[keyof typeof ADDON_PRODUCTS];

@@ -60,14 +60,14 @@ it("selects day-30 Pix reminders and day-29 canceled paid-card reminders", async
     expect(sql).toContain("ra.asaas_subscription_id IS NOT NULL");
     expect(sql).toContain("payment.billing_type");
     expect(sql).toContain("payment.paid_at IS NOT NULL");
-    expect(sql).toContain("ra.product_key = 'ia_plus'");
+    expect(sql).toContain("plus.product_key = 'ia_plus'");
     expect(sendWahaText).not.toHaveBeenCalled();
 });
 
 it("groups Pix and canceled-card notices into one correct WhatsApp message", async () => {
     mockDatabase([
         { ...baseRow, reminder_kind: "pix" },
-        { ...baseRow, reminder_kind: "card" },
+        { ...baseRow, product_key: "qr_code_mesa", reminder_kind: "card" },
     ]);
     const response = await GET(makeRequest());
     expect(response.status).toBe(200);
@@ -79,7 +79,7 @@ it("groups Pix and canceled-card notices into one correct WhatsApp message", asy
     expect(session).toBe("support-session");
     expect(chat).toBe("5511912345678@c.us");
     expect(message).toContain("iMenu Plus");
-    expect(message).not.toContain("QR Code Mesa");
+    expect(message).toContain("QR Code Mesa");
     expect(message).toContain("1 dia de tolerância");
     expect(message).toContain("assinatura do seu adicional");
     expect(message).toContain("vence amanhã");

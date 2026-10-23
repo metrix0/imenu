@@ -121,18 +121,27 @@ export default async function Page({
 
   const readOnly = p.origem === "vitrine";
   if (readOnly && restaurantData.vitrine_enabled !== true) return notFound();
+  if (readOnly) {
+    const { data: addons, error } = await supabase
+      .from("restaurant_addons")
+      .select("status,current_period_ends_at")
+      .eq("restaurant_id", restaurantData.id)
+      .in("product_key", ["qr_code_mesa", "ia_plus"]);
+    if (error || !addons?.some((addon) => hasQrTableAccess(addon))) return notFound();
+  }
+
   let tableOrder: QrTableMenuContext | null = null;
   if (p.origem === "mesa") {
     const { data: addonData } = await supabase
       .from("restaurant_addons")
-      .select("product_key, status, current_period_ends_at, universal_token")
+      .select("status, current_period_ends_at, universal_token")
       .eq("restaurant_id", restaurantData.id)
       .eq("product_key", "qr_code_mesa")
       .maybeSingle();
 
     const addon = (addonData as Pick<
       QrTableAddon,
-      "product_key" | "status" | "current_period_ends_at" | "universal_token"
+      "status" | "current_period_ends_at" | "universal_token"
     > | null) || null;
     if (!addon || !hasQrTableAccess(addon)) return notFound();
 

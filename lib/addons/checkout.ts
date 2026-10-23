@@ -265,9 +265,6 @@ async function setAsaasSubscriptionPending(
 
 export async function checkoutAddon(request: Request, product: AddonProduct) {
     try {
-        if (product.key === "qr_code_mesa") {
-            return NextResponse.json({ error: "O iMenu QR Code Mesa é gratuito. Acesse Mesas para começar." }, { status: 410 });
-        }
         const body = (await request.json()) as CheckoutBody;
         const restaurantId = String(body.restaurantId || "");
         const source = SOURCES.includes(body.source as QrTableSource)

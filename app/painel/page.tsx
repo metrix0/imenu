@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/database/supabaseClient"; // Ajustado para o seu import padrão
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore"; // Ajustado para o seu import padrão
+import { hasQrTableAccess } from "@/lib/qr-table/types";
 import Loader from "@/components/ui/Loader";
 import Button from "@/components/ui/Button";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
@@ -90,8 +91,21 @@ export default function PainelPedidosAtivosPage() {
         setOrders((data as any[]) || []);
     }, []);
 
-    const fetchMesasAccess = async (_restId: string) => {
-        setHasMesasAccess(true);
+    const fetchMesasAccess = async (restId: string) => {
+        const { data, error } = await supabase
+            .from("restaurant_addons")
+            .select("status, current_period_ends_at")
+            .eq("restaurant_id", restId)
+            .eq("product_key", "qr_code_mesa")
+            .maybeSingle();
+
+        if (error) {
+            console.error("Erro ao verificar acesso Mesas:", error);
+            setHasMesasAccess(false);
+            return;
+        }
+
+        setHasMesasAccess(hasQrTableAccess(data));
     };
 
     const handleViewOrder = (order: OrderData) => {

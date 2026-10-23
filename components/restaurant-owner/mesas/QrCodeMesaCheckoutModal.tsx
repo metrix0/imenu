@@ -2,11 +2,13 @@
 import { IA_PLUS_PRICE_LABEL } from "@/lib/addons/products";
 
 import { useCallback } from "react";
-import { faWandMagicSparkles } from "@fortawesome/free-solid-svg-icons";
+import { faQrcode } from "@fortawesome/free-solid-svg-icons";
 
 import PaymentCheckout from "@/components/payments/PaymentCheckout";
 import PaymentCheckoutModal from "@/components/payments/PaymentCheckoutModal";
 import { supabase } from "@/lib/database/supabaseClient";
+import type { OnlinePaymentMethod } from "@/lib/payments/types";
+import { captureQrTableEvent } from "@/lib/qr-table/analytics";
 import {
     reconcileQrTableCheckout,
     startQrTableCheckout,
@@ -18,25 +20,29 @@ type QrCodeMesaCheckoutModalProps = {
     onClose: () => void;
     restaurantId: string;
     source: QrTableSource;
-    productKey?: "ia_plus";
+    productKey?: "qr_code_mesa" | "ia_plus";
     renewal?: boolean;
     embedded?: boolean;
     onBack?: () => void;
     onPaid?: () => void | Promise<void>;
 };
 
-const PLUS_PAYMENT_PRODUCT = {
-    name: "iMenu IA Plus",
+const QR_TABLE_PAYMENT_PRODUCT = {
+    name: "iMenu QR Code Mesa",
     periodLabel: "30 dias (1 mês)",
-    detail: "Automações de Marketing WhatsApp, Assistente IA e Vendas IA",
-    priceLabel: IA_PLUS_PRICE_LABEL,
-    icon: faWandMagicSparkles,
+    detail: "Mesas e QR Codes ilimitados",
+    priceLabel: "R$ 5,00",
+    icon: faQrcode,
     pixDescription: "Pagamento único • acesso por 1 mês",
     cardDescription: "Cobrança recorrente mensal • cancele quando quiser",
-    pixNotice: "O Pix libera um mês de acesso ao iMenu Plus.",
-    cardNotice: `Ao pagar, você autoriza a cobrança recorrente mensal de ${IA_PLUS_PRICE_LABEL} até o cancelamento.`,
-    pixConfirmationDescription: "Assim que o pagamento for confirmado, o iMenu Plus será liberado automaticamente.",
-    cardConfirmationDescription: "Estamos aguardando a confirmação do pagamento. Não feche esta janela.",
+    pixNotice:
+        "O Pix libera o acesso por 1 mês, você receberá uma notificação no iMenu e Whatsapp antes da assinatura expirar.",
+    cardNotice:
+        "Ao pagar, você autoriza a cobrança recorrente mensal de R$ 5,00 até o cancelamento.",
+    pixConfirmationDescription:
+        "Assim que o pagamento for confirmado, o QR Code Mesa será liberado automaticamente.",
+    cardConfirmationDescription:
+        "Estamos aguardando a confirmação do Asaas. Não feche esta janela.",
 } as const;
 
 function textValue(value: unknown): string {
@@ -74,7 +80,7 @@ export default function QrCodeMesaCheckoutModal({
     onClose,
     restaurantId,
     source,
-    productKey = "ia_plus",
+    productKey = "qr_code_mesa",
     renewal = false,
     embedded = false,
     onBack,
@@ -131,14 +137,34 @@ export default function QrCodeMesaCheckoutModal({
         [renewal, restaurantId, productKey]
     );
 
+    const trackPaymentStarted = useCallback(
+        (method: OnlinePaymentMethod) => {
+            if (productKey === "ia_plus") return;
+            void captureQrTableEvent("qr_code_mesa_purchase_started", {
+                restaurant_id: restaurantId,
+                source,
+                payment_method: method,
+            });
+        },
+        [restaurantId, source, productKey]
+    );
+
     const checkoutProps = {
         onClose,
-        product: PLUS_PAYMENT_PRODUCT,
+        product: productKey === "ia_plus" ? {
+            ...QR_TABLE_PAYMENT_PRODUCT,
+            name: "iMenu IA Plus",
+            detail: "Assistente IA e análise completa de vendas",
+            priceLabel: IA_PLUS_PRICE_LABEL,
+            cardNotice: `Ao pagar, você autoriza a cobrança recorrente mensal de ${IA_PLUS_PRICE_LABEL} até o cancelamento.`,
+            pixConfirmationDescription: "Assim que o pagamento for confirmado, o iMenu IA Plus será liberado automaticamente.",
+        } : QR_TABLE_PAYMENT_PRODUCT,
         onBack,
         startPayment,
         reconcilePayment,
         loadCardPrefill,
-        successEventName: "imenu:ia-plus-activated",
+        onPaymentStarted: trackPaymentStarted,
+        successEventName: productKey === "ia_plus" ? "imenu:ia-plus-activated" : "imenu:qr-table-activated",
         onPaid,
     };
 

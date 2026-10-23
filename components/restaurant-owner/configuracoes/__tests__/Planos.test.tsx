@@ -76,15 +76,15 @@ test("plans separate discovery from billing without selection checkboxes", () =>
     expect(html).toContain("Nenhum plano adicional contratado.");
     expect(html).not.toContain("aria-pressed");
     expect(html).not.toContain("Selecionar iMenu");
-    expect(html.match(/Conhecer o plano/g)).toHaveLength(1);
+    expect(html.match(/Conhecer o plano/g)).toHaveLength(2);
 });
 
 test("active plans keep recurring cancellation and prepaid renewal with collapsed history", () => {
     const html = renderBilling(fixtures.active);
-    expect(html.match(/data-active="true"/g)).toHaveLength(1);
-    expect(html.match(/Conhecer meu plano/g)).toHaveLength(1);
+    expect(html.match(/data-active="true"/g)).toHaveLength(2);
+    expect(html.match(/Conhecer meu plano/g)).toHaveLength(2);
     expect(html.match(/Descadastrar do plano/g)).toHaveLength(1);
-    expect(html.match(/>Renovar</g) || []).toHaveLength(0);
+    expect(html.match(/>Renovar</g)).toHaveLength(1);
     expect(html.match(/<details class="plans-payment-history">/g)).toHaveLength(2);
     expect(html.match(/class="plans-subscription-card"/g)).toHaveLength(2);
     expect(html).toContain("plans-subscription-identity");
@@ -95,9 +95,9 @@ test("active plans keep recurring cancellation and prepaid renewal with collapse
 
 test("historical canceled PayZu access keeps renewal without recurring cancellation", () => {
     const html = renderBilling(fixtures.mixed);
-    expect(html).not.toContain('data-active="true"');
-    expect(html).not.toContain(">Renovar<");
-    expect(html).toContain("Gratuito");
+    expect(html).toContain('data-active="true"');
+    expect(html).toContain(">Renovar<");
+    expect(html).toContain("Cancelado");
     expect(html).not.toContain("Descadastrar do plano");
 });
 
@@ -109,7 +109,7 @@ test.each(Object.entries(fixtures))("render the actual plans page for visual QA:
     expect(html).not.toContain("Disponível no seu painel");
     expect(html).toMatch(/<h3>iMenu Cardápio Digital<\/h3><span data-ui="badge"[^>]*>Grátis para sempre, sem limites<\/span>/);
     expect(html).toContain("Atendimento Exclusivo");
-    expect(html).toContain("Cardápio digital nas mesas com QR Code, sem cobrança.");
+    expect(html).toContain("Cardápio digital na mesa através de QR Code");
     if (process.env.PLANS_VISUAL_DIR) {
         mkdirSync(process.env.PLANS_VISUAL_DIR, { recursive: true });
         writeFileSync(join(process.env.PLANS_VISUAL_DIR, name + ".html"), html);

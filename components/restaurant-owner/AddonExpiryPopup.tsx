@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { faClock } from "@fortawesome/free-solid-svg-icons";
 
@@ -13,6 +14,14 @@ import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import { supabase } from "@/lib/database/supabaseClient";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
+
+const QrCodeMesaCheckoutModal = dynamic(
+    () =>
+        import(
+            "@/components/restaurant-owner/mesas/QrCodeMesaCheckoutModal"
+        ),
+    { ssr: false }
+);
 
 type ExpiringAddonNotice = {
     addonId: string;
@@ -43,6 +52,8 @@ export default function AddonExpiryPopup() {
     const restaurantId = useCreationStore((state) => state.restaurantId);
     const [notices, setNotices] = useState<ExpiringAddonNotice[]>([]);
     const [eligible, setEligible] = useState(false);
+    const [renewalOpen, setRenewalOpen] = useState(false);
+    const [renewalMounted, setRenewalMounted] = useState(false);
     const markedShownRef = useRef(false);
     const dateKey = useMemo(() => saoPauloDateKey(), []);
 
@@ -55,8 +66,7 @@ export default function AddonExpiryPopup() {
 
         const useNotices = (items: ExpiringAddonNotice[]) => {
             if (!active) return;
-            const eligibleItems = items.filter((item) => item.productKey !== "qr_code_mesa");
-            setNotices(eligibleItems);
+            setNotices(items);
 
             let alreadyShown = false;
             try {
@@ -64,7 +74,7 @@ export default function AddonExpiryPopup() {
             } catch {
                 // Show normally when storage is unavailable.
             }
-            setEligible(eligibleItems.length > 0 && !alreadyShown);
+            setEligible(items.length > 0 && !alreadyShown);
         };
 
         try {
@@ -140,13 +150,33 @@ export default function AddonExpiryPopup() {
     };
 
     const single = notices.length === 1;
+    const directQrRenewal =
+        single && notices[0]?.productKey === "qr_code_mesa";
+
     const renew = () => {
         close();
+
+        if (directQrRenewal) {
+            setRenewalMounted(true);
+            setRenewalOpen(true);
+            return;
+        }
+
         router.push("/painel/configuracoes");
     };
 
     return (
         <>
+            {renewalMounted && restaurantId && (
+                <QrCodeMesaCheckoutModal
+                    open={renewalOpen}
+                    onClose={() => setRenewalOpen(false)}
+                    restaurantId={restaurantId}
+                    source="settings"
+                    renewal
+                    onPaid={() => setRenewalOpen(false)}
+                />
+            )}
             <Modal
             height={single ? 330 : 390}
             open={popup.open}
@@ -186,7 +216,7 @@ export default function AddonExpiryPopup() {
                         Agora não
                     </Button>
                     <Button type="button" onClick={renew}>
-                        Gerenciar pagamentos
+                        {directQrRenewal ? "Renovar agora" : "Gerenciar pagamentos"}
                     </Button>
                 </div>
             </div>

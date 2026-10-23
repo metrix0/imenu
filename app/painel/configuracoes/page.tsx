@@ -31,6 +31,7 @@ import Tooltip from "@/components/ui/Tooltip";
 import ChoiceCardGroup from "@/components/ui/ChoiceCardGroup";
 import ResetOrderCountSection from "@/components/restaurant-owner/configuracoes/ResetOrderCountSection";
 import PizzaSettingsSection from "@/components/restaurant-owner/configuracoes/PizzaSettingsSection";
+import { hasQrTableAccess } from "@/lib/qr-table/types";
 
 type Restaurant = {
     id: string;
@@ -232,8 +233,15 @@ export default function ConfiguracoesPage() {
         ? new URL(`/vitrine/${restaurant.url_slug}`, shareableUrl).href
         : "";
 
-    const loadVitrineAccess = useCallback(async (_id: string) => {
-        setVitrineAccess(true);
+    const loadVitrineAccess = useCallback(async (id: string) => {
+        const { data, error } = await supabase
+            .from("restaurant_addons")
+            .select("status,current_period_ends_at")
+            .eq("restaurant_id", id)
+            .in("product_key", ["qr_code_mesa", "ia_plus"]);
+        const access = !error && Boolean(data?.some((addon) => hasQrTableAccess(addon)));
+        setVitrineAccess(access);
+        if (error) throw error;
     }, []);
 
     useEffect(() => {
