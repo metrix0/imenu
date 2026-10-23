@@ -1,5 +1,5 @@
 import { query } from "@/lib/database/sql";
-import { CUSTOMER_SEGMENTS, purchaseHabits, type CustomerSegment } from "./crmRules";
+import { CUSTOMER_SEGMENTS, purchaseHabits, type CustomerSegment, type PurchaseHabit } from "./crmRules";
 
 export const PURCHASE_SQL =
   "status NOT IN ('canceled','pending_online_payment')";
@@ -14,6 +14,8 @@ export type CustomerRow = {
   average_ticket_cents: number;
   last_purchase: string | null;
   segment: CustomerSegment;
+  habits: PurchaseHabit[];
+  favorite_product: string | null;
 };
 export async function listCustomers(
   restaurantId: string,
@@ -69,11 +71,53 @@ export async function listCustomers(
       (page - 1) * 25,
     ],
   );
+  const customers = result.rows.map(({ total, ...row }) => ({
+    ...row,
+    order_count: Number(row.order_count),
+    spending_cents: Number(row.spending_cents),
+  }));
+  if (!customers.length) return { customers: [], total: 0 };
+
+  // Enrich only the 25 customers on this page, reusing the same purchase
+  // filters and favorite-product ranking as the customer detail view.
+  const phones = customers.map((customer) => customer.phone);
+  const [recentOrders, favorites] = await Promise.all([
+    query<{ phone: string; created_at: string }>(
+      `SELECT public.crm_phone(o.customer_phone) AS phone, o.created_at::text AS created_at
+       FROM orders o
+       WHERE o.restaurant_id=$1 AND o.${PURCHASE_SQL}
+         AND o.created_at>now()-interval '90 days'
+         AND public.crm_phone(o.customer_phone)=ANY($2::text[])`,
+      [restaurantId, phones],
+    ),
+    query<{ phone: string; name: string | null }>(
+      `SELECT DISTINCT ON (ranked.phone) ranked.phone, ranked.name
+       FROM (
+         SELECT public.crm_phone(o.customer_phone) AS phone, oi.item_id,
+           MAX(oi.name) AS name, SUM(oi.quantity) AS quantity
+         FROM order_items oi JOIN orders o ON o.id=oi.order_id
+         WHERE o.restaurant_id=$1 AND o.${PURCHASE_SQL}
+           AND public.crm_phone(o.customer_phone)=ANY($2::text[])
+         GROUP BY public.crm_phone(o.customer_phone), oi.item_id
+       ) ranked
+       ORDER BY ranked.phone, ranked.quantity DESC, ranked.name ASC`,
+      [restaurantId, phones],
+    ),
+  ]);
+  const datesByPhone = new Map<string, string[]>();
+  for (const order of recentOrders.rows) {
+    const dates = datesByPhone.get(order.phone) || [];
+    dates.push(order.created_at);
+    datesByPhone.set(order.phone, dates);
+  }
+  const favoritesByPhone = new Map(
+    favorites.rows.map(({ phone, name }) => [phone, name]),
+  );
   return {
-    customers: result.rows.map(({ total, ...row }) => ({
-      ...row,
-      order_count: Number(row.order_count),
-      spending_cents: Number(row.spending_cents),
+    customers: customers.map((customer) => ({
+      ...customer,
+      habits: purchaseHabits(datesByPhone.get(customer.phone) || []),
+      favorite_product: favoritesByPhone.get(customer.phone) || null,
     })),
     total: Number(result.rows[0]?.total || 0),
   };

@@ -234,6 +234,31 @@ export default function ClientesPage() {
             label: "Última compra",
             render: (r) => date(r.last_purchase),
           },
+          {
+            key: "habits",
+            label: "Hábitos de consumo",
+            render: (r) => r.habits.length ? (
+              <div className="space-y-1">
+                {r.habits.slice(0, 2).map((habit) => (
+                  <p key={`${habit.weekday}-${habit.hour}`} className="whitespace-nowrap">
+                    {weekdays[habit.weekday] || habit.weekday} às {String(habit.hour).padStart(2, "0")}h
+                  </p>
+                ))}
+                {r.habits.length > 2 ? (
+                  <p className="text-xs text-gray-500">+{r.habits.length - 2}</p>
+                ) : null}
+              </div>
+            ) : <span className="text-gray-400">—</span>,
+          },
+          {
+            key: "favorite",
+            label: "Favorito",
+            render: (r) => r.favorite_product ? (
+              <span title={r.favorite_product} className="block max-w-[180px] truncate">
+                {r.favorite_product}
+              </span>
+            ) : <span className="text-gray-400">—</span>,
+          },
         ]}
       />
       <div className="text-center text-sm text-gray-500">
