@@ -301,9 +301,6 @@ export default function AutomacoesPage() {
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-x-6 gap-y-2 border-t border-gray-100 pt-4 text-xs text-gray-500">
-                    <span>
-                      Até {rule.dailyLimit} envios por dia neste restaurante
-                    </span>
                     <span>Intervalo por cliente: {rule.cooldownDays} dias</span>
                     {kind === "reactivation" ? <span>Dias sem fazer pedidos: {rule.days}</span> : null}
                   </div>
