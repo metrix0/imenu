@@ -23,6 +23,11 @@ const nextConfig = {
         permanent: true
       },
       {
+        source: '/painel/automacoes',
+        destination: '/painel/marketing',
+        permanent: true
+      },
+      {
         source: '/saborosas-massas-947',
         destination: '/saborosas-massas',
         permanent: false

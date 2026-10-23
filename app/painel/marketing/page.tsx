@@ -54,7 +54,7 @@ const formattedHistoryDate = (value: string) =>
     minute: "2-digit",
   });
 
-export default function AutomacoesPage() {
+export default function MarketingPage() {
   const id = useCreationStore((s) => s.restaurantId);
   const [settings, setSettings] = useState<AutomationSettings | null>(null),
     [offers, setOffers] = useState<{ value: string; label: string }[]>([]),
@@ -157,7 +157,7 @@ export default function AutomacoesPage() {
     <div className="mx-auto max-w-6xl space-y-6 px-4 pb-20 pt-8 sm:px-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Automações</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Marketing</h1>
           <p className="mt-2 text-sm text-gray-500">
             Recupere carrinhos, reative clientes e incentive novos pedidos automaticamente pelo WhatsApp.
           </p>

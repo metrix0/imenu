@@ -31,7 +31,7 @@ import {
     faTruck,
     faUtensils,
     faUsers,
-    faBolt,
+    faBullhorn,
     faWandMagicSparkles,
     type IconDefinition,
 } from "@fortawesome/free-solid-svg-icons";
@@ -421,7 +421,7 @@ export default function PainelLayout({
         { type: "divider" },
         { label: "Aplicativo", icon: faMobileScreenButton, href: `${base}/aplicativo` },
         { label: "Robô WhatsApp", icon: faRobot, href: `${base}/robo-whatsapp` },
-        { label: "Automações", icon: faBolt, href: `${base}/automacoes`, isNew: true },
+        { label: "Marketing", icon: faBullhorn, href: `${base}/marketing`, isNew: true },
         { label: "Impressora", icon: faPrint, href: `${base}/impressora` },
         { label: "Integrações", icon: faPuzzlePiece, href: `${base}/integracoes` },
         { label: "Planos", icon: faCrown, href: `${base}/planos` },

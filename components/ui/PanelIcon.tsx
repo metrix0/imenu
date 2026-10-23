@@ -8,6 +8,7 @@ import type { IconDefinition } from "@fortawesome/fontawesome-svg-core";
 import {
     ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Armchair, Banknote,
     Bell, BellOff, Bike, Trash2, CalendarDays, Camera, ChartNoAxesCombined,
+    Megaphone,
     Check, Circle, CircleCheck, CircleHelp, Clock, CloudDownload, Copy,
     CreditCard, Crosshair, DollarSign, DoorOpen, Download, ExternalLink,
     Eye, Gift, Globe, GripHorizontal, GripVertical, House, Image,
@@ -39,7 +40,7 @@ const panelIcons: Record<string, LucideIcon> = {
     "arrow-up": ArrowUp, "arrow-trend-up": TrendingUp, "arrow-rotate-left": RotateCcw, "rotate-left": RotateCcw,
     "bag-shopping": ShoppingBag, bars: Menu, bell: Bell, "bell-slash": BellOff,
     "bell-concierge": ConciergeBell, bolt: Zap, box: Package, "box-open": PackageOpen,
-    bullseye: Target, "calendar-days": CalendarDays, camera: Camera, chair: Armchair,
+    bullseye: Target, bullhorn: Megaphone, "calendar-days": CalendarDays, camera: Camera, chair: Armchair,
     "chart-line": ChartNoAxesCombined, check: Check, "circle-check": CircleCheck,
     "square-check": SquareCheck, "chevron-down": ChevronDown,
     "chevron-left": ChevronLeft, "chevron-right": ChevronRight, "chevron-up": ChevronUp,
