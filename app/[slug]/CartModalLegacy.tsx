@@ -1,5 +1,6 @@
 // app/[slug]/CartModal.tsx
 "use client";
+import CheckoutCustomerFields from "@/components/costumer/CheckoutCustomerFields";
 
 import PromotionSummary from "@/components/costumer/PromotionSummary";
 import type { PromotionResult } from "@/lib/promotions/automatic";
@@ -910,7 +911,7 @@ export default function CartModal({
                     )}
                 </div>
 
-                <div className="w-full flex-1 min-h-0 overflow-hidden">
+                <div className="w-full flex-1 min-h-0 overflow-clip">
 
                     <div
                         className="flex h-full transition-transform duration-300 overflow-hidden"
@@ -925,7 +926,7 @@ export default function CartModal({
                         }}
                     >
 
-                <div className="w-full h-full min-h-0 px-4 2xl:px-8 overflow-y-auto pt-2 ">
+                <div className="w-1/3 shrink-0 min-w-0 h-full min-h-0 px-4 2xl:px-8 overflow-y-auto pt-2 ">
                     <div className="flex items-center gap-3 mt-2 mb-4">
                         {restaurant?.logo_url && (
                             <Image
@@ -1084,7 +1085,7 @@ export default function CartModal({
 
                 </div>
 
-                <form className="w-full h-full min-h-0 px-4 overflow-y-auto pt-4 pb-32 2xl:pb-10 2xl:px-8" autoComplete="on">
+                <form className="w-1/3 shrink-0 min-w-0 h-full min-h-0 px-4 overflow-y-auto pt-4 pb-32 2xl:pb-10 2xl:px-8" autoComplete="on">
                     {isTableOrder ? (
                         <div className="space-y-6">
                             {tableOrder?.requiresTableSelection ? (
@@ -1168,6 +1169,7 @@ export default function CartModal({
                         </div>
                     ) : (
                         <>
+                    <CheckoutCustomerFields restaurantId={String(restaurant.id)} />
                     {deliveryDisabled && (
                         <div className="mb-5 rounded-xl border border-gray-200 bg-gray-50 p-4">
                             <p className="font-semibold text-md 2xl:text-lg">{restaurant.name} aceita apenas retiradas.</p>
@@ -1293,38 +1295,11 @@ export default function CartModal({
                     </fieldset>
                     )}
 
-                    <h2 className="font-semibold text-md mt-3 mb-5 md:text-sm 2xl:text-lg">
-                        Informações pessoais
-                    </h2>
-
-                    <Input
-                        autoComplete="name"
-                        label="Nome"
-                        placeholder="Rafael"
-                        value={nome}
-                        onChange={(e) => setField("nome", e.target.value)}
-                        className={"mb-3 2xl:text-lg 2xl:mb-6 md:text-sm "}
-                    />
-
-                    <Input
-                        autoComplete="tel"
-                        label="Celular"
-                        placeholder="(12) 3456-7891"
-                        value={celular}
-                        onChange={(e) =>
-                            setField("celular", e.target.value)
-                        }
-                        className="mb-2 2xl:text-lg 2xl:mb-3 md:text-sm "
-                    />
-
-                    <p className={"text-gray-500 text-sm 2xl:text-md"}>
-                        *Seu número será usado apenas em caso de emergência
-                    </p>
                         </>
                     )}
                 </form>
 
-                <div className="w-full h-full min-h-0 px-4 overflow-y-auto pt-4 md:pb-32 2xl:px-8">
+                <div className="w-1/3 shrink-0 min-w-0 h-full min-h-0 px-4 overflow-y-auto pt-4 md:pb-32 2xl:px-8">
 
                     <>
                         {hasSchedulingChoice && (

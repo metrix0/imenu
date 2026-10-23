@@ -613,7 +613,8 @@ export async function sendWahaText(
 function sendWahaListRequest(
     sessionName: string,
     chatId: string,
-    rows: WahaListRow[]
+    rows: WahaListRow[],
+    options?: { button?: string }
 ): Promise<unknown> {
     return wahaRequest<unknown>(
         "/api/sendList",
@@ -627,7 +628,7 @@ function sendWahaListRequest(
                     title: "Atendimento iMenu",
                     description: "Escolha uma opção para continuar:",
                     footer: "Toque em uma opção abaixo",
-                    button: "Ver opções",
+                    button: options?.button || "Ver opções",
                     sections: [
                         {
                             title: "Como posso ajudar?",
@@ -682,10 +683,11 @@ export async function resolveWahaChatPhone(
 export async function sendWahaList(
     sessionName: string,
     chatId: string,
-    rows: WahaListRow[]
+    rows: WahaListRow[],
+    options?: { button?: string }
 ): Promise<unknown> {
     try {
-        return await sendWahaListRequest(sessionName, chatId, rows);
+        return await sendWahaListRequest(sessionName, chatId, rows, options);
     } catch (error) {
         if (
             !(error instanceof WahaHttpError) ||
@@ -698,11 +700,30 @@ export async function sendWahaList(
         const phoneChatId = await getPhoneChatIdForLid(sessionName, chatId);
         if (!phoneChatId || phoneChatId === chatId) throw error;
 
-        return sendWahaListRequest(sessionName, phoneChatId, rows);
+        return sendWahaListRequest(sessionName, phoneChatId, rows, options);
     }
 }
 
 export function extractWahaPhone(meId: unknown): string | null {
     const digits = String(meId || "").split("@")[0].replace(/\D/g, "");
     return digits || null;
+}
+
+export async function sendWahaImage(sessionName: string, chatId: string, url: string, caption: string): Promise<unknown> {
+    const response = await fetch(url, {cache:"no-store",signal:AbortSignal.timeout(10_000)});
+    if (!response.ok || !response.body) throw new Error("Não foi possível carregar a imagem do produto.");
+    const reader = response.body.getReader(), chunks: Uint8Array[] = [];
+    let size = 0;
+    try {
+        while (true) {
+            const {done,value} = await reader.read();
+            if (done) break;
+            size += value.length;
+            if (size > 15 * 1024 * 1024) throw new Error("Imagem do produto muito grande.");
+            chunks.push(value);
+        }
+    } finally { await reader.cancel(); }
+    const {default:sharp} = await import("sharp");
+    const image = await sharp(Buffer.concat(chunks),{limitInputPixels:40_000_000}).rotate().resize({width:1200,height:1200,fit:"inside",withoutEnlargement:true}).flatten({background:"#ffffff"}).jpeg({quality:85}).toBuffer();
+    return wahaRequest<unknown>("/api/sendImage", { method: "POST", body: JSON.stringify({session:sessionName,chatId,file:{mimetype:"image/jpeg",filename:"produto.jpg",data:image.toString("base64")},caption}) }, WAHA_SEND_TIMEOUT_MS);
 }

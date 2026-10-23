@@ -30,6 +30,8 @@ import {
     faTimes,
     faTruck,
     faUtensils,
+    faUsers,
+    faBolt,
     faWandMagicSparkles,
     type IconDefinition,
 } from "@fortawesome/free-solid-svg-icons";
@@ -394,6 +396,7 @@ export default function PainelLayout({
     const menuItems: MenuItem[] = [
         { label: "Pedidos", icon: faHome, href: `${base}/` },
         { label: "Histórico", icon: faBox, href: `${base}/historico` },
+        { label: "Clientes", icon: faUsers, href: `${base}/clientes`, isNew: true },
         { label: "Cardápio", icon: faUtensils, href: cardapioHref },
         { label: "Assistente IA", icon: faWandMagicSparkles, href: `${base}/assistente-ia`, isNew: true },
         { label: "Mesas", icon: faChair, href: `${base}/mesas` },
@@ -418,6 +421,7 @@ export default function PainelLayout({
         { type: "divider" },
         { label: "Aplicativo", icon: faMobileScreenButton, href: `${base}/aplicativo` },
         { label: "Robô WhatsApp", icon: faRobot, href: `${base}/robo-whatsapp` },
+        { label: "Automações", icon: faBolt, href: `${base}/automacoes`, isNew: true },
         { label: "Impressora", icon: faPrint, href: `${base}/impressora` },
         { label: "Integrações", icon: faPuzzlePiece, href: `${base}/integracoes` },
         { label: "Planos", icon: faCrown, href: `${base}/planos` },
