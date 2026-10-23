@@ -2,6 +2,7 @@ import {
   normalizeCustomerPhone,
   customerSegment,
   habitDue,
+  purchaseHabits,
   readAutomationSettings,
   legacyCheckoutAddress,
 } from "./crmRules";
@@ -36,6 +37,18 @@ describe("CRM rules", () => {
     });
     expect(value.cart).toMatchObject({ dailyLimit: 7, cooldownDays: 7 });
     expect(value.habit.enabled).toBe(false);
+  });
+  test("profile habits use the same distinct-day weekday/hour rule as automation", () => {
+    const dates = [
+      "2026-10-02T23:00:00Z",
+      "2026-10-09T23:00:00Z",
+      "2026-10-16T23:00:00Z",
+      "2026-10-16T23:00:00Z",
+      "2026-10-16T22:00:00Z",
+    ];
+    expect(purchaseHabits(dates)).toEqual([{ weekday: "Fri", hour: 20, count: 3 }]);
+    expect(habitDue(dates, new Date("2026-10-23T21:00:00Z"))).toBe("2026-10-23:20");
+    expect(purchaseHabits(dates.slice(2))).toEqual([]);
   });
   test("habit requires three different weeks and handles midnight in Brazil", () => {
     const fridays = [

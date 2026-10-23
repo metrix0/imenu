@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 import { crmRequest } from "@/lib/api/crm";
-import { CUSTOMER_SEGMENTS } from "@/lib/services/crmRules";
+import { CUSTOMER_SEGMENTS, type PurchaseHabit } from "@/lib/services/crmRules";
 import type { CustomerRow } from "@/lib/services/crm";
 import DataTable from "@/components/ui/DataTable";
 import Input from "@/components/ui/Input";
@@ -17,6 +17,8 @@ import { formatPrice } from "@/lib/utils/formatPrice";
 type Details = {
   customer: CustomerRow | null;
   favorites: { item_id: string; name: string; quantity: number }[];
+  habits: PurchaseHabit[];
+  orderTotal: number;
   orders: {
     id: string;
     display_id: number;
@@ -27,6 +29,10 @@ type Details = {
 };
 const date = (value: string | null) =>
   value ? new Date(value).toLocaleDateString("pt-BR") : "—";
+const weekdays: Record<string, string> = {
+  Sun: "Domingo", Mon: "Segunda-feira", Tue: "Terça-feira",
+  Wed: "Quarta-feira", Thu: "Quinta-feira", Fri: "Sexta-feira", Sat: "Sábado",
+};
 const statuses: Record<string, string> = {
   created: "Recebido",
   canceled: "Cancelado",
@@ -49,7 +55,9 @@ export default function ClientesPage() {
     [page, setPage] = useState(1),
     [total, setTotal] = useState(0);
   const [selected, setSelected] = useState<CustomerRow | null>(null),
+    [orderPage, setOrderPage] = useState(0),
     [details, setDetails] = useState<Details | null>(null),
+    [detailsLoading, setDetailsLoading] = useState(false),
     [detailsError, setDetailsError] = useState("");
   useEffect(() => {
     if (!id) return;
@@ -80,21 +88,28 @@ export default function ClientesPage() {
     };
   }, [id, search, segment, sortKey, sortDirection, page]);
   useEffect(() => {
-    setDetails(null);
     setDetailsError("");
-    if (!id || !selected) return;
+    if (!id || !selected) {
+      setDetails(null);
+      setDetailsLoading(false);
+      return;
+    }
     const controller = new AbortController();
+    setDetailsLoading(true);
     void crmRequest(
-      `/api/customers?phone=${encodeURIComponent(selected.phone)}`,
+      `/api/customers?phone=${encodeURIComponent(selected.phone)}&orderPage=${orderPage + 1}`,
       id,
       { signal: controller.signal },
     )
       .then(setDetails)
       .catch((e) => {
         if (!controller.signal.aborted) setDetailsError(e.message);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setDetailsLoading(false);
       });
     return () => controller.abort();
-  }, [id, selected]);
+  }, [id, selected, orderPage]);
   const handleSort = (key: string) => {
     if (key === sortKey) {
       setSortDirection((current) => current === "asc" ? "desc" : "asc");
@@ -150,7 +165,11 @@ export default function ClientesPage() {
         onSort={handleSort}
         rows={rows}
         rowKey={(r) => r.phone}
-        onRowClick={setSelected}
+        onRowClick={(customer) => {
+          setDetails(null);
+          setOrderPage(0);
+          setSelected(customer);
+        }}
         emptyMessage={
           search || segment
             ? "Nenhum cliente encontrado com estes filtros."
@@ -283,6 +302,29 @@ export default function ClientesPage() {
                 </Card>
               ) : null}
               <div>
+                <h3 className="mb-2 font-semibold">Hábitos de consumo</h3>
+                <p className="mb-3 text-xs text-gray-500">
+                  Compras em pelo menos 3 datas diferentes, no mesmo dia da semana e horário, nos últimos 90 dias.
+                </p>
+                {details.habits.length ? (
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    {details.habits.map((habit) => (
+                      <div key={`${habit.weekday}-${habit.hour}`}
+                        className="rounded-lg border border-[#e2e5e9] bg-[#f7f8fa] px-3 py-3">
+                        <p className="text-sm font-medium text-gray-900">
+                          {weekdays[habit.weekday] || habit.weekday} às {String(habit.hour).padStart(2, "0")}h
+                        </p>
+                        <p className="mt-1 text-xs text-gray-500">
+                          {habit.count} dias com compras
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500">Nenhum hábito recorrente identificado.</p>
+                )}
+              </div>
+              <div>
                 <h3 className="mb-3 font-semibold">Produtos favoritos</h3>
                 <DataTable
                   rows={details.favorites}
@@ -299,8 +341,9 @@ export default function ClientesPage() {
                 />
               </div>
               <div>
-                <h3 className="mb-3 font-semibold">Últimos 50 pedidos</h3>
+                <h3 className="mb-3 font-semibold">Últimos pedidos</h3>
                 <DataTable
+                  loading={detailsLoading}
                   rows={details.orders}
                   rowKey={(r) => r.id}
                   columns={[
@@ -326,6 +369,14 @@ export default function ClientesPage() {
                     },
                   ]}
                 />
+                {details.orderTotal > 10 && (
+                  <Pagination
+                    page={orderPage}
+                    pageCount={Math.ceil(details.orderTotal / 10)}
+                    onChange={setOrderPage}
+                    disabled={detailsLoading}
+                  />
+                )}
               </div>
             </>
           )}

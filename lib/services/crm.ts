@@ -1,5 +1,5 @@
 import { query } from "@/lib/database/sql";
-import { CUSTOMER_SEGMENTS, type CustomerSegment } from "./crmRules";
+import { CUSTOMER_SEGMENTS, purchaseHabits, type CustomerSegment } from "./crmRules";
 
 export const PURCHASE_SQL =
   "status NOT IN ('canceled','pending_online_payment')";
@@ -78,24 +78,35 @@ export async function listCustomers(
     total: Number(result.rows[0]?.total || 0),
   };
 }
-export async function customerDetails(restaurantId: string, phone: string) {
-  const [profile, orders, favorites] = await Promise.all([
+export async function customerDetails(restaurantId: string, phone: string, orderPage = 1) {
+  const offset = (Math.max(1, orderPage) - 1) * 10;
+  const [profile, orders, orderCount, favorites, habitOrders] = await Promise.all([
     query(
       "SELECT phone,name,address,marketing_consent,opted_out_at FROM customers WHERE restaurant_id=$1 AND phone=$2",
       [restaurantId, phone],
     ),
     query(
-      `SELECT id,display_id,status,total_cents,created_at FROM orders WHERE restaurant_id=$1 AND public.crm_phone(customer_phone)=$2 ORDER BY created_at DESC LIMIT 50`,
+      `SELECT id,display_id,status,total_cents,created_at FROM orders WHERE restaurant_id=$1 AND public.crm_phone(customer_phone)=$2 ORDER BY created_at DESC,id DESC LIMIT 10 OFFSET $3`,
+      [restaurantId, phone, offset],
+    ),
+    query<{ total: number }>(
+      "SELECT count(*)::int total FROM orders WHERE restaurant_id=$1 AND public.crm_phone(customer_phone)=$2",
       [restaurantId, phone],
     ),
     query(
       `SELECT oi.item_id, max(oi.name) name,sum(oi.quantity)::int quantity FROM order_items oi JOIN orders o ON o.id=oi.order_id WHERE o.restaurant_id=$1 AND public.crm_phone(o.customer_phone)=$2 AND o.${PURCHASE_SQL} GROUP BY oi.item_id ORDER BY quantity DESC LIMIT 5`,
       [restaurantId, phone],
     ),
+    query<{ created_at: string }>(
+      `SELECT created_at::text created_at FROM orders WHERE restaurant_id=$1 AND public.crm_phone(customer_phone)=$2 AND ${PURCHASE_SQL} AND created_at>now()-interval '90 days' ORDER BY created_at DESC`,
+      [restaurantId, phone],
+    ),
   ]);
   return {
     customer: profile.rows[0] || null,
     orders: orders.rows,
+    orderTotal: orderCount.rows[0]?.total || 0,
     favorites: favorites.rows,
+    habits: purchaseHabits(habitOrders.rows.map((order) => order.created_at)),
   };
 }

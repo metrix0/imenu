@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
     await requireRestaurantOwner(request, id);
     const phone = normalizeCustomerPhone(p.get("phone"));
     const result = phone
-      ? await customerDetails(id, phone)
+      ? await customerDetails(id, phone, Math.max(1, Math.min(10000, Number(p.get("orderPage")) || 1)))
       : await listCustomers(
           id,
           p.get("search") || "",

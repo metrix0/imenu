@@ -113,29 +113,47 @@ export function customerSegment(
   if (count >= 3) return "Frequente";
   return "Novo";
 }
-// At least three separate weeks with the same weekday/hour in the last 90 days.
+// Shared with the habit automation: three distinct dates at the same
+// weekday/hour, interpreted in America/Sao_Paulo.
+export type PurchaseHabit = {
+  weekday: string;
+  hour: number;
+  count: number;
+};
+const habitFormatter = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "America/Sao_Paulo",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  weekday: "short",
+  hour: "2-digit",
+  hourCycle: "h23",
+});
+const habitLocalTime = (date: Date) =>
+  habitFormatter.formatToParts(date).reduce(
+    (parts, part) => ({ ...parts, [part.type]: part.value }),
+    {} as Record<string, string>,
+  );
+export function purchaseHabits(dates: string[]): PurchaseHabit[] {
+  const groups = new Map<string, { weekday: string; hour: number; days: Set<string> }>();
+  for (const date of dates) {
+    const local = habitLocalTime(new Date(date));
+    const hour = Number(local.hour);
+    const key = `${local.weekday}:${hour}`;
+    if (!groups.has(key)) groups.set(key, { weekday: local.weekday, hour, days: new Set() });
+    groups.get(key)!.days.add(`${local.year}-${local.month}-${local.day}`);
+  }
+  return [...groups.values()]
+    .filter((group) => group.days.size >= 3)
+    .map(({ weekday, hour, days }) => ({ weekday, hour, count: days.size }))
+    .sort((a, b) => b.count - a.count || a.weekday.localeCompare(b.weekday) || a.hour - b.hour);
+}
 export function habitDue(dates: string[], now = new Date()): string | null {
-  const local = (d: Date) =>
-    new Intl.DateTimeFormat("en-CA", {
-      timeZone: "America/Sao_Paulo",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      weekday: "short",
-      hour: "2-digit",
-      hourCycle: "h23",
-    })
-      .formatToParts(d)
-      .reduce(
-        (o, p) => ({ ...o, [p.type]: p.value }),
-        {} as Record<string, string>,
-      );
-  const upcoming = local(new Date(now.getTime() + 2 * 3600000));
-  const matches = dates
-    .map((x) => local(new Date(x)))
-    .filter((x) => x.weekday === upcoming.weekday && x.hour === upcoming.hour);
-  const days = new Set(matches.map((x) => `${x.year}-${x.month}-${x.day}`));
-  return days.size >= 3
+  const upcoming = habitLocalTime(new Date(now.getTime() + 2 * 3600000));
+  const matching = purchaseHabits(dates).some(
+    (habit) => habit.weekday === upcoming.weekday && habit.hour === Number(upcoming.hour),
+  );
+  return matching
     ? `${upcoming.year}-${upcoming.month}-${upcoming.day}:${upcoming.hour}`
     : null;
 }
