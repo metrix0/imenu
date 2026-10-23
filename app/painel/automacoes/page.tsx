@@ -145,7 +145,7 @@ export default function AutomacoesPage() {
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Automações</h1>
           <p className="mt-2 text-sm text-gray-500">
-            Transforme boas lembranças em novos pedidos pelo WhatsApp.
+            Recupere carrinhos, reative clientes e incentive novos pedidos automaticamente pelo WhatsApp.
           </p>
         </div>
         <SaveStatus status={saveStatus} className="self-start" />
