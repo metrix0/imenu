@@ -17,7 +17,7 @@ import {
     RotateCcw, RotateCw, Rocket, Route, Search, Send, Settings, Share2,
     ShoppingBag, Smartphone, Sparkles, Square, SquareCheck, Star,
     Store, Target, TriangleAlert, TrendingUp, Truck, User, Users, Utensils,
-    Volume2, ZoomIn, ZoomOut, ChevronDown, ChevronLeft, ChevronRight,
+    Volume2, Zap, ZoomIn, ZoomOut, ChevronDown, ChevronLeft, ChevronRight,
     ChevronUp, X, Bot, ConciergeBell, createLucideIcon, type LucideIcon,
 } from "lucide-react";
 import { usePanelAppearance } from "./PanelAppearance";
@@ -38,7 +38,7 @@ const panelIcons: Record<string, LucideIcon> = {
     "arrow-down": ArrowDown, "arrow-left": ArrowLeft, "arrow-right": ArrowRight,
     "arrow-up": ArrowUp, "arrow-trend-up": TrendingUp, "arrow-rotate-left": RotateCcw, "rotate-left": RotateCcw,
     "bag-shopping": ShoppingBag, bars: Menu, bell: Bell, "bell-slash": BellOff,
-    "bell-concierge": ConciergeBell, box: Package, "box-open": PackageOpen,
+    "bell-concierge": ConciergeBell, bolt: Zap, box: Package, "box-open": PackageOpen,
     bullseye: Target, "calendar-days": CalendarDays, camera: Camera, chair: Armchair,
     "chart-line": ChartNoAxesCombined, check: Check, "circle-check": CircleCheck,
     "square-check": SquareCheck, "chevron-down": ChevronDown,
