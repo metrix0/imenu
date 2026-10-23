@@ -23,7 +23,7 @@ import {
     processSupportIncomingWhatsAppMessage,
 } from "@/lib/services/supportWhatsApp";
 
-import { pairingStartedAtForStatus, withWhatsAppPairingLock } from "@/lib/services/whatsappPairingCleanup";
+import { pairingStartedAtForStatus, shouldAutomaticallyRestartWahaSession, withWhatsAppPairingLock } from "@/lib/services/whatsappPairingCleanup";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -55,6 +55,7 @@ type ConnectionRow = {
     last_error: string | null;
     pairing_started_at: string | null;
     last_restart_at: string | null;
+    automatic_restart_attempts: number;
     last_connected_at: string | null;
     last_disconnected_at: string | null;
     last_event_at: string | null;
@@ -270,7 +271,7 @@ async function getConnection(
     const { data, error } = await supabase
         .from("whatsapp_connections")
         .select(
-            "restaurant_id,session_name,desired_state,status,status_data,phone,push_name,qr_code_data,qr_updated_at,last_error,last_restart_at,last_connected_at,last_disconnected_at,last_event_at,pairing_started_at"
+            "restaurant_id,session_name,desired_state,status,status_data,phone,push_name,qr_code_data,qr_updated_at,last_error,last_restart_at,automatic_restart_attempts,last_connected_at,last_disconnected_at,last_event_at,pairing_started_at"
         )
         .eq("session_name", sessionName)
         .maybeSingle();
@@ -335,6 +336,7 @@ async function updateSessionStatus({
         if (status === "WORKING") {
             update.last_connected_at = now;
             update.last_error = null;
+            update.automatic_restart_attempts = 0;
         } else if (status === "FAILED" || status === "STOPPED") {
             update.last_disconnected_at = now;
             update.last_error =
@@ -356,7 +358,7 @@ async function updateSessionStatus({
         connection.qr_code_data !== update.qr_code_data ||
         (update.qr_updated_at === null && connection.qr_updated_at !== null) ||
         (update.last_error !== undefined && connection.last_error !== update.last_error) ||
-        (status === "WORKING" && connection.last_connected_at === null) ||
+        (status === "WORKING" && (connection.last_connected_at === null || connection.automatic_restart_attempts !== 0)) ||
         ((status === "FAILED" || status === "STOPPED") && connection.last_disconnected_at === null);
 
     if (hasMeaningfulChange) {
@@ -372,19 +374,19 @@ async function updateSessionStatus({
         (status === "FAILED" || status === "STOPPED") &&
         connection.desired_state === "connected"
     ) {
-        const lastRestart = connection.last_restart_at
-            ? new Date(connection.last_restart_at).getTime()
-            : 0;
-
-        if (Date.now() - lastRestart > 60_000) {
-            await supabase
+        if (shouldAutomaticallyRestartWahaSession(
+            connection.last_restart_at, connection.automatic_restart_attempts
+        )) {
+            const { error: restartStateError } = await supabase
                 .from("whatsapp_connections")
                 .update({
                     status: "STARTING",
                     last_restart_at: now,
+                    automatic_restart_attempts: connection.automatic_restart_attempts + 1,
                     updated_at: now,
                 })
                 .eq("restaurant_id", connection.restaurant_id);
+            if (restartStateError) throw restartStateError;
 
             try {
                 await restartWahaSession(connection.session_name);

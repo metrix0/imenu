@@ -3,6 +3,28 @@ import { query, withTransaction } from "@/lib/database/sql";
 import { getWahaSession, stopWahaSession } from "@/lib/services/wahaClient";
 
 const PAIRING_MAX_AGE_MS = 5 * 24 * 60 * 60 * 1000;
+
+const AUTOMATIC_RESTART_DELAYS_MS = [
+    60_000, 5 * 60_000, 15 * 60_000, 60 * 60_000,
+    6 * 60 * 60_000, 12 * 60 * 60_000,
+] as const;
+
+// Persisted exponential backoff prevents repeated FAILED status events
+// from restarting the same WAHA session continuously.
+export function shouldAutomaticallyRestartWahaSession(
+    lastRestartAt: string | null | undefined,
+    automaticRestartAttempts: number,
+    now = Date.now()
+): boolean {
+    if (!lastRestartAt) return true;
+    const previous = Date.parse(lastRestartAt);
+    if (!Number.isFinite(previous)) return false;
+    const attempts = Math.max(0, Math.floor(automaticRestartAttempts || 0));
+    const delay = AUTOMATIC_RESTART_DELAYS_MS[
+        Math.min(attempts, AUTOMATIC_RESTART_DELAYS_MS.length - 1)
+    ];
+    return now - previous >= delay;
+}
 const CLEANUP_BUDGET_MS = 30_000;
 const MAX_SESSIONS_PER_RUN = 25;
 
