@@ -14,6 +14,7 @@ import Card from "@/components/ui/Card";
 import DataTable from "@/components/ui/DataTable";
 import Pagination from "@/components/ui/Pagination";
 import Badge from "@/components/ui/Badge";
+import RecommendedBadge from "@/components/ui/RecommendedBadge";
 import Dropdown from "@/components/ui/Dropdown";
 import Switch from "@/components/ui/Switch";
 import SaveStatus from "@/components/ui/SaveStatus";
@@ -28,6 +29,8 @@ const descriptions: Record<AutomationKind, (days: number) => string> = {
   reactivation: (days) => `Clientes que não fazem pedidos há pelo menos ${days} dias recebem uma mensagem no WhatsApp.`,
   habit: () => "Clientes que fizeram pedidos no mesmo dia da semana e horário em pelo menos 3 semanas nos últimos 90 dias recebem uma mensagem 2 horas antes desse horário.",
 };
+const cardOrder: AutomationKind[] = ["habit", "reactivation", "cart"];
+
 type HistoryRow = {
   id: string;
   kind: AutomationKind;
@@ -221,7 +224,7 @@ export default function AutomacoesPage() {
             ) : null}
           </div>
           <div className="space-y-5">
-            {AUTOMATION_KINDS.map((kind) => {
+            {cardOrder.map((kind) => {
               const rule = settings[kind];
               return (
                 <Card key={kind} className="space-y-5">
@@ -277,8 +280,14 @@ export default function AutomacoesPage() {
                       />
                     </div>
                     <div className="min-w-0">
+                      <div className="mb-1.5 flex flex-wrap items-center gap-2">
+                        <span className="text-xs font-medium leading-[18px] text-[#1d1d1d]">
+                          Promoção ou cupom (opcional)
+                        </span>
+                        {kind !== "cart" ? <RecommendedBadge /> : null}
+                      </div>
                       <Dropdown
-                        label="Promoção ou cupom (opcional)"
+                        aria-label="Promoção ou cupom (opcional)"
                         value={rule.offer}
                         onChange={(e) => update(kind, { offer: e.target.value })}
                         options={[
