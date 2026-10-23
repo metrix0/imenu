@@ -159,11 +159,13 @@ export default function AutomacoesPage() {
         <>
           {!connected ? (
             <WarningBox icon={faTriangleExclamation} className="w-fit max-w-full">
-              Conecte seu{" "}
-              <PageBadge href="/painel/robo-whatsapp" icon={faRobot} tone="inherit" className="mx-1">
-                Robô WhatsApp
-              </PageBadge>{" "}
-              para realizar os envios. Você já pode configurar as mensagens.
+              <span className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
+                <span>Conecte seu</span>
+                <PageBadge href="/painel/robo-whatsapp" icon={faRobot} tone="inherit">
+                  Robô WhatsApp
+                </PageBadge>
+                <span>para realizar os envios. Você já pode configurar as mensagens.</span>
+              </span>
             </WarningBox>
           ) : null}
           <div className="space-y-4">
