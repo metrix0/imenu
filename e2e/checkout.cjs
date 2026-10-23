@@ -180,6 +180,11 @@ async function flow(browser, method) {
         await page.waitForFunction(() => document.body.textContent.includes("Hambúrguer E2E"));
         await click(page, "Hambúrguer E2E");
         await click(page, "Adicionar");
+        // The item modal closes after an animation. Wait for its overlay to leave
+        // before clicking the cart button beneath it, or the click hits the backdrop.
+        await page.waitForFunction(() =>
+            !document.querySelector('[role="dialog"], [data-ui="sheet"]'),
+            { timeout: 15000 });
         await click(page, "Ver Sacola");
         await click(page, "Continuar");
         await page.waitForSelector('input[autocomplete="name"]');
