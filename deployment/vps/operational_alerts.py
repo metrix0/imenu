@@ -17,7 +17,6 @@ DEEP_SECONDS = 15 * 60
 STATE_NAME = "operational-alert-state.json"
 METRICS = {
     "orders_unnotified": (3, "orders awaiting owner notification"),
-    "printer_queue_delayed": (10, "printer jobs queued over 30 min"),
     "printer_recent_failures": (3, "recent failed print jobs"),
     "wa_webhooks_stuck": (3, "WhatsApp webhooks stalled"),
     "wa_webhooks_failed": (3, "recent failed WhatsApp webhooks"),
@@ -29,7 +28,6 @@ METRICS = {
 # warnings keep the normal notification title.
 CRITICAL_OPERATIONS = {
     "orders_unnotified",
-    "printer_queue_delayed",
     "printer_recent_failures",
     "wa_webhooks_stuck",
     "wa_webhooks_failed",
@@ -53,6 +51,8 @@ def is_critical(key):
         return True
     if key.startswith("host:container:"):
         return key.removeprefix("host:container:") in CRITICAL_CONTAINERS
+    if key.startswith("operation:printer_queue_delayed:"):
+        return True
     if key.startswith("operation:"):
         return key.removeprefix("operation:") in CRITICAL_OPERATIONS
     return key in {"cron_failed:daily-payout", "cron_failed:reconcile-payouts"}
@@ -70,6 +70,25 @@ SELECT json_build_object(
   'printer_queue_delayed', (SELECT count(*) FROM public.print_jobs
     WHERE status='queued' AND created_at < now()-interval '30 minutes'
       AND created_at > now()-interval '2 hours'),
+  'printer_stalled_by_restaurant', COALESCE((
+    SELECT json_object_agg(restaurant_id::text, delayed_jobs)
+    FROM (
+      SELECT p.restaurant_id, count(*) AS delayed_jobs
+      FROM public.print_jobs p
+      JOIN public.restaurants r ON r.id=p.restaurant_id AND r.printer_enabled=true
+      WHERE p.status='queued'
+        AND p.created_at < now()-interval '30 minutes'
+        AND p.created_at > now()-interval '2 hours'
+        AND NOT EXISTS (
+          SELECT 1 FROM public.print_jobs printed
+          WHERE printed.restaurant_id=p.restaurant_id
+            AND printed.status='printed'
+            AND printed.printed_at >= now()-interval '30 minutes'
+        )
+      GROUP BY p.restaurant_id
+      HAVING count(*) >= 3
+    ) stalled
+  ), '{}'::json),
   'printer_recent_failures', (SELECT count(*) FROM public.print_jobs
     WHERE status='failed' AND created_at > now()-interval '1 hour'),
   'wa_webhooks_stuck', (SELECT count(*) FROM public.whatsapp_webhook_events
@@ -104,7 +123,12 @@ def aggregate_metrics():
            "supabase-db", "psql", "-U", "supabase_admin", "-d", "postgres",
            "-X", "-A", "-t", "-v", "ON_ERROR_STOP=1", "-c", SQL]
     output = subprocess.run(cmd, capture_output=True, text=True, check=True, timeout=8)
-    return {key: int(value) for key, value in json.loads(output.stdout.strip()).items()}
+    values = json.loads(output.stdout.strip())
+    return {
+        key: ({restaurant: int(count) for restaurant, count in value.items()}
+              if key == "printer_stalled_by_restaurant" else int(value))
+        for key, value in values.items()
+    }
 
 
 def scheduled_jobs():
@@ -153,6 +177,8 @@ def inspect(root, host_alerts, dry_run=False):
     entries = state.get("entries", {})
     if not isinstance(entries, dict):
         entries = {}
+    # Retire the old cross-restaurant alarm without sending a fake recovery.
+    entries.pop("operation:printer_queue_delayed", None)
     now = time.time()
     deep_due = now - float(state.get("last_deep_at", 0)) >= DEEP_SECONDS
     sampled = {"host:" + alert: 1 for alert in host_alerts}
@@ -164,6 +190,8 @@ def inspect(root, host_alerts, dry_run=False):
             for name, (threshold, _) in METRICS.items():
                 if metrics.get(name, 0) >= threshold:
                     sampled["operation:" + name] = metrics[name]
+            for restaurant_id, queued in metrics.get("printer_stalled_by_restaurant", {}).items():
+                sampled["operation:printer_queue_delayed:" + restaurant_id] = queued
             sampled.update(scheduled_jobs())
         except (OSError, ValueError, subprocess.SubprocessError) as error:
             deep_error = type(error).__name__
