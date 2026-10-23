@@ -332,10 +332,7 @@ export default function MarketingPage() {
             </div>
             <p className="max-w-3xl text-sm leading-relaxed text-gray-600">
               As três automações compartilham este limite diário por restaurante.
-              O sistema distribui os envios entre as automações ativas na proporção 8:4:6
-              (hábitos, reativação e carrinho), aproveitando a capacidade não utilizada.
               Aumentar o limite pode elevar o risco de restrições ou bloqueio do número pelo WhatsApp.
-              Não existe quantidade garantidamente segura em conexões não oficiais.
             </p>
             <div className="max-w-xs">
               <Input
