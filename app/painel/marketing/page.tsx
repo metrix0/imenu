@@ -22,7 +22,7 @@ import Switch from "@/components/ui/Switch";
 import SaveStatus from "@/components/ui/SaveStatus";
 import Loader from "@/components/ui/Loader";
 import Button from "@/components/ui/Button";
-import Tooltip from "@/components/ui/Tooltip";
+import Image from "next/image";
 import IaPlusSalesModal from "@/components/restaurant-owner/ia-vendas/IaPlusSalesModal";
 import { IA_PLUS_FEATURE_MESSAGE } from "@/lib/addons/products";
 import { useAutoSave } from "@/lib/utils/useAutoSave";
@@ -178,9 +178,12 @@ export default function MarketingPage() {
           {error || saveError}
         </p>
       ) : null}
-      {!plus && settings ? <Card className="flex flex-wrap items-center justify-between gap-4"><p className="text-sm text-gray-600">{IA_PLUS_FEATURE_MESSAGE}.</p><Button onClick={() => setPlusOpen(true)}>Conhecer iMenu Plus</Button></Card> : null}
-      <Tooltip text={!plus ? IA_PLUS_FEATURE_MESSAGE : ""} parentClassName="!block">
-      <div inert={!plus} aria-disabled={!plus} className={!plus ? "pointer-events-none select-none opacity-40 grayscale" : ""}>
+      <div className="relative">
+      <div
+        inert={!plus}
+        aria-hidden={!plus}
+        className={`space-y-6 ${!plus ? "pointer-events-none select-none opacity-30 saturate-50" : ""}`}
+      >
       {settings ? (
         <>
           {!connected ? (
@@ -375,7 +378,33 @@ export default function MarketingPage() {
         </>
       ) : null}
       </div>
-      </Tooltip>
+      {!plus && settings ? (
+        <div className="absolute inset-x-0 top-24 z-10 flex justify-center px-3 sm:top-36">
+          <Card className="w-full max-w-md border border-gray-200 text-center shadow-xl">
+            <div className="relative mx-auto h-14 w-56 max-w-full">
+              <Image
+                src="/logos/PlusCombinationMarkLogo_Brand.svg"
+                alt="iMenu Plus"
+                fill
+                sizes="224px"
+                className="object-contain"
+              />
+            </div>
+            <h2 className="mt-4 text-xl font-bold text-gray-900">Ative o iMenu Plus</h2>
+            <p className="mt-2 text-sm leading-relaxed text-gray-600">
+              Recupere carrinhos, reative clientes e incentive novos pedidos pelo WhatsApp.
+            </p>
+            <Button
+              type="button"
+              className="mt-5 w-full"
+              onClick={() => setPlusOpen(true)}
+            >
+              Conhecer iMenu Plus
+            </Button>
+          </Card>
+        </div>
+      ) : null}
+      </div>
       {id ? <IaPlusSalesModal open={plusOpen} onClose={() => setPlusOpen(false)} restaurantId={id} onPaid={() => window.location.reload()} /> : null}
     </div>
   );
