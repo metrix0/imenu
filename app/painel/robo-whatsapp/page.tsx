@@ -30,6 +30,7 @@ import Loader from "@/components/ui/Loader";
 import Toast from "@/components/ui/Toast";
 import WarningBox from "@/components/ui/WarningBox";
 import SaveStatus from "@/components/ui/SaveStatus";
+import PanelFeatureCallout from "@/components/ui/PanelFeatureCallout";
 import { useAutoSave } from "@/lib/utils/useAutoSave";
 import { TemplateEditor, VariablePicker, type TemplateEditorHandle, type TemplateVariable } from "@/components/ui/WhatsAppTemplateEditor";
 import { supabase } from "@/lib/database/supabaseClient";
@@ -828,6 +829,7 @@ export default function RoboWhatsAppPage() {
                         ))}
                     </div>
                 </Card>
+                <PanelFeatureCallout feature="marketing" />
             </div>
 
             {showToast && (

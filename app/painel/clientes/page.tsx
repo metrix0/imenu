@@ -15,6 +15,7 @@ import HybridModal from "@/components/ui/HybridModal";
 import { formatPrice } from "@/lib/utils/formatPrice";
 import { formatPhone } from "@/lib/dev/dashboardFormat";
 import InitialsAvatar from "@/components/ui/InitialsAvatar";
+import PanelFeatureCallout from "@/components/ui/PanelFeatureCallout";
 
 type Details = {
   customer: CustomerRow | null;
@@ -246,6 +247,7 @@ export default function ClientesPage() {
           />
         )}
       </div>
+      <PanelFeatureCallout feature="marketing" />
       <HybridModal
         open={Boolean(selected)}
         onClose={() => setSelected(null)}
