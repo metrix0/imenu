@@ -1,6 +1,6 @@
 import { processSupportBlastQueue } from "./supportBlast";
 import { query } from "@/lib/database/sql";
-import { sendWahaText } from "@/lib/services/wahaClient";
+import { checkWahaPhoneExists, sendWahaText } from "@/lib/services/wahaClient";
 import { SINGLE_ORDER_DAY_RECOVERY_MESSAGE } from "@/lib/dev/abandonedBlast";
 
 jest.mock("@/lib/database/sql", () => ({ query: jest.fn(), withTransaction: jest.fn() }));
@@ -58,4 +58,43 @@ test("dispatch checks a 60-day history, including sends before the policy change
         params?.[0] === 7
     );
     expect(skipCall?.[1]).toEqual([7, "skipped_60d", null]);
+});
+
+test("paces up to three sends 3–5 seconds apart in one worker run", async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date("2026-10-23T23:00:00.000Z"));
+    jest.spyOn(Math, "random").mockReturnValue(0); // Minimum 3-second pause.
+    const sendTimes: number[] = [];
+    let claims = 0;
+    (query as jest.Mock).mockImplementation(async (sql: string) => {
+        if (sql.includes("WITH claimed AS")) {
+            claims++;
+            return { rows: [{
+                id: claims, campaign_id: "campaign", phone: "5511999999999",
+                message: "Mensagem", sender: "blast", skip_recent: false,
+                campaign_message: "Mensagem",
+            }], rowCount: 1 };
+        }
+        if (sql.includes("FROM support_whatsapp_connection")) {
+            return { rows: [{ session_name: "imenu-blast", status: "WORKING", desired_state: "connected" }], rowCount: 1 };
+        }
+        if (sql.includes("FROM support_blast_campaigns WHERE id")) return { rows: [{ id: "campaign" }], rowCount: 1 };
+        if (sql.includes("SELECT DISTINCT r.id AS restaurant_id")) return { rows: [], rowCount: 0 };
+        if (sql.includes("SELECT 1 FROM support_blast_recipients WHERE id")) return { rows: [{ id: claims }], rowCount: 1 };
+        return { rows: [], rowCount: 1 };
+    });
+    (checkWahaPhoneExists as jest.Mock).mockResolvedValue({ numberExists: true, chatId: "5511999999999@c.us" });
+    (sendWahaText as jest.Mock).mockImplementation(async () => { sendTimes.push(Date.now()); });
+    const start = Date.now();
+    try {
+        const run = processSupportBlastQueue();
+        await jest.advanceTimersByTimeAsync(10_000);
+        const result = await run;
+        expect(result).toEqual({ sent: 3, failed: 0, skipped: 0, disconnected: false });
+        expect(sendTimes).toEqual([start, start + 3_000, start + 6_000]);
+        expect(claims).toBe(3);
+    } finally {
+        jest.useRealTimers();
+        jest.restoreAllMocks();
+    }
 });
