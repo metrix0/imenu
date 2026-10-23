@@ -4,6 +4,8 @@ import {
   RestaurantOwnerAuthError,
 } from "@/lib/auth/restaurantOwner";
 import { query } from "@/lib/database/sql";
+import { hasIMenuPlusAccess } from "@/lib/addons/access";
+import { IA_PLUS_FEATURE_MESSAGE } from "@/lib/addons/products";
 import {
   AUTOMATION_KINDS,
   readAutomationSettings,
@@ -74,6 +76,7 @@ async function handle(request: NextRequest, save: boolean) {
       return getAutomationHistory(id, user.email, page);
     }
     if (save) {
+      if (!(await hasIMenuPlusAccess(id))) return NextResponse.json({ error: IA_PLUS_FEATURE_MESSAGE, code: "IA_PLUS_REQUIRED" }, { status: 402 });
       const body = await request.json();
       const settings = readAutomationSettings(body);
       const offers = await automationOffers(id);
@@ -93,7 +96,7 @@ async function handle(request: NextRequest, save: boolean) {
       );
       return NextResponse.json({ settings });
     }
-    const [settings, offers, connection] = await Promise.all([
+    const [settings, offers, connection, plus] = await Promise.all([
       query(
         "SELECT automations FROM whatsapp_bot_settings WHERE restaurant_id=$1",
         [id],
@@ -103,10 +106,12 @@ async function handle(request: NextRequest, save: boolean) {
         "SELECT w.status, r.name FROM restaurants r LEFT JOIN whatsapp_connections w ON w.restaurant_id=r.id WHERE r.id=$1",
         [id],
       ),
+      hasIMenuPlusAccess(id),
     ]);
     return NextResponse.json(
       {
         settings: readAutomationSettings(settings.rows[0]?.automations),
+        plus,
         offers: offers.map(({ value, label }) => ({ value, label })),
         connected: connection.rows[0]?.status === "WORKING",
         restaurantName: connection.rows[0]?.name || "Restaurante",

@@ -512,7 +512,7 @@ export default function SalesPage() {
                             onAction={onAction}
                             locked={applyLocked}
                             freeApply={freeApply}
-                            lockedLabel={!isAnalysis ? "Aplicar com IA Plus" : undefined}
+                            lockedLabel={!isAnalysis ? "Aplicar com iMenu Plus" : undefined}
                             onUpgrade={openLockedApply}
                           />
                         );
@@ -571,7 +571,7 @@ export default function SalesPage() {
                             onAction={onAction}
                             locked={applyLocked}
                             freeApply={freeApply}
-                            lockedLabel={!isAnalysis ? "Aplicar com IA Plus" : undefined}
+                            lockedLabel={!isAnalysis ? "Aplicar com iMenu Plus" : undefined}
                             onUpgrade={openLockedApply}
                           />
                         );
@@ -848,7 +848,7 @@ export default function SalesPage() {
                     </div>
                   ))}
               </nav>
-              <Button className="mt-3 shrink-0" variant={isAnalysis ? "secondary" : "primary"} onClick={() => setPlusModal("sales")}><Sparkles size={16} className="mr-2" />iMenu IA Plus</Button>
+              <Button className="mt-3 shrink-0" variant={isAnalysis ? "secondary" : "primary"} onClick={() => setPlusModal("sales")}><Sparkles size={16} className="mr-2" />iMenu Plus</Button>
             </div>
           </aside>
         )}
@@ -913,7 +913,7 @@ export default function SalesPage() {
             </div>
             <div className="ml-auto flex shrink-0 gap-2">
               <span className="hidden md:inline-flex lg:hidden">
-                <Button variant={isAnalysis ? "secondary" : "primary"} onClick={() => setPlusModal("sales")}>iMenu IA Plus</Button>
+                <Button variant={isAnalysis ? "secondary" : "primary"} onClick={() => setPlusModal("sales")}>iMenu Plus</Button>
               </span>
               <Button
                 variant="secondary"

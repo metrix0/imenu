@@ -32,7 +32,7 @@ import { captureQrTableEvent } from "@/lib/qr-table/analytics";
 import { updateQrTableDesign } from "@/lib/qr-table/clientApi";
 import { downloadQrDesign } from "@/lib/qr-table/downloadQrDesign";
 import type { QrTableAddon } from "@/lib/qr-table/types";
-import { hasQrTableAccess } from "@/lib/qr-table/types";
+import { hasQrTableAccess, resolveQrTableAddon } from "@/lib/qr-table/types";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 
 type Restaurant = {
@@ -124,11 +124,10 @@ export default function MesasPage() {
                 .from("restaurant_addons")
                 .select("*")
                 .eq("restaurant_id", targetRestaurantId)
-                .eq("product_key", "qr_code_mesa")
-                .maybeSingle();
+                .in("product_key", ["qr_code_mesa", "ia_plus"]);
             if (addonError) throw addonError;
 
-            const normalizedAddon = (addonData as QrTableAddon | null) || null;
+            const normalizedAddon = resolveQrTableAddon((addonData || []) as QrTableAddon[]);
             setAddon(normalizedAddon);
             const isActive = hasQrTableAccess(normalizedAddon);
 

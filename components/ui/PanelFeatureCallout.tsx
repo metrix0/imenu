@@ -14,9 +14,9 @@ const content = {
     },
     marketing: {
         icon: faBullhorn,
-        label: "Marketing",
+        label: "Automações de Marketing WhatsApp",
         title: "Transforme seus clientes em novos pedidos",
-        description: "Reative clientes, incentive hábitos de compra e recupere carrinhos com mensagens automáticas pelo WhatsApp.",
+        description: "Com o iMenu Plus, reative clientes, incentive hábitos de compra e recupere carrinhos com mensagens automáticas pelo WhatsApp.",
         href: "/painel/marketing",
         action: "Abrir Marketing",
     },

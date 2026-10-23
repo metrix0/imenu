@@ -235,7 +235,7 @@ async function processEvent(payload: AsaasWebhook): Promise<void> {
         }
 
         if (addon.product_key === "ia_plus" && (!payment || Math.round(Number(payment.value) * 100) !== addon.price_cents)) {
-            throw new Error("Cobrança Asaas divergente do iMenu IA Plus.");
+            throw new Error("Cobrança Asaas divergente do iMenu Plus.");
         }
         await activateAddon(addon.id, payment, subscriptionId);
         if (payment) {
@@ -275,7 +275,7 @@ async function processEvent(payload: AsaasWebhook): Promise<void> {
 
     if (event === "PAYMENT_CONFIRMED" || event === "PAYMENT_RECEIVED") {
         if (addon.product_key === "ia_plus" && Math.round(Number(payment.value) * 100) !== addon.price_cents) {
-            throw new Error("Cobrança Asaas divergente do iMenu IA Plus.");
+            throw new Error("Cobrança Asaas divergente do iMenu Plus.");
         }
         await activateAddon(addon.id, payment);
         if (payment.id) {

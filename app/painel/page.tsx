@@ -96,8 +96,7 @@ export default function PainelPedidosAtivosPage() {
             .from("restaurant_addons")
             .select("status, current_period_ends_at")
             .eq("restaurant_id", restId)
-            .eq("product_key", "qr_code_mesa")
-            .maybeSingle();
+            .in("product_key", ["qr_code_mesa", "ia_plus"]);
 
         if (error) {
             console.error("Erro ao verificar acesso Mesas:", error);
@@ -105,7 +104,7 @@ export default function PainelPedidosAtivosPage() {
             return;
         }
 
-        setHasMesasAccess(hasQrTableAccess(data));
+        setHasMesasAccess(Boolean(data?.some((addon) => hasQrTableAccess(addon))));
     };
 
     const handleViewOrder = (order: OrderData) => {

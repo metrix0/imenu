@@ -14,6 +14,7 @@ export const PANEL_TABS = {
   fidelidade: { label: "Fidelidade", href: "/painel/fidelidade" },
   aplicativo: { label: "Aplicativo", href: "/painel/aplicativo" },
   "robo-whatsapp": { label: "Robô WhatsApp", href: "/painel/robo-whatsapp" },
+  marketing: { label: "Marketing", href: "/painel/marketing" },
   impressora: { label: "Impressora", href: "/painel/impressora" },
   integracoes: { label: "Integrações", href: "/painel/integracoes" },
   configuracoes: { label: "Configurações", href: "/painel/configuracoes" },

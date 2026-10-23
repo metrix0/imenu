@@ -2,7 +2,7 @@
 
 import { useCallback } from "react";
 import {
-    faImage,
+    faBullhorn,
     faPrint,
     faQrcode,
     faRocket,
@@ -10,6 +10,7 @@ import {
     faWandMagicSparkles,
 } from "@fortawesome/free-solid-svg-icons";
 
+import { IA_PLUS_BENEFITS as PLUS_BENEFITS, IA_PLUS_BONUSES } from "@/lib/addons/products";
 import PaymentSuccessCelebration from "@/components/payments/PaymentSuccessCelebration";
 import { reconcileQrTableCheckout } from "@/lib/qr-table/clientApi";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
@@ -24,6 +25,8 @@ const IA_PLUS_RETURN_PATHS = [
     "/painel/assistente-ia",
     "/painel/vendas-ia",
     "/painel/configuracoes",
+    "/painel/planos",
+    "/painel/marketing",
 ] as const;
 
 const QR_TABLE_BENEFITS = [
@@ -41,20 +44,11 @@ const QR_TABLE_BENEFITS = [
     },
 ] as const;
 
-const IA_PLUS_BENEFITS = [
-    {
-        icon: faWandMagicSparkles,
-        text: "Mais capacidade para conversar com o Assistente IA e realizar tarefas",
-    },
-    {
-        icon: faImage,
-        text: "Geração de imagens para produtos, logo e banner",
-    },
-    {
-        icon: faRocket,
-        text: "Acesso completo à Análise de vendas e às melhorias sugeridas",
-    },
-] as const;
+const PLUS_BENEFIT_ICONS = [faBullhorn, faWandMagicSparkles, faRocket, faQrcode] as const;
+const IA_PLUS_BENEFITS = PLUS_BENEFITS.map((benefit, index) => ({
+    icon: PLUS_BENEFIT_ICONS[index],
+    text: benefit.title,
+}));
 
 export default function AddonPaymentSuccess() {
     const restaurantId = useCreationStore((state) => state.restaurantId);
@@ -99,10 +93,10 @@ export default function AddonPaymentSuccess() {
                 returnPaths={IA_PLUS_RETURN_PATHS}
                 reconcilePayment={reconcileIaPlus}
                 title="Obrigado pela compra!"
-                description="Seu iMenu IA Plus foi ativado. Agora você tem mais capacidade no Assistente IA e acesso completo à Análise de vendas com IA."
+                description="Seu iMenu Plus foi ativado com Marketing WhatsApp, Assistente IA, Vendas IA e iMenu QR Code incluso."
                 benefits={IA_PLUS_BENEFITS}
-                bonusTitle="Seu acesso já está liberado"
-                bonusDescription="Continue no painel para usar o Assistente IA e colocar em prática as oportunidades da sua análise."
+                bonusTitle="Bônus inclusos"
+                bonusDescription={IA_PLUS_BONUSES.map((bonus) => bonus.title).join(", ") + "."}
                 actionLabel="Começar a usar"
             />
         </>

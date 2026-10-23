@@ -137,11 +137,10 @@ export default function GarcomPage() {
                 .from("restaurant_addons")
                 .select("status, current_period_ends_at")
                 .eq("restaurant_id", restaurantData.id)
-                .eq("product_key", "qr_code_mesa")
-                .maybeSingle();
+                .in("product_key", ["qr_code_mesa", "ia_plus"]);
 
             if (addonError) throw addonError;
-            if (!hasQrTableAccess((addonData as QrTableAddon | null) || null)) {
+            if (!addonData?.some((addon) => hasQrTableAccess(addon))) {
                 setRestaurant(null);
                 setLockedRestaurantId(restaurantData.id);
                 setSalesOpen(true);

@@ -126,7 +126,7 @@ test("free proposals accept three images but reject four before saving a batch",
   expect(proposed.image_jobs).toHaveLength(3);
 });
 
-test("IA Plus can still propose eight images per batch, but not nine", async () => {
+test("iMenu Plus can still propose eight images per batch, but not nine", async () => {
   plus = true;
   const jobs = Array.from({ length: LIMITS.imageBatch }, () => ({
     target: "item", item_id: item.id, prompt: "Foto aprovada",

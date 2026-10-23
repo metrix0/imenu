@@ -8,11 +8,12 @@ type MenuProductCardsProps = {
     extraCard?: ReactNode;
     qrSelected: boolean;
     qrActive?: boolean;
+    qrIncluded?: boolean;
     onQrToggle?: () => void;
     onLearnMore: () => void;
 };
 
-export default function MenuProductCards({ presentation = "default", extraCard, qrSelected, qrActive = false, onQrToggle, onLearnMore }: MenuProductCardsProps) {
+export default function MenuProductCards({ presentation = "default", extraCard, qrSelected, qrActive = false, qrIncluded = false, onQrToggle, onLearnMore }: MenuProductCardsProps) {
     return (
         <div className={presentation === "plans" ? "plans-products" : "panel-product-cards grid gap-5 md:grid-cols-2"}>
             <MenuProductCard
@@ -32,7 +33,8 @@ export default function MenuProductCards({ presentation = "default", extraCard, 
                 name="iMenu QR Code Mesa"
                 logo="/logos/QRCODECombinationMarkLogo_Brand.png"
                 description="Cardápio digital na mesa através de QR Code"
-                priceLabel="R$ 5,00"
+                priceLabel={qrIncluded ? "Incluso no iMenu Plus" : "R$ 5,00"}
+                priceSuffix={qrIncluded ? "" : undefined}
                 features={["Sem limites", "Painel do Garçom", "Acompanhamento do pedido"]}
                 selected={qrSelected}
                 active={qrActive}

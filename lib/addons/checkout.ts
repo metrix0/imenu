@@ -1,3 +1,4 @@
+import { hasIMenuPlusAccess } from "@/lib/addons/access";
 import type { AddonProduct } from "@/lib/addons/products";
 import { createMercadoPagoPixCharge, getMercadoPagoPixPayment, isMercadoPagoPixFailureStatus, MercadoPagoPixApiError } from "@/lib/payments/mercadoPagoPix";
 import { activateMercadoPagoQrTablePrepaid, saveMercadoPagoQrTablePayment, setMercadoPagoQrTablePending } from "@/lib/qr-table/mercadoPagoBilling";
@@ -298,6 +299,9 @@ export async function checkoutAddon(request: Request, product: AddonProduct) {
         }
 
         const owner = await requireRestaurantOwner(request, restaurantId);
+        if (product.key === "qr_code_mesa" && await hasIMenuPlusAccess(restaurantId)) {
+            return NextResponse.json({ error: "O iMenu QR Code já está incluso no seu iMenu Plus." }, { status: 409 });
+        }
         const addon = await prepareAddon(restaurantId, source, product);
         const hasAccess = hasQrTableAccess(addon);
         const prepaidAccess =

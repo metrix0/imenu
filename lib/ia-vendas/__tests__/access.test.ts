@@ -123,7 +123,7 @@ test("free image quota blocks the fourth generation; Plus keeps the existing cap
   addon = { status: "active" };
   await expect(reserveImage("restaurant", "run")).resolves.toBeUndefined();
 });
-test("IA Plus allows 50 images per calendar month and blocks the 51st", async () => {
+test("iMenu Plus allows 50 images per calendar month and blocks the 51st", async () => {
   addon = { status: "active" };
   usage.monthly_images = 49;
   expect((await aiAccess("restaurant")).images_remaining).toBe(1);

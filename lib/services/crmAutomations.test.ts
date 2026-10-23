@@ -58,6 +58,9 @@ test("a rejected database claim sends nothing", async () => {
   expect(client.query.mock.calls[1][0]).toContain("automation_type IN ('cart','reactivation','habit')");
   expect(client.query.mock.calls[1][0]).toContain("<$8");
   expect(client.query.mock.calls[1][0]).toContain("<$11");
+  expect(client.query.mock.calls[1][0]).toContain("plus.product_key='ia_plus'");
+  expect(client.query.mock.calls[1][0]).toContain("plus.current_period_ends_at>now()");
+  expect((query as jest.Mock).mock.calls[0][0]).toContain("plus.product_key='ia_plus'");
 });
 test("a full restaurant daily budget avoids candidate scanning", async () => {
   (query as jest.Mock).mockImplementation(async (sql: string) => ({

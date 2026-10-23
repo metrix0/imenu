@@ -15,7 +15,9 @@ type ProductCardContent = {
     logo: string;
     description: string;
     priceLabel: string;
+    priceSuffix?: string;
     features: readonly string[];
+    bonuses?: readonly string[];
 };
 type MenuProductCardProps = ProductCardContent & (
     | { variant: "included"; learnMoreLink: { href: string; label: string } }
@@ -43,7 +45,7 @@ export default function MenuProductCard(props: MenuProductCardProps) {
 
     const supportBadge = props.variant === "addon" && props.exclusiveSupport && (
         <div className="ml-2 inline-block align-middle" onClick={(event) => event.stopPropagation()}>
-            <Tooltip text="Durante sua assinatura do iMenu IA Plus, solicite integrações e novas funcionalidades para serem adicionadas em até 3 dias úteis." size="medium" showOnClick>
+            <Tooltip text="Durante sua assinatura do iMenu Plus, solicite integrações e novas funcionalidades para serem adicionadas em até 3 dias úteis." size="medium" showOnClick>
                 <Badge className="cursor-help gap-1.5 whitespace-nowrap">
                     BÔNUS: Atendimento Exclusivo
                     <FontAwesomeIcon icon={faCircleInfo} className="text-[10px]" />
@@ -102,7 +104,7 @@ export default function MenuProductCard(props: MenuProductCardProps) {
                 </div>
                 <div className="plans-product-price">
                     <span>{props.priceLabel}</span>
-                    <span className="text-sm text-gray-500">/mês</span>
+                    <span className="text-sm text-gray-500">{props.priceSuffix ?? "/mês"}</span>
                 </div>
                 <ul className="plans-product-features">
                     {props.features.map((feature) => (
@@ -112,6 +114,7 @@ export default function MenuProductCard(props: MenuProductCardProps) {
                         </li>
                     ))}
                 </ul>
+                {props.bonuses?.length ? <div className="mt-4"><h4 className="text-sm font-semibold text-gray-900"><Badge>Bônus</Badge></h4><ul className="mt-2 space-y-2 text-sm text-gray-600">{props.bonuses.map((bonus) => <li key={bonus} className="flex items-center gap-2"><FontAwesomeIcon icon={faCheck} className="text-xs text-brand" /><span>{bonus}</span></li>)}</ul></div> : null}
                 <div className="plans-product-actions">
                     <Button type="button" variant={active ? "secondary" : "primary"} onClick={stopAndLearnMore} className="w-full justify-center">
                         {active ? "Conhecer meu plano" : "Conhecer o plano"}
@@ -175,7 +178,7 @@ export default function MenuProductCard(props: MenuProductCardProps) {
             ) : (
                 <div className="mt-5 flex items-end gap-1 text-gray-900">
                     <span className="text-2xl font-bold">{props.priceLabel}</span>
-                    <span className="pb-0.5 text-xs text-gray-500">/mês</span>
+                    <span className="pb-0.5 text-xs text-gray-500">{props.priceSuffix ?? "/mês"}</span>
                 </div>
             )}
             <ul className={included ? "mt-3 flex flex-wrap gap-x-4 gap-y-2 text-sm text-gray-700" : "mt-4 flex min-w-0 flex-wrap gap-x-4 gap-y-2 text-sm text-gray-700"}>
@@ -187,6 +190,7 @@ export default function MenuProductCard(props: MenuProductCardProps) {
                 ))}
             </ul>
 
+            {props.bonuses?.length ? <div className="mt-4"><h4 className="text-sm font-semibold text-gray-900"><Badge>Bônus</Badge></h4><ul className="mt-2 space-y-2 text-sm text-gray-600">{props.bonuses.map((bonus) => <li key={bonus} className="flex items-center gap-2"><FontAwesomeIcon icon={faCheck} className="text-xs text-brand" /><span>{bonus}</span></li>)}</ul></div> : null}
             <div className="mt-auto flex flex-col gap-4 pt-7">
                 {props.variant === "included" ? <>
                     <div className="flex items-center gap-2 text-sm font-semibold text-brand">

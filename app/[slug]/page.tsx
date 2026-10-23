@@ -21,7 +21,7 @@ import type {
   QrTableAddon,
   QrTableMenuContext,
 } from "@/lib/qr-table/types";
-import { hasQrTableAccess } from "@/lib/qr-table/types";
+import { hasQrTableAccess, resolveQrTableAddon } from "@/lib/qr-table/types";
 
 const getPublicUrl = (supabase: any, bucket: string, path: string | null) => {
   if (!path) return null;
@@ -134,15 +134,11 @@ export default async function Page({
   if (p.origem === "mesa") {
     const { data: addonData } = await supabase
       .from("restaurant_addons")
-      .select("status, current_period_ends_at, universal_token")
+      .select("product_key, status, current_period_ends_at, universal_token")
       .eq("restaurant_id", restaurantData.id)
-      .eq("product_key", "qr_code_mesa")
-      .maybeSingle();
+      .in("product_key", ["qr_code_mesa", "ia_plus"]);
 
-    const addon = (addonData as Pick<
-      QrTableAddon,
-      "status" | "current_period_ends_at" | "universal_token"
-    > | null) || null;
+    const addon = resolveQrTableAddon(addonData || []);
     if (!addon || !hasQrTableAccess(addon)) return notFound();
 
     const token = String(p.mesa || addon.universal_token || "").trim();
@@ -152,7 +148,7 @@ export default async function Page({
       );
     if (!isUuid) return notFound();
 
-    if (token === addon.universal_token) {
+    if (addonData?.some((row) => token === row.universal_token)) {
       const { data: tableRows } = await supabase
         .from("restaurant_tables")
         .select("id, name")

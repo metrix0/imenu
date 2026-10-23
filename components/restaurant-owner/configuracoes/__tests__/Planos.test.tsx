@@ -84,7 +84,7 @@ test("active plans keep recurring cancellation and prepaid renewal with collapse
     expect(html.match(/data-active="true"/g)).toHaveLength(2);
     expect(html.match(/Conhecer meu plano/g)).toHaveLength(2);
     expect(html.match(/Descadastrar do plano/g)).toHaveLength(1);
-    expect(html.match(/>Renovar</g)).toHaveLength(1);
+    expect(html).not.toContain(">Renovar<");
     expect(html.match(/<details class="plans-payment-history">/g)).toHaveLength(2);
     expect(html.match(/class="plans-subscription-card"/g)).toHaveLength(2);
     expect(html).toContain("plans-subscription-identity");
@@ -108,7 +108,7 @@ test.each(Object.entries(fixtures))("render the actual plans page for visual QA:
     expect(html).not.toContain("Suas assinaturas ↓");
     expect(html).not.toContain("Disponível no seu painel");
     expect(html).toMatch(/<h3>iMenu Cardápio Digital<\/h3><span data-ui="badge"[^>]*>Grátis para sempre, sem limites<\/span>/);
-    expect(html).toContain("Atendimento Exclusivo");
+    expect(html).toContain("Atendimento exclusivo");
     expect(html).toContain("Cardápio digital na mesa através de QR Code");
     if (process.env.PLANS_VISUAL_DIR) {
         mkdirSync(process.env.PLANS_VISUAL_DIR, { recursive: true });

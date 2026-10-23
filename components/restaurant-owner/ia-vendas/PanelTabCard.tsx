@@ -2,6 +2,7 @@
 
 import {
   faBox,
+  faBullhorn,
   faChair,
   faChartLine,
   faClock,
@@ -41,6 +42,7 @@ const PANEL_TAB_ICONS: Record<PanelTabKey, IconDefinition> = {
   fidelidade: faGift,
   aplicativo: faMobileScreenButton,
   "robo-whatsapp": faRobot,
+  marketing: faBullhorn,
   impressora: faPrint,
   integracoes: faPuzzlePiece,
   configuracoes: faGear,

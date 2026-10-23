@@ -1,3 +1,4 @@
+import { hasIMenuPlusAccess } from "@/lib/addons/access";
 import { POST } from "./route";
 import { POST as iaPlusCheckout } from "@/app/api/ia-plus/checkout/route";
 import { query } from "@/lib/database/sql";
@@ -6,6 +7,7 @@ import { getPayZuPixCharge } from "@/lib/payments/payzu";
 import { asaasRequest } from "@/lib/qr-table/asaas";
 import { setMercadoPagoQrTablePending } from "@/lib/qr-table/mercadoPagoBilling";
 
+jest.mock("@/lib/addons/access", () => ({ hasIMenuPlusAccess: jest.fn() }));
 jest.mock("@/lib/database/sql", () => ({ query: jest.fn() }));
 jest.mock("@/lib/auth/restaurantOwner", () => ({
     requireRestaurantOwner: jest.fn(async () => ({
@@ -25,6 +27,7 @@ const initial = { id: addonId, status: "pending", payment_provider: null, payzu_
 const send = (body = {}) => POST(new Request("https://example.com/api/qr-table/checkout", { method: "POST", body: JSON.stringify({ restaurantId: "restaurant", paymentMethod: "pix", ...body }) }));
 beforeEach(() => {
     jest.clearAllMocks();
+    (hasIMenuPlusAccess as jest.Mock).mockResolvedValue(false);
     (query as jest.Mock).mockResolvedValue({ rows: [initial] });
     (createMercadoPagoPixCharge as jest.Mock).mockImplementation(async input => ({ id: "123", status: "pending", amount: 5, paymentMethodId: "pix", externalReference: input.externalReference, qrCodeText: "pix-payload", qrCodeBase64: "image" }));
 });
@@ -81,10 +84,19 @@ it("keeps recurring card billing on Asaas", async () => {
     expect(createMercadoPagoPixCharge).not.toHaveBeenCalled();
 });
 
-it("IA Plus checkout uses its server price and an isolated addon/payment reference", async () => {
+it("iMenu Plus checkout uses its server price and an isolated addon/payment reference", async () => {
     (createMercadoPagoPixCharge as jest.Mock).mockImplementation(async input => ({ id: "plus-payment", status: "pending", amount: input.amount, paymentMethodId: "pix", externalReference: input.externalReference, qrCodeText: "pix-plus" }));
     const response = await iaPlusCheckout(new Request("https://example.com/api/ia-plus/checkout", { method: "POST", body: JSON.stringify({ restaurantId: "restaurant", paymentMethod: "pix", priceCents: 500, productKey: "qr_code_mesa" }) }));
     expect(response.status).toBe(200);
     expect((query as jest.Mock).mock.calls[0][1]).toEqual(["restaurant", 4999, "mesas", "ia_plus"]);
     expect(createMercadoPagoPixCharge).toHaveBeenCalledWith(expect.objectContaining({ amount: 49.99, externalReference: expect.stringMatching(/^ia-plus:/) }));
+});
+
+it("does not create a second QR charge when it is included in iMenu Plus", async () => {
+    (hasIMenuPlusAccess as jest.Mock).mockResolvedValue(true);
+    const response = await send();
+    expect(response.status).toBe(409);
+    expect(query).not.toHaveBeenCalled();
+    expect(createMercadoPagoPixCharge).not.toHaveBeenCalled();
+    expect(asaasRequest).not.toHaveBeenCalled();
 });

@@ -41,9 +41,9 @@ export default function StaffPanelsPage() {
             setRestaurantId(restaurant.id);
             const { data: addon, error: addonError } = await supabase
                 .from("restaurant_addons").select("status, current_period_ends_at")
-                .eq("restaurant_id", restaurant.id).eq("product_key", "qr_code_mesa").maybeSingle();
+                .eq("restaurant_id", restaurant.id).in("product_key", ["qr_code_mesa", "ia_plus"]);
             if (addonError) throw addonError;
-            setWaiterAccess(hasQrTableAccess(addon));
+            setWaiterAccess(Boolean(addon?.some((row) => hasQrTableAccess(row))));
         } catch {
             setError("Não foi possível carregar os painéis.");
             setWaiterAccess(false);

@@ -694,7 +694,7 @@ export default function DevDashboardPage() {
                                             title={
                                                 product.productKey === "qr_code_mesa"
                                                     ? "Total iMenu QR"
-                                                    : "Total iMenu IA Plus"
+                                                    : "Total iMenu Plus"
                                             }
                                             value={formatCurrencyFromCents(product.receivedThisMonthCents)}
                                             description={`${formatCount(product.payersThisMonth)} restaurantes pagantes · ${formatCount(product.confirmedPaymentsThisMonth)} pagamentos no mês`}
@@ -950,7 +950,7 @@ export default function DevDashboardPage() {
                                                 }
                                             />
                                             <MetricCard
-                                                title="Assinaturas IA Plus"
+                                                title="Assinaturas iMenu Plus"
                                                 value={formatCount(
                                                     data.productOverview.ia_plus.buyers
                                                 )}

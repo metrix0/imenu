@@ -56,7 +56,7 @@ function normalizeBrazilianPhone(value: unknown): string | null {
 }
 
 function productName(productKey: string): string {
-    if (productKey === "ia_plus") return "iMenu IA Plus";
+    if (productKey === "ia_plus") return "iMenu Plus";
     const uppercaseWords = new Set(["qr", "ai", "api"]);
 
     return productKey
@@ -110,7 +110,7 @@ export async function GET(request: Request) {
     }
 
     const expiring = await query<ExpiringAddonRow>(
-        "SELECT ra.restaurant_id, ra.product_key, u.raw_user_meta_data->>'phone' AS owner_phone, r.phone AS restaurant_phone FROM public.restaurant_addons ra JOIN public.restaurants r ON r.id = ra.restaurant_id LEFT JOIN auth.users u ON u.id = r.user_id WHERE (ra.payment_provider = 'mercadopago' OR (ra.payment_provider = 'payzu' AND UPPER(COALESCE(ra.payzu_payment_method, '')) = 'PIX' AND ra.payzu_recurrence_id IS NULL)) AND ra.current_period_ends_at IS NOT NULL AND ra.status IN ('active', 'canceled', 'past_due') AND (ra.current_period_ends_at AT TIME ZONE 'America/Sao_Paulo')::date = (NOW() AT TIME ZONE 'America/Sao_Paulo')::date ORDER BY ra.restaurant_id, ra.product_key"
+        "SELECT ra.restaurant_id, ra.product_key, u.raw_user_meta_data->>'phone' AS owner_phone, r.phone AS restaurant_phone FROM public.restaurant_addons ra JOIN public.restaurants r ON r.id = ra.restaurant_id LEFT JOIN auth.users u ON u.id = r.user_id WHERE (ra.payment_provider = 'mercadopago' OR (ra.payment_provider = 'payzu' AND UPPER(COALESCE(ra.payzu_payment_method, '')) = 'PIX' AND ra.payzu_recurrence_id IS NULL)) AND (ra.product_key <> 'qr_code_mesa' OR NOT EXISTS (SELECT 1 FROM public.restaurant_addons plus WHERE plus.restaurant_id = ra.restaurant_id AND plus.product_key = 'ia_plus' AND (plus.status = 'active' OR (plus.status IN ('canceled', 'past_due') AND plus.current_period_ends_at > NOW())))) AND ra.current_period_ends_at IS NOT NULL AND ra.status IN ('active', 'canceled', 'past_due') AND (ra.current_period_ends_at AT TIME ZONE 'America/Sao_Paulo')::date = (NOW() AT TIME ZONE 'America/Sao_Paulo')::date ORDER BY ra.restaurant_id, ra.product_key"
     );
 
     const grouped = new Map<

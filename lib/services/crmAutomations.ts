@@ -297,6 +297,7 @@ async function claim(
           AND (SELECT count(*) FROM whatsapp_outbound_messages WHERE restaurant_id=$2 AND automation_type=$4 AND status IN ('sent','sending','failed') AND created_at>=date_trunc('day',now() AT TIME ZONE 'America/Sao_Paulo') AT TIME ZONE 'America/Sao_Paulo')<$11
          AND NOT EXISTS(SELECT 1 FROM whatsapp_outbound_messages WHERE restaurant_id=$2 AND customer_phone=$5 AND automation_type=$4 AND status IN ('sent','sending','failed') AND created_at>now()-($9::int*interval '1 day'))
          AND NOT EXISTS(SELECT 1 FROM whatsapp_outbound_messages WHERE restaurant_id=$2 AND customer_phone=$5 AND automation_type IN ('cart','habit','reactivation') AND status IN ('sent','sending','failed') AND created_at>now()-interval '24 hours')
+         AND EXISTS(SELECT 1 FROM restaurant_addons plus WHERE plus.restaurant_id=$2 AND plus.product_key='ia_plus' AND (plus.status='active' OR (plus.status IN ('canceled','past_due') AND plus.current_period_ends_at>now())))
          AND NOT EXISTS(SELECT 1 FROM whatsapp_conversations WHERE restaurant_id=$2 AND chat_id=$3 AND (mode='storm' OR (mode='human' AND (human_until IS NULL OR human_until>now()))))
          AND NOT EXISTS(SELECT 1 FROM customers WHERE restaurant_id=$2 AND phone=$5 AND (opted_out_at IS NOT NULL OR NOT marketing_consent))
          AND ($4<>'cart' OR EXISTS(SELECT 1 FROM checkout_sessions s WHERE s.id=$6 AND s.restaurant_id=$2 AND s.phone=$5 AND s.marketing_consent AND s.completed_at IS NULL AND s.updated_at<now()-interval '30 minutes' AND s.expires_at>now() AND jsonb_array_length(s.items)>0
@@ -325,7 +326,7 @@ async function claim(
 }
 export async function processCustomerAutomations() {
   const restaurants = await query(
-    `SELECT s.restaurant_id,s.automations,r.name,r.url_slug,w.session_name FROM whatsapp_bot_settings s JOIN restaurants r ON r.id=s.restaurant_id JOIN whatsapp_connections w ON w.restaurant_id=s.restaurant_id WHERE w.status='WORKING' AND w.desired_state='connected' AND (s.automations->'cart'->>'enabled'='true' OR s.automations->'habit'->>'enabled'='true' OR s.automations->'reactivation'->>'enabled'='true') ORDER BY s.restaurant_id`,
+    `SELECT s.restaurant_id,s.automations,r.name,r.url_slug,w.session_name FROM whatsapp_bot_settings s JOIN restaurants r ON r.id=s.restaurant_id JOIN whatsapp_connections w ON w.restaurant_id=s.restaurant_id WHERE EXISTS(SELECT 1 FROM restaurant_addons plus WHERE plus.restaurant_id=s.restaurant_id AND plus.product_key='ia_plus' AND (plus.status='active' OR (plus.status IN ('canceled','past_due') AND plus.current_period_ends_at>now()))) AND w.status='WORKING' AND w.desired_state='connected' AND (s.automations->'cart'->>'enabled'='true' OR s.automations->'habit'->>'enabled'='true' OR s.automations->'reactivation'->>'enabled'='true') ORDER BY s.restaurant_id`,
   );
   let sent = 0, failed = 0;
   const started = Date.now();

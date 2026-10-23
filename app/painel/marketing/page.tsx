@@ -21,6 +21,10 @@ import Dropdown from "@/components/ui/Dropdown";
 import Switch from "@/components/ui/Switch";
 import SaveStatus from "@/components/ui/SaveStatus";
 import Loader from "@/components/ui/Loader";
+import Button from "@/components/ui/Button";
+import Tooltip from "@/components/ui/Tooltip";
+import IaPlusSalesModal from "@/components/restaurant-owner/ia-vendas/IaPlusSalesModal";
+import { IA_PLUS_FEATURE_MESSAGE } from "@/lib/addons/products";
 import { useAutoSave } from "@/lib/utils/useAutoSave";
 import WarningBox from "@/components/ui/WarningBox";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
@@ -56,6 +60,8 @@ const formattedHistoryDate = (value: string) =>
 
 export default function MarketingPage() {
   const id = useCreationStore((s) => s.restaurantId);
+  const [plus, setPlus] = useState(false);
+  const [plusOpen, setPlusOpen] = useState(false);
   const [settings, setSettings] = useState<AutomationSettings | null>(null),
     [offers, setOffers] = useState<{ value: string; label: string }[]>([]),
     [connected, setConnected] = useState(false),
@@ -63,6 +69,7 @@ export default function MarketingPage() {
     [dailyLimitDraft, setDailyLimitDraft] = useState("10"),
     [error, setError] = useState("");
   const { status: saveStatus, error: saveError, schedule: scheduleSave, reset: resetSave } = useAutoSave<AutomationSettings>(id, async (snapshot) => {
+    if (!plus) throw new Error(IA_PLUS_FEATURE_MESSAGE);
     if (!id) throw new Error("Restaurante não encontrado.");
     if (AUTOMATION_KINDS.some((kind) => !snapshot[kind].message.trim()))
       throw new Error("Preencha as mensagens antes de salvar automaticamente.");
@@ -110,6 +117,7 @@ export default function MarketingPage() {
   ], [restaurantName]);
   useEffect(() => {
     setSettings(null);
+    setPlus(false);
     setRestaurantName("");
     setDailyLimitDraft("10");
     setOpenVariables(null);
@@ -120,11 +128,12 @@ export default function MarketingPage() {
       .then((data) => {
         if (controller.signal.aborted) return;
         setSettings(data.settings);
+        setPlus(data.plus === true);
         setOffers(data.offers);
         setConnected(data.connected);
         setRestaurantName(data.restaurantName);
         setDailyLimitDraft(String(data.settings.dailyTotalLimit));
-        resetSave("saved");
+        resetSave(data.plus ? "saved" : "idle");
       })
       .catch((e) => {
         if (!controller.signal.aborted) setError(e.message);
@@ -135,13 +144,13 @@ export default function MarketingPage() {
     kind: AutomationKind,
     patch: Partial<AutomationSettings[AutomationKind]>,
   ) {
-    if (!settings) return;
+    if (!settings || !plus) return;
     const next = { ...settings, [kind]: { ...settings[kind], ...patch } };
     setSettings(next);
     scheduleSave(next);
   }
   function updateDailyLimit(total: number) {
-    if (!settings || total === settings.dailyTotalLimit) return;
+    if (!settings || !plus || total === settings.dailyTotalLimit) return;
     const next = { ...settings, dailyTotalLimit: total };
     setSettings(next);
     scheduleSave(next);
@@ -157,7 +166,7 @@ export default function MarketingPage() {
     <div className="mx-auto max-w-6xl space-y-6 px-4 pb-20 pt-8 sm:px-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Marketing</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Automações de Marketing WhatsApp</h1>
           <p className="mt-2 text-sm text-gray-500">
             Recupere carrinhos, reative clientes e incentive novos pedidos automaticamente pelo WhatsApp.
           </p>
@@ -169,6 +178,9 @@ export default function MarketingPage() {
           {error || saveError}
         </p>
       ) : null}
+      {!plus && settings ? <Card className="flex flex-wrap items-center justify-between gap-4"><p className="text-sm text-gray-600">{IA_PLUS_FEATURE_MESSAGE}.</p><Button onClick={() => setPlusOpen(true)}>Conhecer iMenu Plus</Button></Card> : null}
+      <Tooltip text={!plus ? IA_PLUS_FEATURE_MESSAGE : ""} parentClassName="!block">
+      <div inert={!plus} aria-disabled={!plus} className={!plus ? "pointer-events-none select-none opacity-40 grayscale" : ""}>
       {settings ? (
         <>
           {!connected ? (
@@ -362,6 +374,9 @@ export default function MarketingPage() {
           </Card>
         </>
       ) : null}
+      </div>
+      </Tooltip>
+      {id ? <IaPlusSalesModal open={plusOpen} onClose={() => setPlusOpen(false)} restaurantId={id} onPaid={() => window.location.reload()} /> : null}
     </div>
   );
 }

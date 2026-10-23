@@ -8,6 +8,7 @@
 - Keep answers brief and direct unless details are requested. Do not unnecessarily ask for information already available.
 
 ## Access and source of truth
+- Before changing plans, benefits, pricing, access gates or billing, read `docs/imenu-plus.md` and update its feature/surface map with the implementation. `lib/addons/products.ts` owns the iMenu Plus name, price, benefits and bonuses; retain documented legacy payment identifiers.
 - iMenu repository: `metrix0/imenu`; **working branch: `preview`**; `main` is production. Preview: https://preview.imenuapp.com.br.
 - All iMenu repository changes must go through GitHub, on `preview` only. Never commit to `main`. Other repositories use `main` unless their workflow says otherwise.
 - **GitHub code search can index the default (`main`) branch.** Treat search matches only as discovery hints: get paths from the `preview` tree and fetch every relevant file explicitly with `ref: "preview"`. Do not rely on default-branch file contents or assume a search excerpt matches `preview`.

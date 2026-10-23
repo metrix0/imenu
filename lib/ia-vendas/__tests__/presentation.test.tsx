@@ -90,7 +90,7 @@ test("report leads with potential actions, then summary, opportunities, comparis
   expect(html).not.toContain("<p>Confirme o frete</p>");
 });
 
-test("free restaurant without analysis explains the analysis and IA Plus immediate access", () => {
+test("free restaurant without analysis explains the analysis and iMenu Plus immediate access", () => {
   const html = renderToStaticMarkup(<AnalysisReport {...props} analyses={[]} selected={undefined} locked />);
   expect(html).toContain("Sua análise ainda não foi liberada");
   expect(html).toContain("Dados reais");
@@ -102,7 +102,7 @@ test("free restaurant without analysis explains the analysis and IA Plus immedia
   expect(html).toContain("Sem esperar pela seleção gratuita");
   expect(html).toContain("Análise iniciada automaticamente");
   expect(html).toContain("Acesso completo às oportunidades encontradas");
-  expect(html).toContain("IAPlusCombinationMarkLogo_Brand.png");
+  expect(html).toContain("PlusCombinationMarkLogo_Brand.svg");
   expect(html).toContain("Começar análise agora");
   expect(html).toContain("A análise profunda pode levar até 1 hora para ser concluída após ativar o plano.");
   expect(html).toContain("49,99");
@@ -128,8 +128,8 @@ test("locked analysis keeps the full report scrollable and overlays only its fin
   expect(html).toContain('class="report reportLocked"');
   expect(html).toContain("paper paperLocked");
   expect(html).not.toContain('class="previewContent"><section aria-label="Prioridades"');
-  expect(html).toContain("IAPlusCombinationMarkLogo_Brand.png");
-  expect(html).toContain('sizes="200px"');
+  expect(html).toContain("PlusCombinationMarkLogo_Brand.svg");
+  expect(html).toContain("/logos/PlusCombinationMarkLogo_Brand.svg");
   expect(html).toContain('class="structuredContent"');
   expect(html).toContain('class="paywallCard"');
   expect(html).toContain('aria-label="Comparações"');
@@ -137,10 +137,10 @@ test("locked analysis keeps the full report scrollable and overlays only its fin
   expect(html.indexOf('aria-label="Comparações"')).toBeLessThan(html.indexOf("Coloque essas oportunidades em prática"));
   expect(html).toContain("paywall structuredPaywall");
   expect(html).toContain("Coloque essas oportunidades em prática");
-  expect(html).toContain("Conhecer iMenu IA Plus");
+  expect(html).toContain("Conhecer iMenu Plus");
 });
 
-test("locked assistant proposals show the IA Plus lock only on apply actions", () => {
+test("locked assistant proposals show the iMenu Plus lock only on apply actions", () => {
   const html = renderToStaticMarkup(
     <ActionCard
       action={action}
@@ -148,15 +148,15 @@ test("locked assistant proposals show the IA Plus lock only on apply actions", (
       disabled={false}
       onAction={jest.fn()}
       locked
-      lockedLabel="Aplicar com IA Plus"
+      lockedLabel="Aplicar com iMenu Plus"
       onUpgrade={jest.fn()}
       compact
     />,
   );
-  expect(html).toContain("Essa é uma função do plano iMenu IA Plus");
+  expect(html).toContain("Essa é uma função do plano iMenu Plus");
   expect(html).toContain("lucide-lock");
   expect(html).toContain("ml-1");
-  expect(html).toContain(">Aplicar com IA Plus<");
+  expect(html).toContain(">Aplicar com iMenu Plus<");
   expect(html).toContain('data-ia-apply-id="proposal"');
   expect(html).toContain(">Descartar<");
 });

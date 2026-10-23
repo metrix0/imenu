@@ -99,7 +99,7 @@ function isPrepaid(addon: Addon | null): boolean {
 }
 
 function addonProductName(productKey: string): string {
-    if (productKey === "ia_plus") return "iMenu IA Plus";
+    if (productKey === "ia_plus") return "iMenu Plus";
     if (productKey === "qr_code_mesa") return "iMenu QR Code Mesa";
 
     return productKey
@@ -281,7 +281,7 @@ export default function QrCodeMesaSettingsSection({
             (item) => item.addon.product_key === "qr_code_mesa"
         ) || null;
     const addon = qrBilling?.addon || null;
-    const active = qrBilling?.active === true;
+    const active = qrBilling?.active === true || billing?.addons.some(item => item.addon.product_key === "ia_plus" && item.active) === true;
     const iaPlusActive = billing?.addons.some(item => item.addon.product_key === "ia_plus" && item.active) === true;
     const cancelBilling =
         billing?.addons.find((item) => item.addon.id === cancelAddonId) || null;
@@ -296,6 +296,7 @@ export default function QrCodeMesaSettingsSection({
             presentation={presentation}
             qrSelected={active}
             qrActive={active}
+            qrIncluded={iaPlusActive}
             onLearnMore={openSales}
             extraCard={<IaPlusProductCard presentation={presentation} active={iaPlusActive} onLearnMore={() => setIaPlusOpen(true)} />}
         />
@@ -410,7 +411,7 @@ export default function QrCodeMesaSettingsSection({
                             const isQrCodeMesa =
                                 itemAddon.product_key === "qr_code_mesa";
                             const itemCanRenew =
-                                (isQrCodeMesa || itemAddon.product_key === "ia_plus") && isPrepaid(itemAddon);
+                                (isQrCodeMesa || itemAddon.product_key === "ia_plus") && isPrepaid(itemAddon) && !(isQrCodeMesa && iaPlusActive);
                             const itemCanCancel =
                                 itemActive &&
                                 itemAddon.status !== "canceled" &&

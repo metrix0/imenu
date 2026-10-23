@@ -127,7 +127,7 @@ export async function loadPostHogMetrics(
             countIf(event = '$pageview' AND properties.$pathname = '/') AS landing_pageviews,
             countIf(event = '$pageview' AND properties.$pathname IN (
                 '/painel/vendas-ia', '/painel/assistente-ia',
-                '/painel/vendas-ia/', '/painel/assistente-ia/'
+                '/painel/vendas-ia/', '/painel/assistente-ia/', '/painel/marketing', '/painel/marketing/'
             )) AS ia_plus_pageviews,
             countIf(event = '$pageview' AND properties.$pathname IN (
                 '/painel/mesas', '/painel/mesas/'

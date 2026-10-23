@@ -964,7 +964,7 @@ export default function ConfiguracoesPage() {
                                         <h2 className="text-xl font-medium text-gray-900">Modo Vitrine</h2>
                                         <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${vitrineAccess ? "bg-green-50 text-green-700" : "bg-orange-50 text-orange-800"}`}>
                                             <FontAwesomeIcon icon={vitrineAccess ? faCheck : faLock} />
-                                            {vitrineAccess ? "Plano ativo" : "Incluso no iMenu QR ou IA Plus"}
+                                            {vitrineAccess ? "Plano ativo" : "Incluso no iMenu QR ou iMenu Plus"}
                                         </span>
                                     </div>
                                     <p id="vitrine-description" className="mt-2 text-sm text-gray-500">
@@ -981,7 +981,7 @@ export default function ConfiguracoesPage() {
                                         disabled={isSavingVitrine}
                                         onClick={() => void saveVitrineMode(restaurant.vitrine_enabled !== true)}
                                     /> : (
-                                        <Tooltip text="Disponível com iMenu QR ou IA Plus. Assine um dos planos para desbloquear o Modo Vitrine." parentClassName="!block">
+                                        <Tooltip text="Disponível com iMenu QR ou iMenu Plus. Assine um dos planos para desbloquear o Modo Vitrine." parentClassName="!block">
                                             <Button onClick={() => router.push("/painel/planos")} className="gap-2">
                                                 Desbloquear Modo Vitrine
                                                 <FontAwesomeIcon icon={faLock} />
@@ -1034,7 +1034,7 @@ export default function ConfiguracoesPage() {
                                         </h2>
                                         <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${vitrineAccess ? "bg-green-50 text-green-700" : "bg-orange-50 text-orange-800"}`}>
                                             <FontAwesomeIcon icon={vitrineAccess ? faCheck : faLock} />
-                                            {vitrineAccess ? "Plano ativo" : "Incluso no iMenu QR ou IA Plus"}
+                                            {vitrineAccess ? "Plano ativo" : "Incluso no iMenu QR ou iMenu Plus"}
                                         </span>
                                     </div>
                                     <p className="mt-2 text-sm text-gray-500">
@@ -1053,7 +1053,7 @@ export default function ConfiguracoesPage() {
                                             Exportar PDF
                                         </Button>
                                     ) : (
-                                        <Tooltip text="Disponível com iMenu QR ou IA Plus. Assine um dos planos para exportar o cardápio." parentClassName="!block">
+                                        <Tooltip text="Disponível com iMenu QR ou iMenu Plus. Assine um dos planos para exportar o cardápio." parentClassName="!block">
                                             <Button onClick={() => router.push("/painel/planos")} className="gap-2">
                                                 Desbloquear exportação
                                                 <FontAwesomeIcon icon={faLock} />

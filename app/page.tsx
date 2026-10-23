@@ -584,7 +584,7 @@ export default function LandingPage() {
                                 ["Sistema disponível para celulares", "check", "Indisponível"],
                                 ["Notificações no celular", "check", "Não"],
                                 ["QR Code na mesa", "(Opcional) R$ 4,90 por mês", "R$ 99,90 por mês (muito mais caro)"],
-                                ["Modo Vitrine (cardápio sem pedidos)", "Incluso no iMenu QR ou IA Plus", "Varia por plataforma"],
+                                ["Modo Vitrine (cardápio sem pedidos)", "Incluso no iMenu QR ou iMenu Plus", "Varia por plataforma"],
                                 ["App para garçom", "check", "Pago"],
                                 ["Agendamento de pedido", "check", "Não"],
                                 ["Modo Encomenda", "check", "Não"],
