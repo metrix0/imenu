@@ -17,6 +17,20 @@ export type BlogArticleDefinition = {
 
 export const BLOG_ARTICLES: BlogArticleDefinition[] = [
     {
+        slug: "como-fazer-fechamento-de-caixa-restaurante",
+        title: "Como fazer fechamento de caixa no restaurante: passo a passo e conferência",
+        shortTitle: "Fechamento de caixa no restaurante",
+        metaTitle: "Como Fazer Fechamento de Caixa no Restaurante | iMenu",
+        metaDescription:
+            "Aprenda a fechar o caixa do restaurante, separar vendas por Pix, cartão e dinheiro e consultar o resumo diário no Histórico do iMenu.",
+        excerpt:
+            "Um passo a passo prático para conferir pagamentos e identificar diferenças no fim do dia, com o Fechamento de Caixa do iMenu.",
+        category: "Gestão",
+        readingTime: "7 min de leitura",
+        publishedAt: "2026-10-23",
+        updatedAt: "2026-10-23",
+    },
+    {
         slug: "sistema-de-encomendas-online",
         title: "Sistema de encomendas online: como receber pedidos agendados e organizar sua produção",
         shortTitle: "Sistema de encomendas online",
