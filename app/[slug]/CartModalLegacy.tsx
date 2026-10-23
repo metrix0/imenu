@@ -5,7 +5,7 @@ import CheckoutCustomerFields from "@/components/costumer/CheckoutCustomerFields
 import PromotionSummary from "@/components/costumer/PromotionSummary";
 import type { PromotionResult } from "@/lib/promotions/automatic";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import Image from "next/image";
 import { useCartStore } from "@/lib/stores/costumer/cartStore";
 import { useCheckoutStore } from "@/lib/stores/costumer/checkoutStore";
@@ -24,7 +24,8 @@ import {fetchAddressByCEP, fetchCoordinates, fetchAddressByCoordinates, calculat
 import {formatPriceNoRS, formatPrice, promotionPrice} from "@/lib/utils/formatPrice";
 import { supabase } from "@/lib/database/supabaseClient";
 import { MenuItemType } from "@/components/restaurant-owner/cardapio/MenuItemRow";
-import { Item } from "@/lib/types/types";
+import { Item, type ItemsByCategory } from "@/lib/types/types";
+import { rankAutomaticUpsells, type AutomaticUpsellRecommendations } from "@/lib/upsell/recommendations";
 import { StartingPriceLabel } from "./StartingPriceLabels";
 import type { QrTableMenuContext } from "@/lib/qr-table/types";
 import {
@@ -76,12 +77,14 @@ function dateFromInput(value: string) {
 export default function CartModal({
                                        onClose,
                                        restaurant,
+    catalogItemsByCategory,
     selectedCouponCode, onSelectItem, tableOrder, selectedTableId,
     selectedTableName, onTableChange, promotionResult, neighborhoodDeliveryRules
                                    }: {
     promotionResult?: PromotionResult;
     onClose: () => void;
     restaurant: any;
+    catalogItemsByCategory: ItemsByCategory;
     step: "cart" | "info" | "checkout";
     setStep: React.Dispatch<React.SetStateAction<"cart" | "info" | "checkout">>;
     selectedCouponCode?: string | null;
@@ -138,7 +141,8 @@ export default function CartModal({
     const setContinueBlocked = useCheckoutStore(state => state.setContinueBlocked);
     const couponDebounceRef = useRef<number | null>(null);
     const [showDiscountInput, setShowDiscountInput] = useState(false);
-    const [upsells, setUpsells] = useState<Item[]>([]);
+    const [manualUpsells, setManualUpsells] = useState<Item[]>([]);
+    const [automaticRecommendations, setAutomaticRecommendations] = useState<AutomaticUpsellRecommendations | null>(null);
     const [loadingUpsells, setLoadingUpsells] = useState(false);
     const [showOptionalSchedule, setShowOptionalSchedule] = useState(false);
     const [scheduleDropdownOpen, setScheduleDropdownOpen] = useState(false);
@@ -685,7 +689,7 @@ export default function CartModal({
                 .order("position", { ascending: true });
 
             if (!upsellRows || upsellRows.length === 0) {
-                setUpsells([]);
+                setManualUpsells([]);
                 setLoadingUpsells(false);
                 return;
             }
@@ -699,7 +703,7 @@ export default function CartModal({
                 .eq("is_available", true);
 
             if (!items) {
-                setUpsells([]);
+                setManualUpsells([]);
                 setLoadingUpsells(false);
                 return;
             }
@@ -720,12 +724,52 @@ export default function CartModal({
                 })
                 .filter((i): i is Item => i !== null);
 
-            setUpsells(ordered);
+            setManualUpsells(ordered);
             setLoadingUpsells(false);
         };
 
         loadUpsells();
     }, [restaurant?.id]);
+
+    useEffect(() => {
+        if (!restaurant?.id) return;
+        let active = true;
+        setAutomaticRecommendations(null);
+        supabase.from("automatic_upsell").select("recommendations")
+            .eq("restaurant_id", restaurant.id).maybeSingle()
+            .then(({ data, error }) => {
+                if (active && !error && data?.recommendations) {
+                    setAutomaticRecommendations(data.recommendations as AutomaticUpsellRecommendations);
+                }
+            });
+        return () => { active = false; };
+    }, [restaurant?.id]);
+
+    const catalogById = useMemo(() => new Map(
+        Object.values(catalogItemsByCategory).flat().map(item => [item.id, item] as const)
+    ), [catalogItemsByCategory]);
+
+    const upsells = useMemo(() => {
+        const productIds = items.flatMap(item => [
+            item.base_item_id,
+            ...(item.pizza?.flavors?.map(flavor => flavor.item_id) || []),
+        ]).filter(Boolean);
+        const cartIds = new Set(productIds);
+        const categoryIds = productIds
+            .map(id => catalogById.get(id)?.category_id)
+            .filter((id): id is string => Boolean(id));
+        const availableIds = new Set([...catalogById.values()]
+            .filter(item => item.is_available).map(item => item.id));
+        const autoIds = rankAutomaticUpsells(automaticRecommendations, productIds, categoryIds, availableIds);
+        const automaticItems = autoIds.map(id => catalogById.get(id))
+            .filter((item): item is Item => Boolean(item));
+        const seen = new Set<string>();
+        return [...automaticItems, ...manualUpsells].filter(item => {
+            if (!item.is_available || cartIds.has(item.id) || seen.has(item.id)) return false;
+            seen.add(item.id);
+            return true;
+        }).slice(0, 5);
+    }, [automaticRecommendations, catalogById, items, manualUpsells]);
 
     useEffect(() => {
         requestAnimationFrame(() => setOpenModal(true));

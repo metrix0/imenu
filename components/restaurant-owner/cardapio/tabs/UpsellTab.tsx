@@ -8,6 +8,7 @@ import Input from "@/components/ui/Input";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
 import { icons } from "@/lib/utils/fontawesome";
 import ListLoader from "@/components/ui/ListLoader";
+import Switch from "@/components/ui/Switch";
 
 type Props = {
     restaurantId: string;
@@ -21,6 +22,10 @@ export default function UpsellTab({ restaurantId, items }: Props) {
     const [dragIndex, setDragIndex] = useState<number | null>(null);
     const bufferRef = useRef<NodeJS.Timeout | null>(null);
     const [loading, setLoading] = useState(true);
+    const [automaticEnabled, setAutomaticEnabled] = useState(false);
+    const [automaticLoading, setAutomaticLoading] = useState(true);
+    const [automaticSaving, setAutomaticSaving] = useState(false);
+    const [automaticError, setAutomaticError] = useState<string | null>(null);
 
 
     useEffect(() => {
@@ -68,6 +73,35 @@ export default function UpsellTab({ restaurantId, items }: Props) {
 
         load();
     }, [restaurantId, items]);
+
+    useEffect(() => {
+        let active = true;
+        setAutomaticLoading(true);
+        setAutomaticError(null);
+        supabase.from("automatic_upsell").select("enabled")
+            .eq("restaurant_id", restaurantId).maybeSingle()
+            .then(({ data, error }) => {
+                if (!active) return;
+                if (error) setAutomaticError("Não foi possível carregar o Upsell Automático.");
+                else setAutomaticEnabled(Boolean(data?.enabled));
+                setAutomaticLoading(false);
+            });
+        return () => { active = false; };
+    }, [restaurantId]);
+
+    const toggleAutomatic = async () => {
+        if (automaticSaving || automaticLoading) return;
+        const next = !automaticEnabled;
+        setAutomaticSaving(true);
+        setAutomaticError(null);
+        const { error } = await supabase.from("automatic_upsell").upsert(
+            { restaurant_id: restaurantId, enabled: next },
+            { onConflict: "restaurant_id" }
+        );
+        if (error) setAutomaticError("Não foi possível salvar. Tente novamente.");
+        else setAutomaticEnabled(next);
+        setAutomaticSaving(false);
+    };
 
     // Buffered sync WITH POSITION
     const sync = (next: MenuItemType[]) => {
@@ -130,6 +164,18 @@ export default function UpsellTab({ restaurantId, items }: Props) {
 
     return (
         <div className="space-y-6">
+            <div className="flex items-center justify-between gap-4 rounded-xl border border-gray-200 bg-white p-4">
+                <div className="min-w-0">
+                    <p className="text-sm font-semibold text-gray-900">Upsell Automático</p>
+                    <p className="mt-1 text-sm text-gray-600">
+                        Analisa periodicamente os itens e categorias mais comprados juntos para sugerir produtos relacionados ao carrinho.
+                        Sem histórico suficiente, mantém as sugestões manuais abaixo.
+                    </p>
+                    {automaticError && <p className="mt-2 text-xs text-red-600" role="alert">{automaticError}</p>}
+                </div>
+                <Switch checked={automaticEnabled} disabled={automaticLoading || automaticSaving}
+                    aria-label="Upsell Automático" onClick={toggleAutomatic} />
+            </div>
             <div>
                 <h2 className="text-xl font-semibold">
                     Upsells {selected.length}/5
