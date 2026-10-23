@@ -28,5 +28,5 @@ it.each([1, 9, 2.5])("rejects invalid maximum %s without a database write", asyn
 });
 it("persists settings only for the authorized restaurant", async () => {
     expect((await PATCH(request(), context)).status).toBe(200);
-    expect(query).toHaveBeenLastCalledWith(expect.stringContaining("UPDATE restaurants"), ["restaurant", JSON.stringify(settings)]);
+    expect(query).toHaveBeenLastCalledWith(expect.stringContaining("UPDATE restaurants"), ["restaurant", JSON.stringify({ ...settings, same_category_only: false })]);
 });

@@ -362,9 +362,9 @@ it("rejects a stale promotion before order, stock, coupon or payment writes", as
   expect(createMercadoPagoPixCharge).not.toHaveBeenCalled();
 });
 
-it("still rejects insufficient stock", async () => {
+it("rejects insufficient stock as a conflict", async () => {
   stock = 0;
-  expect((await send()).status).toBe(400);
+  expect((await send()).status).toBe(409);
   expect(insert).toBeNull();
   expect(transactions).toEqual(["rollback"]);
 });

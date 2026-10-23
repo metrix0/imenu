@@ -50,7 +50,7 @@ it.each(["entrega", "retirada", "mesa"])("persists one combined line and final p
 });
 it("rolls back before inserting when the second flavor lacks stock", async () => {
     secondaryStock = 1;
-    expect((await send()).status).toBe(400);
+    expect((await send()).status).toBe(409);
     expect(rollback).toBe(true);
     expect(writes).toHaveLength(0);
 });
