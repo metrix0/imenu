@@ -11,6 +11,9 @@ import {
   type AutomationKind,
 } from "@/lib/services/crmRules";
 import Card from "@/components/ui/Card";
+import DataTable from "@/components/ui/DataTable";
+import Pagination from "@/components/ui/Pagination";
+import Badge from "@/components/ui/Badge";
 import Input from "@/components/ui/Input";
 import Dropdown from "@/components/ui/Dropdown";
 import Switch from "@/components/ui/Switch";
@@ -24,6 +27,27 @@ const descriptions: Record<AutomationKind, (days: number) => string> = {
   reactivation: (days) => `Clientes que não fazem pedidos há pelo menos ${days} dias recebem uma mensagem no WhatsApp.`,
   habit: () => "Clientes que fizeram pedidos no mesmo dia da semana e horário em pelo menos 3 semanas nos últimos 90 dias recebem uma mensagem 2 horas antes desse horário.",
 };
+type HistoryRow = {
+  id: string;
+  kind: AutomationKind;
+  customer_name: string;
+  phone: string | null;
+  offer: string | null;
+  status: "sent" | "failed";
+  occurred_at: string;
+  demo: boolean;
+};
+
+const formattedHistoryDate = (value: string) =>
+  new Date(value).toLocaleString("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
 export default function AutomacoesPage() {
   const id = useCreationStore((s) => s.restaurantId);
   const [settings, setSettings] = useState<AutomationSettings | null>(null),
@@ -36,6 +60,37 @@ export default function AutomacoesPage() {
     [dirty, setDirty] = useState(false);
   const editorRefs = useRef<Record<AutomationKind, TemplateEditorHandle | null>>({ cart: null, reactivation: null, habit: null });
   const [openVariables, setOpenVariables] = useState<AutomationKind | null>(null);
+  const [history, setHistory] = useState<HistoryRow[]>([]);
+  const [historyPage, setHistoryPage] = useState(0);
+  const [historyTotal, setHistoryTotal] = useState(0);
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const [historyError, setHistoryError] = useState("");
+  useEffect(() => {
+    setHistoryPage(0);
+  }, [id]);
+  useEffect(() => {
+    setHistory([]);
+    setHistoryTotal(0);
+    setHistoryError("");
+    setHistoryLoading(Boolean(id));
+    if (!id) return;
+    const controller = new AbortController();
+    void crmRequest(`/api/automations?history=1&page=${historyPage}`, id, { signal: controller.signal })
+      .then((data: { history: HistoryRow[]; total: number }) => {
+        if (!controller.signal.aborted) {
+          setHistory(data.history);
+          setHistoryTotal(data.total);
+        }
+      })
+      .catch((e) => {
+        if (!controller.signal.aborted)
+          setHistoryError(e instanceof Error ? e.message : "Não foi possível carregar o histórico.");
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setHistoryLoading(false);
+      });
+    return () => controller.abort();
+  }, [id, historyPage]);
   const automationVariables = useMemo<TemplateVariable[]>(() => [
     { key: "NOME_DO_RESTAURANTE", label: "Nome do restaurante", token: "{{restaurante}}", value: restaurantName || "Restaurante" },
     { key: "NOME_DO_CLIENTE", label: "Nome do cliente", token: "{{nome}}", value: "Cliente" },
@@ -128,6 +183,69 @@ export default function AutomacoesPage() {
               para realizar os envios. Você já pode configurar as mensagens.
             </WarningBox>
           ) : null}
+          <Card className="space-y-4">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">Histórico de envios</h2>
+              <p className="mt-1 text-sm text-gray-500">
+                Envios e tentativas das automações deste restaurante.
+              </p>
+            </div>
+            {historyError ? <p role="alert" className="text-sm text-red-600">{historyError}</p> : null}
+            <DataTable
+              loading={historyLoading}
+              rows={history}
+              rowKey={(row) => row.id}
+              emptyMessage={historyError ? "Não foi possível consultar os envios." : "Nenhum envio de automação registrado ainda."}
+              columns={[
+                {
+                  key: "date",
+                  label: "Data e hora",
+                  render: (row) => <span className="whitespace-nowrap">{formattedHistoryDate(row.occurred_at)}</span>,
+                },
+                {
+                  key: "customer",
+                  label: "Cliente",
+                  render: (row) => (
+                    <div>
+                      <p className="font-medium text-gray-900">{row.customer_name}</p>
+                      {row.phone ? <p className="mt-1 text-gray-500">+{row.phone}</p> : null}
+                    </div>
+                  ),
+                },
+                { key: "kind", label: "Automação", render: (row) => AUTOMATION_LABELS[row.kind] },
+                {
+                  key: "offer",
+                  label: "Oferta",
+                  render: (row) => !row.offer ? "Sem oferta" : row.offer.startsWith("coupon:") ? "Cupom" : "Promoção",
+                },
+                {
+                  key: "status",
+                  label: "Status",
+                  render: (row) => (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant={row.status === "sent" ? "success" : "danger"}>
+                        {row.status === "sent" ? "Enviado" : "Falhou"}
+                      </Badge>
+                      {row.demo ? <Badge variant="neutral">Exemplo</Badge> : null}
+                    </div>
+                  ),
+                },
+              ]}
+            />
+            {history.some((row) => row.demo) ? (
+              <p className="text-xs text-gray-500">
+                Registros marcados como Exemplo são demonstrativos; nenhuma mensagem foi enviada.
+              </p>
+            ) : null}
+            {historyTotal > 10 ? (
+              <Pagination
+                page={historyPage}
+                pageCount={Math.ceil(historyTotal / 10)}
+                onChange={setHistoryPage}
+                disabled={historyLoading}
+              />
+            ) : null}
+          </Card>
           <div className="space-y-5">
             {AUTOMATION_KINDS.map((kind) => {
               const rule = settings[kind];
