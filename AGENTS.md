@@ -8,8 +8,8 @@
 - Keep answers brief and direct unless details are requested. Do not unnecessarily ask for information already available.
 
 ## Access and source of truth
-- iMenu repository: `metrix0/imenu`; **working branch: `preview`**; `main` is production. Preview: https://preview.imenuapp.com.br.
-- All iMenu repository changes must go through GitHub, on `preview` only. Never commit to `main`. Other repositories use `main` unless their workflow says otherwise.
+- iMenu repository: `metrix0/imenu`; **default working branch: `preview`**; `main` is production. Preview: https://preview.imenuapp.com.br.
+- All iMenu repository changes must go through GitHub, on `preview` by default. Another non-`main` branch may be used only when the user explicitly authorizes it for the task. Never commit to `main`. Other repositories use `main` unless their workflow says otherwise.
 - **GitHub code search can index the default (`main`) branch.** Treat search matches only as discovery hints: get paths from the `preview` tree and fetch every relevant file explicitly with `ref: "preview"`. Do not rely on default-branch file contents or assume a search excerpt matches `preview`.
 - Before editing, inspect related callers/components and current behavior. Immediately before editing or committing, reread each affected existing file from current target-branch HEAD; check whether HEAD advanced and reconcile instead of overwriting others' work.
 - Pushing to `preview` automatically triggers the GitHub Actions build and staging deployment. Never manually trigger or manage builds or deployments after pushing; leave them to the automated workflow unless the user explicitly requests otherwise.
