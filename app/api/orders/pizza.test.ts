@@ -2,9 +2,9 @@ jest.mock("next/server", () => ({ ...jest.requireActual("next/server"), after: j
 jest.mock("@/lib/push/server", () => ({ notifyOrderReady: jest.fn() }));
 import { POST } from "./route";
 import { query, withTransaction } from "@/lib/database/sql";
-import { createMercadoPagoPixCharge } from "@/lib/mercadoPagoPix";
+import { createMercadoPagoPixCharge } from "@/lib/payments/mercadoPagoPix";
 jest.mock("@/lib/database/sql", () => ({ query: jest.fn(), withTransaction: jest.fn() }));
-jest.mock("@/lib/mercadoPagoPix", () => ({ createMercadoPagoPixCharge: jest.fn() }));
+jest.mock("@/lib/payments/mercadoPagoPix", () => ({ createMercadoPagoPixCharge: jest.fn() }));
 const restaurant = "30000000-0000-4000-8000-000000000001";
 const a = "10000000-0000-4000-8000-000000000001", b = "10000000-0000-4000-8000-000000000002";
 const table = "40000000-0000-4000-8000-000000000001";
@@ -50,7 +50,7 @@ it.each(["entrega", "retirada", "mesa"])("persists one combined line and final p
 });
 it("rolls back before inserting when the second flavor lacks stock", async () => {
     secondaryStock = 1;
-    expect((await send()).status).toBe(400);
+    expect((await send()).status).toBe(409);
     expect(rollback).toBe(true);
     expect(writes).toHaveLength(0);
 });

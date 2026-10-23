@@ -1,15 +1,13 @@
+import { parseRange, type RangeKey } from "@/lib/dev/dashboardMetrics";
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { authorize } from "@/lib/dev/authorize";
 
 import { query } from "@/lib/database/sql";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const ALLOWED_DEV_EMAIL = "joaovralmeida@hotmail.com";
 const TIME_ZONE = "America/Sao_Paulo";
-const RANGE_KEYS = ["7d", "this_week", "last_week", "30d", "90d"] as const;
-type RangeKey = (typeof RANGE_KEYS)[number];
 
 type BoundsRow = {
     start_at: string | Date;
@@ -34,67 +32,6 @@ type GrowthMetricsRow = {
     activated_users_10_in_14d_30d: number | string;
 };
 
-function getBearerToken(request: Request): string | null {
-    const authorization = request.headers.get("authorization")?.trim();
-    const match = authorization?.match(/^Bearer\s+(.+)$/i);
-    return match?.[1]?.trim() || null;
-}
-
-function getSupabasePublicConfig(): { url: string; anonKey: string } {
-    const url =
-        process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ||
-        process.env.SUPABASE_URL?.trim();
-    const anonKey =
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() ||
-        process.env.SUPABASE_ANON_KEY?.trim();
-
-    if (!url || !anonKey) {
-        throw new Error("Supabase public environment variables are missing.");
-    }
-
-    return { url, anonKey };
-}
-
-async function authorize(request: Request): Promise<NextResponse | null> {
-    const accessToken = getBearerToken(request);
-
-    if (!accessToken) {
-        return NextResponse.json({ error: "Não autenticado." }, { status: 401 });
-    }
-
-    const { url, anonKey } = getSupabasePublicConfig();
-    const authClient = createClient(url, anonKey, {
-        auth: {
-            persistSession: false,
-            autoRefreshToken: false,
-            detectSessionInUrl: false,
-        },
-    });
-
-    const {
-        data: { user },
-        error,
-    } = await authClient.auth.getUser(accessToken);
-
-    if (error || !user) {
-        return NextResponse.json(
-            { error: "Sessão inválida ou expirada." },
-            { status: 401 }
-        );
-    }
-
-    if (user.email?.trim().toLowerCase() !== ALLOWED_DEV_EMAIL) {
-        return NextResponse.json({ error: "Acesso negado." }, { status: 403 });
-    }
-
-    return null;
-}
-
-function parseRange(value: string | null): RangeKey {
-    return RANGE_KEYS.includes(value as RangeKey)
-        ? (value as RangeKey)
-        : "7d";
-}
 
 function toIso(value: string | Date): string {
     return value instanceof Date ? value.toISOString() : new Date(value).toISOString();

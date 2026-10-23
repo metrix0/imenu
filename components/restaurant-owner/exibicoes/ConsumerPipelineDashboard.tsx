@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-import ConsumerPipelineCard from "@/components/analytics/ConsumerPipelineCard";
+import ConsumerPipelineCard from "@/components/common/analytics/ConsumerPipelineCard";
 import Card from "@/components/ui/Card";
 import ListLoader from "@/components/ui/ListLoader";
 import { supabase } from "@/lib/database/supabaseClient";

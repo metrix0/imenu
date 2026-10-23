@@ -18,9 +18,13 @@ jest.mock("@/components/ui/Tooltip", () => ({ __esModule: true, default: ({ chil
 jest.mock("@/components/costumer/CartBar", () => ({ __esModule: true, default: () => <div>CART_CONTROL</div> }));
 jest.mock("@/app/[slug]/CartModal", () => ({ __esModule: true, default: () => <div>CHECKOUT_CONTROL</div> }));
 jest.mock("@/components/costumer/HistoryModal", () => ({ __esModule: true, default: () => null }));
-jest.mock("@/components/analytics/ConsumerMenuViewTracker", () => ({ __esModule: true, default: () => null }));
+jest.mock("@/components/common/analytics/ConsumerMenuViewTracker", () => ({ __esModule: true, default: () => null }));
 jest.mock("@/components/costumer/TrackingScripts", () => ({ __esModule: true, default: () => null }));
-jest.mock("@/app/[slug]/StartingPriceLabels", () => ({ __esModule: true, default: () => null }));
+jest.mock("@/app/[slug]/StartingPriceLabels", () => ({
+    __esModule: true,
+    default: ({ children }: any) => <>{children}</>,
+    StartingPriceLabel: () => null,
+}));
 jest.mock("@/app/[slug]/PickupAvailabilityGuard", () => ({ __esModule: true, default: () => null }));
 jest.mock("@/lib/database/supabaseServerClient", () => ({ createSupabaseServerClient: () => ({
     from: (table: string) => {
