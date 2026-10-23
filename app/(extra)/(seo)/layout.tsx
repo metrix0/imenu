@@ -7,7 +7,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { icons } from "@/lib/utils/fontawesome";
 import Button from "@/components/ui/Button";
 import { useRouter } from "next/navigation";
-import SeoTrafficTracker from "@/components/analytics/SeoTrafficTracker";
+import SeoTrafficTracker from "@/components/common/analytics/SeoTrafficTracker";
 
 export default function SeoLayout({
     children,

@@ -4,7 +4,7 @@ jest.mock("next/server", () => ({ ...jest.requireActual("next/server"), after: j
 jest.mock("@/lib/push/server", () => ({ notifyOrderReady: jest.fn() }));
 import { POST } from "./route";
 import { query, withTransaction } from "@/lib/database/sql";
-import { createMercadoPagoPixCharge } from "@/lib/mercadoPagoPix";
+import { createMercadoPagoPixCharge } from "@/lib/payments/mercadoPagoPix";
 import { requireRestaurantOwner, RestaurantOwnerAuthError } from "@/lib/auth/restaurantOwner";
 import type { AutomaticPromotion } from "@/lib/promotions/automatic";
 
@@ -12,7 +12,7 @@ jest.mock("@/lib/database/sql", () => ({
   query: jest.fn(),
   withTransaction: jest.fn(),
 }));
-jest.mock("@/lib/mercadoPagoPix", () => ({ createMercadoPagoPixCharge: jest.fn() }));
+jest.mock("@/lib/payments/mercadoPagoPix", () => ({ createMercadoPagoPixCharge: jest.fn() }));
 jest.mock("@/lib/auth/restaurantOwner", () => ({
   ...jest.requireActual("@/lib/auth/restaurantOwner"),
   requireRestaurantOwner: jest.fn(),
@@ -362,9 +362,9 @@ it("rejects a stale promotion before order, stock, coupon or payment writes", as
   expect(createMercadoPagoPixCharge).not.toHaveBeenCalled();
 });
 
-it("still rejects insufficient stock", async () => {
+it("rejects insufficient stock as a conflict", async () => {
   stock = 0;
-  expect((await send()).status).toBe(400);
+  expect((await send()).status).toBe(409);
   expect(insert).toBeNull();
   expect(transactions).toEqual(["rollback"]);
 });

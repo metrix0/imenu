@@ -6,7 +6,7 @@ import { withTransaction } from "@/lib/database/sql";
 import {
     isPayZuPaymentRef,
     refundPayZuPixCharge,
-} from "@/lib/payzu";
+} from "@/lib/payments/payzu";
 import { notifyOrderStatusUpdate } from "@/lib/services/whatsappNotification";
 
 const VALID_STATUSES = [

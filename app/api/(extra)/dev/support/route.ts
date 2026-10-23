@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { authorize } from "@/lib/dev/authorize";
 
 import { query } from "@/lib/database/sql";
 import { releaseExpiredSupportHandoffs } from "@/lib/services/supportWhatsApp";
@@ -24,7 +24,6 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const ALLOWED_DEV_EMAIL = "joaovralmeida@hotmail.com";
 const BULK_SEND_RETRY_DELAY_MS = 1_000;
 
 function sleep(ms: number): Promise<void> {
@@ -56,72 +55,12 @@ type SupportConnection = {
     updated_at: string;
 };
 
-function getBearerToken(request: Request): string | null {
-    const authorization = request.headers.get("authorization")?.trim();
-    if (!authorization) return null;
-    return authorization.match(/^Bearer\s+(.+)$/i)?.[1]?.trim() || null;
-}
-
 async function authorizeDevRequest(request: Request): Promise<
     | { ok: true }
     | { ok: false; response: NextResponse }
 > {
-    const accessToken = getBearerToken(request);
-    if (!accessToken) {
-        return {
-            ok: false,
-            response: NextResponse.json(
-                { error: "Não autenticado." },
-                { status: 401 }
-            ),
-        };
-    }
-
-    const url =
-        process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ||
-        process.env.SUPABASE_URL?.trim();
-    const anonKey =
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() ||
-        process.env.SUPABASE_ANON_KEY?.trim();
-
-    if (!url || !anonKey) {
-        throw new Error("Supabase public environment variables are missing.");
-    }
-
-    const authClient = createClient(url, anonKey, {
-        auth: {
-            persistSession: false,
-            autoRefreshToken: false,
-            detectSessionInUrl: false,
-        },
-    });
-
-    const {
-        data: { user },
-        error,
-    } = await authClient.auth.getUser(accessToken);
-
-    if (error || !user) {
-        return {
-            ok: false,
-            response: NextResponse.json(
-                { error: "Sessão inválida ou expirada." },
-                { status: 401 }
-            ),
-        };
-    }
-
-    if (user.email?.trim().toLowerCase() !== ALLOWED_DEV_EMAIL) {
-        return {
-            ok: false,
-            response: NextResponse.json(
-                { error: "Acesso negado." },
-                { status: 403 }
-            ),
-        };
-    }
-
-    return { ok: true };
+    const response = await authorize(request);
+    return response ? { ok: false, response } : { ok: true };
 }
 
 async function readConnection(
