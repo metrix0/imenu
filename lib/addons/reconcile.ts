@@ -1,5 +1,5 @@
 import type { AddonProduct } from "@/lib/addons/products";
-import { getMercadoPagoPixPayment, isMercadoPagoPixFailureStatus, MercadoPagoPixApiError } from "@/lib/mercadoPagoPix";
+import { getMercadoPagoPixPayment, isMercadoPagoPixFailureStatus, MercadoPagoPixApiError } from "@/lib/payments/mercadoPagoPix";
 import { activateMercadoPagoQrTablePrepaid, saveMercadoPagoQrTablePayment, markMercadoPagoQrTablePaymentFailure } from "@/lib/qr-table/mercadoPagoBilling";
 import { NextResponse } from "next/server";
 
@@ -13,7 +13,7 @@ import {
     getPayZuPixCharge,
     PayZuApiError,
     type PayZuTransaction,
-} from "@/lib/payzu";
+} from "@/lib/payments/payzu";
 import { AsaasApiError, asaasRequest } from "@/lib/qr-table/asaas";
 import {
     activatePayZuQrTablePrepaid,

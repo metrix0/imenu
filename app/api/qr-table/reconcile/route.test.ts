@@ -1,6 +1,6 @@
 import { POST } from "./route";
 import { query } from "@/lib/database/sql";
-import { getMercadoPagoPixPayment } from "@/lib/mercadoPagoPix";
+import { getMercadoPagoPixPayment } from "@/lib/payments/mercadoPagoPix";
 import { markMercadoPagoQrTablePaymentFailure } from "@/lib/qr-table/mercadoPagoBilling";
 
 jest.mock("@/lib/auth/restaurantOwner", () => ({
@@ -11,14 +11,14 @@ jest.mock("@/lib/auth/restaurantOwner", () => ({
     },
 }));
 jest.mock("@/lib/database/sql", () => ({ query: jest.fn() }));
-jest.mock("@/lib/mercadoPagoPix", () => ({
+jest.mock("@/lib/payments/mercadoPagoPix", () => ({
     getMercadoPagoPixPayment: jest.fn(),
     isMercadoPagoPixFailureStatus: jest.fn(() => true),
     MercadoPagoPixApiError: class extends Error {
         status = 500;
     },
 }));
-jest.mock("@/lib/payzu", () => ({
+jest.mock("@/lib/payments/payzu", () => ({
     getPayZuPixCharge: jest.fn(),
     PayZuApiError: class extends Error {
         status = 500;

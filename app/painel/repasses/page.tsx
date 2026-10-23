@@ -6,7 +6,7 @@ import { faArrowRight, faChartLine } from "@fortawesome/free-solid-svg-icons";
 
 import { supabase } from "@/lib/database/supabaseClient";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
-import PayoutsDashboard from "@/components/restaurant-owner/exibicoes/PayoutsDashboard";
+import PayoutsDashboard from "@/components/restaurant-owner/repasses/PayoutsDashboard";
 import DateFilterBar, {
     type DateFilterPreset,
     getCurrentMonthRange,
