@@ -187,6 +187,20 @@ type DashboardDetailsPayload = {
             monthlyRevenueCents: number;
         }>;
         totalMonthlyRevenueCents: number;
+        products: Array<{
+            productKey: "qr_code_mesa" | "ia_plus";
+            payersThisMonth: number;
+            confirmedPaymentsThisMonth: number;
+            receivedThisMonthCents: number;
+            droppedTotal: number;
+            dropoffs: Array<{
+                restaurantId: string;
+                restaurantName: string;
+                status: string;
+                billingType: string | null;
+                attemptedAt: string;
+            }>;
+        }>;
         billing: {
             currentPayers: number;
             currentPixPayers: number;
@@ -671,6 +685,52 @@ export default function DevDashboardPage() {
                                         )}
                                         description="Restaurantes cujo primeiro pagamento de add-on ocorreu neste mês."
                                     />
+                                </div>
+
+                                <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                                    {details.monthlyRevenue.products.map((product) => (
+                                        <MetricCard
+                                            key={product.productKey}
+                                            title={
+                                                product.productKey === "qr_code_mesa"
+                                                    ? "Total iMenu QR"
+                                                    : "Total iMenu IA Plus"
+                                            }
+                                            value={formatCurrencyFromCents(product.receivedThisMonthCents)}
+                                            description={`${formatCount(product.payersThisMonth)} restaurantes pagantes · ${formatCount(product.confirmedPaymentsThisMonth)} pagamentos no mês`}
+                                            info="Valor efetivamente recebido neste mês, sem pagamentos reembolsados. Abandonos consideram a última tentativa de cobrança do restaurante no mês, cancelada, recusada, vencida ou pendente há mais de 2 horas."
+                                        >
+                                            <div className="mt-3 border-t border-gray-100 pt-3">
+                                                <p className="text-xs font-semibold text-gray-700">
+                                                    {formatCount(product.droppedTotal)}{" "}
+                                                    {product.droppedTotal === 1 ? "restaurante não concluiu" : "restaurantes não concluíram"}{" "}
+                                                    o pagamento
+                                                </p>
+                                                {product.dropoffs.length > 0 && (
+                                                    <ul className="mt-2 space-y-2">
+                                                        {product.dropoffs.map((dropoff) => (
+                                                            <li
+                                                                key={dropoff.restaurantId}
+                                                                className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs"
+                                                            >
+                                                                <span className="font-medium text-gray-800">
+                                                                    {dropoff.restaurantName}
+                                                                </span>
+                                                                <span className="text-gray-500">
+                                                                    {dropoff.billingType === "PIX" ? "Pix" : "Cartão"} · {formatDateTime(dropoff.attemptedAt)}
+                                                                </span>
+                                                            </li>
+                                                        ))}
+                                                    </ul>
+                                                )}
+                                                {product.droppedTotal > product.dropoffs.length && (
+                                                    <p className="mt-2 text-xs text-gray-500">
+                                                        +{formatCount(product.droppedTotal - product.dropoffs.length)} outros
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </MetricCard>
+                                    ))}
                                 </div>
 
                                 <div className="mt-4 grid gap-4 sm:grid-cols-3">

@@ -1,6 +1,7 @@
 "use client";
 
 import { Line } from "react-chartjs-2";
+import type { ReactNode } from "react";
 import type { ProductOverview } from "@/lib/analytics/productOverview";
 import { formatAverage, formatCount, formatCurrency, formatRatio, conversion } from "@/lib/dev/dashboardFormat";
 import InfoTooltip from "@/components/ui/Tooltip";
@@ -196,6 +197,7 @@ export function MetricCard({
     change,
     description,
     info,
+    children,
     danger = false,
 }: {
     title: string;
@@ -203,6 +205,7 @@ export function MetricCard({
     change?: number | null;
     description?: string;
     info?: string;
+    children?: ReactNode;
     danger?: boolean;
 }) {
     return (
@@ -247,6 +250,7 @@ export function MetricCard({
                 </p>
             )}
             {description && <p className="mt-3 text-xs leading-5 text-gray-500">{description}</p>}
+            {children}
         </article>
     );
 }
