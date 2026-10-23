@@ -680,13 +680,6 @@ export async function POST(request: Request) {
                                   ON table_entry.restaurant_id = addon.restaurant_id
                                 WHERE addon.restaurant_id = $1
                                   AND addon.product_key = 'qr_code_mesa'
-                                  AND (
-                                        addon.status = 'active'
-                                     OR (
-                                            addon.status IN ('canceled', 'past_due')
-                                        AND addon.current_period_ends_at > NOW()
-                                     )
-                                  )
                                   AND table_entry.is_active = true
                                   AND (
                                         (

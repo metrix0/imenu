@@ -50,10 +50,11 @@ export type QrTableAddon = {
 };
 
 export function hasQrTableAccess(
-    addon: Pick<QrTableAddon, "status" | "current_period_ends_at"> | null,
+    addon: (Pick<QrTableAddon, "status" | "current_period_ends_at"> & { product_key?: QrTableAddon["product_key"] }) | null,
     now = Date.now()
 ): boolean {
     if (!addon) return false;
+    if (addon.product_key === "qr_code_mesa") return true;
     if (addon.status === "active") return true;
 
     if (!addon.current_period_ends_at) return false;
