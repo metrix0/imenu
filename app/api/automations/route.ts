@@ -40,15 +40,17 @@ async function handle(request: NextRequest, save: boolean) {
         [id],
       ),
       automationOffers(id),
-      query("SELECT status FROM whatsapp_connections WHERE restaurant_id=$1", [
-        id,
-      ]),
+      query(
+        "SELECT w.status, r.name FROM restaurants r LEFT JOIN whatsapp_connections w ON w.restaurant_id=r.id WHERE r.id=$1",
+        [id],
+      ),
     ]);
     return NextResponse.json(
       {
         settings: readAutomationSettings(settings.rows[0]?.automations),
         offers: offers.map(({ value, label }) => ({ value, label })),
         connected: connection.rows[0]?.status === "WORKING",
+        restaurantName: connection.rows[0]?.name || "Restaurante",
       },
       { headers: { "Cache-Control": "no-store" } },
     );

@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import PageBadge from "@/components/ui/PageBadge";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 import { crmRequest } from "@/lib/api/crm";
@@ -17,30 +17,32 @@ import Switch from "@/components/ui/Switch";
 import Button from "@/components/ui/Button";
 import WarningBox from "@/components/ui/WarningBox";
 import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
-import { faArrowRight, faPlus, faRobot, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
+import { faPlus, faRobot, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
 import { TemplateEditor, VariablePicker, type TemplateEditorHandle, type TemplateVariable } from "@/components/ui/WhatsAppTemplateEditor";
 const descriptions: Record<AutomationKind, (days: number) => string> = {
   cart: () => "Clientes com produtos no carrinho sem movimentação há pelo menos 30 minutos recebem uma mensagem no WhatsApp, com a imagem do item de maior preço quando disponível.",
   reactivation: (days) => `Clientes que não fazem pedidos há pelo menos ${days} dias recebem uma mensagem no WhatsApp.`,
   habit: () => "Clientes que fizeram pedidos no mesmo dia da semana e horário em pelo menos 3 semanas nos últimos 90 dias recebem uma mensagem 2 horas antes desse horário.",
 };
-const AUTOMATION_VARIABLES: TemplateVariable[] = [
-  { key: "nome", label: "Nome do cliente", token: "{{nome}}", value: "Cliente" },
-  { key: "restaurante", label: "Restaurante", token: "{{restaurante}}", value: "Seu restaurante" },
-];
 export default function AutomacoesPage() {
   const id = useCreationStore((s) => s.restaurantId);
   const [settings, setSettings] = useState<AutomationSettings | null>(null),
     [offers, setOffers] = useState<{ value: string; label: string }[]>([]),
     [connected, setConnected] = useState(false),
+    [restaurantName, setRestaurantName] = useState(""),
     [error, setError] = useState(""),
     [saved, setSaved] = useState(false),
     [saving, setSaving] = useState(false),
     [dirty, setDirty] = useState(false);
   const editorRefs = useRef<Record<AutomationKind, TemplateEditorHandle | null>>({ cart: null, reactivation: null, habit: null });
   const [openVariables, setOpenVariables] = useState<AutomationKind | null>(null);
+  const automationVariables = useMemo<TemplateVariable[]>(() => [
+    { key: "NOME_DO_RESTAURANTE", label: "Nome do restaurante", token: "{{restaurante}}", value: restaurantName || "Restaurante" },
+    { key: "NOME_DO_CLIENTE", label: "Nome do cliente", token: "{{nome}}", value: "Cliente" },
+  ], [restaurantName]);
   useEffect(() => {
     setSettings(null);
+    setRestaurantName("");
     setOpenVariables(null);
     setError("");
     if (!id) return;
@@ -50,6 +52,7 @@ export default function AutomacoesPage() {
         setSettings(data.settings);
         setOffers(data.offers);
         setConnected(data.connected);
+        setRestaurantName(data.restaurantName);
         setDirty(false);
       })
       .catch((e) => {
@@ -117,7 +120,7 @@ export default function AutomacoesPage() {
       {settings ? (
         <>
           {!connected ? (
-            <WarningBox icon={faTriangleExclamation}>
+            <WarningBox icon={faTriangleExclamation} className="w-fit max-w-full">
               Conecte seu{" "}
               <PageBadge href="/painel/robo-whatsapp" icon={faRobot}>
                 Robô WhatsApp
@@ -165,7 +168,7 @@ export default function AutomacoesPage() {
                       <TemplateEditor
                         ref={(editor) => { editorRefs.current[kind] = editor; }}
                         value={rule.message}
-                        variables={AUTOMATION_VARIABLES}
+                        variables={automationVariables}
                         ariaLabel={`Mensagem: ${AUTOMATION_LABELS[kind]}`}
                         onChange={(message) => update(kind, { message: message.slice(0, 1500) })}
                       />
@@ -187,7 +190,7 @@ export default function AutomacoesPage() {
                         </button>
                       </div>
                       <VariablePicker
-                        variables={AUTOMATION_VARIABLES}
+                        variables={automationVariables}
                         open={openVariables === kind}
                         onSelect={(variable) => {
                           editorRefs.current[kind]?.insertVariable(variable);
@@ -208,24 +211,6 @@ export default function AutomacoesPage() {
                             : []),
                         ]}
                       />
-                    </div>
-                  </div>
-                  <div className="rounded-lg border border-gray-200 bg-gray-50/70 p-4">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-gray-900">Prévia da ação</p>
-                        <p className="mt-1 text-sm leading-relaxed text-gray-600">
-                          {rule.offer.startsWith("coupon:")
-                            ? "Ao escolher a ação, o cliente recebe o cupom e o link para aplicá-lo no cardápio."
-                            : rule.offer
-                              ? "Ao escolher a ação, o cliente recebe o cardápio e as regras da promoção."
-                              : "Ao escolher a ação, o cliente recebe o link do cardápio."}
-                        </p>
-                      </div>
-                      <div className="flex w-full shrink-0 items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-900 sm:w-auto sm:min-w-[190px]">
-                        <span>{rule.offer ? "Quero a promoção" : "Ver cardápio"}</span>
-                        <FontAwesomeIcon icon={faArrowRight} className="text-brand" />
-                      </div>
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-x-6 gap-y-2 border-t border-gray-100 pt-4 text-xs text-gray-500">
