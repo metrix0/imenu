@@ -33,9 +33,17 @@ if not latest.exists(): alerts.append("no-encrypted-backup")
 elif not pathlib.Path(latest.read_text().strip()).exists(): alerts.append("backup-file-missing")
 elif datetime.datetime.now().timestamp()-pathlib.Path(latest.read_text().strip()).stat().st_mtime>36*3600:
     alerts.append("backup-older-than-36-hours")
+# Optional operational checks extend the existing heartbeat without disrupting host checks.
+try:
+    from operational_alerts import inspect
+    operations = inspect(root, alerts)
+except Exception as error:
+    print("OPERATIONAL_MONITOR_FAILED", type(error).__name__)
+    operations = {"ok": False, "error": type(error).__name__}
+
 result={"checked_at":datetime.datetime.now(datetime.timezone.utc).isoformat(),"ok":not alerts,
         "alerts":alerts,"disk_used_percent":round(disk.used/(disk.used+disk.free)*100,1),
-        "memory_used_percent":round(memory_used*100,1),"containers":states}
+        "memory_used_percent":round(memory_used*100,1),"containers":states,"operations":operations}
 p=root/"ops/health.json"; temp=p.with_suffix(".tmp");temp.write_text(json.dumps(result));temp.replace(p)
 print(json.dumps({k:result[k] for k in ["checked_at","ok","alerts","disk_used_percent","memory_used_percent"]}))
 

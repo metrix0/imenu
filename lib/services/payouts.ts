@@ -1,4 +1,4 @@
-import { getMercadoPagoPixPayment } from "@/lib/mercadoPagoPix";
+import { getMercadoPagoPixPayment } from "@/lib/payments/mercadoPagoPix";
 import * as https from "node:https";
 
 import { query } from "@/lib/database/sql";

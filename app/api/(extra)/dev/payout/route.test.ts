@@ -14,6 +14,7 @@ jest.mock("@/lib/database/sql", () => ({ query: jest.fn() }));
 jest.mock("@/lib/services/payouts", () => ({
     createPayoutPlan: jest.fn(),
     getAsaasBalance: jest.fn(),
+    getPayoutCutoffAt: jest.fn(() => new Date("2026-10-23T00:00:00Z")),
     getPayoutDashboardData: jest.fn(),
     retryFailedPayout: jest.fn(),
     sendPayouts: jest.fn(),

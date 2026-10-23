@@ -28,7 +28,7 @@ Uses the same authorization/body, complete restaurant snapshot, Terra model, too
 
 `GET /api/cron/ia-vendas-analysis`, authorized with `Bearer <CRON_SECRET>`.
 
-The production cron invokes it every 10 minutes. **Vercel cron does not run on localhost or preview**: invoke this protected endpoint periodically there, or use the immediate test route. Polling only resumes existing analyses; it does not schedule new analyses.
+On the iMenu VPS, the enabled `ia-vendas-analysis` systemd timer calls this endpoint **once daily at 00:00 UTC (21:00 Brasília time)**, as verified on 2026-10-22. The last checked execution returned HTTP 200. `vercel.json` has no configured cron jobs. Do not assume the same timer runs in localhost or preview: for those environments, invoke the protected endpoint explicitly or use the immediate test route. Polling only resumes existing analyses; it does not start new ones. Completed Batch results may therefore wait until the next scheduled poll to be processed.
 
 Each model round is a separate Batch request to `/v1/responses` with a 24-hour completion window. An analysis can take several rounds, so 24 hours is per round, not a promise for the entire report. Results are matched by `custom_id`. Tools run locally after a completed round, then their complete outputs go into the next Batch round. The last round forces synthesis. There is no automatic fallback to synchronous inference.
 

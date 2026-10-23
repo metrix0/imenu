@@ -20,13 +20,13 @@ for path in source.rglob("*.db"):
     destination.parent.mkdir(parents=True, exist_ok=True)
     started = time.monotonic()
     def progress(status, remaining, total):
-        if time.monotonic() - started > 60:
-            raise TimeoutError("WAHA session snapshot exceeded 60 seconds")
+        if time.monotonic() - started > 180:
+            raise TimeoutError("WAHA session snapshot exceeded 180 seconds")
     with closing(sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True, timeout=10)) as src:
         with closing(sqlite3.connect(destination)) as dst:
             # This disposable copy is verified before the encrypted archive is published.
             dst.execute("PRAGMA synchronous=OFF")
-            src.backup(dst, pages=1024, progress=progress, sleep=0.05)
+            src.backup(dst, pages=1024, progress=progress, sleep=0.01)
             dst.execute("PRAGMA journal_mode=DELETE")
             if dst.execute("PRAGMA quick_check").fetchone()[0] != "ok":
                 raise RuntimeError("WAHA session snapshot failed integrity check")

@@ -100,11 +100,11 @@ describe("automatic promotion rules and totals", () => {
       ],
       [{ type: "product", item_id: drink, quantity: 1 }],
     );
-    const cart = [item(burger, 1000), item(drink, 0)];
+    const cart = [item(burger, 1000), { ...item(drink, 0), automatic_promotion_id: p.id }];
     const input = {
       items: cart,
-      products: products.map((p) =>
-        p.id === drink ? { ...p, price_cents: 0 } : p,
+      products: products.map((product) =>
+        product.id === drink ? { ...product, price_cents: 0 } : product,
       ),
       subtotal_cents: 1000,
       at: new Date("2026-09-06T15:00:00Z"),
@@ -116,13 +116,10 @@ describe("automatic promotion rules and totals", () => {
       { cart_index: 1, quantity: 1, discount_cents: 0 },
     ]);
     expect(result.total_cents).toBe(1800);
-    expect(
-      calculate([p], { ...input, subtotal_cents: 999 }).promotion,
-    ).toBeNull();
-    expect(
-      calculate([p], { ...input, at: new Date("2026-09-07T15:00:00Z") })
-        .promotion,
-    ).toBeNull();
+    expect(calculate([p], { ...input, subtotal_cents: 999 }).promotion).toBeNull();
+    expect(calculate([p], {
+      ...input, at: new Date("2026-09-07T15:00:00Z"),
+    }).promotion).toBeNull();
     const withoutGiftInCart = calculate([p], { ...input, items: [cart[0]] });
     expect(withoutGiftInCart.promotion?.id).toBe(p.id);
     expect(withoutGiftInCart.free_products).toEqual([
@@ -331,21 +328,24 @@ describe("automatic promotion rules and totals", () => {
     expect(promotionDescription(offer([rules[0]]), products).conditions)
       .toBe("na compra de 1× Hambúrguer");
   });
-  it("discounts the free base product while keeping paid extras and extra units", () => {
+  it("excludes a separately marked gift without discounting purchased extras and units", () => {
     const p = offer(
       [{ type: "product", item_id: burger, quantity: 1 }],
       [{ type: "product", item_id: drink, quantity: 1 }],
     );
-    const cart = [item(), item(drink, 1200, 2)];
-    const result = calculate([p], { items: cart, subtotal_cents: 7400 });
-    expect(result.discount_cents).toBe(1000);
-    expect(result.total_cents).toBe(7200);
+    const cart = [
+      item(), item(drink, 1200, 2),
+      { ...item(drink, 1000), automatic_promotion_id: p.id },
+    ];
+    const result = calculate([p], { items: cart, subtotal_cents: 8400 });
+    expect(result.discount_cents).toBe(0);
+    expect(result.total_cents).toBe(8200);
     expect(result.promotion?.benefits[0].label).toBe("1× Suco grátis");
     expect(result.free_items).toEqual([
-      { cart_index: 1, quantity: 1, discount_cents: 1000 },
+      { cart_index: 2, quantity: 1, discount_cents: 1000 },
     ]);
   });
-  it("automatically adds the additional free unit when purchased and free product match", () => {
+  it("adds a separate free unit even when the purchased product matches", () => {
     const p = offer(
       [{ type: "product", item_id: burger, quantity: 1 }],
       [{ type: "product", item_id: burger, quantity: 1 }],
@@ -355,12 +355,21 @@ describe("automatic promotion rules and totals", () => {
     expect(result.free_products).toEqual([
       { item_id: burger, name: "Hambúrguer", quantity: 1, unit_price_cents: 5000 },
     ]);
-    expect(
-      calculate([p], { items: [item(burger, 5000, 2)], subtotal_cents: 10_000 })
-        .discount_cents,
-    ).toBe(5000);
+    const purchasedTwo = calculate([p], {
+      items: [item(burger, 5000, 2)], subtotal_cents: 10000,
+    });
+    expect(purchasedTwo.discount_cents).toBe(0);
+    expect(purchasedTwo.free_products).toHaveLength(1);
+    const markedGift = calculate([p], {
+      items: [item(burger, 5000, 2), { ...item(), automatic_promotion_id: p.id }],
+      subtotal_cents: 15000,
+    });
+    expect(markedGift.free_items).toEqual([
+      { cart_index: 1, quantity: 1, discount_cents: 5000 },
+    ]);
+    expect(markedGift.total_cents).toBe(10800);
   });
-  it("marks only the additional free cart line, preserving loyalty and purchased lines", () => {
+  it("recognizes only an explicitly marked gift, preserving loyalty and purchased lines", () => {
     const p = offer(
       [{ type: "product", item_id: burger, quantity: 1 }],
       [{ type: "product", item_id: burger, quantity: 1 }],
@@ -369,99 +378,103 @@ describe("automatic promotion rules and totals", () => {
       items: [
         { ...item(), is_reward: true, total_cents: 0, unit_price_cents: 0 },
         item(),
-        item(),
+        { ...item(), automatic_promotion_id: p.id },
       ],
       subtotal_cents: 10000,
     });
     expect(result.free_items).toEqual([
       { cart_index: 2, quantity: 1, discount_cents: 5000 },
     ]);
+    expect(result.total_cents).toBe(5800);
   });
-  it("keeps the free-line breakdown exact across extras, multiple lines and coupon caps", () => {
+  it("keeps explicit free lines separate from monetary coupon discounts", () => {
     const p = {
       ...offer([], [{ type: "product", item_id: drink, quantity: 2 }]),
       allow_coupon: true,
     };
     const result = calculate([p], {
-      items: [item(drink, 1200), item(drink, 1300)],
-      subtotal_cents: 2500,
+      items: [
+        item(),
+        { ...item(drink, 1000), automatic_promotion_id: p.id },
+        { ...item(drink, 1000), automatic_promotion_id: p.id },
+      ],
+      subtotal_cents: 7000,
       coupon_discount_cents: 1000,
     });
     expect(result.free_items).toEqual([
-      { cart_index: 0, quantity: 1, discount_cents: 1000 },
-      { cart_index: 1, quantity: 1, discount_cents: 500 },
+      { cart_index: 1, quantity: 1, discount_cents: 1000 },
+      { cart_index: 2, quantity: 1, discount_cents: 1000 },
     ]);
-    expect(
-      result.free_items?.reduce((sum, row) => sum + row.discount_cents, 0),
-    ).toBe(result.promotion?.discount_cents);
+    expect(result.promotion?.discount_cents).toBe(0);
+    expect(result.coupon_discount_cents).toBe(1000);
+    expect(result.discount_cents).toBe(1000);
+    expect(result.total_cents).toBe(4800);
   });
-  it("keeps free markings when minimum matches and removes them when another offer wins", () => {
+  it("keeps a marked gift at its paid minimum but drops it for a better offer", () => {
     const p = offer(
-      [{ type: "minimum", cents: 6000, comparison: "gte" }],
+      [{ type: "minimum", cents: 5000, comparison: "gte" }],
       [{ type: "product", item_id: drink, quantity: 1 }],
     );
-    expect(
-      calculate([p], {
-        items: [item(), item(drink, 1000)],
-        subtotal_cents: 6000,
-      }).free_items,
-    ).toEqual([
+    const items = [item(), { ...item(drink, 1000), automatic_promotion_id: p.id }];
+    expect(calculate([p], { items, subtotal_cents: 6000 }).free_items).toEqual([
       { cart_index: 1, quantity: 1, discount_cents: 1000 },
     ]);
-    expect(
-      calculate(
-        [
-          offer([], [{ type: "product", item_id: drink, quantity: 1 }]),
-          offer([], [{ type: "fixed", cents: 2000 }]),
-        ],
-        { items: [item(), item(drink, 1000)], subtotal_cents: 6000 },
-      ).free_items,
-    ).toBeUndefined();
+    const betterFixedOffer = {
+      ...offer([], [{ type: "fixed", cents: 2000 }]),
+      id: "20000000-0000-4000-8000-000000000002",
+    };
+    const better = calculate([p, betterFixedOffer], { items, subtotal_cents: 6000 });
+    expect(better.promotion?.id).toBe(betterFixedOffer.id);
+    expect(better.free_items).toBeUndefined();
   });
-  it("checks minimum spend before applying the free product benefit", () => {
+  it("checks paid subtotal, excluding marked gifts, against the minimum", () => {
     const p = offer(
       [{ type: "minimum", cents: 5500, comparison: "gte" }],
       [{ type: "product", item_id: drink, quantity: 1 }],
     );
-    const result = calculate([p], {
-      items: [item(), item(drink, 1000)],
-      subtotal_cents: 6000,
-    });
+    const items = [
+      item(burger, 5500),
+      { ...item(drink, 1000), automatic_promotion_id: p.id },
+    ];
+    const result = calculate([p], { items, subtotal_cents: 6500 });
     expect(result.promotion?.id).toBe(p.id);
     expect(result.free_items).toEqual([
       { cart_index: 1, quantity: 1, discount_cents: 1000 },
     ]);
+    expect(calculate([p], { items, subtotal_cents: 6499 }).promotion).toBeNull();
   });
-  it("does not duplicate free units and keeps breakdown equal to the discount", () => {
+  it("counts configured gifts without inflating monetary coupon discounts", () => {
     const p = {
-      ...offer(
-        [],
-        [
-          { type: "product", item_id: burger, quantity: 1 },
-          { type: "product", item_id: burger, quantity: 1 },
-        ],
-      ),
+      ...offer([], [
+        { type: "product", item_id: burger, quantity: 1 },
+        { type: "product", item_id: burger, quantity: 1 },
+      ]),
       allow_coupon: true,
     };
     const result = calculate([p], { coupon_discount_cents: 4500 });
-    expect(result.discount_cents).toBe(5000);
-    expect(result.promotion?.discount_cents).toBe(500);
-    expect(
-      result.promotion?.benefits.reduce((n, b) => n + b.discount_cents, 0),
-    ).toBe(500);
+    expect(result.free_products).toEqual([
+      { item_id: burger, name: "Hambúrguer", quantity: 1, unit_price_cents: 5000 },
+      { item_id: burger, name: "Hambúrguer", quantity: 1, unit_price_cents: 5000 },
+    ]);
+    expect(result.discount_cents).toBe(4500);
+    expect(result.coupon_discount_cents).toBe(4500);
+    expect(result.promotion?.discount_cents).toBe(0);
   });
-  it("preserves product-level discounts and loyalty totals", () => {
+  it("preserves product-level discounts and loyalty totals when awarding a separate gift", () => {
     const cart = [
       { ...item(drink, 1200, 2), promotion: { type: "percent", value: 10 } },
       { ...item(), unit_price_cents: 0, total_cents: 0, is_reward: true },
     ];
     expect(promotionCartSubtotal(cart)).toBe(2160);
-    expect(
-      calculate(
-        [offer([], [{ type: "product", item_id: drink, quantity: 1 }])],
-        { items: cart, subtotal_cents: 2160 },
-      ).discount_cents,
-    ).toBe(900);
+    const result = calculate(
+      [offer([], [{ type: "product", item_id: drink, quantity: 1 }])],
+      { items: cart, subtotal_cents: 2160 },
+    );
+    expect(result.discount_cents).toBe(0);
+    expect(result.free_products).toEqual([
+      { item_id: drink, name: "Suco", quantity: 1, unit_price_cents: 1000 },
+    ]);
+    expect(result.total_cents).toBe(2960);
   });
   it("does not apply paused offers or unavailable required products", () => {
     expect(calculate([{ ...offer(), active: false }]).promotion).toBeNull();

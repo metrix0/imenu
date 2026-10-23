@@ -4,6 +4,7 @@
 - Do only what the user explicitly requests. Do not alter unrelated code, behavior, data, naming, formatting, or architecture. Make the smallest correct change and reuse existing mechanisms.
 - For investigation, explanation, or suggestions: inspect and report; **do not edit** unless expressly asked to implement.
 - Inspect the actual relevant implementation, schema, state, and logs before concluding. Never invent findings or claim validation not performed.
+- For bug fixes, reproduce or verify the failure before editing. Fix the underlying cause, not just the symptom. Never implement speculative fixes.
 - Keep answers brief and direct unless details are requested. Do not unnecessarily ask for information already available.
 
 ## Access and source of truth
@@ -11,14 +12,28 @@
 - All iMenu repository changes must go through GitHub, on `preview` only. Never commit to `main`. Other repositories use `main` unless their workflow says otherwise.
 - **GitHub code search can index the default (`main`) branch.** Treat search matches only as discovery hints: get paths from the `preview` tree and fetch every relevant file explicitly with `ref: "preview"`. Do not rely on default-branch file contents or assume a search excerpt matches `preview`.
 - Before editing, inspect related callers/components and current behavior. Immediately before editing or committing, reread each affected existing file from current target-branch HEAD; check whether HEAD advanced and reconcile instead of overwriting others' work.
+- Pushing to `preview` automatically triggers the GitHub Actions build and staging deployment. Never manually trigger or manage builds or deployments after pushing; leave them to the automated workflow unless the user explicitly requests otherwise.
 - Use **@iMenu Supabase** for all database reads, writes, SQL, schema, and `pg_cron`. Use **@iMenu VPS / Deploy** for VPS, deployment, timers, logs, and monitoring.
 - **Never use the Vercel plugin without explicit permission.** **Never use Remote Desktop Commander/Controller without asking permission first.** If permission is given for RDC, first read `C:\Users\Usuario\AI-Apps\READMEAI.md` once.
 - If essential GitHub/iMenu Supabase/iMenu VPS access is missing, stop and identify exactly what must be reconnected. If only secrets/envs prevent testing, finish and commit the otherwise-complete implementation and report what is needed.
+
+## Code organization (for new work only)
+- Before creating a file or folder, inspect the existing structure and search for reusable implementations. Prefer extending existing code over creating duplicated logic, components, helpers, or parallel implementations. Put new files alongside the feature they serve; create a new folder only when no suitable existing one exists.
+- **`lib/`**: Do not add new `.ts` files directly at the root of `lib/`. Organize new logic by feature, using existing folders such as `ia-vendas/`, `pizza/`, `payments/`, `qr-table/`, `menu/`, `promotions/`, `addons/`, `delivery/`, `push/`, `seo/`, and `printer/` as appropriate.
+  - `services/`: business operations and external-service workflows; `api/`: API/integration clients and communication helpers; `database/`: database clients, queries, and storage operations.
+  - `utils/`: generic helpers genuinely reusable across features, **not** feature-specific logic; `stores/`: state management grouped by feature; `types/`: types shared across features.
+  - `auth/`: authentication and authorization; `analytics/`: event tracking, metrics, and analytics logic; `dev/`: developer dashboard and development-only utilities.
+- **`components/`**: Preserve existing directories and their purposes:
+  - `restaurant-owner/<feature>/`: restaurant management UI, organized by existing feature folders; `costumer/`: customer-facing ordering UI (retain the repository's existing spelling).
+  - `dev/`: developer dashboard UI; `payments/`: payment UI; `auth/`: authentication UI; `landing/`: marketing and landing-page UI.
+  - `ui/`: reusable UI primitives (buttons, inputs, modals, etc.); `common/`: shared components, providers, and cross-feature analytics/tracking components (`common/analytics/`).
+- Prefer existing feature subfolders over new top-level categories. These rules guide future additions only: do **not** relocate or reorganize existing files unless expressly requested.
 
 ## Frontend/UI, when applicable
 - Read `docs/ai-design-guidelines.md` first; inspect the actual affected page and existing `components/` and `components/ui/` patterns.
 - `design-system.html` remains the authoritative visual reference. Consult the full artifact when the concise guide is insufficient, ambiguous, stale, or when introducing/modifying a visual pattern. Do not invent a competing design pattern.
 - Reuse existing components, utilities, styles, spacing, and interactions; preserve unrelated UI behavior.
+- For UI changes, compare the rendered result against the existing design and verify affected interactions and screen sizes. Passing tests/builds alone does not prove visual correctness.
 
 ## Changes, validation, and delivery
 1. Locate and inspect only relevant code/DB/logs on the correct source branch; assess dependent behavior.

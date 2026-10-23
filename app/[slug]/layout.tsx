@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import MenuSkeleton from "./MenuSkeleton";
 import { createSupabaseServerClient } from "@/lib/database/supabaseServerClient";
 import { getPublicMenuRestaurant } from "./restaurant-data";
-import ConsumerMenuViewTracker from "@/components/analytics/ConsumerMenuViewTracker";
+import ConsumerMenuViewTracker from "@/components/common/analytics/ConsumerMenuViewTracker";
 
 const SITE_URL = "https://www.imenuapp.com.br";
 

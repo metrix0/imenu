@@ -7,7 +7,7 @@ import {
     getMercadoPagoPixPayment,
     isMercadoPagoPixFailureStatus,
     type MercadoPagoPixPayment,
-} from "@/lib/mercadoPagoPix";
+} from "@/lib/payments/mercadoPagoPix";
 import {
     activateMercadoPagoQrTablePrepaid,
     markMercadoPagoQrTablePaymentFailure,

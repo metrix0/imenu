@@ -1,8 +1,8 @@
 import { POST } from "./route";
 import { POST as iaPlusCheckout } from "@/app/api/ia-plus/checkout/route";
 import { query } from "@/lib/database/sql";
-import { createMercadoPagoPixCharge, getMercadoPagoPixPayment } from "@/lib/mercadoPagoPix";
-import { getPayZuPixCharge } from "@/lib/payzu";
+import { createMercadoPagoPixCharge, getMercadoPagoPixPayment } from "@/lib/payments/mercadoPagoPix";
+import { getPayZuPixCharge } from "@/lib/payments/payzu";
 import { asaasRequest } from "@/lib/qr-table/asaas";
 import { setMercadoPagoQrTablePending } from "@/lib/qr-table/mercadoPagoBilling";
 
@@ -15,8 +15,8 @@ jest.mock("@/lib/auth/restaurantOwner", () => ({
     RestaurantOwnerAuthError: class extends Error {},
 }));
 jest.mock("@/lib/payments/types", () => ({ getCreditCardPaymentDataError: jest.fn() }));
-jest.mock("@/lib/mercadoPagoPix", () => ({ createMercadoPagoPixCharge: jest.fn(), getMercadoPagoPixPayment: jest.fn(), isMercadoPagoPixFailureStatus: () => false, MercadoPagoPixApiError: class extends Error {} }));
-jest.mock("@/lib/payzu", () => ({ getPayZuPixCharge: jest.fn(), PayZuApiError: class extends Error {} }));
+jest.mock("@/lib/payments/mercadoPagoPix", () => ({ createMercadoPagoPixCharge: jest.fn(), getMercadoPagoPixPayment: jest.fn(), isMercadoPagoPixFailureStatus: () => false, MercadoPagoPixApiError: class extends Error {} }));
+jest.mock("@/lib/payments/payzu", () => ({ getPayZuPixCharge: jest.fn(), PayZuApiError: class extends Error {} }));
 jest.mock("@/lib/qr-table/asaas", () => ({ asaasRequest: jest.fn(), AsaasApiError: class extends Error {} }));
 jest.mock("@/lib/qr-table/payzuBilling", () => ({ QR_TABLE_PRICE_CENTS: 500, savePayZuQrTablePayment: jest.fn(), activatePayZuQrTablePrepaid: jest.fn() }));
 jest.mock("@/lib/qr-table/mercadoPagoBilling", () => ({ setMercadoPagoQrTablePending: jest.fn(), saveMercadoPagoQrTablePayment: jest.fn(), activateMercadoPagoQrTablePrepaid: jest.fn() }));

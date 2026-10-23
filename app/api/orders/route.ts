@@ -5,7 +5,7 @@ import {
     query,
     withTransaction,
 } from "@/lib/database/sql";
-import { createMercadoPagoPixCharge } from "@/lib/mercadoPagoPix";
+import { createMercadoPagoPixCharge } from "@/lib/payments/mercadoPagoPix";
 import { automaticOrderPricing, PromotionPricingError } from "@/lib/promotions/orderPricing";
 import { pricePizzaOrderItems } from "@/lib/pizza/orderPricing";
 import { PizzaPricingError, pizzaStockItemIds } from "@/lib/pizza/pricing";

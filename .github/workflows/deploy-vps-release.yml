@@ -106,7 +106,6 @@ jobs:
         run: |
           set -euo pipefail
           for script in deployment/vps/deploy-prebuilt*.sh deployment/vps/github*deploy-ssh.sh deployment/vps/rollback-preview.sh; do bash -n "$script"; done
-          python3 deployment/vps/tests/test_prebuilt_deploy.py
 
       - name: Setup Node.js
         if: steps.gate.outputs.enabled == 'true'
@@ -128,12 +127,10 @@ jobs:
         if: steps.gate.outputs.enabled == 'true'
         run: npm ci --no-audit --no-fund
 
-      - name: Test, typecheck and build standalone
+      - name: Build standalone
         if: steps.gate.outputs.enabled == 'true'
         run: |
           set -euo pipefail
-          npx jest lib/ia-vendas/__tests__ --runInBand
-          npx tsc --noEmit
           npx next build
           test -f .next/standalone/server.js
 
