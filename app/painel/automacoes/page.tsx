@@ -183,13 +183,7 @@ export default function AutomacoesPage() {
               para realizar os envios. Você já pode configurar as mensagens.
             </WarningBox>
           ) : null}
-          <Card className="space-y-4">
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900">Histórico de envios</h2>
-              <p className="mt-1 text-sm text-gray-500">
-                Envios e tentativas das automações deste restaurante.
-              </p>
-            </div>
+          <div className="space-y-4">
             {historyError ? <p role="alert" className="text-sm text-red-600">{historyError}</p> : null}
             <DataTable
               loading={historyLoading}
@@ -240,7 +234,7 @@ export default function AutomacoesPage() {
                 disabled={historyLoading}
               />
             ) : null}
-          </Card>
+          </div>
           <div className="space-y-5">
             {AUTOMATION_KINDS.map((kind) => {
               const rule = settings[kind];
