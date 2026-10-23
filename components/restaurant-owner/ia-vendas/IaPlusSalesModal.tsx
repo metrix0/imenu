@@ -90,11 +90,11 @@ export default function IaPlusSalesModal({ open, onClose, restaurantId, checkout
 
               <div className="mt-7 inline-flex items-center gap-2 rounded-full border border-brand/15 bg-brand/5 px-3 py-1.5 text-xs font-semibold text-brand">
                 <Sparkles size={14} aria-hidden="true" />
-                Marketing, IA e QR Code em um só plano.
+                Marketing e IA para aumentar suas vendas.
               </div>
 
               <p className="mt-4 max-w-xl text-sm leading-6 text-gray-600 sm:text-base">
-                Recupere clientes pelo WhatsApp, use o Assistente IA e o Vendas IA e receba pedidos com o iMenu QR Code incluso.
+                Recupere clientes pelo WhatsApp, use o Assistente IA e encontre oportunidades com o Vendas IA.
               </p>
 
               <div className="mt-6 rounded-xl border border-brand/20 bg-brand/5 p-4">

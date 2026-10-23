@@ -17,11 +17,8 @@ import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import Loader from "@/components/ui/Loader";
-import QrCodeMesaSalesModal from "@/components/restaurant-owner/mesas/QrCodeMesaSalesModal";
 import OrderDetailsModal from "@/components/restaurant-owner/pedidos/OrderDetailsModal";
 import { supabase } from "@/lib/database/supabaseClient";
-import type { QrTableAddon } from "@/lib/qr-table/types";
-import { hasQrTableAccess } from "@/lib/qr-table/types";
 
 type Restaurant = {
     id: string;
@@ -99,8 +96,6 @@ export default function GarcomPage() {
     const [orders, setOrders] = useState<WaiterOrder[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [salesOpen, setSalesOpen] = useState(false);
-    const [lockedRestaurantId, setLockedRestaurantId] = useState<string | null>(null);
     const [linkCopied, setLinkCopied] = useState(false);
     const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
     const [orderDetailsOpen, setOrderDetailsOpen] = useState(false);
@@ -133,21 +128,6 @@ export default function GarcomPage() {
                 throw new Error("Restaurante não encontrado.");
             }
 
-            const { data: addonData, error: addonError } = await supabase
-                .from("restaurant_addons")
-                .select("status, current_period_ends_at")
-                .eq("restaurant_id", restaurantData.id)
-                .in("product_key", ["qr_code_mesa", "ia_plus"]);
-
-            if (addonError) throw addonError;
-            if (!addonData?.some((addon) => hasQrTableAccess(addon))) {
-                setRestaurant(null);
-                setLockedRestaurantId(restaurantData.id);
-                setSalesOpen(true);
-                return;
-            }
-
-            setLockedRestaurantId(null);
             const [tablesResult, ordersResult] = await Promise.all([
                 supabase
                     .from("restaurant_tables")
@@ -273,30 +253,6 @@ export default function GarcomPage() {
             <div className="flex min-h-screen items-center justify-center bg-gray-50">
                 <Loader className="border-t-brand" />
             </div>
-        );
-    }
-
-    if (lockedRestaurantId) {
-        return (
-            <main className="min-h-screen bg-gray-50 px-4 py-8 sm:px-6">
-                <div className="mx-auto max-w-3xl">
-                    <Link href="/painel/motoboy-garcom" className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-brand">
-                        <FontAwesomeIcon icon={faArrowLeft} />
-                        Voltar para painel
-                    </Link>
-                    <Card className="mt-6 border border-gray-200 text-center shadow-sm">
-                        <h1 className="mb-4 text-xl font-bold text-gray-900">Painel Garçom</h1>
-                        <Button onClick={() => setSalesOpen(true)}>Ativar iMenu QR Code Mesa</Button>
-                    </Card>
-                </div>
-                <QrCodeMesaSalesModal
-                    open={salesOpen}
-                    onClose={() => setSalesOpen(false)}
-                    restaurantId={lockedRestaurantId}
-                    source="mesas"
-                    onPaid={() => loadData()}
-                />
-            </main>
         );
     }
 

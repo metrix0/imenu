@@ -132,6 +132,7 @@ function addonStatus(addon: Addon | null, active: boolean): string {
 
 function planLabel(addon: Addon | null): string {
     if (!addon) return "—";
+    if (addon.product_key === "qr_code_mesa") return "Grátis";
 
     if (isPrepaid(addon)) {
         return `Pix • ${formatMoney(addon.price_cents)} por período`;
@@ -159,7 +160,7 @@ export default function QrCodeMesaSettingsSection({
     const [loading, setLoading] = useState(true);
     const [salesOpen, setSalesOpen] = useState(false);
     const [iaPlusOpen, setIaPlusOpen] = useState(false);
-    const [renewalProduct, setRenewalProduct] = useState<"qr_code_mesa" | "ia_plus">("qr_code_mesa");
+    const [renewalProduct, setRenewalProduct] = useState<"ia_plus">("ia_plus");
     const [renewalOpen, setRenewalOpen] = useState(false);
     const [cancelAddonId, setCancelAddonId] = useState<string | null>(null);
     const [canceling, setCanceling] = useState(false);
@@ -281,7 +282,7 @@ export default function QrCodeMesaSettingsSection({
             (item) => item.addon.product_key === "qr_code_mesa"
         ) || null;
     const addon = qrBilling?.addon || null;
-    const active = qrBilling?.active === true || billing?.addons.some(item => item.addon.product_key === "ia_plus" && item.active) === true;
+    const active = true;
     const iaPlusActive = billing?.addons.some(item => item.addon.product_key === "ia_plus" && item.active) === true;
     const cancelBilling =
         billing?.addons.find((item) => item.addon.id === cancelAddonId) || null;
@@ -320,7 +321,7 @@ export default function QrCodeMesaSettingsSection({
                 onPaid={async () => {
                     closeSales();
                     setToast({
-                        message: "Pagamento confirmado. QR Code Mesa ativado!",
+                        message: "QR Code Mesa ativado gratuitamente!",
                         type: "success",
                     });
                     await loadBilling();
@@ -411,9 +412,9 @@ export default function QrCodeMesaSettingsSection({
                             const isQrCodeMesa =
                                 itemAddon.product_key === "qr_code_mesa";
                             const itemCanRenew =
-                                (isQrCodeMesa || itemAddon.product_key === "ia_plus") && isPrepaid(itemAddon) && !(isQrCodeMesa && iaPlusActive);
+                                !isQrCodeMesa && itemAddon.product_key === "ia_plus" && isPrepaid(itemAddon);
                             const itemCanCancel =
-                                itemActive &&
+                                !isQrCodeMesa && itemActive &&
                                 itemAddon.status !== "canceled" &&
                                 itemAddon.payment_provider === "asaas";
 
@@ -435,8 +436,8 @@ export default function QrCodeMesaSettingsSection({
                                                         {addonProductName(itemAddon.product_key)}
                                                     </h3>
                                                     {presentation === "plans" && (
-                                                        <Badge variant={itemActive && itemAddon.status !== "canceled" ? "success" : "neutral"}>
-                                                            {itemAddon.status === "canceled" ? "Cancelado" : itemActive ? "Ativo" : addonStatus(itemAddon, false)}
+                                                        <Badge variant={isQrCodeMesa || (itemActive && itemAddon.status !== "canceled") ? "success" : "neutral"}>
+                                                            {isQrCodeMesa ? "Gratuito" : itemAddon.status === "canceled" ? "Cancelado" : itemActive ? "Ativo" : addonStatus(itemAddon, false)}
                                                         </Badge>
                                                     )}
                                                 </div>
@@ -448,14 +449,14 @@ export default function QrCodeMesaSettingsSection({
                                         <div className="flex flex-wrap items-center gap-2">
                                             {presentation !== "plans" && (
                                                 <span className={`w-fit rounded-full px-3 py-1 text-xs font-semibold ${itemActive ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-700"}`}>
-                                                    {addonStatus(itemAddon, itemActive)}
+                                                    {isQrCodeMesa ? "Gratuito" : addonStatus(itemAddon, itemActive)}
                                                 </span>
                                             )}
                                             {itemCanRenew && (
                                                 <Button
                                                     type="button"
                                                     variant="primary"
-                                                    onClick={() => { setRenewalProduct(itemAddon.product_key === "ia_plus" ? "ia_plus" : "qr_code_mesa"); openRenewal(); }}
+                                                    onClick={() => { setRenewalProduct("ia_plus"); openRenewal(); }}
                                                 >
                                                     Renovar
                                                 </Button>
@@ -501,9 +502,7 @@ export default function QrCodeMesaSettingsSection({
                                                     Acesso atual até
                                                 </p>
                                                 <p className="font-semibold text-gray-900">
-                                                    {formatDate(
-                                                        itemAddon.current_period_ends_at
-                                                    )}
+                                                    {isQrCodeMesa ? "Sem vencimento" : formatDate(itemAddon.current_period_ends_at)}
                                                 </p>
                                             </div>
                                         </div>

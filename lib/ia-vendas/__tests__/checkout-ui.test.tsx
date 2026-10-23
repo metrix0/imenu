@@ -12,9 +12,8 @@ test("iMenu Plus shows its own product, price and recurring billing notice", () 
   expect(html).not.toContain("QR Code Mesa");
   expect(html).not.toContain("R$ 5,00");
 });
-test("the existing QR checkout keeps its original name and price", () => {
+test("QR payment cannot be bought from the former checkout component", () => {
   const html = renderToStaticMarkup(<Checkout open embedded restaurantId="restaurant" source="settings" onClose={() => {}} />);
-  expect(html).toContain("iMenu QR Code Mesa");
-  expect(html).toContain("R$ 5,00");
-  expect(html).not.toContain("iMenu Plus");
+  expect(html).toContain("iMenu Plus");
+  expect(html).not.toContain("R$ 5,00");
 });

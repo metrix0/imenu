@@ -93,7 +93,7 @@ export default function AddonPaymentSuccess() {
                 returnPaths={IA_PLUS_RETURN_PATHS}
                 reconcilePayment={reconcileIaPlus}
                 title="Obrigado pela compra!"
-                description="Seu iMenu Plus foi ativado com Marketing WhatsApp, Assistente IA, Vendas IA e iMenu QR Code incluso."
+                description="Seu iMenu Plus foi ativado com Marketing WhatsApp, Assistente IA e Vendas IA."
                 benefits={IA_PLUS_BENEFITS}
                 bonusTitle="Bônus inclusos"
                 bonusDescription={IA_PLUS_BONUSES.map((bonus) => bonus.title).join(", ") + "."}

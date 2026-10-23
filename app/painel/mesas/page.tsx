@@ -29,7 +29,7 @@ import Modal from "@/components/ui/Modal";
 import Toast from "@/components/ui/Toast";
 import { supabase } from "@/lib/database/supabaseClient";
 import { captureQrTableEvent } from "@/lib/qr-table/analytics";
-import { updateQrTableDesign } from "@/lib/qr-table/clientApi";
+import { updateQrTableDesign, qrTableAuthenticatedFetch } from "@/lib/qr-table/clientApi";
 import { downloadQrDesign } from "@/lib/qr-table/downloadQrDesign";
 import type { QrTableAddon } from "@/lib/qr-table/types";
 import { hasQrTableAccess, resolveQrTableAddon } from "@/lib/qr-table/types";
@@ -119,6 +119,10 @@ export default function MesasPage() {
                     .single();
             if (restaurantError) throw restaurantError;
             setRestaurant(restaurantData as Restaurant);
+            const activation = await qrTableAuthenticatedFetch("/api/qr-table/activate", {
+                method: "POST", body: JSON.stringify({ restaurantId: targetRestaurantId, source: "mesas" }),
+            });
+            if (!activation.ok) throw new Error("Não foi possível ativar o QR Code gratuito.");
 
             const { data: addonData, error: addonError } = await supabase
                 .from("restaurant_addons")
@@ -411,7 +415,7 @@ export default function MesasPage() {
                 onPaid={async () => {
                     setSalesOpen(false);
                     setToast({
-                        message: "Pagamento confirmado. QR Code Mesa ativado!",
+                        message: "QR Code Mesa ativado gratuitamente!",
                         type: "success",
                     });
                     await loadData();
@@ -779,7 +783,7 @@ export default function MesasPage() {
                                         />
                                     </div>
                                     <h2 className="mt-4 text-xl font-bold text-gray-900">
-                                        Ative o iMenu QR Code Mesa
+                                        Use o iMenu QR Code Mesa gratuito
                                     </h2>
                                     <p className="mt-2 text-sm leading-relaxed text-gray-600">
                                         Receba pedidos identificados por mesa, com um QR
@@ -791,7 +795,7 @@ export default function MesasPage() {
                                         className="mt-5 w-full"
                                         onClick={openSalesModal}
                                     >
-                                        Descobrir pedidos direto pela mesa
+                                        Ativar gratuitamente
                                     </Button>
                                 </Card>
                             </div>

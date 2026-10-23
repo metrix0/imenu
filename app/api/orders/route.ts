@@ -682,9 +682,6 @@ export async function POST(request: Request) {
                                   ON table_entry.restaurant_id = addon.restaurant_id
                                 WHERE addon.restaurant_id = $1
                                   AND addon.product_key IN ('qr_code_mesa', 'ia_plus')
-                                  AND (
-                                        EXISTS (SELECT 1 FROM public.restaurant_addons entitlement WHERE entitlement.restaurant_id=addon.restaurant_id AND entitlement.product_key IN ('qr_code_mesa','ia_plus') AND (entitlement.status='active' OR (entitlement.status IN ('canceled','past_due') AND entitlement.current_period_ends_at>now())))
-                                  )
                                   AND table_entry.is_active = true
                                   AND (
                                         (
