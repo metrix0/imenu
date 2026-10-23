@@ -136,6 +136,16 @@ Application-only rollback:
 
 Run `python3 deployment/vps/tests/test_prebuilt_deploy.py` for receiver regression checks, plus `bash -n` on changed shell scripts and actionlint on deployment workflows. The workflow records each build/transfer step, and the VPS prints `TIMING` lines for download, verification/extraction, private preflight and activation. Use the recorded deployed SHA and successful health check to measure completion; a healthy old app alone does not prove that a new deployment succeeded.
 
+### Lightweight Node.js heap forensics
+
+The production-mode Next.js process starts a private V8 sampled-allocation profiler when its existing database runtime metrics initialize. It samples about one allocation per 512 KiB (not every allocation); the existing 60-second metrics timer checks thresholds. At 25% heap plus 48 MiB of growth it writes a baseline allocation profile. At 43% plus 96 MiB of growth it writes a growing profile and attempts **one** V8 heap snapshot. At 70% and 85% it also writes sampled allocation profiles; snapshots are not taken at those unsafe levels.
+
+The snapshot is permitted only if actual heap usage remains at or below 55%, the container's cgroup memory headroom exceeds twice the estimated used heap plus 256 MiB, and the filesystem has at least 4 GiB free. A temporarily skipped capture can retry every five minutes while under that ceiling; a successfully started snapshot is never retried in the same process. Generating a heap snapshot blocks the Node.js event loop, so it is intentionally limited to one early, guarded attempt per process. Sampling otherwise runs quietly; no debug port or public endpoint is exposed.
+
+Evidence is private and survives app restarts and releases under the **existing writable host cache mount**: `/opt/imenu-migration/ops/production-next-cache/imenu-heap-evidence/` (preview: `/opt/imenu-migration/ops/preview-next-cache/imenu-heap-evidence/`). Restrictive directory and file permissions protect heap snapshots, which may contain customer data and secrets. Keep the most recent snapshot and six sampled-profile JSON files per environment; do not expose or upload them publicly. Logs use `[IMENU_HEAP_FORENSICS]` and include success, saved paths, skipped snapshot reasons, and errors. Set `IMENU_HEAP_FORENSICS=0` in the private runtime environment only if profiling must be disabled.
+
+Investigate the saved `.heapsnapshot` with Chrome DevTools' Memory tab to inspect retained objects and retaining paths, and inspect the `.json` `sampling_profile` allocation stack tree for code attribution. Ordinary `[IMENU_RUNTIME_METRICS]` counters alone do **not** reveal retaining objects. A staging smoke test should produce both a real heap snapshot and a sampled allocation profile, plus demonstrate the unsafe-heap guard preventing a snapshot; never exercise this by exhausting production memory.
+
 ## Storage retention and current configuration
 
 Preview intentionally shares production database, Auth and Storage data. Only its application container/configuration is separate. Changes made through preview can affect live restaurants.

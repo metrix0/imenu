@@ -1,4 +1,5 @@
 import { getHeapStatistics } from "node:v8";
+import { observeRuntimeHeapForensics, startRuntimeHeapForensics } from "@/lib/analytics/runtimeHeapForensics";
 import { Pool, type PoolClient } from "pg";
 
 if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL missing");
@@ -32,6 +33,7 @@ const metrics = runtimeGlobal.__imenuRuntimeMetrics ??= {
 metrics.pools.add(pool);
 
 if (process.env.NODE_ENV === "production" && !metrics.timer) {
+    startRuntimeHeapForensics();
     const timer = setInterval(() => {
         const memory = process.memoryUsage();
         const heapLimit = getHeapStatistics().heap_size_limit;
@@ -66,6 +68,8 @@ if (process.env.NODE_ENV === "production" && !metrics.timer) {
         } else {
             console.info("[IMENU_RUNTIME_METRICS]", JSON.stringify(sample));
         }
+
+        observeRuntimeHeapForensics(sample);
 
         metrics.acquired = 0;
         metrics.acquisitionFailures = 0;
