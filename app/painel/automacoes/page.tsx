@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useCreationStore } from "@/lib/stores/restaurant-owner/creationStore";
 import { crmRequest } from "@/lib/api/crm";
@@ -12,17 +12,22 @@ import {
 } from "@/lib/services/crmRules";
 import Card from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
-import Textarea from "@/components/ui/Textarea";
 import Dropdown from "@/components/ui/Dropdown";
 import Switch from "@/components/ui/Switch";
 import Button from "@/components/ui/Button";
-const descriptions: Record<AutomationKind, string> = {
-  cart: "Lembre quem deixou produtos no carrinho há pelo menos 1 hora. Inclui a imagem do item de maior valor, quando disponível.",
-  reactivation:
-    "Convide clientes que ficaram um período sem fazer pedidos a voltar.",
-  habit:
-    "Envie um lembrete 2 horas antes do horário habitual, identificado em pelo menos 3 semanas nos últimos 90 dias.",
+import WarningBox from "@/components/ui/WarningBox";
+import { PanelIcon as FontAwesomeIcon } from "@/components/ui/PanelIcon";
+import { faArrowRight, faPlus, faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
+import { TemplateEditor, VariablePicker, type TemplateEditorHandle, type TemplateVariable } from "@/components/ui/WhatsAppTemplateEditor";
+const descriptions: Record<AutomationKind, (days: number) => string> = {
+  cart: () => "Clientes com produtos no carrinho sem movimentação há pelo menos 30 minutos recebem uma mensagem no WhatsApp, com a imagem do item de maior preço quando disponível.",
+  reactivation: (days) => `Clientes que não fazem pedidos há pelo menos ${days} dias recebem uma mensagem no WhatsApp.`,
+  habit: () => "Clientes que fizeram pedidos no mesmo dia da semana e horário em pelo menos 3 semanas nos últimos 90 dias recebem uma mensagem 2 horas antes desse horário.",
 };
+const AUTOMATION_VARIABLES: TemplateVariable[] = [
+  { key: "nome", label: "Nome do cliente", token: "{{nome}}", value: "Cliente" },
+  { key: "restaurante", label: "Restaurante", token: "{{restaurante}}", value: "Seu restaurante" },
+];
 export default function AutomacoesPage() {
   const id = useCreationStore((s) => s.restaurantId);
   const [settings, setSettings] = useState<AutomationSettings | null>(null),
@@ -32,8 +37,11 @@ export default function AutomacoesPage() {
     [saved, setSaved] = useState(false),
     [saving, setSaving] = useState(false),
     [dirty, setDirty] = useState(false);
+  const editorRefs = useRef<Record<AutomationKind, TemplateEditorHandle | null>>({ cart: null, reactivation: null, habit: null });
+  const [openVariables, setOpenVariables] = useState<AutomationKind | null>(null);
   useEffect(() => {
     setSettings(null);
+    setOpenVariables(null);
     setError("");
     if (!id) return;
     const controller = new AbortController();
@@ -109,7 +117,7 @@ export default function AutomacoesPage() {
       {settings ? (
         <>
           {!connected ? (
-            <Card className="text-sm text-gray-600">
+            <WarningBox icon={faTriangleExclamation}>
               Conecte seu{" "}
               <Link
                 href="/painel/robo-whatsapp"
@@ -118,15 +126,8 @@ export default function AutomacoesPage() {
                 WhatsApp
               </Link>{" "}
               para realizar os envios. Você já pode configurar as mensagens.
-            </Card>
+            </WarningBox>
           ) : null}
-          <Card className="!bg-orange-50/60 text-sm text-gray-700">
-            <strong>Uma oferta faz diferença.</strong>
-            <p className="mt-1">
-              Recomendamos fortemente oferecer um cupom ou mencionar uma
-              promoção para aumentar as chances de retorno.
-            </p>
-          </Card>
           <div className="space-y-5">
             {AUTOMATION_KINDS.map((kind) => {
               const rule = settings[kind];
@@ -138,7 +139,7 @@ export default function AutomacoesPage() {
                         {AUTOMATION_LABELS[kind]}
                       </h2>
                       <p className="mt-1 max-w-2xl text-sm text-gray-500">
-                        {descriptions[kind]}
+                        {descriptions[kind](rule.days)}
                       </p>
                     </div>
                     <Switch
@@ -162,78 +163,71 @@ export default function AutomacoesPage() {
                     </div>
                   ) : null}
                   <div className="grid gap-5 lg:grid-cols-2">
-                    <div>
-                      <label
-                        htmlFor={`message-${kind}`}
-                        className="mb-2 block text-sm font-medium text-gray-700"
-                      >
-                        Mensagem
-                      </label>
-                      <Textarea
-                        id={`message-${kind}`}
-                        rows={4}
-                        maxLength={1500}
+                    <div className="min-w-0">
+                      <p className="mb-2 text-sm font-medium text-gray-700">Mensagem</p>
+                      <TemplateEditor
+                        ref={(editor) => { editorRefs.current[kind] = editor; }}
                         value={rule.message}
-                        onChange={(e) =>
-                          update(kind, { message: e.target.value })
-                        }
-                        className="w-full resize-y rounded-lg border border-gray-300 p-3 text-sm outline-none focus:border-brand"
+                        variables={AUTOMATION_VARIABLES}
+                        ariaLabel={`Mensagem: ${AUTOMATION_LABELS[kind]}`}
+                        onChange={(message) => update(kind, { message: message.slice(0, 1500) })}
                       />
-                      <p className="mt-2 text-xs text-gray-500">
-                        Use {"{{nome}}"} e {"{{restaurante}}"} para
-                        personalizar.
-                      </p>
-                      <button
-                        type="button"
-                        className="mt-2 text-xs text-brand underline"
-                        onClick={() =>
-                          update(kind, {
-                            message: readAutomationSettings(null)[kind].message,
-                          })
-                        }
-                      >
-                        Restaurar mensagem padrão
-                      </button>
+                      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setOpenVariables(openVariables === kind ? null : kind)}
+                          className="cursor-pointer rounded-md border border-brand/20 px-3 py-2 text-sm font-medium text-brand transition-colors hover:bg-brand/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                        >
+                          <FontAwesomeIcon icon={faPlus} className="mr-2" />
+                          Adicionar variável
+                        </button>
+                        <button
+                          type="button"
+                          className="cursor-pointer text-xs font-medium text-brand underline underline-offset-2 hover:text-[#c43700] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                          onClick={() => update(kind, { message: readAutomationSettings(null)[kind].message })}
+                        >
+                          Restaurar mensagem padrão
+                        </button>
+                      </div>
+                      <VariablePicker
+                        variables={AUTOMATION_VARIABLES}
+                        open={openVariables === kind}
+                        onSelect={(variable) => {
+                          editorRefs.current[kind]?.insertVariable(variable);
+                          setOpenVariables(null);
+                        }}
+                      />
                     </div>
-                    <div className="space-y-4">
+                    <div className="min-w-0">
                       <Dropdown
                         label="Promoção ou cupom (opcional)"
                         value={rule.offer}
-                        onChange={(e) =>
-                          update(kind, { offer: e.target.value })
-                        }
+                        onChange={(e) => update(kind, { offer: e.target.value })}
                         options={[
                           { value: "", label: "Sem oferta anexada" },
                           ...offers,
-                          ...(rule.offer &&
-                          !offers.some((x) => x.value === rule.offer)
-                            ? [
-                                {
-                                  value: rule.offer,
-                                  label:
-                                    "Oferta indisponível — selecione outra",
-                                },
-                              ]
+                          ...(rule.offer && !offers.some((x) => x.value === rule.offer)
+                            ? [{ value: rule.offer, label: "Oferta indisponível — selecione outra" }]
                             : []),
                         ]}
                       />
-                      <div className="rounded-lg bg-gray-50 p-4 text-sm text-gray-600">
-                        <p className="font-medium text-gray-900">
-                          Prévia da ação
-                        </p>
-                        <p className="mt-2">
-                          Botão:{" "}
-                          <strong>
-                            {rule.offer ? "Quero a promoção" : "Ver cardápio"}
-                          </strong>
-                        </p>
-                        <p className="mt-2">
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-gray-200 bg-gray-50/70 p-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-gray-900">Prévia da ação</p>
+                        <p className="mt-1 text-sm leading-relaxed text-gray-600">
                           {rule.offer.startsWith("coupon:")
-                            ? "Ao tocar, o cliente recebe o cupom e o link para aplicá-lo no cardápio."
+                            ? "Ao escolher a ação, o cliente recebe o cupom e o link para aplicá-lo no cardápio."
                             : rule.offer
-                              ? "Ao tocar, o cliente recebe o cardápio e as regras da promoção."
-                              : "Ao tocar, o cliente recebe o link do cardápio."}
+                              ? "Ao escolher a ação, o cliente recebe o cardápio e as regras da promoção."
+                              : "Ao escolher a ação, o cliente recebe o link do cardápio."}
                         </p>
+                      </div>
+                      <div className="flex w-full shrink-0 items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-900 sm:w-auto sm:min-w-[190px]">
+                        <span>{rule.offer ? "Quero a promoção" : "Ver cardápio"}</span>
+                        <FontAwesomeIcon icon={faArrowRight} className="text-brand" />
                       </div>
                     </div>
                   </div>

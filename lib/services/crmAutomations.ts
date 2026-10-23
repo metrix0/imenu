@@ -234,7 +234,7 @@ async function candidates(
         FROM checkout_sessions s LEFT JOIN customers c ON c.restaurant_id=s.restaurant_id AND c.phone=s.phone
         LEFT JOIN LATERAL (SELECT it.image_path FROM jsonb_array_elements(s.items) x JOIN items it ON it.id=(x->>'item_id')::uuid AND it.restaurant_id=s.restaurant_id ORDER BY (x->>'unit_price_cents')::numeric DESC LIMIT 1) i ON true
         WHERE s.restaurant_id=$1 AND s.phone IS NOT NULL AND s.marketing_consent AND s.completed_at IS NULL
-          AND s.updated_at<now()-interval '1 hour' AND s.expires_at>now() AND jsonb_array_length(s.items)>0
+          AND s.updated_at<now()-interval '30 minutes' AND s.expires_at>now() AND jsonb_array_length(s.items)>0
           AND c.opted_out_at IS NULL
           AND NOT EXISTS(SELECT 1 FROM whatsapp_outbound_messages h WHERE h.restaurant_id=$1 AND h.customer_phone=s.phone AND h.automation_type='cart' AND h.created_at>now()-($2::int*interval '1 day'))
           AND NOT EXISTS(SELECT 1 FROM orders o WHERE o.restaurant_id=$1 AND public.crm_phone(o.customer_phone)=s.phone AND o.created_at>=s.created_at AND o.status<>'canceled')
@@ -295,7 +295,7 @@ async function claim(
          AND NOT EXISTS(SELECT 1 FROM whatsapp_outbound_messages WHERE restaurant_id=$2 AND customer_phone=$5 AND automation_type IN ('cart','habit','reactivation') AND status IN ('sent','sending','failed') AND created_at>now()-interval '24 hours')
          AND NOT EXISTS(SELECT 1 FROM whatsapp_conversations WHERE restaurant_id=$2 AND chat_id=$3 AND (mode='storm' OR (mode='human' AND (human_until IS NULL OR human_until>now()))))
          AND NOT EXISTS(SELECT 1 FROM customers WHERE restaurant_id=$2 AND phone=$5 AND (opted_out_at IS NOT NULL OR NOT marketing_consent))
-         AND ($4<>'cart' OR EXISTS(SELECT 1 FROM checkout_sessions s WHERE s.id=$6 AND s.restaurant_id=$2 AND s.phone=$5 AND s.marketing_consent AND s.completed_at IS NULL AND s.updated_at<now()-interval '1 hour' AND s.expires_at>now() AND jsonb_array_length(s.items)>0
+         AND ($4<>'cart' OR EXISTS(SELECT 1 FROM checkout_sessions s WHERE s.id=$6 AND s.restaurant_id=$2 AND s.phone=$5 AND s.marketing_consent AND s.completed_at IS NULL AND s.updated_at<now()-interval '30 minutes' AND s.expires_at>now() AND jsonb_array_length(s.items)>0
            AND NOT EXISTS(SELECT 1 FROM orders o WHERE o.restaurant_id=$2 AND public.crm_phone(o.customer_phone)=$5 AND o.created_at>=s.created_at AND o.status<>'canceled')
            AND NOT EXISTS(SELECT 1 FROM checkout_sessions newer WHERE newer.restaurant_id=$2 AND newer.phone=$5 AND newer.updated_at>s.updated_at AND newer.completed_at IS NULL)))
          AND ($4 NOT IN ('reactivation','habit') OR EXISTS(SELECT 1 FROM customers c WHERE c.restaurant_id=$2 AND c.phone=$5 AND c.marketing_consent AND c.opted_out_at IS NULL))
