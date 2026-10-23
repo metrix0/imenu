@@ -297,7 +297,6 @@ export default function AutomacoesPage() {
                     </span>
                     <span>Intervalo por cliente: {rule.cooldownDays} dias</span>
                     {kind === "reactivation" ? <span>Dias sem fazer pedidos: {rule.days}</span> : null}
-                    {kind === "habit" ? <span>Horário de Brasília</span> : null}
                   </div>
                 </Card>
               );
