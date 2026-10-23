@@ -576,8 +576,8 @@ export async function POST(request: Request) {
 
             await query(
                 mode === "human"
-                    ? "UPDATE support_conversations SET mode = 'human', human_started_at = NOW(), last_human_reply_at = NULL, updated_at = NOW() WHERE id = $1"
-                    : "UPDATE support_conversations SET mode = 'ai', human_started_at = NULL, last_human_reply_at = NULL, updated_at = NOW() WHERE id = $1",
+                    ? "UPDATE support_conversations SET mode = 'human', followup_state = NULL, human_started_at = NOW(), last_human_reply_at = NULL, updated_at = NOW() WHERE id = $1"
+                    : "UPDATE support_conversations SET mode = 'ai', followup_state = NULL, human_started_at = NULL, last_human_reply_at = NULL, updated_at = NOW() WHERE id = $1",
                 [String(body.id || "")]
             );
             return NextResponse.json(await getDashboardData());

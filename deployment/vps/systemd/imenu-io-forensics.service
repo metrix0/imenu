@@ -1,0 +1,21 @@
+[Unit]
+Description=iMenu lightweight disk I/O incident forensics
+After=local-fs.target docker.service
+Wants=docker.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /opt/imenu-migration/ops/io_forensics.py
+Restart=always
+RestartSec=10
+UMask=0077
+Nice=10
+IOSchedulingClass=idle
+CPUQuota=5%
+MemoryMax=64M
+NoNewPrivileges=true
+ProtectSystem=full
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

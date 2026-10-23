@@ -23,6 +23,8 @@ if retention.returncode != 0 or retention.stdout.strip() != "success":
     alerts.append("docker-retention-failed")
 timer = subprocess.run(["systemctl", "is-active", "--quiet", "imenu-docker-retention.timer"])
 if timer.returncode != 0: alerts.append("docker-retention-timer-inactive")
+if subprocess.run(["systemctl", "is-active", "--quiet", "imenu-io-forensics.service"]).returncode != 0:
+    alerts.append("io-forensics-inactive")
 disk=shutil.disk_usage(root)
 if disk.used/(disk.used+disk.free) >= .80: alerts.append("disk-over-80-percent")
 memory=dict(line.split(":",1) for line in pathlib.Path("/proc/meminfo").read_text().splitlines())

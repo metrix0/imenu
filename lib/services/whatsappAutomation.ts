@@ -11,6 +11,7 @@ import {
 import {
     sendWahaList,
     sendWahaText,
+    findWahaSentTextSince,
     resolveWahaChatPhone,
     startWahaTyping,
     stopWahaTyping,
@@ -55,6 +56,7 @@ const FALLBACK_COOLDOWN_SECONDS = 30;
 const FALLBACK_SUSPEND_COUNT_5_MINUTES = 3;
 const LIST_FAILURE_LIMIT_5_MINUTES = 3;
 const STORM_QUIET_SECONDS = 60;
+const OUTBOUND_CONFIRMATION_DELAYS_MS = [0, 1_500, 2_500, 3_500, 4_500];
 
 const MENU_ROWS: WahaListRow[] = [
     { title: "Ver o cardápio", rowId: "menu_link" },
@@ -437,12 +439,12 @@ async function claimOutboundMessage({
 
 async function finishOutboundMessage(
     dedupeKey: string,
-    status: "sent" | "failed",
+    status: "sent" | "failed" | "unconfirmed",
     resultOrError: unknown
 ): Promise<void> {
     const messageId = status === "sent" ? providerMessageId(resultOrError) : null;
     const errorMessage =
-        status === "failed"
+        status !== "sent"
             ? resultOrError instanceof Error
                 ? resultOrError.message.slice(0, 500)
                 : "Falha desconhecida"
@@ -463,7 +465,7 @@ async function finishOutboundMessage(
 
 async function finishOutboundSafely(
     dedupeKey: string,
-    status: "sent" | "failed",
+    status: "sent" | "failed" | "unconfirmed",
     resultOrError: unknown
 ): Promise<void> {
     try {
@@ -484,7 +486,6 @@ async function sendTrackedText({
     chatId,
     text,
     allowHuman = false,
-    continueOnTimeout = false,
 }: {
     dedupeKey: string;
     restaurantId: string;
@@ -492,7 +493,6 @@ async function sendTrackedText({
     chatId: string;
     text: string;
     allowHuman?: boolean;
-    continueOnTimeout?: boolean;
 }): Promise<boolean> {
     const claimed = await claimOutboundMessage({
         dedupeKey,
@@ -503,6 +503,7 @@ async function sendTrackedText({
     });
     if (!claimed) return false;
 
+    const startedAt = Date.now();
     try {
         const response = await sendWahaText(sessionName, chatId, text);
         await finishOutboundSafely(dedupeKey, "sent", response);
@@ -512,18 +513,48 @@ async function sendTrackedText({
         });
         return true;
     } catch (error) {
+        const timeout = error instanceof Error &&
+            (error.name === "TimeoutError" ||
+                error.message === "The operation was aborted due to timeout");
+        if (timeout) {
+            for (const delayMs of OUTBOUND_CONFIRMATION_DELAYS_MS) {
+                if (delayMs) {
+                    await new Promise((resolve) => setTimeout(resolve, delayMs));
+                }
+                try {
+                    const confirmation = await findWahaSentTextSince(
+                        sessionName, chatId, text, startedAt
+                    );
+                    if (confirmation) {
+                        await finishOutboundSafely(dedupeKey, "sent", confirmation);
+                        console.info("[WHATSAPP_AUTOMATION] outbound_confirmed_after_timeout", {
+                            restaurantId,
+                            messageType: "text",
+                        });
+                        return true;
+                    }
+                } catch (lookupError) {
+                    console.warn("[WHATSAPP_AUTOMATION] outbound_confirmation_lookup_failed", {
+                        restaurantId,
+                        error: lookupError,
+                    });
+                }
+            }
+            // Delivery can succeed after our HTTP deadline; never retry blindly.
+            await finishOutboundSafely(dedupeKey, "unconfirmed", error);
+            console.warn("[WHATSAPP_AUTOMATION] outbound_delivery_unconfirmed", {
+                restaurantId,
+                messageType: "text",
+            });
+            return false;
+        }
         await finishOutboundSafely(dedupeKey, "failed", error);
         console.warn("[WHATSAPP_AUTOMATION] outbound_send_failed", {
             restaurantId,
             messageType: "text",
             error,
         });
-        return (
-            continueOnTimeout &&
-            error instanceof Error &&
-            (error.name === "TimeoutError" ||
-                error.message === "The operation was aborted due to timeout")
-        );
+        return false;
     }
 }
 
@@ -897,7 +928,6 @@ export async function processIncomingWhatsAppMessage({
             sessionName,
             chatId,
             text: renderWhatsAppTemplate(templates.welcome, variables),
-            continueOnTimeout: true,
         });
         if (welcomeSent && (await canBotRespond(restaurantId, chatId))) {
             await sendTrackedMenu({

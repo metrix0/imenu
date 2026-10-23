@@ -170,13 +170,13 @@ ORDER BY COALESCE(r.user_id, r.id), r.onboarding_completed_at DESC`),
             return NextResponse.json({ day, eligible, queued: 0 });
         }
 
-        // Preserve the existing rolling 30-day safeguard across every campaign.
+        // Apply the 60-day cooldown to all previously sent blasts, including older campaigns.
         const existing = await query<{ phone: string }>(
             `SELECT DISTINCT phone FROM support_blast_recipients
              WHERE phone = ANY($1::text[])
                AND (
                    status IN ('pending', 'processing')
-                   OR (status = 'sent' AND sent_at >= NOW() - INTERVAL '30 days')
+                   OR (status = 'sent' AND sent_at >= NOW() - INTERVAL '60 days')
                )
              UNION
              SELECT split_part(chat_id, '@', 1) AS phone
@@ -184,7 +184,7 @@ ORDER BY COALESCE(r.user_id, r.id), r.onboarding_completed_at DESC`),
              WHERE chat_id = ANY($2::text[])
                AND dedupe_key LIKE 'support:bulk:%'
                AND status = 'sent'
-               AND updated_at >= NOW() - INTERVAL '30 days'`,
+               AND updated_at >= NOW() - INTERVAL '60 days'`,
             [recipients.map((r) => r.phone), recipients.map((r) => r.phone + "@c.us")]
         );
         const blocked = new Set(existing.rows.map((row) => row.phone));

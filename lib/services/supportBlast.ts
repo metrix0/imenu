@@ -140,7 +140,7 @@ export async function listSupportBlasts() {
                c.created_at, c.completed_at,
                COUNT(r.id) FILTER (WHERE r.status = 'sent')::int AS sent,
                COUNT(r.id) FILTER (WHERE r.status = 'failed')::int AS failed,
-               COUNT(r.id) FILTER (WHERE r.status IN ('skipped_recent', 'skipped_monthly', 'skipped_30d', 'skipped_reactivated'))::int AS skipped,
+               COUNT(r.id) FILTER (WHERE r.status IN ('skipped_recent', 'skipped_monthly', 'skipped_30d', 'skipped_60d', 'skipped_reactivated'))::int AS skipped,
                COUNT(r.id) FILTER (WHERE r.status IN ('pending', 'processing'))::int AS pending
         FROM (SELECT * FROM support_blast_campaigns ORDER BY created_at DESC LIMIT 40) c
         LEFT JOIN support_blast_recipients r ON r.campaign_id = c.id
@@ -348,7 +348,7 @@ LIMIT 1`, [accountIds]);
                       AND status IN ('sending', 'failed'))
               )
               AND updated_at >= NOW() - CASE WHEN $4::boolean
-                  THEN INTERVAL '30 days' ELSE INTERVAL '7 days' END
+                  THEN INTERVAL '60 days' ELSE INTERVAL '7 days' END
               AND (
                 chat_id = $2
                 OR (cardinality($1::uuid[]) > 0 AND restaurant_id = ANY($1::uuid[]))
@@ -368,19 +368,19 @@ LIMIT 1`, [accountIds]);
             SELECT 1 FROM support_blast_recipients
             WHERE phone = $3 AND status = 'sent'
               AND sent_at >= NOW() - CASE WHEN $4::boolean
-                  THEN INTERVAL '30 days' ELSE INTERVAL '7 days' END
+                  THEN INTERVAL '60 days' ELSE INTERVAL '7 days' END
             LIMIT 1
             `,
             [restaurantIds, chatId, phone, isAbandonedBlast]
         );
         if (recent.rowCount) {
-            await finishRecipient(item.id, isAbandonedBlast ? "skipped_30d" : "skipped_recent");
+            await finishRecipient(item.id, isAbandonedBlast ? "skipped_60d" : "skipped_recent");
             return "skipped";
         }
     }
 
     // One stable key per account and daily campaign, including cron retries.
-    // The rolling 30-day history check governs eligibility across campaigns.
+    // The rolling 60-day history check governs recovery eligibility across campaigns.
     const dedupeKey = isAbandonedBlast
         ? "support:bulk:abandoned:" + item.campaign_id + ":" +
             (matched.rows[0]?.account_id || "phone:" + phone)
@@ -391,7 +391,7 @@ LIMIT 1`, [accountIds]);
         [dedupeKey, restaurantId, chatId]
     );
     if (!outbound.rowCount) {
-        await finishRecipient(item.id, isAbandonedBlast ? "skipped_30d" : "skipped_recent");
+        await finishRecipient(item.id, isAbandonedBlast ? "skipped_60d" : "skipped_recent");
         return "skipped";
     }
 

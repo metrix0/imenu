@@ -26,6 +26,7 @@ The design study contains an optional `warm` direction, but the standard `#f7f8f
 - `components/ui/Button.tsx`: `primary` and `secondary` variants, built-in disabled/loading behavior; the panel primary action is `#d93d00`.
 - `components/ui/Input.tsx`, `Textarea.tsx`, `Dropdown.tsx`: established field sizes, labels, outlines, and icon handling.
 - `components/ui/Card.tsx`: `10px` radius, subtle border, white background, context-specific padding. Do not add a competing card shell.
+- `components/ui/Loader.tsx`: reuse for page and section loading. Keep initial loading separate from saving so autosave does not hide or disable the form; use `SaveStatus.tsx` for persistence feedback.
 - `components/ui/DataTable.tsx`: standard bordered table with `13px` text, soft header, consistent padding, loading/empty states.
 - `components/ui/Modal.tsx`, `HybridModal.tsx`, `ConfirmModal.tsx`: reuse modal conventions; as documented in `components/ui/README.md`, `Modal` requires an explicit height and `HybridModal` uses a viewport fraction.
 - `components/ui/Tabs.tsx`, `Badge.tsx`, `Switch.tsx`, `Tooltip.tsx`, `Toast.tsx`, `Pagination.tsx`: use the existing interactions and feedback patterns.
@@ -33,6 +34,7 @@ The design study contains an optional `warm` direction, but the standard `#f7f8f
 
 ## Interaction and composition rules
 
+- Settings save automatically by default; use `components/ui/SaveStatus.tsx` for “Salvando...”, “Tudo salvo”, and “Não salvo”. Follow the autosave interactions in `/app/painel/loja/page.tsx` and `/app/painel/disponibilidade/page.tsx`, not older screens with manual save buttons. Add a manual save button only when explicitly requested. Debounce text edits, serialize writes, and verify persistence without a save click; initial loading must not trigger a write.
 - Preserve the page's existing navigation, sidebar, responsive widths, spacing, loading states, and semantics. The design study's shell is a visual reference, **not** a mandate to replace real page structure.
 - Use the existing orange focus and selection treatments; keep disabled, hover, focus, error, and selected states consistent with the relevant primitive.
 - In tables, cards, filters, and dialogs, prefer existing primitives over lookalike one-offs.

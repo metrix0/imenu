@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { processSupportBlastQueue } from "@/lib/services/supportBlast";
+import { processSupportFollowups } from "@/lib/services/supportFollowups";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,7 +12,18 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
     }
     try {
-        return NextResponse.json(await processSupportBlastQueue(), {
+        const [blasts, followup] = await Promise.allSettled([
+            processSupportBlastQueue(),
+            processSupportFollowups(),
+        ]);
+        if (followup.status === "rejected") {
+            console.error("[SUPPORT_FOLLOWUP] Worker failed:", followup.reason);
+        }
+        if (blasts.status === "rejected") throw blasts.reason;
+        return NextResponse.json({
+            ...blasts.value,
+            followups: followup.status === "fulfilled" ? followup.value : 0,
+        }, {
             headers: { "Cache-Control": "no-store" },
         });
     } catch (error) {

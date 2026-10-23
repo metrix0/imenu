@@ -2,6 +2,7 @@ import { query, withAdvisoryLock } from "@/lib/database/sql";
 import {
     analyzeSupportImage,
     generateSupportReply,
+    classifySupportFollowup,
     transcribeSupportAudio,
 } from "@/lib/services/supportAgent";
 import {
@@ -257,7 +258,7 @@ async function getSupportContactRules(
     };
 }
 
-async function isSupportConversationBlacklisted(conversationId: string): Promise<boolean> {
+export async function isSupportConversationBlacklisted(conversationId: string): Promise<boolean> {
     const current = await query<{ phone: string | null; blacklisted: boolean }>(
         "SELECT phone, blacklisted FROM support_conversations WHERE id = $1 LIMIT 1",
         [conversationId]
@@ -347,7 +348,10 @@ export async function isSecondaryBlastRecipient(input: {
             SELECT 1
             FROM whatsapp_outbound_messages
             WHERE status = 'sent'
-              AND dedupe_key LIKE 'support:bulk:blast:%'
+              AND (
+                  dedupe_key LIKE 'support:bulk:blast:%'
+                  OR dedupe_key LIKE 'support:bulk:abandoned:%'
+              )
               AND chat_id = ANY($1::text[])
             LIMIT 1
         `,
@@ -563,7 +567,7 @@ async function prepareConversation(input: {
         }
 
         const updated = await query<ConversationRow>(
-            "UPDATE support_conversations SET phone = COALESCE($2, phone), customer_name = COALESCE($3, customer_name), restaurant_id = COALESCE(restaurant_id, $4), blocked_handoff = blocked_handoff OR $5, last_inbound_at = NOW(), updated_at = NOW() WHERE id = $1 RETURNING id, chat_id, phone, customer_name, restaurant_id, mode, handoff_prompted_at",
+            "UPDATE support_conversations SET phone = COALESCE($2, phone), customer_name = COALESCE($3, customer_name), restaurant_id = COALESCE(restaurant_id, $4), blocked_handoff = blocked_handoff OR $5, followup_state = NULL, last_inbound_at = NOW(), updated_at = NOW() WHERE id = $1 RETURNING id, chat_id, phone, customer_name, restaurant_id, mode, handoff_prompted_at",
             [
                 current.id,
                 resolvedPhone,
@@ -867,8 +871,8 @@ async function sendTrackedSupportText(input: {
     model?: string | null;
     inputTokens?: number | null;
     outputTokens?: number | null;
-}): Promise<void> {
-    if (await isSupportConversationBlacklisted(input.conversationId)) return;
+}): Promise<boolean> {
+    if (await isSupportConversationBlacklisted(input.conversationId)) return false;
     const existing = await query<{
         id: string;
         body: string;
@@ -895,14 +899,14 @@ async function sendTrackedSupportText(input: {
         );
         messageId = inserted.rows[0].id;
     } else if (existing.rows[0].send_status === "sent") {
-        return;
+        return true;
     }
 
     try {
         // Close the window where this contact could be blacklisted mid-reply.
         if (await isSupportConversationBlacklisted(input.conversationId)) {
             await query("DELETE FROM support_messages WHERE id = $1 AND send_status = 'pending'", [messageId]);
-            return;
+            return false;
         }
         await sendWahaText(input.sessionName, input.chatId, body);
         await query(
@@ -913,6 +917,7 @@ async function sendTrackedSupportText(input: {
             "UPDATE support_conversations SET last_outbound_at = NOW(), updated_at = NOW() WHERE id = $1",
             [input.conversationId]
         );
+        return true;
     } catch (error) {
         await query(
             "UPDATE support_messages SET send_status = 'failed', error = $2 WHERE id = $1",
@@ -941,6 +946,7 @@ export async function markSupportHumanTakeover(input: {
             UPDATE support_conversations
             SET
                 mode = 'human',
+                followup_state = NULL,
                 human_started_at = CASE
                     WHEN mode = 'human'
                      AND human_started_at IS NOT NULL
@@ -1093,8 +1099,8 @@ export async function processSupportIncomingWhatsAppMessage(input: {
     );
 
     await withAdvisoryLock("support-reply:" + conversation.chat_id, async () => {
-        const stateResult = await query<{ mode: "ai" | "human" }>(
-            "SELECT mode FROM support_conversations WHERE id = $1 LIMIT 1",
+        const stateResult = await query<{ mode: "ai" | "human"; last_inbound_at: string }>(
+            "SELECT mode, last_inbound_at FROM support_conversations WHERE id = $1 LIMIT 1",
             [conversation.id]
         );
         if (stateResult.rows[0]?.mode === "human") return;
@@ -1240,7 +1246,7 @@ export async function processSupportIncomingWhatsAppMessage(input: {
                     return;
                 }
 
-                await sendTrackedSupportText({
+                const actuallySent = await sendTrackedSupportText({
                     conversationId: conversation.id,
                     sessionName: input.sessionName,
                     chatId: input.chatId,
@@ -1250,6 +1256,29 @@ export async function processSupportIncomingWhatsAppMessage(input: {
                     inputTokens: reply.inputTokens,
                     outputTokens: reply.outputTokens,
                 });
+                // Follow-up classification is independent of the reply; a model
+                // failure must never send a second/fallback message.
+                if (actuallySent && !reply.handoffState &&
+                    input.sessionName === SUPPORT_WAHA_SESSION_NAME &&
+                    stateResult.rows[0]?.last_inbound_at) {
+                    try {
+                        const state = await classifySupportFollowup(conversation.id);
+                        await query(
+                            `UPDATE support_conversations
+                             SET followup_state = $3,
+                                 followup_anchor_inbound_at = $2::timestamptz,
+                                 followup_last_ai_at = last_outbound_at,
+                                 followup_attempted_at = CASE
+                                     WHEN followup_anchor_inbound_at IS DISTINCT FROM $2::timestamptz
+                                     THEN NULL ELSE followup_attempted_at END
+                             WHERE id = $1 AND mode = 'ai' AND NOT blacklisted
+                               AND last_inbound_at = $2::timestamptz`,
+                            [conversation.id, stateResult.rows[0].last_inbound_at, state]
+                        );
+                    } catch (classificationError) {
+                        console.warn("[SUPPORT_WHATSAPP] followup_classification_failed:", classificationError);
+                    }
+                }
             } catch (error) {
                 console.warn("[SUPPORT_WHATSAPP] AI reply failed:", error);
 
