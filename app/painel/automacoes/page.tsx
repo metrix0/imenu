@@ -232,11 +232,6 @@ export default function AutomacoesPage() {
                 },
               ]}
             />
-            {history.some((row) => row.demo) ? (
-              <p className="text-xs text-gray-500">
-                Registros marcados como Exemplo são demonstrativos; nenhuma mensagem foi enviada.
-              </p>
-            ) : null}
             {historyTotal > 10 ? (
               <Pagination
                 page={historyPage}
