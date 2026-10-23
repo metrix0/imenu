@@ -348,7 +348,10 @@ export async function isSecondaryBlastRecipient(input: {
             SELECT 1
             FROM whatsapp_outbound_messages
             WHERE status = 'sent'
-              AND dedupe_key LIKE 'support:bulk:blast:%'
+              AND (
+                  dedupe_key LIKE 'support:bulk:blast:%'
+                  OR dedupe_key LIKE 'support:bulk:abandoned:%'
+              )
               AND chat_id = ANY($1::text[])
             LIMIT 1
         `,
