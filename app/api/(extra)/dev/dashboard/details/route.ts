@@ -73,6 +73,23 @@ type AddonMonthlyRevenueRow = {
     monthly_revenue_cents: number | string | null;
 };
 
+type AddonMonthlyProductPaymentsRow = {
+    product_key: string;
+    payers: number | string;
+    confirmed_payments: number | string;
+    received_cents: number | string;
+};
+
+type AddonPaymentDropoffRow = {
+    product_key: string;
+    restaurant_id: string;
+    restaurant_name: string;
+    status: string;
+    billing_type: string | null;
+    created_at: string | Date;
+    total: number | string;
+};
+
 type AddonBillingHealthRow = {
     current_payers: number | string;
     current_pix_payers: number | string;
@@ -174,6 +191,8 @@ export async function GET(request: Request) {
             qrTablePurchaseSummaryResult,
             qrTableBuyersResult,
             addonMonthlyRevenueResult,
+            addonMonthlyProductPaymentsResult,
+            addonPaymentDropoffsResult,
             addonBillingHealthResult,
             pixPayersResult,
         ] = await Promise.all([
@@ -389,6 +408,81 @@ export async function GET(request: Request) {
                     GROUP BY product_key
                     ORDER BY product_key
                 `
+            ),
+            query<AddonMonthlyProductPaymentsRow>(
+                `
+                    SELECT
+                        addon.product_key,
+                        COUNT(DISTINCT addon.restaurant_id)::int AS payers,
+                        COUNT(*)::int AS confirmed_payments,
+                        COALESCE(SUM(payment.amount_cents), 0)::bigint AS received_cents
+                    FROM restaurant_addon_payments AS payment
+                    INNER JOIN restaurant_addons AS addon
+                        ON addon.id = payment.addon_id
+                    WHERE addon.product_key IN ('qr_code_mesa', 'ia_plus')
+                      AND payment.paid_at >=
+                          date_trunc('month', NOW() AT TIME ZONE $1) AT TIME ZONE $1
+                      AND payment.paid_at < NOW()
+                      AND UPPER(payment.status) IN (
+                          'APPROVED', 'COMPLETED', 'CONFIRMED', 'RECEIVED',
+                          'RECEIVED_IN_CASH', 'PAID'
+                      )
+                    GROUP BY addon.product_key
+                `,
+                [TIME_ZONE]
+            ),
+            query<AddonPaymentDropoffRow>(
+                `
+                    WITH latest_attempt AS (
+                        SELECT DISTINCT ON (payment.addon_id)
+                            addon.product_key,
+                            addon.restaurant_id,
+                            COALESCE(NULLIF(BTRIM(restaurant.name), ''), 'Restaurante')
+                                AS restaurant_name,
+                            payment.status,
+                            payment.billing_type,
+                            payment.paid_at,
+                            payment.created_at
+                        FROM restaurant_addon_payments AS payment
+                        INNER JOIN restaurant_addons AS addon
+                            ON addon.id = payment.addon_id
+                        INNER JOIN restaurants AS restaurant
+                            ON restaurant.id = addon.restaurant_id
+                        WHERE addon.product_key IN ('qr_code_mesa', 'ia_plus')
+                          AND payment.created_at >=
+                              date_trunc('month', NOW() AT TIME ZONE $1) AT TIME ZONE $1
+                          AND payment.created_at < NOW()
+                        ORDER BY payment.addon_id, payment.created_at DESC, payment.id DESC
+                    ), unpaid AS (
+                        SELECT *,
+                            COUNT(*) OVER (PARTITION BY product_key)::int AS total
+                        FROM latest_attempt
+                        WHERE paid_at IS NULL
+                          AND (
+                              UPPER(status) IN (
+                                  'CANCELLED', 'CANCELED', 'EXPIRED', 'FAILED',
+                                  'REFUSED', 'OVERDUE'
+                              )
+                              OR (
+                                  UPPER(status) IN ('PENDING', 'WAITING_PAYMENT', 'CREATED')
+                                  AND created_at < NOW() - INTERVAL '2 hours'
+                              )
+                          )
+                    ), ordered AS (
+                        SELECT *,
+                            ROW_NUMBER() OVER (
+                                PARTITION BY product_key
+                                ORDER BY created_at DESC, restaurant_id
+                            ) AS row_number
+                        FROM unpaid
+                    )
+                    SELECT product_key, restaurant_id, restaurant_name,
+                        status, billing_type, created_at, total
+                    FROM ordered
+                    WHERE row_number <= 10
+                    ORDER BY product_key, created_at DESC
+                `,
+                [TIME_ZONE]
             ),
             query<AddonBillingHealthRow>(
                 `
@@ -676,9 +770,34 @@ export async function GET(request: Request) {
             subscriptionCount: Number(addon.subscription_count) || 0,
             monthlyRevenueCents: Number(addon.monthly_revenue_cents) || 0,
         }));
+        const monthlyRevenueProducts = (["qr_code_mesa", "ia_plus"] as const).map(
+            (productKey) => {
+                const paid = addonMonthlyProductPaymentsResult.rows.find(
+                    (row) => row.product_key === productKey
+                );
+                const unpaid = addonPaymentDropoffsResult.rows.filter(
+                    (row) => row.product_key === productKey
+                );
+                return {
+                    productKey,
+                    payersThisMonth: Number(paid?.payers) || 0,
+                    confirmedPaymentsThisMonth: Number(paid?.confirmed_payments) || 0,
+                    receivedThisMonthCents: Number(paid?.received_cents) || 0,
+                    droppedTotal: Number(unpaid[0]?.total) || 0,
+                    dropoffs: unpaid.map((row) => ({
+                        restaurantId: row.restaurant_id,
+                        restaurantName: row.restaurant_name,
+                        status: row.status,
+                        billingType: row.billing_type,
+                        attemptedAt: new Date(row.created_at).toISOString(),
+                    })),
+                };
+            }
+        );
         const addonBillingHealth = addonBillingHealthResult.rows[0];
         const monthlyRevenue = {
             addons: monthlyRevenueAddons,
+            products: monthlyRevenueProducts,
             totalMonthlyRevenueCents: monthlyRevenueAddons.reduce(
                 (total, addon) => total + addon.monthlyRevenueCents,
                 0

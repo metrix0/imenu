@@ -1,6 +1,7 @@
 "use client";
 
 import { Line } from "react-chartjs-2";
+import type { ReactNode } from "react";
 import type { ProductOverview } from "@/lib/analytics/productOverview";
 import { formatAverage, formatCount, formatCurrency, formatRatio, conversion } from "@/lib/dev/dashboardFormat";
 import InfoTooltip from "@/components/ui/Tooltip";
@@ -144,7 +145,7 @@ export function qrTableStatusLabel(status: string): string {
 export function ProductOverviewSections({ metrics }: { metrics: ProductOverview }) {
     const products = [
         { key: "imenu", name: "iMenu", paths: "/", price: "-", priceInfo: "Referência do dashboard: sem mensalidade.", },
-        { key: "ia_plus", name: "IA Plus", paths: "/painel/vendas-ia + /painel/assistente-ia", price: "R$ 49,90/m", priceInfo: "Preço informado para este card: 4.990 centavos/mês.", },
+        { key: "ia_plus", name: "iMenu Plus", paths: "/painel/marketing + /painel/vendas-ia + /painel/assistente-ia + /painel/mesas", price: "R$ 49,99/m", priceInfo: "Inclui iMenu QR Code.", },
         { key: "qr_code_mesa", name: "iMenu QR", paths: "/painel/mesas", price: "R$ 5/m", priceInfo: "Preço de referência: 500 centavos/mês.", },
     ] as const;
     return (
@@ -196,6 +197,7 @@ export function MetricCard({
     change,
     description,
     info,
+    children,
     danger = false,
 }: {
     title: string;
@@ -203,6 +205,7 @@ export function MetricCard({
     change?: number | null;
     description?: string;
     info?: string;
+    children?: ReactNode;
     danger?: boolean;
 }) {
     return (
@@ -247,6 +250,7 @@ export function MetricCard({
                 </p>
             )}
             {description && <p className="mt-3 text-xs leading-5 text-gray-500">{description}</p>}
+            {children}
         </article>
     );
 }

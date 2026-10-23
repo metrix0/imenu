@@ -11,6 +11,7 @@ const BUSINESS_TIME_ZONE = "America/Sao_Paulo";
 type ExpiringAddonRow = {
     restaurant_id: string;
     product_key: string;
+    reminder_kind: "pix" | "card";
     owner_phone: string | null;
     restaurant_phone: string | null;
 };
@@ -56,7 +57,7 @@ function normalizeBrazilianPhone(value: unknown): string | null {
 }
 
 function productName(productKey: string): string {
-    if (productKey === "ia_plus") return "iMenu IA Plus";
+    if (productKey === "ia_plus") return "iMenu Plus";
     const uppercaseWords = new Set(["qr", "ai", "api"]);
 
     return productKey
@@ -70,26 +71,51 @@ function productName(productKey: string): string {
         .join(" ");
 }
 
-function buildMessage(productKeys: string[]): string {
-    const names = productKeys.map(productName);
-    const multiple = names.length > 1;
+type ReminderProducts = { pix: string[]; card: string[] };
 
-    return [
-        "Olá! 👋",
-        "",
-        multiple
-            ? "Seus adicionais abaixo vencem hoje:"
-            : "Seu adicional *" + names[0] + "* vence hoje.",
-        ...(multiple ? names.map((name) => "• *" + name + "*") : []),
-        "",
-        multiple
-            ? "Como os pagamentos foram feitos via Pix, a renovação não é automática."
-            : "Como o pagamento foi feito via Pix, a renovação não é automática.",
+function buildMessage(products: ReminderProducts): string {
+    const pixNames = products.pix.map(productName);
+    const cardNames = products.card.map(productName);
+    const lines = ["Olá! 👋", ""];
+
+    if (pixNames.length) {
+        lines.push(
+            pixNames.length > 1
+                ? "O período dos seus adicionais abaixo termina hoje:"
+                : "O período do seu adicional *" + pixNames[0] + "* termina hoje."
+        );
+        if (pixNames.length > 1) {
+            lines.push(...pixNames.map((name) => "• *" + name + "*"));
+        }
+        lines.push(
+            "",
+            "A renovação via Pix não é automática. Você tem *1 dia de tolerância* para renovar sem perder acesso."
+        );
+    }
+
+    if (cardNames.length) {
+        if (pixNames.length) lines.push("");
+        lines.push(
+            cardNames.length > 1
+                ? "As assinaturas dos adicionais abaixo foram canceladas:"
+                : "A assinatura do seu adicional *" + cardNames[0] + "* foi cancelada."
+        );
+        if (cardNames.length > 1) {
+            lines.push(...cardNames.map((name) => "• *" + name + "*"));
+        }
+        lines.push(
+            "",
+            "O acesso vence amanhã e não haverá renovação automática no cartão."
+        );
+    }
+
+    lines.push(
         "",
         "Acesse a aba Configurações no iMenu para renovar e continuar usando os recursos. imenuapp.com.br/painel/configuracoes",
         "",
-        "Fico à disposição caso precise de ajuda!",
-    ].join("\n");
+        "Fico à disposição caso precise de ajuda!"
+    );
+    return lines.join("\n");
 }
 
 export async function GET(request: Request) {
@@ -110,12 +136,70 @@ export async function GET(request: Request) {
     }
 
     const expiring = await query<ExpiringAddonRow>(
-        "SELECT ra.restaurant_id, ra.product_key, u.raw_user_meta_data->>'phone' AS owner_phone, r.phone AS restaurant_phone FROM public.restaurant_addons ra JOIN public.restaurants r ON r.id = ra.restaurant_id LEFT JOIN auth.users u ON u.id = r.user_id WHERE (ra.payment_provider = 'mercadopago' OR (ra.payment_provider = 'payzu' AND UPPER(COALESCE(ra.payzu_payment_method, '')) = 'PIX' AND ra.payzu_recurrence_id IS NULL)) AND ra.current_period_ends_at IS NOT NULL AND ra.status IN ('active', 'canceled', 'past_due') AND (ra.current_period_ends_at AT TIME ZONE 'America/Sao_Paulo')::date = (NOW() AT TIME ZONE 'America/Sao_Paulo')::date ORDER BY ra.restaurant_id, ra.product_key"
+        `
+        SELECT
+            ra.restaurant_id,
+            ra.product_key,
+            CASE WHEN ra.payment_provider = 'asaas' THEN 'card' ELSE 'pix' END AS reminder_kind,
+            u.raw_user_meta_data->>'phone' AS owner_phone,
+            r.phone AS restaurant_phone
+        FROM public.restaurant_addons ra
+        JOIN public.restaurants r ON r.id = ra.restaurant_id
+        LEFT JOIN auth.users u ON u.id = r.user_id
+        WHERE ra.current_period_ends_at IS NOT NULL
+          AND (ra.current_period_ends_at AT TIME ZONE 'America/Sao_Paulo')::date =
+              (NOW() AT TIME ZONE 'America/Sao_Paulo')::date + 1
+          AND (
+              (
+                  (
+                      ra.payment_provider = 'mercadopago'
+                      OR (
+                          ra.payment_provider = 'payzu'
+                          AND UPPER(COALESCE(ra.payzu_payment_method, '')) = 'PIX'
+                          AND ra.payzu_recurrence_id IS NULL
+                      )
+                  )
+                  AND ra.status IN ('active', 'canceled', 'past_due')
+              )
+              OR (
+                  ra.payment_provider = 'asaas'
+                  AND ra.status = 'canceled'
+                  AND ra.asaas_subscription_id IS NOT NULL
+                  AND EXISTS (
+                      SELECT 1
+                      FROM public.restaurant_addon_payments payment
+                      WHERE payment.addon_id = ra.id
+                        AND UPPER(COALESCE(payment.billing_type, '')) = 'CREDIT_CARD'
+                        AND (
+                            payment.paid_at IS NOT NULL
+                            OR UPPER(COALESCE(payment.status, '')) IN
+                                ('CONFIRMED', 'RECEIVED', 'RECEIVED_IN_CASH')
+                        )
+                  )
+              )
+          )
+          AND (
+              ra.product_key <> 'qr_code_mesa'
+              OR NOT EXISTS (
+                  SELECT 1 FROM public.restaurant_addons plus
+                  WHERE plus.restaurant_id = ra.restaurant_id
+                    AND plus.product_key = 'ia_plus'
+                    AND (
+                        plus.status = 'active'
+                        OR (
+                            plus.status IN ('canceled', 'past_due')
+                            AND plus.current_period_ends_at > NOW()
+                        )
+                    )
+              )
+          )
+        ORDER BY ra.restaurant_id, ra.product_key
+        `
     );
 
     const grouped = new Map<
         string,
-        { phone: string | null; productKeys: string[] }
+        { phone: string | null; products: ReminderProducts }
     >();
 
     for (const row of expiring.rows) {
@@ -123,10 +207,10 @@ export async function GET(request: Request) {
             phone:
                 normalizeBrazilianPhone(row.owner_phone) ||
                 normalizeBrazilianPhone(row.restaurant_phone),
-            productKeys: [],
+            products: { pix: [], card: [] },
         };
 
-        current.productKeys.push(row.product_key);
+        current.products[row.reminder_kind].push(row.product_key);
         grouped.set(row.restaurant_id, current);
     }
 
@@ -159,7 +243,7 @@ export async function GET(request: Request) {
             await sendWahaText(
                 sessionName,
                 chatId,
-                buildMessage(notification.productKeys)
+                buildMessage(notification.products)
             );
 
             await query(

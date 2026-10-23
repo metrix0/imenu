@@ -88,7 +88,7 @@ export async function activateMercadoPagoQrTablePrepaid(input: {
     status: string;
     paidAt?: string | null;
 }): Promise<void> {
-    await query(
+    const activation = await query(
         `
             UPDATE public.restaurant_addons
             SET
@@ -120,7 +120,7 @@ export async function activateMercadoPagoQrTablePrepaid(input: {
             WHERE id = $1
               AND payment_provider = 'mercadopago'
               AND mercadopago_order_id = $2
-              AND COALESCE(mercadopago_order_status, '') <> 'APPROVED'
+              AND UPPER(COALESCE(mercadopago_order_status, '')) <> 'APPROVED'
         `,
         [
             input.addonId,
@@ -130,10 +130,13 @@ export async function activateMercadoPagoQrTablePrepaid(input: {
         ]
     );
 
-    await sendAddonPurchaseWhatsApp({
-        addonId: input.addonId,
-        paymentId: input.paymentId,
-    });
+    // Avoid duplicate WhatsApp welcomes when payment reconciliation runs again.
+    if (activation.rowCount === 1) {
+        await sendAddonPurchaseWhatsApp({
+            addonId: input.addonId,
+            paymentId: input.paymentId,
+        });
+    }
 }
 
 export async function markMercadoPagoQrTablePaymentFailure(input: {
