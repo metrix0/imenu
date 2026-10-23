@@ -91,22 +91,45 @@ async function ready(url, timeoutMs) {
 }
 
 async function click(page, text) {
-    await page.waitForFunction(value =>
-        [...document.querySelectorAll("button")].some(button =>
-            !button.disabled && button.offsetWidth > 0 &&
-            button.textContent.trim().includes(value)
-        ), { timeout: 15000 }, text);
-    const buttons = await page.$$("button");
-    for (const button of buttons) {
-        const matching = await button.evaluate((element, value) =>
-            !element.disabled && element.offsetWidth > 0 &&
-            element.textContent.trim().includes(value), text);
-        if (matching) {
-            await button.click();
+    const deadline = Date.now() + 15000;
+    while (Date.now() < deadline) {
+        let target;
+        try {
+            // Keep the element found by the wait: querying again can race with React renders.
+            // aria-disabled is how the item modal signals that it is still loading.
+            target = await page.waitForFunction(value =>
+                [...document.querySelectorAll("button")].find(button =>
+                    !button.disabled && button.getAttribute("aria-disabled") !== "true" &&
+                    button.offsetWidth > 0 && button.textContent.trim().includes(value)
+                ) || false, { timeout: Math.max(1, deadline - Date.now()) }, text);
+        } catch (error) {
+            const candidates = await page.evaluate(value =>
+                [...document.querySelectorAll("button")]
+                    .filter(button => button.textContent.trim().includes(value))
+                    .map(button => ({
+                        text: button.textContent.trim().slice(0, 80),
+                        disabled: button.disabled,
+                        ariaDisabled: button.getAttribute("aria-disabled"),
+                        visible: button.offsetWidth > 0
+                    })), text);
+            throw new Error(`Button "${text}" unavailable; matches: ${JSON.stringify(candidates)}`, { cause: error });
+        }
+
+        try {
+            const element = target.asElement();
+            if (!element) throw new Error("Expected button element: " + text);
+            await element.click();
             return;
+        } catch (error) {
+            // The component may rerender between finding the button and clicking it.
+            // Retry only when Puppeteer reports that the element has detached or moved.
+            if (!/detached|not visible|not clickable|outside of the viewport/i.test(String(error))) throw error;
+            await pause(100);
+        } finally {
+            await target.dispose();
         }
     }
-    throw new Error("Button not clickable: " + text);
+    throw new Error("Button not clickable before timeout: " + text);
 }
 
 async function signup(browser) {
