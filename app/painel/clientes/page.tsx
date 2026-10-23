@@ -13,6 +13,8 @@ import Badge from "@/components/ui/Badge";
 import Card from "@/components/ui/Card";
 import HybridModal from "@/components/ui/HybridModal";
 import { formatPrice } from "@/lib/utils/formatPrice";
+import { formatPhone } from "@/lib/dev/dashboardFormat";
+import InitialsAvatar from "@/components/ui/InitialsAvatar";
 
 type Details = {
   customer: CustomerRow | null;
@@ -181,11 +183,14 @@ export default function ClientesPage() {
             sortable: true,
             label: "Cliente",
             render: (r) => (
-              <div>
-                <p className="font-medium text-gray-900">
-                  {r.name || "Sem nome"}
-                </p>
-                <p className="mt-1 text-gray-500">+{r.phone}</p>
+              <div className="flex items-center gap-3">
+                <InitialsAvatar name={r.name} colorKey={r.phone} />
+                <div className="min-w-0">
+                  <p className="font-medium text-gray-900">
+                    {r.name || "Sem nome"}
+                  </p>
+                  <p className="mt-1 text-gray-500">{formatPhone(r.phone)}</p>
+                </div>
               </div>
             ),
           },
@@ -241,12 +246,6 @@ export default function ClientesPage() {
           />
         )}
       </div>
-      <p className="text-xs leading-relaxed text-gray-500">
-        Novo: até 2 pedidos · Frequente: 3 ou mais · Destaque: 10 pedidos ou R$ 1.000
-        em compras · Em risco: 30 dias sem comprar · Inativo: 60 dias. A
-        inatividade tem prioridade. Pedidos cancelados e PIX pendentes não
-        entram nas métricas.
-      </p>
       <HybridModal
         open={Boolean(selected)}
         onClose={() => setSelected(null)}
@@ -254,9 +253,12 @@ export default function ClientesPage() {
         contentClassName="overflow-y-auto"
       >
         <div className="space-y-5 px-5 py-6">
-          <div>
-            <h2 className="text-xl font-bold">{selected?.name || "Cliente"}</h2>
-            <p className="mt-1 text-sm text-gray-500">+{selected?.phone}</p>
+          <div className="flex items-center gap-3">
+            <InitialsAvatar name={selected?.name} colorKey={selected?.phone} size="lg" />
+            <div className="min-w-0">
+              <h2 className="text-xl font-bold">{selected?.name || "Cliente"}</h2>
+              <p className="mt-1 text-sm text-gray-500">{formatPhone(selected?.phone || null)}</p>
+            </div>
           </div>
           <div className="grid grid-cols-3 gap-3 text-sm">
             <Card>
