@@ -30,6 +30,7 @@
 - Prefer existing feature subfolders over new top-level categories. These rules guide future additions only: do **not** relocate or reorganize existing files unless expressly requested.
 
 ## Frontend/UI, when applicable
+- **Before editing UI**, inspect the shared component directory and at least one comparable existing page. Identify the components to reuse before writing code.
 - Read `docs/ai-design-guidelines.md` first; inspect the actual affected page and existing `components/` and `components/ui/` patterns.
 - `design-system.html` remains the authoritative visual reference. Consult the full artifact when the concise guide is insufficient, ambiguous, stale, or when introducing/modifying a visual pattern. Do not invent a competing design pattern.
 - Reuse existing components, utilities, styles, spacing, and interactions; preserve unrelated UI behavior.
