@@ -16,7 +16,8 @@ import urllib.request
 DEEP_SECONDS = 15 * 60
 STATE_NAME = "operational-alert-state.json"
 METRICS = {
-    "orders_unnotified": (3, "orders awaiting owner notification"),
+    "owner_push_missing_event": (3, "eligible orders missing a push dispatch event"),
+    "owner_push_unretrieved": (3, "order push alerts not fetched by subscribed devices"),
     "printer_recent_failures": (3, "recent failed print jobs"),
     "wa_webhooks_stuck": (3, "WhatsApp webhooks stalled"),
     "wa_webhooks_failed": (3, "recent failed WhatsApp webhooks"),
@@ -27,7 +28,7 @@ METRICS = {
 # Escalate customer-impacting failures; resource pressure and maintenance
 # warnings keep the normal notification title.
 CRITICAL_OPERATIONS = {
-    "orders_unnotified",
+    "owner_push_missing_event",
     "printer_recent_failures",
     "wa_webhooks_stuck",
     "wa_webhooks_failed",
@@ -62,9 +63,20 @@ TIMERS = (
 )
 SQL = """
 SELECT json_build_object(
-  'orders_unnotified', (SELECT count(*) FROM public.orders
-    WHERE owner_notified=false AND status::text IN ('paid','preparing','delivering')
-      AND created_at < now()-interval '10 minutes' AND created_at > now()-interval '2 hours'),
+  'owner_push_missing_event', (SELECT count(*) FROM public.orders o
+    WHERE o.status::text IN ('pending_physical_payment','paid','preparing','delivering')
+      AND o.created_at < now()-interval '10 minutes'
+      AND o.created_at > now()-interval '2 hours'
+      AND (o.payment_paid_at IS NULL OR o.payment_paid_at < now()-interval '10 minutes')
+      AND EXISTS (SELECT 1 FROM public.owner_push_subscriptions s
+        WHERE s.restaurant_id=o.restaurant_id AND s.enabled=true
+          AND s.created_at <= o.created_at)
+      AND NOT EXISTS (SELECT 1 FROM public.owner_push_order_events e WHERE e.order_id=o.id)),
+  'owner_push_unretrieved', (SELECT count(*) FROM public.owner_push_notifications n
+    JOIN public.owner_push_subscriptions s ON s.id=n.subscription_id
+    WHERE n.tag LIKE 'order-%' AND n.delivered_at IS NULL AND s.enabled=true
+      AND n.created_at < now()-interval '2 minutes'
+      AND n.created_at > now()-interval '1 hour'),
   'printer_recent_failures', (SELECT count(*) FROM public.print_jobs
     WHERE status='failed' AND attempts > 0
       AND last_error IS DISTINCT FROM 'Impressão expirada após 72 horas na fila.'
@@ -151,7 +163,8 @@ def inspect(root, host_alerts, dry_run=False):
     entries = state.get("entries", {})
     if not isinstance(entries, dict):
         entries = {}
-    # Retire obsolete queue-delay alarms silently (including per-restaurant entries).
+    # Retire obsolete order-notified and queue-delay alarms without fake recoveries.
+    entries.pop("operation:orders_unnotified", None)
     for key in list(entries):
         if key == "operation:printer_queue_delayed" or key.startswith("operation:printer_queue_delayed:"):
             entries.pop(key, None)
@@ -159,7 +172,7 @@ def inspect(root, host_alerts, dry_run=False):
     deep_due = now - float(state.get("last_deep_at", 0)) >= DEEP_SECONDS
     sampled = {"host:" + alert: 1 for alert in host_alerts}
     metrics = state.get("metrics", {})
-    for old_metric in ("printer_queue_delayed", "printer_stalled_by_restaurant"):
+    for old_metric in ("orders_unnotified", "printer_queue_delayed", "printer_stalled_by_restaurant"):
         metrics.pop(old_metric, None)
     deep_error = None
     if deep_due:
