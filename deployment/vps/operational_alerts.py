@@ -51,8 +51,6 @@ def is_critical(key):
         return True
     if key.startswith("host:container:"):
         return key.removeprefix("host:container:") in CRITICAL_CONTAINERS
-    if key.startswith("operation:printer_queue_delayed:"):
-        return True
     if key.startswith("operation:"):
         return key.removeprefix("operation:") in CRITICAL_OPERATIONS
     return key in {"cron_failed:daily-payout", "cron_failed:reconcile-payouts"}
@@ -67,30 +65,10 @@ SELECT json_build_object(
   'orders_unnotified', (SELECT count(*) FROM public.orders
     WHERE owner_notified=false AND status::text IN ('paid','preparing','delivering')
       AND created_at < now()-interval '10 minutes' AND created_at > now()-interval '2 hours'),
-  'printer_queue_delayed', (SELECT count(*) FROM public.print_jobs
-    WHERE status='queued' AND created_at < now()-interval '30 minutes'
-      AND created_at > now()-interval '2 hours'),
-  'printer_stalled_by_restaurant', COALESCE((
-    SELECT json_object_agg(restaurant_id::text, delayed_jobs)
-    FROM (
-      SELECT p.restaurant_id, count(*) AS delayed_jobs
-      FROM public.print_jobs p
-      JOIN public.restaurants r ON r.id=p.restaurant_id AND r.printer_enabled=true
-      WHERE p.status='queued'
-        AND p.created_at < now()-interval '30 minutes'
-        AND p.created_at > now()-interval '2 hours'
-        AND NOT EXISTS (
-          SELECT 1 FROM public.print_jobs printed
-          WHERE printed.restaurant_id=p.restaurant_id
-            AND printed.status='printed'
-            AND printed.printed_at >= now()-interval '30 minutes'
-        )
-      GROUP BY p.restaurant_id
-      HAVING count(*) >= 3
-    ) stalled
-  ), '{}'::json),
   'printer_recent_failures', (SELECT count(*) FROM public.print_jobs
-    WHERE status='failed' AND created_at > now()-interval '1 hour'),
+    WHERE status='failed' AND attempts > 0
+      AND last_error IS DISTINCT FROM 'Impressão expirada após 72 horas na fila.'
+      AND created_at > now()-interval '1 hour'),
   'wa_webhooks_stuck', (SELECT count(*) FROM public.whatsapp_webhook_events
     WHERE status='processing' AND received_at < now()-interval '15 minutes'
       AND received_at > now()-interval '4 hours'),
@@ -124,11 +102,7 @@ def aggregate_metrics():
            "-X", "-A", "-t", "-v", "ON_ERROR_STOP=1", "-c", SQL]
     output = subprocess.run(cmd, capture_output=True, text=True, check=True, timeout=8)
     values = json.loads(output.stdout.strip())
-    return {
-        key: ({restaurant: int(count) for restaurant, count in value.items()}
-              if key == "printer_stalled_by_restaurant" else int(value))
-        for key, value in values.items()
-    }
+    return {key: int(value) for key, value in values.items()}
 
 
 def scheduled_jobs():
@@ -177,12 +151,16 @@ def inspect(root, host_alerts, dry_run=False):
     entries = state.get("entries", {})
     if not isinstance(entries, dict):
         entries = {}
-    # Retire the old cross-restaurant alarm without sending a fake recovery.
-    entries.pop("operation:printer_queue_delayed", None)
+    # Retire obsolete queue-delay alarms silently (including per-restaurant entries).
+    for key in list(entries):
+        if key == "operation:printer_queue_delayed" or key.startswith("operation:printer_queue_delayed:"):
+            entries.pop(key, None)
     now = time.time()
     deep_due = now - float(state.get("last_deep_at", 0)) >= DEEP_SECONDS
     sampled = {"host:" + alert: 1 for alert in host_alerts}
     metrics = state.get("metrics", {})
+    for old_metric in ("printer_queue_delayed", "printer_stalled_by_restaurant"):
+        metrics.pop(old_metric, None)
     deep_error = None
     if deep_due:
         try:
@@ -190,8 +168,6 @@ def inspect(root, host_alerts, dry_run=False):
             for name, (threshold, _) in METRICS.items():
                 if metrics.get(name, 0) >= threshold:
                     sampled["operation:" + name] = metrics[name]
-            for restaurant_id, queued in metrics.get("printer_stalled_by_restaurant", {}).items():
-                sampled["operation:printer_queue_delayed:" + restaurant_id] = queued
             sampled.update(scheduled_jobs())
         except (OSError, ValueError, subprocess.SubprocessError) as error:
             deep_error = type(error).__name__
