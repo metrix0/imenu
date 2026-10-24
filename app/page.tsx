@@ -10,7 +10,6 @@ import {
     faWandMagicSparkles,
 } from "@fortawesome/free-solid-svg-icons";
 import { icons } from "@/lib/utils/fontawesome";
-import BonusButton from "@/components/ui/BonusButton";
 import Button from "@/components/ui/Button";
 import PanelShortcutPrompt from "@/components/ui/PanelShortcutPrompt";
 import Tooltip from "@/components/ui/Tooltip";
@@ -57,7 +56,6 @@ export default function LandingPage() {
     const supportBtnRef = useRef<SupportButtonRef>(null);
     const [selected, setSelected] = useState(1);
     const [autoRotate, setAutoRotate] = useState(true);
-    const [restCount, setRestCount] = useState(0);
     const [loading, setLoading] = useState(true);
     const [showPanelShortcutPrompt, setShowPanelShortcutPrompt] = useState(false);
 
@@ -124,18 +122,6 @@ export default function LandingPage() {
     useEffect(() => {
         const timer = window.setTimeout(() => setLoading(false), 1000);
         return () => window.clearTimeout(timer);
-    }, []);
-
-    useEffect(() => {
-        void fetch("/api/restaurants/count")
-            .then((response) => response.json())
-            .then((payload) => {
-                const totalBonus = 30;
-                setRestCount(
-                    Math.max(0, totalBonus - Number(payload?.count || 0))
-                );
-            })
-            .catch(() => setRestCount(0));
     }, []);
 
     useEffect(() => {
@@ -208,40 +194,6 @@ export default function LandingPage() {
                     >
                         Recursos
                     </a>
-
-                    {restCount > 0 && (
-                        <Tooltip
-                            text={
-                                <span>
-                                    Para os próximos {restCount} restaurantes que se
-                                    cadastrarem: Consultoria grátis de 30 minutos com
-                                    time que já assessorou 1M+/mês.{" "}
-                                    <u
-                                        className="cursor-pointer"
-                                        onClick={() =>
-                                            router.push("/restaurante/registrar")
-                                        }
-                                    >
-                                        Cadastre-se agora
-                                    </u>
-                                </span>
-                            }
-                            size="medium"
-                            padding="p-4 min-[1400px]:p-5 2xl:p-6"
-                            position="bottom"
-                        >
-                            <BonusButton>
-                                <span className="inline-block">
-                                    <span className="text-[0.8rem] min-[1400px]:text-[0.95rem] 2xl:text-[1.1rem]">
-                                        BÔNUS
-                                    </span>{" "}
-                                    <span className="font-light">
-                                        para prox. {restCount} restaurantes
-                                    </span>
-                                </span>
-                            </BonusButton>
-                        </Tooltip>
-                    )}
 
                     <div className="hidden h-6 w-px bg-gray-300 md:block min-[1400px]:h-7 2xl:h-8" />
 
@@ -530,28 +482,6 @@ export default function LandingPage() {
                             </tr>
                         </thead>
                         <tbody className="[&>tr>td]:p-4 min-[1400px]:[&>tr>td]:p-5 [&>tr>td]:2xl:p-6 [&>tr:nth-child(even)]:bg-gray-50">
-                            {restCount > 0 && (
-                                <tr>
-                                    <td className="border-r border-gray-200 text-sm md:text-[100%] md:font-light">
-                                        <BonusButton className="hidden md:inline-flex">
-                                            <span>
-                                                <span className="font-medium">BÔNUS</span>{" "}
-                                                <span className="font-light">
-                                                    para os prox. {restCount} restaurantes
-                                                </span>
-                                            </span>
-                                        </BonusButton>
-                                        <span className="block md:hidden">
-                                            <b>BÔNUS</b> para os prox. {restCount} restaurantes
-                                        </span>
-                                    </td>
-                                    <td className="border-r border-gray-200 text-center text-xs leading-tight md:text-[100%]">
-                                        Consultoria com time
-                                        <br /> que já assessorou 1M+/mês
-                                    </td>
-                                    <td className="text-center">-</td>
-                                </tr>
-                            )}
                             {[
                                 ["Totalmente grátis, para sempre", "check", "Mensalidade e taxas"],
                                 ["Pedidos ilimitados", "check", "Cada vez mais caro"],
@@ -583,8 +513,8 @@ export default function LandingPage() {
                                 ["Cupons de desconto", "check", "Pouca customização"],
                                 ["Sistema disponível para celulares", "check", "Indisponível"],
                                 ["Notificações no celular", "check", "Não"],
-                                ["QR Code na mesa", "(Opcional) R$ 4,90 por mês", "R$ 99,90 por mês (muito mais caro)"],
-                                ["Modo Vitrine (cardápio sem pedidos)", "Incluso no iMenu QR ou IA Plus", "Varia por plataforma"],
+                                ["QR Code na mesa", "Grátis", "R$ 99,90 por mês (muito mais caro)"],
+                                ["Modo Vitrine (cardápio sem pedidos)", "Grátis", "Varia por plataforma"],
                                 ["App para garçom", "check", "Pago"],
                                 ["Agendamento de pedido", "check", "Não"],
                                 ["Modo Encomenda", "check", "Não"],

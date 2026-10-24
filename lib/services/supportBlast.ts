@@ -476,7 +476,16 @@ export async function processSupportBlastQueue(): Promise<{
          WHERE status='processing' AND attempted_at < NOW() - INTERVAL '20 minutes'`
     );
     const result = { sent: 0, failed: 0, skipped: 0, disconnected: false };
+    const stopAt = Date.now() + 45_000; // Leave headroom for the route's 60s limit.
     for (let i = 0; i < 3; i++) {
+        if (i > 0) {
+            const pauseMs = 3_000 + Math.floor(Math.random() * 2_001);
+            if (Date.now() + pauseMs >= stopAt) break;
+            await new Promise((resolve) => setTimeout(resolve, pauseMs));
+        }
+        // Never claim a new message when the worker is out of time.
+        // Do not abort an in-flight send: WhatsApp may already have delivered it.
+        if (Date.now() >= stopAt) break;
         const item = await claimNextRecipient();
         if (!item) break;
         try {

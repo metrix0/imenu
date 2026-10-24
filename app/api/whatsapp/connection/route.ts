@@ -32,6 +32,7 @@ type ConnectionRow = {
     last_connected_at: string | null;
     last_disconnected_at: string | null;
     last_restart_at: string | null;
+    automatic_restart_attempts: number;
     last_event_at: string | null;
     last_error: string | null;
     pairing_started_at: string | null;
@@ -39,7 +40,7 @@ type ConnectionRow = {
 };
 
 const CONNECTION_SELECT =
-    "restaurant_id,session_name,desired_state,status,status_data,phone,push_name,qr_code_data,qr_updated_at,last_connected_at,last_disconnected_at,last_restart_at,last_event_at,last_error,pairing_started_at,updated_at" as const;
+    "restaurant_id,session_name,desired_state,status,status_data,phone,push_name,qr_code_data,qr_updated_at,last_connected_at,last_disconnected_at,last_restart_at,automatic_restart_attempts,last_event_at,last_error,pairing_started_at,updated_at" as const;
 
 function parseConnectionRow(value: unknown): ConnectionRow {
     if (!value || typeof value !== "object") {
@@ -143,6 +144,7 @@ async function updateFromWahaSession({
 
         if (status === "WORKING") {
             update.last_connected_at = now;
+            update.automatic_restart_attempts = 0;
         } else if (status === "FAILED" || status === "STOPPED") {
             update.last_disconnected_at = now;
         }
@@ -162,7 +164,7 @@ async function updateFromWahaSession({
         (!session.me?.pushName || connection.push_name === session.me.pushName) &&
         connection.qr_code_data === update.qr_code_data &&
         (update.qr_updated_at !== null || connection.qr_updated_at === null) &&
-        (status !== "WORKING" || connection.last_connected_at !== null) &&
+        (status !== "WORKING" || (connection.last_connected_at !== null && connection.automatic_restart_attempts === 0)) &&
         ((status !== "FAILED" && status !== "STOPPED") || connection.last_disconnected_at !== null)
     ) {
         return connection;
@@ -301,6 +303,7 @@ export async function POST(request: NextRequest) {
                             session_name: sessionName,
                             desired_state: "disconnected",
                             pairing_started_at: null,
+                            automatic_restart_attempts: 0,
                             status: "STOPPED",
                             qr_code_data: null,
                             qr_updated_at: null,
@@ -336,6 +339,7 @@ export async function POST(request: NextRequest) {
                         session_name: sessionName,
                         desired_state: "connected",
                         pairing_started_at: now,
+                        automatic_restart_attempts: 0,
                         status: "STARTING",
                         qr_code_data: null,
                         qr_updated_at: null,
