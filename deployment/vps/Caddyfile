@@ -83,13 +83,7 @@ dominoslimeira.com.br {
 
 preview.imenuapp.com.br {
     header X-Robots-Tag "noindex, nofollow"
-    @allowed remote_ip {$IMENU_STAGE_ALLOWED_IP} {$IMENU_STAGE_INTERNAL_CIDR}
-    handle @allowed {
-        reverse_proxy app:3000
-    }
-    handle {
-        respond "Forbidden" 403
-    }
+    reverse_proxy app:3000
 }
 
 https:// {
