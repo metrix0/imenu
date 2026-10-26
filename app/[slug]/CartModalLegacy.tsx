@@ -817,8 +817,7 @@ export default function CartModal({
             : DEFAULT_ALLOWED_PAYMENT_METHODS;
 
     const availablePaymentOptions = PAYMENT_OPTIONS.filter((option) =>
-        allowedPaymentMethods.includes(option.value) &&
-        !(isPickup && option.value === "pix-entrega")
+        allowedPaymentMethods.includes(option.value)
     );
 
     useEffect(() => {
@@ -1487,7 +1486,7 @@ export default function CartModal({
                                         onClick={() => setField("pagamento", option.value)}
                                     >
                                         <FontAwesomeIcon icon={option.icon} />
-                                        {option.label}
+                                        {option.value === "pix-entrega" && isPickup ? "Pix (Na retirada)" : option.label}
                                     </button>
 
                                     {option.value === "dinheiro" && (
