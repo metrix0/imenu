@@ -16,9 +16,10 @@ async function getScanAccess(restaurantId: string): Promise<ScanAccess> {
     );
     const hasPlus = rows.rows.some(addon => hasQrTableAccess(addon));
     const items = await query<{ present: boolean }>(
-        "SELECT EXISTS(SELECT 1 FROM public.items WHERE restaurant_id = $1) AS present",
+        "SELECT COUNT(*) >= 2 AS present FROM (SELECT 1 FROM public.items WHERE restaurant_id = $1 LIMIT 2) AS existing_items",
         [restaurantId]
     );
+    // A single existing product is treated as an empty menu for scanning and AI context.
     const hasItems = items.rows[0]?.present === true;
     return { hasItems, hasPlus, allowed: !hasItems || hasPlus };
 }

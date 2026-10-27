@@ -18,12 +18,12 @@ const post = () => new Request(url, {
     body: JSON.stringify({ restaurantId, urls: ["https://example.test/menu.png"] }),
 });
 
-const setSubscription = (hasItems: boolean, status?: string, currentPeriodEnd?: string) => {
+const setSubscription = (itemCount: number, status?: string, currentPeriodEnd?: string) => {
     (query as jest.Mock).mockImplementation(async (sql: string) => {
         if (sql.includes("restaurant_addons")) return {
             rows: status ? [{ status, current_period_ends_at: currentPeriodEnd ?? null }] : [],
         };
-        if (sql.includes("SELECT EXISTS")) return { rows: [{ present: hasItems }] };
+        if (sql.includes("existing_items")) return { rows: [{ present: itemCount >= 2 }] };
         return { rows: [] };
     });
 };
@@ -36,13 +36,23 @@ beforeEach(() => {
 
 afterEach(() => { delete process.env.OPENAI_API_KEY; });
 
-it("allows the initial free import when there are no products", async () => {
-    setSubscription(false);
-    expect((await GET(request()).json()).toEqual({ hasItems: false, hasPlus: false, allowed: true }));
+it.each([0, 1])("allows free scans with %i existing products", async itemCount => {
+    setSubscription(itemCount);
+    expect(await (await GET(request())).json()).toEqual({ hasItems: false, hasPlus: false, allowed: true });
 });
 
-it("requires Plus for any existing product, even unavailable ones", async () => {
-    setSubscription(true);
+it("does not send existing-menu context with a single product", async () => {
+    setSubscription(1);
+    const response = await POST(new Request(url, {
+        method: "POST", headers: { Authorization: "Bearer test", "Content-Type": "application/json" },
+        body: JSON.stringify({ restaurantId, urls: [] }),
+    }));
+    expect(response.status).toBe(400);
+    expect((query as jest.Mock).mock.calls.some(([sql]) => sql.includes("SELECT i.name"))).toBe(false);
+});
+
+it("requires Plus with at least 2 products, including unavailable ones", async () => {
+    setSubscription(2);
     const get = await GET(request());
     expect(await get.json()).toEqual({ hasItems: true, hasPlus: false, allowed: false });
 
@@ -52,10 +62,10 @@ it("requires Plus for any existing product, even unavailable ones", async () => 
 });
 
 it("honors active Plus subscriptions and an unexpired canceled period", async () => {
-    setSubscription(true, "active");
-    expect((await GET(request()).json()).allowed).toBe(true);
-    setSubscription(true, "canceled", "2999-01-01T00:00:00Z");
-    expect((await GET(request()).json()).allowed).toBe(true);
+    setSubscription(2, "active");
+    expect((await (await GET(request())).json()).allowed).toBe(true);
+    setSubscription(2, "canceled", "2999-01-01T00:00:00Z");
+    expect((await (await GET(request())).json()).allowed).toBe(true);
 });
 
 it("does not disclose access for another restaurant owner", async () => {
