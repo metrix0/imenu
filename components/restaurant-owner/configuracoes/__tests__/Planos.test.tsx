@@ -72,6 +72,7 @@ test("plans separate discovery from billing without selection checkboxes", () =>
     const html = renderBilling(fixtures.empty);
     expect(html).toContain("plans-included");
     expect(html).toContain("plans-products");
+    expect(html).not.toContain("Planos disponíveis");
     expect(html).toContain('id="suas-assinaturas"');
     expect(html).toContain("Nenhum plano adicional contratado.");
     expect(html).not.toContain("aria-pressed");
@@ -113,7 +114,7 @@ test.each(Object.entries(fixtures))("render the actual plans page for visual QA:
     expect(html).not.toContain("FEITO PARA O SEU RESTAURANTE");
     expect(html).not.toContain("Suas assinaturas ↓");
     expect(html).not.toContain("Disponível no seu painel");
-    expect(html).toMatch(/<h3>iMenu Cardápio Digital<\/h3><span data-ui="badge"[^>]*>Grátis para sempre, sem limites<\/span>/);
+    expect(html).toMatch(/<h3>iMenu<\/h3><span data-ui="badge"[^>]*>Grátis para sempre, sem limites<\/span>/);
     expect(html).toContain("Atendimento exclusivo");
     expect(html).toContain("Atualizações de pedidos pelo WhatsApp");
     expect(html).toContain("Scan de cardápio com IA");

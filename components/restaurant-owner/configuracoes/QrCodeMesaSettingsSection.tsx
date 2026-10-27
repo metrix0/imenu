@@ -383,12 +383,7 @@ export default function QrCodeMesaSettingsSection({
                 </Card>
             ) : (
                 presentation === "plans" ? (
-                    <section aria-labelledby="available-plans-heading" className="plans-catalog">
-                        <div className="plans-section-heading">
-                            <div>
-                                <h2 id="available-plans-heading">Planos disponíveis</h2>
-                            </div>
-                        </div>
+                    <section className="plans-catalog">
                         {productCards}
                     </section>
                 ) : productCards

@@ -424,7 +424,7 @@ export default function PainelLayout({
         { label: "Robô WhatsApp", icon: faRobot, href: `${base}/robo-whatsapp` },
         { label: "Impressora", icon: faPrint, href: `${base}/impressora` },
         { label: "Integrações", icon: faPuzzlePiece, href: `${base}/integracoes` },
-        { label: "Planos", icon: faCrown, href: `${base}/planos` },
+        { label: "iMenu Plus", icon: faCrown, href: `${base}/planos` },
         {
             label: "Configurações",
             icon: faGear,

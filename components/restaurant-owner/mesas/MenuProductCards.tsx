@@ -19,7 +19,7 @@ export default function MenuProductCards({ presentation = "default", extraCard }
             <MenuProductCard
                 presentation={presentation}
                 variant="included"
-                name="iMenu Cardápio Digital"
+                name="iMenu"
                 logo="/logos/CombinationMarkLogo_Brand.png"
                 description="Seu cardápio delivery com produtos, pedidos e gestão pelo painel."
                 priceLabel="Grátis para sempre, sem limites"

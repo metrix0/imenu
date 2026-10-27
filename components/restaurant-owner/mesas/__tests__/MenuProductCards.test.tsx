@@ -37,6 +37,9 @@ test("iMenu Plus has exclusive support and precedes the QR card in the two-colum
 test("Planos shows one free base plan and a full-width Plus plan without a separate QR card", () => {
     const html = renderToStaticMarkup(<MenuProductCards presentation="plans" qrSelected={false} onLearnMore={noop} extraCard={<IaPlusProductCard presentation="plans" active={false} onLearnMore={noop} />} />);
     expect(html.match(/class="plans-included"/g)).toHaveLength(1);
+    expect(html).toContain("<h3>iMenu</h3>");
+    expect(html).toContain("Seu cardápio delivery com produtos, pedidos e gestão pelo painel.");
+    expect(html).not.toContain("iMenu Cardápio Digital");
     expect(html).toContain("Marketing pelo WhatsApp e inteligência artificial para vender mais.");
     expect(html).toContain("IAPlusCombinationMarkLogo_Brand.png");
     expect(html).not.toContain("iMenu QR Code Mesa");
