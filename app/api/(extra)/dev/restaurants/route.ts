@@ -17,6 +17,11 @@ type RestaurantResult = {
     phone: string | null;
     store_whatsapp: string | null;
     user_id: string | null;
+    owner_email: string | null;
+    owner_name: string | null;
+    created_at: string | null;
+    custom_domain: string | null;
+    last_sign_in_at: string | null;
 };
 
 function getSupabaseAdminConfig(): {
@@ -99,11 +104,19 @@ export async function GET(request: Request) {
                     r.url_slug,
                     r.phone,
                     r.store_whatsapp,
-                    r.user_id
+                    r.user_id,
+                    r.created_at,
+                    r.custom_domain,
+                    NULLIF(BTRIM(u.email), '') AS owner_email,
+                    NULLIF(BTRIM(u.raw_user_meta_data->>'full_name'), '') AS owner_name,
+                    u.last_sign_in_at
                 FROM restaurants AS r
+                LEFT JOIN auth.users AS u ON u.id = r.user_id
                 WHERE
                     r.id::text ILIKE $3
                     OR r.name ILIKE $1
+                    OR u.email ILIKE $1
+                    OR COALESCE(u.raw_user_meta_data->>'full_name', '') ILIKE $1
                     OR (
                         regexp_replace(
                             COALESCE(r.phone, ''),
@@ -124,6 +137,7 @@ export async function GET(request: Request) {
                     CASE
                         WHEN r.id::text = $4 THEN 0
                         WHEN LOWER(r.name) = LOWER($4) THEN 1
+                        WHEN LOWER(u.email) = LOWER($4) THEN 1
                         ELSE 2
                     END,
                     r.name ASC
