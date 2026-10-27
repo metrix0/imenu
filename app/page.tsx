@@ -49,14 +49,15 @@ const LOGOS = [
 ];
 
 type ResourceRow = readonly [string, string, string];
-const RESOURCE_SECTIONS: readonly { title: string; rows: readonly ResourceRow[] }[] = [
+const RESOURCE_SECTIONS: readonly { title: string; imenu?: string; competitor?: string; rows: readonly ResourceRow[] }[] = [
     {
-        title: "Cardápio",
+        title: "Cardápio Digital Ilimitado",
+        imenu: "check",
+        competitor: "Condições variam por plano",
         rows: [
-            ["Totalmente grátis, para sempre","check","Condições variam por plano"],
             ["Aplicativo para celular","check","Varia por plataforma"],
             ["Seu domínio customizado","check","Varia por plataforma"],
-            ["SEO","check","Varia por plataforma"],
+            ["SEO (automático, mais vendas)","check","Varia por plataforma"],
             ["Fotos em Alta qualidade","check","Varia por plataforma"],
             ["Customização de opcionais","check","Varia por plataforma"],
             ["Identidade visual personalizada","check","Varia por plataforma"],
@@ -71,17 +72,19 @@ const RESOURCE_SECTIONS: readonly { title: string; rows: readonly ResourceRow[] 
             ["Pedidos ilimitados","check","Limites variam por plano"],
             ["Robô WhatsApp","check","Disponibilidade varia por plano"],
             ["Alta conversão","check","Resultados variam por operação"],
-            ["Acompanhamento do pedido","Acompanhamento em tempo real via Página e WhatsApp","Recursos variam por plataforma"],
+            ["Acompanhamento do pedido","Acompanhamento na Página e no WhatsApp","Recursos variam por plataforma"],
             ["Taxa por Transação","SEM TAXAS. Apenas Pix Online: 0,99% por pedido.","Taxas variam por serviço"],
-            ["Calcular Taxa de Entrega","Pelo Raio (KM) ou Bairro","Varia por plataforma"],
             ["Agendamento de pedido","check","Varia por plataforma"],
-            ["Modo Encomenda","check","Varia por plataforma"],
+            ['Modo "Só trabalho com Encomendas"',"check","Varia por plataforma"],
             ["Notificações de pedidos","No celular e via WhatsApp para restaurante e cliente","Varia por plataforma"],
+            ["Atualizar cliente sobre status do pedido via WhatsApp","iMenu Plus","Varia por plataforma"],
         ],
     },
     {
-        title: "Operação",
+        title: "Operação e CRM",
         rows: [
+            ["CRM","check","Limitado"],
+            ["Rastreio de hábitos de consumo com IA","iMenu Plus","Varia por plataforma"],
             ["Gestor de pedidos (balcão)","check","Varia por plataforma"],
             ["Impressão dos pedidos","check","Varia por plataforma"],
             ["Suporte humanizado","Todos os dias","Canais e horários variam"],
@@ -101,6 +104,7 @@ const RESOURCE_SECTIONS: readonly { title: string; rows: readonly ResourceRow[] 
             ["Google Analytics Integrado","check","Varia por plataforma"],
             ["Pixel Meta (Facebook/Instagram) Integrado","check","Varia por plataforma"],
             ["Relatórios e Analytics","Cliques, visualizações do cardápio, valor médio do carrinho e origem dos acessos","Varia por plataforma"],
+            ["Mensagens de Marketing Automáticas","iMenu Plus","Varia por plataforma"],
         ],
     },
     {
@@ -593,14 +597,22 @@ export default function LandingPage() {
                         <tbody className="[&>tr>td]:p-4 min-[1400px]:[&>tr>td]:p-5 [&>tr>td]:2xl:p-6 [&>tr:nth-child(even)]:bg-gray-50">
                             {RESOURCE_SECTIONS.map((section) => (
                                 <Fragment key={section.title}>
-                                    <tr className="!bg-gray-100">
-                                        <th scope="row" colSpan={3} className="border-y border-gray-200 px-4 py-3 text-left text-sm font-semibold text-gray-900 min-[1400px]:px-5 min-[1400px]:py-4 min-[1400px]:text-base 2xl:px-6 2xl:text-lg">
+                                    <tr className="border-y border-gray-200 !bg-gray-100">
+                                        <th scope="row" className="border-r border-gray-200 px-4 py-3 text-left font-semibold text-gray-900 min-[1400px]:px-5 2xl:px-6">
                                             {section.title}
                                         </th>
+                                        <td className="border-r border-gray-200 text-center font-semibold">
+                                            {section.imenu === "check" ? (
+                                                <FontAwesomeIcon icon={icons.faCheck} className="text-green" />
+                                            ) : (
+                                                section.imenu
+                                            )}
+                                        </td>
+                                        <td className="text-center font-semibold">{section.competitor}</td>
                                     </tr>
                                     {section.rows.map(([feature, imenu, competitor]) => (
                                         <tr key={feature}>
-                                            <td className="border-r border-gray-200">{feature}</td>
+                                            <td className="border-r border-gray-200"><span className="block pl-4 sm:pl-6">{feature}</span></td>
                                             <td className="border-r border-gray-200 text-center">
                                                 {imenu === "check" ? (
                                                     <FontAwesomeIcon icon={icons.faCheck} className="text-green" />
@@ -611,13 +623,13 @@ export default function LandingPage() {
                                             <td className="text-center">{competitor}</td>
                                         </tr>
                                     ))}
-                                    {section.title === "Operação" && (
+                                    {section.title === "Operação e CRM" && (
                                         <>
                                             {[
                                                 ["API Aberta", "-"],
                                             ].map(([feature, competitor]) => (
                                                 <tr key={feature}>
-                                                    <td className="border-r border-gray-200">{feature}</td>
+                                                    <td className="border-r border-gray-200"><span className="block pl-4 sm:pl-6">{feature}</span></td>
                                                     <td className="border-r border-gray-200 text-center">
                                                         <Tooltip
                                                             text="Funcionalidade em desenvolvimento."
@@ -632,26 +644,7 @@ export default function LandingPage() {
                                                     <td className="text-center">{competitor}</td>
                                                 </tr>
                                             ))}
-                
-                                            {[
-                                                ["CRM", "Limitado"],
-                                            ].map(([feature, competitor]) => (
-                                                <tr key={feature}>
-                                                    <td className="border-r border-gray-200">{feature}</td>
-                                                    <td className="border-r border-gray-200 text-center">
-                                                        <Tooltip
-                                                            text="Não é uma prioridade no momento."
-                                                            color="bg-red"
-                                                        >
-                                                            <FontAwesomeIcon
-                                                                icon={icons.faClock}
-                                                                className="text-red"
-                                                            />
-                                                        </Tooltip>
-                                                    </td>
-                                                    <td className="text-center">{competitor}</td>
-                                                </tr>
-                                            ))}
+
                                         </>
                                     )}
                                 </Fragment>
